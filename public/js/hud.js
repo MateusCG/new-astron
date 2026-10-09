@@ -1,11 +1,12 @@
 // HUD: painel inferior (HP, energia, nível e XP, ouro, velocidade), minimapa,
-// nomes sobre as naves, avisos de abate e a tela de "destruído". É DOM puro por
-// cima do canvas.
+// nomes sobre as naves, avisos de abate, a barra do pouso no objetivo A e a tela
+// de "destruído". É DOM puro por cima do canvas.
 
 import * as THREE from 'three';
 import { paredeAt, MAP_HALF_X, MAP_HALF_Z, BASES, CORREDOR, MINERIO, ENTREGAS, SERVICOS, OBJETIVOS } from '/shared/terrain.js';
 import { WEAPONS, ARMAS_PRINCIPAIS } from '/shared/sim.js';
 import { iconeArma } from './armas.js';
+import { relogio } from './objetivos.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -20,8 +21,11 @@ const COR_CIRCUITO = '#4fb8ff';
 const COR_MINERIO = '#9fe8ff';
 const COR_SERVICO = { evolucao: '#a58bff', loja: '#ff6fd8' };
 const NOME_SERVICO = { evolucao: 'Evolução', loja: 'Loja' };
+const COR_APAGADA = '#8a7f6a'; // letra de objetivo em recarga
 // Tamanho do ponto de cada inimigo no minimapa: quanto mais perigoso, maior.
 const PONTO_INIMIGO = { vorax: 4.5, krakor: 6, guardiao: 7 };
+/** O que cada bônus faz, para o HUD (nomes de server/bonus.js). */
+export const NOME_BONUS = { mineracao: 'Mineração +1', velocidade: 'Velocidade', durabilidade: 'Durabilidade' };
 
 export class Hud {
   /** @param {{ meuTime?: number }} [opcoes] time de quem joga (cor das bases no minimapa) */
@@ -34,6 +38,7 @@ export class Hud {
     this.xp = $('#xp .valor');
     this.xpTxt = $('#xp .txt');
     this.nivel = $('#xp em');
+    this.progObj = $('#prog-obj');
     this.ouro = $('#ouro');
     this.abates = $('#abates');
     this.vel = $('#vel');
@@ -129,10 +134,14 @@ export class Hud {
     return [(px - this.mapa.width / 2) / k, (pz - this.mapa.height / 2) / k];
   }
 
-  /** Desenha o minimapa com o mapa fixo, os outros (pontos) e você (seta). */
-  minimapa(eu, ents, meuId) {
+  /**
+   * Desenha o minimapa com o mapa fixo, o estado dos objetivos (`obj` do
+   * snapshot), os outros (pontos) e você (seta).
+   */
+  minimapa(eu, ents, meuId, obj = []) {
     const ctx = this.ctx;
     ctx.drawImage(this.fundoMapa, 0, 0);
+    this.#objetivosNoMapa(obj);
     for (const e of ents) {
       if (e.id === meuId || !e.vivo) continue;
       const [x, z] = this.#paraMapa(e.x, e.z);
@@ -162,6 +171,52 @@ export class Hud {
       ctx.closePath();
       ctx.fill();
       ctx.restore();
+    }
+  }
+
+  /**
+   * Estado dos objetivos por cima da letra fixa: arco de progresso do A (na cor
+   * do time que está tomando; pisca se contestado), arco de vida da torre B e do
+   * guardião C, e em recarga a letra apagada, um anel na cor de quem tomou e os
+   * segundos que faltam.
+   */
+  #objetivosNoMapa(obj) {
+    const ctx = this.ctx;
+    const corTime = (t) => (t === this.meuTime ? COR_MEU_TIME : COR_OUTRO_TIME);
+    const pisca = Math.floor(performance.now() / 250) % 2 === 0;
+    ctx.font = 'bold 10px ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const r of obj) {
+      const o = OBJETIVOS.find((x) => x.id === r.id);
+      if (!o) continue;
+      const [cx, cz] = this.#paraMapa(o.x, o.z);
+      const arco = (frac, cor) => {
+        ctx.beginPath();
+        ctx.arc(cx, cz, 7.5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac);
+        ctx.strokeStyle = cor;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      };
+      if (r.estado === 'recarga') {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+        ctx.beginPath();
+        ctx.arc(cx, cz, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = COR_APAGADA;
+        ctx.fillText(o.tipo, cx, cz + 0.5);
+        if (r.time != null) arco(1, corTime(r.time));
+        ctx.font = '8px ui-monospace, monospace';
+        ctx.fillStyle = COR_APAGADA;
+        ctx.fillText(String(r.resta), cx, cz + 13);
+        ctx.font = 'bold 10px ui-monospace, monospace';
+      } else if (r.estado === 'contestado') {
+        if (pisca) arco(Math.max(0.05, r.prog), COR_OBJETIVO);
+      } else if (r.estado === 'tomando') {
+        arco(r.prog, corTime(r.quem));
+      } else if (r.vida != null && r.vida < 1) {
+        arco(r.vida, COR_INIMIGA);
+      }
     }
   }
 
@@ -213,6 +268,41 @@ export class Hud {
       this.avisoPouso.dataset.html = html;
     }
     this.avisoPouso.hidden = !html;
+  }
+
+  /**
+   * Barra do objetivo A enquanto você está pousado na marcação: quanto falta
+   * (na cor do seu time), contestado, ou a recarga. `r` é o estado do servidor
+   * desse objetivo; null esconde.
+   */
+  objetivoPouso(r) {
+    let html = '';
+    let frac = 0;
+    let classe = '';
+    if (r?.estado === 'recarga') {
+      html = `Objetivo A em recarga · volta em ${relogio(r.resta)}`;
+      classe = 'recarga';
+    } else if (r?.estado === 'contestado') {
+      html = 'Contestado · tem inimigo pousado na marcação';
+      frac = r.prog;
+      classe = 'contestado';
+    } else if (r?.estado === 'tomando') {
+      const meu = r.quem === this.meuTime;
+      html = meu ? `Tomando o objetivo A · ${r.falta.toFixed(1).replace('.', ',')} s` : 'O inimigo está tomando';
+      frac = r.prog;
+      classe = meu ? 'meu' : 'deles';
+    } else if (r) {
+      html = 'Objetivo A · fique pousado';
+    }
+    const el = this.progObj;
+    el.hidden = !html;
+    if (!html) return;
+    if (el.dataset.html !== html) {
+      el.querySelector('.txt').textContent = html;
+      el.dataset.html = html;
+    }
+    el.className = classe;
+    el.querySelector('i').style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
   }
 
   /** Avisa quando a própria nave começa a drenar ou fica lenta (só na mudança). */
@@ -287,6 +377,7 @@ export class Hud {
     this.feed.replaceChildren();
     this.mostrarAviso('');
     this.pouso(null, false);
+    this.objetivoPouso(null);
     this.ping.textContent = '';
     document.body.classList.remove('dano');
   }

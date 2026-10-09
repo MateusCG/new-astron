@@ -187,8 +187,8 @@ export class Objetivos {
   /**
    * Estado de cada objetivo para o snapshot (`obj`): id, tipo, estado ('livre',
    * 'tomando', 'contestado' ou 'recarga'), prog (0 a 1, pouso do A), quem (time que
-   * está tomando o A), vida (0 a 1, torre B ou guardião C), time (quem tomou por
-   * último, ou null) e resta (s de recarga).
+   * está tomando o A), falta (s pousado que faltam no A), vida (0 a 1, torre B ou
+   * guardião C), time (quem tomou por último, ou null) e resta (s de recarga).
    */
   estado() {
     const t = this.world.tick;
@@ -199,6 +199,7 @@ export class Objetivos {
       if (o.tipo === 'A') {
         r.prog = +(o.prog / A_TICKS).toFixed(3);
         r.quem = o.quem;
+        r.falta = +((A_TICKS - o.prog) * DT).toFixed(1); // s pousado que faltam
       } else if (o.tipo === 'B') {
         r.vida = +(o.hp / TORRE_B_HP).toFixed(3);
       } else {

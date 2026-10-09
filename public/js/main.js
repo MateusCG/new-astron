@@ -24,7 +24,8 @@ import { criarCena, liberarCena } from './cena.js';
 import { criarNave, criarDrone, criarVorax, animarVorax, criarKrakor, animarKrakor, criarGuardiao, animarGuardiao, criarMinerador, animarMinerador, atualizarMotor } from './nave.js';
 import { Efeitos } from './efeitos.js';
 import { Controles } from './controles.js';
-import { Hud } from './hud.js';
+import { Hud, NOME_BONUS } from './hud.js';
+import { ObjetivosNaTela } from './objetivos.js';
 import { Rede } from './rede.js';
 import { MenuArmas } from './armas.js';
 import { Placar } from './placar.js';
@@ -32,6 +33,12 @@ import { Placar } from './placar.js';
 const INTERP_MS = 120;
 // Modelo de cada tipo de inimigo (o tipo vem do servidor em cada entidade).
 const MODELO_INIMIGO = { vorax: criarVorax, krakor: criarKrakor, guardiao: criarGuardiao };
+// O que o bônus de cada objetivo faz, para a notícia de quem tomou.
+const EFEITO_BONUS = {
+  mineracao: 'cada minerador traz +1 de minério',
+  velocidade: 'mineradores mais rápidos',
+  durabilidade: 'mineradores mais resistentes',
+};
 const CAMERAS = [
   { dist: 22, alt: 8, olhar: 14 },
   { dist: 34, alt: 13, olhar: 18 },
@@ -184,7 +191,7 @@ function montarJogo(rede, boas, renderer, race) {
   document.querySelector('#jogo').append(renderer.domElement);
 
   const camera = new THREE.PerspectiveCamera(65, 1, 0.5, 5000);
-  const { scene, atualizar: atualizarCena } = criarCena({ meuTime });
+  const { scene, atualizar: atualizarCena, definirObjetivo } = criarCena({ meuTime });
   const efeitos = new Efeitos(scene);
   const controles = new Controles(document.body);
   const hud = new Hud({ meuTime });
@@ -194,6 +201,7 @@ function montarJogo(rede, boas, renderer, race) {
     signal: controles.parar.signal, // desliga junto com os controles ao sair
   });
   document.querySelector('#hud').hidden = false;
+  const objetivos = new ObjetivosNaTela({ definirObjetivo, meuTime, container: document.querySelector('#rotulos-obj') });
 
   function redimensionar() {
     renderer.setSize(innerWidth, innerHeight);
@@ -259,6 +267,11 @@ function montarJogo(rede, boas, renderer, race) {
     while (snaps.length > 30) snaps.shift();
     for (const e of m.ents) nomes.set(e.id, e.nome);
     placar.atualizar(m.partida, m.bonus);
+    // Antes da predição: a torre B caída já sai da física daqui em diante.
+    for (const t of objetivos.atualizar(m.obj)) {
+      efeitos.explosao(t.x, t.y, t.z, 6, '#ff9a3a');
+      efeitos.explosao(t.x, t.y + 12, t.z, 3, '#ffb627');
+    }
     tratarEventos(m.ev);
 
     if (!m.vivo) {
@@ -332,6 +345,11 @@ function montarJogo(rede, boas, renderer, race) {
         const nave = e.id === meuId ? minhaNave : outras.get(e.id)?.obj;
         if (nave?.visible) efeitos.anelNivel(nave);
         if (e.id === meuId) hud.noticia(`Nível ${e.nivel}! HP máximo maior`, 'bom');
+      } else if (e.e === 'objetivo') {
+        const meu = e.time === meuTime;
+        const como = { A: 'pousou no', B: 'derrubou a torre do', C: 'derrotou o guardião do' }[e.tipo];
+        const quem = e.quem ? `${e.quem} ${como} objetivo ${e.tipo}` : `Objetivo ${e.tipo} tomado`;
+        hud.noticia(`${quem} · ${meu ? 'seu time' : 'inimigo'}: ${NOME_BONUS[e.bonus]} por ${e.segundos}s (${EFEITO_BONUS[e.bonus]})`, meu ? 'bom' : 'ruim');
       } else if (e.e === 'entrou' && e.id !== meuId) {
         hud.noticia(`${e.nome} entrou no setor`);
       } else if (e.e === 'saiu') {
@@ -510,13 +528,19 @@ function montarJogo(rede, boas, renderer, race) {
       hud.painel(pred, extra, rede.ping);
       // Plataforma do outro time não oferece pouso.
       hud.pouso(vivo && pousoPermitido(pred) ? areaPouso(pred.x, pred.z) : null, vivo && pred.pousado);
-      hud.minimapa(vivo ? { x: foco.x, z: foco.z, yaw: minhaNave.rotation.y } : null, snaps.at(-1)?.ents ?? [], meuId);
+      // Pousada na marcação de um objetivo A: barra do progresso.
+      const area = vivo ? areaPouso(pred.x, pred.z) : null;
+      hud.objetivoPouso(area?.objetivo && pred.pousado ? objetivos.estado.get(area.objetivo) : null);
+      hud.minimapa(vivo ? { x: foco.x, z: foco.z, yaw: minhaNave.rotation.y } : null, snaps.at(-1)?.ents ?? [], meuId, [
+        ...objetivos.estado.values(),
+      ]);
     }
     if (!vivo && morteEm) {
       const falta = Math.max(0, 3 - (performance.now() - morteEm) / 1000);
       hud.mostrarAviso(`Nave destruída · renascendo na base em ${falta.toFixed(0)}s`);
     }
     hud.rotulosNaves(rotulos, camera, innerWidth, innerHeight);
+    objetivos.desenhar(camera, innerWidth, innerHeight);
     renderer.render(scene, camera);
     idQuadro = requestAnimationFrame(quadro);
   }
@@ -537,6 +561,7 @@ function montarJogo(rede, boas, renderer, race) {
     scene,
     camera,
     menuArmas,
+    objetivos,
     efeitos,
     minhaNave,
   };
@@ -556,6 +581,7 @@ function montarJogo(rede, boas, renderer, race) {
     removeEventListener('resize', redimensionar);
     hud.limpar();
     placar.limpar();
+    objetivos.limpar();
     renderer.domElement.remove();
     efeitos.liberar();
     liberarCena(scene);

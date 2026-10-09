@@ -33,6 +33,7 @@ import {
 import { OBSTACULOS, HANGAR, PORTAL, ANTENAS, alturaSolida, daBase } from '/shared/obstaculos.js';
 
 const ALTURA_PLATAFORMA = 3;
+const OBJETIVO_APAGADO = 0.2; // brilho do âmbar de um objetivo em recarga
 
 export const CORES = {
   ceuTopo: new THREE.Color('#2a0f1c'),
@@ -415,6 +416,11 @@ function criarMinerio() {
  * B é a torre (sólida, da planta) num pedestal, com faixas e farol âmbar; C é a
  * arena do guardião, um círculo marcado com triângulo no meio e pilares baixos em
  * volta.
+ *
+ * O estado de cada um vem do servidor (snapshot `obj`) e muda o desenho por
+ * definirObjetivo (devolvida por criarCena): em recarga o anel âmbar para de
+ * pulsar e fica apagado; a torre B caída some e deixa destroços baixos (abaixo da
+ * altura de voo, sem colisão) em volta do pedestal.
  */
 function criarObjetivos() {
   const g = new THREE.Group();
@@ -422,6 +428,7 @@ function criarObjetivos() {
   const placaMat = matMetal('#4d4a3c', { roughness: 0.8 });
   const escuro = matMetal('#3a3630', { roughness: 0.75 });
   const pulsam = [];
+  const porObjetivo = new Map();
   const anelChao = (x, y, z, r, mat = ambar, lados = 48) => {
     const anel = new THREE.Mesh(new THREE.TorusGeometry(r, 0.5, 4, lados), mat);
     anel.rotation.x = Math.PI / 2;
@@ -431,6 +438,9 @@ function criarObjetivos() {
   };
   for (const o of OBJETIVOS) {
     const y = heightAt(o.x, o.z);
+    const estado = { pulsam: [], apagado: false, torre: null, destrocos: null };
+    porObjetivo.set(o.id, estado);
+    const antes = pulsam.length;
     if (o.tipo === 'A') {
       const a = AREAS_POUSO.find((p) => p.objetivo === o.id);
       const alt = a.piso + 0.6;
@@ -454,17 +464,36 @@ function criarObjetivos() {
       const corpo = new THREE.Mesh(new THREE.CylinderGeometry(torre.raio * 0.55, torre.raio, alt - 4, 6), escuro);
       corpo.position.set(o.x, y + 2 + (alt - 4) / 2 - 2, o.z);
       corpo.castShadow = true;
-      g.add(pedestal, corpo);
+      // A torre (o que cai) num grupo só; o pedestal fica.
+      const deTorre = new THREE.Group();
+      deTorre.add(corpo);
+      g.add(pedestal, deTorre);
       for (const k of [0.3, 0.6]) {
         const fx = new THREE.Mesh(new THREE.CylinderGeometry(torre.raio * (1 - 0.45 * k) + 0.2, torre.raio * (1 - 0.45 * k) + 0.2, 0.8, 6), ambar);
         fx.position.set(o.x, y + alt * k, o.z);
-        g.add(fx);
+        deTorre.add(fx);
       }
       const farol = new THREE.Mesh(new THREE.OctahedronGeometry(2.2, 0), matNeon(CORES.objetivo));
       farol.position.set(o.x, y + alt + 1, o.z);
       pulsam.push(farol);
-      g.add(farol);
+      deTorre.add(farol);
       anelChao(o.x, y + 0.15, o.z, o.raio);
+      // Destroços da torre caída: lascas escuras deitadas em volta do pedestal,
+      // até 1,5 m de altura (a nave passa por cima).
+      const destrocos = new THREE.Group();
+      for (let k = 0; k < 7; k++) {
+        const a = (k / 7) * Math.PI * 2 + 0.4;
+        const r = o.raio * 0.6 + (k % 3) * 2.5;
+        const lasca = new THREE.Mesh(new THREE.BoxGeometry(1.6 + (k % 2), 1.2, 3 + (k % 3)), escuro);
+        lasca.position.set(o.x + Math.cos(a) * r, heightAt(o.x + Math.cos(a) * r, o.z + Math.sin(a) * r) + 0.5, o.z + Math.sin(a) * r);
+        lasca.rotation.set(0.3 * (k % 2), a, 0.25);
+        lasca.castShadow = true;
+        destrocos.add(lasca);
+      }
+      destrocos.visible = false;
+      g.add(destrocos);
+      estado.torre = deTorre;
+      estado.destrocos = destrocos;
     } else {
       // Arena do guardião: anel largo, anel interno e triângulo no meio.
       const piso = new THREE.Mesh(new THREE.CircleGeometry(o.raio, 32), new THREE.MeshStandardMaterial({ color: '#3a2a20', roughness: 1, polygonOffset: true, polygonOffsetFactor: -2 }));
@@ -488,8 +517,10 @@ function criarObjetivos() {
         g.add(pilar, luz);
       }
     }
+    estado.pulsam = pulsam.slice(antes);
   }
   g.userData.pulsam = pulsam;
+  g.userData.porObjetivo = porObjetivo;
   return g;
 }
 
@@ -706,14 +737,31 @@ export function criarCena({ meuTime = 0 } = {}) {
     p.needsUpdate = true;
     const pisca = Math.sin(tempo * 4) > 0.3 ? 1.2 : 0.1;
     for (const b of bases) for (const l of b.userData.luzes) l.material.emissiveIntensity = pisca;
-    // Os objetivos pulsam (chamam atenção); os cristais "respiram" devagar.
+    // Os objetivos pulsam (chamam atenção); em recarga ficam apagados. Os
+    // cristais "respiram" devagar.
     const pulso = 0.8 + 0.35 * Math.sin(tempo * 3);
-    for (const a of objetivos.userData.pulsam) a.material.emissiveIntensity = pulso;
+    for (const est of objetivos.userData.porObjetivo.values()) {
+      for (const a of est.pulsam) a.material.emissiveIntensity = est.apagado ? OBJETIVO_APAGADO : pulso;
+    }
     const brilho = 0.5 + 0.2 * Math.sin(tempo * 1.3);
     for (const m of minerio.userData.brilhos) m.emissiveIntensity = brilho;
   }
 
-  return { scene, atualizar };
+  /**
+   * Muda o desenho do objetivo `id` conforme o estado do servidor: `apagado` (em
+   * recarga) e, nos B, `torreDePe`.
+   */
+  function definirObjetivo(id, { apagado = false, torreDePe = true } = {}) {
+    const est = objetivos.userData.porObjetivo.get(id);
+    if (!est) return;
+    est.apagado = apagado;
+    if (est.torre) {
+      est.torre.visible = torreDePe;
+      est.destrocos.visible = !torreDePe;
+    }
+  }
+
+  return { scene, atualizar, definirObjetivo };
 }
 
 /**

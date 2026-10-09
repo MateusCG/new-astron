@@ -585,6 +585,119 @@ kbd {
   text-shadow: 0 1px 2px #000;
 }
 
+/* ---------- Objetivos ---------- */
+
+/* Rótulo sobre cada marcação de objetivo (letra âmbar + estado). */
+#rotulos-obj {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.rot-obj {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 2px 5px;
+  padding: 2px 6px 3px 3px;
+  border: 1px solid rgba(255, 182, 39, 0.5);
+  border-radius: 4px;
+  background: rgba(10, 8, 4, 0.6);
+  font-size: 11px;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px #000;
+}
+
+.rot-obj .letra {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  background: var(--objetivo);
+  color: #2a1a00;
+  font: 700 11px ui-monospace, monospace;
+}
+
+.rot-obj .barra {
+  grid-column: 1 / -1;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.rot-obj .barra i,
+#prog-obj .barra i {
+  display: block;
+  height: 100%;
+  background: var(--objetivo);
+}
+
+.rot-obj.meu .txt,
+#prog-obj.meu .txt {
+  color: var(--neon);
+}
+
+.rot-obj.meu .barra i,
+#prog-obj.meu .barra i {
+  background: var(--neon);
+}
+
+.rot-obj.deles .txt,
+#prog-obj.deles .txt {
+  color: #ff8a70;
+}
+
+.rot-obj.deles .barra i,
+#prog-obj.deles .barra i {
+  background: var(--inimigo);
+}
+
+.rot-obj.contestado .txt,
+#prog-obj.contestado .txt {
+  color: var(--objetivo);
+  animation: pisca 0.4s infinite alternate;
+}
+
+.rot-obj.recarga {
+  border-color: rgba(138, 127, 106, 0.5);
+}
+
+.rot-obj.recarga .letra {
+  background: #8a7f6a;
+}
+
+.rot-obj.recarga .txt,
+#prog-obj.recarga .txt {
+  opacity: 0.8;
+}
+
+/* Barra do pouso no objetivo A, acima da dica de pouso. */
+#prog-obj {
+  position: absolute;
+  bottom: 124px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  gap: 4px;
+  width: min(300px, calc(100% - 32px));
+  padding: 5px 10px 6px;
+  border: 1px solid rgba(255, 182, 39, 0.6);
+  border-radius: 4px;
+  background: rgba(10, 8, 4, 0.75);
+  font-size: 13px;
+  text-align: center;
+}
+
+#prog-obj .barra {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
 .rotulo .nv {
   color: var(--xp);
   font: 9px ui-monospace, monospace;
