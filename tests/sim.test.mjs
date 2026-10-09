@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { heightAt, paredeAt, BASE, MAP_HALF } from '../shared/terrain.js';
+import { heightAt, paredeAt, BASE, MAP_HALF_X } from '../shared/terrain.js';
 import {
   DT,
   HOVER,
@@ -32,37 +32,10 @@ test('terreno é determinístico e a base é plana', () => {
   assert.equal(heightAt(123.4, -567.8), heightAt(123.4, -567.8));
   assert.ok(heightAt(BASE.x, BASE.z) < 4, 'base no fundo');
   assert.ok(paredeAt(BASE.x + 50, BASE.z + 50) === 0, 'bacia aberta em volta da base');
-  assert.ok(heightAt(MAP_HALF - 5, 0) > 100, 'muralha na borda');
+  assert.ok(heightAt(MAP_HALF_X - 5, 0) > 100, 'muralha na borda');
 });
 
-test('da base dá para chegar longe pelos cânions (rede ligada)', () => {
-  // Busca em largura num grid de 8 m, com a mesma regra de inclinação da nave.
-  const passo = 8;
-  const n = Math.floor((2 * MAP_HALF) / passo);
-  const h = (i, j) => heightAt(-MAP_HALF + i * passo, -MAP_HALF + j * passo);
-  const visto = new Uint8Array(n * n);
-  const ini = (n / 2) * n + n / 2;
-  const fila = [ini];
-  visto[ini] = 1;
-  let alcancados = 0;
-  while (fila.length) {
-    const k = fila.pop();
-    alcancados++;
-    const i = Math.floor(k / n);
-    const j = k % n;
-    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const a = i + di;
-      const b = j + dj;
-      if (a < 0 || b < 0 || a >= n || b >= n) continue;
-      const kk = a * n + b;
-      if (visto[kk]) continue;
-      if ((h(a, b) - h(i, j)) / passo > 0.75) continue;
-      visto[kk] = 1;
-      fila.push(kk);
-    }
-  }
-  assert.ok(alcancados / (n * n) > 0.25, `só ${((100 * alcancados) / (n * n)).toFixed(1)}% alcançável`);
-});
+// Conectividade do mapa, rochas e muralha: tests/mapa.test.mjs.
 
 test('nave acelera até a velocidade da raça e flutua acima do chão', () => {
   for (const race of Object.keys(RACES)) {
@@ -87,19 +60,6 @@ test('boost gasta energia e trava ao zerar até soltar o botão', () => {
   stepShip(s, FRENTE); // soltou
   stepShip(s, { ...FRENTE, b: true });
   assert.equal(s.boost, true, 'apertou de novo com energia: volta');
-});
-
-test('nave não atravessa parede de cânion', () => {
-  // Procura um ponto de chão com parede à frente e voa reto contra ela.
-  let s = null;
-  for (let x = -900; x < 900 && !s; x += 7) {
-    for (let z = -900; z < 900 && !s; z += 7) {
-      if (paredeAt(x, z) === 0 && paredeAt(x, z - 60) === 1) s = createShip('shrewdo', x, z, 0);
-    }
-  }
-  assert.ok(s, 'achou cenário de teste');
-  for (let i = 0; i < 30 * 8; i++) stepShip(s, FRENTE);
-  assert.ok(heightAt(s.x, s.z) < 40, `subiu na parede: chão ${heightAt(s.x, s.z)}`);
 });
 
 test('arma respeita recarga e energia', () => {
