@@ -162,6 +162,22 @@ export class Hud {
     }
   }
 
+  /**
+   * Esconde o HUD e apaga o que é da partida (rótulos, feed, avisos, clarão de
+   * dano). O HTML do HUD é fixo na página: sem limpar, quem sai e entra de novo
+   * veria nomes e notícias da partida anterior.
+   */
+  limpar() {
+    $('#hud').hidden = true;
+    this.rotulos.replaceChildren();
+    this.tags.clear();
+    this.feed.replaceChildren();
+    this.mostrarAviso('');
+    this.pouso(null);
+    this.ping.textContent = '';
+    document.body.classList.remove('dano');
+  }
+
   levarDano() {
     document.body.classList.remove('dano');
     void document.body.offsetWidth;

@@ -10,12 +10,17 @@
 //   diferença vira um "erro visual" que some em poucos quadros, sem tranco.
 // - As outras naves são desenhadas INTERP_MS no passado, interpolando entre dois
 //   snapshots, para o movimento sair liso mesmo com a rede irregular.
+//
+// ESC sai da partida e volta para a tela de entrada (nome e raça como estavam),
+// para trocar de piloto sem recarregar a página. Sair desmonta tudo o que a
+// partida criou (conexão, laço de quadros, listeners, cena na GPU); só o renderer
+// WebGL fica, porque é reaproveitado na próxima entrada.
 
 import * as THREE from 'three';
 import { DT, RACES, createBullet, stepShip, bulletHits, forward } from '/shared/sim.js';
 import { podePousar } from '/shared/terrain.js';
 import { alturaSolida } from '/shared/obstaculos.js';
-import { criarCena } from './cena.js';
+import { criarCena, liberarCena } from './cena.js';
 import { criarNave, criarDrone, atualizarMotor } from './nave.js';
 import { Efeitos } from './efeitos.js';
 import { Controles } from './controles.js';
@@ -32,6 +37,8 @@ const CAMERAS = [
 // ---------- Tela de entrada ----------
 
 let racaEscolhida = 'shrewdo';
+let jogoAtual = null; // { sair } da partida em andamento; null na tela de entrada
+
 function montarEntrada() {
   const lista = document.querySelector('#racas');
   const max = { velocidade: 120, hp: 300, energia: 80 };
@@ -66,8 +73,11 @@ function montarEntrada() {
     const erro = document.querySelector('#erro-entrada');
     erro.textContent = '';
     try {
-      await iniciar(nome.value, racaEscolhida);
+      jogoAtual = await iniciar(nome.value, racaEscolhida);
       document.querySelector('#entrada').hidden = true;
+      // Quem decola com Enter no campo de nome deixaria o foco no <input>, e os
+      // controles ignoram teclas digitadas em campo de texto.
+      document.activeElement?.blur();
     } catch (err) {
       console.error('Falha ao entrar no jogo:', err);
       botao.disabled = false;
@@ -75,6 +85,36 @@ function montarEntrada() {
       erro.textContent = MENSAGENS_ERRO[err?.message] ?? `Erro ao iniciar o jogo (${err?.message ?? err}). Mande um print desta tela.`;
     }
   });
+
+  // Fase de captura na janela: este handler roda antes de qualquer outro keydown,
+  // então decide sozinho o que o ESC faz. Com o menu de armas (#menu-armas) aberto,
+  // ESC só fecha o menu; um segundo ESC sai da partida. Na tela de entrada (ou
+  // enquanto conecta) não há partida e o ESC não faz nada.
+  addEventListener(
+    'keydown',
+    (e) => {
+      if (e.code !== 'Escape' || e.repeat || !jogoAtual) return;
+      const menu = document.querySelector('#menu-armas');
+      if (menu && !menu.hidden) {
+        menu.hidden = true;
+        return;
+      }
+      voltarParaEntrada();
+    },
+    { capture: true },
+  );
+}
+
+/** Sai da partida e mostra a tela de entrada com o nome e a raça de antes. */
+function voltarParaEntrada() {
+  jogoAtual?.sair();
+  jogoAtual = null;
+  const botao = document.querySelector('#form-entrada .decolar');
+  botao.disabled = false;
+  botao.textContent = 'Decolar';
+  document.querySelector('#erro-entrada').textContent = '';
+  document.querySelector('#entrada').hidden = false;
+  document.querySelector('#nome').focus();
 }
 
 // Cada falha na entrada tem uma mensagem própria: "não conectou" para tudo
@@ -106,13 +146,14 @@ function criarRenderer() {
  * Entra no jogo: confere o WebGL ANTES de conectar (sem 3D não adianta entrar e
  * deixar uma nave fantasma no servidor), conecta e monta a cena. Se montar falhar
  * depois de conectado, fecha a conexão para a nave não ficar parada no mundo.
+ * Devolve { sair } para desmontar a partida.
  */
 async function iniciar(nome, race) {
   const renderer = criarRenderer();
   const rede = new Rede();
   const boas = await rede.entrar(nome, race);
   try {
-    montarJogo(rede, boas, renderer, race);
+    return montarJogo(rede, boas, renderer, race);
   } catch (err) {
     rede.fechar();
     throw err;
@@ -252,7 +293,7 @@ function montarJogo(rede, boas, renderer, race) {
   rede.aoReceber = (m) => {
     if (m.t === 'snap') aoSnapshot(m);
   };
-  rede.aoFechar = () => hud.mostrarAviso('Conexão perdida. Recarregue a página.');
+  rede.aoFechar = () => hud.mostrarAviso('Conexão perdida. Aperte Esc ou recarregue a página.');
 
   const lerp = (a, b, k) => a + (b - a) * k;
   const lerpAng = (a, b, k) => {
@@ -298,7 +339,11 @@ function montarJogo(rede, boas, renderer, race) {
   let acumulado = 0;
   let ultimo = performance.now();
 
+  let ativo = true;
+  let idQuadro = 0;
+
   function quadro(agora) {
+    if (!ativo) return;
     const dt = Math.min(0.1, (agora - ultimo) / 1000);
     ultimo = agora;
     tempo += dt;
@@ -407,12 +452,34 @@ function montarJogo(rede, boas, renderer, race) {
     }
     hud.rotulosNaves(rotulos, camera, innerWidth, innerHeight);
     renderer.render(scene, camera);
-    requestAnimationFrame(quadro);
+    idQuadro = requestAnimationFrame(quadro);
   }
-  requestAnimationFrame(quadro);
+  idQuadro = requestAnimationFrame(quadro);
 
   // Para depuração no console e para os testes de navegador.
   window.__astron = { get pred() { return pred; }, get vivo() { return vivo; }, scene, camera };
+
+  /**
+   * Desmonta a partida: fecha a conexão (o servidor tira a nave do mundo no
+   * 'close'), para o laço de quadros, desliga os listeners e libera a cena da GPU.
+   * O canvas sai de #jogo e volta na próxima entrada, então nunca há dois.
+   */
+  function sair() {
+    if (!ativo) return;
+    ativo = false;
+    cancelAnimationFrame(idQuadro);
+    rede.fechar();
+    controles.destruir();
+    removeEventListener('resize', redimensionar);
+    hud.limpar();
+    renderer.domElement.remove();
+    efeitos.geoLaser.dispose();
+    liberarCena(scene);
+    renderer.renderLists.dispose();
+    if (window.__astron?.scene === scene) window.__astron = null;
+  }
+
+  return { sair };
 }
 
 montarEntrada();
