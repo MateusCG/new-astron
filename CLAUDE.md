@@ -6,7 +6,7 @@ MMO de naves 3D no navegador, inspirado no **AstroN** (jogo coreano de celular, 
 
 ## Estado atual (protótipo)
 
-Um mapa (M1, cânion do deserto), voo a 10 m do chão com colisão nas paredes, pouso e decolagem pelo L só dentro das áreas de pouso (`AREAS_POUSO`; no M1, o círculo de neon da base; pousada conserta mais rápido), laser e plasma, drones inimigos (Arnosh) com IA simples, zona segura na base, morte e renascimento, ouro e abates **só em memória** (sem banco, sem conta). Multijogador real por WebSocket.
+Um mapa (M1, cânion do deserto), voo a 10 m do chão com colisão nas paredes, pouso e decolagem pelo L só dentro das áreas de pouso (`AREAS_POUSO`; no M1, o círculo de neon da base; pousada conserta mais rápido), laser (simples ou duplo, trocado no menu de armas do Q) e plasma, drones inimigos (Arnosh) com IA simples, zona segura na base, morte e renascimento, ouro e abates **só em memória** (sem banco, sem conta). Multijogador real por WebSocket.
 
 ## Arquitetura
 
@@ -23,6 +23,7 @@ Um processo Node só: serve o cliente (HTTP) e roda o mundo (WebSocket `/ws`). O
 | `public/js/nave.js` | Modelos das naves e do drone (primitivas low-poly) |
 | `public/js/efeitos.js` | Tiros, faíscas, explosões (só visual) |
 | `public/js/hud.js`, `controles.js`, `rede.js` | HUD/minimapa/rótulos, teclado + toque, WebSocket |
+| `public/js/armas.js` | Menu de armas (`#menu-armas`, Q / botão ARMA): guarda a arma principal que vai no campo `a` do comando |
 | `tests/*.test.mjs` | `node:test`: simulação, terreno e servidor |
 
 ### Regras de rede (não regredir)

@@ -23,7 +23,7 @@
         <p id="erro-entrada" role="alert"></p>
         <p class="ajuda">
           <kbd>W</kbd><kbd>S</kbd> acelera/ré · <kbd>A</kbd><kbd>D</kbd> gira · <kbd>Shift</kbd> boost ·
-          <kbd>Z</kbd> laser · <kbd>X</kbd> plasma · <kbd>L</kbd> pousar · <kbd>V</kbd> câmera
+          <kbd>Z</kbd> laser · <kbd>X</kbd> plasma · <kbd>Q</kbd> armas · <kbd>L</kbd> pousar · <kbd>V</kbd> câmera
         </p>
       </form>
     </section>
@@ -41,6 +41,7 @@
           <div id="hp" class="barra"><em>HP</em><span class="valor"></span><span class="txt"></span></div>
           <div id="en" class="barra"><em>EN</em><span class="valor"></span><span class="txt"></span></div>
         </div>
+        <button id="arma-atual" type="button" title="Trocar de arma (Q)"><span class="icone"></span><span class="nome"></span></button>
         <dl>
           <dt>Ouro</dt><dd id="ouro">0</dd>
           <dt>Abates</dt><dd id="abates">0</dd>
@@ -48,9 +49,19 @@
         </dl>
       </footer>
 
+      <section id="menu-armas" hidden aria-label="Menu de armas">
+        <h2>Arma principal <kbd>Z</kbd></h2>
+        <div class="opcoes"></div>
+        <p class="dica">
+          <span class="so-teclado"><kbd>1</kbd><kbd>2</kbd> escolhe · <kbd>Q</kbd> fecha</span><span class="so-toque">Toque para escolher · ARMA fecha</span>
+          · sem tiro com o menu aberto
+        </p>
+      </section>
+
       <div id="toque">
         <div id="stick"><span class="pino"></span></div>
         <div id="botoes">
+          <button id="btn-arma" type="button">ARMA</button>
           <button id="btn-pouso" type="button">POUSAR</button>
           <button id="btn-shift" type="button">SHIFT</button>
           <button id="btn-z" type="button">Z</button>

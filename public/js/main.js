@@ -12,7 +12,7 @@
 //   snapshots, para o movimento sair liso mesmo com a rede irregular.
 
 import * as THREE from 'three';
-import { DT, RACES, createBullet, stepShip, bulletHits, forward } from '/shared/sim.js';
+import { DT, RACES, WEAPONS, createBullet, stepShip, bulletHits, forward } from '/shared/sim.js';
 import { heightAt, podePousar } from '/shared/terrain.js';
 import { criarCena } from './cena.js';
 import { criarNave, criarDrone, atualizarMotor } from './nave.js';
@@ -20,6 +20,7 @@ import { Efeitos } from './efeitos.js';
 import { Controles } from './controles.js';
 import { Hud } from './hud.js';
 import { Rede } from './rede.js';
+import { MenuArmas } from './armas.js';
 
 const INTERP_MS = 120;
 const CAMERAS = [
@@ -133,6 +134,7 @@ function montarJogo(rede, boas, renderer, race) {
   const efeitos = new Efeitos(scene);
   const controles = new Controles(document.body);
   const hud = new Hud();
+  const menuArmas = new MenuArmas({ aoTrocar: (i, kind) => hud.noticia(`Arma: ${WEAPONS[kind].nome}`, 'bom') });
   document.querySelector('#hud').hidden = false;
 
   function redimensionar() {
@@ -170,6 +172,9 @@ function montarJogo(rede, boas, renderer, race) {
   function passo() {
     if (!vivo || !pred) return;
     const inp = controles.ler();
+    // A arma escolhida no menu vai em todo comando; com o menu aberto não sai tiro.
+    inp.a = menuArmas.arma;
+    if (menuArmas.aberto) inp.f1 = inp.f2 = false;
     seq++;
     rede.enviar({ t: 'in', s: seq, ...inp });
     ant = pose(pred);
@@ -410,7 +415,7 @@ function montarJogo(rede, boas, renderer, race) {
   requestAnimationFrame(quadro);
 
   // Para depuração no console e para os testes de navegador.
-  window.__astron = { get pred() { return pred; }, get vivo() { return vivo; }, scene, camera };
+  window.__astron = { get pred() { return pred; }, get vivo() { return vivo; }, scene, camera, menuArmas };
 }
 
 montarEntrada();

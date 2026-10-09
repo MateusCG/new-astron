@@ -31,6 +31,7 @@ Tokens em `public/css/jogo.css` (`:root`). Use as variáveis; não escreva hex s
 | `--hp` | `#ff5a3c` | Vida, dano, inimigo |
 | `--en` | `#3fa9ff` | Energia |
 | `--ouro` | `#ffd166` | Ouro e recompensas |
+| `--laser` | `#5ff7ff` | Ícone de arma no HUD (mesmo ciano do tiro de laser) |
 
 - **Botão primário:** fundo `#00efc0`, texto `#032b22`, peso 700. É o mesmo turquesa do Sideral, de propósito: os dois jogos são da mesma casa.
 - **Mensagens:** boas em `--neon`, ruins em `#ff8a70`, neutras em `--texto`.
@@ -53,6 +54,7 @@ Em `public/js/efeitos.js` (`COR_TIRO`). Efeitos de luz são sempre **aditivos** 
 | Tiro | Cor | Forma |
 |---|---|---|
 | Laser (Z) | `#5ff7ff` ciano | Barra fina de 7 m + brilho pequeno |
+| Laser duplo (Z) | `#5ff7ff` ciano | Duas barras de 6 m, mais finas, lado a lado (2,5 m de cada lado do nariz) + brilho menor |
 | Plasma (X) | `#7dff6a` verde | Esfera de brilho grande |
 | Inimigo | `#ff4a2a` vermelho | Qualquer forma, sempre vermelho |
 | Explosão | `#ff9a3a` a `#ffd28a` | Clarão + fagulhas que caem |
@@ -107,8 +109,9 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 
 - **Painel inferior em chapa metálica** (degradê `--chapa-clara` para `--chapa`, cantos de cima mais arredondados, contorno `--neon-escuro`). Barras de HP e EN com rótulo à esquerda e número à direita, em fonte mono.
 - **Minimapa** no canto superior esquerdo, **notícias** no superior direito, **avisos** no centro da tela.
+- **Menu de armas** (`#menu-armas`, tecla Q): painel na mesma chapa do painel inferior, no **alto e centro** da tela, para a nave continuar à vista (o jogo não pausa). Uma carta por arma com ícone, nome, dano, energia e recarga; a arma em uso tem borda `--neon` e o selo "EM USO". **Ícone de arma** = um traço `--laser` por projétil (1 traço simples, 2 duplo); o mesmo ícone, com o nome, fica no painel inferior.
 - **Tipografia:** `system-ui` para texto e `ui-monospace` para números. Título com letras espaçadas e "ASTRO" em `--neon` com brilho.
-- **Celular:** joystick à esquerda; Z, X e SHIFT à direita (mesma disposição do AstroN). Área de toque com no mínimo 64 px.
+- **Celular:** joystick à esquerda; Z, X e SHIFT à direita (mesma disposição do AstroN), com ARMA numa pílula acima deles. Área de toque com no mínimo 64 px.
 - **Idioma:** português do Brasil, frases curtas e diretas, sem jargão técnico para o jogador ("Nave destruída · renascendo na base em 3s").
 
 ## Checklist antes de abrir o PR
