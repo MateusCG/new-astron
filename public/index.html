@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>New AstroN</title>
+    <link rel="stylesheet" href="/css/jogo.css" />
+    <script type="importmap">
+      { "imports": { "three": "/vendor/three.module.js" } }
+    </script>
+  </head>
+  <body>
+    <div id="jogo"></div>
+
+    <section id="entrada">
+      <form id="form-entrada">
+        <h1>NEW <span>ASTRO</span>-N</h1>
+        <p class="sub">Setor M1 · Cânion de Traticera</p>
+        <label>Nome do piloto <input id="nome" maxlength="16" autocomplete="off" placeholder="Piloto" /></label>
+        <p class="rotulo-racas">Escolha sua raça</p>
+        <div id="racas"></div>
+        <button type="submit" class="decolar">Decolar</button>
+        <p id="erro-entrada" role="alert"></p>
+        <p class="ajuda">
+          <kbd>W</kbd><kbd>S</kbd> acelera/ré · <kbd>A</kbd><kbd>D</kbd> gira · <kbd>Shift</kbd> boost ·
+          <kbd>Z</kbd> laser · <kbd>X</kbd> plasma · <kbd>V</kbd> câmera
+        </p>
+      </form>
+    </section>
+
+    <section id="hud" hidden>
+      <canvas id="minimapa" width="160" height="160"></canvas>
+      <ul id="feed"></ul>
+      <div id="rotulos"></div>
+      <p id="aviso" hidden></p>
+      <span id="ping"></span>
+
+      <footer id="painel">
+        <div class="barras">
+          <div id="hp" class="barra"><em>HP</em><span class="valor"></span><span class="txt"></span></div>
+          <div id="en" class="barra"><em>EN</em><span class="valor"></span><span class="txt"></span></div>
+        </div>
+        <dl>
+          <dt>Ouro</dt><dd id="ouro">0</dd>
+          <dt>Abates</dt><dd id="abates">0</dd>
+          <dt>Vel.</dt><dd id="vel">0</dd>
+        </dl>
+      </footer>
+
+      <div id="toque">
+        <div id="stick"><span class="pino"></span></div>
+        <div id="botoes">
+          <button id="btn-shift" type="button">SHIFT</button>
+          <button id="btn-z" type="button">Z</button>
+          <button id="btn-x" type="button">X</button>
+        </div>
+      </div>
+    </section>
+
+    <script type="module" src="/js/main.js"></script>
+  </body>
+</html>
