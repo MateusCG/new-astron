@@ -1,7 +1,10 @@
 // Modelos 3D das naves, montados com primitivas (low-poly, sem arquivo de modelo).
 //
 // A nave olha para -z (convenção do Three.js e de shared/sim.js). Cada raça usa a
-// mesma silhueta de caça com a cor da raça nas asas; os drones Arnosh são uma
+// mesma silhueta de caça com a cor da raça nas asas, e o time vem marcado por um
+// anel de luz na fuselagem e luzes nas pontas das asas (turquesa = do seu time,
+// vermelho = do outro, relativo a quem olha); os mineradores são mini-naves de
+// carga com a mesma marca de time; os drones Arnosh são uma
 // criatura orgânica escura com olho vermelho, como os inimigos dos planetas de
 // missão do AstroN. Quando houver modelos de verdade (glTF feitos no Blender),
 // só este arquivo muda.
@@ -51,8 +54,20 @@ function asa(cor) {
   return new THREE.Mesh(geo, mat);
 }
 
-/** Nave de jogador da raça dada. userData.motores guarda os brilhos do motor. */
-export function criarNave(race) {
+/** Neon do time relativo a quem olha (mesmos tons das bases em cena.js). */
+export const COR_TIME = { aliado: new THREE.Color('#00efc0'), inimigo: new THREE.Color('#ff3b2a') };
+
+// Neon no teto do guia visual: cor = emissive, intensidade perto de 1.
+function matNeon(cor) {
+  return new THREE.MeshStandardMaterial({ color: cor, emissive: cor, emissiveIntensity: 1, flatShading: true });
+}
+
+/**
+ * Nave de jogador da raça dada. `aliado` decide a marca do time (anel na
+ * fuselagem e luzes nas pontas das asas): turquesa se é do seu time, vermelho se
+ * não. userData.motores guarda os brilhos do motor.
+ */
+export function criarNave(race, { aliado = true } = {}) {
   const cor = new THREE.Color(RACES[race]?.cor ?? 0xffffff);
   const g = new THREE.Group();
   const casco = new THREE.MeshStandardMaterial({ color: '#c9d2d0', metalness: 0.7, roughness: 0.35, flatShading: true });
@@ -81,6 +96,18 @@ export function criarNave(race) {
   leme.rotation.x = -0.35;
 
   g.add(fuselagem, nariz, cabine, asaD, asaE, leme);
+
+  // Marca do time: anel de luz em volta da fuselagem, atrás da cabine, e uma luz
+  // em cada ponta de asa (o que mais aparece na câmera de perseguição).
+  const neonTime = matNeon(aliado ? COR_TIME.aliado : COR_TIME.inimigo);
+  const anelTime = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.14, 4, 16), neonTime);
+  anelTime.position.z = 1.6;
+  g.add(anelTime);
+  for (const lado of [-1, 1]) {
+    const ponta = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 1), neonTime);
+    ponta.position.set(lado * 6.45, 0.17, 3.1);
+    g.add(ponta);
+  }
 
   const motores = [];
   for (const lado of [-1, 1]) {
@@ -123,6 +150,106 @@ export function criarNave(race) {
   raiz.add(g);
   raiz.userData = { corpo: g, motores, trem };
   return raiz;
+}
+
+/**
+ * Minerador: mini-nave de carga de uns 6 m (metade de uma nave de jogador), casco
+ * cinza quadrado, cabine na frente, dois motores laterais e faixas de neon com a
+ * cor do time de quem olha (turquesa seu, vermelho do outro). Em cima, a moldura
+ * do contêiner; o minério (bloco e cristais azul-gelo, a cor do minério no mapa)
+ * só aparece com o contêiner cheio. Minerando, desce um feixe azul até os cristais.
+ * userData: corpo, motores, carga (grupo do minério), feixe.
+ */
+export function criarMinerador({ aliado = true } = {}) {
+  const corTime = aliado ? COR_TIME.aliado : COR_TIME.inimigo;
+  const g = new THREE.Group();
+  const casco = new THREE.MeshStandardMaterial({ color: '#9aa5a3', metalness: 0.4, roughness: 0.6, flatShading: true });
+  const escuro = new THREE.MeshStandardMaterial({ color: '#2b3233', metalness: 0.4, roughness: 0.6, flatShading: true });
+  const neonTime = matNeon(corTime);
+
+  const corpo = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.2, 4.6), casco);
+  const cabine = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.2, 1.1, 1.4, 4),
+    new THREE.MeshStandardMaterial({ color: '#0b2a33', emissive: '#00b3ff', emissiveIntensity: 0.5, roughness: 0.3, flatShading: true }),
+  );
+  cabine.rotation.set(-Math.PI / 2, Math.PI / 4, 0);
+  cabine.position.set(0, 0.1, -2.9);
+  g.add(corpo, cabine);
+  // Faixas do time dos dois lados do casco.
+  for (const lado of [-1, 1]) {
+    const faixa = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.25, 4.2), neonTime);
+    faixa.position.set(lado * 1.22, 0.1, 0);
+    g.add(faixa);
+  }
+
+  const motores = [];
+  for (const lado of [-1, 1]) {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 2.2, 6), escuro);
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(lado * 1.6, -0.2, 1.4);
+    const chama = spriteBrilho(corTime.clone().lerp(new THREE.Color('#ffffff'), 0.3), 1.6);
+    chama.material.opacity = 0.7;
+    chama.position.set(lado * 1.6, -0.2, 2.7);
+    motores.push(chama);
+    g.add(m, chama);
+  }
+
+  // Moldura do contêiner (sempre) e o minério dentro (só cheio).
+  for (const [x, z] of [[-0.95, -1.1], [0.95, -1.1], [-0.95, 1.5], [0.95, 1.5]]) {
+    const coluna = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.3, 0.18), escuro);
+    coluna.position.set(x, 1.25, z);
+    g.add(coluna);
+  }
+  const tampa = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.15, 2.8), escuro);
+  tampa.position.set(0, 1.95, 0.2);
+  g.add(tampa);
+  // Minério: cristais azul-gelo (como os do depósito) sobre um bloco azul mais
+  // fundo; brilho moderado, senão o ACES puxa o azul-gelo para o branco.
+  const azul = new THREE.MeshStandardMaterial({ color: '#9fe8ff', emissive: '#9fe8ff', emissiveIntensity: 0.6, roughness: 0.3, flatShading: true });
+  const azulFundo = new THREE.MeshStandardMaterial({ color: '#2f7fb8', emissive: '#4fb8ff', emissiveIntensity: 0.5, roughness: 0.4, flatShading: true });
+  const carga = new THREE.Group();
+  const bloco = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1, 2.4), azulFundo);
+  bloco.position.set(0, 1.1, 0.2);
+  carga.add(bloco);
+  for (const [x, z, k] of [[-0.5, -0.4, 0.5], [0.45, 0.6, 0.6], [0, 1.1, 0.4]]) {
+    const cristal = new THREE.Mesh(new THREE.OctahedronGeometry(k, 0), azul);
+    cristal.scale.y = 1.8;
+    cristal.position.set(x, 1.6 + k * 0.6, z);
+    carga.add(cristal);
+  }
+  carga.visible = false;
+  g.add(carga);
+
+  g.traverse((o) => {
+    if (o.isMesh) o.castShadow = true;
+  });
+
+  // Feixe de mineração: cone aditivo do casco até o chão (a nave paira a 10 m).
+  const feixe = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.35, 1.6, 9, 8, 1, true),
+    new THREE.MeshBasicMaterial({ color: '#9fe8ff', transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  feixe.position.y = -5.1;
+  feixe.visible = false;
+  g.add(feixe);
+
+  const raiz = new THREE.Group();
+  raiz.add(g);
+  raiz.userData = { corpo: g, motores, carga, feixe };
+  return raiz;
+}
+
+/** Anima o minerador: contêiner cheio ou vazio, feixe pulsando enquanto minera, motores. */
+export function animarMinerador(m, { carga, minerando }, t, fase = 0) {
+  const { carga: grupo, feixe, motores } = m.userData;
+  grupo.visible = carga > 0;
+  feixe.visible = !!minerando;
+  if (minerando) {
+    feixe.material.opacity = 0.25 + 0.2 * (Math.sin(t * 8 + fase) + 1) / 2;
+    feixe.rotation.y = t * 2;
+  }
+  const base = minerando ? 0.8 : 1.6;
+  for (const [i, s] of motores.entries()) s.scale.setScalar(base + Math.sin(t * 40 + i * 2 + fase) * 0.2);
 }
 
 /** Drone inimigo Arnosh. */
