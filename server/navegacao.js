@@ -6,7 +6,9 @@
 // (MAX_SLOPE de shared/sim.js): de uma célula para a vizinha só se passa se a subida
 // não for íngreme demais, e descer é sempre livre. A altura é a de alturaSolida
 // (terreno ou construção), então rochas, muralha, cristais do minério e torres dos
-// objetivos entram do mesmo jeito, sem lista à parte do que é obstáculo.
+// objetivos entram do mesmo jeito, sem lista à parte do que é obstáculo. A torre do
+// objetivo B entra sempre de pé (alturaSolida com `todos`), mesmo que tenha caído
+// quando a grade foi montada: assim a grade não depende da hora em que foi feita.
 //
 // Sobre essa grade roda um Dijkstra com várias fontes (os jogadores caçáveis), que dá,
 // para cada célula, o custo do caminho até o jogador mais próximo e qual jogador é
@@ -143,7 +145,7 @@ export class MapaNavegacao {
     const hf = new Float32Array(nf * nfz);
     for (let jf = 0; jf < nfz; jf++) {
       for (let if_ = 0; if_ < nf; if_++) {
-        hf[jf * nf + if_] = alturaSolida(-MAP_HALF_X + CELULA / 2 + (if_ * CELULA) / 2, -MAP_HALF_Z + CELULA / 2 + (jf * CELULA) / 2);
+        hf[jf * nf + if_] = alturaSolida(-MAP_HALF_X + CELULA / 2 + (if_ * CELULA) / 2, -MAP_HALF_Z + CELULA / 2 + (jf * CELULA) / 2, 0, true);
       }
     }
     this.zona = new Uint8Array(total);

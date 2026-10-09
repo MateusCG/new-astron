@@ -19,6 +19,15 @@
 // Formas: 'caixa' (retângulo girado em yaw, como os hangares) e 'cilindro'. Cada
 // uma tem `topo` (altura absoluta do alto), `grupo` ('base', 'minerio' ou
 // 'objetivo') e, nas bases, `time`.
+//
+// Construção que pode sumir: a torre de cada objetivo B é destruída na partida e
+// volta depois da recarga (server/objetivos.js). Ela tem `id` (o do objetivo, 'B1'
+// ou 'B2') e definirObstaculoAtivo(id, false) a tira da física (alturaSolida,
+// colisão de nave e de tiro). O estado é do módulo, igual nos dois lados: o
+// servidor muda quando a torre cai ou volta, e o cliente aplica o que vem no
+// snapshot (`obj`), para a predição bater com o servidor. A grade de navegação dos
+// monstros, montada uma vez, pede alturaSolida(..., todos = true): considera a
+// torre sempre de pé (com ela caída, o monstro só contorna uns 12 m a mais).
 
 import { heightAt, noMapaAberto, BASES, CORREDOR, MINERIO, OBJETIVOS, ARENA_C, MAP_HALF_X, MAP_HALF_Z, MURALHA } from './terrain.js';
 
@@ -86,7 +95,7 @@ function montar() {
     lista.push(cilindro('cristal', min, MINERIO.x + Math.cos(a) * coroa.dist, MINERIO.z + Math.sin(a) * coroa.dist, coroa.raio, alt));
   }
   for (const o of OBJETIVOS.filter((o) => o.tipo === 'B')) {
-    lista.push(cilindro('torre-objetivo', { grupo: 'objetivo', objetivo: o.id }, o.x, o.z, TORRE_B.raio, TORRE_B.altura));
+    lista.push(cilindro('torre-objetivo', { grupo: 'objetivo', objetivo: o.id, id: o.id }, o.x, o.z, TORRE_B.raio, TORRE_B.altura));
   }
   // Raio que envolve a forma: atalho para descartar rápido o que está longe.
   for (const o of lista) o.alcance = o.forma === 'caixa' ? Math.hypot(o.meiaLarg, o.meiaProf) : o.raio;
@@ -94,6 +103,19 @@ function montar() {
 }
 
 export const OBSTACULOS = montar();
+
+/**
+ * Liga (ativo = true) ou desliga uma construção que pode sumir (a torre do objetivo
+ * B de `id`). Desligada, ela não é mais sólida para nave nem tiro.
+ */
+export function definirObstaculoAtivo(id, ativo) {
+  for (const o of OBSTACULOS) if (o.id === id) o.desligado = !ativo;
+}
+
+/** A construção `id` está de pé (sólida)? */
+export function obstaculoAtivo(id) {
+  return OBSTACULOS.some((o) => o.id === id && !o.desligado);
+}
 
 function dentro(o, x, z, folga) {
   const dx = x - o.x;
@@ -111,12 +133,13 @@ function dentro(o, x, z, folga) {
 /**
  * Altura do que é sólido no ponto: o terreno ou o alto de uma construção, o que
  * for maior. `folga` engorda as construções (raio da nave), para a asa não entrar
- * na parede quando o centro da nave ainda está fora.
+ * na parede quando o centro da nave ainda está fora. Construção desligada
+ * (definirObstaculoAtivo) não conta, a não ser com `todos` = true.
  */
-export function alturaSolida(x, z, folga = 0) {
+export function alturaSolida(x, z, folga = 0, todos = false) {
   let h = heightAt(x, z);
   for (const o of OBSTACULOS) {
-    if (o.topo > h && dentro(o, x, z, folga)) h = o.topo;
+    if (o.topo > h && (todos || !o.desligado) && dentro(o, x, z, folga)) h = o.topo;
   }
   return h;
 }
