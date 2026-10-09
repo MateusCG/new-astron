@@ -31,7 +31,7 @@ function conectar(porta) {
 }
 
 test('servidor: entra, anda com comandos e recebe ack', async () => {
-  const srv = await iniciar({ porta: 0, world: new World({ drones: 0 }) });
+  const srv = await iniciar({ porta: 0, world: new World({ drones: 0, monstros: 0 }) });
   try {
     const c = conectar(srv.porta);
     await c.aberto;
@@ -52,7 +52,7 @@ test('servidor: entra, anda com comandos e recebe ack', async () => {
 });
 
 test('servidor: no máximo 4 comandos por tick (sem acelerar o tempo)', () => {
-  const w = new World({ drones: 0 });
+  const w = new World({ drones: 0, monstros: 0 });
   const j = w.addPlayer('a', 'shrewdo');
   for (let s = 1; s <= 20; s++) w.pushInput(j.id, { s, th: 1 });
   w.step();
@@ -63,7 +63,7 @@ test('servidor: no máximo 4 comandos por tick (sem acelerar o tempo)', () => {
 });
 
 test('servidor: tiro tira vida, abate dá ouro e o morto renasce na base', () => {
-  const w = new World({ drones: 0 });
+  const w = new World({ drones: 0, monstros: 0 });
   const a = w.addPlayer('A', 'acron');
   const b = w.addPlayer('B', 'shrewdo');
   // Leva os dois para longe da zona segura, um na frente do outro.
@@ -84,7 +84,7 @@ test('servidor: tiro tira vida, abate dá ouro e o morto renasce na base', () =>
 });
 
 test('servidor: ninguém leva dano na zona segura da base', () => {
-  const w = new World({ drones: 0 });
+  const w = new World({ drones: 0, monstros: 0 });
   const a = w.addPlayer('A', 'acron');
   a.protegidoAte = 0;
   const hp = a.ship.hp;
@@ -96,7 +96,7 @@ test('servidor: ninguém leva dano na zona segura da base', () => {
 
 test('servidor: nave pousada conserta mais rápido que voando', () => {
   const regenEm = (pousar) => {
-    const w = new World({ drones: 0 });
+    const w = new World({ drones: 0, monstros: 0 });
     const j = w.addPlayer('A', 'bellico');
     j.ship.hp = 100;
     let seq = 0;
@@ -113,7 +113,7 @@ test('servidor: nave pousada conserta mais rápido que voando', () => {
 });
 
 test('servidor: não serve arquivo fora das pastas públicas', async () => {
-  const srv = await iniciar({ porta: 0, world: new World({ drones: 0 }) });
+  const srv = await iniciar({ porta: 0, world: new World({ drones: 0, monstros: 0 }) });
   try {
     for (const rota of ['/%2e%2e/package.json', '/shared/%2e%2e/package.json', '/vendor/%2e%2e/%2e%2e/%2e%2e/package.json']) {
       const r = await fetch(`http://localhost:${srv.porta}${rota}`);
