@@ -12,9 +12,15 @@ import { alturaSolida } from '../shared/obstaculos.js';
 
 const SEGUNDO = 30; // ticks
 
+// rng com semente: os testes não dependem da sorte do Math.random.
+function rngFixo(semente = 1) {
+  let s = semente;
+  return () => (s = (s * 16807) % 2147483647) / 2147483647;
+}
+
 /** Mundo com um jogador em cada time (a partida começa no primeiro passo). */
 function mundo() {
-  const w = new World({ drones: 0, monstros: 0 });
+  const w = new World({ drones: 0, monstros: 0, rng: rngFixo() });
   const a = w.addPlayer('A', 'acron');
   const b = w.addPlayer('B', 'bellico');
   w.step();
@@ -168,7 +174,8 @@ test('mineradores: destruir o do outro time dá ouro e a carga se perde; aliado 
 });
 
 test('mineradores: na própria base são protegidos como os jogadores', () => {
-  const { w, b } = mundo();
+  const { w, a, b } = mundo();
+  a.ship = createShip('acron', BASES[0].x - 150, BASES[0].z); // fora da linha do tiro
   const m = w.mineradores.lista.find((x) => x.time === 0);
   assert.ok(Math.hypot(m.ship.x - BASES[0].x, m.ship.z - BASES[0].z) < 50, 'acabou de sair da base');
   const s = createShip('acron', m.ship.x, m.ship.z - 20, Math.PI);

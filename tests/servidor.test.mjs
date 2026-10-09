@@ -173,6 +173,7 @@ test('servidor: aplica a arma escolhida no comando (e limpa valor inválido)', (
   // Os dois nascem em ponto sorteado da base: afasta B de A para o tiro não acertar A.
   k.ship = createShip('acron', j.ship.x + 40, j.ship.z, 0);
   w.bullets.length = 0;
+  w.mineradores.limpar(); // o minerador saindo da base poderia estar na frente do tiro
   w.pushInput(k.id, { s: 1, f1: true, a: 99 });
   w.step();
   assert.equal(k.ship.arma, 0);
