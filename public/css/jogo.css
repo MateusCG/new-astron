@@ -11,6 +11,8 @@
   --en: #3fa9ff;
   --ouro: #ffd166;
   --laser: #5ff7ff;
+  --dreno: #d070ff;
+  --gelo: #a8e8ff;
 }
 
 * {
@@ -450,7 +452,18 @@ dd {
   stroke: var(--laser);
   stroke-width: 3;
   stroke-linecap: round;
+  fill: none;
   filter: drop-shadow(0 0 3px var(--laser));
+}
+
+.icone-arma.dreno {
+  stroke: var(--dreno);
+  filter: drop-shadow(0 0 3px var(--dreno));
+}
+
+.icone-arma.lento {
+  stroke: var(--gelo);
+  filter: drop-shadow(0 0 3px var(--gelo));
 }
 
 /* ---------- Menu de armas (Q) ---------- */
@@ -461,7 +474,7 @@ dd {
   top: 12px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(440px, calc(100% - 32px));
+  width: min(680px, calc(100% - 32px));
   padding: 10px 14px 8px;
   border: 2px solid var(--chapa-clara);
   border-radius: 14px 14px 8px 8px;
@@ -491,7 +504,7 @@ dd {
 
 #menu-armas .opcoes {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
   gap: 8px;
 }
 
@@ -536,6 +549,14 @@ dd {
 .opcao-arma dl {
   width: 100%;
   font-size: 11px;
+}
+
+.opcao-arma .efeito {
+  min-height: 2.6em;
+  font-size: 10.5px;
+  line-height: 1.3;
+  opacity: 0.85;
+  text-align: center;
 }
 
 .opcao-arma .em-uso {
@@ -656,6 +677,34 @@ body.dano::after {
 #botoes button.ativo {
   border-color: var(--neon);
   background: rgba(0, 239, 192, 0.3);
+}
+
+/* No celular o menu fica entre o minimapa e os botões da direita, sem cobrir o ARMA. */
+.toque #menu-armas {
+  left: 12px;
+  right: 190px;
+  width: auto;
+  transform: none;
+  padding: 8px 10px 6px;
+  animation: none;
+}
+
+.toque #menu-armas .opcoes {
+  gap: 6px;
+}
+
+.toque .opcao-arma {
+  padding: 6px 4px;
+  gap: 2px;
+}
+
+.toque .opcao-arma .icone-arma {
+  width: 24px;
+  height: 24px;
+}
+
+.toque .opcao-arma strong {
+  font-size: 12px;
 }
 
 .so-toque,

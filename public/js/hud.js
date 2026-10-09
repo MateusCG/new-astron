@@ -125,6 +125,14 @@ export class Hud {
     this.avisoPouso.hidden = !html;
   }
 
+  /** Avisa quando a própria nave começa a drenar ou fica lenta (só na mudança). */
+  efeitosProprios({ dreno, lento }) {
+    if (dreno && !this.drenando) this.noticia('Dreno: você está perdendo vida', 'ruim');
+    if (lento && !this.lenta) this.noticia('Criogênico: sua nave está lenta', 'ruim');
+    this.drenando = dreno;
+    this.lenta = lento;
+  }
+
   mostrarAviso(texto) {
     this.aviso.textContent = texto;
     this.aviso.hidden = !texto;

@@ -5,19 +5,42 @@ import * as THREE from 'three';
 import { stepBullet } from '/shared/sim.js';
 import { brilho } from './nave.js';
 
+// Cores dos efeitos de arma (ver IDENTIDADE-VISUAL.md): o dreno é violeta e o
+// criogênico azul-gelo, para não se confundirem com o laser ciano, o plasma verde
+// nem com o vermelho de inimigo.
+const COR_DRENO = new THREE.Color('#d070ff');
+const COR_GELO = new THREE.Color('#a8e8ff');
 const COR_TIRO = {
   laser: new THREE.Color('#5ff7ff'),
   laserDuplo: new THREE.Color('#5ff7ff'),
+  laserTriplo: new THREE.Color('#5ff7ff'),
+  dreno: COR_DRENO,
+  crio: COR_GELO,
   plasma: new THREE.Color('#7dff6a'),
   inimigo: new THREE.Color('#ff4a2a'),
 };
-// Forma de cada tiro: barra (comprimento em m, 0 = sem barra) + brilho. O laser
-// duplo é a mesma barra ciano do laser, um pouco menor, já que saem duas juntas.
+// Forma de cada tiro: barra (comprimento em m, 0 = sem barra) + brilho. Os lasers
+// de vários projéteis usam barras menores, já que saem juntas; o dreno é uma bola
+// de brilho e o criogênico um estilhaço curto e grosso.
 const FORMA_TIRO = {
   laser: { barra: 7, grossura: 0.35, brilho: 3 },
   laserDuplo: { barra: 6, grossura: 0.28, brilho: 2.4 },
+  laserTriplo: { barra: 5, grossura: 0.25, brilho: 2.2 },
+  dreno: { barra: 0, brilho: 4.2 },
+  crio: { barra: 3, grossura: 0.5, brilho: 3.4 },
   plasma: { barra: 0, brilho: 6 },
 };
+// Aura de quem está sob efeito: brilho em volta da nave + partículas. O dreno
+// "puxa" a vida para fora (partículas violeta subindo); o gelo cai em cristais.
+const AURA_PARTICULA_S = 0.07; // intervalo entre partículas por nave afetada
+
+function spriteAditivo(cor, tamanho) {
+  const s = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: brilho(), color: cor, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }),
+  );
+  s.scale.setScalar(tamanho);
+  return s;
+}
 
 export class Efeitos {
   constructor(scene) {
@@ -25,6 +48,44 @@ export class Efeitos {
     this.tiros = new Map();
     this.particulas = [];
     this.geoBarra = new Map();
+    this.auras = [];
+    this.v = new THREE.Vector3();
+  }
+
+  /**
+   * Mostra na nave (grupo do Three.js) os efeitos ativos vindos do servidor:
+   * dreno (aura violeta pulsando + partículas subindo) e lento (aura azul-gelo +
+   * cristais caindo). Chamar a cada quadro para cada nave visível.
+   */
+  estadoNave(obj, { dreno = false, lento = false }, dt, tempo) {
+    let a = obj.userData.auras;
+    if (!a) {
+      if (!dreno && !lento) return;
+      a = obj.userData.auras = { dreno: spriteAditivo(COR_DRENO, 11), gelo: spriteAditivo(COR_GELO, 13), acc: 0 };
+      obj.add(a.dreno, a.gelo);
+    }
+    a.dreno.visible = dreno;
+    a.gelo.visible = lento;
+    if (dreno) a.dreno.material.opacity = 0.45 + 0.3 * Math.sin(tempo * 9);
+    if (lento) a.gelo.material.opacity = 0.5 + 0.1 * Math.sin(tempo * 3);
+    if (!dreno && !lento) {
+      a.acc = 0;
+      return;
+    }
+    a.acc += dt;
+    obj.getWorldPosition(this.v);
+    while (a.acc >= AURA_PARTICULA_S) {
+      a.acc -= AURA_PARTICULA_S;
+      if (dreno) this.#particula(COR_DRENO, 2, 7, 0.8);
+      if (lento) this.#particula(COR_GELO, 1.6, -4, 0.9);
+    }
+  }
+
+  #particula(cor, tamanho, subida, dur) {
+    const s = spriteAditivo(cor, tamanho);
+    s.position.set(this.v.x + (Math.random() * 2 - 1) * 4.5, this.v.y + (Math.random() * 2 - 1) * 1.5, this.v.z + (Math.random() * 2 - 1) * 4.5);
+    this.scene.add(s);
+    this.auras.push({ s, subida, vida: 0, dur, tamanho });
   }
 
   #barra(forma) {
@@ -112,6 +173,20 @@ export class Efeitos {
       }
       t.g.position.set(t.b.x, t.b.y, t.b.z);
     }
+
+    this.auras = this.auras.filter((p) => {
+      p.vida += dt;
+      const k = p.vida / p.dur;
+      if (k >= 1) {
+        this.scene.remove(p.s);
+        p.s.material.dispose();
+        return false;
+      }
+      p.s.position.y += p.subida * dt;
+      p.s.material.opacity = 1 - k;
+      p.s.scale.setScalar(p.tamanho * (1 - k * 0.5));
+      return true;
+    });
 
     this.particulas = this.particulas.filter((p) => {
       p.vida += dt;

@@ -326,6 +326,10 @@ function montarJogo(rede, boas, renderer, race) {
       minhaNave.rotation.y = lerpAng(ant.yaw, pred.yaw, alfa);
       minhaNave.userData.corpo.rotation.z = lerp(ant.roll, pred.roll, alfa);
       atualizarMotor(minhaNave, pred.boost, tempo, pred.pousado);
+      const eu = snaps.at(-1)?.ents.find((e) => e.id === meuId);
+      const meusEfeitos = { dreno: !!eu?.dreno && vivo, lento: pred.lento > 0 && vivo };
+      efeitos.estadoNave(minhaNave, meusEfeitos, dt, tempo);
+      hud.efeitosProprios(meusEfeitos);
       foco.set(x, y, z);
     }
 
@@ -350,6 +354,7 @@ function montarJogo(rede, boas, renderer, race) {
       o.obj.userData.corpo.rotation.z = e.roll;
       if (e.drone) o.obj.userData.corpo.rotation.y = Math.sin(tempo * 3 + e.id) * 0.15;
       atualizarMotor(o.obj, e.boost, tempo, e.pousado);
+      efeitos.estadoNave(o.obj, { dreno: !!e.dreno, lento: !!e.lento }, dt, tempo);
       rotulos.push({ id: e.id, nome: e.nome, drone: e.drone, race: e.race, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position });
     }
     for (const [id, o] of outras) {

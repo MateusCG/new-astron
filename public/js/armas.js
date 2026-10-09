@@ -1,12 +1,13 @@
 // Menu de armas: escolhe a arma principal (Z) entre as opções de ARMAS_PRINCIPAIS
-// (laser simples ou duplo). Abre e fecha com Q, ou com o botão ARMA no celular e o
-// indicador de arma do painel; escolhe com clique/toque ou com as teclas 1 e 2, e
-// escolher fecha o menu.
+// (laser simples, duplo, triplo, dreno e criogênico). Abre e fecha com Q, ou com o
+// botão ARMA no celular e o indicador de arma do painel; escolhe com clique/toque
+// ou com as teclas 1 a 5, e escolher fecha o menu.
 //
 // O menu só guarda a escolha do piloto: ela vai no campo `a` de cada comando e
 // quem troca a arma de verdade é stepShip (no servidor e na predição, no mesmo
 // passo). Como é multijogador, o jogo não pausa com o menu aberto; só os tiros
-// ficam travados enquanto ele está na tela.
+// ficam travados enquanto ele está na tela. Os números das cartas saem de WEAPONS,
+// então balancear em shared/sim.js já atualiza o menu.
 //
 // O estado "aberto" vem do próprio elemento #menu-armas (atributo hidden), para quem
 // mais precisar fechar o menu (o ESC, por exemplo) só esconder o elemento.
@@ -14,24 +15,54 @@
 import { WEAPONS, ARMAS_PRINCIPAIS } from '/shared/sim.js';
 
 const TECLA_MENU = 'KeyQ';
-const TECLAS_OPCAO = [
-  ['Digit1', 'Numpad1'],
-  ['Digit2', 'Numpad2'],
-];
+const TECLAS_OPCAO = ARMAS_PRINCIPAIS.map((_, i) => [`Digit${i + 1}`, `Numpad${i + 1}`]);
 
 const numero = (v, casas = 0) => v.toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas });
 
-/** Ícone da arma: um traço por projétil, como o tiro saindo para cima. */
+/** Quantos projéteis a arma solta por disparo. */
+export function projeteis(w) {
+  return (w.canos?.length ?? 1) * (w.leque?.length ?? 1);
+}
+
+/** Frase curta do que a arma faz, montada das constantes de shared/sim.js. */
+export function descreverArma(kind) {
+  const w = WEAPONS[kind];
+  if (w.efeito?.tipo === 'dreno') return `Drena ${w.efeito.dps} HP/s por ${w.efeito.duracao} s`;
+  if (w.efeito?.tipo === 'lento') return `Alvo ${Math.round((1 - w.efeito.mult) * 100)}% mais lento por ${w.efeito.duracao} s`;
+  if (w.leque) return `${w.leque.length} tiros em leque (±${Math.round((Math.max(...w.leque) * 180) / Math.PI)}°)`;
+  if (w.canos) return `${w.canos.length} tiros paralelos, faixa larga`;
+  return 'Tiro único, maior dano por segundo';
+}
+
+/**
+ * Ícone da arma em SVG: um traço por projétil (paralelos ou em leque), gota para o
+ * dreno e floco para o criogênico. A cor vem do CSS pela classe do efeito.
+ */
 export function iconeArma(kind) {
-  const canos = WEAPONS[kind].canos ?? [0];
-  const largura = 24;
-  const tracos = canos
-    .map((_, i) => {
-      const x = canos.length === 1 ? largura / 2 : 7 + (i * 10) / (canos.length - 1);
-      return `<line x1="${x}" y1="4" x2="${x}" y2="20" />`;
-    })
-    .join('');
-  return `<svg class="icone-arma" viewBox="0 0 ${largura} 24" aria-hidden="true">${tracos}</svg>`;
+  const w = WEAPONS[kind];
+  const linha = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" />`;
+  let desenho;
+  if (w.efeito?.tipo === 'dreno') {
+    desenho = '<path d="M12 3 C9 8 6 11 6 15 a6 6 0 0 0 12 0 C18 11 15 8 12 3 Z" />';
+  } else if (w.efeito?.tipo === 'lento') {
+    desenho = [0, 60, 120]
+      .map((g) => {
+        const r = (g * Math.PI) / 180;
+        const dx = +(Math.sin(r) * 8).toFixed(2);
+        const dy = +(Math.cos(r) * 8).toFixed(2);
+        return linha(12 - dx, 12 - dy, 12 + dx, 12 + dy);
+      })
+      .join('');
+  } else if (w.leque) {
+    desenho = w.leque.map((a) => linha(12, 21, +(12 - Math.sin(a * 6) * 16).toFixed(2), +(21 - Math.cos(a * 6) * 17).toFixed(2))).join('');
+  } else {
+    const n = w.canos?.length ?? 1;
+    desenho = Array.from({ length: n }, (_, i) => {
+      const x = n === 1 ? 12 : 7 + (i * 10) / (n - 1);
+      return linha(x, 4, x, 20);
+    }).join('');
+  }
+  return `<svg class="icone-arma ${w.efeito?.tipo ?? 'laser'}" viewBox="0 0 24 24" aria-hidden="true">${desenho}</svg>`;
 }
 
 /** Chama fn no clique (mouse) e no toque, sem esperar o clique atrasado do celular. */
@@ -57,7 +88,7 @@ export class MenuArmas {
     this.arma = 0;
     this.botoes = ARMAS_PRINCIPAIS.map((kind, i) => {
       const w = WEAPONS[kind];
-      const n = w.canos?.length ?? 1;
+      const n = projeteis(w);
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'opcao-arma';
@@ -68,6 +99,7 @@ export class MenuArmas {
           <dt>Energia</dt><dd>${w.energia}</dd>
           <dt>Recarga</dt><dd>${numero(w.cd, 2)} s</dd>
         </dl>
+        <small class="efeito">${descreverArma(kind)}</small>
         <span class="em-uso">EM USO</span>`;
       aoTocar(b, () => this.escolher(i));
       this.lista.append(b);
