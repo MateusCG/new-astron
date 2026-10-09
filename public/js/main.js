@@ -182,8 +182,8 @@ function montarJogo(rede, boas, renderer, race) {
     if (apertouPouso && !pred.pousado && !podePousar(pred.x, pred.z)) {
       hud.noticia('Só dá para pousar no círculo de neon da base', 'ruim');
     }
-    for (const { kind, off } of stepShip(pred, inp)) {
-      efeitos.tiro(createBullet(pred, kind, 'l' + localSeq++, meuId, off));
+    for (const { kind, off, ang } of stepShip(pred, inp)) {
+      efeitos.tiro(createBullet(pred, kind, 'l' + localSeq++, meuId, off, ang));
     }
     pendentes.push({ seq, inp });
     if (pendentes.length > 120) pendentes.shift();

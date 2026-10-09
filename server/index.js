@@ -10,10 +10,14 @@
 //                       {t:'in', s:seq, th, tu, b, f1, f2, p, a}   um por passo de 1/30 s
 //                       (p = botão de pouso, alterna pousar/decolar na borda;
 //                        a = arma principal, índice em ARMAS_PRINCIPAIS: 0 laser
-//                        simples, 1 laser duplo; fora da lista vira 0)
+//                        simples, 1 duplo, 2 triplo, 3 dreno, 4 criogênico; fora
+//                        da lista vira 0)
 //                       {t:'ping', c}
 //   servidor → cliente  {t:'bemvindo', id, tickHz}
 //                       {t:'snap', tick, ack, vivo, me, ouro, abates, mortes, ents, ev}
+//                       (me.arma = arma principal, me.lento = s de lentidão;
+//                        cada ent traz dreno/lento booleanos para desenhar o efeito;
+//                        ev 'tiro' traz kind, que diz a arma e o efeito do projétil)
 //                       {t:'pong', c}
 
 import http from 'node:http';

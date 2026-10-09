@@ -20,6 +20,9 @@ import {
   LASER_DUPLO_DANO,
   LASER_DUPLO_CD,
   LASER_DUPLO_ENERGIA,
+  LASER_TRIPLO_ANGULO,
+  CRIO_LENTIDAO,
+  CRIO_DURACAO,
 } from '../shared/sim.js';
 import { podePousar, AREAS_POUSO } from '../shared/terrain.js';
 
@@ -126,19 +129,22 @@ test('comando da rede é limitado', () => {
 });
 
 test('comando da rede: arma fora da lista vira laser simples', () => {
-  for (const a of [2, -1, 1.5, '1', '__proto__', 'length', null, undefined, {}, NaN, Infinity]) {
+  for (const a of [5, 99, -1, 1.5, '1', '__proto__', 'length', null, undefined, {}, NaN, Infinity]) {
     assert.equal(sanitizeInput({ a }).a, 0, String(a));
   }
-  assert.equal(sanitizeInput({ a: 0 }).a, 0);
-  assert.equal(sanitizeInput({ a: 1 }).a, 1);
-  assert.deepEqual(ARMAS_PRINCIPAIS, ['laser', 'laserDuplo']);
+  for (let a = 0; a < 5; a++) assert.equal(sanitizeInput({ a }).a, a);
+  assert.deepEqual(ARMAS_PRINCIPAIS, ['laser', 'laserDuplo', 'laserTriplo', 'dreno', 'crio']);
+  // Mesmo sem passar pelo sanitize (IA dos drones), stepShip não aceita índice ruim.
+  const s = createShip('acron', 0, 0, 0);
+  assert.deepEqual(stepShip(s, { ...PARADO, f1: true, a: 7 }), [{ kind: 'laser', off: 0, ang: 0 }]);
+  assert.equal(s.arma, 0);
 });
 
 test('armas: laser simples sai 1 projétil pelo nariz, o duplo sai 2 paralelos', () => {
   for (const yaw of [0, 0.7, -2.1]) {
     const s = createShip('shrewdo', 0, 0, yaw);
     const simples = stepShip(s, { ...PARADO, f1: true, a: 0 });
-    assert.deepEqual(simples, [{ kind: 'laser', off: 0 }]);
+    assert.deepEqual(simples, [{ kind: 'laser', off: 0, ang: 0 }]);
     assert.equal(s.arma, 0);
 
     const d = createShip('shrewdo', 0, 0, yaw);
@@ -164,6 +170,56 @@ test('armas: laser simples sai 1 projétil pelo nariz, o duplo sai 2 paralelos',
   }
 });
 
+test('armas: laser triplo sai 3 projéteis em leque, com os ângulos certos', () => {
+  for (const yaw of [0, 1.2, -2.6]) {
+    const s = createShip('shrewdo', 0, 0, yaw);
+    const disparos = stepShip(s, { ...PARADO, f1: true, a: 2 });
+    assert.equal(disparos.length, 3);
+    const tiros = disparos.map((t, i) => createBullet(s, t.kind, i, 1, t.off, t.ang));
+    const rumo = (b) => Math.atan2(-(b.vx - s.vx * 0.5), -(b.vz - s.vz * 0.5));
+    const difs = tiros.map((b) => {
+      let d = rumo(b) - s.yaw;
+      while (d > Math.PI) d -= 2 * Math.PI;
+      while (d < -Math.PI) d += 2 * Math.PI;
+      return d;
+    });
+    const esperado = [LASER_TRIPLO_ANGULO, 0, -LASER_TRIPLO_ANGULO];
+    difs.forEach((d, i) => assert.ok(Math.abs(d - esperado[i]) < 1e-9, `yaw ${yaw}: ${d} vs ${esperado[i]}`));
+    for (const b of tiros) {
+      assert.equal(b.kind, 'laserTriplo');
+      assert.ok(Math.abs(Math.hypot(b.vx - s.vx * 0.5, b.vz - s.vz * 0.5) - WEAPONS.laserTriplo.vel) < 1e-9, 'mesma velocidade');
+      assert.equal(b.x, tiros[1].x, 'saem todos do nariz');
+      assert.equal(b.z, tiros[1].z);
+    }
+  }
+});
+
+test('armas: dreno e criogênico saem 1 projétil com o efeito no tipo', () => {
+  const s = createShip('acron', 0, 0, 0);
+  assert.deepEqual(stepShip(s, { ...PARADO, f1: true, a: 3 }), [{ kind: 'dreno', off: 0, ang: 0 }]);
+  const c = createShip('acron', 0, 0, 0);
+  assert.deepEqual(stepShip(c, { ...PARADO, f1: true, a: 4 }), [{ kind: 'crio', off: 0, ang: 0 }]);
+  assert.equal(WEAPONS.dreno.efeito.tipo, 'dreno');
+  assert.equal(WEAPONS.crio.efeito.tipo, 'lento');
+});
+
+test('criogênico: nave lenta voa a uma fração da velocidade máxima e depois volta', () => {
+  const max = RACES.shrewdo.velocidade * VEL_FATOR;
+  const s = createShip('shrewdo', BASE.x, BASE.z, 0);
+  s.lento = CRIO_DURACAO;
+  let maior = 0;
+  for (let i = 0; i < Math.floor(CRIO_DURACAO / DT) - 1; i++) {
+    stepShip(s, FRENTE);
+    maior = Math.max(maior, Math.hypot(s.vx, s.vz));
+  }
+  assert.ok(maior <= max * CRIO_LENTIDAO + 1e-6, `lenta: ${maior} > ${max * CRIO_LENTIDAO}`);
+  assert.ok(maior > max * CRIO_LENTIDAO * 0.9, 'chegou perto do limite lento');
+  assert.ok(s.lento > 0 && s.lento < CRIO_DURACAO, `lento conta para baixo: ${s.lento}`);
+  for (let i = 0; i < 30 * 4; i++) stepShip(s, FRENTE);
+  assert.equal(s.lento, 0);
+  assert.ok(Math.hypot(s.vx, s.vz) > max * 0.9, 'voltou à velocidade normal');
+});
+
 test('armas: o laser duplo gasta e recarrega conforme as constantes', () => {
   const s = createShip('acron', 0, 0, 0);
   const en = s.en;
@@ -179,12 +235,21 @@ test('armas: o laser duplo gasta e recarrega conforme as constantes', () => {
   assert.ok(disparos >= esperado - 1 && disparos <= esperado, `${disparos} disparos em 1 s`);
 });
 
-test('armas: o duplo não é estritamente melhor que o simples', () => {
-  const dps = (w) => (w.dano * (w.canos?.length ?? 1)) / w.cd;
+test('armas: nenhuma é estritamente melhor que as outras', () => {
+  const n = (w) => (w.canos?.length ?? 1) * (w.leque?.length ?? 1);
+  // Dano por segundo num alvo só, com todos os projéteis acertando e o dreno inteiro.
+  const dps = (w) => (w.dano * n(w)) / w.cd + (w.efeito?.tipo === 'dreno' ? w.efeito.dps : 0);
   const gasto = (w) => w.energia / w.cd;
-  assert.ok(dps(WEAPONS.laserDuplo) < dps(WEAPONS.laser), 'mesmo acertando os dois, tira menos por segundo');
-  assert.ok(gasto(WEAPONS.laserDuplo) > gasto(WEAPONS.laser), 'gasta mais energia por segundo');
-  assert.ok(WEAPONS.laserDuplo.dano < WEAPONS.laser.dano, 'cada projétil tira menos');
+  const simples = WEAPONS.laser;
+  for (const kind of ARMAS_PRINCIPAIS.slice(1)) {
+    const w = WEAPONS[kind];
+    assert.ok(dps(w) < dps(simples), `${kind}: tira menos por segundo que o simples`);
+    assert.ok(w.dano < simples.dano, `${kind}: cada projétil tira menos`);
+    assert.ok(n(w) > 1 || w.efeito, `${kind}: em troca, mais projéteis ou um efeito`);
+  }
+  // As de vários projéteis gastam mais energia por segundo que o simples.
+  assert.ok(gasto(WEAPONS.laserDuplo) > gasto(simples));
+  assert.ok(gasto(WEAPONS.laserTriplo) > gasto(simples));
 });
 
 test('armas: trocar de arma não zera a recarga do tiro', () => {

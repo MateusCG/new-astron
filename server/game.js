@@ -9,6 +9,12 @@
 //
 // Limites contra trapaça: no máximo MAX_INPUTS_TICK comandos por tick (não dá para
 // "acelerar o tempo" mandando comando demais) e fila de no máximo MAX_FILA.
+//
+// Efeitos de arma (WEAPONS[].efeito) também são só do servidor: o dreno fica na
+// entidade (drenoTicks, drenoDono) e tira vida a cada tick, respeitando a zona
+// segura e a proteção de nascimento; a lentidão do criogênico vai para ship.lento,
+// que o stepShip usa e o snapshot leva no `me` (para a predição bater). As
+// entidades do snapshot trazem `dreno` e `lento` para todos desenharem o efeito.
 
 import {
   DT,
@@ -137,8 +143,8 @@ export class World {
   }
 
   #atira(ent, disparos) {
-    for (const { kind, off } of disparos) {
-      const b = createBullet(ent.ship, kind, this.#id(), ent.id, off);
+    for (const { kind, off, ang } of disparos) {
+      const b = createBullet(ent.ship, kind, this.#id(), ent.id, off, ang);
       b.drone = !!ent.drone;
       this.bullets.push(b);
       this.eventos.push({ e: 'tiro', id: b.id, dono: ent.id, kind, x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz });
@@ -189,20 +195,42 @@ export class World {
     }
     const w = WEAPONS[bala.kind];
     const dano = Math.round(w.dano * (bala.drone ? DRONE.danoMult : 1));
+    this.eventos.push({ e: 'acerto', bala: bala.id, alvo: alvo.id, dano, x: bala.x, y: bala.y, z: bala.z });
+    // Acertar de novo renova a duração do efeito; não soma nem empilha.
+    if (w.efeito?.tipo === 'dreno') {
+      alvo.drenoTicks = Math.round(w.efeito.duracao * TICK_HZ);
+      alvo.drenoDono = bala.owner;
+    } else if (w.efeito?.tipo === 'lento') {
+      alvo.ship.lento = Math.max(alvo.ship.lento || 0, w.efeito.duracao);
+    }
+    this.#ferir(alvo, dano, bala.owner);
+  }
+
+  /** Tira vida; se zerar, mata e dá o abate (e o ouro) para quem causou. */
+  #ferir(alvo, dano, dono) {
     alvo.ship.hp -= dano;
     alvo.ultimoDano = this.tick;
-    this.eventos.push({ e: 'acerto', bala: bala.id, alvo: alvo.id, dano, x: bala.x, y: bala.y, z: bala.z });
     if (alvo.ship.hp > 0) return;
     alvo.ship.hp = 0;
     alvo.vivo = false;
+    alvo.drenoTicks = 0;
     alvo.respawnTick = this.tick + RESPAWN_TICKS;
     if (!alvo.drone) alvo.mortes++;
-    const matador = this.players.get(bala.owner);
+    const matador = this.players.get(dono);
     if (matador && matador.id !== alvo.id) {
       matador.abates++;
       matador.ouro += alvo.drone ? DRONE.ouro : OURO_ABATE_JOGADOR;
     }
-    this.eventos.push({ e: 'morte', id: alvo.id, por: bala.owner, x: alvo.ship.x, y: alvo.ship.y, z: alvo.ship.z });
+    this.eventos.push({ e: 'morte', id: alvo.id, por: dono, x: alvo.ship.x, y: alvo.ship.y, z: alvo.ship.z });
+  }
+
+  /** Dreno: um tick de dano por tempo. Na zona segura/proteção o tempo corre sem dano. */
+  #drenar(ent) {
+    if (!(ent.drenoTicks > 0)) return;
+    ent.drenoTicks--;
+    if (this.#protegido(ent)) return;
+    const w = WEAPONS.dreno;
+    this.#ferir(ent, w.efeito.dps * DT, ent.drenoDono);
   }
 
   #regen(ent) {
@@ -230,6 +258,7 @@ export class World {
       ent.protegidoAte = this.tick + PROTECAO_TICKS;
     }
     ent.vivo = true;
+    ent.drenoTicks = 0;
     this.eventos.push({ e: 'renasceu', id: ent.id });
   }
 
@@ -251,7 +280,8 @@ export class World {
         this.#atira(j, stepShip(j.ship, inp));
         j.ack = seq;
       }
-      this.#regen(j);
+      this.#drenar(j);
+      if (j.vivo) this.#regen(j);
     }
 
     for (const d of this.drones) {
@@ -260,7 +290,8 @@ export class World {
         continue;
       }
       this.#atira(d, stepShip(d.ship, this.#iaDrone(d)));
-      this.#regen(d);
+      this.#drenar(d);
+      if (d.vivo) this.#regen(d);
     }
 
     const vivos = [...this.players.values(), ...this.drones].filter((e) => e.vivo);
@@ -305,6 +336,8 @@ export class World {
         maxHp: e.ship.maxHp,
         boost: e.ship.boost,
         pousado: e.ship.pousado,
+        dreno: e.drenoTicks > 0,
+        lento: e.ship.lento > 0,
       });
     for (const j of this.players.values()) add(j);
     for (const d of this.drones) add(d);
