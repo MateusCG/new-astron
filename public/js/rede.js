@@ -54,12 +54,20 @@ export class Rede {
     });
   }
 
-  /** Fecha a conexão (sem avisar aoFechar: quem fecha sabe por quê). */
+  /**
+   * Fecha a conexão (sem avisar aoFechar: quem fecha sabe por quê). Também desliga
+   * o ping e as mensagens que ainda estejam a caminho: depois de sair para a tela
+   * inicial, um snapshot atrasado não pode cair num jogo já desmontado.
+   */
   fechar() {
+    clearInterval(this.relogioPing);
+    this.aoReceber = () => {};
+    this.aoFechar = () => {};
     if (!this.ws) return;
     this.ws.onclose = null;
+    this.ws.onmessage = null;
+    this.ws.onerror = null;
     this.ws.close();
-    clearInterval(this.relogioPing);
   }
 
   #medirPing() {
