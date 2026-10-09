@@ -1,0 +1,87 @@
+// XP, nível e ouro do jogador na partida (DESIGN-PARTIDA.md, "Progressão do
+// jogador"). Tudo em memória: começa no nível 1 a cada entrada.
+//
+// Quem dá XP e ouro: destruir monstros (Arnosh, Vorax, Krakor, o guardião do
+// objetivo C), mineradores do outro time (tipo 'minerador', quando existirem) e
+// jogadores inimigos; tomar um objetivo A ou B dá XP_OBJETIVO a quem tomou (no C,
+// o XP é o do abate do guardião). Os valores por tipo ficam em RECOMPENSA.
+//
+// Curva: para passar do nível n para o n + 1 são xpParaNivel(n) pontos (60 no
+// primeiro, +20 a cada nível). Numa partida de 10 minutos, caçando sem parar, dá
+// para chegar perto do 15: o nível 5 sai com uns 12 Vorax, o 10 com uns 1300 XP e o
+// 15 com uns 2700. NIVEL_MAX fecha a conta; lá a barra fica cheia.
+//
+// XP, nível e ouro são da partida: zeram quando começa a seguinte (World,
+// #passoPartida).
+//
+// Subir de nível dá um ganho pequeno e automático: +HP_POR_NIVEL (3%) do HP máximo
+// da raça por nível acima do 1 (nível 10 = +27%). O HP sobe junto com o máximo
+// (não cura o resto). Os níveis 5, 10 e 15 serão os marcos da Evolução paga
+// (tarefa da Evolução): ela só precisa ler `j.nivel`.
+
+import { RACES } from '../shared/sim.js';
+import { MINERADOR } from './mineradores.js';
+
+export const NIVEL_MAX = 20;
+export const HP_POR_NIVEL = 0.03; // fração do HP da raça por nível acima do 1
+export const XP_OBJETIVO = 60; // a quem toma um objetivo A ou B
+/** XP e ouro por abate, pelo tipo do que morreu. */
+export const RECOMPENSA = {
+  arnosh: { xp: 20, ouro: 25 },
+  vorax: { xp: 30, ouro: 30 },
+  krakor: { xp: 120, ouro: 90 },
+  guardiao: { xp: 250, ouro: 150 },
+  minerador: { xp: 40, ouro: MINERADOR.ouro },
+  jogador: { xp: 100, ouro: 50 },
+};
+
+/** Campos de progressão de um jogador que acabou de entrar. */
+export function novaProgressao() {
+  return { nivel: 1, xp: 0 };
+}
+
+/** XP para passar do nível n para o n + 1 (0 no nível máximo). */
+export function xpParaNivel(n) {
+  return n >= NIVEL_MAX ? 0 : 60 + 20 * (n - 1);
+}
+
+/** HP máximo da nave da raça no nível. */
+export function hpMaxDoNivel(race, nivel) {
+  const base = RACES[race]?.hp ?? RACES.shrewdo.hp;
+  return Math.round(base * (1 + HP_POR_NIVEL * (nivel - 1)));
+}
+
+/** Põe na nave (recém-criada) o HP máximo do nível, cheia. */
+export function aplicarNivel(ship, nivel) {
+  ship.maxHp = hpMaxDoNivel(ship.race, nivel);
+  ship.hp = ship.maxHp;
+}
+
+/**
+ * Dá `xp` ao jogador, subindo de nível quantas vezes der. Cada subida vira um
+ * evento {e:'nivel', id, nivel} em `eventos`. Devolve quantos níveis subiu.
+ */
+export function ganharXp(j, xp, eventos) {
+  let subiu = 0;
+  j.xp += xp;
+  while (j.nivel < NIVEL_MAX && j.xp >= xpParaNivel(j.nivel)) {
+    j.xp -= xpParaNivel(j.nivel);
+    j.nivel++;
+    subiu++;
+    const s = j.ship;
+    const novo = hpMaxDoNivel(s.race, j.nivel);
+    if (s.hp > 0) s.hp += novo - s.maxHp;
+    s.maxHp = novo;
+    eventos?.push({ e: 'nivel', id: j.id, nivel: j.nivel });
+  }
+  if (j.nivel >= NIVEL_MAX) j.xp = 0;
+  return subiu;
+}
+
+/** Dá ao jogador o XP e o ouro do abate de algo do tipo `tipo`. */
+export function recompensar(j, tipo, eventos) {
+  const r = RECOMPENSA[tipo];
+  if (!r) return 0;
+  j.ouro += r.ouro;
+  return ganharXp(j, r.xp, eventos);
+}

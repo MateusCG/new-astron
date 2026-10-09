@@ -3,7 +3,7 @@
 // estado para os clientes a 15 Hz.
 //
 // Regra de ouro herdada do Sideral: o servidor decide tudo o que importa (posição,
-// acerto, dano, morte, ouro). O cliente só manda comandos numerados (seq); o servidor
+// acerto, dano, morte, ouro, XP). O cliente só manda comandos numerados (seq); o servidor
 // aplica cada comando uma vez, em ordem, e devolve no snapshot o último seq aplicado
 // (ack) junto com o estado da nave, para o cliente reconciliar a predição.
 //
@@ -23,6 +23,8 @@
 // fogo amigo, nem nos mineradores); a zona segura só protege o time dono da base
 // (na base do outro time você leva dano normalmente). Drones e Vorax continuam sem
 // entrar em base nenhuma: as duas são território dos jogadores.
+//
+// XP, nível e ouro por abate ficam em server/progressao.js (na morte, em #ferir).
 
 import {
   DT,
@@ -41,8 +43,9 @@ import { BASE, BASES, CORREDOR } from '../shared/terrain.js';
 import { pontoAberto } from '../shared/obstaculos.js';
 import { MapaNavegacao } from './navegacao.js';
 import { Partida, N_TIMES } from './partida.js';
-import { Mineradores, MINERADOR } from './mineradores.js';
+import { Mineradores } from './mineradores.js';
 import { Bonus } from './bonus.js';
+import { novaProgressao, recompensar, aplicarNivel, xpParaNivel } from './progressao.js';
 
 export const TICK_HZ = 30;
 const SNAP_CADA = 2; // ticks entre snapshots (15 Hz)
@@ -53,9 +56,9 @@ const REGEN_ESPERA_TICKS = 5 * TICK_HZ;
 const VOO_REGEN_HP = 0.03; // fração do HP máximo por segundo, voando
 const POUSO_REGEN_HP = 0.08; // fração do HP máximo por segundo, pousada
 const POUSO_REGEN_ESPERA_TICKS = 1 * TICK_HZ;
+// XP e ouro de cada tipo de abate ficam em RECOMPENSA (server/progressao.js).
 const N_DRONES = 10;
-const DRONE = { nome: 'Arnosh', hp: 90, visao: 200, alcance: 210, danoMult: 0.5, ouro: 25 };
-const OURO_ABATE_JOGADOR = 50;
+const DRONE = { nome: 'Arnosh', hp: 90, visao: 200, alcance: 210, danoMult: 0.5 };
 // Zona segura: em volta da base do PRÓPRIO time ninguém leva dano. Drones não
 // perseguem quem está em base nenhuma (nem entram nelas).
 export const ZONA_SEGURA = BASE.raio + 30;
@@ -80,7 +83,6 @@ const VORAX = {
   dano: 10, // por golpe de garra
   alcance: 14, // m entre os centros para a garra pegar
   intervaloS: 1.2, // s entre golpes do mesmo monstro
-  ouro: 30,
   renascerS: 6,
   distRenascer: 450, // m mínimos de qualquer jogador vivo ao renascer
 };
@@ -256,6 +258,7 @@ export class World {
       ouro: 0,
       abates: 0,
       mortes: 0,
+      ...novaProgressao(), // nivel, xp
     };
     this.players.set(id, jogador);
     this.eventos.push({ e: 'entrou', id, nome: jogador.nome, time });
@@ -517,8 +520,9 @@ export class World {
 
   /**
    * Tira `dano` de vida do alvo (tiro, garra ou dreno) e trata a morte, dando o
-   * abate e o ouro a `autor`. `ev` é o evento do golpe, completado aqui com alvo e
-   * dano (0 se o alvo estava protegido); o dreno, que fere a cada tick, não manda.
+   * abate, o ouro e o XP a `autor` (RECOMPENSA pelo tipo do alvo). `ev` é o evento
+   * do golpe, completado aqui com alvo e dano (0 se o alvo estava protegido); o
+   * dreno, que fere a cada tick, não manda.
    */
   #ferir(alvo, dano, autor, ev) {
     if (this.#protegido(alvo)) {
@@ -535,15 +539,16 @@ export class World {
     alvo.respawnTick = this.tick + (alvo.tipo === 'vorax' ? VORAX_RENASCER_TICKS : RESPAWN_TICKS);
     if (alvo.tipo === 'jogador') alvo.mortes++;
     if (alvo.tipo === 'minerador') alvo.carga = 0; // o minério que carregava se perde
-    const matador = this.players.get(autor);
-    if (matador && matador.id !== alvo.id) {
-      matador.abates++;
-      matador.ouro +=
-        alvo.tipo === 'vorax' ? VORAX.ouro : alvo.tipo === 'minerador' ? MINERADOR.ouro : alvo.drone ? DRONE.ouro : OURO_ABATE_JOGADOR;
-    }
+    let matador = this.players.get(autor);
+    if (matador?.id === alvo.id) matador = undefined;
     const morte = { e: 'morte', id: alvo.id, por: autor, tipo: alvo.tipo, x: alvo.ship.x, y: alvo.ship.y, z: alvo.ship.z };
     if (alvo.time !== undefined) morte.time = alvo.time;
     this.eventos.push(morte);
+    if (matador) {
+      // Ouro e XP pelo tipo do que morreu (RECOMPENSA: monstro, minerador, jogador).
+      matador.abates++;
+      recompensar(matador, alvo.tipo, this.eventos);
+    }
   }
 
   /** Dreno: um tick de dano por tempo. Na zona segura/proteção o tempo corre sem dano. */
@@ -576,6 +581,7 @@ export class World {
       ent.ship = novo.ship;
     } else {
       ent.ship = this.#naveNaBase(ent.ship.race, ent.time);
+      aplicarNivel(ent.ship, ent.nivel);
       ent.fila.length = 0;
       ent.protegidoAte = this.tick + PROTECAO_TICKS;
     }
@@ -600,6 +606,8 @@ export class World {
       if (vinhaDoFim) {
         for (const j of this.players.values()) {
           if (j.fila.length) j.ack = j.fila[j.fila.length - 1].seq; // descarta sem travar a predição
+          // Ouro, XP e nível são da partida (como num MOBA): zeram na seguinte.
+          Object.assign(j, novaProgressao(), { ouro: 0 });
           this.#respawn(j);
         }
       }
@@ -690,7 +698,7 @@ export class World {
    * Entidades visíveis para todos (mesma lista para cada jogador). `tipo` diz o
    * que desenhar ('jogador', 'arnosh', 'vorax' ou 'minerador'); `drone` continua
    * true para todo inimigo do PvE. Jogadores e mineradores trazem `time`; os
-   * mineradores também `carga` (minério no contêiner) e `minerando`.
+   * mineradores também `carga` (minério no contêiner) e `minerando`. Jogador traz `nivel`.
    */
   entidades() {
     const lista = [];
@@ -715,6 +723,7 @@ export class World {
         lento: e.ship.lento > 0,
       };
       if (e.time !== undefined) ent.time = e.time;
+      if (e.nivel !== undefined) ent.nivel = e.nivel;
       if (e.tipo === 'minerador') {
         ent.carga = e.carga;
         ent.minerando = e.estado === 'minerando';
@@ -728,7 +737,11 @@ export class World {
     return lista;
   }
 
-  /** Snapshot para um jogador: estado completo da própria nave + o resto do mundo. */
+  /**
+   * Snapshot para um jogador: estado completo da própria nave + o resto do mundo.
+   * Também o nível e o XP dele (xp dentro do nível, xpProx para o próximo; 0 no
+   * máximo).
+   */
   snapshotPara(j, ents, eventos) {
     return {
       t: 'snap',
@@ -742,6 +755,9 @@ export class World {
       mortes: j.mortes,
       partida: this.partida.paraSnapshot(this.tick),
       bonus: this.bonus.paraSnapshot(this.tick),
+      nivel: j.nivel,
+      xp: j.xp,
+      xpProx: xpParaNivel(j.nivel),
       ents,
       ev: eventos,
     };
