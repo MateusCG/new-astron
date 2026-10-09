@@ -17,7 +17,7 @@
 // WebGL fica, porque é reaproveitado na próxima entrada.
 
 import * as THREE from 'three';
-import { DT, RACES, createBullet, stepShip, bulletHits, forward } from '/shared/sim.js';
+import { DT, RACES, WEAPONS, createBullet, stepShip, bulletHits, forward } from '/shared/sim.js';
 import { podePousar } from '/shared/terrain.js';
 import { alturaSolida } from '/shared/obstaculos.js';
 import { criarCena, liberarCena } from './cena.js';
@@ -26,6 +26,7 @@ import { Efeitos } from './efeitos.js';
 import { Controles } from './controles.js';
 import { Hud } from './hud.js';
 import { Rede } from './rede.js';
+import { MenuArmas } from './armas.js';
 
 const INTERP_MS = 120;
 const CAMERAS = [
@@ -107,7 +108,13 @@ function montarEntrada() {
 
 /** Sai da partida e mostra a tela de entrada com o nome e a raça de antes. */
 function voltarParaEntrada() {
-  jogoAtual?.sair();
+  // A tela de entrada volta mesmo se o desmonte falhar: preso numa tela vazia, o
+  // jogador não teria como continuar sem recarregar a página.
+  try {
+    jogoAtual?.sair();
+  } catch (err) {
+    console.error('Falha ao desmontar a partida:', err);
+  }
   jogoAtual = null;
   const botao = document.querySelector('#form-entrada .decolar');
   botao.disabled = false;
@@ -175,6 +182,10 @@ function montarJogo(rede, boas, renderer, race) {
   const efeitos = new Efeitos(scene);
   const controles = new Controles(document.body);
   const hud = new Hud();
+  const menuArmas = new MenuArmas({
+    aoTrocar: (i, kind) => hud.noticia(`Arma: ${WEAPONS[kind].nome}`, 'bom'),
+    signal: controles.parar.signal, // desliga junto com os controles ao sair
+  });
   document.querySelector('#hud').hidden = false;
 
   function redimensionar() {
@@ -213,6 +224,9 @@ function montarJogo(rede, boas, renderer, race) {
   function passo() {
     if (!vivo || !pred) return;
     const inp = controles.ler();
+    // A arma escolhida no menu vai em todo comando; com o menu aberto não sai tiro.
+    inp.a = menuArmas.arma;
+    if (menuArmas.aberto) inp.f1 = inp.f2 = false;
     seq++;
     rede.enviar({ t: 'in', s: seq, ...inp });
     ant = pose(pred);
@@ -220,8 +234,8 @@ function montarJogo(rede, boas, renderer, race) {
     if (apertouPouso && !pred.pousado && !podePousar(pred.x, pred.z)) {
       hud.noticia('Só dá para pousar no círculo de neon da base', 'ruim');
     }
-    for (const kind of stepShip(pred, inp)) {
-      efeitos.tiro(createBullet(pred, kind, 'l' + localSeq++, meuId));
+    for (const { kind, off, ang } of stepShip(pred, inp)) {
+      efeitos.tiro(createBullet(pred, kind, 'l' + localSeq++, meuId, off, ang));
     }
     pendentes.push({ seq, inp });
     if (pendentes.length > 120) pendentes.shift();
@@ -376,6 +390,10 @@ function montarJogo(rede, boas, renderer, race) {
       minhaNave.rotation.y = lerpAng(ant.yaw, pred.yaw, alfa);
       minhaNave.userData.corpo.rotation.z = lerp(ant.roll, pred.roll, alfa);
       atualizarMotor(minhaNave, pred.boost, tempo, pred.pousado);
+      const eu = snaps.at(-1)?.ents.find((e) => e.id === meuId);
+      const meusEfeitos = { dreno: !!eu?.dreno && vivo, lento: pred.lento > 0 && vivo };
+      efeitos.estadoNave(minhaNave, meusEfeitos, dt, tempo);
+      hud.efeitosProprios(meusEfeitos);
       foco.set(x, y, z);
     }
 
@@ -402,6 +420,7 @@ function montarJogo(rede, boas, renderer, race) {
       if (e.tipo === 'vorax') animarVorax(o.obj, tempo, e.id);
       else if (e.drone) o.obj.userData.corpo.rotation.y = Math.sin(tempo * 3 + e.id) * 0.15;
       atualizarMotor(o.obj, e.boost, tempo, e.pousado);
+      efeitos.estadoNave(o.obj, { dreno: !!e.dreno, lento: !!e.lento }, dt, tempo);
       rotulos.push({ id: e.id, nome: e.nome, drone: e.drone, race: e.race, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position });
     }
     for (const [id, o] of outras) {
@@ -468,7 +487,7 @@ function montarJogo(rede, boas, renderer, race) {
   idQuadro = requestAnimationFrame(quadro);
 
   // Para depuração no console e para os testes de navegador.
-  window.__astron = { get pred() { return pred; }, get vivo() { return vivo; }, scene, camera };
+  window.__astron = { get pred() { return pred; }, get vivo() { return vivo; }, scene, camera, menuArmas };
 
   /**
    * Desmonta a partida: fecha a conexão (o servidor tira a nave do mundo no
@@ -481,10 +500,11 @@ function montarJogo(rede, boas, renderer, race) {
     cancelAnimationFrame(idQuadro);
     rede.fechar();
     controles.destruir();
+    menuArmas.el.hidden = true;
     removeEventListener('resize', redimensionar);
     hud.limpar();
     renderer.domElement.remove();
-    efeitos.geoLaser.dispose();
+    efeitos.liberar();
     liberarCena(scene);
     renderer.renderLists.dispose();
     if (window.__astron?.scene === scene) window.__astron = null;

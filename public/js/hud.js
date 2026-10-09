@@ -3,7 +3,8 @@
 
 import * as THREE from 'three';
 import { paredeAt, MAP_HALF, BASE } from '/shared/terrain.js';
-import { RACES } from '/shared/sim.js';
+import { RACES, WEAPONS, ARMAS_PRINCIPAIS } from '/shared/sim.js';
+import { iconeArma } from './armas.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -16,6 +17,8 @@ export class Hud {
     this.ouro = $('#ouro');
     this.abates = $('#abates');
     this.vel = $('#vel');
+    this.armaAtual = $('#arma-atual');
+    this.armaMostrada = null;
     this.ping = $('#ping');
     this.aviso = $('#aviso');
     this.avisoPouso = $('#pouso');
@@ -101,6 +104,13 @@ export class Hud {
     this.abates.textContent = extra.abates;
     this.vel.textContent = Math.round(Math.hypot(me.vx, me.vz) * 3.6) + ' km/h';
     this.ping.textContent = ping ? `${ping} ms` : '';
+    // Mostra a arma da nave prevista (a mesma que o servidor usa no próximo tiro).
+    const kind = ARMAS_PRINCIPAIS[me.arma ?? 0] ?? ARMAS_PRINCIPAIS[0];
+    if (kind !== this.armaMostrada) {
+      this.armaMostrada = kind;
+      this.armaAtual.querySelector('.icone').innerHTML = iconeArma(kind);
+      this.armaAtual.querySelector('.nome').textContent = WEAPONS[kind].nome;
+    }
   }
 
   /** Dica de pouso: 'pousada', 'area' (dentro do círculo, voando) ou null. */
@@ -115,6 +125,14 @@ export class Hud {
       this.avisoPouso.dataset.estado = estado ?? '';
     }
     this.avisoPouso.hidden = !html;
+  }
+
+  /** Avisa quando a própria nave começa a drenar ou fica lenta (só na mudança). */
+  efeitosProprios({ dreno, lento }) {
+    if (dreno && !this.drenando) this.noticia('Dreno: você está perdendo vida', 'ruim');
+    if (lento && !this.lenta) this.noticia('Criogênico: sua nave está lenta', 'ruim');
+    this.drenando = dreno;
+    this.lenta = lento;
   }
 
   mostrarAviso(texto) {

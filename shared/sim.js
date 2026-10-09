@@ -50,11 +50,109 @@ export const BOOST_MULT = 1.6;
 export const BOOST_GASTO = 14; // energia por segundo
 export const ENERGIA_REGEN = 9; // por segundo, sem boost
 
-/** Armas: Z = laser rápido e barato, X = plasma lento e pesado. */
+// Arma principal (Z): o piloto escolhe no menu de armas (tecla Q) uma das cinco
+// de ARMAS_PRINCIPAIS. Nenhuma é estritamente melhor: o laser simples tem o maior
+// dano por segundo num alvo só; as outras trocam dano por outra coisa.
+// - Laser duplo: dois projéteis paralelos, um de cada lado do nariz (LASER_DUPLO_VAO
+//   m do eixo). Faixa mais larga, mais fácil de acertar, mas menos dano e mais gasto.
+// - Laser triplo: leque de três projéteis (um reto e dois abertos LASER_TRIPLO_ANGULO
+//   rad). Pega quem desvia e mais de um alvo; de perto os três acertam, de longe um só.
+// - Dreno: pouco dano no impacto, mas o alvo perde DRENO_DPS de vida por segundo
+//   durante DRENO_DURACAO s. Acertar de novo renova a duração, não soma (sem
+//   empilhar). Quem aplica o dreno é o servidor, a cada tick; o abate fica com quem
+//   atirou. Gasta menos energia do que a nave regenera: dá para atirar sem parar.
+// - Criogênico: pouco dano, mas o alvo voa a CRIO_LENTIDAO da velocidade máxima por
+//   CRIO_DURACAO s (s.lento, usado aqui em stepShip para a predição bater).
+export const LASER_DUPLO_VAO = 2.5; // m do eixo até cada cano
+export const LASER_DUPLO_DANO = 7; // por projétil (o simples tira 12)
+export const LASER_DUPLO_CD = 0.2; // s (o simples recarrega em 0,16)
+export const LASER_DUPLO_ENERGIA = 3; // por disparo, os dois projéteis juntos (o simples gasta 2)
+export const LASER_TRIPLO_ANGULO = 0.1; // rad (~6°) entre o projétil do meio e cada lado
+export const LASER_TRIPLO_DANO = 5; // por projétil
+export const LASER_TRIPLO_CD = 0.24;
+export const LASER_TRIPLO_ENERGIA = 4; // por disparo, os três juntos
+export const DRENO_DANO = 5; // no impacto
+export const DRENO_DPS = 8; // vida por segundo enquanto drena
+export const DRENO_DURACAO = 4; // s; acertar de novo volta para este valor
+export const DRENO_CD = 0.45;
+export const DRENO_ENERGIA = 4;
+export const CRIO_DANO = 6;
+export const CRIO_LENTIDAO = 0.5; // fração da velocidade máxima enquanto lento
+export const CRIO_DURACAO = 3; // s; acertar de novo volta para este valor
+export const CRIO_CD = 0.3;
+export const CRIO_ENERGIA = 3;
+
+/**
+ * Armas: Z = arma principal escolhida no menu (ARMAS_PRINCIPAIS), X = plasma lento e
+ * pesado. Por disparo saem projéteis em cada combinação de canos (deslocamento
+ * lateral em m, + = direita) e leque (ângulo em rad, + = esquerda, como o yaw);
+ * sem os dois, um projétil só, reto pelo nariz. energia é por disparo. efeito é
+ * aplicado pelo servidor em quem o projétil acerta.
+ */
 export const WEAPONS = {
-  laser: { dano: 12, vel: 340, cd: 0.16, energia: 2, vida: 1.3, raio: 5 },
-  plasma: { dano: 42, vel: 190, cd: 0.9, energia: 14, vida: 2.2, raio: 6.5 },
+  laser: { nome: 'Laser simples', dano: 12, vel: 340, cd: 0.16, energia: 2, vida: 1.3, raio: 5 },
+  laserDuplo: {
+    nome: 'Laser duplo',
+    dano: LASER_DUPLO_DANO,
+    vel: 340,
+    cd: LASER_DUPLO_CD,
+    energia: LASER_DUPLO_ENERGIA,
+    vida: 1.3,
+    raio: 4,
+    canos: [-LASER_DUPLO_VAO, LASER_DUPLO_VAO],
+  },
+  laserTriplo: {
+    nome: 'Laser triplo',
+    dano: LASER_TRIPLO_DANO,
+    vel: 340,
+    cd: LASER_TRIPLO_CD,
+    energia: LASER_TRIPLO_ENERGIA,
+    vida: 1.1,
+    raio: 4,
+    leque: [LASER_TRIPLO_ANGULO, 0, -LASER_TRIPLO_ANGULO],
+  },
+  dreno: {
+    nome: 'Dreno',
+    dano: DRENO_DANO,
+    vel: 260,
+    cd: DRENO_CD,
+    energia: DRENO_ENERGIA,
+    vida: 1.6,
+    raio: 5.5,
+    efeito: { tipo: 'dreno', dps: DRENO_DPS, duracao: DRENO_DURACAO },
+  },
+  crio: {
+    nome: 'Criogênico',
+    dano: CRIO_DANO,
+    vel: 300,
+    cd: CRIO_CD,
+    energia: CRIO_ENERGIA,
+    vida: 1.4,
+    raio: 5,
+    efeito: { tipo: 'lento', mult: CRIO_LENTIDAO, duracao: CRIO_DURACAO },
+  },
+  plasma: { nome: 'Plasma', dano: 42, vel: 190, cd: 0.9, energia: 14, vida: 2.2, raio: 6.5 },
 };
+
+/** Opções da arma principal, na ordem do menu: o campo `a` do comando é o índice aqui. */
+export const ARMAS_PRINCIPAIS = ['laser', 'laserDuplo', 'laserTriplo', 'dreno', 'crio'];
+
+/** Índice de arma principal válido; qualquer outra coisa vira 0 (laser simples). */
+export function armaValida(a) {
+  return Number.isInteger(a) && a >= 0 && a < ARMAS_PRINCIPAIS.length ? a : 0;
+}
+
+/** Todas as armas principais (índices). Hoje toda nave nasce com todas liberadas. */
+export const TODAS_AS_ARMAS = ARMAS_PRINCIPAIS.map((_, i) => i);
+
+/**
+ * A nave pode usar a arma de índice a? Olha s.armas (as armas que o piloto possui);
+ * o laser simples (0) é sempre liberado. Quando houver loja, quem comprar põe o
+ * índice em s.armas (e o servidor guarda a lista no jogador para o renascimento).
+ */
+export function possuiArma(s, a) {
+  return a === 0 || !s.armas || s.armas.includes(a);
+}
 
 function clamp(v, a, b) {
   return v < a ? a : v > b ? b : v;
@@ -83,6 +181,9 @@ export function createShip(race, x, z, yaw = 0) {
     maxEn: r.energia,
     cd1: 0,
     cd2: 0,
+    arma: 0, // índice em ARMAS_PRINCIPAIS
+    armas: [...TODAS_AS_ARMAS], // armas principais que o piloto possui (ver possuiArma)
+    lento: 0, // segundos restantes de lentidão (tiro criogênico); o servidor põe no acerto
     boost: false,
     boostTravado: false,
     pousado: false,
@@ -91,7 +192,7 @@ export function createShip(race, x, z, yaw = 0) {
 }
 
 /** Comando vazio (nave solta). */
-export const INPUT_VAZIO = { th: 0, tu: 0, b: false, f1: false, f2: false, p: false };
+export const INPUT_VAZIO = { th: 0, tu: 0, b: false, f1: false, f2: false, p: false, a: 0 };
 
 /** Normaliza um comando vindo da rede: nunca confie no cliente. */
 export function sanitizeInput(i) {
@@ -102,6 +203,7 @@ export function sanitizeInput(i) {
     f1: !!i?.f1,
     f2: !!i?.f2,
     p: !!i?.p,
+    a: armaValida(i?.a),
   };
 }
 
@@ -111,11 +213,19 @@ function bloqueado(gAtual, x, z, passo) {
 }
 
 /**
- * Avança a nave um passo DT com o comando dado. Retorna a lista de armas que
- * dispararam neste passo ('laser' | 'plasma'), para quem chamou criar os tiros.
+ * Avança a nave um passo DT com o comando dado. Retorna os projéteis disparados
+ * neste passo, como [{ kind, off, ang }] (kind = chave de WEAPONS, off =
+ * deslocamento lateral em metros, ang = desvio do rumo em rad), para quem chamou
+ * criar cada tiro com createBullet.
  */
 export function stepShip(s, inp, dt = DT) {
   const raca = RACES[s.race];
+  // A arma principal vem no comando (a) a cada passo, para predição e servidor
+  // trocarem no mesmo passo. A recarga (cd1) é a mesma para as duas: trocar de arma
+  // não zera a espera do tiro.
+  // Pedir uma arma que a nave não possui volta para o laser simples.
+  const pedida = armaValida(inp.a);
+  s.arma = possuiArma(s, pedida) ? pedida : 0;
   // Pouso alterna na borda do botão (apertou agora), para segurar L não ficar
   // pousando e decolando sem parar.
   if (inp.p && !s.pAnt) s.pousado = s.pousado ? false : podePousar(s.x, s.z);
@@ -128,7 +238,8 @@ export function stepShip(s, inp, dt = DT) {
   if (!inp.b) s.boostTravado = false;
   const querBoost = !pousado && inp.b && inp.th > 0 && s.en > 0 && !s.boostTravado;
   s.boost = querBoost;
-  const maxV = raca.velocidade * VEL_FATOR * (querBoost ? BOOST_MULT : 1);
+  const maxV = raca.velocidade * VEL_FATOR * (querBoost ? BOOST_MULT : 1) * (s.lento > 0 ? CRIO_LENTIDAO : 1);
+  s.lento = Math.max(0, (s.lento || 0) - dt);
 
   s.yaw += inp.tu * TURN_RATE * (pousado ? POUSO_GIRO : 1) * dt;
   s.roll += ((pousado ? 0 : inp.tu * INCLINACAO_CURVA) - s.roll) * Math.min(1, 6 * dt);
@@ -181,33 +292,41 @@ export function stepShip(s, inp, dt = DT) {
   s.cd2 = Math.max(0, s.cd2 - dt);
   const disparos = [];
   if (pousado) return disparos;
-  if (inp.f1 && s.cd1 <= 0 && s.en >= WEAPONS.laser.energia) {
-    s.cd1 = WEAPONS.laser.cd;
-    s.en -= WEAPONS.laser.energia;
-    disparos.push('laser');
+  const principal = ARMAS_PRINCIPAIS[s.arma];
+  const w1 = WEAPONS[principal];
+  if (inp.f1 && s.cd1 <= 0 && s.en >= w1.energia) {
+    s.cd1 = w1.cd;
+    s.en -= w1.energia;
+    for (const off of w1.canos ?? [0]) {
+      for (const ang of w1.leque ?? [0]) disparos.push({ kind: principal, off, ang });
+    }
   }
   if (inp.f2 && s.cd2 <= 0 && s.en >= WEAPONS.plasma.energia) {
     s.cd2 = WEAPONS.plasma.cd;
     s.en -= WEAPONS.plasma.energia;
-    disparos.push('plasma');
+    disparos.push({ kind: 'plasma', off: 0, ang: 0 });
   }
   return disparos;
 }
 
-/** Cria um tiro saindo do nariz da nave. */
-export function createBullet(s, kind, id, owner) {
+/**
+ * Cria um tiro saindo do nariz da nave, deslocado off metros para o lado (+ =
+ * direita da nave) e desviado ang rad do rumo (+ = esquerda, como o yaw).
+ */
+export function createBullet(s, kind, id, owner, off = 0, ang = 0) {
   const w = WEAPONS[kind];
   const f = forward(s.yaw);
+  const d = ang ? forward(s.yaw + ang) : f;
   return {
     id,
     owner,
     kind,
-    x: s.x + f.x * 6,
+    x: s.x + f.x * 6 - f.z * off,
     y: s.y,
-    z: s.z + f.z * 6,
-    vx: f.x * w.vel + s.vx * 0.5,
+    z: s.z + f.z * 6 + f.x * off,
+    vx: d.x * w.vel + s.vx * 0.5,
     vy: 0,
-    vz: f.z * w.vel + s.vz * 0.5,
+    vz: d.z * w.vel + s.vz * 0.5,
     vida: w.vida,
   };
 }
