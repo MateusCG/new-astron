@@ -17,16 +17,17 @@
 // WebGL fica, porque é reaproveitado na próxima entrada.
 
 import * as THREE from 'three';
-import { DT, RACES, WEAPONS, createBullet, stepShip, bulletHits, forward } from '/shared/sim.js';
+import { DT, RACES, WEAPONS, createBullet, stepShip, bulletHits, forward, pousoPermitido } from '/shared/sim.js';
 import { areaPouso } from '/shared/terrain.js';
 import { alturaSolida } from '/shared/obstaculos.js';
 import { criarCena, liberarCena } from './cena.js';
-import { criarNave, criarDrone, criarVorax, animarVorax, atualizarMotor } from './nave.js';
+import { criarNave, criarDrone, criarVorax, animarVorax, criarMinerador, animarMinerador, atualizarMotor } from './nave.js';
 import { Efeitos } from './efeitos.js';
 import { Controles } from './controles.js';
 import { Hud } from './hud.js';
 import { Rede } from './rede.js';
 import { MenuArmas } from './armas.js';
+import { Placar } from './placar.js';
 
 const INTERP_MS = 120;
 const CAMERAS = [
@@ -132,6 +133,7 @@ const MENSAGENS_ERRO = {
   sem_conexao: 'Não deu para conectar ao servidor do jogo. Confira sua internet e tente de novo.',
   tempo_esgotado: 'O servidor demorou demais para responder. Tente de novo em instantes.',
   conexao_fechada: 'O servidor fechou a conexão antes de você entrar. Tente de novo.',
+  partida_cheia: 'A partida está cheia (3 contra 3). Tente de novo em instantes.',
 };
 
 let rendererUnico = null;
@@ -169,6 +171,8 @@ async function iniciar(nome, race) {
 
 function montarJogo(rede, boas, renderer, race) {
   const meuId = boas.id;
+  // Time de quem joga: decide as cores relativas (seu time turquesa, o outro vermelho).
+  const meuTime = boas.time ?? 0;
 
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
@@ -178,10 +182,11 @@ function montarJogo(rede, boas, renderer, race) {
   document.querySelector('#jogo').append(renderer.domElement);
 
   const camera = new THREE.PerspectiveCamera(65, 1, 0.5, 5000);
-  const { scene, atualizar: atualizarCena } = criarCena();
+  const { scene, atualizar: atualizarCena } = criarCena({ meuTime });
   const efeitos = new Efeitos(scene);
   const controles = new Controles(document.body);
-  const hud = new Hud();
+  const hud = new Hud({ meuTime });
+  const placar = new Placar({ meuTime });
   const menuArmas = new MenuArmas({
     aoTrocar: (i, kind) => hud.noticia(`Arma: ${WEAPONS[kind].nome}`, 'bom'),
     signal: controles.parar.signal, // desliga junto com os controles ao sair
@@ -205,7 +210,7 @@ function montarJogo(rede, boas, renderer, race) {
   const erro = new THREE.Vector3();
   let extra = { ouro: 0, abates: 0, mortes: 0 };
   let ganhoOuro = 0; // ouro ganho no último snapshot (para a notícia de abate)
-  const minhaNave = criarNave(race);
+  const minhaNave = criarNave(race, { aliado: true });
   scene.add(minhaNave);
 
   // Outras naves.
@@ -231,8 +236,11 @@ function montarJogo(rede, boas, renderer, race) {
     rede.enviar({ t: 'in', s: seq, ...inp });
     ant = pose(pred);
     const apertouPouso = inp.p && !pred.pAnt;
-    if (apertouPouso && !pred.pousado && !areaPouso(pred.x, pred.z)) {
-      hud.noticia('Só dá para pousar nas plataformas da base e nos objetivos A', 'ruim');
+    if (apertouPouso && !pred.pousado && !pousoPermitido(pred)) {
+      hud.noticia(
+        areaPouso(pred.x, pred.z) ? 'Esta plataforma é do outro time' : 'Só dá para pousar na sua base e nos objetivos A',
+        'ruim',
+      );
     }
     for (const { kind, off, ang } of stepShip(pred, inp)) {
       efeitos.tiro(createBullet(pred, kind, 'l' + localSeq++, meuId, off, ang));
@@ -248,6 +256,7 @@ function montarJogo(rede, boas, renderer, race) {
     snaps.push({ t: performance.now(), ents: m.ents });
     while (snaps.length > 30) snaps.shift();
     for (const e of m.ents) nomes.set(e.id, e.nome);
+    placar.atualizar(m.partida, m.bonus);
     tratarEventos(m.ev);
 
     if (!m.vivo) {
@@ -297,6 +306,16 @@ function montarJogo(rede, boas, renderer, race) {
         if (e.alvo === meuId && e.dano > 0) hud.levarDano();
       } else if (e.e === 'fim') {
         efeitos.removerTiro(e.bala);
+      } else if (e.e === 'morte' && e.tipo === 'minerador') {
+        efeitos.explosao(e.x, e.y, e.z, 3, '#ff9a3a');
+        const por = nomes.get(e.por) ?? '?';
+        if (e.time === meuTime) hud.noticia(`${por} destruiu um minerador do seu time`, 'ruim');
+        else if (e.por === meuId) hud.noticia(`Você destruiu um minerador inimigo${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
+        else hud.noticia(`${por} destruiu um minerador inimigo`, 'bom');
+      } else if (e.e === 'entrega') {
+        placar.entrega(e.time);
+      } else if (e.e === 'partida' && e.n > 1) {
+        hud.noticia('Nova partida: o time que minerar mais vence', 'bom');
       } else if (e.e === 'morte') {
         efeitos.explosao(e.x, e.y, e.z, 4, '#ff9a3a');
         const quem = nomes.get(e.id) ?? '?';
@@ -405,9 +424,18 @@ function montarJogo(rede, boas, renderer, race) {
       if (e.id === meuId) continue;
       presentes.add(e.id);
       let o = outras.get(e.id);
+      // Aliado: do seu time (jogador ou minerador). Monstro nunca é aliado.
+      const aliado = !e.drone && e.time === meuTime;
       if (!o) {
-        const obj = e.tipo === 'vorax' ? criarVorax() : e.drone ? criarDrone() : criarNave(e.race);
-        o = { obj, drone: e.drone, tipo: e.tipo };
+        const obj =
+          e.tipo === 'vorax'
+            ? criarVorax()
+            : e.tipo === 'minerador'
+              ? criarMinerador({ aliado })
+              : e.drone
+                ? criarDrone()
+                : criarNave(e.race, { aliado });
+        o = { obj, drone: e.drone, tipo: e.tipo, aliado };
         scene.add(o.obj);
         outras.set(e.id, o);
       }
@@ -419,9 +447,10 @@ function montarJogo(rede, boas, renderer, race) {
       o.obj.userData.corpo.rotation.z = e.roll;
       if (e.tipo === 'vorax') animarVorax(o.obj, tempo, e.id);
       else if (e.drone) o.obj.userData.corpo.rotation.y = Math.sin(tempo * 3 + e.id) * 0.15;
-      atualizarMotor(o.obj, e.boost, tempo, e.pousado);
+      if (e.tipo === 'minerador') animarMinerador(o.obj, e, tempo, e.id);
+      else atualizarMotor(o.obj, e.boost, tempo, e.pousado);
       efeitos.estadoNave(o.obj, { dreno: !!e.dreno, lento: !!e.lento }, dt, tempo);
-      rotulos.push({ id: e.id, nome: e.nome, drone: e.drone, race: e.race, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position });
+      rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position });
     }
     for (const [id, o] of outras) {
       if (!presentes.has(id)) {
@@ -431,10 +460,11 @@ function montarJogo(rede, boas, renderer, race) {
     }
 
     // Tiros: o nosso some ao encostar em alguém na tela (o dano vem do servidor).
+    // Aliado não: no servidor o tiro atravessa quem é do mesmo time.
     efeitos.atualizar(dt, (b) => {
       if (b.owner !== meuId) return false;
       for (const o of outras.values()) {
-        if (o.obj.visible && bulletHits(b, { x: o.obj.position.x, y: o.obj.position.y, z: o.obj.position.z })) return true;
+        if (o.obj.visible && !o.aliado && bulletHits(b, { x: o.obj.position.x, y: o.obj.position.y, z: o.obj.position.z })) return true;
       }
       return false;
     });
@@ -473,7 +503,8 @@ function montarJogo(rede, boas, renderer, race) {
 
     if (pred) {
       hud.painel(pred, extra, rede.ping);
-      hud.pouso(vivo ? areaPouso(pred.x, pred.z) ?? null : null, vivo && pred.pousado);
+      // Plataforma do outro time não oferece pouso.
+      hud.pouso(vivo && pousoPermitido(pred) ? areaPouso(pred.x, pred.z) : null, vivo && pred.pousado);
       hud.minimapa(vivo ? { x: foco.x, z: foco.z, yaw: minhaNave.rotation.y } : null, snaps.at(-1)?.ents ?? [], meuId);
     }
     if (!vivo && morteEm) {
@@ -487,7 +518,21 @@ function montarJogo(rede, boas, renderer, race) {
   idQuadro = requestAnimationFrame(quadro);
 
   // Para depuração no console e para os testes de navegador.
-  window.__astron = { get pred() { return pred; }, get vivo() { return vivo; }, scene, camera, menuArmas };
+  window.__astron = {
+    get pred() {
+      return pred;
+    },
+    get vivo() {
+      return vivo;
+    },
+    get ents() {
+      return snaps.at(-1)?.ents ?? [];
+    },
+    meuTime,
+    scene,
+    camera,
+    menuArmas,
+  };
 
   /**
    * Desmonta a partida: fecha a conexão (o servidor tira a nave do mundo no
@@ -503,6 +548,7 @@ function montarJogo(rede, boas, renderer, race) {
     menuArmas.el.hidden = true;
     removeEventListener('resize', redimensionar);
     hud.limpar();
+    placar.limpar();
     renderer.domElement.remove();
     efeitos.liberar();
     liberarCena(scene);

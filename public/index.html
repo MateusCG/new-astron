@@ -31,10 +31,21 @@
 
     <section id="hud" hidden>
       <canvas id="minimapa" width="240" height="160"></canvas>
+      <section id="placar" aria-label="Placar da partida">
+        <div class="time meu"><span class="nome-time">Seu time</span><b>0</b><ul class="bonus"></ul></div>
+        <div class="relogio">--:--</div>
+        <div class="time outro"><span class="nome-time">Inimigo</span><b>0</b><ul class="bonus"></ul></div>
+      </section>
       <ul id="feed"></ul>
       <div id="rotulos"></div>
       <p id="aviso" hidden></p>
       <p id="pouso" hidden></p>
+      <section id="fim-partida" hidden aria-live="polite">
+        <h2></h2>
+        <p class="frase"></p>
+        <p class="resultado"><span class="meu"></span><i>×</i><span class="outro"></span></p>
+        <p class="nova"></p>
+      </section>
       <span id="ping"></span>
 
       <footer id="painel">

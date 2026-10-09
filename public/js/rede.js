@@ -2,7 +2,8 @@
 // ou de ?servidor=ws://... para testar contra outro servidor.
 //
 // entrar() sempre termina: resolve no 'bemvindo' ou falha com um código
-// (sem_conexao, conexao_fechada, tempo_esgotado). Antes, uma conexão que fechava
+// (sem_conexao, conexao_fechada, tempo_esgotado, ou o que o servidor mandar num
+// {t:'erro', codigo}, como partida_cheia). Antes, uma conexão que fechava
 // sem erro deixava o botão em "Conectando…" para sempre.
 
 const TEMPO_ENTRADA_MS = 10000;
@@ -45,6 +46,9 @@ export class Rede {
           clearTimeout(relogio);
           ok(m);
           this.#medirPing();
+        } else if (m.t === 'erro' && !decidido) {
+          // Recusa na entrada (ex.: 'partida_cheia'): o código vira a mensagem da tela.
+          desistir(m.codigo ?? 'conexao_fechada');
         } else if (m.t === 'pong') {
           this.ping = Math.round(performance.now() - m.c);
         } else {

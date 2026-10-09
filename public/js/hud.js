@@ -3,7 +3,7 @@
 
 import * as THREE from 'three';
 import { paredeAt, MAP_HALF_X, MAP_HALF_Z, BASES, CORREDOR, MINERIO, ENTREGAS, SERVICOS, OBJETIVOS } from '/shared/terrain.js';
-import { RACES, WEAPONS, ARMAS_PRINCIPAIS } from '/shared/sim.js';
+import { WEAPONS, ARMAS_PRINCIPAIS } from '/shared/sim.js';
 import { iconeArma } from './armas.js';
 
 const $ = (s) => document.querySelector(s);
@@ -13,7 +13,7 @@ const $ = (s) => document.querySelector(s);
 // circuito do minério em azul, serviços na cor de cada um e objetivos em âmbar.
 const COR_MEU_TIME = '#00efc0';
 const COR_OUTRO_TIME = '#ff4a2a';
-const COR_INIMIGA = '#ff4a2a';
+const COR_INIMIGA = '#ff4a2a'; // monstros e tudo do outro time
 const COR_OBJETIVO = '#ffb627';
 const COR_CIRCUITO = '#4fb8ff';
 const COR_MINERIO = '#9fe8ff';
@@ -130,7 +130,15 @@ export class Hud {
     for (const e of ents) {
       if (e.id === meuId || !e.vivo) continue;
       const [x, z] = this.#paraMapa(e.x, e.z);
-      ctx.fillStyle = e.drone ? COR_INIMIGA : '#5ff7ff';
+      // Do seu time em turquesa; do outro time e monstros em vermelho.
+      ctx.fillStyle = !e.drone && e.time === this.meuTime ? COR_MEU_TIME : COR_INIMIGA;
+      if (e.tipo === 'minerador') {
+        // Minerador: bolinha menor que o quadrado das naves.
+        ctx.beginPath();
+        ctx.arc(x, z, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        continue;
+      }
       // Vorax (o que vem atrás de você) num ponto maior que o Arnosh.
       const t = e.tipo === 'vorax' ? 4.5 : 3;
       ctx.fillRect(x - t / 2, z - t / 2, t, t);
@@ -217,10 +225,13 @@ export class Hud {
     while (this.feed.children.length > 5) this.feed.lastChild.remove();
   }
 
-  /** Nome e barra de vida sobre cada nave visível. */
+  /**
+   * Nome e barra de vida sobre cada nave visível. `aliado` (do seu time) pinta de
+   * turquesa; inimigo (outro time ou monstro) de vermelho.
+   */
   rotulosNaves(lista, camera, largura, altura) {
     const vistos = new Set();
-    for (const { id, nome, drone, race, hp, maxHp, pos } of lista) {
+    for (const { id, nome, aliado, hp, maxHp, pos } of lista) {
       this.v.copy(pos);
       this.v.y += 6;
       this.v.project(camera);
@@ -231,10 +242,9 @@ export class Hud {
       let tag = this.tags.get(id);
       if (!tag) {
         tag = document.createElement('div');
-        tag.className = 'rotulo' + (drone ? ' inimigo' : '');
+        tag.className = 'rotulo' + (aliado ? ' aliado' : ' inimigo');
         tag.innerHTML = '<span class="nome"></span><span class="barra"><i></i></span>';
         tag.querySelector('.nome').textContent = nome;
-        if (!drone) tag.querySelector('.nome').style.color = '#' + new THREE.Color(RACES[race]?.cor ?? 0xffffff).getHexString();
         this.rotulos.append(tag);
         this.tags.set(id, tag);
       }

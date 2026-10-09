@@ -90,3 +90,27 @@ test('cliente: fechar a rede para o ping e não entrega mais mensagens', async (
   assert.equal(recebidas.length, 0);
   assert.equal(avisouFechar, false, 'quem fecha não recebe "conexão perdida"');
 });
+
+test('cliente: partida cheia recusa a entrada com o código do servidor', async (t) => {
+  t.mock.timers.enable({ apis: ['setInterval', 'setTimeout'] });
+  class FalsoWebSocket {
+    static OPEN = 1;
+    constructor() {
+      this.readyState = 1;
+      FalsoWebSocket.ultimo = this;
+    }
+    send() {}
+    close() {
+      this.readyState = 3;
+      this.fechado = true;
+    }
+  }
+  globalThis.WebSocket = FalsoWebSocket;
+  const rede = new Rede();
+  const entrou = rede.entrar('Piloto', 'acron');
+  const ws = FalsoWebSocket.ultimo;
+  ws.onopen();
+  ws.onmessage({ data: JSON.stringify({ t: 'erro', codigo: 'partida_cheia' }) });
+  await assert.rejects(entrou, { message: 'partida_cheia' });
+  assert.ok(ws.fechado, 'fecha a conexão');
+});
