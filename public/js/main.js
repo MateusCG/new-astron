@@ -62,25 +62,65 @@ function montarEntrada() {
     try {
       localStorage.setItem('astron.nome', nome.value);
     } catch {}
+    const erro = document.querySelector('#erro-entrada');
+    erro.textContent = '';
     try {
       await iniciar(nome.value, racaEscolhida);
       document.querySelector('#entrada').hidden = true;
-    } catch {
+    } catch (err) {
+      console.error('Falha ao entrar no jogo:', err);
       botao.disabled = false;
       botao.textContent = 'Decolar';
-      document.querySelector('#erro-entrada').textContent = 'Não deu para conectar ao servidor. Tente de novo.';
+      erro.textContent = MENSAGENS_ERRO[err?.message] ?? `Erro ao iniciar o jogo (${err?.message ?? err}). Mande um print desta tela.`;
     }
   });
 }
 
+// Cada falha na entrada tem uma mensagem própria: "não conectou" para tudo
+// escondia a causa (WebGL desligado no navegador parecia problema de servidor).
+const MENSAGENS_ERRO = {
+  sem_webgl:
+    'Seu navegador está sem gráficos 3D (WebGL). Ative a "aceleração de hardware" nas configurações do navegador, reinicie-o e tente de novo.',
+  sem_conexao: 'Não deu para conectar ao servidor do jogo. Confira sua internet e tente de novo.',
+  tempo_esgotado: 'O servidor demorou demais para responder. Tente de novo em instantes.',
+  conexao_fechada: 'O servidor fechou a conexão antes de você entrar. Tente de novo.',
+};
+
+let rendererUnico = null;
+
+/** Cria o renderer uma vez só (reaproveitado se a entrada falhar e tentar de novo). */
+function criarRenderer() {
+  if (rendererUnico) return rendererUnico;
+  try {
+    rendererUnico = new THREE.WebGLRenderer({ antialias: true });
+  } catch {
+    throw new Error('sem_webgl');
+  }
+  return rendererUnico;
+}
+
 // ---------- Jogo ----------
 
+/**
+ * Entra no jogo: confere o WebGL ANTES de conectar (sem 3D não adianta entrar e
+ * deixar uma nave fantasma no servidor), conecta e monta a cena. Se montar falhar
+ * depois de conectado, fecha a conexão para a nave não ficar parada no mundo.
+ */
 async function iniciar(nome, race) {
+  const renderer = criarRenderer();
   const rede = new Rede();
   const boas = await rede.entrar(nome, race);
+  try {
+    montarJogo(rede, boas, renderer, race);
+  } catch (err) {
+    rede.fechar();
+    throw err;
+  }
+}
+
+function montarJogo(rede, boas, renderer, race) {
   const meuId = boas.id;
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
