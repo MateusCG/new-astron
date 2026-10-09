@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import WebSocket from 'ws';
 import { iniciar } from '../server/index.js';
 import { World, ZONA_SEGURA } from '../server/game.js';
-import { createShip, createBullet, WEAPONS, DRENO_DPS, DRENO_DURACAO, CRIO_DURACAO, DT } from '../shared/sim.js';
-import { BASE } from '../shared/terrain.js';
+import { createShip, createBullet, WEAPONS, DRENO_DPS, DRENO_DURACAO, CRIO_DURACAO, DT, SHIP_RADIUS } from '../shared/sim.js';
+import { BASE, BASES, CORREDOR, heightAt, noMapaAberto } from '../shared/terrain.js';
+import { alturaSolida, pontoLivre } from '../shared/obstaculos.js';
 
 function conectar(porta) {
   const ws = new WebSocket(`ws://localhost:${porta}/ws`);
@@ -278,4 +279,58 @@ test('servidor: criogênico deixa o alvo lento, e o snapshot leva isso', () => {
   }
   assert.equal(b.ship.lento, 0);
   assert.equal(w.entidades().find((e) => e.id === b.id).lento, false);
+});
+
+test('servidor: drones nascem no mundo aberto, fora das bases e do corredor', () => {
+  // Gerador com semente fixa: o teste não depende da sorte.
+  let a = 42;
+  const rng = () => {
+    a = (a * 1664525 + 1013904223) >>> 0;
+    return a / 4294967296;
+  };
+  const w = new World({ rng, drones: 60, monstros: 0 });
+  let oeste = 0;
+  for (const d of w.drones) {
+    const { x, z } = d.ship;
+    assert.ok(noMapaAberto(x, z), `drone fora do chão (${x.toFixed(0)}, ${z.toFixed(0)})`);
+    assert.ok(pontoLivre(x, z), 'com folga das rochas');
+    assert.equal(alturaSolida(x, z, SHIP_RADIUS), heightAt(x, z), 'fora de construção');
+    for (const b of BASES) assert.ok(Math.hypot(x - b.x, z - b.z) > ZONA_SEGURA + 100, 'longe das bases');
+    assert.ok(Math.abs(x - CORREDOR.x) > CORREDOR.largura / 2, 'fora do corredor');
+    if (x < 0) oeste++;
+  }
+  assert.ok(oeste > 15 && oeste < 45, `${oeste} a oeste, o resto a leste`);
+});
+
+test('servidor: a zona segura cobre as duas bases', () => {
+  assert.ok(ZONA_SEGURA >= BASE.raio);
+  for (const b of BASES) {
+    const w = new World({ drones: 0, monstros: 0 });
+    const j = w.addPlayer('A', 'acron');
+    j.ship = createShip('acron', b.x + 50, b.z, 0);
+    j.protegidoAte = 0;
+    const hp = j.ship.hp;
+    const atirador = createShip('mechan', j.ship.x, j.ship.z + 20, 0);
+    w.bullets.push({ ...createBullet(atirador, 'plasma', 999, -1), drone: true });
+    for (let i = 0; i < 10; i++) w.step();
+    assert.equal(j.ship.hp, hp, `base ${b.time}`);
+  }
+});
+
+test('servidor: drone que chega perto de uma base dá meia volta', () => {
+  for (const b of BASES) {
+    const w = new World({ drones: 1, monstros: 0 });
+    const d = w.drones[0];
+    // Na entrada da zona segura, de lado, apontando para dentro da base.
+    const ini = { x: b.x + ZONA_SEGURA + 20, z: b.z };
+    d.ship = createShip('mechan', ini.x, ini.z, Math.PI / 2);
+    d.ship.hp = d.ship.maxHp = 90;
+    let maisPerto = Infinity;
+    for (let i = 0; i < 30 * 15; i++) {
+      w.step();
+      maisPerto = Math.min(maisPerto, Math.hypot(d.ship.x - b.x, d.ship.z - b.z));
+    }
+    assert.ok(maisPerto > b.raio, `entrou na base ${b.time} (chegou a ${maisPerto.toFixed(0)} m)`);
+    assert.ok(Math.hypot(d.ship.x - b.x, d.ship.z - b.z) > ZONA_SEGURA + 40, 'voltou para o mundo aberto');
+  }
 });

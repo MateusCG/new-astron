@@ -1,12 +1,12 @@
-// Navegação dos monstros pelo labirinto de cânions (só no servidor).
+// Navegação dos monstros pelo mapa (só no servidor).
 //
-// Ir em linha reta até o jogador prende o monstro na primeira parede: o M1 é uma rede
-// de corredores. Por isso o mapa vira uma grade de CELULA metros, calculada uma vez a
-// partir de heightAt, com a mesma regra de rampa da nave (MAX_SLOPE de shared/sim.js):
-// de uma célula para a vizinha só se passa se a subida não for íngreme demais, e
-// descer é sempre livre (a nave também despenca de um planalto, mas não escala a
-// parede). Não basta "chão baixo = corredor": os cânions se ligam por selas e rampas
-// que a nave sobe, e uma grade só de altura deixaria metade do mapa sem caminho.
+// Ir em linha reta até o jogador prende o monstro na primeira rocha: o M1 é um
+// deserto aberto cheio de mesas de pedra. Por isso o mapa vira uma grade de CELULA
+// metros, calculada uma vez a partir do relevo, com a mesma regra de rampa da nave
+// (MAX_SLOPE de shared/sim.js): de uma célula para a vizinha só se passa se a subida
+// não for íngreme demais, e descer é sempre livre. A altura é a de alturaSolida
+// (terreno ou construção), então rochas, muralha, cristais do minério e torres dos
+// objetivos entram do mesmo jeito, sem lista à parte do que é obstáculo.
 //
 // Sobre essa grade roda um Dijkstra com várias fontes (os jogadores caçáveis), que dá,
 // para cada célula, o custo do caminho até o jogador mais próximo e qual jogador é
@@ -19,10 +19,14 @@
 // - Diagonal só vale se os dois passos retos do lado também valem (sem cortar quina).
 // - O monstro não mira a próxima célula, e sim o ponto mais adiante no caminho que
 //   ele alcança em linha livre (até OLHAR_CELULAS): a curva sai suave.
-// - A zona segura da base entra na grade como bloqueada, para nenhum caminho passar
-//   por dentro dela.
+// - A zona segura de cada base entra na grade como bloqueada, para nenhum caminho
+//   passar por dentro dela.
+// - A grade é retangular (MAP_HALF_X × MAP_HALF_Z): com células de 10 m são 300 × 200
+//   células, umas 60 mil, e a montagem (240 mil alturas) leva menos de meio
+//   segundo, uma vez por processo.
 
-import { heightAt, MAP_HALF, BASE } from '../shared/terrain.js';
+import { MAP_HALF_X, MAP_HALF_Z, BASES } from '../shared/terrain.js';
+import { alturaSolida } from '../shared/obstaculos.js';
 import { MAX_SLOPE } from '../shared/sim.js';
 
 export const CELULA = 10; // metros por célula da grade
@@ -123,25 +127,28 @@ export class MapaNavegacao {
    * @param {{ raioBloqueio?: number }} [opcoes]
    */
   constructor({ raioBloqueio = 0 } = {}) {
-    const n = Math.ceil((2 * MAP_HALF) / CELULA);
-    this.n = n;
+    const n = Math.ceil((2 * MAP_HALF_X) / CELULA);
+    const nz = Math.ceil((2 * MAP_HALF_Z) / CELULA);
+    this.nx = n;
+    this.nz = nz;
     this.raioBloqueio = raioBloqueio;
-    const total = n * n;
+    const total = n * nz;
+    this.total = total;
     // Alturas numa grade com o dobro da resolução: os pontos pares são os centros
     // das células e os ímpares, o meio do caminho entre dois centros. Conferir a
     // rampa nas duas metades do passo pega parede curta e íngreme que a média
     // entre dois centros esconderia.
     const nf = 2 * n - 1;
-    const hf = new Float32Array(nf * nf);
-    for (let jf = 0; jf < nf; jf++) {
+    const nfz = 2 * nz - 1;
+    const hf = new Float32Array(nf * nfz);
+    for (let jf = 0; jf < nfz; jf++) {
       for (let if_ = 0; if_ < nf; if_++) {
-        hf[jf * nf + if_] = heightAt(-MAP_HALF + CELULA / 2 + (if_ * CELULA) / 2, -MAP_HALF + CELULA / 2 + (jf * CELULA) / 2);
+        hf[jf * nf + if_] = alturaSolida(-MAP_HALF_X + CELULA / 2 + (if_ * CELULA) / 2, -MAP_HALF_Z + CELULA / 2 + (jf * CELULA) / 2);
       }
     }
     this.zona = new Uint8Array(total);
     for (let c = 0; c < total; c++) {
-      const { x, z } = this.centro(c);
-      if (Math.hypot(x - BASE.x, z - BASE.z) < raioBloqueio) this.zona[c] = 1;
+      if (this.naZona(this.centro(c))) this.zona[c] = 1;
     }
     // passa[c]: bit k ligado = dá para ir de c para o vizinho k.
     const limite = MAX_SLOPE * FOLGA_RAMPA;
@@ -155,7 +162,7 @@ export class MapaNavegacao {
       for (let k = 0; k < 8; k++) {
         const ii = i + VIZ_I[k];
         const jj = j + VIZ_J[k];
-        if (ii < 0 || jj < 0 || ii >= n || jj >= n || this.zona[jj * n + ii]) continue;
+        if (ii < 0 || jj < 0 || ii >= n || jj >= nz || this.zona[jj * n + ii]) continue;
         if (k >= 4) {
           const [a, b] = RETOS_DA_DIAGONAL[k];
           if (!(m & (1 << a)) || !(m & (1 << b))) continue;
@@ -181,7 +188,7 @@ export class MapaNavegacao {
         for (let k = 0; k < 8; k++) {
           const ii = i + VIZ_I[k];
           const jj = j + VIZ_J[k];
-          if (ii >= 0 && jj >= 0 && ii < n && jj < n && beira[jj * n + ii] === r - 1) {
+          if (ii >= 0 && jj >= 0 && ii < n && jj < nz && beira[jj * n + ii] === r - 1) {
             beira[c] = r;
             break;
           }
@@ -194,19 +201,24 @@ export class MapaNavegacao {
     this.redeCache = null;
   }
 
+  /** O ponto está na área bloqueada em volta de alguma base (zona segura)? */
+  naZona({ x, z }) {
+    return BASES.some((b) => Math.hypot(x - b.x, z - b.z) < this.raioBloqueio);
+  }
+
   /** Índice da célula que contém (x, z), ou -1 fora do mapa. */
   indice(x, z) {
-    const i = Math.floor((x + MAP_HALF) / CELULA);
-    const j = Math.floor((z + MAP_HALF) / CELULA);
-    if (i < 0 || j < 0 || i >= this.n || j >= this.n) return -1;
-    return j * this.n + i;
+    const i = Math.floor((x + MAP_HALF_X) / CELULA);
+    const j = Math.floor((z + MAP_HALF_Z) / CELULA);
+    if (i < 0 || j < 0 || i >= this.nx || j >= this.nz) return -1;
+    return j * this.nx + i;
   }
 
   /** Centro da célula, em metros. */
   centro(c) {
-    const i = c % this.n;
-    const j = (c - i) / this.n;
-    return { x: -MAP_HALF + (i + 0.5) * CELULA, z: -MAP_HALF + (j + 0.5) * CELULA };
+    const i = c % this.nx;
+    const j = (c - i) / this.nx;
+    return { x: -MAP_HALF_X + (i + 0.5) * CELULA, z: -MAP_HALF_Z + (j + 0.5) * CELULA };
   }
 
   /** A célula fora da zona segura mais perto de (x, z), até `raio` células em volta. */
@@ -214,7 +226,8 @@ export class MapaNavegacao {
     const c = this.indice(x, z);
     if (c < 0) return -1;
     if (!this.zona[c]) return c;
-    const n = this.n;
+    const n = this.nx;
+    const nz = this.nz;
     const i0 = c % n;
     const j0 = (c - i0) / n;
     let melhor = -1;
@@ -223,7 +236,7 @@ export class MapaNavegacao {
       for (let di = -raio; di <= raio; di++) {
         const i = i0 + di;
         const j = j0 + dj;
-        if (i < 0 || j < 0 || i >= n || j >= n || this.zona[j * n + i]) continue;
+        if (i < 0 || j < 0 || i >= n || j >= nz || this.zona[j * n + i]) continue;
         const d = di * di + dj * dj;
         if (d < melhorD) {
           melhorD = d;
@@ -244,7 +257,7 @@ export class MapaNavegacao {
    * @param {{x:number, z:number}[]} [paradas]
    */
   campo(fontes, paradas = null) {
-    const total = this.n * this.n;
+    const total = this.total;
     const dist = new Float64Array(total).fill(Infinity);
     const origem = new Int16Array(total).fill(-1);
     const heap = new Heap();
@@ -275,8 +288,8 @@ export class MapaNavegacao {
    */
   rede(x, z) {
     if (this.redeCache) return this.redeCache;
-    const total = this.n * this.n;
-    const n = this.n;
+    const total = this.total;
+    const n = this.nx;
     const volta = this.campo([{ x, z }]).dist; // quem chega lá
     const ida = new Uint8Array(total); // quem se alcança de lá
     const inicio = this.celulaPerto(x, z);
@@ -306,14 +319,14 @@ export class MapaNavegacao {
    */
   campoBase() {
     if (this.base) return this.base;
-    const total = this.n * this.n;
+    const total = this.total;
     const dist = new Float64Array(total).fill(Infinity);
     const origem = new Int16Array(total).fill(-1);
     const heap = new Heap();
     for (let c = 0; c < total; c++) {
       if (this.zona[c]) continue;
       const { x, z } = this.centro(c);
-      if (Math.hypot(x - BASE.x, z - BASE.z) < this.raioBloqueio + 3 * CELULA) {
+      if (BASES.some((b) => Math.hypot(x - b.x, z - b.z) < this.raioBloqueio + 3 * CELULA)) {
         dist[c] = 0;
         heap.push(0, c);
       }
@@ -328,7 +341,8 @@ export class MapaNavegacao {
    * tem o passo para c). Com `faltam`, para quando todas essas células saem da fila.
    */
   #espalhar(dist, origem, heap, faltam = null) {
-    const n = this.n;
+    const n = this.nx;
+    const nz = this.nz;
     const passa = this.passa;
     const custo = this.custo;
     while (!heap.vazio) {
@@ -341,7 +355,7 @@ export class MapaNavegacao {
       for (let k = 0; k < 8; k++) {
         const ii = i + VIZ_I[k];
         const jj = j + VIZ_J[k];
-        if (ii < 0 || jj < 0 || ii >= n || jj >= n) continue;
+        if (ii < 0 || jj < 0 || ii >= n || jj >= nz) continue;
         const v = jj * n + ii;
         if (!(passa[v] & BIT_OPOSTO[k])) continue;
         const nd = dc + COMPRIMENTO[k] * custo[v];
@@ -355,7 +369,7 @@ export class MapaNavegacao {
   }
 
   #melhorPasso(campo, c) {
-    const n = this.n;
+    const n = this.nx;
     const i = c % n;
     const j = (c - i) / n;
     let melhor = -1;
@@ -379,14 +393,14 @@ export class MapaNavegacao {
     const d = Math.hypot(x2 - x1, z2 - z1);
     const passos = Math.max(1, Math.ceil(d / PASSO_LINHA));
     const passo = d / passos;
-    let hAnt = heightAt(x1, z1);
+    let hAnt = alturaSolida(x1, z1);
     for (let k = 1; k <= passos; k++) {
       const t = k / passos;
       const x = x1 + (x2 - x1) * t;
       const z = z1 + (z2 - z1) * t;
-      const h = heightAt(x, z);
+      const h = alturaSolida(x, z);
       if ((h - hAnt) / passo > MAX_SLOPE * FOLGA_RAMPA) return false;
-      if (Math.hypot(x - BASE.x, z - BASE.z) < this.raioBloqueio) return false;
+      if (this.naZona({ x, z })) return false;
       hAnt = h;
     }
     return true;

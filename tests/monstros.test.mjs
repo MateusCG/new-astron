@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World, ZONA_SEGURA } from '../server/game.js';
 import { createShip } from '../shared/sim.js';
-import { BASE } from '../shared/terrain.js';
+import { BASE, BASES } from '../shared/terrain.js';
+import { MapaNavegacao } from '../server/navegacao.js';
 
 // rng com semente: os testes não dependem da sorte do Math.random.
 function rngFixo(semente = 1) {
@@ -10,8 +11,9 @@ function rngFixo(semente = 1) {
   return () => (s = (s * 16807) % 2147483647) / 2147483647;
 }
 
-const distBase = (s) => Math.hypot(s.x - BASE.x, s.z - BASE.z);
-const CORREDOR = { x: BASE.x, z: BASE.z - ZONA_SEGURA - 250 }; // corredor norte, fora da base
+// Distância até a base mais perto (as duas têm zona segura).
+const distBase = (s) => Math.min(...BASES.map((b) => Math.hypot(s.x - b.x, s.z - b.z)));
+const CORREDOR = { x: BASE.x, z: BASE.z - ZONA_SEGURA - 250 }; // corredor dos mineradores, fora da base
 
 test('monstros: o snapshot diz o tipo de cada entidade', () => {
   const w = new World({ drones: 1, monstros: 2, rng: rngFixo() });
@@ -25,15 +27,16 @@ test('monstros: o snapshot diz o tipo de cada entidade', () => {
   ]);
 });
 
-test('monstros: Vorax solto longe acha o caminho pelos cânions até o jogador fora da base', () => {
+test('monstros: Vorax solto longe contorna as rochas até o jogador fora da base', () => {
   const w = new World({ drones: 0, monstros: 1, rng: rngFixo(3) });
   const j = w.addPlayer('Alvo', 'bellico');
   j.ship = createShip('bellico', CORREDOR.x, CORREDOR.z, 0);
   j.protegidoAte = Infinity; // só medimos a chegada
   const m = w.monstros[0];
-  // No canto oeste do mapa, a quase 1 km em linha reta: em linha reta ele bateria
-  // na parede (e não pode cortar pela zona segura).
-  m.ship = createShip('mechan', -797, 314, 0);
+  // No oeste do mapa, a 1,3 km, atrás de uma mesa: em linha reta bateria na rocha.
+  const ini = { x: -1300, z: 100 };
+  assert.equal(new MapaNavegacao({ raioBloqueio: ZONA_SEGURA }).linhaLivre(ini.x, ini.z, j.ship.x, j.ship.z), false, 'tem rocha no meio');
+  m.ship = createShip('mechan', ini.x, ini.z, 0);
   let chegou = -1;
   for (let t = 0; t < 30 * 60; t++) {
     w.step();

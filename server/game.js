@@ -29,7 +29,8 @@ import {
   VEL_FATOR,
   RACES,
 } from '../shared/sim.js';
-import { paredeAt, BASE, MAP_HALF } from '../shared/terrain.js';
+import { BASE, BASES } from '../shared/terrain.js';
+import { pontoAberto } from '../shared/obstaculos.js';
 import { MapaNavegacao } from './navegacao.js';
 
 export const TICK_HZ = 30;
@@ -44,12 +45,16 @@ const POUSO_REGEN_ESPERA_TICKS = 1 * TICK_HZ;
 const N_DRONES = 10;
 const DRONE = { nome: 'Arnosh', hp: 90, visao: 200, alcance: 210, danoMult: 0.5, ouro: 25 };
 const OURO_ABATE_JOGADOR = 50;
-// Zona segura: ninguém leva dano perto da base, e drones não perseguem quem está lá.
-export const ZONA_SEGURA = BASE.raio + 60;
+// Zona segura: em volta de cada base (as duas) ninguém leva dano, e drones não
+// perseguem quem está lá.
+export const ZONA_SEGURA = BASE.raio + 30;
+// Drone que chega a esta distância de uma base (patrulhando ou caçando) dá meia
+// volta para o mundo aberto: as bases são território dos jogadores.
+const DRONE_LIMITE_BASE = ZONA_SEGURA + 60;
 const PROTECAO_TICKS = 3 * TICK_HZ; // invulnerável logo depois de nascer
 
 // Monstros Vorax: caçadores que vêm atrás de quem sai da base, de qualquer canto do
-// mapa, pelo caminho dos cânions (server/navegacao.js). Atacam com as garras, de
+// mapa, contornando as mesas de rocha (server/navegacao.js). Atacam com as garras, de
 // perto, e não atiram. Mais lentos que qualquer nave de jogador (a mais lenta faz
 // ~50 m/s sem boost), para dar para fugir ou virar e brigar. Não entram na zona
 // segura: quem está na base fica a salvo e eles rondam a borda esperando. Quando
@@ -103,6 +108,13 @@ function anguloEntre(a, b) {
   return d;
 }
 
+/** A base mais perto do ponto. */
+function baseMaisPerto(s) {
+  let melhor = BASES[0];
+  for (const b of BASES) if (Math.hypot(s.x - b.x, s.z - b.z) < Math.hypot(s.x - melhor.x, s.z - melhor.z)) melhor = b;
+  return melhor;
+}
+
 export class World {
   constructor({ rng = Math.random, drones = N_DRONES, monstros = N_MONSTROS } = {}) {
     this.rng = rng;
@@ -123,17 +135,6 @@ export class World {
     return this.nextId++;
   }
 
-  /** Ponto aleatório no fundo de algum cânion, longe da base. */
-  #pontoNoCanion() {
-    for (let t = 0; t < 500; t++) {
-      const x = (this.rng() * 2 - 1) * (MAP_HALF - 120);
-      const z = (this.rng() * 2 - 1) * (MAP_HALF - 120);
-      if (Math.hypot(x - BASE.x, z - BASE.z) < 350) continue;
-      if (paredeAt(x, z) < 0.02) return { x, z };
-    }
-    return { x: 0, z: -400 };
-  }
-
   #pontoNaBase() {
     const a = this.rng() * Math.PI * 2;
     const r = this.rng() * 60;
@@ -141,22 +142,22 @@ export class World {
   }
 
   #novoDrone() {
-    const p = this.#pontoNoCanion();
+    const p = pontoAberto(this.rng);
     const ship = createShip('mechan', p.x, p.z, this.rng() * Math.PI * 2);
     ship.hp = ship.maxHp = DRONE.hp;
     return { id: this.#id(), tipo: 'arnosh', drone: true, nome: DRONE.nome, ship, vivo: true, respawnTick: 0, giro: 0, ultimoDano: 0 };
   }
 
   /**
-   * Ponto de cânion para um Vorax nascer: na rede de corredores ligada à saída da
-   * base (o corredor norte), por onde os jogadores andam, e longe de todo jogador
-   * vivo, para ninguém ver monstro brotar do lado.
+   * Ponto do mundo aberto para um Vorax nascer: na parte do mapa ligada à saída da
+   * base (sem ilha cercada de rocha), e longe de todo jogador vivo, para ninguém ver
+   * monstro brotar do lado.
    */
   #pontoVorax() {
     const rede = nav().rede(BASE.x, BASE.z - LIMITE_VORAX - 50);
     let reserva = null;
     for (let t = 0; t < 300; t++) {
-      const p = this.#pontoNoCanion();
+      const p = pontoAberto(this.rng);
       const c = nav().indice(p.x, p.z);
       if (c < 0 || !rede[c]) continue;
       reserva = p;
@@ -166,7 +167,7 @@ export class World {
       }
       if (longe) return p;
     }
-    return reserva ?? this.#pontoNoCanion();
+    return reserva ?? pontoAberto(this.rng);
   }
 
   #naveVorax() {
@@ -248,6 +249,12 @@ export class World {
 
   #iaDrone(d) {
     const s = d.ship;
+    const b = baseMaisPerto(s);
+    if (Math.hypot(s.x - b.x, s.z - b.z) < DRONE_LIMITE_BASE) {
+      // Perto de uma base: dá as costas para ela e volta para o mundo aberto.
+      const diff = anguloEntre(s.yaw, Math.atan2(-(s.x - b.x), -(s.z - b.z)));
+      return { th: Math.abs(diff) > 1 ? 0.2 : 0.6, tu: Math.max(-1, Math.min(1, diff * 2.5)), b: false, f1: false, f2: false };
+    }
     let alvo = null;
     let melhor = DRONE.visao;
     for (const j of this.players.values()) {
@@ -276,7 +283,7 @@ export class World {
   }
 
   /**
-   * Refaz de tempos em tempos o mapa de caça: o caminho, pelos cânions, de cada
+   * Refaz de tempos em tempos o mapa de caça: o caminho, contornando as rochas, de cada
    * ponto do mapa até o jogador caçável mais próximo (vivo e fora da zona segura).
    * Sem ninguém caçável, o mapa leva até a borda da zona segura.
    */
@@ -334,8 +341,9 @@ export class World {
     } else if (passo) {
       // Na borda da zona segura: ronda em volta da base, trocando de sentido às vezes.
       if (this.tick % VORAX_RONDA_TROCA_TICKS === m.id % VORAX_RONDA_TROCA_TICKS) m.ronda = this.rng() < 0.5 ? 1 : -1;
-      const rx = s.x - BASE.x;
-      const rz = s.z - BASE.z;
+      const b = baseMaisPerto(s);
+      const rx = s.x - b.x;
+      const rz = s.z - b.z;
       const r = Math.hypot(rx, rz) || 1;
       dx = (-rz / r) * m.ronda + (rx / r) * 0.3;
       dz = (rx / r) * m.ronda + (rz / r) * 0.3;
@@ -377,14 +385,15 @@ export class World {
 
   /** Monstro não cruza a zona segura: se a física o pôs dentro, volta para a borda. */
   #foraDaZona(s) {
-    const rx = s.x - BASE.x;
-    const rz = s.z - BASE.z;
+    const b = baseMaisPerto(s);
+    const rx = s.x - b.x;
+    const rz = s.z - b.z;
     const r = Math.hypot(rx, rz);
     if (r >= LIMITE_VORAX) return;
     const ux = r > 1e-6 ? rx / r : 0;
-    const uz = r > 1e-6 ? rz / r : -1;
-    s.x = BASE.x + ux * LIMITE_VORAX;
-    s.z = BASE.z + uz * LIMITE_VORAX;
+    const uz = r > 1e-6 ? rz / r : Math.sign(-b.z) || -1; // de dentro, sai pelo corredor
+    s.x = b.x + ux * LIMITE_VORAX;
+    s.z = b.z + uz * LIMITE_VORAX;
     const vr = s.vx * ux + s.vz * uz;
     if (vr < 0) {
       s.vx -= vr * ux;
@@ -425,7 +434,7 @@ export class World {
   }
 
   #naZonaSegura(s) {
-    return Math.hypot(s.x - BASE.x, s.z - BASE.z) < ZONA_SEGURA;
+    return BASES.some((b) => Math.hypot(s.x - b.x, s.z - b.z) < ZONA_SEGURA);
   }
 
   #protegido(ent) {
