@@ -24,7 +24,8 @@
 // (na base do outro time você leva dano normalmente). Drones e Vorax continuam sem
 // entrar em base nenhuma: as duas são território dos jogadores.
 //
-// XP, nível e ouro por abate ficam em server/progressao.js (na morte, em #ferir).
+// XP, nível e ouro por abate ficam em server/progressao.js (na morte, em #ferir), e
+// os monstros elite (Krakor) em server/elites.js.
 
 import {
   DT,
@@ -46,6 +47,7 @@ import { Partida, N_TIMES } from './partida.js';
 import { Mineradores } from './mineradores.js';
 import { Bonus } from './bonus.js';
 import { novaProgressao, recompensar, aplicarNivel, xpParaNivel } from './progressao.js';
+import { KRAKOR, N_KRAKOR, novaElite, renascerElite, iaElite } from './elites.js';
 
 export const TICK_HZ = 30;
 const SNAP_CADA = 2; // ticks entre snapshots (15 Hz)
@@ -56,9 +58,14 @@ const REGEN_ESPERA_TICKS = 5 * TICK_HZ;
 const VOO_REGEN_HP = 0.03; // fração do HP máximo por segundo, voando
 const POUSO_REGEN_HP = 0.08; // fração do HP máximo por segundo, pousada
 const POUSO_REGEN_ESPERA_TICKS = 1 * TICK_HZ;
-// XP e ouro de cada tipo de abate ficam em RECOMPENSA (server/progressao.js).
-const N_DRONES = 10;
+// Monstros do mundo aberto (3000 × 2000 m): Arnosh espalhados patrulhando, Vorax
+// caçando (N_MONSTROS) e os Krakor, elites raros (N_KRAKOR em server/elites.js).
+// XP e ouro de cada tipo ficam em RECOMPENSA (server/progressao.js).
+const N_DRONES = 14;
 const DRONE = { nome: 'Arnosh', hp: 90, visao: 200, alcance: 210, danoMult: 0.5 };
+// Arnosh patrulhando não entra na faixa do corredor (é dos mineradores): dá meia
+// volta a esta distância do meio dele. Caçando um jogador, entra.
+const DRONE_LIMITE_CORREDOR = CORREDOR.largura / 2 + 40;
 // Zona segura: em volta da base do PRÓPRIO time ninguém leva dano. Drones não
 // perseguem quem está em base nenhuma (nem entram nelas).
 export const ZONA_SEGURA = BASE.raio + 30;
@@ -130,16 +137,18 @@ function baseMaisPerto(s) {
 
 export class World {
   /**
-   * @param {{ rng?: () => number, drones?: number, monstros?: number,
+   * @param {{ rng?: () => number, drones?: number, monstros?: number, elites?: number,
    *   duracaoPartidaS?: number, intervaloFimS?: number }} [opcoes]
+   * drones = Arnosh, monstros = Vorax, elites = Krakor.
    */
-  constructor({ rng = Math.random, drones = N_DRONES, monstros = N_MONSTROS, duracaoPartidaS, intervaloFimS } = {}) {
+  constructor({ rng = Math.random, drones = N_DRONES, monstros = N_MONSTROS, elites = N_KRAKOR, duracaoPartidaS, intervaloFimS } = {}) {
     this.rng = rng;
     this.tick = 0;
     this.nextId = 1;
     this.players = new Map();
     this.drones = [];
     this.monstros = [];
+    this.elites = []; // Krakor
     this.bullets = [];
     this.eventos = [];
     // Mapa de caça dos Vorax: campo de caminhos até os jogadores caçáveis.
@@ -154,6 +163,21 @@ export class World {
     });
     for (let i = 0; i < drones; i++) this.drones.push(this.#novoDrone());
     for (let i = 0; i < monstros; i++) this.monstros.push(this.#novoVorax());
+    for (let i = 0; i < elites; i++) {
+      const p = this.#pontoKrakor();
+      this.elites.push(novaElite('krakor', this.#id(), p.x, p.z, this.rng() * Math.PI * 2));
+    }
+    // O que a IA dos elites lê do mundo.
+    const players = this.players;
+    this.ctxElite = {
+      tick: 0,
+      rng: this.rng,
+      get jogadores() {
+        return players.values();
+      },
+      naZonaSegura: (s) => this.#naZonaSegura(s),
+      zonaSegura: ZONA_SEGURA,
+    };
   }
 
   #id() {
@@ -190,11 +214,11 @@ export class World {
    * base (sem ilha cercada de rocha), e longe de todo jogador vivo, para ninguém ver
    * monstro brotar do lado.
    */
-  #pontoVorax() {
+  #pontoVorax(opcoes) {
     const rede = nav().rede(BASE.x, BASE.z - LIMITE_VORAX - 50);
     let reserva = null;
     for (let t = 0; t < 300; t++) {
-      const p = pontoAberto(this.rng);
+      const p = pontoAberto(this.rng, opcoes);
       const c = nav().indice(p.x, p.z);
       if (c < 0 || !rede[c]) continue;
       reserva = p;
@@ -204,7 +228,12 @@ export class World {
       }
       if (longe) return p;
     }
-    return reserva ?? pontoAberto(this.rng);
+    return reserva ?? pontoAberto(this.rng, opcoes);
+  }
+
+  /** Covil de um Krakor: como o ponto do Vorax, mas bem longe das bases e do corredor. */
+  #pontoKrakor() {
+    return this.#pontoVorax({ folgaBase: KRAKOR.folgaBase, folgaCorredor: KRAKOR.folgaCorredor });
   }
 
   #naveVorax() {
@@ -289,6 +318,7 @@ export class World {
       const b = createBullet(ent.ship, kind, this.#id(), ent.id, off, ang);
       b.drone = !!ent.drone;
       b.time = ent.time; // sem fogo amigo: o tiro atravessa quem é do mesmo time
+      b.mult = ent.danoMult ?? (ent.drone ? DRONE.danoMult : 1);
       this.bullets.push(b);
       this.eventos.push({ e: 'tiro', id: b.id, dono: ent.id, kind, x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz });
     }
@@ -311,6 +341,12 @@ export class World {
         melhor = dist;
         alvo = j;
       }
+    }
+    if (!alvo && Math.abs(s.x - CORREDOR.x) < DRONE_LIMITE_CORREDOR) {
+      // Patrulhando na faixa do corredor: vira para o lado de onde veio.
+      const lado = Math.sign(s.x - CORREDOR.x) || 1;
+      const diff = anguloEntre(s.yaw, Math.atan2(-lado, 0));
+      return { th: Math.abs(diff) > 1 ? 0.2 : 0.6, tu: Math.max(-1, Math.min(1, diff * 2.5)), b: false, f1: false, f2: false };
     }
     if (alvo) {
       const yawAlvo = Math.atan2(-(alvo.ship.x - s.x), -(alvo.ship.z - s.z));
@@ -502,9 +538,14 @@ export class World {
     return true;
   }
 
+  /** Dano de um tiro no impacto (arma × multiplicador de quem atirou). */
+  danoDoTiro(bala) {
+    return WEAPONS[bala.kind].dano * (bala.mult ?? 1);
+  }
+
   #dano(alvo, bala) {
     const w = WEAPONS[bala.kind];
-    const dano = Math.round(w.dano * (bala.drone ? DRONE.danoMult : 1));
+    const dano = Math.round(this.danoDoTiro(bala));
     // Efeitos de arma só pegam em quem pode levar dano. Acertar de novo renova a
     // duração; não soma nem empilha.
     if (!this.#protegido(alvo)) {
@@ -536,7 +577,7 @@ export class World {
     alvo.ship.hp = 0;
     alvo.vivo = false;
     alvo.drenoTicks = 0;
-    alvo.respawnTick = this.tick + (alvo.tipo === 'vorax' ? VORAX_RENASCER_TICKS : RESPAWN_TICKS);
+    alvo.respawnTick = this.tick + (alvo.renascerTicks ?? (alvo.tipo === 'vorax' ? VORAX_RENASCER_TICKS : RESPAWN_TICKS));
     if (alvo.tipo === 'jogador') alvo.mortes++;
     if (alvo.tipo === 'minerador') alvo.carga = 0; // o minério que carregava se perde
     let matador = this.players.get(autor);
@@ -576,6 +617,9 @@ export class World {
     if (ent.tipo === 'vorax') {
       ent.ship = this.#naveVorax();
       ent.preso = ent.re = 0;
+    } else if (ent.elite) {
+      const p = this.#pontoKrakor();
+      renascerElite(ent, p.x, p.z, this.rng() * Math.PI * 2);
     } else if (ent.drone) {
       const novo = this.#novoDrone();
       ent.ship = novo.ship;
@@ -672,7 +716,21 @@ export class World {
     if (this.partida.emAndamento) this.mineradores.passo(this.tick);
     for (const m of this.mineradores.lista) if (m.vivo) this.#drenar(m);
 
-    const vivos = [...this.players.values(), ...this.drones, ...this.monstros, ...this.mineradores.lista].filter((e) => e.vivo);
+    this.ctxElite.tick = this.tick;
+    for (const e of this.elites) {
+      if (!e.vivo) {
+        if (this.tick >= e.respawnTick) this.#respawn(e);
+        continue;
+      }
+      const { inp, disparos } = iaElite(e, this.ctxElite);
+      this.#atira(e, [...stepShip(e.ship, inp), ...disparos]);
+      this.#drenar(e);
+      if (e.vivo) this.#regen(e);
+    }
+
+    const vivos = [...this.players.values(), ...this.drones, ...this.monstros, ...this.elites, ...this.mineradores.lista].filter(
+      (e) => e.vivo,
+    );
     this.bullets = this.bullets.filter((b) => {
       if (!stepBullet(b)) {
         this.eventos.push({ e: 'fim', bala: b.id, x: b.x, y: b.y, z: b.z });
@@ -696,8 +754,8 @@ export class World {
 
   /**
    * Entidades visíveis para todos (mesma lista para cada jogador). `tipo` diz o
-   * que desenhar ('jogador', 'arnosh', 'vorax' ou 'minerador'); `drone` continua
-   * true para todo inimigo do PvE. Jogadores e mineradores trazem `time`; os
+   * que desenhar ('jogador', 'arnosh', 'vorax', 'krakor' ou 'minerador'); `drone`
+   * continua true para todo inimigo do PvE. Jogadores e mineradores trazem `time`; os
    * mineradores também `carga` (minério no contêiner) e `minerando`. Jogador traz `nivel`.
    */
   entidades() {
@@ -734,6 +792,7 @@ export class World {
     for (const d of this.drones) add(d);
     for (const m of this.monstros) add(m);
     for (const m of this.mineradores.lista) add(m);
+    for (const e of this.elites) add(e);
     return lista;
   }
 

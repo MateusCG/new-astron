@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World } from '../server/game.js';
-import { xpParaNivel, ganharXp, hpMaxDoNivel, RECOMPENSA, NIVEL_MAX, HP_POR_NIVEL } from '../server/progressao.js';
+import { xpParaNivel, ganharXp, hpMaxDoNivel, RECOMPENSA, NIVEL_MAX, HP_POR_NIVEL, XP_OBJETIVO } from '../server/progressao.js';
+import { KRAKOR, GUARDIAO, proibidoParaElite } from '../server/elites.js';
 import { ZONA_SEGURA } from '../server/game.js';
 import { createShip, RACES } from '../shared/sim.js';
 import { BASE } from '../shared/terrain.js';
@@ -12,7 +13,7 @@ function rngFixo(semente = 1) {
 }
 
 // Ponto do mundo aberto perto da base do time 0, fora da zona segura e longe dos
-// outros monstros.
+// guardiões (os elites dos objetivos C sempre existem).
 const FORA = { x: BASE.x + 250, z: BASE.z - ZONA_SEGURA - 120 };
 
 /** O jogador gira para o alvo e atira laser até ele morrer (ou acabar o tempo). */
@@ -58,7 +59,7 @@ test('progressão: ganhar XP sobe de nível, avisa e dá +3% de HP máximo por n
 });
 
 test('progressão: abater um Vorax dá XP e ouro, e o snapshot leva nível e XP', () => {
-  const w = new World({ drones: 0, monstros: 1, rng: rngFixo(11) });
+  const w = new World({ drones: 0, monstros: 1, elites: 0, rng: rngFixo(11) });
   const j = w.addPlayer('Caçador', 'acron');
   j.ship = createShip('acron', FORA.x, FORA.z, 0);
   j.protegidoAte = Infinity;
@@ -76,7 +77,7 @@ test('progressão: abater um Vorax dá XP e ouro, e o snapshot leva nível e XP'
 });
 
 test('progressão: abates sobem o nível e a nave renasce com o HP do nível', () => {
-  const w = new World({ drones: 0, monstros: 0 });
+  const w = new World({ drones: 0, monstros: 0, elites: 0, elites: 0 });
   const a = w.addPlayer('A', 'acron');
   const b = w.addPlayer('B', 'shrewdo');
   a.ship = createShip('acron', FORA.x, FORA.z, 0);
@@ -99,7 +100,7 @@ test('progressão: abates sobem o nível e a nave renasce com o HP do nível', (
 });
 
 test('progressão: ouro, XP e nível zeram quando começa a partida seguinte', () => {
-  const w = new World({ drones: 0, monstros: 0, duracaoPartidaS: 1, intervaloFimS: 1 });
+  const w = new World({ drones: 0, monstros: 0, elites: 0, duracaoPartidaS: 1, intervaloFimS: 1 });
   const j = w.addPlayer('Veterano', 'bellico');
   w.step();
   ganharXp(j, xpParaNivel(1) + xpParaNivel(2) + 10, w.eventos);
@@ -115,4 +116,54 @@ test('progressão: ouro, XP e nível zeram quando começa a partida seguinte', (
   assert.equal(j.xp, 0);
   assert.equal(j.ouro, 0);
   assert.equal(j.ship.maxHp, hpMaxDoNivel('bellico', 1), 'renasce com o HP do nível 1');
+});
+
+test('monstros: o Krakor é mais forte, mais raro e dá mais XP que o Vorax', () => {
+  assert.ok(KRAKOR.hp > 4 * 70, 'muito mais HP que o Vorax');
+  assert.ok(RECOMPENSA.krakor.xp > 3 * RECOMPENSA.vorax.xp);
+  assert.ok(RECOMPENSA.krakor.ouro > RECOMPENSA.vorax.ouro);
+  assert.ok(RECOMPENSA.guardiao.xp > RECOMPENSA.krakor.xp && GUARDIAO.hp > KRAKOR.hp);
+  assert.ok(XP_OBJETIVO > 0);
+  const w = new World({ rng: rngFixo(3) });
+  assert.ok(w.elites.filter((e) => e.tipo === 'krakor').length < w.monstros.length, 'mais raro que o Vorax');
+});
+
+test('monstros: abater um Krakor dá o XP e o ouro dele', () => {
+  const w = new World({ drones: 0, monstros: 0, elites: 0, elites: 1, rng: rngFixo(5) });
+  const j = w.addPlayer('Caçador', 'bellico');
+  j.ship = createShip('bellico', FORA.x, FORA.z, 0);
+  j.protegidoAte = Infinity;
+  const k = w.elites.find((e) => e.tipo === 'krakor');
+  k.ship = createShip('bellico', FORA.x, FORA.z - 50, 0);
+  k.ship.raio = KRAKOR.raio;
+  k.ship.hp = 30; // só o finalzinho
+  abater(w, j, k);
+  assert.equal(k.vivo, false);
+  assert.equal(j.ouro, RECOMPENSA.krakor.ouro);
+  assert.equal(j.nivel, 2);
+  assert.equal(j.xp, RECOMPENSA.krakor.xp - xpParaNivel(1));
+});
+
+test('monstros: o Krakor ataca quem chega perto do covil, cuspindo plasma', () => {
+  const w = new World({ drones: 0, monstros: 0, elites: 0, elites: 1, rng: rngFixo(9) });
+  const k = w.elites.find((e) => e.tipo === 'krakor');
+  const j = w.addPlayer('Presa', 'bellico');
+  j.ship = createShip('bellico', k.covil.x, k.covil.z, 0);
+  j.protegidoAte = 0;
+  k.ship = createShip('bellico', k.covil.x, k.covil.z + 120, 0);
+  const hp = j.ship.hp;
+  for (let t = 0; t < 30 * 8; t++) w.step();
+  assert.ok(j.ship.hp < hp, 'levou dano do Krakor');
+});
+
+test('monstros: os Krakor patrulham sem entrar nas bases nem no corredor', () => {
+  const w = new World({ drones: 0, monstros: 0, elites: 0, elites: 4, rng: rngFixo(13) });
+  for (let t = 0; t < 30 * 90; t++) {
+    w.step();
+    if (t % 15) continue;
+    for (const e of w.elites) {
+      if (e.tipo !== 'krakor') continue;
+      assert.ok(!proibidoParaElite(e.ship.x, e.ship.z, ZONA_SEGURA), `Krakor em (${e.ship.x.toFixed(0)}, ${e.ship.z.toFixed(0)})`);
+    }
+  }
 });

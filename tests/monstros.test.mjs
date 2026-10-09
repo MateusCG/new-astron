@@ -16,19 +16,20 @@ const distBase = (s) => Math.min(...BASES.map((b) => Math.hypot(s.x - b.x, s.z -
 const CORREDOR = { x: BASE.x, z: BASE.z - ZONA_SEGURA - 250 }; // corredor dos mineradores, fora da base
 
 test('monstros: o snapshot diz o tipo de cada entidade', () => {
-  const w = new World({ drones: 1, monstros: 2, rng: rngFixo() });
+  const w = new World({ drones: 1, monstros: 2, elites: 1, rng: rngFixo() });
   w.addPlayer('A', 'acron');
   const tipos = w.entidades().map((e) => [e.tipo, e.drone]);
   assert.deepEqual(tipos.sort(), [
     ['arnosh', true],
     ['jogador', false],
+    ['krakor', true],
     ['vorax', true],
     ['vorax', true],
   ]);
 });
 
 test('monstros: Vorax solto longe contorna as rochas até o jogador fora da base', () => {
-  const w = new World({ drones: 0, monstros: 1, rng: rngFixo(3) });
+  const w = new World({ drones: 0, monstros: 1, elites: 0, rng: rngFixo(3) });
   const j = w.addPlayer('Alvo', 'bellico');
   j.ship = createShip('bellico', CORREDOR.x, CORREDOR.z, 0);
   j.protegidoAte = Infinity; // só medimos a chegada
@@ -50,7 +51,7 @@ test('monstros: Vorax solto longe contorna as rochas até o jogador fora da base
 });
 
 test('monstros: com todo mundo na base, rondam a borda da zona segura sem entrar', () => {
-  const w = new World({ drones: 0, monstros: 6, rng: rngFixo(5) });
+  const w = new World({ drones: 0, monstros: 6, elites: 0, rng: rngFixo(5) });
   const j = w.addPlayer('Seguro', 'shrewdo');
   j.protegidoAte = 0;
   const hp = j.ship.hp;
@@ -66,7 +67,7 @@ test('monstros: com todo mundo na base, rondam a borda da zona segura sem entrar
 });
 
 test('monstros: garra machuca o jogador fora da base', () => {
-  const w = new World({ drones: 0, monstros: 1, rng: rngFixo(7) });
+  const w = new World({ drones: 0, monstros: 1, elites: 0, rng: rngFixo(7) });
   const j = w.addPlayer('Presa', 'bellico');
   j.ship = createShip('bellico', CORREDOR.x, CORREDOR.z, 0);
   j.protegidoAte = 0;
@@ -79,7 +80,7 @@ test('monstros: garra machuca o jogador fora da base', () => {
 });
 
 test('monstros: abate dá ouro e o Vorax renasce longe dos jogadores', () => {
-  const w = new World({ drones: 0, monstros: 1, rng: rngFixo(11) });
+  const w = new World({ drones: 0, monstros: 1, elites: 0, rng: rngFixo(11) });
   const j = w.addPlayer('Caçador', 'acron');
   j.ship = createShip('acron', CORREDOR.x, CORREDOR.z, 0);
   j.protegidoAte = Infinity; // a garra não atrapalha a conta

@@ -359,10 +359,11 @@ export function stepBullet(b, dt = DT) {
 
 /**
  * O tiro passou pela nave neste passo? Teste de segmento contra cilindro vertical,
- * para tiro rápido não atravessar nave sem acertar entre um passo e outro.
+ * para tiro rápido não atravessar nave sem acertar entre um passo e outro. Monstro
+ * grande (os elites) leva `s.raio` maior que o da nave.
  */
 export function bulletHits(b, s) {
-  const raio = WEAPONS[b.kind].raio + SHIP_RADIUS;
+  const raio = WEAPONS[b.kind].raio + (s.raio ?? SHIP_RADIUS);
   if (Math.abs(b.y - s.y) > 7) return false;
   const ax = b.px ?? b.x;
   const az = b.pz ?? b.z;
