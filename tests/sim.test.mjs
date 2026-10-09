@@ -14,7 +14,9 @@ import {
   bulletHits,
   sanitizeInput,
   forward,
+  ALTURA_POUSADO,
 } from '../shared/sim.js';
+import { podePousar, AREAS_POUSO } from '../shared/terrain.js';
 
 const FRENTE = { th: 1, tu: 0, b: false, f1: false, f2: false };
 
@@ -114,6 +116,63 @@ test('tiro rápido acerta nave no caminho mesmo pulando por cima dela', () => {
 });
 
 test('comando da rede é limitado', () => {
-  assert.deepEqual(sanitizeInput({ th: 50, tu: -9, b: 1, f1: 'x', f2: 0 }), { th: 1, tu: -1, b: true, f1: true, f2: false });
-  assert.deepEqual(sanitizeInput(null), { th: 0, tu: 0, b: false, f1: false, f2: false });
+  assert.deepEqual(sanitizeInput({ th: 50, tu: -9, b: 1, f1: 'x', f2: 0, p: 1 }), { th: 1, tu: -1, b: true, f1: true, f2: false, p: true });
+  assert.deepEqual(sanitizeInput(null), { th: 0, tu: 0, b: false, f1: false, f2: false, p: false });
+});
+
+const PARADO = { th: 0, tu: 0, b: false, f1: false, f2: false, p: false };
+
+test('pouso: L pousa (freia e encosta no chão, não atira) e só L decola', () => {
+  const s = createShip('shrewdo', BASE.x, BASE.z + 55, 0);
+  for (let i = 0; i < 25; i++) stepShip(s, FRENTE);
+  assert.ok(Math.hypot(s.vx, s.vz) > 20, 'estava voando');
+  assert.ok(podePousar(s.x, s.z), 'ainda dentro do círculo');
+
+  // Aperta L segurando W: pousa e fica no chão mesmo com W apertado.
+  stepShip(s, { ...FRENTE, p: true });
+  for (let i = 0; i < 30 * 4; i++) stepShip(s, FRENTE);
+  assert.equal(s.pousado, true);
+  assert.ok(Math.hypot(s.vx, s.vz) < 1, 'parou');
+  assert.ok(Math.abs(s.y - (heightAt(s.x, s.z) + ALTURA_POUSADO)) < 0.01, 'encostou no chão');
+  assert.deepEqual(stepShip(s, { ...PARADO, f1: true, f2: true }), [], 'pousada não atira');
+
+  // Soltar e apertar W de novo não decola.
+  stepShip(s, PARADO);
+  for (let i = 0; i < 30; i++) stepShip(s, FRENTE);
+  assert.equal(s.pousado, true, 'W não decola');
+
+  // L de novo: decola e volta à altura de voo.
+  stepShip(s, { ...PARADO, p: true });
+  for (let i = 0; i < 30 * 2; i++) stepShip(s, PARADO);
+  assert.equal(s.pousado, false);
+  assert.ok(Math.abs(s.y - (heightAt(s.x, s.z) + HOVER)) < 1, 'voltou para a altura de voo');
+});
+
+test('pouso: segurar L não fica pousando e decolando', () => {
+  const s = createShip('acron', BASE.x, BASE.z, 0);
+  for (let i = 0; i < 30; i++) stepShip(s, { ...PARADO, p: true });
+  assert.equal(s.pousado, true);
+  stepShip(s, PARADO);
+  stepShip(s, { ...PARADO, p: true });
+  assert.equal(s.pousado, false, 'apertar L de novo decola');
+});
+
+test('pouso: fora da área de pouso o L não faz nada', () => {
+  const a = AREAS_POUSO[0];
+  const s = createShip('mechan', a.x, a.z - a.raio - 150, 0);
+  stepShip(s, { ...PARADO, p: true });
+  for (let i = 0; i < 30 * 3; i++) stepShip(s, PARADO);
+  assert.equal(s.pousado, false);
+  assert.ok(s.y > heightAt(s.x, s.z) + HOVER - 1, 'continua na altura de voo');
+});
+
+test('pouso: escorregar para fora do círculo enquanto freia cancela o pouso', () => {
+  const a = AREAS_POUSO[0];
+  const s = createShip('shrewdo', a.x, a.z - a.raio + 8, 0);
+  for (let i = 0; i < 40; i++) stepShip(s, FRENTE); // já saiu voando do círculo
+  s.x = a.x;
+  s.z = a.z - a.raio + 1; // na beirada, indo para fora rápido
+  stepShip(s, { ...FRENTE, p: true });
+  for (let i = 0; i < 30; i++) stepShip(s, PARADO);
+  assert.equal(s.pousado, false);
 });

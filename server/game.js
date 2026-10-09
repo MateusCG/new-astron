@@ -19,6 +19,7 @@ import {
   createBullet,
   stepBullet,
   bulletHits,
+  VEL_TOQUE,
 } from '../shared/sim.js';
 import { paredeAt, BASE, MAP_HALF } from '../shared/terrain.js';
 
@@ -28,6 +29,9 @@ const MAX_INPUTS_TICK = 4;
 const MAX_FILA = 30;
 const RESPAWN_TICKS = 3 * TICK_HZ;
 const REGEN_ESPERA_TICKS = 5 * TICK_HZ;
+const VOO_REGEN_HP = 0.03; // fração do HP máximo por segundo, voando
+const POUSO_REGEN_HP = 0.08; // fração do HP máximo por segundo, pousada
+const POUSO_REGEN_ESPERA_TICKS = 1 * TICK_HZ;
 const N_DRONES = 10;
 const DRONE = { nome: 'Arnosh', hp: 90, visao: 200, alcance: 210, danoMult: 0.5, ouro: 25 };
 const OURO_ABATE_JOGADOR = 50;
@@ -202,8 +206,16 @@ export class World {
   }
 
   #regen(ent) {
-    if (this.tick - ent.ultimoDano > REGEN_ESPERA_TICKS && ent.ship.hp < ent.ship.maxHp) {
-      ent.ship.hp = Math.min(ent.ship.maxHp, ent.ship.hp + ent.ship.maxHp * 0.03 * DT);
+    const s = ent.ship;
+    if (s.hp >= s.maxHp) return;
+    const semDano = this.tick - ent.ultimoDano;
+    // Pousada (parada no chão), a nave conserta rápido, como o "Landed: recovers"
+    // das naves do AstroN; mas levar tiro interrompe por um instante.
+    const noChao = s.pousado && Math.hypot(s.vx, s.vz) < VEL_TOQUE;
+    if (noChao && semDano > POUSO_REGEN_ESPERA_TICKS) {
+      s.hp = Math.min(s.maxHp, s.hp + s.maxHp * POUSO_REGEN_HP * DT);
+    } else if (semDano > REGEN_ESPERA_TICKS) {
+      s.hp = Math.min(s.maxHp, s.hp + s.maxHp * VOO_REGEN_HP * DT);
     }
   }
 
@@ -292,6 +304,7 @@ export class World {
         hp: Math.ceil(e.ship.hp),
         maxHp: e.ship.maxHp,
         boost: e.ship.boost,
+        pousado: e.ship.pousado,
       });
     for (const j of this.players.values()) add(j);
     for (const d of this.drones) add(d);

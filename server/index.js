@@ -7,7 +7,8 @@
 //
 // Protocolo (JSON):
 //   cliente → servidor  {t:'entrar', nome, race}
-//                       {t:'in', s:seq, th, tu, b, f1, f2}   um por passo de 1/30 s
+//                       {t:'in', s:seq, th, tu, b, f1, f2, p}   um por passo de 1/30 s
+//                       (p = botão de pouso, alterna pousar/decolar na borda)
 //                       {t:'ping', c}
 //   servidor → cliente  {t:'bemvindo', id, tickHz}
 //                       {t:'snap', tick, ack, vivo, me, ouro, abates, mortes, ents, ev}

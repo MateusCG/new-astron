@@ -13,7 +13,7 @@
 
 import * as THREE from 'three';
 import { DT, RACES, createBullet, stepShip, bulletHits, forward } from '/shared/sim.js';
-import { heightAt } from '/shared/terrain.js';
+import { heightAt, podePousar } from '/shared/terrain.js';
 import { criarCena } from './cena.js';
 import { criarNave, criarDrone, atualizarMotor } from './nave.js';
 import { Efeitos } from './efeitos.js';
@@ -133,6 +133,10 @@ async function iniciar(nome, race) {
     seq++;
     rede.enviar({ t: 'in', s: seq, ...inp });
     ant = pose(pred);
+    const apertouPouso = inp.p && !pred.pAnt;
+    if (apertouPouso && !pred.pousado && !podePousar(pred.x, pred.z)) {
+      hud.noticia('Só dá para pousar no círculo de neon da base', 'ruim');
+    }
     for (const kind of stepShip(pred, inp)) {
       efeitos.tiro(createBullet(pred, kind, 'l' + localSeq++, meuId));
     }
@@ -272,10 +276,11 @@ async function iniciar(nome, race) {
       const x = lerp(ant.x, pred.x, alfa) + erro.x;
       const y = lerp(ant.y, pred.y, alfa) + erro.y;
       const z = lerp(ant.z, pred.z, alfa) + erro.z;
-      minhaNave.position.set(x, y + Math.sin(tempo * 2.2) * 0.25, z);
+      // Balanço de flutuação só no ar; no chão a nave fica parada.
+      minhaNave.position.set(x, y + (pred.pousado ? 0 : Math.sin(tempo * 2.2) * 0.25), z);
       minhaNave.rotation.y = lerpAng(ant.yaw, pred.yaw, alfa);
       minhaNave.userData.corpo.rotation.z = lerp(ant.roll, pred.roll, alfa);
-      atualizarMotor(minhaNave, pred.boost, tempo);
+      atualizarMotor(minhaNave, pred.boost, tempo, pred.pousado);
       foco.set(x, y, z);
     }
 
@@ -295,11 +300,11 @@ async function iniciar(nome, race) {
       o.obj.visible = e.vivo;
       o.pos = o.obj.position;
       if (!e.vivo) continue;
-      o.obj.position.set(e.x, e.y + Math.sin(tempo * 2 + e.id) * 0.25, e.z);
+      o.obj.position.set(e.x, e.y + (e.pousado ? 0 : Math.sin(tempo * 2 + e.id) * 0.25), e.z);
       o.obj.rotation.y = e.yaw;
       o.obj.userData.corpo.rotation.z = e.roll;
       if (e.drone) o.obj.userData.corpo.rotation.y = Math.sin(tempo * 3 + e.id) * 0.15;
-      atualizarMotor(o.obj, e.boost, tempo);
+      atualizarMotor(o.obj, e.boost, tempo, e.pousado);
       rotulos.push({ id: e.id, nome: e.nome, drone: e.drone, race: e.race, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position });
     }
     for (const [id, o] of outras) {
@@ -351,6 +356,7 @@ async function iniciar(nome, race) {
 
     if (pred) {
       hud.painel(pred, extra, rede.ping);
+      hud.pouso(!vivo ? null : pred.pousado ? 'pousada' : podePousar(pred.x, pred.z) ? 'area' : null);
       hud.minimapa(vivo ? { x: foco.x, z: foco.z, yaw: minhaNave.rotation.y } : null, snaps.at(-1)?.ents ?? [], meuId);
     }
     if (!vivo && morteEm) {

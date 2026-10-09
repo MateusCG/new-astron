@@ -6,14 +6,24 @@
 // volta para ele e reaplica os comandos ainda não confirmados. Por isso tudo aqui é
 // determinístico, em passo fixo (DT) e sem relógio nem aleatoriedade.
 //
-// Como no AstroN, a nave voa baixo, colada ao terreno (HOVER metros acima do chão):
-// o movimento é num plano e o terreno decide a altura. Parede de cânion é qualquer
-// subida mais íngreme que MAX_SLOPE; nela a nave desliza em vez de escalar.
+// Como no AstroN, a nave voa baixo, acompanhando o terreno (HOVER metros acima do
+// chão): o movimento é num plano e o terreno decide a altura. Parede de cânion é
+// qualquer subida mais íngreme que MAX_SLOPE; nela a nave desliza em vez de escalar.
+//
+// Pouso (tecla L): também como no AstroN, a nave pode descer até o chão, mas só
+// dentro de uma área de pouso (AREAS_POUSO em terrain.js). Pousada ela
+// não atira nem dá boost, gira devagar e se recupera mais rápido (energia aqui, vida
+// no servidor). Só o L decola de novo; acelerar pousada não faz nada. A nave freia
+// antes de tocar o chão: só desce de vez abaixo de VEL_TOQUE.
 
-import { heightAt } from './terrain.js';
+import { heightAt, podePousar } from './terrain.js';
 
 export const DT = 1 / 30;
-export const HOVER = 5;
+export const HOVER = 10;
+export const ALTURA_POUSADO = 1.4; // trem de pouso
+export const VEL_TOQUE = 6; // m/s: acima disso a nave ainda está freando para pousar
+export const POUSO_GIRO = 0.4; // fração do giro normal com a nave no chão
+export const POUSO_REGEN_MULT = 2.5; // energia recupera mais rápido pousada
 export const MAX_SLOPE = 0.75;
 export const TURN_RATE = 2.3;
 export const SHIP_RADIUS = 4.5;
@@ -68,11 +78,13 @@ export function createShip(race, x, z, yaw = 0) {
     cd2: 0,
     boost: false,
     boostTravado: false,
+    pousado: false,
+    pAnt: false,
   };
 }
 
 /** Comando vazio (nave solta). */
-export const INPUT_VAZIO = { th: 0, tu: 0, b: false, f1: false, f2: false };
+export const INPUT_VAZIO = { th: 0, tu: 0, b: false, f1: false, f2: false, p: false };
 
 /** Normaliza um comando vindo da rede: nunca confie no cliente. */
 export function sanitizeInput(i) {
@@ -82,6 +94,7 @@ export function sanitizeInput(i) {
     b: !!i?.b,
     f1: !!i?.f1,
     f2: !!i?.f2,
+    p: !!i?.p,
   };
 }
 
@@ -96,22 +109,29 @@ function bloqueado(gAtual, x, z, passo) {
  */
 export function stepShip(s, inp, dt = DT) {
   const raca = RACES[s.race];
+  // Pouso alterna na borda do botão (apertou agora), para segurar L não ficar
+  // pousando e decolando sem parar.
+  if (inp.p && !s.pAnt) s.pousado = s.pousado ? false : podePousar(s.x, s.z);
+  s.pAnt = !!inp.p;
+  // Se ainda freando ela escorregar para fora da área, o pouso é cancelado.
+  if (s.pousado && !podePousar(s.x, s.z)) s.pousado = false;
+  const pousado = s.pousado;
   // Energia zerada no boost trava o boost até soltar o botão; sem isso ele piscaria
   // liga/desliga a cada passo com a energia que regenera.
   if (!inp.b) s.boostTravado = false;
-  const querBoost = inp.b && inp.th > 0 && s.en > 0 && !s.boostTravado;
+  const querBoost = !pousado && inp.b && inp.th > 0 && s.en > 0 && !s.boostTravado;
   s.boost = querBoost;
   const maxV = raca.velocidade * VEL_FATOR * (querBoost ? BOOST_MULT : 1);
 
-  s.yaw += inp.tu * TURN_RATE * dt;
-  s.roll += (-inp.tu * 0.55 - s.roll) * Math.min(1, 6 * dt);
+  s.yaw += inp.tu * TURN_RATE * (pousado ? POUSO_GIRO : 1) * dt;
+  s.roll += ((pousado ? 0 : -inp.tu * 0.55) - s.roll) * Math.min(1, 6 * dt);
 
   const f = forward(s.yaw);
   const r = { x: -f.z, z: f.x };
   let vf = s.vx * f.x + s.vz * f.z;
   let vl = s.vx * r.x + s.vz * r.z;
-  const alvo = inp.th >= 0 ? inp.th * maxV : inp.th * maxV * 0.4;
-  vf += (alvo - vf) * Math.min(1, (querBoost ? 3.2 : 2.2) * dt);
+  const alvo = pousado ? 0 : inp.th >= 0 ? inp.th * maxV : inp.th * maxV * 0.4;
+  vf += (alvo - vf) * Math.min(1, (pousado ? 3 : querBoost ? 3.2 : 2.2) * dt);
   vl *= Math.exp(-5 * dt); // a nave não derrapa muito de lado
   s.vx = f.x * vf + r.x * vl;
   s.vz = f.z * vf + r.z * vl;
@@ -134,22 +154,25 @@ export function stepShip(s, inp, dt = DT) {
     s.vz *= -0.3;
   }
 
-  // Altura: sobe rápido (não entra no chão), desce mais devagar (sensação de peso).
+  // Altura: sobe rápido (não entra no chão), desce mais devagar (sensação de peso);
+  // no pouso, desce devagar só depois de frear.
   const chao = heightAt(s.x, s.z);
-  const alvoY = chao + HOVER;
-  const taxa = alvoY > s.y ? 30 : 14;
+  const tocando = pousado && Math.hypot(s.vx, s.vz) < VEL_TOQUE;
+  const alvoY = chao + (tocando ? ALTURA_POUSADO : HOVER);
+  const taxa = alvoY > s.y ? 30 : tocando ? 7 : 14;
   s.y += clamp(alvoY - s.y, -taxa * dt, taxa * dt);
-  if (s.y < chao + 1.5) s.y = chao + 1.5;
+  if (s.y < chao + ALTURA_POUSADO) s.y = chao + ALTURA_POUSADO;
 
   if (querBoost) {
     s.en = Math.max(0, s.en - BOOST_GASTO * dt);
     if (s.en === 0) s.boostTravado = true;
   }
-  else s.en = Math.min(s.maxEn, s.en + ENERGIA_REGEN * dt);
+  else s.en = Math.min(s.maxEn, s.en + ENERGIA_REGEN * (pousado ? POUSO_REGEN_MULT : 1) * dt);
 
   s.cd1 = Math.max(0, s.cd1 - dt);
   s.cd2 = Math.max(0, s.cd2 - dt);
   const disparos = [];
+  if (pousado) return disparos;
   if (inp.f1 && s.cd1 <= 0 && s.en >= WEAPONS.laser.energia) {
     s.cd1 = WEAPONS.laser.cd;
     s.en -= WEAPONS.laser.energia;

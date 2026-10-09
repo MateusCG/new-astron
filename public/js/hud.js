@@ -18,6 +18,7 @@ export class Hud {
     this.vel = $('#vel');
     this.ping = $('#ping');
     this.aviso = $('#aviso');
+    this.avisoPouso = $('#pouso');
     this.feed = $('#feed');
     this.rotulos = $('#rotulos');
     this.mapa = $('#minimapa');
@@ -98,6 +99,20 @@ export class Hud {
     this.abates.textContent = extra.abates;
     this.vel.textContent = Math.round(Math.hypot(me.vx, me.vz) * 3.6) + ' km/h';
     this.ping.textContent = ping ? `${ping} ms` : '';
+  }
+
+  /** Dica de pouso: 'pousada', 'area' (dentro do círculo, voando) ou null. */
+  pouso(estado) {
+    const textos = {
+      pousada: 'Pousada · consertando · <kbd>L</kbd> decola',
+      area: 'Área de pouso · <kbd>L</kbd> pousa',
+    };
+    const html = textos[estado] ?? '';
+    if (this.avisoPouso.dataset.estado !== (estado ?? '')) {
+      this.avisoPouso.innerHTML = html;
+      this.avisoPouso.dataset.estado = estado ?? '';
+    }
+    this.avisoPouso.hidden = !html;
   }
 
   mostrarAviso(texto) {
