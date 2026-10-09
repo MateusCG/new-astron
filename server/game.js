@@ -24,8 +24,10 @@
 // (na base do outro time você leva dano normalmente). Drones e Vorax continuam sem
 // entrar em base nenhuma: as duas são território dos jogadores.
 //
-// XP, nível e ouro por abate ficam em server/progressao.js (na morte, em #ferir), e
-// os monstros elite (Krakor) em server/elites.js.
+// XP, nível e ouro por abate ficam em server/progressao.js (na morte, em #ferir); os
+// objetivos A, B e C em server/objetivos.js (no step, no tiro que bate na torre e
+// na morte do guardião), que ligam os bônus em this.bonus; os monstros elite
+// (Krakor e o guardião) em server/elites.js.
 
 import {
   DT,
@@ -46,6 +48,7 @@ import { MapaNavegacao } from './navegacao.js';
 import { Partida, N_TIMES } from './partida.js';
 import { Mineradores } from './mineradores.js';
 import { Bonus } from './bonus.js';
+import { Objetivos } from './objetivos.js';
 import { novaProgressao, recompensar, aplicarNivel, xpParaNivel } from './progressao.js';
 import { KRAKOR, N_KRAKOR, novaElite, renascerElite, iaElite } from './elites.js';
 
@@ -139,7 +142,8 @@ export class World {
   /**
    * @param {{ rng?: () => number, drones?: number, monstros?: number, elites?: number,
    *   duracaoPartidaS?: number, intervaloFimS?: number }} [opcoes]
-   * drones = Arnosh, monstros = Vorax, elites = Krakor.
+   * drones = Arnosh, monstros = Vorax, elites = Krakor (os guardiões dos objetivos C
+   * sempre existem).
    */
   constructor({ rng = Math.random, drones = N_DRONES, monstros = N_MONSTROS, elites = N_KRAKOR, duracaoPartidaS, intervaloFimS } = {}) {
     this.rng = rng;
@@ -148,7 +152,7 @@ export class World {
     this.players = new Map();
     this.drones = [];
     this.monstros = [];
-    this.elites = []; // Krakor
+    this.elites = []; // Krakor e guardiões
     this.bullets = [];
     this.eventos = [];
     // Mapa de caça dos Vorax: campo de caminhos até os jogadores caçáveis.
@@ -167,6 +171,7 @@ export class World {
       const p = this.#pontoKrakor();
       this.elites.push(novaElite('krakor', this.#id(), p.x, p.z, this.rng() * Math.PI * 2));
     }
+    this.objetivos = new Objetivos(this);
     // O que a IA dos elites lê do mundo.
     const players = this.players;
     this.ctxElite = {
@@ -590,6 +595,7 @@ export class World {
       matador.abates++;
       recompensar(matador, alvo.tipo, this.eventos);
     }
+    this.objetivos.aoMorrer(alvo, matador);
   }
 
   /** Dreno: um tick de dano por tempo. Na zona segura/proteção o tempo corre sem dano. */
@@ -617,6 +623,8 @@ export class World {
     if (ent.tipo === 'vorax') {
       ent.ship = this.#naveVorax();
       ent.preso = ent.re = 0;
+    } else if (ent.tipo === 'guardiao') {
+      this.objetivos.renascerGuardiao(ent);
     } else if (ent.elite) {
       const p = this.#pontoKrakor();
       renascerElite(ent, p.x, p.z, this.rng() * Math.PI * 2);
@@ -728,11 +736,15 @@ export class World {
       if (e.vivo) this.#regen(e);
     }
 
+    this.objetivos.step();
+
     const vivos = [...this.players.values(), ...this.drones, ...this.monstros, ...this.elites, ...this.mineradores.lista].filter(
       (e) => e.vivo,
     );
     this.bullets = this.bullets.filter((b) => {
-      if (!stepBullet(b)) {
+      const segue = stepBullet(b);
+      if (this.objetivos.tiroNaTorre(b)) return false; // bateu na torre de um objetivo B
+      if (!segue) {
         this.eventos.push({ e: 'fim', bala: b.id, x: b.x, y: b.y, z: b.z });
         return false;
       }
@@ -754,9 +766,10 @@ export class World {
 
   /**
    * Entidades visíveis para todos (mesma lista para cada jogador). `tipo` diz o
-   * que desenhar ('jogador', 'arnosh', 'vorax', 'krakor' ou 'minerador'); `drone`
-   * continua true para todo inimigo do PvE. Jogadores e mineradores trazem `time`; os
-   * mineradores também `carga` (minério no contêiner) e `minerando`. Jogador traz `nivel`.
+   * que desenhar ('jogador', 'arnosh', 'vorax', 'krakor', 'guardiao' ou
+   * 'minerador'); `drone` continua true para todo inimigo do PvE. Jogadores e
+   * mineradores trazem `time`; os mineradores também `carga` (minério no contêiner)
+   * e `minerando`. Jogador traz `nivel`.
    */
   entidades() {
     const lista = [];
@@ -799,9 +812,12 @@ export class World {
   /**
    * Snapshot para um jogador: estado completo da própria nave + o resto do mundo.
    * Também o nível e o XP dele (xp dentro do nível, xpProx para o próximo; 0 no
-   * máximo).
+   * máximo) e o estado dos objetivos (`obj`, igual para todos: cache por tick).
    */
   snapshotPara(j, ents, eventos) {
+    if (this.cacheObj?.tick !== this.tick) {
+      this.cacheObj = { tick: this.tick, obj: this.objetivos.estado() };
+    }
     return {
       t: 'snap',
       tick: this.tick,
@@ -817,6 +833,7 @@ export class World {
       nivel: j.nivel,
       xp: j.xp,
       xpProx: xpParaNivel(j.nivel),
+      obj: this.cacheObj.obj,
       ents,
       ev: eventos,
     };

@@ -21,6 +21,8 @@ test('monstros: o snapshot diz o tipo de cada entidade', () => {
   const tipos = w.entidades().map((e) => [e.tipo, e.drone]);
   assert.deepEqual(tipos.sort(), [
     ['arnosh', true],
+    ['guardiao', true], // um em cada objetivo C
+    ['guardiao', true],
     ['jogador', false],
     ['krakor', true],
     ['vorax', true],
