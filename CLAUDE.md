@@ -6,7 +6,7 @@ MMO de naves 3D no navegador, inspirado no **AstroN** (jogo coreano de celular, 
 
 ## Estado atual (protótipo)
 
-Um mapa (M1, cânion do deserto), voo a 10 m do chão com colisão nas paredes, pouso e decolagem pelo L só dentro das áreas de pouso (`AREAS_POUSO`; no M1, o círculo de neon da base; pousada conserta mais rápido), laser e plasma, drones inimigos (Arnosh) com IA simples, zona segura na base, morte e renascimento, ouro e abates **só em memória** (sem banco, sem conta). Multijogador real por WebSocket.
+Um mapa (M1, cânion do deserto), voo a 10 m do chão com colisão nas paredes, pouso e decolagem pelo L só dentro das áreas de pouso (`AREAS_POUSO`; no M1, o círculo de neon da base; pousada conserta mais rápido), laser e plasma, drones inimigos (Arnosh) com IA simples, seis monstros caçadores (Vorax) que vêm atrás de quem sai da base pelo caminho dos cânions, atacam com garra, rondam a borda da zona segura sem entrar e renascem longe ao morrer, zona segura na base, morte e renascimento, ouro e abates **só em memória** (sem banco, sem conta). Multijogador real por WebSocket.
 
 ## Arquitetura
 
@@ -16,11 +16,12 @@ Um processo Node só: serve o cliente (HTTP) e roda o mundo (WebSocket `/ws`). O
 |---|---|
 | `shared/terrain.js` | Terreno determinístico (`heightAt`, `paredeAt`). **Servidor e cliente usam o mesmo arquivo.** |
 | `shared/sim.js` | Física da nave e dos tiros, raças (`RACES`) e armas (`WEAPONS`). **Mesmo arquivo nos dois lados.** |
-| `server/game.js` | `World`: jogadores, drones, tiros, dano, ouro, eventos e snapshots |
+| `server/game.js` | `World`: jogadores, drones, monstros Vorax, tiros, dano, ouro, eventos e snapshots |
+| `server/navegacao.js` | Grade de navegação dos monstros (rampa da nave sobre `heightAt`) e Dijkstra com várias fontes até os jogadores caçáveis |
 | `server/index.js` | HTTP estático + WebSocket + laço de 30 Hz; `iniciar({ porta, world })` para testes |
 | `public/js/main.js` | Laço do cliente: predição, reconciliação, interpolação, câmera |
 | `public/js/cena.js` | Céu, terreno, base, decoração, luz e poeira |
-| `public/js/nave.js` | Modelos das naves e do drone (primitivas low-poly) |
+| `public/js/nave.js` | Modelos das naves, do drone Arnosh e do monstro Vorax (primitivas low-poly) |
 | `public/js/efeitos.js` | Tiros, faíscas, explosões (só visual) |
 | `public/js/hud.js`, `controles.js`, `rede.js` | HUD/minimapa/rótulos, teclado + toque, WebSocket |
 | `tests/*.test.mjs` | `node:test`: simulação, terreno e servidor |
