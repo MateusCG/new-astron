@@ -55,7 +55,7 @@ test('servidor: entra, anda com comandos e recebe ack', async () => {
 // O ESC do cliente sai da partida só fechando o WebSocket: o servidor tem que tirar
 // a nave do mundo, avisar quem ficou e aceitar a mesma pessoa de volta com outra raça.
 test('servidor: fechar a conexão (ESC) tira a nave e dá para entrar de novo com outra raça', async () => {
-  const srv = await iniciar({ porta: 0, world: new World({ drones: 0 }) });
+  const srv = await iniciar({ porta: 0, world: new World({ drones: 0, monstros: 0 }) });
   const jogadores = async () => (await (await fetch(`http://localhost:${srv.porta}/healthz`)).json()).jogadores;
   try {
     const outro = conectar(srv.porta);
@@ -158,7 +158,7 @@ test('servidor: não serve arquivo fora das pastas públicas', async () => {
 });
 
 test('servidor: aplica a arma escolhida no comando (e limpa valor inválido)', () => {
-  const w = new World({ drones: 0 });
+  const w = new World({ drones: 0, monstros: 0 });
   const j = w.addPlayer('A', 'acron');
   w.pushInput(j.id, { s: 1, f1: true, a: 1 });
   w.step();
@@ -168,6 +168,8 @@ test('servidor: aplica a arma escolhida no comando (e limpa valor inválido)', (
   assert.equal(tiros.length, 2, 'os dois tiros vão para os outros clientes');
 
   const k = w.addPlayer('B', 'acron');
+  // Os dois nascem em ponto sorteado da base: afasta B de A para o tiro não acertar A.
+  k.ship = createShip('acron', j.ship.x + 40, j.ship.z, 0);
   w.bullets.length = 0;
   w.pushInput(k.id, { s: 1, f1: true, a: 99 });
   w.step();
@@ -176,7 +178,7 @@ test('servidor: aplica a arma escolhida no comando (e limpa valor inválido)', (
 });
 
 test('servidor: cada projétil do laser duplo tira o dano dele', () => {
-  const w = new World({ drones: 0 });
+  const w = new World({ drones: 0, monstros: 0 });
   const a = w.addPlayer('A', 'acron');
   const b = w.addPlayer('B', 'bellico');
   a.ship = createShip('acron', BASE.x, BASE.z - ZONA_SEGURA - 100, 0);
@@ -190,7 +192,7 @@ test('servidor: cada projétil do laser duplo tira o dano dele', () => {
 
 /** Mundo com dois jogadores fora da zona segura: A atira em B, 20 m à frente. */
 function duelo() {
-  const w = new World({ drones: 0 });
+  const w = new World({ drones: 0, monstros: 0 });
   const a = w.addPlayer('A', 'acron');
   const b = w.addPlayer('B', 'bellico');
   a.ship = createShip('acron', BASE.x, BASE.z - ZONA_SEGURA - 100, 0);
@@ -232,7 +234,7 @@ test('servidor: acertar o dreno de novo renova a duração, sem empilhar', () =>
 });
 
 test('servidor: dreno não age na zona segura (nem na proteção de nascimento)', () => {
-  const w = new World({ drones: 0 });
+  const w = new World({ drones: 0, monstros: 0 });
   const j = w.addPlayer('A', 'acron');
   j.protegidoAte = 0;
   j.drenoTicks = 30 * DRENO_DURACAO;
