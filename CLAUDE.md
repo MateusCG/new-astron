@@ -8,7 +8,7 @@ MMO de naves 3D no navegador, inspirado no **AstroN** (jogo coreano de celular, 
 
 ## Estado atual (protótipo)
 
-Um mapa (M1, cânion do deserto), voo a 10 m do chão com colisão nas paredes, pouso e decolagem pelo L só dentro das áreas de pouso (`AREAS_POUSO`; no M1, o círculo de neon da base; pousada conserta mais rápido), arma principal no Z escolhida no menu de armas do Q (laser simples, duplo, triplo em leque, dreno que tira vida por alguns segundos, criogênico que deixa o alvo lento; hoje todas liberadas, ver `possuiArma`) e plasma no X, drones inimigos (Arnosh) com IA simples, seis monstros caçadores (Vorax) que vêm atrás de quem sai da base pelo caminho dos cânions, atacam com garra, rondam a borda da zona segura sem entrar e renascem longe ao morrer, ESC volta para a tela inicial, zona segura na base, morte e renascimento, ouro e abates **só em memória** (sem banco, sem conta). Multijogador real por WebSocket.
+Um mapa (M1, deserto de cânion) já no formato da partida 3 contra 3 (`DESIGN-PARTIDA.md`): retângulo aberto de 3000 × 2000 m com muralha na borda, mesas de rocha espalhadas (simétricas por rotação de 180°), duas bases de time (`BASES`, neon turquesa na sua e vermelho na do outro), corredor dos mineradores com o minério no meio e as entregas nas pontas, plataformas de Evolução e Loja em cada base (pousar mostra "em breve") e os objetivos A (marcação de pouso), B (torre sólida) e C (arena), por enquanto só no mapa. Todo jogador ainda nasce na base do time 0; as duas bases são zona segura. Voo a 10 m do chão com colisão nas rochas e construções, pouso e decolagem pelo L só dentro das áreas de pouso (`AREAS_POUSO`: anel de cada base, serviços e objetivos A; pousada conserta mais rápido), arma principal no Z escolhida no menu de armas do Q (laser simples, duplo, triplo em leque, dreno que tira vida por alguns segundos, criogênico que deixa o alvo lento; hoje todas liberadas, ver `possuiArma`) e plasma no X, drones inimigos (Arnosh) com IA simples espalhados pelo mundo aberto, seis monstros caçadores (Vorax) que vêm atrás de quem sai da base contornando as rochas, atacam com garra, rondam a borda da zona segura sem entrar e renascem longe ao morrer, ESC volta para a tela inicial, zona segura na base, morte e renascimento, ouro e abates **só em memória** (sem banco, sem conta). Multijogador real por WebSocket.
 
 ## Arquitetura
 
@@ -16,19 +16,19 @@ Um processo Node só: serve o cliente (HTTP) e roda o mundo (WebSocket `/ws`). O
 
 | Caminho | O que é |
 |---|---|
-| `shared/terrain.js` | Terreno determinístico (`heightAt`, `paredeAt`). **Servidor e cliente usam o mesmo arquivo.** |
-| `shared/obstaculos.js` | Construções sólidas (hangares, colunas do portal, antenas): planta única usada pela física (`alturaSolida`) **e** pelo desenho em `cena.js`. Construção nova entra aqui. |
+| `shared/terrain.js` | Terreno determinístico (`heightAt`, `paredeAt`, `noMapaAberto`) e o contrato do mapa: `MAP_HALF_X/Z`, `BASES` (`BASE` = time 0), `CORREDOR`, `MINERIO`, `ENTREGAS`, `SERVICOS`, `OBJETIVOS`, `ROTAS` dos mineradores, `MESAS`, `AREAS_POUSO`/`areaPouso`. **Servidor e cliente usam o mesmo arquivo.** |
+| `shared/obstaculos.js` | Construções sólidas (hangares, portais e antenas das duas bases, cristais do minério, torres dos objetivos B): planta única usada pela física (`alturaSolida`) **e** pelo desenho em `cena.js`. Construção nova entra aqui. Também `pontoAberto(rng)` (onde nascem os monstros do mundo aberto) e `daBase` (planta da base do time 0 girada para o time 1). |
 | `shared/sim.js` | Física da nave e dos tiros, raças (`RACES`) e armas (`WEAPONS`). **Mesmo arquivo nos dois lados.** |
 | `server/game.js` | `World`: jogadores, drones, monstros Vorax, tiros, dano, ouro, eventos e snapshots |
-| `server/navegacao.js` | Grade de navegação dos monstros (rampa da nave sobre `heightAt`) e Dijkstra com várias fontes até os jogadores caçáveis |
+| `server/navegacao.js` | Grade de navegação dos monstros (300 × 200 células de 10 m, rampa da nave sobre `heightAt`, zona segura das duas bases bloqueada) e Dijkstra com várias fontes até os jogadores caçáveis |
 | `server/index.js` | HTTP estático + WebSocket + laço de 30 Hz; `iniciar({ porta, world })` para testes |
 | `public/js/main.js` | Laço do cliente: predição, reconciliação, interpolação, câmera |
-| `public/js/cena.js` | Céu, terreno, base, decoração, luz e poeira |
+| `public/js/cena.js` | Céu, terreno, bases (cor relativa ao time: `criarCena({ meuTime })`), corredor, minério, entregas, serviços, objetivos, decoração, luz e poeira |
 | `public/js/nave.js` | Modelos das naves, do drone Arnosh e do monstro Vorax (primitivas low-poly) |
 | `public/js/efeitos.js` | Tiros, faíscas, explosões (só visual) |
 | `public/js/hud.js`, `controles.js`, `rede.js` | HUD/minimapa/rótulos, teclado + toque, WebSocket |
 | `public/js/armas.js` | Menu de armas (`#menu-armas`, Q / botão ARMA): guarda a arma principal que vai no campo `a` do comando |
-| `tests/*.test.mjs` | `node:test`: simulação, terreno e servidor |
+| `tests/*.test.mjs` | `node:test`: simulação, mapa (`mapa.test.mjs`), construções, monstros e servidor |
 
 ### Regras de rede (não regredir)
 
@@ -42,7 +42,7 @@ Um processo Node só: serve o cliente (HTTP) e roda o mundo (WebSocket `/ws`). O
 
 - `npm install`, depois `npm start` (ou `npm run dev`, que reinicia ao salvar): http://localhost:5090. A porta vem de `PORT`.
 - `npm test` roda tudo (`node --test tests/*.test.mjs`), em segundos e sem banco.
-- **Mudança visual:** confira com print no navegador (Playwright/Chromium headless), na base e no cânion, sem erro no console. Teste não pega cor estourada nem câmera dentro da parede.
+- **Mudança visual:** confira com print no navegador (Playwright/Chromium headless), na base, no corredor e no mundo aberto, sem erro no console. Teste não pega cor estourada nem câmera dentro da parede.
 - Para abrir vários jogadores, use várias abas. `?servidor=ws://host:porta/ws` aponta o cliente para outro servidor.
 
 ## Convenções do código (iguais às do Sideral)

@@ -13,7 +13,10 @@ Guia obrigatório para qualquer coisa que entre no jogo: cenário, nave, inimigo
   2. **Tecnologia** em cinza-metal com **neon turquesa**;
   3. **Perigo** em vermelho-laranja vivo (inimigos, alertas, tiro inimigo).
 
-  Se uma cor nova não se encaixa em uma dessas três, provavelmente está errada.
+  Se uma cor nova não se encaixa em uma dessas três, provavelmente está errada. As
+  exceções são as **cores de jogo do mapa** (abaixo, em "Mapa da partida"): âmbar dos
+  objetivos, azul do circuito do minério e as cores dos serviços. Elas marcam lugares
+  com regra própria e só aparecem no chão e no minimapa.
 
 ## Paleta
 
@@ -23,7 +26,7 @@ Tokens em `public/css/jogo.css` (`:root`). Use as variáveis; não escreva hex s
 
 | Token | Hex | Uso |
 |---|---|---|
-| `--neon` | `#00efc0` | Destaque principal, botão primário, bordas ativas, base no minimapa |
+| `--neon` | `#00efc0` | Destaque principal, botão primário, bordas ativas, base do seu time no minimapa |
 | `--neon-escuro` | `#0a5f50` | Contorno de painéis e brilho sutil |
 | `--chapa` | `#18302e` | Fundo de painel (chapa metálica) |
 | `--chapa-clara` | `#2c4a46` | Borda e topo iluminado do painel |
@@ -73,13 +76,37 @@ Em `public/js/efeitos.js` (`COR_TIRO`). Efeitos de luz são sempre **aditivos** 
 
 O violeta e o azul-gelo são cores de **efeito de arma**, fora das três camadas de cena: só aparecem em tiro, aura e ícone dessas armas, nunca em cenário ou interface comum.
 
+### Mapa da partida (M1, 3 contra 3)
+
+O mapa segue `DESIGN-PARTIDA.md` e `shared/terrain.js`. Cores em `public/js/cena.js` (`CORES`) e no minimapa (`public/js/hud.js`).
+
+**Cor das bases é relativa a quem olha:** a base do **seu time** tem neon **turquesa** `#00efc0`; a do **outro time**, neon **vermelho** `#ff3b2a` (perigo). As duas são a mesma planta (girada 180°): plataforma com anel de pouso, hangares, antenas, portal na boca do corredor. No código: `criarCena({ meuTime })` e `new Hud({ meuTime })` (padrão 0 enquanto o cliente não sabe o time).
+
+| Coisa | Cor | Forma | Significado |
+|---|---|---|---|
+| Base do seu time | metal `#5d6866`/`#3a4442` + neon `#00efc0` | Plataforma redonda com anel, hangares, antenas, portal | Nasce, pousa, conserta; zona segura |
+| Base do outro time | mesmo metal + neon `#ff3b2a` | A mesma planta | Base deles (também zona segura) |
+| Corredor dos mineradores | estrada `#4a3326`, bordas tracejadas `#4fb8ff`, linha do meio `#cfe9ff` | Faixa de 100 m em x = 0, aberta dos lados | Por onde os mineradores vão e voltam |
+| Entrega | placa `#36424a` com borda e setas `#4fb8ff` | Retângulo 120 × 30 m colado na boca de cada base | Onde o minerador entrega o minério |
+| Minério | cristais azul-gelo `#9fe8ff` (emissivos, "respiram"), chão `#3f4a55` | Cristais grandes sólidos no miolo, lascas baixas na coroa | Onde os mineradores carregam |
+| Evolução | violeta `#a58bff` | Placa retangular com borda, duas setas para cima e "EVOLUÇÃO" | Pousado: melhorar nave e mineradores (tela virá depois) |
+| Loja | magenta `#ff6fd8` | Placa retangular com borda, moeda (anel + barra) e "LOJA" | Pousado: armas, armaduras, itens (tela virá depois) |
+| Objetivo A | âmbar `#ffb627` (pulsa) | Placa redonda com anel e losango no chão | **Pouse na marcação** para tomar |
+| Objetivo B | âmbar `#ffb627` | Torre escura sextavada (sólida) com faixas âmbar e farol no alto, anel no chão | **Destrua a torre** para tomar |
+| Objetivo C | âmbar `#ffb627` | Arena: anel largo de 60 m, anel interno, triângulo e pilares baixos | **Derrote o guardião** da arena |
+
+- **Âmbar = objetivo.** Os três tipos usam âmbar e se distinguem pela forma (losango, torre, triângulo) e, no minimapa, pela letra.
+- **Azul = circuito do minério** (estrada, entregas, cristais). Os cristais usam o mesmo azul-gelo do Criogênico, mas só no chão; aura em nave é sempre efeito de arma.
+- **Minimapa:** retângulo inteiro do mapa; sua base em turquesa, a outra em vermelho, corredor em azul apagado, entregas e minério em azul, serviços em violeta e magenta, objetivos com a letra em âmbar.
+- **Mesas de rocha** do mundo aberto: a mesma rocha em estratos das paredes de cânion, com o alto mais claro (`#b9804f`) e torres de treliça em cima.
+
 ### Planetas (biomas)
 
 Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A neblina tem sempre a cor do horizonte, para o fundo "derreter" no céu.
 
 | Planeta | Céu topo / meio / horizonte | Neblina | Rocha | Chão | Status |
 |---|---|---|---|---|---|
-| **M1 Cânion (Bellico)** | `#2a0f1c` / `#a8402a` / `#f59a45` | `#c96a3a` | `#5a2f1e` a `#a8683e` em estratos | `#6e3f24` a `#9b6239` | **feito** (`public/js/cena.js`, `CORES`) |
+| **M1 Cânion (Bellico)** | `#2a0f1c` / `#a8402a` / `#f59a45` | `#c96a3a` | `#5a2f1e` a `#a8683e` em estratos | `#6e3f24` a `#9b6239` | **feito** (`public/js/cena.js`, `CORES`): mapa da partida 3 contra 3 |
 | Base Shrewdo | `#1d3b5c` / `#6f9cc4` / `#d8e6ee` | `#b9cdd8` | metal `#5d6866` | concreto `#7a817f` | planejado |
 | Vale tóxico (Mechan) | `#1a0820` / `#6a1f5e` / `#c0508a` | `#7a3460` | `#4a3328` | `#5c4a2a` com poças `#7dff6a` | planejado |
 | Mar raso (Acron) | `#04131f` / `#0f4c6b` / `#5fc9d6` | `#3e8fa0` | `#2c3d45` | água `#0f5a6e` | planejado |
@@ -89,7 +116,7 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 - **Low-poly facetado:** `flatShading: true` em terreno, naves e estruturas. Nada de superfícies lisas brilhantes.
 - **Metal sem mapa de ambiente:** `metalness` até **0.5** e `roughness` de **0.4 a 0.8**. Metal alto sem nada para refletir fica preto ou estoura no reflexo do sol.
 - **Neon:** material com `color` e `emissive` iguais e `emissiveIntensity` entre **0.8 e 1.2**. Acima disso o tone mapping (ACES) puxa para o branco e a cor some. Luz piscando vai de 0.1 a 1.2.
-- **Uma cor de destaque por objeto.** Hangar: cinza + faixa turquesa. Portal: escuro + luz vermelha. Nave: casco cinza + cor da raça.
+- **Uma cor de destaque por objeto.** Hangar e portal: cinza + neon da base (turquesa na sua, vermelho na do outro time). Nave: casco cinza + cor da raça.
 - **Inimigos são orgânicos:** formas irregulares (icosaedro, espinhos), pele escura `#4a1414`/`#8c2a1f` e **olho vermelho emissivo**. Nunca usar o visual "nave limpa" dos jogadores neles.
 - **Cada inimigo tem silhueta própria**, para o jogador saber de longe o que vem:
 
@@ -99,7 +126,7 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
   | Vorax (monstro) | Comprido, três gomos (cabeça, tórax, cauda com ferrão), espinhos nas costas, duas garras em foice que abrem e fecham | Caça de qualquer distância e ataca de perto; o golpe de garra é uma faísca `#ff4a2a` em quem leva |
 
   No minimapa todo inimigo é ponto vermelho; o Vorax num ponto maior.
-- **Área de pouso = anel de neon turquesa no chão.** Todo lugar onde a nave pode pousar (`AREAS_POUSO`) é marcado assim, e nenhum outro anel turquesa no chão pode existir, para o jogador não confundir.
+- **Área de pouso é sempre marcada no chão**, com a cor do que ela é: anel com o neon da base (turquesa na sua), placa violeta da Evolução, placa magenta da Loja, anel âmbar do objetivo A (`AREAS_POUSO`). Nenhum anel turquesa no chão pode existir fora da sua base, para o jogador não confundir.
 - **Tudo projeta sombra** (`castShadow`), e o terreno a recebe.
 
 ### Escala de referência
@@ -109,11 +136,13 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 | Nave de jogador | ~11 m de comprimento, ~12 m de envergadura |
 | Altura de voo | 10 m acima do chão (`HOVER`) |
 | Nave pousada | 1,4 m (`ALTURA_POUSADO`), com trem de pouso visível e motores quase apagados |
-| Parede de cânion | ~70 m (`WALL_HEIGHT`) |
-| Corredor de cânion | 30 a 80 m de largura |
+| Parede de cânion / mesa de rocha | ~50 a 95 m; começa com um degrau vertical de ~20 m (nem de lado a nave sobe) |
+| Mapa | 3000 × 2000 m (`MAP_HALF_X`, `MAP_HALF_Z`), muralha só na borda |
+| Base de time | raio 200 m (`BASES`) |
+| Corredor dos mineradores | 100 m de largura (`CORREDOR`) |
 | Hangar | 26 × 14 × 18 m |
 | Decoração no chão do cânion | **até 2,5 m de altura** (a nave passa por cima; não há colisão com decoração) |
-| Construções (hangar, portal, antena) | **sólidas**: nave e tiro batem. Tamanho e posição saem de `shared/obstaculos.js`, nunca só do `cena.js` |
+| Construções (hangar, portal, antena, cristais do minério, torre do objetivo B) | **sólidas**: nave e tiro batem. Tamanho e posição saem de `shared/obstaculos.js`, nunca só do `cena.js` |
 
 ## Luz e atmosfera
 
@@ -143,5 +172,5 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 - [ ] Facetado, metal ≤ 0.5, neon ≤ 1.2.
 - [ ] Inimigo em vermelho, tecnologia em turquesa, ambiente em tons quentes.
 - [ ] Escala conferida contra a tabela (a nave cabe e passa por cima da decoração).
-- [ ] Testado com print no navegador (base e cânion), sem erro no console.
+- [ ] Testado com print no navegador (base, corredor e mundo aberto), sem erro no console.
 - [ ] Texto em PT-BR.
