@@ -215,8 +215,8 @@ kbd {
   position: absolute;
   top: 12px;
   left: 12px;
-  width: 140px;
-  height: 140px;
+  width: 180px;
+  height: 120px;
   border: 2px solid var(--chapa-clara);
   border-radius: 6px;
   box-shadow: 0 0 0 1px var(--neon-escuro);
@@ -257,7 +257,7 @@ kbd {
 
 #ping {
   position: absolute;
-  top: 158px;
+  top: 140px;
   left: 14px;
   font-size: 11px;
   opacity: 0.6;
@@ -727,10 +727,10 @@ body.dano::after {
 
 @media (max-width: 520px) {
   #minimapa {
-    width: 96px;
-    height: 96px;
+    width: 120px;
+    height: 80px;
   }
   #ping {
-    top: 112px;
+    top: 98px;
   }
 }

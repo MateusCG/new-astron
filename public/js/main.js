@@ -18,7 +18,7 @@
 
 import * as THREE from 'three';
 import { DT, RACES, WEAPONS, createBullet, stepShip, bulletHits, forward } from '/shared/sim.js';
-import { podePousar } from '/shared/terrain.js';
+import { areaPouso } from '/shared/terrain.js';
 import { alturaSolida } from '/shared/obstaculos.js';
 import { criarCena, liberarCena } from './cena.js';
 import { criarNave, criarDrone, criarVorax, animarVorax, atualizarMotor } from './nave.js';
@@ -231,8 +231,8 @@ function montarJogo(rede, boas, renderer, race) {
     rede.enviar({ t: 'in', s: seq, ...inp });
     ant = pose(pred);
     const apertouPouso = inp.p && !pred.pAnt;
-    if (apertouPouso && !pred.pousado && !podePousar(pred.x, pred.z)) {
-      hud.noticia('Só dá para pousar no círculo de neon da base', 'ruim');
+    if (apertouPouso && !pred.pousado && !areaPouso(pred.x, pred.z)) {
+      hud.noticia('Só dá para pousar nas plataformas da base e nos objetivos A', 'ruim');
     }
     for (const { kind, off, ang } of stepShip(pred, inp)) {
       efeitos.tiro(createBullet(pred, kind, 'l' + localSeq++, meuId, off, ang));
@@ -473,7 +473,7 @@ function montarJogo(rede, boas, renderer, race) {
 
     if (pred) {
       hud.painel(pred, extra, rede.ping);
-      hud.pouso(!vivo ? null : pred.pousado ? 'pousada' : podePousar(pred.x, pred.z) ? 'area' : null);
+      hud.pouso(vivo ? areaPouso(pred.x, pred.z) ?? null : null, vivo && pred.pousado);
       hud.minimapa(vivo ? { x: foco.x, z: foco.z, yaw: minhaNave.rotation.y } : null, snaps.at(-1)?.ents ?? [], meuId);
     }
     if (!vivo && morteEm) {

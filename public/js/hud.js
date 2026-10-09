@@ -2,14 +2,28 @@
 // naves, avisos de abate e a tela de "destruído". É DOM puro por cima do canvas.
 
 import * as THREE from 'three';
-import { paredeAt, MAP_HALF, BASE } from '/shared/terrain.js';
+import { paredeAt, MAP_HALF_X, MAP_HALF_Z, BASES, CORREDOR, MINERIO, ENTREGAS, SERVICOS, OBJETIVOS } from '/shared/terrain.js';
 import { RACES, WEAPONS, ARMAS_PRINCIPAIS } from '/shared/sim.js';
 import { iconeArma } from './armas.js';
 
 const $ = (s) => document.querySelector(s);
 
+// O minimapa mostra o retângulo inteiro (o canvas tem a mesma proporção do mapa).
+// Cores do guia visual: sua base em turquesa, a do outro time em vermelho, o
+// circuito do minério em azul, serviços na cor de cada um e objetivos em âmbar.
+const COR_MEU_TIME = '#00efc0';
+const COR_OUTRO_TIME = '#ff4a2a';
+const COR_INIMIGA = '#ff4a2a';
+const COR_OBJETIVO = '#ffb627';
+const COR_CIRCUITO = '#4fb8ff';
+const COR_MINERIO = '#9fe8ff';
+const COR_SERVICO = { evolucao: '#a58bff', loja: '#ff6fd8' };
+const NOME_SERVICO = { evolucao: 'Evolução', loja: 'Loja' };
+
 export class Hud {
-  constructor() {
+  /** @param {{ meuTime?: number }} [opcoes] time de quem joga (cor das bases no minimapa) */
+  constructor({ meuTime = 0 } = {}) {
+    this.meuTime = meuTime;
     this.hp = $('#hp .valor');
     this.hpTxt = $('#hp .txt');
     this.en = $('#en .valor');
@@ -32,17 +46,18 @@ export class Hud {
   }
 
   #desenharFundo() {
-    const n = 160;
+    const w = this.mapa.width;
+    const h = this.mapa.height;
     const c = document.createElement('canvas');
-    c.width = c.height = n;
+    c.width = w;
+    c.height = h;
     const ctx = c.getContext('2d');
-    const img = ctx.createImageData(n, n);
-    for (let j = 0; j < n; j++) {
-      for (let i = 0; i < n; i++) {
-        const x = (i / n) * 2 * MAP_HALF - MAP_HALF;
-        const z = (j / n) * 2 * MAP_HALF - MAP_HALF;
+    const img = ctx.createImageData(w, h);
+    for (let j = 0; j < h; j++) {
+      for (let i = 0; i < w; i++) {
+        const [x, z] = this.#doMapa(i + 0.5, j + 0.5);
         const p = paredeAt(x, z);
-        const k = (j * n + i) * 4;
+        const k = (j * w + i) * 4;
         img.data[k] = 40 + p * 90;
         img.data[k + 1] = 22 + p * 50;
         img.data[k + 2] = 14 + p * 25;
@@ -50,29 +65,72 @@ export class Hud {
       }
     }
     ctx.putImageData(img, 0, 0);
+    const k = this.#escala();
+    const circulo = (x, z, raioM, cor, cheio) => {
+      const [cx, cz] = this.#paraMapa(x, z);
+      ctx.beginPath();
+      ctx.arc(cx, cz, Math.max(2, raioM * k), 0, Math.PI * 2);
+      if (cheio) {
+        ctx.fillStyle = cor;
+        ctx.fill();
+      } else {
+        ctx.strokeStyle = cor;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    };
+    const retangulo = (x, z, larg, prof, cor) => {
+      const [cx, cz] = this.#paraMapa(x - larg / 2, z - prof / 2);
+      ctx.fillStyle = cor;
+      ctx.fillRect(cx, cz, Math.max(1.5, larg * k), Math.max(1.5, prof * k));
+    };
+    // Corredor (faixa azul apagada), entregas e minério.
+    ctx.globalAlpha = 0.35;
+    retangulo(CORREDOR.x, (CORREDOR.zInicio + CORREDOR.zFim) / 2, CORREDOR.largura, CORREDOR.zFim - CORREDOR.zInicio, COR_CIRCUITO);
+    ctx.globalAlpha = 1;
+    for (const e of ENTREGAS) retangulo(e.x, e.z, e.largura, e.profundidade, COR_CIRCUITO);
+    circulo(MINERIO.x, MINERIO.z, MINERIO.raio * 0.7, COR_MINERIO, true);
+    for (const b of BASES) circulo(b.x, b.z, b.raio, b.time === this.meuTime ? COR_MEU_TIME : COR_OUTRO_TIME, false);
+    for (const sv of SERVICOS) retangulo(sv.x, sv.z, sv.raio * 2.4, sv.raio * 2, COR_SERVICO[sv.servico]);
+    // Objetivos: a letra do tipo em âmbar.
+    ctx.font = 'bold 10px ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const o of OBJETIVOS) {
+      const [cx, cz] = this.#paraMapa(o.x, o.z);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+      ctx.beginPath();
+      ctx.arc(cx, cz, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = COR_OBJETIVO;
+      ctx.fillText(o.tipo, cx, cz + 0.5);
+    }
     return c;
   }
 
-  #paraMapa(x, z) {
-    const n = this.mapa.width;
-    return [((x + MAP_HALF) / (2 * MAP_HALF)) * n, ((z + MAP_HALF) / (2 * MAP_HALF)) * n];
+  /** Pixels do minimapa por metro do mundo. */
+  #escala() {
+    return Math.min(this.mapa.width / (2 * MAP_HALF_X), this.mapa.height / (2 * MAP_HALF_Z));
   }
 
-  /** Desenha o minimapa com a base, os outros (pontos) e você (seta). */
+  #paraMapa(x, z) {
+    const k = this.#escala();
+    return [this.mapa.width / 2 + x * k, this.mapa.height / 2 + z * k];
+  }
+
+  #doMapa(px, pz) {
+    const k = this.#escala();
+    return [(px - this.mapa.width / 2) / k, (pz - this.mapa.height / 2) / k];
+  }
+
+  /** Desenha o minimapa com o mapa fixo, os outros (pontos) e você (seta). */
   minimapa(eu, ents, meuId) {
     const ctx = this.ctx;
-    const n = this.mapa.width;
-    ctx.drawImage(this.fundoMapa, 0, 0, n, n);
-    const [bx, bz] = this.#paraMapa(BASE.x, BASE.z);
-    ctx.strokeStyle = '#00efc0';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(bx, bz, 5, 0, Math.PI * 2);
-    ctx.stroke();
+    ctx.drawImage(this.fundoMapa, 0, 0);
     for (const e of ents) {
       if (e.id === meuId || !e.vivo) continue;
       const [x, z] = this.#paraMapa(e.x, e.z);
-      ctx.fillStyle = e.drone ? '#ff4a2a' : '#5ff7ff';
+      ctx.fillStyle = e.drone ? COR_INIMIGA : '#5ff7ff';
       // Vorax (o que vem atrás de você) num ponto maior que o Arnosh.
       const t = e.tipo === 'vorax' ? 4.5 : 3;
       ctx.fillRect(x - t / 2, z - t / 2, t, t);
@@ -113,16 +171,26 @@ export class Hud {
     }
   }
 
-  /** Dica de pouso: 'pousada', 'area' (dentro do círculo, voando) ou null. */
-  pouso(estado) {
-    const textos = {
-      pousada: 'Pousada · consertando · <kbd>L</kbd> decola',
-      area: 'Área de pouso · <kbd>L</kbd> pousa',
-    };
-    const html = textos[estado] ?? '';
-    if (this.avisoPouso.dataset.estado !== (estado ?? '')) {
+  /**
+   * Dica de pouso. `area` é a área de pouso onde a nave está (AREAS_POUSO) ou
+   * null; `pousada` diz se ela já está no chão. Nos serviços, pousada mostra que a
+   * tela ainda vem ("em breve").
+   */
+  pouso(area, pousada) {
+    const nome = !area
+      ? ''
+      : area.servico
+        ? NOME_SERVICO[area.servico]
+        : area.objetivo
+          ? `Objetivo ${area.tipo}`
+          : 'Área de pouso';
+    let html = '';
+    if (pousada && area?.servico) html = `${nome} · em breve · <kbd>L</kbd> decola`;
+    else if (pousada) html = `${area?.objetivo ? nome + ' · ' : ''}Pousada · consertando · <kbd>L</kbd> decola`;
+    else if (area) html = `${nome} · <kbd>L</kbd> pousa`;
+    if (this.avisoPouso.dataset.html !== html) {
       this.avisoPouso.innerHTML = html;
-      this.avisoPouso.dataset.estado = estado ?? '';
+      this.avisoPouso.dataset.html = html;
     }
     this.avisoPouso.hidden = !html;
   }
@@ -193,7 +261,7 @@ export class Hud {
     this.tags.clear();
     this.feed.replaceChildren();
     this.mostrarAviso('');
-    this.pouso(null);
+    this.pouso(null, false);
     this.ping.textContent = '';
     document.body.classList.remove('dano');
   }
