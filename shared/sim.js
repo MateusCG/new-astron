@@ -13,7 +13,7 @@
 import { heightAt } from './terrain.js';
 
 export const DT = 1 / 30;
-export const HOVER = 5;
+export const HOVER = 10;
 export const MAX_SLOPE = 0.75;
 export const TURN_RATE = 2.3;
 export const SHIP_RADIUS = 4.5;

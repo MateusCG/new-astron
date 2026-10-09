@@ -82,7 +82,7 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 | Coisa | Tamanho |
 |---|---|
 | Nave de jogador | ~11 m de comprimento, ~12 m de envergadura |
-| Altura de voo | 5 m acima do chão (`HOVER`) |
+| Altura de voo | 10 m acima do chão (`HOVER`) |
 | Parede de cânion | ~70 m (`WALL_HEIGHT`) |
 | Corredor de cânion | 30 a 80 m de largura |
 | Hangar | 26 × 14 × 18 m |
