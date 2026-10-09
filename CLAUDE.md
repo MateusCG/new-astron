@@ -6,7 +6,7 @@ MMO de naves 3D no navegador, inspirado no **AstroN** (jogo coreano de celular, 
 
 ## Estado atual (protótipo)
 
-Um mapa (M1, cânion do deserto), voo a 10 m do chão com colisão nas paredes, pouso e decolagem pelo L só dentro das áreas de pouso (`AREAS_POUSO`; no M1, o círculo de neon da base; pousada conserta mais rápido), laser (simples ou duplo, trocado no menu de armas do Q) e plasma, drones inimigos (Arnosh) com IA simples, zona segura na base, morte e renascimento, ouro e abates **só em memória** (sem banco, sem conta). Multijogador real por WebSocket.
+Um mapa (M1, cânion do deserto), voo a 10 m do chão com colisão nas paredes, pouso e decolagem pelo L só dentro das áreas de pouso (`AREAS_POUSO`; no M1, o círculo de neon da base; pousada conserta mais rápido), arma principal no Z escolhida no menu de armas do Q (laser simples, duplo, triplo em leque, dreno que tira vida por alguns segundos, criogênico que deixa o alvo lento; hoje todas liberadas, ver `possuiArma`) e plasma no X, drones inimigos (Arnosh) com IA simples, zona segura na base, morte e renascimento, ouro e abates **só em memória** (sem banco, sem conta). Multijogador real por WebSocket.
 
 ## Arquitetura
 
@@ -28,7 +28,7 @@ Um processo Node só: serve o cliente (HTTP) e roda o mundo (WebSocket `/ws`). O
 
 ### Regras de rede (não regredir)
 
-- **O servidor é a autoridade.** O cliente manda só comandos `{t:'in', s:seq, th, tu, b, f1, f2, p, a}` (`a` = arma principal, índice em `ARMAS_PRINCIPAIS`, sanitizado para 0 se inválido); posição, acerto, dano, morte e ouro saem do servidor. Nunca aceite posição, dano ou recompensa vindos do cliente.
+- **O servidor é a autoridade.** O cliente manda só comandos `{t:'in', s:seq, th, tu, b, f1, f2, p, a}` (`a` = arma principal, índice em `ARMAS_PRINCIPAIS`, sanitizado para 0 se inválido; efeitos de arma, como dreno e lentidão, também só o servidor aplica); posição, acerto, dano, morte e ouro saem do servidor. Nunca aceite posição, dano ou recompensa vindos do cliente.
 - **Passo fixo de 1/30 s** (`DT`). Cada comando é aplicado uma vez, em ordem; no máximo 4 por tick (`MAX_INPUTS_TICK`), contra acelerar o tempo. Entrada da rede passa por `sanitizeInput`.
 - **`shared/` é determinístico:** sem `Math.random`, sem relógio, sem Three.js. Se o cliente e o servidor calcularem diferente, a predição dá tranco e a colisão falha.
 - O cliente prevê a própria nave e **reconcilia** com `me` + `ack` do snapshot; as outras naves são desenhadas 120 ms no passado (`INTERP_MS`), interpoladas.

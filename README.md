@@ -20,9 +20,9 @@ Abra duas abas para ver o multijogador.
 | `W` / `S` (ou setas) | joystick | acelerar / ré |
 | `A` / `D` (ou setas) | joystick | girar |
 | `Shift` | SHIFT | boost (gasta energia) |
-| `Z` ou `Espaço` | Z | laser (simples ou duplo, conforme a arma escolhida) |
+| `Z` ou `Espaço` | Z | arma principal (a escolhida no menu de armas) |
 | `X` | X | plasma |
-| `Q` | ARMA | menu de armas: troca o laser entre simples (1 tiro) e duplo (2 tiros paralelos); `1`/`2` ou clique/toque escolhe |
+| `Q` | ARMA | menu de armas: laser simples, laser duplo (2 tiros paralelos), laser triplo (3 em leque), dreno (o alvo perde vida por alguns segundos) ou criogênico (o alvo fica lento); `1` a `5` ou clique/toque escolhe. Com o menu aberto o jogo segue, mas não sai tiro |
 | `L` | POUSAR | pousar / decolar, só no círculo de neon da base (pousada conserta mais rápido) |
 | `V` | | distância da câmera |
 
