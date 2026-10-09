@@ -19,6 +19,8 @@ const COR_CIRCUITO = '#4fb8ff';
 const COR_MINERIO = '#9fe8ff';
 const COR_SERVICO = { evolucao: '#a58bff', loja: '#ff6fd8' };
 const NOME_SERVICO = { evolucao: 'Evolução', loja: 'Loja' };
+// Tamanho do ponto de cada inimigo no minimapa: quanto mais perigoso, maior.
+const PONTO_INIMIGO = { vorax: 4.5, krakor: 6, guardiao: 7 };
 
 export class Hud {
   /** @param {{ meuTime?: number }} [opcoes] time de quem joga (cor das bases no minimapa) */
@@ -139,8 +141,8 @@ export class Hud {
         ctx.fill();
         continue;
       }
-      // Vorax (o que vem atrás de você) num ponto maior que o Arnosh.
-      const t = e.tipo === 'vorax' ? 4.5 : 3;
+      // Quem é mais perigoso (Vorax, Krakor, guardião) num ponto maior que o Arnosh.
+      const t = PONTO_INIMIGO[e.tipo] ?? 3;
       ctx.fillRect(x - t / 2, z - t / 2, t, t);
     }
     if (eu) {

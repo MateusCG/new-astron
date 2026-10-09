@@ -21,7 +21,7 @@ import { DT, RACES, WEAPONS, createBullet, stepShip, bulletHits, forward, pousoP
 import { areaPouso } from '/shared/terrain.js';
 import { alturaSolida } from '/shared/obstaculos.js';
 import { criarCena, liberarCena } from './cena.js';
-import { criarNave, criarDrone, criarVorax, animarVorax, criarMinerador, animarMinerador, atualizarMotor } from './nave.js';
+import { criarNave, criarDrone, criarVorax, animarVorax, criarKrakor, animarKrakor, criarGuardiao, animarGuardiao, criarMinerador, animarMinerador, atualizarMotor } from './nave.js';
 import { Efeitos } from './efeitos.js';
 import { Controles } from './controles.js';
 import { Hud } from './hud.js';
@@ -30,6 +30,8 @@ import { MenuArmas } from './armas.js';
 import { Placar } from './placar.js';
 
 const INTERP_MS = 120;
+// Modelo de cada tipo de inimigo (o tipo vem do servidor em cada entidade).
+const MODELO_INIMIGO = { vorax: criarVorax, krakor: criarKrakor, guardiao: criarGuardiao };
 const CAMERAS = [
   { dist: 22, alt: 8, olhar: 14 },
   { dist: 34, alt: 13, olhar: 18 },
@@ -317,11 +319,12 @@ function montarJogo(rede, boas, renderer, race) {
       } else if (e.e === 'partida' && e.n > 1) {
         hud.noticia('Nova partida: o time que minerar mais vence', 'bom');
       } else if (e.e === 'morte') {
-        efeitos.explosao(e.x, e.y, e.z, 4, '#ff9a3a');
+        const tipo = e.tipo ?? outras.get(e.id)?.tipo;
+        efeitos.explosao(e.x, e.y, e.z, tipo === 'guardiao' ? 9 : tipo === 'krakor' ? 6 : 4, '#ff9a3a');
         const quem = nomes.get(e.id) ?? '?';
         if (e.id === meuId) hud.noticia(`Você foi destruído por ${nomes.get(e.por) ?? '?'}`, 'ruim');
-        else if (e.por === meuId && outras.get(e.id)?.tipo === 'vorax') {
-          hud.noticia(`Você destruiu um ${quem}${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
+        else if (e.por === meuId && outras.get(e.id)?.drone) {
+          hud.noticia(`Você destruiu ${tipo === 'guardiao' ? 'o' : 'um'} ${quem}${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
         } else if (e.por === meuId) hud.noticia(`Você abateu ${quem}`, 'bom');
         else if (!outras.get(e.id)?.drone) hud.noticia(`${nomes.get(e.por) ?? '?'} abateu ${quem}`);
       } else if (e.e === 'entrou' && e.id !== meuId) {
@@ -428,13 +431,8 @@ function montarJogo(rede, boas, renderer, race) {
       const aliado = !e.drone && e.time === meuTime;
       if (!o) {
         const obj =
-          e.tipo === 'vorax'
-            ? criarVorax()
-            : e.tipo === 'minerador'
-              ? criarMinerador({ aliado })
-              : e.drone
-                ? criarDrone()
-                : criarNave(e.race, { aliado });
+          MODELO_INIMIGO[e.tipo]?.() ??
+          (e.tipo === 'minerador' ? criarMinerador({ aliado }) : e.drone ? criarDrone() : criarNave(e.race, { aliado }));
         o = { obj, drone: e.drone, tipo: e.tipo, aliado };
         scene.add(o.obj);
         outras.set(e.id, o);
@@ -446,6 +444,8 @@ function montarJogo(rede, boas, renderer, race) {
       o.obj.rotation.y = e.yaw;
       o.obj.userData.corpo.rotation.z = e.roll;
       if (e.tipo === 'vorax') animarVorax(o.obj, tempo, e.id);
+      else if (e.tipo === 'krakor') animarKrakor(o.obj, tempo, e.id);
+      else if (e.tipo === 'guardiao') animarGuardiao(o.obj, tempo);
       else if (e.drone) o.obj.userData.corpo.rotation.y = Math.sin(tempo * 3 + e.id) * 0.15;
       if (e.tipo === 'minerador') animarMinerador(o.obj, e, tempo, e.id);
       else atualizarMotor(o.obj, e.boost, tempo, e.pousado);

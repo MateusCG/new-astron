@@ -388,3 +388,139 @@ export function atualizarMotor(nave, boost, t, pousado = false) {
     m.scale.setScalar(base + Math.sin(t * 40 + i * 2) * 0.35);
   }
 }
+
+/**
+ * Krakor, o elite do mundo aberto: besta pesada e lenta, bem maior que a nave
+ * (uns 17 m), com uma carapaça grossa em cúpula, chifre comprido para a frente,
+ * placas espinhentas no lombo e seis patas curtas penduradas (ela flutua como os
+ * outros). Mesma pele escura e um olho vermelho só, embaixo do chifre. A
+ * silhueta é de "tanque" (larga e alta), para não confundir com o Vorax comprido
+ * nem com o disco do Arnosh.
+ */
+export function criarKrakor() {
+  const g = new THREE.Group();
+  const pele = new THREE.MeshStandardMaterial({ color: '#4a1414', roughness: 0.75, metalness: 0.1, flatShading: true });
+  const carapaca = new THREE.MeshStandardMaterial({ color: '#8c2a1f', roughness: 0.55, metalness: 0.2, flatShading: true });
+
+  const barriga = new THREE.Mesh(new THREE.DodecahedronGeometry(4.2, 0), pele);
+  barriga.scale.set(1.15, 0.7, 1.6);
+  const casco = new THREE.Mesh(new THREE.IcosahedronGeometry(4.6, 0), carapaca);
+  casco.scale.set(1.2, 0.75, 1.55);
+  casco.position.y = 1.4;
+  const cabeca = new THREE.Mesh(new THREE.DodecahedronGeometry(2.4, 0), pele);
+  cabeca.scale.set(1.1, 0.8, 1.1);
+  cabeca.position.set(0, 0.4, -6.2);
+  const chifre = new THREE.Mesh(new THREE.ConeGeometry(0.9, 5.5, 5), carapaca);
+  chifre.rotation.x = -Math.PI / 2 - 0.35;
+  chifre.position.set(0, 2, -8.6);
+  g.add(barriga, casco, cabeca, chifre);
+  // Placas espinhentas no lombo, em duas fileiras.
+  for (let k = 0; k < 4; k++) {
+    for (const lado of [-1, 1]) {
+      const placa = new THREE.Mesh(new THREE.ConeGeometry(0.8, 3 - k * 0.3, 4), carapaca);
+      placa.position.set(lado * 1.6, 4.4 - k * 0.2, -2.4 + k * 2.2);
+      placa.rotation.set(0.5, 0, lado * -0.35);
+      g.add(placa);
+    }
+  }
+  // Patas: três de cada lado, presas em pivôs para a animação balançar.
+  const patas = [];
+  for (let k = 0; k < 3; k++) {
+    for (const lado of [-1, 1]) {
+      const pivo = new THREE.Group();
+      pivo.position.set(lado * 3.6, -1.6, -3 + k * 3);
+      const pata = new THREE.Mesh(new THREE.ConeGeometry(0.6, 3.6, 4), pele);
+      pata.rotation.z = Math.PI + lado * 0.35;
+      pata.position.set(lado * 0.6, -1.6, 0);
+      pivo.add(pata);
+      g.add(pivo);
+      patas.push({ pivo, fase: k * 2.1 + (lado > 0 ? Math.PI : 0) });
+    }
+  }
+  const olho = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.75, 0),
+    new THREE.MeshStandardMaterial({ color: '#ff2a1a', emissive: '#ff2a1a', emissiveIntensity: 1.2, flatShading: true }),
+  );
+  olho.position.set(0, 0.6, -8.3);
+  const brilhoOlho = spriteBrilho(new THREE.Color('#ff3a1a'), 5);
+  brilhoOlho.position.copy(olho.position);
+  g.add(olho, brilhoOlho);
+
+  g.traverse((o) => {
+    if (o.isMesh) o.castShadow = true;
+  });
+  const raiz = new THREE.Group();
+  raiz.add(g);
+  raiz.userData = { corpo: g, motores: [], patas };
+  return raiz;
+}
+
+/** Anima o Krakor: patas balançando devagar e o corpo arfando. */
+export function animarKrakor(k, t, fase = 0) {
+  const { corpo, patas } = k.userData;
+  corpo.position.y = Math.sin(t * 1.6 + fase) * 0.4;
+  for (const p of patas) p.pivo.rotation.x = Math.sin(t * 2.4 + fase + p.fase) * 0.35;
+}
+
+/**
+ * Guardião da arena (objetivo C): colosso flutuante, de pé, bem maior que o
+ * Krakor. Núcleo escuro facetado, coroa de chifres grandes em volta do alto,
+ * três lascas de carapaça girando em volta do corpo e um olho vermelho enorme na
+ * frente. É a única silhueta "vertical" entre os inimigos: dá para reconhecer de
+ * longe que aquilo é o chefe da arena.
+ */
+export function criarGuardiao() {
+  const g = new THREE.Group();
+  const pele = new THREE.MeshStandardMaterial({ color: '#4a1414', roughness: 0.7, metalness: 0.15, flatShading: true });
+  const carapaca = new THREE.MeshStandardMaterial({ color: '#8c2a1f', roughness: 0.5, metalness: 0.25, flatShading: true });
+
+  const nucleo = new THREE.Mesh(new THREE.IcosahedronGeometry(5, 0), pele);
+  nucleo.scale.set(1, 1.35, 1);
+  nucleo.position.y = 3;
+  const base = new THREE.Mesh(new THREE.ConeGeometry(3.4, 6, 6), carapaca);
+  base.rotation.x = Math.PI;
+  base.position.y = -3.5;
+  g.add(nucleo, base);
+  // Coroa: chifres grandes em volta do alto, abertos para fora.
+  for (let k = 0; k < 7; k++) {
+    const a = (k / 7) * Math.PI * 2;
+    const chifre = new THREE.Mesh(new THREE.ConeGeometry(0.9, 6 + (k % 2) * 2, 4), carapaca);
+    chifre.position.set(Math.cos(a) * 3.4, 9, Math.sin(a) * 3.4);
+    chifre.rotation.set(Math.sin(a) * 0.55, 0, -Math.cos(a) * 0.55);
+    g.add(chifre);
+  }
+  // Lascas girando em volta.
+  const orbita = new THREE.Group();
+  orbita.position.y = 2;
+  for (let k = 0; k < 3; k++) {
+    const a = (k / 3) * Math.PI * 2;
+    const lasca = new THREE.Mesh(new THREE.OctahedronGeometry(2, 0), carapaca);
+    lasca.scale.set(0.6, 1.6, 1);
+    lasca.position.set(Math.cos(a) * 9, 0, Math.sin(a) * 9);
+    lasca.rotation.y = -a;
+    orbita.add(lasca);
+  }
+  g.add(orbita);
+  const olho = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(1.5, 0),
+    new THREE.MeshStandardMaterial({ color: '#ff2a1a', emissive: '#ff2a1a', emissiveIntensity: 1.2, flatShading: true }),
+  );
+  olho.position.set(0, 4, -4.6);
+  const brilhoOlho = spriteBrilho(new THREE.Color('#ff3a1a'), 9);
+  brilhoOlho.position.copy(olho.position);
+  g.add(olho, brilhoOlho);
+
+  g.traverse((o) => {
+    if (o.isMesh) o.castShadow = true;
+  });
+  const raiz = new THREE.Group();
+  raiz.add(g);
+  raiz.userData = { corpo: g, motores: [], orbita };
+  return raiz;
+}
+
+/** Anima o guardião: lascas girando e o corpo subindo e descendo devagar. */
+export function animarGuardiao(gd, t) {
+  gd.userData.orbita.rotation.y = t * 0.8;
+  gd.userData.corpo.position.y = Math.sin(t * 1.1) * 0.6;
+}
