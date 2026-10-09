@@ -15,6 +15,7 @@
   --gelo: #a8e8ff;
   --inimigo: #ff4a2a;
   --objetivo: #ffb627;
+  --xp: #b6f05a;
 }
 
 * {
@@ -563,6 +564,30 @@ kbd {
 
 #en .valor {
   background: linear-gradient(180deg, #8fd0ff, var(--en));
+}
+
+/* Nível e XP: barra mais baixa que HP e EN, com o nível no rótulo. */
+#xp {
+  height: 12px;
+}
+
+#xp em,
+#xp .txt {
+  font-size: 9px;
+  line-height: 10px;
+}
+
+#xp .valor {
+  background: linear-gradient(180deg, #dcff9a, var(--xp));
+}
+
+#xp em {
+  text-shadow: 0 1px 2px #000;
+}
+
+.rotulo .nv {
+  color: var(--xp);
+  font: 9px ui-monospace, monospace;
 }
 
 .barra .txt {

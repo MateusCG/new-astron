@@ -33,6 +33,11 @@ const FORMA_TIRO = {
 // Aura de quem está sob efeito: brilho em volta da nave + partículas. O dreno
 // "puxa" a vida para fora (partículas violeta subindo); o gelo cai em cristais.
 const AURA_PARTICULA_S = 0.07; // intervalo entre partículas por nave afetada
+// Subiu de nível: dois anéis de luz verde-lima (a cor do XP no HUD) abrindo em
+// volta da nave e subindo, presos a ela (vão junto enquanto ela voa).
+const COR_NIVEL = new THREE.Color('#b6f05a');
+const ANEL_NIVEL_S = 1.2;
+const ANEL_NIVEL_RAIO = 14; // m no fim da animação
 
 function spriteAditivo(cor, tamanho) {
   const s = new THREE.Sprite(
@@ -55,7 +60,25 @@ export class Efeitos {
     this.particulas = [];
     this.geoBarra = new Map();
     this.auras = [];
+    this.aneis = [];
     this.v = new THREE.Vector3();
+  }
+
+  /** Anel de luz de "subiu de nível" em volta da nave (grupo do Three.js). */
+  anelNivel(obj) {
+    for (const atraso of [0, 0.25]) {
+      const anel = new THREE.Mesh(
+        new THREE.TorusGeometry(1, 0.035, 4, 48),
+        new THREE.MeshBasicMaterial({ color: COR_NIVEL, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }),
+      );
+      anel.rotation.x = Math.PI / 2;
+      anel.visible = false;
+      obj.add(anel);
+      this.aneis.push({ obj, anel, vida: -atraso });
+    }
+    const clarao = spriteAditivo(COR_NIVEL, 8);
+    obj.add(clarao);
+    this.aneis.push({ obj, anel: clarao, vida: 0, clarao: true });
   }
 
   /**
@@ -179,6 +202,29 @@ export class Efeitos {
       }
       t.g.position.set(t.b.x, t.b.y, t.b.z);
     }
+
+    this.aneis = this.aneis.filter((a) => {
+      a.vida += dt;
+      const k = a.vida / ANEL_NIVEL_S;
+      if (k >= 1) {
+        a.obj.remove(a.anel);
+        a.anel.geometry?.dispose();
+        a.anel.material.dispose();
+        return false;
+      }
+      if (k < 0) return true;
+      a.anel.visible = true;
+      const sai = 1 - (1 - k) * (1 - k); // abre rápido e freia
+      if (a.clarao) {
+        a.anel.scale.setScalar(8 + 6 * sai);
+        a.anel.material.opacity = (1 - k) * 0.45;
+      } else {
+        a.anel.scale.setScalar(3 + (ANEL_NIVEL_RAIO - 3) * sai);
+        a.anel.position.y = -2 + 7 * k;
+        a.anel.material.opacity = (1 - k) * 0.8;
+      }
+      return true;
+    });
 
     this.auras = this.auras.filter((p) => {
       p.vida += dt;

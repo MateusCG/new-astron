@@ -210,7 +210,7 @@ function montarJogo(rede, boas, renderer, race) {
   let seq = 0;
   let pendentes = [];
   const erro = new THREE.Vector3();
-  let extra = { ouro: 0, abates: 0, mortes: 0 };
+  let extra = { ouro: 0, abates: 0, mortes: 0, nivel: 1, xp: 0, xpProx: 0 };
   let ganhoOuro = 0; // ouro ganho no último snapshot (para a notícia de abate)
   const minhaNave = criarNave(race, { aliado: true });
   scene.add(minhaNave);
@@ -253,7 +253,7 @@ function montarJogo(rede, boas, renderer, race) {
 
   function aoSnapshot(m) {
     const ouroAntes = extra.ouro;
-    extra = { ouro: m.ouro, abates: m.abates, mortes: m.mortes };
+    extra = { ouro: m.ouro, abates: m.abates, mortes: m.mortes, nivel: m.nivel, xp: m.xp, xpProx: m.xpProx };
     ganhoOuro = m.ouro - ouroAntes;
     snaps.push({ t: performance.now(), ents: m.ents });
     while (snaps.length > 30) snaps.shift();
@@ -327,6 +327,11 @@ function montarJogo(rede, boas, renderer, race) {
           hud.noticia(`Você destruiu ${tipo === 'guardiao' ? 'o' : 'um'} ${quem}${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
         } else if (e.por === meuId) hud.noticia(`Você abateu ${quem}`, 'bom');
         else if (!outras.get(e.id)?.drone) hud.noticia(`${nomes.get(e.por) ?? '?'} abateu ${quem}`);
+      } else if (e.e === 'nivel') {
+        // Subiu de nível: anel de luz na nave de quem subiu (você ou outro).
+        const nave = e.id === meuId ? minhaNave : outras.get(e.id)?.obj;
+        if (nave?.visible) efeitos.anelNivel(nave);
+        if (e.id === meuId) hud.noticia(`Nível ${e.nivel}! HP máximo maior`, 'bom');
       } else if (e.e === 'entrou' && e.id !== meuId) {
         hud.noticia(`${e.nome} entrou no setor`);
       } else if (e.e === 'saiu') {
@@ -450,7 +455,7 @@ function montarJogo(rede, boas, renderer, race) {
       if (e.tipo === 'minerador') animarMinerador(o.obj, e, tempo, e.id);
       else atualizarMotor(o.obj, e.boost, tempo, e.pousado);
       efeitos.estadoNave(o.obj, { dreno: !!e.dreno, lento: !!e.lento }, dt, tempo);
-      rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position });
+      rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position, nivel: e.nivel });
     }
     for (const [id, o] of outras) {
       if (!presentes.has(id)) {
@@ -532,6 +537,8 @@ function montarJogo(rede, boas, renderer, race) {
     scene,
     camera,
     menuArmas,
+    efeitos,
+    minhaNave,
   };
 
   /**

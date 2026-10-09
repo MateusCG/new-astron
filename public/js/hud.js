@@ -1,5 +1,6 @@
-// HUD: painel inferior (HP, energia, ouro, velocidade), minimapa, nomes sobre as
-// naves, avisos de abate e a tela de "destruído". É DOM puro por cima do canvas.
+// HUD: painel inferior (HP, energia, nível e XP, ouro, velocidade), minimapa,
+// nomes sobre as naves, avisos de abate e a tela de "destruído". É DOM puro por
+// cima do canvas.
 
 import * as THREE from 'three';
 import { paredeAt, MAP_HALF_X, MAP_HALF_Z, BASES, CORREDOR, MINERIO, ENTREGAS, SERVICOS, OBJETIVOS } from '/shared/terrain.js';
@@ -30,6 +31,9 @@ export class Hud {
     this.hpTxt = $('#hp .txt');
     this.en = $('#en .valor');
     this.enTxt = $('#en .txt');
+    this.xp = $('#xp .valor');
+    this.xpTxt = $('#xp .txt');
+    this.nivel = $('#xp em');
     this.ouro = $('#ouro');
     this.abates = $('#abates');
     this.vel = $('#vel');
@@ -168,6 +172,12 @@ export class Hud {
     this.hpTxt.textContent = `${Math.ceil(me.hp)} / ${me.maxHp}`;
     this.en.style.width = `${(me.en / me.maxEn) * 100}%`;
     this.enTxt.textContent = `${Math.floor(me.en)} / ${me.maxEn}`;
+    // Nível e XP: a barra enche até o próximo nível; no máximo fica cheia.
+    const nv = extra.nivel ?? 1;
+    const prox = extra.xpProx ?? 0;
+    this.nivel.textContent = `NV ${nv}`;
+    this.xp.style.width = prox > 0 ? `${Math.min(1, (extra.xp ?? 0) / prox) * 100}%` : '100%';
+    this.xpTxt.textContent = prox > 0 ? `${extra.xp ?? 0} / ${prox}` : 'máx.';
     this.ouro.textContent = extra.ouro.toLocaleString('pt-BR');
     this.abates.textContent = extra.abates;
     this.vel.textContent = Math.round(Math.hypot(me.vx, me.vz) * 3.6) + ' km/h';
@@ -233,7 +243,7 @@ export class Hud {
    */
   rotulosNaves(lista, camera, largura, altura) {
     const vistos = new Set();
-    for (const { id, nome, aliado, hp, maxHp, pos } of lista) {
+    for (const { id, nome, aliado, hp, maxHp, pos, nivel } of lista) {
       this.v.copy(pos);
       this.v.y += 6;
       this.v.project(camera);
@@ -247,12 +257,15 @@ export class Hud {
         tag.className = 'rotulo' + (aliado ? ' aliado' : ' inimigo');
         tag.innerHTML = '<span class="nome"></span><span class="barra"><i></i></span>';
         tag.querySelector('.nome').textContent = nome;
+        tag.querySelector('.nome').insertAdjacentHTML('beforeend', ' <small class="nv"></small>');
         this.rotulos.append(tag);
         this.tags.set(id, tag);
       }
       tag.style.transform = `translate(${((this.v.x + 1) / 2) * largura}px, ${((1 - this.v.y) / 2) * altura}px) translate(-50%, -100%)`;
       tag.style.opacity = dist > 300 ? String(1 - (dist - 300) / 150) : '1';
       tag.querySelector('i').style.width = `${Math.max(0, hp / maxHp) * 100}%`;
+      const nv = tag.querySelector('.nv');
+      if (nv && nivel) nv.textContent = `NV ${nivel}`;
     }
     for (const [id, tag] of this.tags) {
       if (!vistos.has(id)) {
