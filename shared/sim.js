@@ -16,7 +16,7 @@
 // no servidor). Só o L decola de novo; acelerar pousada não faz nada. A nave freia
 // antes de tocar o chão: só desce de vez abaixo de VEL_TOQUE.
 
-import { heightAt, podePousar } from './terrain.js';
+import { heightAt, podePousar, topoPouso } from './terrain.js';
 
 export const DT = 1 / 30;
 export const HOVER = 10;
@@ -161,11 +161,12 @@ export function stepShip(s, inp, dt = DT) {
   // Altura: sobe rápido (não entra no chão), desce mais devagar (sensação de peso);
   // no pouso, desce devagar só depois de frear.
   const chao = heightAt(s.x, s.z);
+  const piso = Math.max(chao, topoPouso(s.x, s.z) ?? chao); // em cima da plataforma, se houver
   const tocando = pousado && Math.hypot(s.vx, s.vz) < VEL_TOQUE;
-  const alvoY = chao + (tocando ? ALTURA_POUSADO : HOVER);
+  const alvoY = tocando ? piso + ALTURA_POUSADO : chao + HOVER;
   const taxa = alvoY > s.y ? 30 : tocando ? 7 : 14;
   s.y += clamp(alvoY - s.y, -taxa * dt, taxa * dt);
-  if (s.y < chao + ALTURA_POUSADO) s.y = chao + ALTURA_POUSADO;
+  if (s.y < piso + ALTURA_POUSADO) s.y = piso + ALTURA_POUSADO;
 
   if (querBoost) {
     s.en = Math.max(0, s.en - BOOST_GASTO * dt);

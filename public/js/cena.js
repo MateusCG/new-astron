@@ -9,6 +9,8 @@
 import * as THREE from 'three';
 import { heightAt, paredeAt, fbm, MAP_HALF, BASE, WALL_HEIGHT, AREAS_POUSO } from '/shared/terrain.js';
 
+const ALTURA_PLATAFORMA = 3;
+
 export const CORES = {
   ceuTopo: new THREE.Color('#2a0f1c'),
   ceuMeio: new THREE.Color('#a8402a'),
@@ -149,8 +151,11 @@ function criarBase() {
   const escuro = matMetal('#3a4442');
   const neon = matNeon();
 
-  const plataforma = new THREE.Mesh(new THREE.CylinderGeometry(70, 76, 3, 24), metal);
-  plataforma.position.set(BASE.x, y + 0.2, BASE.z);
+  // O topo da plataforma fica exatamente no piso da área de pouso (shared/terrain.js),
+  // que é onde a física apoia a nave pousada.
+  const piso = AREAS_POUSO[0].piso;
+  const plataforma = new THREE.Mesh(new THREE.CylinderGeometry(70, 76, ALTURA_PLATAFORMA, 24), metal);
+  plataforma.position.set(BASE.x, y + piso - ALTURA_PLATAFORMA / 2, BASE.z);
   plataforma.receiveShadow = true;
   g.add(plataforma);
 
@@ -158,13 +163,13 @@ function criarBase() {
   for (const a of AREAS_POUSO) {
     const anel = new THREE.Mesh(new THREE.TorusGeometry(a.raio, 0.6, 6, 48), neon);
     anel.rotation.x = Math.PI / 2;
-    anel.position.set(a.x, heightAt(a.x, a.z) + 1.9, a.z);
+    anel.position.set(a.x, heightAt(a.x, a.z) + a.piso + 0.2, a.z);
     g.add(anel);
   }
 
   const centro = new THREE.Mesh(new THREE.TorusGeometry(14, 0.5, 6, 32), neon);
   centro.rotation.x = Math.PI / 2;
-  centro.position.set(BASE.x, y + 1.9, BASE.z);
+  centro.position.set(BASE.x, y + piso + 0.2, BASE.z);
   g.add(centro);
 
   // Hangares em volta (lado sul e laterais; o norte fica livre para o corredor).

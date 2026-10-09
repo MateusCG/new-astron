@@ -20,12 +20,27 @@ const CORREDOR_FIM = -600;
  * Áreas de pouso: a nave só pousa dentro de uma delas. Por enquanto só o círculo
  * de neon da base (o anel de 64 m em public/js/cena.js); cada planeta novo traz as
  * suas (heliportos, plataformas de missão).
+ *
+ * `piso` é a altura do topo da plataforma acima do terreno no centro da área. O topo
+ * é plano (o terreno embaixo ondula), então a altura vale para a área inteira. A
+ * física pousa a nave em cima dele e o cenário desenha a plataforma com esse mesmo
+ * número; antes cada lado tinha o seu e a nave pousava "dentro" da plataforma.
  */
-export const AREAS_POUSO = [{ x: BASE.x, z: BASE.z, raio: 64 }];
+export const AREAS_POUSO = [{ x: BASE.x, z: BASE.z, raio: 64, piso: 1.7 }];
+
+function areaEm(x, z) {
+  return AREAS_POUSO.find((a) => Math.hypot(x - a.x, z - a.z) <= a.raio);
+}
 
 /** O ponto (x, z) fica dentro de alguma área de pouso? */
 export function podePousar(x, z) {
-  return AREAS_POUSO.some((a) => Math.hypot(x - a.x, z - a.z) <= a.raio);
+  return !!areaEm(x, z);
+}
+
+/** Altura absoluta do topo da plataforma no ponto, ou null fora das áreas de pouso. */
+export function topoPouso(x, z) {
+  const a = areaEm(x, z);
+  return a ? heightAt(a.x, a.z) + a.piso : null;
 }
 
 function hash(ix, iz, seed) {

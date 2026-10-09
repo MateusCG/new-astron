@@ -16,7 +16,7 @@ import {
   forward,
   ALTURA_POUSADO,
 } from '../shared/sim.js';
-import { podePousar, AREAS_POUSO } from '../shared/terrain.js';
+import { podePousar, topoPouso, AREAS_POUSO } from '../shared/terrain.js';
 
 const FRENTE = { th: 1, tu: 0, b: false, f1: false, f2: false };
 
@@ -133,7 +133,9 @@ test('pouso: L pousa (freia e encosta no chão, não atira) e só L decola', () 
   for (let i = 0; i < 30 * 4; i++) stepShip(s, FRENTE);
   assert.equal(s.pousado, true);
   assert.ok(Math.hypot(s.vx, s.vz) < 1, 'parou');
-  assert.ok(Math.abs(s.y - (heightAt(s.x, s.z) + ALTURA_POUSADO)) < 0.01, 'encostou no chão');
+  const topo = topoPouso(s.x, s.z);
+  assert.ok(topo > heightAt(s.x, s.z), 'a base tem plataforma acima do terreno');
+  assert.ok(Math.abs(s.y - (topo + ALTURA_POUSADO)) < 0.01, 'pousou em cima da plataforma, não dentro dela');
   assert.deepEqual(stepShip(s, { ...PARADO, f1: true, f2: true }), [], 'pousada não atira');
 
   // Soltar e apertar W de novo não decola.
@@ -187,4 +189,17 @@ test('curva: a nave inclina para dentro (A abaixa a asa esquerda, D a direita)',
   }
   assert.ok(esq.roll > 0.3, `A: roll ${esq.roll}`);
   assert.ok(dir.roll < -0.3, `D: roll ${dir.roll}`);
+});
+
+test('pouso: em qualquer ponto do círculo a nave fica na mesma altura (topo plano)', () => {
+  const a = AREAS_POUSO[0];
+  const alturas = [];
+  for (const [dx, dz] of [[0, 0], [40, 0], [-30, 35], [0, -55], [50, 30]]) {
+    const s = createShip('acron', a.x + dx, a.z + dz, 0);
+    stepShip(s, { ...PARADO, p: true });
+    for (let i = 0; i < 30 * 3; i++) stepShip(s, PARADO);
+    assert.equal(s.pousado, true);
+    alturas.push(s.y);
+  }
+  assert.ok(Math.max(...alturas) - Math.min(...alturas) < 0.01, `alturas: ${alturas.map((y) => y.toFixed(2))}`);
 });
