@@ -13,12 +13,15 @@
 // parede do mesmo jeito, engordadas pelo raio da nave.
 //
 // Pouso (tecla L): também como no AstroN, a nave pode descer até o chão, mas só
-// dentro de uma área de pouso (AREAS_POUSO em terrain.js). Pousada ela
+// dentro de uma área de pouso (AREAS_POUSO em terrain.js) e, se a área é de um time
+// (anel da base, Evolução, Loja), só se for do time da nave (s.time; ver
+// pousoPermitido). O time vai junto no estado da nave, então servidor e predição
+// decidem igual. Pousada ela
 // não atira nem dá boost, gira devagar e se recupera mais rápido (energia aqui, vida
 // no servidor). Só o L decola de novo; acelerar pousada não faz nada. A nave freia
 // antes de tocar o chão: só desce de vez abaixo de VEL_TOQUE.
 
-import { heightAt, podePousar, topoPouso } from './terrain.js';
+import { heightAt, areaPouso, topoPouso } from './terrain.js';
 import { alturaSolida } from './obstaculos.js';
 
 export const DT = 1 / 30;
@@ -154,6 +157,18 @@ export function possuiArma(s, a) {
   return a === 0 || !s.armas || s.armas.includes(a);
 }
 
+/**
+ * A nave pode pousar onde está? Só dentro de uma área de pouso; o anel da base e os
+ * serviços (Evolução, Loja) só aceitam o próprio time. Área sem dono (objetivo A)
+ * aceita qualquer um, e nave sem time (fora da partida) pousa em qualquer área.
+ */
+export function pousoPermitido(s) {
+  const a = areaPouso(s.x, s.z);
+  if (!a) return false;
+  const dono = a.base ?? a.time;
+  return dono === undefined || s.time === undefined || dono === s.time;
+}
+
 function clamp(v, a, b) {
   return v < a ? a : v > b ? b : v;
 }
@@ -228,10 +243,10 @@ export function stepShip(s, inp, dt = DT) {
   s.arma = possuiArma(s, pedida) ? pedida : 0;
   // Pouso alterna na borda do botão (apertou agora), para segurar L não ficar
   // pousando e decolando sem parar.
-  if (inp.p && !s.pAnt) s.pousado = s.pousado ? false : podePousar(s.x, s.z);
+  if (inp.p && !s.pAnt) s.pousado = s.pousado ? false : pousoPermitido(s);
   s.pAnt = !!inp.p;
   // Se ainda freando ela escorregar para fora da área, o pouso é cancelado.
-  if (s.pousado && !podePousar(s.x, s.z)) s.pousado = false;
+  if (s.pousado && !pousoPermitido(s)) s.pousado = false;
   const pousado = s.pousado;
   // Energia zerada no boost trava o boost até soltar o botão; sem isso ele piscaria
   // liga/desliga a cada passo com a energia que regenera.
