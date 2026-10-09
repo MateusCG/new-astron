@@ -7,7 +7,7 @@
 // todo jogador vê o mesmo mapa sem baixar nenhum modelo.
 
 import * as THREE from 'three';
-import { heightAt, paredeAt, fbm, MAP_HALF, BASE, WALL_HEIGHT } from '/shared/terrain.js';
+import { heightAt, paredeAt, fbm, MAP_HALF, BASE, WALL_HEIGHT, AREAS_POUSO } from '/shared/terrain.js';
 
 export const CORES = {
   ceuTopo: new THREE.Color('#2a0f1c'),
@@ -154,10 +154,13 @@ function criarBase() {
   plataforma.receiveShadow = true;
   g.add(plataforma);
 
-  const anel = new THREE.Mesh(new THREE.TorusGeometry(64, 0.6, 6, 48), neon);
-  anel.rotation.x = Math.PI / 2;
-  anel.position.set(BASE.x, y + 1.9, BASE.z);
-  g.add(anel);
+  // O anel de neon marca a área de pouso: é o único lugar onde a nave pousa.
+  for (const a of AREAS_POUSO) {
+    const anel = new THREE.Mesh(new THREE.TorusGeometry(a.raio, 0.6, 6, 48), neon);
+    anel.rotation.x = Math.PI / 2;
+    anel.position.set(a.x, heightAt(a.x, a.z) + 1.9, a.z);
+    g.add(anel);
+  }
 
   const centro = new THREE.Mesh(new THREE.TorusGeometry(14, 0.5, 6, 32), neon);
   centro.rotation.x = Math.PI / 2;

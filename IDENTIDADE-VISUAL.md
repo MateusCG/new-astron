@@ -75,6 +75,7 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 - **Neon:** material com `color` e `emissive` iguais e `emissiveIntensity` entre **0.8 e 1.2**. Acima disso o tone mapping (ACES) puxa para o branco e a cor some. Luz piscando vai de 0.1 a 1.2.
 - **Uma cor de destaque por objeto.** Hangar: cinza + faixa turquesa. Portal: escuro + luz vermelha. Nave: casco cinza + cor da raça.
 - **Inimigos são orgânicos:** formas irregulares (icosaedro, espinhos), pele escura `#4a1414`/`#8c2a1f` e **olho vermelho emissivo**. Nunca usar o visual "nave limpa" dos jogadores neles.
+- **Área de pouso = anel de neon turquesa no chão.** Todo lugar onde a nave pode pousar (`AREAS_POUSO`) é marcado assim, e nenhum outro anel turquesa no chão pode existir, para o jogador não confundir.
 - **Tudo projeta sombra** (`castShadow`), e o terreno a recebe.
 
 ### Escala de referência
@@ -83,6 +84,7 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 |---|---|
 | Nave de jogador | ~11 m de comprimento, ~12 m de envergadura |
 | Altura de voo | 10 m acima do chão (`HOVER`) |
+| Nave pousada | 1,4 m (`ALTURA_POUSADO`), com trem de pouso visível e motores quase apagados |
 | Parede de cânion | ~70 m (`WALL_HEIGHT`) |
 | Corredor de cânion | 30 a 80 m de largura |
 | Hangar | 26 × 14 × 18 m |

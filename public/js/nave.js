@@ -98,6 +98,22 @@ export function criarNave(race) {
     motores.push(chama);
     g.add(m, bocal, chama);
   }
+  // Trem de pouso: três pernas que só aparecem com a nave pousada.
+  const trem = new THREE.Group();
+  for (const [x, z] of [
+    [0, -3.6],
+    [-1.6, 2.2],
+    [1.6, 2.2],
+  ]) {
+    const perna = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.4, 5), escuro);
+    perna.position.set(x, -0.8, z);
+    const pe = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.15, 8), escuro);
+    pe.position.set(x, -1.45, z);
+    trem.add(perna, pe);
+  }
+  trem.visible = false;
+  g.add(trem);
+
   g.traverse((o) => {
     if (o.isMesh) o.castShadow = true;
   });
@@ -105,7 +121,7 @@ export function criarNave(race) {
   // O grupo de fora gira em yaw; o de dentro inclina (roll) nas curvas.
   const raiz = new THREE.Group();
   raiz.add(g);
-  raiz.userData = { corpo: g, motores };
+  raiz.userData = { corpo: g, motores, trem };
   return raiz;
 }
 
@@ -142,9 +158,10 @@ export function criarDrone() {
   return raiz;
 }
 
-/** Atualiza o brilho dos motores: maior com boost, tremulando. */
-export function atualizarMotor(nave, boost, t) {
-  const base = boost ? 4.2 : 2.4;
+/** Atualiza motores (maiores com boost, quase apagados pousada) e o trem de pouso. */
+export function atualizarMotor(nave, boost, t, pousado = false) {
+  if (nave.userData.trem) nave.userData.trem.visible = pousado;
+  const base = pousado ? 0.9 : boost ? 4.2 : 2.4;
   for (const [i, m] of nave.userData.motores.entries()) {
     m.scale.setScalar(base + Math.sin(t * 40 + i * 2) * 0.35);
   }

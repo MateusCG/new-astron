@@ -274,6 +274,21 @@ kbd {
   white-space: nowrap;
 }
 
+#pouso {
+  position: absolute;
+  bottom: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 4px 12px;
+  border: 1px solid var(--neon-escuro);
+  border-radius: 4px;
+  background: rgba(10, 22, 21, 0.8);
+  color: var(--neon);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
 #rotulos {
   position: absolute;
   inset: 0;
@@ -489,10 +504,8 @@ body.dano::after {
   font: 700 16px system-ui, sans-serif;
 }
 
-#btn-shift {
-  grid-column: span 2;
-  justify-self: end;
-  width: 70px;
+#btn-shift,
+#btn-pouso {
   font-size: 11px !important;
 }
 

@@ -22,6 +22,7 @@ Abra duas abas para ver o multijogador.
 | `Shift` | SHIFT | boost (gasta energia) |
 | `Z` ou `Espaço` | Z | laser |
 | `X` | X | plasma |
+| `L` | POUSAR | pousar / decolar, só no círculo de neon da base (pousada conserta mais rápido) |
 | `V` | | distância da câmera |
 
 ## Variáveis de ambiente

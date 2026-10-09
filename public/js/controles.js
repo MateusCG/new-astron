@@ -1,5 +1,5 @@
 // Controles: teclado no PC e joystick virtual + botões na tela de toque, no mesmo
-// esquema do AstroN no celular (analógico à esquerda; Z, X e SHIFT à direita).
+// esquema do AstroN no celular (analógico à esquerda; Z, X, SHIFT e pouso à direita).
 // ler() devolve o comando do passo atual no formato de shared/sim.js.
 
 const TECLAS = {
@@ -10,15 +10,20 @@ const TECLAS = {
   boost: ['ShiftLeft', 'ShiftRight'],
   laser: ['KeyZ', 'Space', 'KeyJ'],
   plasma: ['KeyX', 'KeyK'],
+  pouso: ['KeyL'],
 };
 
 export class Controles {
   constructor(raiz) {
     this.apertadas = new Set();
-    this.toque = { th: 0, tu: 0, b: false, f1: false, f2: false };
+    // Toques curtos (pouso) ficam guardados até o próximo passo ler: um L rápido que
+    // cai entre dois quadros (celular lento, aba pesada) não pode se perder.
+    this.pulsoPouso = false;
+    this.toque = { th: 0, tu: 0, b: false, f1: false, f2: false, p: false };
     addEventListener('keydown', (e) => {
       if (e.target instanceof HTMLInputElement) return;
       this.apertadas.add(e.code);
+      if (TECLAS.pouso.includes(e.code) && !e.repeat) this.pulsoPouso = true;
       if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
     });
     addEventListener('keyup', (e) => this.apertadas.delete(e.code));
@@ -75,10 +80,12 @@ export class Controles {
       ['#btn-z', 'f1'],
       ['#btn-x', 'f2'],
       ['#btn-shift', 'b'],
+      ['#btn-pouso', 'p'],
     ]) {
       const btn = raiz.querySelector(id);
       btn.addEventListener('touchstart', (e) => {
         this.toque[campo] = true;
+        if (campo === 'p') this.pulsoPouso = true;
         btn.classList.add('ativo');
         e.preventDefault();
       });
@@ -93,6 +100,10 @@ export class Controles {
 
   /** Comando do passo atual. */
   ler() {
+    // Pouso vai como pulso de um passo só (a simulação alterna na borda do botão).
+    const p = this.pulsoPouso && !this.pousoEnviado;
+    this.pousoEnviado = p;
+    if (p) this.pulsoPouso = false;
     const th = (this.#tecla('frente') ? 1 : 0) - (this.#tecla('re') ? 1 : 0) || this.toque.th;
     const tu = (this.#tecla('esq') ? 1 : 0) - (this.#tecla('dir') ? 1 : 0) || this.toque.tu;
     return {
@@ -101,6 +112,7 @@ export class Controles {
       b: this.#tecla('boost') || this.toque.b,
       f1: this.#tecla('laser') || this.toque.f1,
       f2: this.#tecla('plasma') || this.toque.f2,
+      p,
     };
   }
 

@@ -16,6 +16,18 @@ export const WALL_HEIGHT = 70;
 export const BASE = { x: 0, z: 0, raio: 140 };
 const CORREDOR_FIM = -600;
 
+/**
+ * Áreas de pouso: a nave só pousa dentro de uma delas. Por enquanto só o círculo
+ * de neon da base (o anel de 64 m em public/js/cena.js); cada planeta novo traz as
+ * suas (heliportos, plataformas de missão).
+ */
+export const AREAS_POUSO = [{ x: BASE.x, z: BASE.z, raio: 64 }];
+
+/** O ponto (x, z) fica dentro de alguma área de pouso? */
+export function podePousar(x, z) {
+  return AREAS_POUSO.some((a) => Math.hypot(x - a.x, z - a.z) <= a.raio);
+}
+
 function hash(ix, iz, seed) {
   let h = Math.imul(ix, 374761393) ^ Math.imul(iz, 668265263) ^ Math.imul(seed, 2147483647);
   h = Math.imul(h ^ (h >>> 13), 1274126177);

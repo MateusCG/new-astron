@@ -94,6 +94,24 @@ test('servidor: ninguém leva dano na zona segura da base', () => {
   assert.equal(a.ship.hp, hp);
 });
 
+test('servidor: nave pousada conserta mais rápido que voando', () => {
+  const regenEm = (pousar) => {
+    const w = new World({ drones: 0 });
+    const j = w.addPlayer('A', 'bellico');
+    j.ship.hp = 100;
+    let seq = 0;
+    if (pousar) w.pushInput(j.id, { s: ++seq, p: true });
+    for (let i = 0; i < 30 * 8; i++) {
+      w.pushInput(j.id, { s: ++seq });
+      w.step();
+    }
+    return j.ship.hp - 100;
+  };
+  const voando = regenEm(false);
+  const pousada = regenEm(true);
+  assert.ok(pousada > voando * 2, `pousada ${pousada} vs voando ${voando}`);
+});
+
 test('servidor: não serve arquivo fora das pastas públicas', async () => {
   const srv = await iniciar({ porta: 0, world: new World({ drones: 0 }) });
   try {
