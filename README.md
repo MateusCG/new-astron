@@ -24,6 +24,7 @@ Abra duas abas para ver o multijogador.
 | `X` | X | plasma |
 | `L` | POUSAR | pousar / decolar, só no círculo de neon da base (pousada conserta mais rápido) |
 | `V` | | distância da câmera |
+| `Esc` | | sair da partida e voltar para a tela inicial (troca de nome e raça); com o menu de armas aberto, só fecha o menu |
 
 ## Variáveis de ambiente
 

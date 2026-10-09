@@ -372,3 +372,23 @@ export function criarCena() {
 
   return { scene, atualizar };
 }
+
+/**
+ * Libera da GPU tudo o que a cena usa (geometrias, materiais, texturas e o mapa de
+ * sombra do sol). Chamado ao sair da partida: cada entrada monta uma cena nova, e
+ * sem isto a memória de vídeo cresceria a cada sair/entrar. Texturas compartilhadas
+ * (o brilho de nave.js) podem ser liberadas sem medo: o Three.js as envia de novo
+ * na próxima vez que forem desenhadas.
+ */
+export function liberarCena(scene) {
+  scene.traverse((o) => {
+    o.geometry?.dispose();
+    const materiais = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+    for (const m of materiais) {
+      for (const v of Object.values(m)) if (v?.isTexture) v.dispose();
+      m.dispose();
+    }
+    o.shadow?.dispose();
+  });
+  scene.clear();
+}

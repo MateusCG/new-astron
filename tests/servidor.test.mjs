@@ -51,6 +51,35 @@ test('servidor: entra, anda com comandos e recebe ack', async () => {
   }
 });
 
+// O ESC do cliente sai da partida só fechando o WebSocket: o servidor tem que tirar
+// a nave do mundo, avisar quem ficou e aceitar a mesma pessoa de volta com outra raça.
+test('servidor: fechar a conexão (ESC) tira a nave e dá para entrar de novo com outra raça', async () => {
+  const srv = await iniciar({ porta: 0, world: new World({ drones: 0 }) });
+  const jogadores = async () => (await (await fetch(`http://localhost:${srv.porta}/healthz`)).json()).jogadores;
+  try {
+    const outro = conectar(srv.porta);
+    await outro.aberto;
+    outro.ws.send(JSON.stringify({ t: 'entrar', nome: 'Fica', race: 'mechan' }));
+    await outro.esperar((m) => m.t === 'bemvindo');
+
+    for (const race of ['bellico', 'acron', 'shrewdo']) {
+      const c = conectar(srv.porta);
+      await c.aberto;
+      c.ws.send(JSON.stringify({ t: 'entrar', nome: 'Volta', race }));
+      const boas = await c.esperar((m) => m.t === 'bemvindo');
+      assert.equal(srv.world.players.get(boas.id).ship.race, race);
+      assert.equal(await jogadores(), 2);
+      c.ws.close();
+      await outro.esperar((m) => m.t === 'snap' && m.ev.some((e) => e.e === 'saiu' && e.id === boas.id));
+      assert.equal(srv.world.players.has(boas.id), false, 'a nave saiu do mundo');
+      assert.equal(await jogadores(), 1);
+    }
+    outro.ws.close();
+  } finally {
+    await srv.fechar();
+  }
+});
+
 test('servidor: no máximo 4 comandos por tick (sem acelerar o tempo)', () => {
   const w = new World({ drones: 0 });
   const j = w.addPlayer('a', 'shrewdo');
