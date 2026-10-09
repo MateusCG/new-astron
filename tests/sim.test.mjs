@@ -252,6 +252,17 @@ test('armas: nenhuma é estritamente melhor que as outras', () => {
   assert.ok(gasto(WEAPONS.laserTriplo) > gasto(simples));
 });
 
+test('armas: só dá para usar arma que a nave possui (hoje todas)', () => {
+  const s = createShip('acron', 0, 0, 0);
+  assert.deepEqual(s.armas, [0, 1, 2, 3, 4], 'nasce com todas liberadas');
+  s.armas = [0, 2];
+  assert.equal(stepShip(s, { ...PARADO, f1: true, a: 3 })[0].kind, 'laser', 'sem o dreno, sai laser simples');
+  assert.equal(s.arma, 0);
+  for (let i = 0; i < 10; i++) stepShip(s, PARADO);
+  assert.equal(stepShip(s, { ...PARADO, f1: true, a: 2 }).length, 3, 'o triplo, que possui, funciona');
+  assert.equal(s.arma, 2);
+});
+
 test('armas: trocar de arma não zera a recarga do tiro', () => {
   const s = createShip('acron', 0, 0, 0);
   assert.equal(stepShip(s, { ...PARADO, f1: true, a: 0 }).length, 1);

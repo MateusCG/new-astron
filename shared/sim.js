@@ -139,6 +139,18 @@ export function armaValida(a) {
   return Number.isInteger(a) && a >= 0 && a < ARMAS_PRINCIPAIS.length ? a : 0;
 }
 
+/** Todas as armas principais (índices). Hoje toda nave nasce com todas liberadas. */
+export const TODAS_AS_ARMAS = ARMAS_PRINCIPAIS.map((_, i) => i);
+
+/**
+ * A nave pode usar a arma de índice a? Olha s.armas (as armas que o piloto possui);
+ * o laser simples (0) é sempre liberado. Quando houver loja, quem comprar põe o
+ * índice em s.armas (e o servidor guarda a lista no jogador para o renascimento).
+ */
+export function possuiArma(s, a) {
+  return a === 0 || !s.armas || s.armas.includes(a);
+}
+
 function clamp(v, a, b) {
   return v < a ? a : v > b ? b : v;
 }
@@ -167,6 +179,7 @@ export function createShip(race, x, z, yaw = 0) {
     cd1: 0,
     cd2: 0,
     arma: 0, // índice em ARMAS_PRINCIPAIS
+    armas: [...TODAS_AS_ARMAS], // armas principais que o piloto possui (ver possuiArma)
     lento: 0, // segundos restantes de lentidão (tiro criogênico); o servidor põe no acerto
     boost: false,
     boostTravado: false,
@@ -207,7 +220,9 @@ export function stepShip(s, inp, dt = DT) {
   // A arma principal vem no comando (a) a cada passo, para predição e servidor
   // trocarem no mesmo passo. A recarga (cd1) é a mesma para as duas: trocar de arma
   // não zera a espera do tiro.
-  s.arma = armaValida(inp.a);
+  // Pedir uma arma que a nave não possui volta para o laser simples.
+  const pedida = armaValida(inp.a);
+  s.arma = possuiArma(s, pedida) ? pedida : 0;
   // Pouso alterna na borda do botão (apertou agora), para segurar L não ficar
   // pousando e decolando sem parar.
   if (inp.p && !s.pAnt) s.pousado = s.pousado ? false : podePousar(s.x, s.z);
