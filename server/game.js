@@ -67,6 +67,7 @@ const VORAX_RENASCER_TICKS = VORAX.renascerS * TICK_HZ;
 const VORAX_RECALCULO_TICKS = 15; // de quanto em quanto tempo o mapa de caça é refeito
 const VORAX_PERTO = 60; // m: daqui para dentro, com linha livre, vai direto no jogador
 const VORAX_AFASTAR = 16; // m: dois monstros mais perto que isso se empurram
+const VORAX_ESPACO = 9; // m: não encosta mais que isso numa nave (não fica dentro dela)
 const VORAX_MARGEM_ZONA = 5; // m além da zona segura que o monstro não cruza
 const VORAX_RONDA_TROCA_TICKS = 4 * TICK_HZ; // ronda na borda troca de sentido
 const VORAX_PRESO_TICKS = 1.5 * TICK_HZ; // parado esse tempo querendo andar: dá ré
@@ -385,6 +386,19 @@ export class World {
     }
   }
 
+  /** O monstro não entra dentro da nave do jogador: fica a VORAX_ESPACO do centro. */
+  #naoEncostar(s) {
+    for (const j of this.players.values()) {
+      if (!j.vivo) continue;
+      const rx = s.x - j.ship.x;
+      const rz = s.z - j.ship.z;
+      const r = Math.hypot(rx, rz);
+      if (r >= VORAX_ESPACO || r < 1e-6) continue;
+      s.x = j.ship.x + (rx / r) * VORAX_ESPACO;
+      s.z = j.ship.z + (rz / r) * VORAX_ESPACO;
+    }
+  }
+
   /** Golpe de garra no jogador mais perto ao alcance (nunca na zona segura). */
   #garra(m) {
     if (this.tick - m.ultimoGolpe < VORAX_INTERVALO_TICKS) return;
@@ -510,6 +524,7 @@ export class World {
         continue;
       }
       stepShip(m.ship, this.#iaVorax(m)); // não atira: o ataque é a garra
+      this.#naoEncostar(m.ship);
       this.#foraDaZona(m.ship);
       this.#garra(m);
       this.#regen(m);

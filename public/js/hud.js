@@ -70,7 +70,9 @@ export class Hud {
       if (e.id === meuId || !e.vivo) continue;
       const [x, z] = this.#paraMapa(e.x, e.z);
       ctx.fillStyle = e.drone ? '#ff4a2a' : '#5ff7ff';
-      ctx.fillRect(x - 1.5, z - 1.5, 3, 3);
+      // Vorax (o que vem atrás de você) num ponto maior que o Arnosh.
+      const t = e.tipo === 'vorax' ? 4.5 : 3;
+      ctx.fillRect(x - t / 2, z - t / 2, t, t);
     }
     if (eu) {
       const [x, z] = this.#paraMapa(eu.x, eu.z);

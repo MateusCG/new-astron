@@ -15,7 +15,7 @@ import * as THREE from 'three';
 import { DT, RACES, createBullet, stepShip, bulletHits, forward } from '/shared/sim.js';
 import { heightAt, podePousar } from '/shared/terrain.js';
 import { criarCena } from './cena.js';
-import { criarNave, criarDrone, atualizarMotor } from './nave.js';
+import { criarNave, criarDrone, criarVorax, animarVorax, atualizarMotor } from './nave.js';
 import { Efeitos } from './efeitos.js';
 import { Controles } from './controles.js';
 import { Hud } from './hud.js';
@@ -151,6 +151,7 @@ function montarJogo(rede, boas, renderer, race) {
   let pendentes = [];
   const erro = new THREE.Vector3();
   let extra = { ouro: 0, abates: 0, mortes: 0 };
+  let ganhoOuro = 0; // ouro ganho no último snapshot (para a notícia de abate)
   const minhaNave = criarNave(race);
   scene.add(minhaNave);
 
@@ -185,7 +186,9 @@ function montarJogo(rede, boas, renderer, race) {
   }
 
   function aoSnapshot(m) {
+    const ouroAntes = extra.ouro;
     extra = { ouro: m.ouro, abates: m.abates, mortes: m.mortes };
+    ganhoOuro = m.ouro - ouroAntes;
     snaps.push({ t: performance.now(), ents: m.ents });
     while (snaps.length > 30) snaps.shift();
     for (const e of m.ents) nomes.set(e.id, e.nome);
@@ -232,13 +235,19 @@ function montarJogo(rede, boas, renderer, race) {
         efeitos.removerTiro(e.bala);
         efeitos.explosao(e.x, e.y, e.z, 0.7, '#ffd080');
         if (e.alvo === meuId) hud.levarDano();
+      } else if (e.e === 'garra') {
+        // Golpe de garra de um Vorax: faísca vermelha (cor de perigo) em quem levou.
+        efeitos.explosao(e.x, e.y, e.z, 0.8, '#ff4a2a');
+        if (e.alvo === meuId && e.dano > 0) hud.levarDano();
       } else if (e.e === 'fim') {
         efeitos.removerTiro(e.bala);
       } else if (e.e === 'morte') {
         efeitos.explosao(e.x, e.y, e.z, 4, '#ff9a3a');
         const quem = nomes.get(e.id) ?? '?';
         if (e.id === meuId) hud.noticia(`Você foi destruído por ${nomes.get(e.por) ?? '?'}`, 'ruim');
-        else if (e.por === meuId) hud.noticia(`Você abateu ${quem}`, 'bom');
+        else if (e.por === meuId && outras.get(e.id)?.tipo === 'vorax') {
+          hud.noticia(`Você destruiu um ${quem}${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
+        } else if (e.por === meuId) hud.noticia(`Você abateu ${quem}`, 'bom');
         else if (!outras.get(e.id)?.drone) hud.noticia(`${nomes.get(e.por) ?? '?'} abateu ${quem}`);
       } else if (e.e === 'entrou' && e.id !== meuId) {
         hud.noticia(`${e.nome} entrou no setor`);
@@ -333,7 +342,8 @@ function montarJogo(rede, boas, renderer, race) {
       presentes.add(e.id);
       let o = outras.get(e.id);
       if (!o) {
-        o = { obj: e.drone ? criarDrone() : criarNave(e.race), drone: e.drone };
+        const obj = e.tipo === 'vorax' ? criarVorax() : e.drone ? criarDrone() : criarNave(e.race);
+        o = { obj, drone: e.drone, tipo: e.tipo };
         scene.add(o.obj);
         outras.set(e.id, o);
       }
@@ -343,7 +353,8 @@ function montarJogo(rede, boas, renderer, race) {
       o.obj.position.set(e.x, e.y + (e.pousado ? 0 : Math.sin(tempo * 2 + e.id) * 0.25), e.z);
       o.obj.rotation.y = e.yaw;
       o.obj.userData.corpo.rotation.z = e.roll;
-      if (e.drone) o.obj.userData.corpo.rotation.y = Math.sin(tempo * 3 + e.id) * 0.15;
+      if (e.tipo === 'vorax') animarVorax(o.obj, tempo, e.id);
+      else if (e.drone) o.obj.userData.corpo.rotation.y = Math.sin(tempo * 3 + e.id) * 0.15;
       atualizarMotor(o.obj, e.boost, tempo, e.pousado);
       rotulos.push({ id: e.id, nome: e.nome, drone: e.drone, race: e.race, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position });
     }
