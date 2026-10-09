@@ -15,6 +15,14 @@
 // segura e a proteção de nascimento; a lentidão do criogênico vai para ship.lento,
 // que o stepShip usa e o snapshot leva no `me` (para a predição bater). As
 // entidades do snapshot trazem `dreno` e `lento` para todos desenharem o efeito.
+//
+// Partida 3 contra 3 (DESIGN-PARTIDA.md): times, cronômetro e placar ficam em
+// server/partida.js; os mineradores em server/mineradores.js; os bônus por tempo
+// dos mineradores em server/bonus.js. Aqui ficam só os ganchos: o jogador entra no
+// time com menos gente e nasce na base dele; tiro de aliado atravessa aliado (sem
+// fogo amigo, nem nos mineradores); a zona segura só protege o time dono da base
+// (na base do outro time você leva dano normalmente). Drones e Vorax continuam sem
+// entrar em base nenhuma: as duas são território dos jogadores.
 
 import {
   DT,
@@ -29,9 +37,12 @@ import {
   VEL_FATOR,
   RACES,
 } from '../shared/sim.js';
-import { BASE, BASES } from '../shared/terrain.js';
+import { BASE, BASES, CORREDOR } from '../shared/terrain.js';
 import { pontoAberto } from '../shared/obstaculos.js';
 import { MapaNavegacao } from './navegacao.js';
+import { Partida, N_TIMES } from './partida.js';
+import { Mineradores, MINERADOR } from './mineradores.js';
+import { Bonus } from './bonus.js';
 
 export const TICK_HZ = 30;
 const SNAP_CADA = 2; // ticks entre snapshots (15 Hz)
@@ -45,8 +56,8 @@ const POUSO_REGEN_ESPERA_TICKS = 1 * TICK_HZ;
 const N_DRONES = 10;
 const DRONE = { nome: 'Arnosh', hp: 90, visao: 200, alcance: 210, danoMult: 0.5, ouro: 25 };
 const OURO_ABATE_JOGADOR = 50;
-// Zona segura: em volta de cada base (as duas) ninguém leva dano, e drones não
-// perseguem quem está lá.
+// Zona segura: em volta da base do PRÓPRIO time ninguém leva dano. Drones não
+// perseguem quem está em base nenhuma (nem entram nelas).
 export const ZONA_SEGURA = BASE.raio + 30;
 // Drone que chega a esta distância de uma base (patrulhando ou caçando) dá meia
 // volta para o mundo aberto: as bases são território dos jogadores.
@@ -116,7 +127,11 @@ function baseMaisPerto(s) {
 }
 
 export class World {
-  constructor({ rng = Math.random, drones = N_DRONES, monstros = N_MONSTROS } = {}) {
+  /**
+   * @param {{ rng?: () => number, drones?: number, monstros?: number,
+   *   duracaoPartidaS?: number, intervaloFimS?: number }} [opcoes]
+   */
+  constructor({ rng = Math.random, drones = N_DRONES, monstros = N_MONSTROS, duracaoPartidaS, intervaloFimS } = {}) {
     this.rng = rng;
     this.tick = 0;
     this.nextId = 1;
@@ -127,6 +142,14 @@ export class World {
     this.eventos = [];
     // Mapa de caça dos Vorax: campo de caminhos até os jogadores caçáveis.
     this.caca = { campo: null, alvos: [], ate: 0 };
+    this.partida = new Partida({ duracaoS: duracaoPartidaS, intervaloFimS });
+    this.bonus = new Bonus();
+    this.mineradores = new Mineradores({
+      bonus: this.bonus,
+      novoId: () => this.#id(),
+      entregar: (time, carga) => this.partida.somar(time, carga),
+      evento: (ev) => this.eventos.push(ev),
+    });
     for (let i = 0; i < drones; i++) this.drones.push(this.#novoDrone());
     for (let i = 0; i < monstros; i++) this.monstros.push(this.#novoVorax());
   }
@@ -135,10 +158,22 @@ export class World {
     return this.nextId++;
   }
 
-  #pontoNaBase() {
+  /** Ponto sorteado no centro da base do time, e o yaw de quem olha para o corredor. */
+  #pontoNaBase(time) {
+    const b = BASES[time];
     const a = this.rng() * Math.PI * 2;
     const r = this.rng() * 60;
-    return { x: BASE.x + Math.cos(a) * r, z: BASE.z + Math.sin(a) * r };
+    // yaw 0 olha para -z: a base de baixo (+z) olha para o norte, a de cima para o sul.
+    const yaw = b.z > CORREDOR.zInicio ? 0 : Math.PI;
+    return { x: b.x + Math.cos(a) * r, z: b.z + Math.sin(a) * r, yaw };
+  }
+
+  /** Nave nova do jogador na base do time dele, voltada para o corredor. */
+  #naveNaBase(race, time) {
+    const p = this.#pontoNaBase(time);
+    const ship = createShip(race, p.x, p.z, p.yaw);
+    ship.time = time; // vai no `me`: a predição precisa para o pouso (pousoPermitido)
+    return ship;
   }
 
   #novoDrone() {
@@ -195,15 +230,23 @@ export class World {
     };
   }
 
-  /** Entra um jogador. Retorna o objeto do jogador (o servidor guarda o socket nele). */
+  /**
+   * Entra um jogador, no time com menos gente. Retorna o objeto do jogador (o
+   * servidor guarda o socket nele), ou null se os dois times estão cheios
+   * (o servidor responde 'partida_cheia').
+   */
   addPlayer(nome, race) {
-    const p = this.#pontoNaBase();
+    const tamanhos = Array.from({ length: N_TIMES }, () => 0);
+    for (const j of this.players.values()) tamanhos[j.time]++;
+    const time = this.partida.escolherTime(tamanhos);
+    if (time === null) return null;
     const id = this.#id();
     const jogador = {
       id,
       tipo: 'jogador',
       nome: limpaNome(nome),
-      ship: createShip(race, p.x, p.z, 0),
+      time,
+      ship: this.#naveNaBase(race, time),
       fila: [],
       ack: 0,
       vivo: true,
@@ -215,7 +258,7 @@ export class World {
       mortes: 0,
     };
     this.players.set(id, jogador);
-    this.eventos.push({ e: 'entrou', id, nome: jogador.nome });
+    this.eventos.push({ e: 'entrou', id, nome: jogador.nome, time });
     return jogador;
   }
 
@@ -242,6 +285,7 @@ export class World {
     for (const { kind, off, ang } of disparos) {
       const b = createBullet(ent.ship, kind, this.#id(), ent.id, off, ang);
       b.drone = !!ent.drone;
+      b.time = ent.time; // sem fogo amigo: o tiro atravessa quem é do mesmo time
       this.bullets.push(b);
       this.eventos.push({ e: 'tiro', id: b.id, dono: ent.id, kind, x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz });
     }
@@ -437,8 +481,22 @@ export class World {
     return BASES.some((b) => Math.hypot(s.x - b.x, s.z - b.z) < ZONA_SEGURA);
   }
 
+  /** Na zona segura da base do próprio time (a do outro time não protege). */
+  #naPropriaBase(ent) {
+    const b = BASES[ent.time];
+    return !!b && Math.hypot(ent.ship.x - b.x, ent.ship.z - b.z) < ZONA_SEGURA;
+  }
+
   #protegido(ent) {
-    return !ent.drone && (this.tick < ent.protegidoAte || this.#naZonaSegura(ent.ship));
+    return !ent.drone && (this.tick < ent.protegidoAte || this.#naPropriaBase(ent));
+  }
+
+  /** O tiro `b` pode acertar `alvo`? Não acerta o dono, aliado nem (se de drone) drone ou minerador. */
+  #podeAcertar(b, alvo) {
+    if (alvo.id === b.owner || !alvo.vivo) return false;
+    if (b.time !== undefined && b.time === alvo.time) return false; // sem fogo amigo
+    if (b.drone && (alvo.drone || alvo.tipo === 'minerador')) return false;
+    return true;
   }
 
   #dano(alvo, bala) {
@@ -475,13 +533,17 @@ export class World {
     alvo.vivo = false;
     alvo.drenoTicks = 0;
     alvo.respawnTick = this.tick + (alvo.tipo === 'vorax' ? VORAX_RENASCER_TICKS : RESPAWN_TICKS);
-    if (!alvo.drone) alvo.mortes++;
+    if (alvo.tipo === 'jogador') alvo.mortes++;
+    if (alvo.tipo === 'minerador') alvo.carga = 0; // o minério que carregava se perde
     const matador = this.players.get(autor);
     if (matador && matador.id !== alvo.id) {
       matador.abates++;
-      matador.ouro += alvo.tipo === 'vorax' ? VORAX.ouro : alvo.drone ? DRONE.ouro : OURO_ABATE_JOGADOR;
+      matador.ouro +=
+        alvo.tipo === 'vorax' ? VORAX.ouro : alvo.tipo === 'minerador' ? MINERADOR.ouro : alvo.drone ? DRONE.ouro : OURO_ABATE_JOGADOR;
     }
-    this.eventos.push({ e: 'morte', id: alvo.id, por: autor, x: alvo.ship.x, y: alvo.ship.y, z: alvo.ship.z });
+    const morte = { e: 'morte', id: alvo.id, por: autor, tipo: alvo.tipo, x: alvo.ship.x, y: alvo.ship.y, z: alvo.ship.z };
+    if (alvo.time !== undefined) morte.time = alvo.time;
+    this.eventos.push(morte);
   }
 
   /** Dreno: um tick de dano por tempo. Na zona segura/proteção o tempo corre sem dano. */
@@ -513,8 +575,7 @@ export class World {
       const novo = this.#novoDrone();
       ent.ship = novo.ship;
     } else {
-      const p = this.#pontoNaBase();
-      ent.ship = createShip(ent.ship.race, p.x, p.z, 0);
+      ent.ship = this.#naveNaBase(ent.ship.race, ent.time);
       ent.fila.length = 0;
       ent.protegidoAte = this.tick + PROTECAO_TICKS;
     }
@@ -523,9 +584,39 @@ export class World {
     this.eventos.push({ e: 'renasceu', id: ent.id });
   }
 
+  /**
+   * Relógio da partida: começa com o primeiro jogador; no fim de uma, espera a tela
+   * de resultado e começa outra do zero (placar, bônus e mineradores zerados, todo
+   * mundo renasce na base do time).
+   */
+  #passoPartida() {
+    const vinhaDoFim = this.partida.estado === 'fim';
+    const virou = this.partida.passo(this.tick, this.players.size);
+    if (virou === 'comecou') {
+      this.bonus.limpar();
+      this.mineradores.comecar(this.tick);
+      // Depois da tela de fim, todo mundo volta para a base do time. (Na primeira
+      // partida, quem entrou acabou de nascer lá.)
+      if (vinhaDoFim) {
+        for (const j of this.players.values()) {
+          if (j.fila.length) j.ack = j.fila[j.fila.length - 1].seq; // descarta sem travar a predição
+          this.#respawn(j);
+        }
+      }
+      this.eventos.push({ e: 'partida', n: this.partida.numero });
+    } else if (virou === 'fim') {
+      const { vencedor, placar } = this.partida;
+      this.eventos.push({ e: 'fimPartida', vencedor, placar: [...placar] });
+    } else if (virou === 'vazia') {
+      this.bonus.limpar();
+      this.mineradores.limpar();
+    }
+  }
+
   /** Avança o mundo um passo. */
   step() {
     this.tick++;
+    this.#passoPartida();
 
     for (const j of this.players.values()) {
       if (!j.vivo) {
@@ -569,15 +660,18 @@ export class World {
       this.#regen(m);
     }
 
-    const vivos = [...this.players.values(), ...this.drones, ...this.monstros].filter((e) => e.vivo);
+    // Mineradores andam só com a partida em andamento (na tela de fim ficam parados).
+    if (this.partida.emAndamento) this.mineradores.passo(this.tick);
+    for (const m of this.mineradores.lista) if (m.vivo) this.#drenar(m);
+
+    const vivos = [...this.players.values(), ...this.drones, ...this.monstros, ...this.mineradores.lista].filter((e) => e.vivo);
     this.bullets = this.bullets.filter((b) => {
       if (!stepBullet(b)) {
         this.eventos.push({ e: 'fim', bala: b.id, x: b.x, y: b.y, z: b.z });
         return false;
       }
       for (const alvo of vivos) {
-        if (alvo.id === b.owner || !alvo.vivo) continue;
-        if (b.drone && alvo.drone) continue; // drone não acerta drone
+        if (!this.#podeAcertar(b, alvo)) continue;
         if (bulletHits(b, alvo.ship)) {
           this.#dano(alvo, b);
           return false;
@@ -594,13 +688,14 @@ export class World {
 
   /**
    * Entidades visíveis para todos (mesma lista para cada jogador). `tipo` diz o
-   * que desenhar ('jogador', 'arnosh' ou 'vorax'); `drone` continua true para todo
-   * inimigo.
+   * que desenhar ('jogador', 'arnosh', 'vorax' ou 'minerador'); `drone` continua
+   * true para todo inimigo do PvE. Jogadores e mineradores trazem `time`; os
+   * mineradores também `carga` (minério no contêiner) e `minerando`.
    */
   entidades() {
     const lista = [];
-    const add = (e) =>
-      lista.push({
+    const add = (e) => {
+      const ent = {
         id: e.id,
         nome: e.nome,
         tipo: e.tipo,
@@ -618,10 +713,18 @@ export class World {
         pousado: e.ship.pousado,
         dreno: e.drenoTicks > 0,
         lento: e.ship.lento > 0,
-      });
+      };
+      if (e.time !== undefined) ent.time = e.time;
+      if (e.tipo === 'minerador') {
+        ent.carga = e.carga;
+        ent.minerando = e.estado === 'minerando';
+      }
+      lista.push(ent);
+    };
     for (const j of this.players.values()) add(j);
     for (const d of this.drones) add(d);
     for (const m of this.monstros) add(m);
+    for (const m of this.mineradores.lista) add(m);
     return lista;
   }
 
@@ -632,10 +735,13 @@ export class World {
       tick: this.tick,
       ack: j.ack,
       vivo: j.vivo,
+      time: j.time,
       me: j.ship,
       ouro: j.ouro,
       abates: j.abates,
       mortes: j.mortes,
+      partida: this.partida.paraSnapshot(this.tick),
+      bonus: this.bonus.paraSnapshot(this.tick),
       ents,
       ev: eventos,
     };

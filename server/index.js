@@ -13,16 +13,31 @@
 //                        simples, 1 duplo, 2 triplo, 3 dreno, 4 criogênico; fora
 //                        da lista vira 0)
 //                       {t:'ping', c}
-//   servidor → cliente  {t:'bemvindo', id, tickHz}
-//                       {t:'snap', tick, ack, vivo, me, ouro, abates, mortes, ents, ev}
-//                       (me.arma = arma principal, me.lento = s de lentidão;
+//   servidor → cliente  {t:'bemvindo', id, tickHz, time}   time = 0 (base de baixo) ou 1
+//                       {t:'erro', codigo}   codigo 'partida_cheia' (3 em cada time); fecha
+//                       {t:'snap', tick, ack, vivo, time, me, ouro, abates, mortes,
+//                        partida, bonus, ents, ev}
+//                       (me.arma = arma principal, me.lento = s de lentidão,
+//                        me.time = time da nave, para a predição do pouso;
 //                        cada ent traz dreno/lento booleanos para desenhar o efeito;
 //                        ev 'tiro' traz kind, que diz a arma e o efeito do projétil)
 //                       {t:'pong', c}
-//   ents: [{id, nome, tipo, drone, vivo, race, x, y, z, yaw, roll, hp, maxHp, boost, pousado}]
-//         tipo = 'jogador' | 'arnosh' | 'vorax' (o que desenhar); drone = é inimigo
-//   ev:   {e:'tiro'|'acerto'|'fim'|'morte'|'renasceu'|'entrou'|'saiu', ...}
+//   partida: {n, estado, restante, placar:[t0, t1], vencedor, novaEm}
+//         estado = 'esperando' | 'andamento' | 'fim'; restante e novaEm em s;
+//         vencedor = time, -1 empate, null jogando
+//   bonus: {0: {mineracao: s, velocidade: s, durabilidade: s}, 1: {...}}  só os ativos
+//   ents: [{id, nome, tipo, drone, vivo, race, x, y, z, yaw, roll, hp, maxHp, boost, pousado,
+//           time?, carga?, minerando?}]
+//         tipo = 'jogador' | 'arnosh' | 'vorax' | 'minerador' (o que desenhar);
+//         drone = inimigo do PvE; time em jogadores e mineradores; carga e
+//         minerando só nos mineradores
+//   ev:   {e:'tiro'|'acerto'|'fim'|'renasceu'|'saiu', ...}
+//         {e:'entrou', id, nome, time}
+//         {e:'morte', id, por, tipo, time?, x, y, z}
 //         {e:'garra', id, alvo, dano, x, y, z}   golpe corpo a corpo de um Vorax
+//         {e:'entrega', id, time, carga, x, y, z}   minerador somou carga no placar
+//         {e:'partida', n}   começou a partida n (placar zerado)
+//         {e:'fimPartida', vencedor, placar}
 
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
@@ -103,8 +118,14 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
       }
       if (msg?.t === 'entrar' && !jogador) {
         jogador = world.addPlayer(msg.nome, msg.race);
+        if (!jogador) {
+          // Os dois times cheios: código estável que o cliente traduz na tela de entrada.
+          ws.send(JSON.stringify({ t: 'erro', codigo: 'partida_cheia' }));
+          ws.close();
+          return;
+        }
         sockets.set(jogador.id, ws);
-        ws.send(JSON.stringify({ t: 'bemvindo', id: jogador.id, tickHz: TICK_HZ }));
+        ws.send(JSON.stringify({ t: 'bemvindo', id: jogador.id, tickHz: TICK_HZ, time: jogador.time }));
       } else if (msg?.t === 'in' && jogador) {
         world.pushInput(jogador.id, msg);
       } else if (msg?.t === 'ping') {

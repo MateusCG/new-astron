@@ -110,7 +110,9 @@ test('servidor: tiro tira vida, abate dá ouro e o morto renasce na base', () =>
   assert.ok(a.ouro > 0);
   for (let i = 0; i < 30 * 4; i++) w.step();
   assert.equal(b.vivo, true);
-  assert.ok(Math.hypot(b.ship.x - BASE.x, b.ship.z - BASE.z) < 80, 'renasceu na base');
+  const casa = BASES[b.time];
+  assert.equal(b.time, 1, 'B entrou no time com menos gente');
+  assert.ok(Math.hypot(b.ship.x - casa.x, b.ship.z - casa.z) < 80, 'renasceu na base do time dele');
 });
 
 test('servidor: ninguém leva dano na zona segura da base', () => {
@@ -304,11 +306,14 @@ test('servidor: drones nascem no mundo aberto, fora das bases e do corredor', ()
   assert.ok(oeste > 15 && oeste < 45, `${oeste} a oeste, o resto a leste`);
 });
 
-test('servidor: a zona segura cobre as duas bases', () => {
+// Cada base protege o próprio time (a do outro time não: ver partida.test.mjs).
+test('servidor: a zona segura cobre as duas bases, cada uma para o seu time', () => {
   assert.ok(ZONA_SEGURA >= BASE.raio);
   for (const b of BASES) {
     const w = new World({ drones: 0, monstros: 0 });
-    const j = w.addPlayer('A', 'acron');
+    const primeiro = w.addPlayer('A', 'acron');
+    const j = b.time === 0 ? primeiro : w.addPlayer('B', 'acron');
+    assert.equal(j.time, b.time);
     j.ship = createShip('acron', b.x + 50, b.z, 0);
     j.protegidoAte = 0;
     const hp = j.ship.hp;
