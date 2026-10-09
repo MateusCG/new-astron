@@ -75,6 +75,14 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 - **Neon:** material com `color` e `emissive` iguais e `emissiveIntensity` entre **0.8 e 1.2**. Acima disso o tone mapping (ACES) puxa para o branco e a cor some. Luz piscando vai de 0.1 a 1.2.
 - **Uma cor de destaque por objeto.** Hangar: cinza + faixa turquesa. Portal: escuro + luz vermelha. Nave: casco cinza + cor da raça.
 - **Inimigos são orgânicos:** formas irregulares (icosaedro, espinhos), pele escura `#4a1414`/`#8c2a1f` e **olho vermelho emissivo**. Nunca usar o visual "nave limpa" dos jogadores neles.
+- **Cada inimigo tem silhueta própria**, para o jogador saber de longe o que vem:
+
+  | Inimigo | Forma | Comportamento |
+  |---|---|---|
+  | Arnosh (drone) | Disco de icosaedro com espinhos em volta, olho na frente | Patrulha e atira de longe |
+  | Vorax (monstro) | Comprido, três gomos (cabeça, tórax, cauda com ferrão), espinhos nas costas, duas garras em foice que abrem e fecham | Caça de qualquer distância e ataca de perto; o golpe de garra é uma faísca `#ff4a2a` em quem leva |
+
+  No minimapa todo inimigo é ponto vermelho; o Vorax num ponto maior.
 - **Área de pouso = anel de neon turquesa no chão.** Todo lugar onde a nave pode pousar (`AREAS_POUSO`) é marcado assim, e nenhum outro anel turquesa no chão pode existir, para o jogador não confundir.
 - **Tudo projeta sombra** (`castShadow`), e o terreno a recebe.
 

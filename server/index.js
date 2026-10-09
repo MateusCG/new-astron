@@ -13,6 +13,10 @@
 //   servidor → cliente  {t:'bemvindo', id, tickHz}
 //                       {t:'snap', tick, ack, vivo, me, ouro, abates, mortes, ents, ev}
 //                       {t:'pong', c}
+//   ents: [{id, nome, tipo, drone, vivo, race, x, y, z, yaw, roll, hp, maxHp, boost, pousado}]
+//         tipo = 'jogador' | 'arnosh' | 'vorax' (o que desenhar); drone = é inimigo
+//   ev:   {e:'tiro'|'acerto'|'fim'|'morte'|'renasceu'|'entrou'|'saiu', ...}
+//         {e:'garra', id, alvo, dano, x, y, z}   golpe corpo a corpo de um Vorax
 
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';

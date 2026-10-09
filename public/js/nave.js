@@ -158,6 +158,101 @@ export function criarDrone() {
   return raiz;
 }
 
+/**
+ * Monstro caçador Vorax: corpo comprido em três gomos (cabeça, tórax, cauda com
+ * ferrão), espinhos nas costas e duas garras em foice na frente, que abrem e
+ * fecham. Mesma pele escura do Arnosh, mas a silhueta é de bicho que corre atrás
+ * de você (comprida, de garras para a frente), não o disco espinhento que patrulha.
+ * Um olho só, vermelho, na cabeça. Uns 10 m de comprimento, do tamanho da nave.
+ */
+export function criarVorax() {
+  const g = new THREE.Group();
+  const pele = new THREE.MeshStandardMaterial({ color: '#4a1414', roughness: 0.7, metalness: 0.1, flatShading: true });
+  const carapaca = new THREE.MeshStandardMaterial({ color: '#8c2a1f', roughness: 0.55, metalness: 0.2, flatShading: true });
+
+  // Gomos do corpo, da cabeça (-z) para a cauda (+z). Cada um num grupo próprio
+  // para a animação ondular o corpo.
+  const gomos = [];
+  const medidas = [
+    { r: 1.8, z: -3, esc: [1, 0.8, 1.2] },
+    { r: 2.3, z: 0, esc: [1.1, 0.75, 1.3] },
+    { r: 1.6, z: 3.2, esc: [0.9, 0.7, 1.4] },
+  ];
+  for (const [k, m] of medidas.entries()) {
+    const gomo = new THREE.Group();
+    gomo.position.z = m.z;
+    const corpo = new THREE.Mesh(new THREE.DodecahedronGeometry(m.r, 0), k === 1 ? carapaca : pele);
+    corpo.scale.set(...m.esc);
+    gomo.add(corpo);
+    // Espinhos nas costas, inclinados para trás.
+    for (const lado of k === 1 ? [-0.7, 0, 0.7] : [0]) {
+      const e = new THREE.Mesh(new THREE.ConeGeometry(0.35, 2.2 - Math.abs(lado), 5), carapaca);
+      e.position.set(lado, m.r * 0.75, 0.2);
+      e.rotation.x = 0.6;
+      gomo.add(e);
+    }
+    gomos.push(gomo);
+    g.add(gomo);
+  }
+  // Ferrão na ponta da cauda.
+  const ferrao = new THREE.Mesh(new THREE.ConeGeometry(0.5, 3, 5), carapaca);
+  ferrao.position.set(0, 0.6, 2.4);
+  ferrao.rotation.x = Math.PI / 2 + 0.5;
+  gomos[2].add(ferrao);
+
+  // Garras: braço curto + lâmina em foice, presas em pivôs dos lados da cabeça.
+  const garras = [];
+  for (const lado of [-1, 1]) {
+    // Pivô ao lado da cabeça (coordenadas do gomo da cabeça); girar nele em y
+    // abre e fecha a garra.
+    const pivo = new THREE.Group();
+    pivo.position.set(lado * 1.6, -0.3, -0.2);
+    const braco = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 2.6, 5), pele);
+    braco.rotation.x = Math.PI / 2;
+    braco.position.z = -1.2;
+    // Lâmina no fim do braço, apontando para a frente e curvada para dentro.
+    const cotovelo = new THREE.Group();
+    cotovelo.position.z = -2.4;
+    cotovelo.rotation.y = lado * 0.7;
+    const lamina = new THREE.Mesh(new THREE.ConeGeometry(0.45, 3.4, 4), carapaca);
+    lamina.rotation.x = -Math.PI / 2;
+    lamina.position.z = -1.6;
+    cotovelo.add(lamina);
+    pivo.add(braco, cotovelo);
+    gomos[0].add(pivo);
+    garras.push({ pivo, lado });
+  }
+
+  // Olho vermelho emissivo (neon: cor = emissive, intensidade no teto do guia).
+  const olho = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.55, 0),
+    new THREE.MeshStandardMaterial({ color: '#ff2a1a', emissive: '#ff2a1a', emissiveIntensity: 1.2, flatShading: true }),
+  );
+  olho.position.set(0, 0.7, -1.55);
+  const brilhoOlho = spriteBrilho(new THREE.Color('#ff3a1a'), 3.5);
+  brilhoOlho.position.copy(olho.position);
+  gomos[0].add(olho, brilhoOlho);
+
+  g.traverse((o) => {
+    if (o.isMesh) o.castShadow = true;
+  });
+  const raiz = new THREE.Group();
+  raiz.add(g);
+  raiz.userData = { corpo: g, motores: [], gomos, garras };
+  return raiz;
+}
+
+/** Anima o Vorax: corpo ondulando, garras abrindo e fechando. fase separa um do outro. */
+export function animarVorax(vorax, t, fase = 0) {
+  const { gomos, garras } = vorax.userData;
+  for (const [k, gomo] of gomos.entries()) {
+    gomo.rotation.y = Math.sin(t * 4 + fase - k * 0.9) * 0.18;
+    gomo.position.y = Math.sin(t * 4 + fase - k * 0.9) * 0.25;
+  }
+  const abre = (Math.sin(t * 6 + fase) + 1) / 2; // 0 fechada, 1 aberta
+  for (const { pivo, lado } of garras) pivo.rotation.y = lado * (0.1 + abre * 0.6);
+}
+
 /** Atualiza motores (maiores com boost, quase apagados pousada) e o trem de pouso. */
 export function atualizarMotor(nave, boost, t, pousado = false) {
   if (nave.userData.trem) nave.userData.trem.visible = pousado;
