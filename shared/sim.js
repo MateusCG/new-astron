@@ -9,6 +9,8 @@
 // Como no AstroN, a nave voa baixo, acompanhando o terreno (HOVER metros acima do
 // chão): o movimento é num plano e o terreno decide a altura. Parede de cânion é
 // qualquer subida mais íngreme que MAX_SLOPE; nela a nave desliza em vez de escalar.
+// Construções (hangares, portal, antenas em shared/obstaculos.js) contam como
+// parede do mesmo jeito, engordadas pelo raio da nave.
 //
 // Pouso (tecla L): também como no AstroN, a nave pode descer até o chão, mas só
 // dentro de uma área de pouso (AREAS_POUSO em terrain.js). Pousada ela
@@ -17,6 +19,7 @@
 // antes de tocar o chão: só desce de vez abaixo de VEL_TOQUE.
 
 import { heightAt, podePousar, topoPouso } from './terrain.js';
+import { alturaSolida } from './obstaculos.js';
 
 export const DT = 1 / 30;
 export const HOVER = 10;
@@ -104,7 +107,7 @@ export function sanitizeInput(i) {
 
 function bloqueado(gAtual, x, z, passo) {
   if (passo < 1e-6) return false;
-  return (heightAt(x, z) - gAtual) / passo > MAX_SLOPE;
+  return (alturaSolida(x, z, SHIP_RADIUS) - gAtual) / passo > MAX_SLOPE;
 }
 
 /**
@@ -141,7 +144,7 @@ export function stepShip(s, inp, dt = DT) {
   s.vz = f.z * vf + r.z * vl;
 
   // Colisão com parede: tenta o movimento inteiro, depois cada eixo (deslizar).
-  const g = heightAt(s.x, s.z);
+  const g = alturaSolida(s.x, s.z, SHIP_RADIUS);
   const dx = s.vx * dt;
   const dz = s.vz * dt;
   if (!bloqueado(g, s.x + dx, s.z + dz, Math.hypot(dx, dz))) {
@@ -217,7 +220,7 @@ export function stepBullet(b, dt = DT) {
   b.y += b.vy * dt;
   b.z += b.vz * dt;
   b.vida -= dt;
-  return b.vida > 0 && b.y > heightAt(b.x, b.z);
+  return b.vida > 0 && b.y > alturaSolida(b.x, b.z); // terreno ou construção
 }
 
 /**

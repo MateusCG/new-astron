@@ -13,7 +13,8 @@
 
 import * as THREE from 'three';
 import { DT, RACES, createBullet, stepShip, bulletHits, forward } from '/shared/sim.js';
-import { heightAt, podePousar } from '/shared/terrain.js';
+import { podePousar } from '/shared/terrain.js';
+import { alturaSolida } from '/shared/obstaculos.js';
 import { criarCena } from './cena.js';
 import { criarNave, criarDrone, atualizarMotor } from './nave.js';
 import { Efeitos } from './efeitos.js';
@@ -370,13 +371,14 @@ function montarJogo(rede, boas, renderer, race) {
       else camYaw += dt * 0.4; // morto: gira devagar em volta dos destroços
       const f = forward(camYaw);
       desejada.set(foco.x - f.x * cfg.dist, foco.y + cfg.alt, foco.z - f.z * cfg.dist);
-      // Não deixa a câmera entrar na parede do cânion: aproxima até ver a nave.
+      // Não deixa a câmera entrar na parede do cânion nem numa construção: aproxima
+      // até ver a nave.
       for (let i = 1; i <= 8; i++) {
         const k = i / 8;
         const px = lerp(foco.x, desejada.x, k);
         const pz = lerp(foco.z, desejada.z, k);
         const py = lerp(foco.y + 2, desejada.y, k);
-        if (heightAt(px, pz) + 2 > py) {
+        if (alturaSolida(px, pz) + 2 > py) {
           const kk = Math.max(0.25, (i - 1) / 8);
           desejada.set(lerp(foco.x, desejada.x, kk), lerp(foco.y + 2, desejada.y, kk) + 3, lerp(foco.z, desejada.z, kk));
           break;
@@ -384,7 +386,7 @@ function montarJogo(rede, boas, renderer, race) {
       }
       if (camera.position.lengthSq() === 0) camera.position.copy(desejada);
       camera.position.lerp(desejada, 1 - Math.exp(-8 * dt));
-      const chao = heightAt(camera.position.x, camera.position.z) + 2;
+      const chao = alturaSolida(camera.position.x, camera.position.z) + 2;
       if (camera.position.y < chao) camera.position.y = chao;
       alvoCam.set(foco.x + f.x * cfg.olhar, foco.y + 2, foco.z + f.z * cfg.olhar);
       camera.lookAt(alvoCam);

@@ -15,6 +15,7 @@ Um processo Node só: serve o cliente (HTTP) e roda o mundo (WebSocket `/ws`). O
 | Caminho | O que é |
 |---|---|
 | `shared/terrain.js` | Terreno determinístico (`heightAt`, `paredeAt`). **Servidor e cliente usam o mesmo arquivo.** |
+| `shared/obstaculos.js` | Construções sólidas (hangares, colunas do portal, antenas): planta única usada pela física (`alturaSolida`) **e** pelo desenho em `cena.js`. Construção nova entra aqui. |
 | `shared/sim.js` | Física da nave e dos tiros, raças (`RACES`) e armas (`WEAPONS`). **Mesmo arquivo nos dois lados.** |
 | `server/game.js` | `World`: jogadores, drones, tiros, dano, ouro, eventos e snapshots |
 | `server/index.js` | HTTP estático + WebSocket + laço de 30 Hz; `iniciar({ porta, world })` para testes |

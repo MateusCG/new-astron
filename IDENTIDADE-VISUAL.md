@@ -89,6 +89,7 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 | Corredor de cânion | 30 a 80 m de largura |
 | Hangar | 26 × 14 × 18 m |
 | Decoração no chão do cânion | **até 2,5 m de altura** (a nave passa por cima; não há colisão com decoração) |
+| Construções (hangar, portal, antena) | **sólidas**: nave e tiro batem. Tamanho e posição saem de `shared/obstaculos.js`, nunca só do `cena.js` |
 
 ## Luz e atmosfera
 

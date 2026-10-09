@@ -8,6 +8,7 @@
 
 import * as THREE from 'three';
 import { heightAt, paredeAt, fbm, MAP_HALF, BASE, WALL_HEIGHT, AREAS_POUSO } from '/shared/terrain.js';
+import { OBSTACULOS, HANGAR, PORTAL, ANTENAS } from '/shared/obstaculos.js';
 
 const ALTURA_PLATAFORMA = 3;
 
@@ -172,43 +173,41 @@ function criarBase() {
   centro.position.set(BASE.x, y + piso + 0.2, BASE.z);
   g.add(centro);
 
-  // Hangares em volta (lado sul e laterais; o norte fica livre para o corredor).
-  for (let i = 0; i < 5; i++) {
-    const a = Math.PI * 0.15 + (i / 4) * Math.PI * 0.7; // metade sul (z > 0)
-    const r = 92;
-    const hx = BASE.x + Math.cos(a) * r;
-    const hz = BASE.z + Math.sin(a) * r;
+  // Hangares, colunas do portal e antenas saem da planta em shared/obstaculos.js:
+  // a mesma lista que a física usa para colidir. Mexeu no tamanho? Mexa lá.
+  for (const o of OBSTACULOS.filter((o) => o.nome === 'hangar')) {
     const hangar = new THREE.Group();
-    const corpo = new THREE.Mesh(new THREE.BoxGeometry(26, 14, 18), escuro);
-    corpo.position.y = 7;
+    const corpo = new THREE.Mesh(new THREE.BoxGeometry(HANGAR.largura - 4, HANGAR.altura - 2, HANGAR.profundidade - 4), escuro);
+    corpo.position.y = (HANGAR.altura - 2) / 2;
     corpo.castShadow = corpo.receiveShadow = true;
-    const teto = new THREE.Mesh(new THREE.BoxGeometry(30, 2, 22), metal);
-    teto.position.y = 15;
+    const teto = new THREE.Mesh(new THREE.BoxGeometry(HANGAR.largura, 2, HANGAR.profundidade), metal);
+    teto.position.y = HANGAR.altura - 1;
     teto.castShadow = true;
     const faixa = new THREE.Mesh(new THREE.BoxGeometry(26.2, 0.7, 18.2), neon);
     faixa.position.y = 10;
     const porta = new THREE.Mesh(new THREE.PlaneGeometry(12, 8), matNeon(new THREE.Color('#0a8f74')));
     porta.position.set(0, 4.5, 9.05);
     hangar.add(corpo, teto, faixa, porta);
-    hangar.position.set(hx, heightAt(hx, hz), hz);
-    hangar.lookAt(BASE.x, hangar.position.y, BASE.z);
+    hangar.position.set(o.x, o.chao, o.z);
+    hangar.rotation.y = o.ang;
     g.add(hangar);
   }
 
   // Portal de saída (Warp Gate) no começo do corredor norte.
   const portal = new THREE.Group();
-  const pz = BASE.z - 130;
+  const pz = PORTAL.z;
   const py = heightAt(BASE.x, pz);
+  const altColuna = PORTAL.altura - 3;
   for (const lado of [-1, 1]) {
-    const coluna = new THREE.Mesh(new THREE.BoxGeometry(5, 26, 6), escuro);
-    coluna.position.set(lado * 20, 13, 0);
+    const coluna = new THREE.Mesh(new THREE.BoxGeometry(PORTAL.colunaLarg, altColuna, PORTAL.colunaProf), escuro);
+    coluna.position.set(lado * PORTAL.vao, altColuna / 2, 0);
     coluna.castShadow = true;
-    const luz = new THREE.Mesh(new THREE.BoxGeometry(5.2, 18, 0.6), matNeon(new THREE.Color('#ff4a2a')));
-    luz.position.set(lado * 20, 12, 3.2);
+    const luz = new THREE.Mesh(new THREE.BoxGeometry(PORTAL.colunaLarg + 0.2, 18, 0.6), matNeon(new THREE.Color('#ff4a2a')));
+    luz.position.set(lado * PORTAL.vao, 12, PORTAL.colunaProf / 2 + 0.2);
     portal.add(coluna, luz);
   }
-  const viga = new THREE.Mesh(new THREE.BoxGeometry(46, 4, 7), escuro);
-  viga.position.y = 27;
+  const viga = new THREE.Mesh(new THREE.BoxGeometry(PORTAL.vao * 2 + 6, 4, 7), escuro);
+  viga.position.y = PORTAL.altura - 2;
   viga.castShadow = true;
   const vigaNeon = new THREE.Mesh(new THREE.BoxGeometry(40, 0.7, 7.2), neon);
   vigaNeon.position.y = 25;
@@ -218,17 +217,12 @@ function criarBase() {
 
   // Torres de antena com luz piscando (a luz é animada em atualizar()).
   const luzes = [];
-  for (const [dx, dz] of [
-    [-58, 40],
-    [58, 40],
-  ]) {
-    const torre = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.6, 40, 6), metal);
-    const tx = BASE.x + dx;
-    const tz = BASE.z + dz;
-    torre.position.set(tx, heightAt(tx, tz) + 20, tz);
+  for (const o of OBSTACULOS.filter((o) => o.nome === 'antena')) {
+    const torre = new THREE.Mesh(new THREE.CylinderGeometry(ANTENAS.raio / 2, ANTENAS.raio, ANTENAS.altura, 6), metal);
+    torre.position.set(o.x, o.chao + ANTENAS.altura / 2, o.z);
     torre.castShadow = true;
     const luz = new THREE.Mesh(new THREE.SphereGeometry(1.2, 8, 6), matNeon(new THREE.Color('#ff3b2a')));
-    luz.position.set(tx, heightAt(tx, tz) + 41, tz);
+    luz.position.set(o.x, o.topo + 1, o.z);
     luzes.push(luz);
     g.add(torre, luz);
   }
