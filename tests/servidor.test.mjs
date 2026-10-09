@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import WebSocket from 'ws';
 import { iniciar } from '../server/index.js';
 import { World, ZONA_SEGURA } from '../server/game.js';
-import { createShip, createBullet } from '../shared/sim.js';
+import { createShip, createBullet, WEAPONS } from '../shared/sim.js';
 import { BASE } from '../shared/terrain.js';
 
 function conectar(porta) {
@@ -125,4 +125,35 @@ test('servidor: não serve arquivo fora das pastas públicas', async () => {
   } finally {
     await srv.fechar();
   }
+});
+
+test('servidor: aplica a arma escolhida no comando (e limpa valor inválido)', () => {
+  const w = new World({ drones: 0 });
+  const j = w.addPlayer('A', 'acron');
+  w.pushInput(j.id, { s: 1, f1: true, a: 1 });
+  w.step();
+  assert.equal(j.ship.arma, 1);
+  assert.deepEqual(w.bullets.map((b) => b.kind), ['laserDuplo', 'laserDuplo']);
+  const tiros = w.tirarEventos().filter((e) => e.e === 'tiro');
+  assert.equal(tiros.length, 2, 'os dois tiros vão para os outros clientes');
+
+  const k = w.addPlayer('B', 'acron');
+  w.bullets.length = 0;
+  w.pushInput(k.id, { s: 1, f1: true, a: 99 });
+  w.step();
+  assert.equal(k.ship.arma, 0);
+  assert.deepEqual(w.bullets.map((b) => b.kind), ['laser']);
+});
+
+test('servidor: cada projétil do laser duplo tira o dano dele', () => {
+  const w = new World({ drones: 0 });
+  const a = w.addPlayer('A', 'acron');
+  const b = w.addPlayer('B', 'bellico');
+  a.ship = createShip('acron', BASE.x, BASE.z - ZONA_SEGURA - 100, 0);
+  b.ship = createShip('bellico', BASE.x, BASE.z - ZONA_SEGURA - 130, 0);
+  a.protegidoAte = b.protegidoAte = 0;
+  const hp = b.ship.hp;
+  w.pushInput(a.id, { s: 1, f1: true, a: 1 });
+  for (let i = 0; i < 10; i++) w.step();
+  assert.equal(hp - b.ship.hp, 2 * WEAPONS.laserDuplo.dano, 'os dois acertaram');
 });

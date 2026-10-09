@@ -15,6 +15,11 @@ import {
   sanitizeInput,
   forward,
   ALTURA_POUSADO,
+  ARMAS_PRINCIPAIS,
+  LASER_DUPLO_VAO,
+  LASER_DUPLO_DANO,
+  LASER_DUPLO_CD,
+  LASER_DUPLO_ENERGIA,
 } from '../shared/sim.js';
 import { podePousar, AREAS_POUSO } from '../shared/terrain.js';
 
@@ -116,8 +121,76 @@ test('tiro rápido acerta nave no caminho mesmo pulando por cima dela', () => {
 });
 
 test('comando da rede é limitado', () => {
-  assert.deepEqual(sanitizeInput({ th: 50, tu: -9, b: 1, f1: 'x', f2: 0, p: 1 }), { th: 1, tu: -1, b: true, f1: true, f2: false, p: true });
-  assert.deepEqual(sanitizeInput(null), { th: 0, tu: 0, b: false, f1: false, f2: false, p: false });
+  assert.deepEqual(sanitizeInput({ th: 50, tu: -9, b: 1, f1: 'x', f2: 0, p: 1, a: 1 }), { th: 1, tu: -1, b: true, f1: true, f2: false, p: true, a: 1 });
+  assert.deepEqual(sanitizeInput(null), { th: 0, tu: 0, b: false, f1: false, f2: false, p: false, a: 0 });
+});
+
+test('comando da rede: arma fora da lista vira laser simples', () => {
+  for (const a of [2, -1, 1.5, '1', '__proto__', 'length', null, undefined, {}, NaN, Infinity]) {
+    assert.equal(sanitizeInput({ a }).a, 0, String(a));
+  }
+  assert.equal(sanitizeInput({ a: 0 }).a, 0);
+  assert.equal(sanitizeInput({ a: 1 }).a, 1);
+  assert.deepEqual(ARMAS_PRINCIPAIS, ['laser', 'laserDuplo']);
+});
+
+test('armas: laser simples sai 1 projétil pelo nariz, o duplo sai 2 paralelos', () => {
+  for (const yaw of [0, 0.7, -2.1]) {
+    const s = createShip('shrewdo', 0, 0, yaw);
+    const simples = stepShip(s, { ...PARADO, f1: true, a: 0 });
+    assert.deepEqual(simples, [{ kind: 'laser', off: 0 }]);
+    assert.equal(s.arma, 0);
+
+    const d = createShip('shrewdo', 0, 0, yaw);
+    const duplo = stepShip(d, { ...PARADO, f1: true, a: 1 });
+    assert.equal(d.arma, 1);
+    assert.equal(duplo.length, 2);
+    const [e, r] = duplo.map((t, i) => createBullet(d, t.kind, i, 1, t.off));
+    assert.equal(e.kind, 'laserDuplo');
+    assert.equal(r.kind, 'laserDuplo');
+    // Paralelos: mesma velocidade, separados só de lado (perpendicular ao rumo).
+    assert.equal(e.vx, r.vx);
+    assert.equal(e.vz, r.vz);
+    const f = forward(d.yaw);
+    const dx = r.x - e.x;
+    const dz = r.z - e.z;
+    assert.ok(Math.abs(Math.hypot(dx, dz) - 2 * LASER_DUPLO_VAO) < 1e-9, 'vão entre os canos');
+    assert.ok(Math.abs(dx * f.x + dz * f.z) < 1e-9, 'lado a lado, nenhum na frente');
+    // O do off positivo sai à direita da nave (direita = (-f.z, f.x)).
+    assert.ok(dx * -f.z + dz * f.x > 0);
+    // O meio dos dois é o ponto de saída do tiro simples.
+    const c = createBullet(d, 'laser', 9, 1);
+    assert.ok(Math.abs((e.x + r.x) / 2 - c.x) < 1e-9 && Math.abs((e.z + r.z) / 2 - c.z) < 1e-9);
+  }
+});
+
+test('armas: o laser duplo gasta e recarrega conforme as constantes', () => {
+  const s = createShip('acron', 0, 0, 0);
+  const en = s.en;
+  stepShip(s, { ...PARADO, f1: true, a: 1 });
+  const regen = 9 * DT;
+  assert.ok(Math.abs(s.en - Math.min(s.maxEn, en + regen) + LASER_DUPLO_ENERGIA) < 1e-9, `energia ${s.en}`);
+  assert.equal(WEAPONS.laserDuplo.dano, LASER_DUPLO_DANO);
+  assert.equal(WEAPONS.laserDuplo.energia, LASER_DUPLO_ENERGIA);
+  assert.equal(WEAPONS.laserDuplo.cd, LASER_DUPLO_CD);
+  let disparos = 1;
+  for (let i = 0; i < 29; i++) disparos += stepShip(s, { ...PARADO, f1: true, a: 1 }).length > 0;
+  const esperado = Math.floor(1 / LASER_DUPLO_CD) + 1;
+  assert.ok(disparos >= esperado - 1 && disparos <= esperado, `${disparos} disparos em 1 s`);
+});
+
+test('armas: o duplo não é estritamente melhor que o simples', () => {
+  const dps = (w) => (w.dano * (w.canos?.length ?? 1)) / w.cd;
+  const gasto = (w) => w.energia / w.cd;
+  assert.ok(dps(WEAPONS.laserDuplo) < dps(WEAPONS.laser), 'mesmo acertando os dois, tira menos por segundo');
+  assert.ok(gasto(WEAPONS.laserDuplo) > gasto(WEAPONS.laser), 'gasta mais energia por segundo');
+  assert.ok(WEAPONS.laserDuplo.dano < WEAPONS.laser.dano, 'cada projétil tira menos');
+});
+
+test('armas: trocar de arma não zera a recarga do tiro', () => {
+  const s = createShip('acron', 0, 0, 0);
+  assert.equal(stepShip(s, { ...PARADO, f1: true, a: 0 }).length, 1);
+  assert.deepEqual(stepShip(s, { ...PARADO, f1: true, a: 1 }), [], 'ainda recarregando');
 });
 
 const PARADO = { th: 0, tu: 0, b: false, f1: false, f2: false, p: false };

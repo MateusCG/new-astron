@@ -7,8 +7,16 @@ import { brilho } from './nave.js';
 
 const COR_TIRO = {
   laser: new THREE.Color('#5ff7ff'),
+  laserDuplo: new THREE.Color('#5ff7ff'),
   plasma: new THREE.Color('#7dff6a'),
   inimigo: new THREE.Color('#ff4a2a'),
+};
+// Forma de cada tiro: barra (comprimento em m, 0 = sem barra) + brilho. O laser
+// duplo é a mesma barra ciano do laser, um pouco menor, já que saem duas juntas.
+const FORMA_TIRO = {
+  laser: { barra: 7, grossura: 0.35, brilho: 3 },
+  laserDuplo: { barra: 6, grossura: 0.28, brilho: 2.4 },
+  plasma: { barra: 0, brilho: 6 },
 };
 
 export class Efeitos {
@@ -16,21 +24,28 @@ export class Efeitos {
     this.scene = scene;
     this.tiros = new Map();
     this.particulas = [];
-    this.geoLaser = new THREE.BoxGeometry(0.35, 0.35, 7);
+    this.geoBarra = new Map();
+  }
+
+  #barra(forma) {
+    const chave = `${forma.grossura}x${forma.barra}`;
+    if (!this.geoBarra.has(chave)) this.geoBarra.set(chave, new THREE.BoxGeometry(forma.grossura, forma.grossura, forma.barra));
+    return this.geoBarra.get(chave);
   }
 
   /** Cria um tiro visual. inimigo = tiro de drone (vermelho). */
   tiro(b, inimigo = false) {
-    const cor = inimigo ? COR_TIRO.inimigo : COR_TIRO[b.kind];
+    const cor = inimigo ? COR_TIRO.inimigo : COR_TIRO[b.kind] ?? COR_TIRO.laser;
+    const forma = FORMA_TIRO[b.kind] ?? FORMA_TIRO.laser;
     const g = new THREE.Group();
-    if (b.kind === 'laser') {
-      const nucleo = new THREE.Mesh(this.geoLaser, new THREE.MeshBasicMaterial({ color: cor.clone().lerp(new THREE.Color('#fff'), 0.5) }));
+    if (forma.barra) {
+      const nucleo = new THREE.Mesh(this.#barra(forma), new THREE.MeshBasicMaterial({ color: cor.clone().lerp(new THREE.Color('#fff'), 0.5) }));
       g.add(nucleo);
     }
     const s = new THREE.Sprite(
       new THREE.SpriteMaterial({ map: brilho(), color: cor, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }),
     );
-    s.scale.setScalar(b.kind === 'plasma' ? 6 : 3);
+    s.scale.setScalar(forma.brilho);
     g.add(s);
     g.position.set(b.x, b.y, b.z);
     g.lookAt(b.x + b.vx, b.y + b.vy, b.z + b.vz);

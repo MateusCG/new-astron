@@ -137,8 +137,8 @@ export class World {
   }
 
   #atira(ent, disparos) {
-    for (const kind of disparos) {
-      const b = createBullet(ent.ship, kind, this.#id(), ent.id);
+    for (const { kind, off } of disparos) {
+      const b = createBullet(ent.ship, kind, this.#id(), ent.id, off);
       b.drone = !!ent.drone;
       this.bullets.push(b);
       this.eventos.push({ e: 'tiro', id: b.id, dono: ent.id, kind, x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz });

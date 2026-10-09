@@ -7,8 +7,10 @@
 //
 // Protocolo (JSON):
 //   cliente → servidor  {t:'entrar', nome, race}
-//                       {t:'in', s:seq, th, tu, b, f1, f2, p}   um por passo de 1/30 s
-//                       (p = botão de pouso, alterna pousar/decolar na borda)
+//                       {t:'in', s:seq, th, tu, b, f1, f2, p, a}   um por passo de 1/30 s
+//                       (p = botão de pouso, alterna pousar/decolar na borda;
+//                        a = arma principal, índice em ARMAS_PRINCIPAIS: 0 laser
+//                        simples, 1 laser duplo; fora da lista vira 0)
 //                       {t:'ping', c}
 //   servidor → cliente  {t:'bemvindo', id, tickHz}
 //                       {t:'snap', tick, ack, vivo, me, ouro, abates, mortes, ents, ev}

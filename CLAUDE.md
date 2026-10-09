@@ -27,7 +27,7 @@ Um processo Node só: serve o cliente (HTTP) e roda o mundo (WebSocket `/ws`). O
 
 ### Regras de rede (não regredir)
 
-- **O servidor é a autoridade.** O cliente manda só comandos `{t:'in', s:seq, th, tu, b, f1, f2, p}`; posição, acerto, dano, morte e ouro saem do servidor. Nunca aceite posição, dano ou recompensa vindos do cliente.
+- **O servidor é a autoridade.** O cliente manda só comandos `{t:'in', s:seq, th, tu, b, f1, f2, p, a}` (`a` = arma principal, índice em `ARMAS_PRINCIPAIS`, sanitizado para 0 se inválido); posição, acerto, dano, morte e ouro saem do servidor. Nunca aceite posição, dano ou recompensa vindos do cliente.
 - **Passo fixo de 1/30 s** (`DT`). Cada comando é aplicado uma vez, em ordem; no máximo 4 por tick (`MAX_INPUTS_TICK`), contra acelerar o tempo. Entrada da rede passa por `sanitizeInput`.
 - **`shared/` é determinístico:** sem `Math.random`, sem relógio, sem Three.js. Se o cliente e o servidor calcularem diferente, a predição dá tranco e a colisão falha.
 - O cliente prevê a própria nave e **reconcilia** com `me` + `ack` do snapshot; as outras naves são desenhadas 120 ms no passado (`INTERP_MS`), interpoladas.
