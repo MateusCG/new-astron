@@ -2,6 +2,8 @@
 
 MMO de naves 3D no navegador, inspirado no **AstroN** (jogo coreano de celular, inacabado): naves voando baixo por cânions e bases, câmera de perseguição atrás da nave, quatro raças em guerra, upgrade de nave e tuning de equipamento. Repo `MateusCG/new-astron`, do Mateus (que também faz o Sideral: `MateusCG/sideral` e `MateusCG/api-sideral`).
 
+**O modo de jogo (3 contra 3, mineradores, objetivos, evolução e loja) está em `DESIGN-PARTIDA.md`**: toda tarefa de jogabilidade parte dele.
+
 **Antes de mexer em qualquer coisa visual, leia `IDENTIDADE-VISUAL.md`** (paleta, regras do 3D, escala, HUD). Ele é obrigatório e anda junto com o código.
 
 ## Estado atual (protótipo)
