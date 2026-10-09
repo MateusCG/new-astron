@@ -176,3 +176,15 @@ test('pouso: escorregar para fora do círculo enquanto freia cancela o pouso', (
   for (let i = 0; i < 30; i++) stepShip(s, PARADO);
   assert.equal(s.pousado, false);
 });
+
+test('curva: a nave inclina para dentro (A abaixa a asa esquerda, D a direita)', () => {
+  // roll positivo = rotation.z positivo no Three.js = asa esquerda para baixo, vista de trás.
+  const esq = createShip('shrewdo', BASE.x, BASE.z, 0);
+  const dir = createShip('shrewdo', BASE.x, BASE.z, 0);
+  for (let i = 0; i < 20; i++) {
+    stepShip(esq, { ...PARADO, th: 1, tu: 1 });
+    stepShip(dir, { ...PARADO, th: 1, tu: -1 });
+  }
+  assert.ok(esq.roll > 0.3, `A: roll ${esq.roll}`);
+  assert.ok(dir.roll < -0.3, `D: roll ${dir.roll}`);
+});

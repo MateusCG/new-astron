@@ -26,6 +26,10 @@ export const POUSO_GIRO = 0.4; // fração do giro normal com a nave no chão
 export const POUSO_REGEN_MULT = 2.5; // energia recupera mais rápido pousada
 export const MAX_SLOPE = 0.75;
 export const TURN_RATE = 2.3;
+// Inclinação na curva, em radianos: positiva abaixa a asa esquerda (rotation.z do
+// Three.js visto de trás). A nave inclina para dentro da curva, como um avião:
+// A (esquerda) abaixa a asa esquerda, D (direita) abaixa a direita.
+export const INCLINACAO_CURVA = 0.55;
 export const SHIP_RADIUS = 4.5;
 
 /**
@@ -124,7 +128,7 @@ export function stepShip(s, inp, dt = DT) {
   const maxV = raca.velocidade * VEL_FATOR * (querBoost ? BOOST_MULT : 1);
 
   s.yaw += inp.tu * TURN_RATE * (pousado ? POUSO_GIRO : 1) * dt;
-  s.roll += ((pousado ? 0 : -inp.tu * 0.55) - s.roll) * Math.min(1, 6 * dt);
+  s.roll += ((pousado ? 0 : inp.tu * INCLINACAO_CURVA) - s.roll) * Math.min(1, 6 * dt);
 
   const f = forward(s.yaw);
   const r = { x: -f.z, z: f.x };
