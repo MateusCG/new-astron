@@ -37,13 +37,27 @@ Tokens em `public/css/jogo.css` (`:root`). Use as variáveis; não escreva hex s
 | `--laser` | `#5ff7ff` | Ícone de arma no HUD (mesmo ciano do tiro de laser) |
 | `--dreno` | `#d070ff` | Ícone da arma Dreno (mesmo violeta do tiro e da aura) |
 | `--gelo` | `#a8e8ff` | Ícone da arma Criogênico (mesmo azul-gelo do tiro e da aura) |
+| `--inimigo` | `#ff4a2a` | Placar e coisas do outro time no HUD (mesmo vermelho dos inimigos no minimapa) |
+| `--objetivo` | `#ffb627` | Ícones dos bônus por tempo no placar (âmbar dos objetivos, de onde os bônus vêm) |
 
 - **Botão primário:** fundo `#00efc0`, texto `#032b22`, peso 700. É o mesmo turquesa do Sideral, de propósito: os dois jogos são da mesma casa.
 - **Mensagens:** boas em `--neon`, ruins em `#ff8a70`, neutras em `--texto`.
 
 ### Raças
 
-Definidas em `shared/sim.js` (`RACES[].cor`). A cor da raça vai **só** nas asas, no leme e no brilho do motor; o casco é sempre cinza-claro (`#c9d2d0`). O nome do jogador no rótulo usa a mesma cor.
+Definidas em `shared/sim.js` (`RACES[].cor`). A cor da raça vai **só** nas asas, no leme e no brilho do motor; o casco é sempre cinza-claro (`#c9d2d0`). O rótulo (nome e barra) usa a cor do **time**, não a da raça (ver "Times" abaixo).
+
+### Times (cor relativa a quem olha)
+
+Na partida 3 contra 3 a cor de time é sempre **relativa a quem olha**: o que é do **seu time** é turquesa `#00efc0`; o que é do **outro time**, vermelho (`#ff3b2a` no 3D, como o neon da base deles; `--inimigo` `#ff4a2a` no HUD). No código: `criarNave(race, { aliado })`, `criarMinerador({ aliado })`, `criarCena({ meuTime })`, `new Hud({ meuTime })`, `new Placar({ meuTime })`; `meuTime` vem do `bemvindo`.
+
+| Onde | Como |
+|---|---|
+| Nave de jogador | **Marca de luz do time**: anel de neon em volta da fuselagem, atrás da cabine, e uma luz em cada ponta de asa (o que mais aparece na câmera de perseguição). A sua nave é sempre turquesa. A cor da raça continua nas asas, no leme e no motor |
+| Minerador | Faixas de neon nos dois lados do casco e brilho dos motores na cor do time |
+| Rótulo sobre a nave | Nome e barra de vida turquesa (aliado) ou vermelhos (inimigo: outro time e monstros) |
+| Minimapa | Pontos do seu time em turquesa, do outro time e monstros em vermelho; minerador é uma bolinha menor que o quadrado das naves |
+| Placar | Seu time sempre à esquerda, em turquesa; o outro à direita, em vermelho |
 
 | Raça | Cor | Bioma |
 |---|---|---|
@@ -94,6 +108,7 @@ O mapa segue `DESIGN-PARTIDA.md` e `shared/terrain.js`. Cores em `public/js/cena
 | Objetivo A | âmbar `#ffb627` (pulsa) | Placa redonda com anel e losango no chão | **Pouse na marcação** para tomar |
 | Objetivo B | âmbar `#ffb627` | Torre escura sextavada (sólida) com faixas âmbar e farol no alto, anel no chão | **Destrua a torre** para tomar |
 | Objetivo C | âmbar `#ffb627` | Arena: anel largo de 60 m, anel interno, triângulo e pilares baixos | **Derrote o guardião** da arena |
+| Minerador | casco `#9aa5a3` + faixas do time; minério `#9fe8ff` (cristais) sobre bloco `#2f7fb8` | Mini-nave de carga de ~6 m (`criarMinerador` em `nave.js`): casco quadrado, cabine em pirâmide na frente, dois motores laterais, moldura de contêiner em cima. Cheio, aparecem o bloco e os cristais azuis no contêiner; minerando, desce um feixe azul-gelo pulsando até o chão | Leva o minério do depósito até a entrega |
 
 - **Âmbar = objetivo.** Os três tipos usam âmbar e se distinguem pela forma (losango, torre, triângulo) e, no minimapa, pela letra.
 - **Azul = circuito do minério** (estrada, entregas, cristais). Os cristais usam o mesmo azul-gelo do Criogênico, mas só no chão; aura em nave é sempre efeito de arma.
@@ -134,6 +149,7 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 | Coisa | Tamanho |
 |---|---|
 | Nave de jogador | ~11 m de comprimento, ~12 m de envergadura |
+| Minerador | ~6 m de comprimento, ~4 m de largura (metade da nave), voa na mesma altura (`HOVER`) |
 | Altura de voo | 10 m acima do chão (`HOVER`) |
 | Nave pousada | 1,4 m (`ALTURA_POUSADO`), com trem de pouso visível e motores quase apagados |
 | Parede de cânion / mesa de rocha | ~50 a 95 m; começa com um degrau vertical de ~20 m (nem de lado a nave sobe) |
@@ -160,7 +176,8 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 ## Interface
 
 - **Painel inferior em chapa metálica** (degradê `--chapa-clara` para `--chapa`, cantos de cima mais arredondados, contorno `--neon-escuro`). Barras de HP e EN com rótulo à esquerda e número à direita, em fonte mono.
-- **Minimapa** no canto superior esquerdo, **notícias** no superior direito, **avisos** no centro da tela.
+- **Minimapa** no canto superior esquerdo, **placar** no superior direito (na mesma chapa do painel: minério do seu time em turquesa à esquerda, tempo `mm:ss` em fonte mono no meio, que pisca em `#ff8a70` no último minuto, minério do outro time em vermelho à direita; embaixo de cada número, os bônus ativos do time como ícone de traço âmbar + segundos), **notícias** logo abaixo do placar, **avisos** no centro da tela.
+- **Tela de fim de partida** (`#fim-partida`): painel em chapa no alto e centro, sem bloquear o jogo, com "VITÓRIA" (turquesa com brilho), "DERROTA" (vermelho com brilho) ou "EMPATE" (texto claro), uma frase curta, o placar grande (seu time × outro) e "Nova partida em Ns".
 - **Menu de armas** (`#menu-armas`, tecla Q): painel na mesma chapa do painel inferior, no **alto e centro** da tela, para a nave continuar à vista (o jogo não pausa). Uma carta por arma com número da tecla, ícone, nome, dano, energia, recarga e uma linha do efeito; a arma em uso tem borda `--neon` e o selo "EM USO". **Ícone de arma** (SVG de traço, sem preenchimento): traços `--laser` para os lasers (1 simples, 2 paralelos no duplo, 3 em leque no triplo), gota `--dreno` para o Dreno e floco `--gelo` para o Criogênico; o mesmo ícone, com o nome, fica no painel inferior. No celular o menu fica entre o minimapa e os botões da direita, e o nome no painel some (só o ícone).
 - **Tipografia:** `system-ui` para texto e `ui-monospace` para números. Título com letras espaçadas e "ASTRO" em `--neon` com brilho.
 - **Celular:** joystick à esquerda; Z, X e SHIFT à direita (mesma disposição do AstroN), com ARMA numa pílula acima deles. Área de toque com no mínimo 64 px.
