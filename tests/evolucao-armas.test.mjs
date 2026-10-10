@@ -95,9 +95,12 @@ test('evoluir arma: cobra o preço, exige pousado na Loja, possuir a arma, ouro,
   assert.equal(me.niveisArmas[laser], ARMA_NIVEL_MAX);
 });
 
-/** A (time 0) e B (time 1), B 20 m à frente de A, fora da zona segura. */
+/**
+ * A (time 0) e B (time 1), B 20 m à frente de A, fora da zona segura. É ao lado das
+ * torretas do time 0, então elas ficam sem atirar (senão também ferem B).
+ */
 function duelo() {
-  const w = mundo();
+  const w = mundo({ torretas: false });
   const a = w.addPlayer('A', 'acron');
   const b = w.addPlayer('B', 'bellico');
   const z = BASE.z - ZONA_SEGURA - 120;

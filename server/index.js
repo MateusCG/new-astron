@@ -27,17 +27,20 @@
 //                        ex. 'evoluir:crio'; sem possuir: 'sem_item'; no máximo: 'limite')
 //                       {t:'evoluir', opcao}     Evolução da nave: 'casco' | 'reator' | 'motor'
 //                       {t:'melhorar', melhoria} mineradores do time: 'quantidade' |
-//                        'durabilidade' | 'defesa' | 'velocidade'
+//                        'durabilidade' | 'defesa' | 'velocidade'; ou 'torretas' (sobe
+//                        o nível das quatro torretas do time)
+//                       {t:'reconstruir', torreta}  reconstrói uma torreta destruída do
+//                        próprio time: torreta = id em TORRETAS ('T0-1' a 'T1-4')
 //                       {t:'usar', item}         item consumível: 'reparo' (R) | 'energia' (F)
-//                       (comprar/evoluir/melhorar só vivo, pousado e parado na
+//                       (comprar/evoluir/melhorar/reconstruir só vivo, pousado e parado na
 //                        plataforma do serviço da própria base; usar vale em qualquer
 //                        lugar; tudo validado em server/servicos.js)
 //                       {t:'ping', c}
 //   servidor → cliente  {t:'bemvindo', id, tickHz, time}   time = 0 (base de baixo) ou 1
 //                       {t:'erro', codigo}   codigo 'partida_cheia' (3 em cada time); fecha
 //                       {t:'snap', tick, ack, vivo, renasceEm, time, me, ouro, abates, mortes,
-//                        nivel, xp, xpProx, partida, bonus, obj, melhorias, minas, guiados,
-//                        ents, ev}
+//                        nivel, xp, xpProx, partida, bonus, obj, torretas, melhorias, minas,
+//                        guiados, ents, ev}
 //                       (me.encaixes = [arma do Z, arma do X], me.cd1/cd2 = recarga
 //                        de cada encaixe, me.troca1/troca2 = s de recarga de troca
 //                        de arma de cada encaixe (sem tiro e sem troca nele),
@@ -52,7 +55,7 @@
 //                        nivel zeram a cada partida; renasceEm = s até a nave
 //                        renascer, 0 viva: cresce com o nível e com a partida)
 //                       {t:'resultado', acao, item, ok, codigo?}   resposta (só a quem
-//                       pediu) de comprar/evoluir/melhorar/usar; codigo = 'nao_pousado' |
+//                       pediu) de comprar/evoluir/melhorar/reconstruir/usar; codigo = 'nao_pousado' |
 //                       'ouro_insuficiente' | 'nivel_insuficiente' | 'ja_possui' |
 //                       'limite' | 'invalido' | 'sem_item' | 'recarga' | 'cheio'
 //                       {t:'pong', c}
@@ -76,16 +79,22 @@
 //         s de recarga; no A, prog (0 a 1), quem (time tomando) e falta (s); no B e
 //         no C, vida (0 a 1) da torre ou do guardião. Torre B em 'recarga' está
 //         caída: o cliente a tira da física (definirObstaculoAtivo).
+//   torretas: [{id, time, vida, max, nivel, viva, alvo?, obra?}]   as oito torretas do
+//         corredor (server/torretas.js; posição em TORRETAS de shared/terrain.js):
+//         vida e max em HP, nivel = nível do time dono (1 a 3), viva = de pé e
+//         sólida (false: o cliente a tira da física com definirObstaculoAtivo);
+//         alvo = id na mira (só se mira alguém); obra = reconstrução paga
+//         esperando o lugar ficar livre
 //   minas: [{id, dono, time, x, y, z, armada}]   minas no chão (time de quem soltou;
 //         armada = já explode com inimigo perto)
 //   guiados: [{id, x, y, z, vx, vy, vz}]   mísseis teleguiados em voo: o cliente não
 //         prevê a curva e corrige o desenho por aqui
 //   ents: [{id, nome, tipo, drone, vivo, race, x, y, z, yaw, roll, hp, maxHp, boost, pousado,
 //           dreno, lento, emp, time?, carga?, minerando?, nivel?, recall?}]
-//         tipo = 'jogador' | 'arnosh' | 'vorax' | 'krakor' | 'guardiao' | 'minerador'
-//         (o que desenhar); drone = inimigo do PvE; time em jogadores e mineradores;
-//         carga e minerando só nos mineradores; nivel só nos jogadores; recall
-//         (0 a 1) só em quem está canalizando a volta à base
+//         tipo = 'jogador' | 'arnosh' | 'vorax' | 'krakor' | 'guardiao' | 'minerador' |
+//         'escolta' (o que desenhar); drone = inimigo do PvE; time em jogadores,
+//         mineradores e escoltas; carga e minerando só nos mineradores; nivel só nos
+//         jogadores; recall (0 a 1) só em quem está canalizando a volta à base
 //   ev:   {e:'tiro'|'acerto'|'fim'|'renasceu'|'saiu', ...}
 //         {e:'entrou', id, nome, time}
 //         {e:'morte', id, por, tipo, time?, x, y, z, ouro?, renasce?, assist?, ouroAssist?,
@@ -98,14 +107,22 @@
 //                                    encerrou = bônus de ouro (só com seq >= 2);
 //                                    seqPor = sequência do matador com este abate
 //         {e:'garra', id, alvo, dano, x, y, z}   golpe corpo a corpo de um Vorax
+//         {e:'tiro', ..., fonte, time}   tiro de torreta (fonte 'torreta', dono = id
+//                                    dela) ou de escolta (fonte 'escolta'): cor do time
 //         {e:'acerto', ..., torre}   tiro que bateu numa torre B (alvo 0)
+//         {e:'acerto', ..., torreta}   tiro ou área que bateu numa torreta (alvo 0;
+//                                    dano 0 se não foi de jogador inimigo)
+//         {e:'torreta', id, time, estado, por, nome, x, y, z}   estado 'destruida' (por =
+//                                    quem deu o último tiro) ou 'reconstruida' (por =
+//                                    quem pagou)
 //         {e:'acerto', arma, alvo, dano, x, y, z}   dano em área (arma 'mina' ou
 //                                    'choque'), um por alvo, sem bala
 //         {e:'choque', id, time, x, y, z, raio}   onda de choque da nave id
 //         {e:'explosao', arma:'mina', id, dono, time, x, y, z, raio}   mina explodiu
 //         {e:'nivel', id, nivel}     jogador subiu de nível
 //         {e:'melhoria', id, nome, time, melhoria, nivel}   alguém do time `time` comprou
-//                                    um nível de melhoria dos mineradores
+//                                    um nível de melhoria dos mineradores (ou das
+//                                    torretas: melhoria 'torretas')
 //         {e:'objetivo', id, tipo, time, bonus, bonusNaves, segundos, quem}   um time
 //                                    tomou um objetivo (bonus = dos mineradores;
 //                                    bonusNaves = das naves do time, só no C: 'furia')
@@ -143,7 +160,7 @@ const TIPOS = {
   '.json': 'application/json',
 };
 const MAX_MSG = 2048;
-const PEDIDOS = new Set(['comprar', 'evoluir', 'melhorar', 'usar']); // server/servicos.js
+const PEDIDOS = new Set(['comprar', 'evoluir', 'melhorar', 'reconstruir', 'usar']); // server/servicos.js
 
 async function servirArquivo(req, res) {
   const url = new URL(req.url, 'http://x');

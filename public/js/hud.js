@@ -3,7 +3,7 @@
 // do recall (volta à base) e a tela de "destruído". É DOM puro por cima do canvas.
 
 import * as THREE from 'three';
-import { paredeAt, MAP_HALF_X, MAP_HALF_Z, BASES, CORREDOR, MINERIO, ENTREGAS, SERVICOS, OBJETIVOS } from '/shared/terrain.js';
+import { paredeAt, MAP_HALF_X, MAP_HALF_Z, BASES, CORREDOR, MINERIO, ENTREGAS, SERVICOS, OBJETIVOS, TORRETAS } from '/shared/terrain.js';
 import { WEAPONS, ARMAS, ENCAIXE_PADRAO, TROCA_ARMA_S } from '/shared/sim.js';
 import { iconeArma } from './armas.js';
 import { iconeItem } from './servicos.js';
@@ -156,12 +156,13 @@ export class Hud {
 
   /**
    * Desenha o minimapa com o mapa fixo, o estado dos objetivos (`obj` do
-   * snapshot), os outros (pontos) e você (seta).
+   * snapshot) e das torretas (`torretas`), os outros (pontos) e você (seta).
    */
-  minimapa(eu, ents, meuId, obj = []) {
+  minimapa(eu, ents, meuId, obj = [], torretas = []) {
     const ctx = this.ctx;
     ctx.drawImage(this.fundoMapa, 0, 0);
     this.#objetivosNoMapa(obj);
+    this.#torretasNoMapa(torretas);
     for (const e of ents) {
       if (e.id === meuId || !e.vivo) continue;
       const [x, z] = this.#paraMapa(e.x, e.z);
@@ -171,6 +172,17 @@ export class Hud {
         // Minerador: bolinha menor que o quadrado das naves.
         ctx.beginPath();
         ctx.arc(x, z, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        continue;
+      }
+      if (e.tipo === 'escolta') {
+        // Escolta: losango pequeno (armada, entre o minerador e a nave).
+        ctx.beginPath();
+        ctx.moveTo(x, z - 2.6);
+        ctx.lineTo(x + 2.2, z);
+        ctx.lineTo(x, z + 2.6);
+        ctx.lineTo(x - 2.2, z);
+        ctx.closePath();
         ctx.fill();
         continue;
       }
@@ -237,6 +249,45 @@ export class Hud {
       } else if (r.vida != null && r.vida < 1) {
         arco(r.vida, COR_INIMIGA);
       }
+    }
+  }
+
+  /**
+   * Torretas: triângulo na cor do time (cheio de pé, só o contorno com a obra
+   * esperando o lugar), e um "x" cinza-areia onde ela caiu.
+   */
+  #torretasNoMapa(torretas) {
+    const ctx = this.ctx;
+    for (const r of torretas) {
+      const t = TORRETAS.find((x) => x.id === r.id);
+      if (!t) continue;
+      const [cx, cz] = this.#paraMapa(t.x, t.z);
+      const cor = t.time === this.meuTime ? COR_MEU_TIME : COR_OUTRO_TIME;
+      if (!r.viva && !r.obra) {
+        ctx.strokeStyle = COR_APAGADA;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(cx - 2, cz - 2);
+        ctx.lineTo(cx + 2, cz + 2);
+        ctx.moveTo(cx + 2, cz - 2);
+        ctx.lineTo(cx - 2, cz + 2);
+        ctx.stroke();
+        continue;
+      }
+      ctx.beginPath();
+      ctx.moveTo(cx, cz - 3.2);
+      ctx.lineTo(cx + 3, cz + 2.2);
+      ctx.lineTo(cx - 3, cz + 2.2);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.strokeStyle = cor;
+      ctx.lineWidth = 1.2;
+      if (r.viva) {
+        ctx.fillStyle = cor;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
+      } else ctx.fill();
+      ctx.stroke();
     }
   }
 

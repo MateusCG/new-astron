@@ -4,7 +4,8 @@
 // mesma silhueta de caça com a cor da raça nas asas, e o time vem marcado por um
 // anel de luz na fuselagem e luzes nas pontas das asas (turquesa = do seu time,
 // vermelho = do outro, relativo a quem olha); os mineradores são mini-naves de
-// carga com a mesma marca de time; os drones Arnosh são uma
+// carga com a mesma marca de time, e a escolta armada é o mesmo casco com uma torre
+// de dois canos em cima; os drones Arnosh são uma
 // criatura orgânica escura com olho vermelho, como os inimigos dos planetas de
 // missão do AstroN. Quando houver modelos de verdade (glTF feitos no Blender),
 // só este arquivo muda.
@@ -253,6 +254,93 @@ export function animarMinerador(m, { carga, minerando }, t, fase = 0) {
 }
 
 /** Drone inimigo Arnosh. */
+/**
+ * Escolta armada dos mineradores: o mesmo casco de carga, sem contêiner, com uma
+ * torre de dois canos em cima (gira sozinha para o alvo: a nave não precisa virar
+ * para atirar) e as faixas e os motores na cor do time. Um pouco mais comprida e
+ * baixa que o minerador, para a silhueta dizer "armada" de longe.
+ * userData: corpo, motores, torre (grupo que gira em y, no referencial da nave).
+ */
+export function criarEscolta({ aliado = true } = {}) {
+  const corTime = aliado ? COR_TIME.aliado : COR_TIME.inimigo;
+  const g = new THREE.Group();
+  const casco = new THREE.MeshStandardMaterial({ color: '#9aa5a3', metalness: 0.4, roughness: 0.6, flatShading: true });
+  const escuro = new THREE.MeshStandardMaterial({ color: '#2b3233', metalness: 0.4, roughness: 0.6, flatShading: true });
+  const neonTime = matNeon(corTime);
+
+  const corpo = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1, 5.4), casco);
+  const proa = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 1.2, 1.8, 4), casco);
+  proa.rotation.set(-Math.PI / 2, Math.PI / 4, 0);
+  proa.position.set(0, 0, -3.5);
+  const cabine = new THREE.Mesh(
+    new THREE.BoxGeometry(1.2, 0.5, 1.4),
+    new THREE.MeshStandardMaterial({ color: '#0b2a33', emissive: '#00b3ff', emissiveIntensity: 0.5, roughness: 0.3, flatShading: true }),
+  );
+  cabine.position.set(0, 0.7, -1.6);
+  g.add(corpo, proa, cabine);
+  for (const lado of [-1, 1]) {
+    const faixa = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.25, 4.8), neonTime);
+    faixa.position.set(lado * 1.32, 0.05, 0.1);
+    // Asinha curta com a ponta na cor do time (lê como "caça" ao lado do minerador).
+    const asa = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.18, 1.6), escuro);
+    asa.position.set(lado * 2, -0.15, 1);
+    const ponta = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.25, 1.2), neonTime);
+    ponta.position.set(lado * 2.85, -0.15, 1);
+    g.add(faixa, asa, ponta);
+  }
+
+  const motores = [];
+  for (const lado of [-1, 1]) {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.48, 2, 6), escuro);
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(lado * 1.1, -0.1, 2.9);
+    const chama = spriteBrilho(corTime.clone().lerp(new THREE.Color('#ffffff'), 0.3), 1.6);
+    chama.material.opacity = 0.7;
+    chama.position.set(lado * 1.1, -0.1, 4.1);
+    motores.push(chama);
+    g.add(m, chama);
+  }
+
+  // Torre: base redonda, cabeça e dois canos para a frente (-z).
+  const torre = new THREE.Group();
+  torre.position.set(0, 0.6, 0.6);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.9, 0.35, 8), escuro);
+  const cabeca = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.55, 1.3), casco);
+  cabeca.position.y = 0.45;
+  torre.add(base, cabeca);
+  for (const lado of [-1, 1]) {
+    const cano = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 2.2, 6), escuro);
+    cano.rotation.x = Math.PI / 2;
+    cano.position.set(lado * 0.3, 0.45, -1.6);
+    const boca = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), neonTime);
+    boca.position.set(lado * 0.3, 0.45, -2.7);
+    torre.add(cano, boca);
+  }
+  g.add(torre);
+
+  g.traverse((o) => {
+    if (o.isMesh) o.castShadow = true;
+  });
+  const raiz = new THREE.Group();
+  raiz.add(g);
+  raiz.userData = { corpo: g, motores, torre, mira: null, miraAte: 0 };
+  return raiz;
+}
+
+/**
+ * Anima a escolta: motores e a torre girando para `userData.mira` (yaw do mundo do
+ * último tiro dela) até `userData.miraAte` (tempo de `t`); depois olha para a frente.
+ */
+export function animarEscolta(e, t, dt, fase = 0) {
+  const { motores, torre, mira, miraAte = 0 } = e.userData;
+  for (const [i, s] of motores.entries()) s.scale.setScalar(1.6 + Math.sin(t * 40 + i * 2 + fase) * 0.2);
+  const quer = mira == null || t > miraAte ? 0 : mira - e.rotation.y;
+  let d = quer - torre.rotation.y;
+  while (d > Math.PI) d -= 2 * Math.PI;
+  while (d < -Math.PI) d += 2 * Math.PI;
+  torre.rotation.y += Math.max(-5 * dt, Math.min(5 * dt, d));
+}
+
 export function criarDrone() {
   const g = new THREE.Group();
   const pele = new THREE.MeshStandardMaterial({ color: '#4a1414', roughness: 0.6, metalness: 0.2, flatShading: true });

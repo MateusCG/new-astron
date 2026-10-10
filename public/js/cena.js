@@ -29,6 +29,7 @@ import {
   ARENA_C,
   MESAS,
   AREAS_POUSO,
+  TORRETAS,
 } from '/shared/terrain.js';
 import { OBSTACULOS, HANGAR, PORTAL, ANTENAS, alturaSolida, daBase } from '/shared/obstaculos.js';
 
@@ -550,6 +551,8 @@ function criarDecoracao() {
     const x = CORREDOR.x + lado * (CORREDOR.largura / 2 + 14 + rnd() * 10);
     const comp = 18 + rnd() * 26;
     if (Math.abs(z - MINERIO.z) < MINERIO.raio + comp) continue;
+    // Nada de cano atravessando o pé de uma torreta (ela é de server/torretas.js).
+    if (TORRETAS.some((t) => Math.sign(t.x - CORREDOR.x) === lado && Math.abs(t.z - z) < comp / 2 + 12)) continue;
     const h = Math.max(heightAt(x, z - comp / 2), heightAt(x, z), heightAt(x, z + comp / 2));
     const cano = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, comp, 8), ferrugem);
     cano.rotation.x = Math.PI / 2;

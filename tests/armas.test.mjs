@@ -41,7 +41,7 @@ function rngFixo(semente = 1) {
  * Cada `pos` é [dx, dz] a partir do ponto de A; os times alternam (A 0, B 1, C 0, D 1).
  */
 function arena(...pos) {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, rng: rngFixo() });
+  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false, rng: rngFixo() });
   w.mineradores.passo = () => {}; // sem mineradores no caminho dos tiros
   const x0 = BASE.x;
   const z0 = BASE.z - ZONA_SEGURA - 120;

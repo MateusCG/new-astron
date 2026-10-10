@@ -1575,6 +1575,28 @@ dd {
   box-shadow: 0 0 6px var(--cor-servico);
 }
 
+/* Vida de cada torreta do time (Evolução › Torretas): barra fina em --neon (é do
+   seu time); caída, a barra fica vazia com a borda tracejada. */
+.carta-servico .vida-torreta {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.carta-servico .vida-torreta i {
+  display: block;
+  height: 100%;
+  background: var(--neon);
+  box-shadow: 0 0 6px var(--neon);
+}
+
+.carta-servico .vida-torreta.caida {
+  background: none;
+  outline: 1px dashed rgba(255, 138, 112, 0.6);
+}
+
 /* Faixa dos marcos da nave (NV 5, 10, 15). */
 #servico .marcos {
   display: grid;

@@ -67,6 +67,35 @@ export const OBJETIVOS = [
   { id: 'B2', tipo: 'B', x: 520, z: -300, raio: 25 },
   { id: 'C2', tipo: 'C', x: 1050, z: -420, raio: 25 },
 ];
+/**
+ * Torretas de defesa do corredor: 4 por time, 2 de cada lado da estrada, na metade
+ * do mapa do próprio time, entre a base e o minério. Ficam TORRETA_LADO m do eixo
+ * (fora da estrada de 100 m e longe das faixas dos mineradores, a 15 m do eixo) e
+ * TORRETA_DIST m do centro da base, rumo ao minério: a de perto da base cobre a
+ * entrega e a saída do portal (fora da zona segura, que vai até 230 m), a de perto
+ * do minério cobre o meio da metade do time sem alcançar a coroa do outro lado.
+ * As z escolhidas fogem dos caminhos retos do corredor até os objetivos (z ±140,
+ * ±300 e ±420), para a torreta não ficar no meio de quem vai para lá.
+ *
+ * `nome` é do ponto de vista de quem é do time, olhando da base para o minério
+ * (esquerda/direita de quem sai pelo portal). As do time 1 são as do time 0
+ * giradas 180°, com o mesmo número: T0-1 ↔ T1-1. A construção sólida fica em
+ * shared/obstaculos.js; vida, tiro e reconstrução em server/torretas.js.
+ */
+export const TORRETA_LADO = CORREDOR.largura / 2 + 12;
+export const TORRETA_DIST = [340, 480];
+export const TORRETAS = BASES.flatMap((b) => {
+  const s = b.time === 0 ? 1 : -1; // o time 1 é o time 0 girado 180°
+  return TORRETA_DIST.flatMap((d, i) =>
+    [-1, 1].map((lado, k) => ({
+      id: `T${b.time}-${i * 2 + k + 1}`,
+      time: b.time,
+      nome: `${i === 0 ? 'Perto da base' : 'Perto do minério'}, à ${lado < 0 ? 'esquerda' : 'direita'}`,
+      x: b.x + s * lado * TORRETA_LADO,
+      z: b.z - s * d,
+    })),
+  );
+});
 /** Raio da arena dos objetivos C (o círculo marcado em volta do guardião). */
 export const ARENA_C = 60;
 /**

@@ -3,13 +3,13 @@
 // Os dados (preços, efeitos, limites) ficam em shared/loja.js e shared/evolucao.js.
 //
 // O cliente só PEDE ({t:'comprar', item}, {t:'evoluir', opcao}, {t:'melhorar',
-// melhoria}, {t:'usar', item}); nada do pedido é confiado além do id, que tem de
+// melhoria}, {t:'reconstruir', torreta}, {t:'usar', item}); nada do pedido é confiado além do id, que tem de
 // existir no catálogo (qualquer outra coisa, string malformada inclusive, vira
 // 'invalido'). Para comprar, evoluir ou melhorar o piloto tem de estar vivo,
 // POUSADO E PARADO na plataforma do serviço certo da PRÓPRIA base (Loja para
-// comprar, Evolução para evoluir e melhorar); usar um item vale em qualquer lugar.
-// Evoluir uma ARMA é uma compra da Loja ({t:'comprar', item:'evoluir:<arma>'}): exige
-// possuir a arma (senão 'sem_item'), e no máximo dá 'limite'.
+// comprar, Evolução para evoluir, melhorar e reconstruir); usar um item vale em
+// qualquer lugar. Evoluir uma ARMA é uma compra da Loja ({t:'comprar',
+// item:'evoluir:<arma>'}): exige possuir a arma (senão 'sem_item'), e no máximo dá 'limite'.
 // A resposta é {t:'resultado', acao, item, ok, codigo?}, com código estável que o
 // cliente traduz: nao_pousado, ouro_insuficiente, nivel_insuficiente, ja_possui,
 // limite, invalido, e no uso de item sem_item, recarga e cheio.
@@ -20,14 +20,32 @@
 // energia máximos, velocidade, armas). As melhorias dos mineradores ficam por time
 // em this.niveis e viram world.mineradores.melhorias[time]. Tudo é da partida:
 // novoEquipamento() e reiniciar() zeram na seguinte (World, #passoPartida).
+//
+// Torretas do time (Evolução): {t:'melhorar', melhoria:'torretas'} sobe o nível das
+// quatro torretas do time de quem paga (limite: TORRETA_NIVEL_MAX) e
+// {t:'reconstruir', torreta} reconstrói uma torreta destruída DO PRÓPRIO TIME (a do
+// outro time, ou id que não existe, é 'invalido'; de pé ou já em obra, 'ja_possui').
+// O nível e a vida ficam em world.torretas (server/torretas.js), que zera sozinho
+// na partida seguinte. Como nas melhorias dos mineradores, o time recebe a notícia
+// (evento 'melhoria' com melhoria 'torretas'; a reconstrução vira o evento 'torreta').
 
 import { RACES, VEL_TOQUE, ARMAS, ARMAS_INICIAIS, DT } from '../shared/sim.js';
 import { areaPouso } from '../shared/terrain.js';
 import { itemDaLoja, armadura, ITENS, ORDEM_ITENS, niveisArmasIniciais, precoEvoluirArma } from '../shared/loja.js';
-import { opcaoNave, proximoMarco, efeitosNave, melhoriaMinerador, efeitosMineradores, niveisIniciais } from '../shared/evolucao.js';
+import {
+  opcaoNave,
+  proximoMarco,
+  efeitosNave,
+  melhoriaMinerador,
+  efeitosMineradores,
+  niveisIniciais,
+  MELHORIA_TORRETAS,
+  precoNivelTorretas,
+  PRECO_RECONSTRUIR,
+} from '../shared/evolucao.js';
 import { hpMaxDoJogador } from './progressao.js';
 
-const ACOES = ['comprar', 'evoluir', 'melhorar', 'usar'];
+const ACOES = ['comprar', 'evoluir', 'melhorar', 'reconstruir', 'usar'];
 
 /** Campos de loja e evolução de um piloto no começo da partida. */
 export function novoEquipamento() {
@@ -114,13 +132,14 @@ export class Servicos {
    */
   pedido(j, msg) {
     const acao = ACOES.includes(msg?.t) ? msg.t : null;
-    const id = acao === 'evoluir' ? msg?.opcao : acao === 'melhorar' ? msg?.melhoria : msg?.item;
+    const id = acao === 'evoluir' ? msg?.opcao : acao === 'melhorar' ? msg?.melhoria : acao === 'reconstruir' ? msg?.torreta : msg?.item;
     const item = typeof id === 'string' ? id.slice(0, 32) : null;
     let codigo;
     if (!j) codigo = 'invalido';
     else if (acao === 'comprar') codigo = this.#comprar(j, item);
     else if (acao === 'evoluir') codigo = this.#evoluir(j, item);
-    else if (acao === 'melhorar') codigo = this.#melhorar(j, item);
+    else if (acao === 'melhorar') codigo = item === MELHORIA_TORRETAS.id ? this.#melhorarTorretas(j) : this.#melhorar(j, item);
+    else if (acao === 'reconstruir') codigo = this.#reconstruir(j, item);
     else if (acao === 'usar') codigo = this.#usar(j, item);
     else codigo = 'invalido';
     return codigo ? { t: 'resultado', acao, item, ok: false, codigo } : { t: 'resultado', acao, item, ok: true };
@@ -197,6 +216,31 @@ export class Servicos {
     this.world.mineradores.melhorias[j.time] = efeitosMineradores(niveis);
     // Notícia para o time: quem pagou, o quê e o nível novo.
     this.world.eventos.push({ e: 'melhoria', id: j.id, nome: j.nome, time: j.time, melhoria: m.id, nivel: n + 1 });
+    return null;
+  }
+
+  /** Próximo nível das torretas do time de quem paga (vale para as quatro). */
+  #melhorarTorretas(j) {
+    if (!naPlataforma(j, 'evolucao')) return 'nao_pousado';
+    const torretas = this.world.torretas;
+    const preco = precoNivelTorretas(torretas.nivel[j.time]);
+    if (preco == null) return 'limite';
+    const erro = this.#pagar(j, preco);
+    if (erro) return erro;
+    const nivel = torretas.subirNivel(j.time);
+    this.world.eventos.push({ e: 'melhoria', id: j.id, nome: j.nome, time: j.time, melhoria: MELHORIA_TORRETAS.id, nivel });
+    return null;
+  }
+
+  /** Reconstrói a torreta `id` (destruída, do time de quem paga). */
+  #reconstruir(j, id) {
+    const t = this.world.torretas.torreta(id);
+    if (!t || t.time !== j.time) return 'invalido';
+    if (!naPlataforma(j, 'evolucao')) return 'nao_pousado';
+    if (t.viva || t.obra) return 'ja_possui';
+    const erro = this.#pagar(j, PRECO_RECONSTRUIR);
+    if (erro) return erro;
+    this.world.torretas.reconstruir(id, j);
     return null;
   }
 

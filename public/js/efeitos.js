@@ -389,9 +389,12 @@ export class Efeitos {
     return this.geoBarra.get(chave);
   }
 
-  /** Cria um tiro visual. inimigo = tiro de drone (vermelho). */
-  tiro(b, inimigo = false) {
-    const cor = inimigo ? COR_TIRO.inimigo : COR_TIRO[b.kind] ?? COR_TIRO.laser;
+  /**
+   * Cria um tiro visual. inimigo = tiro de drone (vermelho); `cor` troca a cor da
+   * arma pela do time (tiro de torreta e de escolta: turquesa do seu time,
+   * vermelho do outro).
+   */
+  tiro(b, inimigo = false, cor = inimigo ? COR_TIRO.inimigo : COR_TIRO[b.kind] ?? COR_TIRO.laser) {
     const forma = FORMA_TIRO[b.kind] ?? FORMA_TIRO.laser;
     const g = new THREE.Group();
     if (forma.barra) {

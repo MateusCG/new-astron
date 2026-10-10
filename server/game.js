@@ -45,6 +45,12 @@
 // vítima zera (e o matador ganha o bônus por encerrá-la) e o renascimento do
 // jogador demora tempoRenascer(nível, partida decorrida).
 //
+// Torretas do corredor (server/torretas.js) e a escolta armada dos mineradores
+// (server/escoltas.js): ganchos no step (andar e atirar), no tiro que bate numa
+// torreta (tiroNaTorreta, como a torre B), no dano em área (#area) e no snapshot
+// (`torretas`; a escolta é uma entidade como o minerador). Os tiros delas entram
+// por adicionarTiro, com `fonte` e `time` no evento para o cliente pintar.
+//
 // Loja e Evolução (server/servicos.js): pedidos do cliente atendidos em pedido();
 // a posse de armas, a armadura, os itens e as evoluções ficam no jogador e vão
 // para cada nave nova em prepararNave (nascimento e renascimento). A armadura e a
@@ -84,6 +90,8 @@ import { pontoAberto } from '../shared/obstaculos.js';
 import { MapaNavegacao } from './navegacao.js';
 import { Partida, N_TIMES, MULT_FASE_FINAL } from './partida.js';
 import { Mineradores } from './mineradores.js';
+import { Escoltas } from './escoltas.js';
+import { Torretas } from './torretas.js';
 import { Bonus, BONUS } from './bonus.js';
 import { Objetivos } from './objetivos.js';
 import {
@@ -193,12 +201,23 @@ function baseMaisPerto(s) {
 export class World {
   /**
    * @param {{ rng?: () => number, drones?: number, monstros?: number, elites?: number,
-   *   duracaoPartidaS?: number, intervaloFimS?: number, faseFinalS?: number }} [opcoes]
+   *   duracaoPartidaS?: number, intervaloFimS?: number, faseFinalS?: number, torretas?: boolean }} [opcoes]
    * drones = Arnosh, monstros = Vorax, elites = Krakor (os guardiões dos objetivos C
-   * sempre existem).
+   * sempre existem). torretas = false deixa as torretas de pé mas sem atirar (testes
+   * que brigam no meio do corredor).
    */
-  constructor({ rng = Math.random, drones = N_DRONES, monstros = N_MONSTROS, elites = N_KRAKOR, duracaoPartidaS, intervaloFimS, faseFinalS } = {}) {
+  constructor({
+    rng = Math.random,
+    drones = N_DRONES,
+    monstros = N_MONSTROS,
+    elites = N_KRAKOR,
+    duracaoPartidaS,
+    intervaloFimS,
+    faseFinalS,
+    torretas = true,
+  } = {}) {
     this.rng = rng;
+    this.torretasAtiram = torretas;
     this.tick = 0;
     this.nextId = 1;
     this.players = new Map();
@@ -218,6 +237,7 @@ export class World {
       entregar: (time, carga) => this.partida.somar(time, carga, this.tick),
       evento: (ev) => this.eventos.push(ev),
     });
+    this.escoltas = new Escoltas(this);
     for (let i = 0; i < drones; i++) this.drones.push(this.#novoDrone());
     for (let i = 0; i < monstros; i++) this.monstros.push(this.#novoVorax());
     for (let i = 0; i < elites; i++) {
@@ -225,6 +245,7 @@ export class World {
       this.elites.push(novaElite('krakor', this.#id(), p.x, p.z, this.rng() * Math.PI * 2));
     }
     this.objetivos = new Objetivos(this);
+    this.torretas = new Torretas(this);
     this.servicos = new Servicos(this);
     // O que a IA dos elites lê do mundo.
     const players = this.players;
@@ -372,6 +393,16 @@ export class World {
    */
   pedido(id, msg) {
     return this.servicos.pedido(this.players.get(id), msg);
+  }
+
+  /**
+   * Tiro que não sai de nave de jogador nem de monstro (torreta, escolta): entra no
+   * mundo e vira o evento 'tiro', com `extra` ({fonte, time}) para o cliente pintar
+   * na cor do time.
+   */
+  adicionarTiro(b, extra = {}) {
+    this.bullets.push(b);
+    this.eventos.push({ e: 'tiro', id: b.id, dono: b.owner, kind: b.kind, x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz, ...extra });
   }
 
   /** Enfileira um comando do cliente. Comando fora de ordem ou repetido é ignorado. */
@@ -620,19 +651,24 @@ export class World {
     return !ent.drone && (this.tick < ent.protegidoAte || this.#naPropriaBase(ent));
   }
 
-  /** O tiro `b` pode acertar `alvo`? Não acerta o dono, aliado nem (se de drone) drone ou minerador. */
+  /** O tiro `b` pode acertar `alvo`? Não acerta o dono, aliado nem (se de drone) drone, minerador ou escolta. */
   #podeAcertar(b, alvo) {
     if (alvo.id === b.owner || !alvo.vivo) return false;
     if (b.time !== undefined && b.time === alvo.time) return false; // sem fogo amigo
-    if (b.drone && (alvo.drone || alvo.tipo === 'minerador')) return false;
+    if (b.drone && (alvo.drone || alvo.tipo === 'minerador' || alvo.tipo === 'escolta')) return false;
     return true;
   }
 
   /** Todas as entidades que podem levar dano e estão vivas. */
   #vivos() {
-    return [...this.players.values(), ...this.drones, ...this.monstros, ...this.elites, ...this.mineradores.lista].filter(
-      (e) => e.vivo,
-    );
+    return [
+      ...this.players.values(),
+      ...this.drones,
+      ...this.monstros,
+      ...this.elites,
+      ...this.mineradores.lista,
+      ...this.escoltas.lista,
+    ].filter((e) => e.vivo);
   }
 
   /** Mina nova atrás da nave; passando de MINA_MAX, a mais velha do piloto some. */
@@ -670,7 +706,7 @@ export class World {
       }
       this.#ferir(alvo, dano * this.multDanoDe(fonte.id), fonte.id, { e: 'acerto', arma, x: s.x, y: s.y, z: s.z });
     }
-    return n;
+    return n + this.torretas.area(fonte, x, y, z, raio, dano * this.multDanoDe(fonte.id), arma); // só jogador fere torreta
   }
 
   /** Onda de choque em volta da nave de `ent`: dano em área e empurrão (os dois crescem com o nível). */
@@ -893,7 +929,9 @@ export class World {
       if (vinhaDoFim) this.minas = [];
       if (vinhaDoFim) this.objetivos.reiniciar();
       if (vinhaDoFim) this.servicos.reiniciar(); // melhorias dos mineradores dos dois times
+      if (vinhaDoFim) this.torretas.reiniciar(); // todas de pé, nível 1
       this.mineradores.comecar(this.tick);
+      this.escoltas.comecar(this.tick);
       // Depois da tela de fim, todo mundo volta para a base do time. (Na primeira
       // partida, quem entrou acabou de nascer lá.)
       if (vinhaDoFim) {
@@ -916,7 +954,9 @@ export class World {
       this.minas = [];
       this.objetivos.reiniciar();
       this.servicos.reiniciar();
+      this.torretas.reiniciar();
       this.mineradores.limpar();
+      this.escoltas.limpar();
     }
   }
 
@@ -1012,9 +1052,14 @@ export class World {
       this.#regen(m);
     }
 
-    // Mineradores andam só com a partida em andamento (na tela de fim ficam parados).
-    if (this.partida.emAndamento) this.mineradores.passo(this.tick);
+    // Mineradores e escoltas andam só com a partida em andamento (na tela de fim
+    // ficam parados).
+    if (this.partida.emAndamento) {
+      this.mineradores.passo(this.tick);
+      this.escoltas.passo(this.tick);
+    }
     for (const m of this.mineradores.lista) if (m.vivo) this.#drenar(m);
+    for (const e of this.escoltas.lista) if (e.vivo) this.#drenar(e);
 
     this.ctxElite.tick = this.tick;
     for (const e of this.elites) {
@@ -1030,6 +1075,7 @@ export class World {
     }
 
     this.objetivos.step();
+    this.torretas.passo(this.partida.emAndamento && this.torretasAtiram);
 
     const vivos = this.#vivos();
     this.#passoMinas(vivos);
@@ -1037,6 +1083,7 @@ export class World {
       if (WEAPONS[b.kind].guiado) guiarMissil(b, alvoDoMissil(b, vivos.filter((a) => this.#podeAcertar(b, a))));
       const segue = stepBullet(b);
       if (this.objetivos.tiroNaTorre(b)) return false; // bateu na torre de um objetivo B
+      if (this.torretas.tiroNaTorreta(b)) return false; // bateu numa torreta
       if (!segue) {
         this.eventos.push({ e: 'fim', bala: b.id, x: b.x, y: b.y, z: b.z });
         return false;
@@ -1059,9 +1106,9 @@ export class World {
 
   /**
    * Entidades visíveis para todos (mesma lista para cada jogador). `tipo` diz o
-   * que desenhar ('jogador', 'arnosh', 'vorax', 'krakor', 'guardiao' ou
-   * 'minerador'); `drone` continua true para todo inimigo do PvE. Jogadores e
-   * mineradores trazem `time`; os mineradores também `carga` (minério no contêiner)
+   * que desenhar ('jogador', 'arnosh', 'vorax', 'krakor', 'guardiao', 'minerador'
+   * ou 'escolta'); `drone` continua true para todo inimigo do PvE. Jogadores,
+   * mineradores e escoltas trazem `time`; os mineradores também `carga` (minério no contêiner)
    * e `minerando`. Jogador traz `nivel`.
    */
   entidades() {
@@ -1100,6 +1147,7 @@ export class World {
     for (const d of this.drones) add(d);
     for (const m of this.monstros) add(m);
     for (const m of this.mineradores.lista) add(m);
+    for (const e of this.escoltas.lista) add(e);
     for (const e of this.elites) add(e);
     return lista;
   }
@@ -1107,11 +1155,18 @@ export class World {
   /**
    * Snapshot para um jogador: estado completo da própria nave + o resto do mundo.
    * Também o nível e o XP dele (xp dentro do nível, xpProx para o próximo; 0 no
-   * máximo) e o estado dos objetivos (`obj`, igual para todos: cache por tick).
+   * máximo), o estado dos objetivos (`obj`) e das torretas (`torretas`), iguais
+   * para todos: cache por tick.
    */
   snapshotPara(j, ents, eventos) {
     if (this.cacheObj?.tick !== this.tick) {
-      this.cacheObj = { tick: this.tick, obj: this.objetivos.estado(), minas: this.#minasSnap(), guiados: this.#guiadosSnap() };
+      this.cacheObj = {
+        tick: this.tick,
+        obj: this.objetivos.estado(),
+        torretas: this.torretas.estado(),
+        minas: this.#minasSnap(),
+        guiados: this.#guiadosSnap(),
+      };
     }
     return {
       t: 'snap',
@@ -1130,6 +1185,7 @@ export class World {
       xp: j.xp,
       xpProx: xpParaNivel(j.nivel),
       obj: this.cacheObj.obj,
+      torretas: this.cacheObj.torretas,
       melhorias: this.servicos.niveis[j.time], // níveis das melhorias dos mineradores do time
       minas: this.cacheObj.minas,
       guiados: this.cacheObj.guiados,
