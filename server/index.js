@@ -15,11 +15,22 @@
 //                        8 onda de choque, 9 pulso EMP; fora da lista, ou arma
 //                        que a nave não possui (s.armas), vira a padrão do
 //                        encaixe: 0 no Z, 5 no X)
+//                       {t:'comprar', item}      Loja: item = id de shared/loja.js (arma
+//                        pelo nome em ARMAS, 'armaduraLeve' | 'armaduraMedia' |
+//                        'armaduraPesada', 'reparo' | 'energia')
+//                       {t:'evoluir', opcao}     Evolução da nave: 'casco' | 'reator' | 'motor'
+//                       {t:'melhorar', melhoria} mineradores do time: 'quantidade' |
+//                        'durabilidade' | 'defesa' | 'velocidade'
+//                       {t:'usar', item}         item consumível: 'reparo' (R) | 'energia' (F)
+//                       (comprar/evoluir/melhorar só vivo, pousado e parado na
+//                        plataforma do serviço da própria base; usar vale em qualquer
+//                        lugar; tudo validado em server/servicos.js)
 //                       {t:'ping', c}
 //   servidor → cliente  {t:'bemvindo', id, tickHz, time}   time = 0 (base de baixo) ou 1
 //                       {t:'erro', codigo}   codigo 'partida_cheia' (3 em cada time); fecha
 //                       {t:'snap', tick, ack, vivo, time, me, ouro, abates, mortes,
-//                        nivel, xp, xpProx, partida, bonus, obj, minas, guiados, ents, ev}
+//                        nivel, xp, xpProx, partida, bonus, obj, melhorias, minas, guiados,
+//                        ents, ev}
 //                       (me.encaixes = [arma do Z, arma do X], me.cd1/cd2 = recarga
 //                        de cada encaixe, me.armas = armas que possui, me.lento =
 //                        s de lentidão, me.emp = s sem tiro e sem boost (pulso EMP),
@@ -29,7 +40,18 @@
 //                        nivel = nível do jogador (1 a NIVEL_MAX), xp = XP dentro do
 //                        nível, xpProx = XP para o próximo (0 no máximo); ouro, xp e
 //                        nivel zeram a cada partida)
+//                       {t:'resultado', acao, item, ok, codigo?}   resposta (só a quem
+//                       pediu) de comprar/evoluir/melhorar/usar; codigo = 'nao_pousado' |
+//                       'ouro_insuficiente' | 'nivel_insuficiente' | 'ja_possui' |
+//                       'limite' | 'invalido' | 'sem_item' | 'recarga' | 'cheio'
 //                       {t:'pong', c}
+//   me (Loja e Evolução): armas = posse (de fábrica + compradas; zera a cada
+//         partida), armadura (-1 ou 0 a 2), itens {reparo, energia} (carga),
+//         cdItens {reparo, energia} (s de recarga), evolucoes (ids das opções da
+//         nave, uma por marco), velMult (multiplicador de velocidade, lido no
+//         stepShip da predição); maxHp e maxEn já com nível, evoluções e armadura
+//   melhorias: {quantidade, durabilidade, defesa, velocidade}   níveis comprados
+//         das melhorias dos mineradores do time de quem recebe (zeram a cada partida)
 //   partida: {n, estado, restante, placar:[t0, t1], vencedor, novaEm}
 //         estado = 'esperando' | 'andamento' | 'fim'; restante e novaEm em s;
 //         vencedor = time, -1 empate, null jogando
@@ -59,6 +81,8 @@
 //         {e:'choque', id, time, x, y, z, raio}   onda de choque da nave id
 //         {e:'explosao', arma:'mina', id, dono, time, x, y, z, raio}   mina explodiu
 //         {e:'nivel', id, nivel}     jogador subiu de nível
+//         {e:'melhoria', id, nome, time, melhoria, nivel}   alguém do time `time` comprou
+//                                    um nível de melhoria dos mineradores
 //         {e:'objetivo', id, tipo, time, bonus, segundos, quem}   um time tomou um objetivo
 //         {e:'entrega', id, time, carga, x, y, z}   minerador somou carga no placar
 //         {e:'partida', n}   começou a partida n (placar zerado)

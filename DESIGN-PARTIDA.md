@@ -8,7 +8,7 @@ Documento de referência do modo de jogo principal. Toda tarefa de jogabilidade 
 
 - **[feito]** **Partida de 10 minutos**, **dois times de 3 jogadores** (`server/partida.js`). O cronômetro começa quando entra o primeiro jogador; com os dois times cheios, quem chega é recusado (`partida_cheia`). Sem fogo amigo. A zona segura de cada base só protege o time dono dela.
 - **[feito]** **Vence o time que mais minerou**: o que conta é o minério que os **mineradores** (mini-naves controladas pelo jogo) entregam na base. Empate é possível. Depois da tela de fim (15 s) começa outra partida do zero.
-- Os jogadores não mineram: eles **protegem os próprios mineradores, destroem os do outro time**, caçam monstros no mundo aberto para ganhar **XP, nível e ouro**, tomam **objetivos** que dão bônus aos mineradores e gastam o ouro na **Evolução** e na **Loja** da base.
+- Os jogadores não mineram: eles **protegem os próprios mineradores, destroem os do outro time**, caçam monstros no mundo aberto para ganhar **XP, nível e ouro**, tomam **objetivos** que dão bônus aos mineradores e gastam o ouro na **Evolução** e na **Loja** da base (**[feito]**, ver "Loja e Evolução").
 
 ## Mapa (vista de cima; -z é "em cima" no desenho)
 
@@ -20,8 +20,8 @@ Escala do desenho: 1 px ≈ 3 m. Retângulo aberto com muralha só na borda.
 | Corredor dos mineradores | Faixa vermelha ligando as bases | `CORREDOR` (x 0, largura 100): estrada por onde os mineradores vão e voltam |
 | Minério | Bola azul no centro | `MINERIO` (0, 0, raio 60): depósito de cristais onde os mineradores carregam |
 | Entrega | Retângulos azuis nas pontas do corredor | `ENTREGAS`: cada minerador entrega **10 de minério** ao chegar |
-| Evolução | Retângulo preto da esquerda em cada base | Plataforma de pouso: **pousado**, abre a tela de evolução |
-| Loja | Retângulo preto da direita em cada base | Plataforma de pouso: **pousado**, abre a loja |
+| Evolução | Retângulo preto da esquerda em cada base | Plataforma de pouso: **pousado e parado**, abre o painel da Evolução **[feito]** |
+| Loja | Retângulo preto da direita em cada base | Plataforma de pouso: **pousado e parado**, abre o painel da Loja **[feito]** |
 | Mundo aberto | Todo o cinza | Monstros para enfrentar (XP, nível, ouro) |
 | Objetivos | Pontos brancos A, B, C (três de cada lado, simétricos) | Ver abaixo |
 
@@ -29,7 +29,7 @@ Escala do desenho: 1 px ≈ 3 m. Retângulo aberto com muralha só na borda.
 
 - **[feito]** Saem da base de cada time de tempos em tempos (um a cada 20 s, até 3 por time), vão pelo corredor até o minério, carregam (5 s) e voltam até a entrega do próprio time: **+10 de minério** para o time por entrega. Depois da entrega voltam para o minério (`server/mineradores.js`).
 - **[feito]** **Podem ser destruídos** pelos jogadores do outro time (o minério que carregavam se perde; quem destrói ganha 40 de ouro). Na própria base são protegidos como os jogadores.
-- Melhoráveis na Evolução: **mais mineradores**, mais **durabilidade**, mais **defesa**, mais **velocidade**. (O gancho já existe: `melhorias[time]` lido em `atributos(time, tick)`.)
+- **[feito]** Melhoráveis na Evolução, para o time inteiro: **mais mineradores**, mais **durabilidade**, mais **defesa** (reduz o dano que o minerador leva) e mais **velocidade** (números em "Loja e Evolução"; `melhorias[time]` lido em `atributos(time, tick)`).
 
 ## Monstros do mundo aberto
 
@@ -63,10 +63,71 @@ Os bônus do lado dos mineradores (`server/bonus.js`): `'mineracao'` +1 por viag
 - **[feito]** **XP e nível** ao destruir monstros, mineradores e jogadores inimigos, e ao tomar objetivos A e B. Começa no nível 1, vai até o 20 (`NIVEL_MAX`); para passar do nível n são `60 + 20 × (n − 1)` XP (`xpParaNivel` em `server/progressao.js`). Cada nível dá +3% do HP máximo da raça. Subir de nível: notícia e anel de luz na nave.
 - **[feito]** **Ouro** pelas mesmas fontes. XP e ouro por tipo em `RECOMPENSA`: Arnosh 20 XP / 25 ouro, Vorax 30 / 30, Krakor 120 / 90, guardião 250 / 150, minerador 40 / 40, jogador 100 / 50.
 - **[feito]** Ouro, XP e nível são **da partida** (como num MOBA): zeram quando começa a seguinte.
-- **Evolução da nave** nos níveis **5, 10 e 15**, pagando ouro: mais durabilidade, mais energia etc.
+- **[feito]** **Evolução da nave** nos níveis **5, 10 e 15**, pagando ouro: escolher 1 de 3 (durabilidade, energia, velocidade). Ver "Loja e Evolução".
 - **[feito]** **Duas armas na nave:** Q edita o Z, E edita o X; mesma arma pode ir nos dois. Não existe arma principal: os dois encaixes escolhem do mesmo catálogo (`ARMAS` em `shared/sim.js`: laser simples, duplo, triplo, dreno, criogênico, plasma, míssil teleguiado, mina, onda de choque e pulso EMP), cada um com a sua recarga e a mesma energia. Padrão: laser simples no Z e plasma no X (as duas de fábrica, sempre possuídas).
-- **Loja**: comprar e trocar armas, armaduras e itens (as armas do menu passam a ser compradas aqui: quem compra põe o índice em `s.armas`; arma não possuída fica travada no menu e cai na padrão do encaixe).
-- Evolução e Loja só abrem **com a nave pousada** na plataforma do serviço.
+- **[feito]** **Loja**: comprar armas, armaduras e itens. Cada partida começa só com as armas de fábrica (laser simples e plasma); as outras oito se compram aqui e ficam na posse do piloto (no jogador, não na nave: voltam a cada renascimento). Arma não possuída fica travada no menu ("NA LOJA") e cai na padrão do encaixe.
+- **[feito]** Evolução e Loja só abrem **com a nave pousada e parada** na plataforma do serviço da **própria base**.
+
+## Loja e Evolução
+
+**[feito]** Dados em `shared/loja.js` e `shared/evolucao.js`; o servidor valida e cobra em `server/servicos.js`. Pousado e parado na plataforma da própria base, o painel abre sozinho; decolar (L) ou ESC fecha (Enter, ou tocar na dica de pouso, reabre). Tudo é **da partida**: na seguinte, posse de armas, armadura, itens, evoluções da nave e melhorias dos mineradores (dos dois times) voltam ao começo, junto com ouro e nível. Erros têm código estável (`nao_pousado`, `ouro_insuficiente`, `nivel_insuficiente`, `ja_possui`, `limite`, `invalido`; no uso de item `sem_item`, `recarga`, `cheio`).
+
+### Loja (plataforma magenta)
+
+| Arma | Preço (ouro) |
+|---|---|
+| Laser duplo | 120 |
+| Laser triplo | 150 |
+| Criogênico | 180 |
+| Dreno | 200 |
+| Mina | 240 |
+| Onda de choque | 260 |
+| Pulso EMP | 300 |
+| Míssil teleguiado | 340 |
+
+Comprada, a arma pode ir em qualquer um dos dois encaixes (Q e E).
+
+| Armadura | Preço | Efeito |
+|---|---|---|
+| Leve | 150 | −10% de dano recebido |
+| Média | 300 | −15% de dano, +30 HP máx. |
+| Pesada | 480 | −25% de dano, +60 HP máx., −8% de velocidade |
+
+Uma equipada por vez: comprar uma melhor substitui (preço cheio); igual ou pior que a equipada é recusada (`ja_possui`). A redução vale para todo dano (tiro, garra, dreno, mina, onda de choque).
+
+| Item | Tecla | Preço | Efeito | Recarga | Carga máx. |
+|---|---|---|---|---|---|
+| Kit de reparo | R | 60 | cura 40% do HP máximo na hora | 10 s | 3 |
+| Célula de energia | F | 40 | enche a energia (e destrava o boost) | 8 s | 3 |
+
+Usar item vale em qualquer lugar; com a vida (ou a energia) cheia, o servidor recusa (`cheio`) e não gasta.
+
+### Evolução (plataforma violeta)
+
+**Nave** (do piloto): três marcos, em ordem, cada um exige o nível **e** o ouro; em cada marco escolhe-se 1 de 3 opções, e a mesma opção pode ser escolhida de novo no marco seguinte (os ganhos somam).
+
+| Marco | Nível | Preço |
+|---|---|---|
+| 1 | 5 | 150 |
+| 2 | 10 | 300 |
+| 3 | 15 | 450 |
+
+| Opção | Efeito |
+|---|---|
+| Casco reforçado | +25% de HP máximo (sobre o HP do nível) |
+| Reator ampliado | +25% de energia máxima |
+| Motor afinado | +10% de velocidade máxima (o boost multiplica por cima) |
+
+Os efeitos ficam no estado da nave e voltam a cada renascimento, junto com o nível.
+
+**Mineradores do time**: qualquer piloto paga o próximo nível, que vale para o time inteiro; o time recebe a notícia de quem comprou.
+
+| Melhoria | Por nível | Preços por nível |
+|---|---|---|
+| Mais mineradores | +1 minerador ao mesmo tempo | 200, 350 |
+| Casco de carga (durabilidade) | +25% de HP | 120, 200, 300 |
+| Blindagem de carga (defesa) | −15% de dano recebido | 120, 200, 300 |
+| Motor de carga (velocidade) | +10% de velocidade | 120, 200, 300 |
 
 ## HUD
 

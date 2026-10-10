@@ -24,9 +24,12 @@ Abra duas abas para ver o multijogador.
 | `X` | X | atira com a arma do encaixe do X (padrão: plasma) |
 | `Q` | ARMA Z | menu de armas do Z |
 | `E` | ARMA X | menu de armas do X |
-| `L` | POUSAR | pousar / decolar, só no círculo de neon da base (pousada conserta mais rápido) |
+| `L` | POUSAR | pousar / decolar, só nas áreas de pouso da sua base e nos objetivos A (pousada conserta mais rápido); pousada e parada na Loja ou na Evolução da base, o painel abre sozinho |
+| `R` | botão R no painel | usa um Kit de reparo (cura 40% do HP; recarga de 10 s) |
+| `F` | botão F no painel | usa uma Célula de energia (enche a energia; recarga de 8 s) |
+| `Enter` | toque na dica de pouso | reabre o painel da Loja/Evolução fechado com `Esc` |
 | `V` | | distância da câmera |
-| `Esc` | | sair da partida e voltar para a tela inicial (troca de nome e raça); com o menu de armas aberto, só fecha o menu |
+| `Esc` | | sair da partida e voltar para a tela inicial (troca de nome e raça); com o menu de armas ou o painel da Loja/Evolução aberto, só fecha o menu ou o painel |
 
 A nave tem **duas armas**, uma no Z e outra no X, e as duas escolhem do mesmo catálogo: laser simples, laser duplo (2 tiros paralelos), laser triplo (3 em leque), dreno (o alvo perde vida por alguns segundos), criogênico (o alvo fica lento), plasma (lento e pesado), míssil teleguiado (persegue o inimigo à frente), mina (fica no chão atrás da nave e explode quando um inimigo passa), onda de choque (fere e empurra quem está em volta) e pulso EMP (zera a energia do alvo: sem tiro e sem boost por instantes). Pode usar duas diferentes ou a mesma nas duas; cada encaixe tem a sua recarga, mas a energia é uma só. No menu, `1` a `9` e `0` (ou clique/toque) escolhem; com o menu aberto o jogo segue, mas não sai tiro.
 
