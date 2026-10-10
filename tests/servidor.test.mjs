@@ -164,7 +164,7 @@ test('servidor: aplica a arma escolhida no comando (e limpa valor inválido)', (
   const j = w.addPlayer('A', 'acron');
   w.pushInput(j.id, { s: 1, f1: true, a: 1 });
   w.step();
-  assert.equal(j.ship.arma, 1);
+  assert.equal(j.ship.encaixes[0], 1);
   assert.deepEqual(w.bullets.map((b) => b.kind), ['laserDuplo', 'laserDuplo']);
   const tiros = w.tirarEventos().filter((e) => e.e === 'tiro');
   assert.equal(tiros.length, 2, 'os dois tiros vão para os outros clientes');
@@ -174,10 +174,11 @@ test('servidor: aplica a arma escolhida no comando (e limpa valor inválido)', (
   k.ship = createShip('acron', j.ship.x + 40, j.ship.z, 0);
   w.bullets.length = 0;
   w.mineradores.limpar(); // o minerador saindo da base poderia estar na frente do tiro
-  w.pushInput(k.id, { s: 1, f1: true, a: 99 });
+  w.pushInput(k.id, { s: 1, f1: true, a: 99, a2: -3 });
   w.step();
-  assert.equal(k.ship.arma, 0);
+  assert.equal(k.ship.encaixes[0], 0);
   assert.deepEqual(w.bullets.map((b) => b.kind), ['laser']);
+  assert.equal(k.ship.encaixes[1], 5, 'X inválido cai no plasma');
 });
 
 test('servidor: cada projétil do laser duplo tira o dano dele', () => {

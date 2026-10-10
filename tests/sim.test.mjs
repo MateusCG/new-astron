@@ -15,7 +15,7 @@ import {
   sanitizeInput,
   forward,
   ALTURA_POUSADO,
-  ARMAS_PRINCIPAIS,
+  ARMAS,
   LASER_DUPLO_VAO,
   LASER_DUPLO_DANO,
   LASER_DUPLO_CD,
@@ -84,20 +84,33 @@ test('tiro rápido acerta nave no caminho mesmo pulando por cima dela', () => {
 });
 
 test('comando da rede é limitado', () => {
-  assert.deepEqual(sanitizeInput({ th: 50, tu: -9, b: 1, f1: 'x', f2: 0, p: 1, a: 1 }), { th: 1, tu: -1, b: true, f1: true, f2: false, p: true, a: 1 });
-  assert.deepEqual(sanitizeInput(null), { th: 0, tu: 0, b: false, f1: false, f2: false, p: false, a: 0 });
+  assert.deepEqual(sanitizeInput({ th: 50, tu: -9, b: 1, f1: 'x', f2: 0, p: 1, a: 1, a2: 7 }), {
+    th: 1,
+    tu: -1,
+    b: true,
+    f1: true,
+    f2: false,
+    p: true,
+    a: 1,
+    a2: 7,
+  });
+  assert.deepEqual(sanitizeInput(null), { th: 0, tu: 0, b: false, f1: false, f2: false, p: false, a: 0, a2: 5 });
 });
 
-test('comando da rede: arma fora da lista vira laser simples', () => {
-  for (const a of [5, 99, -1, 1.5, '1', '__proto__', 'length', null, undefined, {}, NaN, Infinity]) {
-    assert.equal(sanitizeInput({ a }).a, 0, String(a));
+test('comando da rede: arma fora da lista vira a padrão do encaixe (Z laser, X plasma)', () => {
+  for (const a of [10, 99, -1, 1.5, '1', '__proto__', 'length', null, undefined, {}, NaN, Infinity]) {
+    assert.equal(sanitizeInput({ a, a2: a }).a, 0, String(a));
+    assert.equal(sanitizeInput({ a, a2: a }).a2, 5, String(a));
   }
-  for (let a = 0; a < 5; a++) assert.equal(sanitizeInput({ a }).a, a);
-  assert.deepEqual(ARMAS_PRINCIPAIS, ['laser', 'laserDuplo', 'laserTriplo', 'dreno', 'crio']);
+  for (let a = 0; a < ARMAS.length; a++) {
+    assert.equal(sanitizeInput({ a }).a, a);
+    assert.equal(sanitizeInput({ a2: a }).a2, a);
+  }
+  assert.deepEqual(ARMAS, ['laser', 'laserDuplo', 'laserTriplo', 'dreno', 'crio', 'plasma', 'missil', 'mina', 'choque', 'emp']);
   // Mesmo sem passar pelo sanitize (IA dos drones), stepShip não aceita índice ruim.
   const s = createShip('acron', 0, 0, 0);
-  assert.deepEqual(stepShip(s, { ...PARADO, f1: true, a: 7 }), [{ kind: 'laser', off: 0, ang: 0 }]);
-  assert.equal(s.arma, 0);
+  assert.deepEqual(stepShip(s, { ...PARADO, f1: true, a: 70 }), [{ kind: 'laser', off: 0, ang: 0 }]);
+  assert.deepEqual(s.encaixes, [0, 5]);
 });
 
 test('armas: laser simples sai 1 projétil pelo nariz, o duplo sai 2 paralelos', () => {
@@ -105,11 +118,11 @@ test('armas: laser simples sai 1 projétil pelo nariz, o duplo sai 2 paralelos',
     const s = createShip('shrewdo', 0, 0, yaw);
     const simples = stepShip(s, { ...PARADO, f1: true, a: 0 });
     assert.deepEqual(simples, [{ kind: 'laser', off: 0, ang: 0 }]);
-    assert.equal(s.arma, 0);
+    assert.equal(s.encaixes[0], 0);
 
     const d = createShip('shrewdo', 0, 0, yaw);
     const duplo = stepShip(d, { ...PARADO, f1: true, a: 1 });
-    assert.equal(d.arma, 1);
+    assert.equal(d.encaixes[0], 1);
     assert.equal(duplo.length, 2);
     const [e, r] = duplo.map((t, i) => createBullet(d, t.kind, i, 1, t.off));
     assert.equal(e.kind, 'laserDuplo');
@@ -201,11 +214,17 @@ test('armas: nenhuma é estritamente melhor que as outras', () => {
   const dps = (w) => (w.dano * n(w)) / w.cd + (w.efeito?.tipo === 'dreno' ? w.efeito.dps : 0);
   const gasto = (w) => w.energia / w.cd;
   const simples = WEAPONS.laser;
-  for (const kind of ARMAS_PRINCIPAIS.slice(1)) {
+  for (const kind of ARMAS.slice(1)) {
     const w = WEAPONS[kind];
     assert.ok(dps(w) < dps(simples), `${kind}: tira menos por segundo que o simples`);
-    assert.ok(w.dano < simples.dano, `${kind}: cada projétil tira menos`);
-    assert.ok(n(w) > 1 || w.efeito, `${kind}: em troca, mais projéteis ou um efeito`);
+    assert.ok(w.cd > simples.cd, `${kind}: recarrega mais devagar que o simples`);
+    // Em troca: mais projéteis, um efeito, área, curva ou um golpe maior.
+    assert.ok(n(w) > 1 || w.efeito || w.area || w.guiado || w.dano > simples.dano, `${kind}: alguma vantagem`);
+  }
+  // As que tiram mais por golpe (plasma, míssil, mina, choque) custam mais energia por disparo.
+  for (const kind of ARMAS) {
+    const w = WEAPONS[kind];
+    if (w.dano > simples.dano) assert.ok(w.energia >= 10, `${kind}: golpe grande, energia alta`);
   }
   // As de vários projéteis gastam mais energia por segundo que o simples.
   assert.ok(gasto(WEAPONS.laserDuplo) > gasto(simples));
@@ -214,16 +233,24 @@ test('armas: nenhuma é estritamente melhor que as outras', () => {
 
 test('armas: só dá para usar arma que a nave possui (hoje todas)', () => {
   const s = createShip('acron', 0, 0, 0);
-  assert.deepEqual(s.armas, [0, 1, 2, 3, 4], 'nasce com todas liberadas');
-  s.armas = [0, 2];
-  assert.equal(stepShip(s, { ...PARADO, f1: true, a: 3 })[0].kind, 'laser', 'sem o dreno, sai laser simples');
-  assert.equal(s.arma, 0);
+  assert.deepEqual(s.armas, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 'nasce com todas liberadas');
+  s.armas = [2];
+  assert.equal(stepShip(s, { ...PARADO, f1: true, a: 3 })[0].kind, 'laser', 'sem o dreno, o Z cai no laser simples');
+  assert.equal(s.encaixes[0], 0);
   for (let i = 0; i < 10; i++) stepShip(s, PARADO);
   assert.equal(stepShip(s, { ...PARADO, f1: true, a: 2 }).length, 3, 'o triplo, que possui, funciona');
-  assert.equal(s.arma, 2);
+  assert.equal(s.encaixes[0], 2);
+  for (let i = 0; i < 40; i++) stepShip(s, PARADO);
+  const x = stepShip(s, { ...PARADO, f2: true, a: 2, a2: 6 });
+  assert.deepEqual(x.map((d) => d.kind), ['plasma'], 'sem o míssil, o X cai no plasma');
+  assert.deepEqual(s.encaixes, [2, 5]);
+  // As de fábrica (laser simples e plasma) valem mesmo com a lista vazia.
+  s.armas = [];
+  for (let i = 0; i < 40; i++) stepShip(s, PARADO);
+  assert.deepEqual(stepShip(s, { ...PARADO, f1: true, f2: true, a: 5, a2: 0 }).map((d) => d.kind), ['plasma', 'laser']);
 });
 
-test('armas: trocar de arma não zera a recarga do tiro', () => {
+test('armas: trocar de arma não zera a recarga do encaixe', () => {
   const s = createShip('acron', 0, 0, 0);
   assert.equal(stepShip(s, { ...PARADO, f1: true, a: 0 }).length, 1);
   assert.deepEqual(stepShip(s, { ...PARADO, f1: true, a: 1 }), [], 'ainda recarregando');
