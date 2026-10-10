@@ -20,9 +20,12 @@
 //                        'armaduraPesada', 'reparo' | 'energia')
 //                       {t:'evoluir', opcao}     Evolução da nave: 'casco' | 'reator' | 'motor'
 //                       {t:'melhorar', melhoria} mineradores do time: 'quantidade' |
-//                        'durabilidade' | 'defesa' | 'velocidade'
+//                        'durabilidade' | 'defesa' | 'velocidade'; ou 'torretas' (sobe
+//                        o nível das quatro torretas do time)
+//                       {t:'reconstruir', torreta}  reconstrói uma torreta destruída do
+//                        próprio time: torreta = id em TORRETAS ('T0-1' a 'T1-4')
 //                       {t:'usar', item}         item consumível: 'reparo' (R) | 'energia' (F)
-//                       (comprar/evoluir/melhorar só vivo, pousado e parado na
+//                       (comprar/evoluir/melhorar/reconstruir só vivo, pousado e parado na
 //                        plataforma do serviço da própria base; usar vale em qualquer
 //                        lugar; tudo validado em server/servicos.js)
 //                       {t:'ping', c}
@@ -41,7 +44,7 @@
 //                        nível, xpProx = XP para o próximo (0 no máximo); ouro, xp e
 //                        nivel zeram a cada partida)
 //                       {t:'resultado', acao, item, ok, codigo?}   resposta (só a quem
-//                       pediu) de comprar/evoluir/melhorar/usar; codigo = 'nao_pousado' |
+//                       pediu) de comprar/evoluir/melhorar/reconstruir/usar; codigo = 'nao_pousado' |
 //                       'ouro_insuficiente' | 'nivel_insuficiente' | 'ja_possui' |
 //                       'limite' | 'invalido' | 'sem_item' | 'recarga' | 'cheio'
 //                       {t:'pong', c}
@@ -87,14 +90,16 @@
 //         {e:'acerto', ..., torreta}   tiro ou área que bateu numa torreta (alvo 0;
 //                                    dano 0 se não foi de jogador inimigo)
 //         {e:'torreta', id, time, estado, por, nome, x, y, z}   estado 'destruida' (por =
-//                                    quem deu o último tiro) ou 'reconstruida'
+//                                    quem deu o último tiro) ou 'reconstruida' (por =
+//                                    quem pagou)
 //         {e:'acerto', arma, alvo, dano, x, y, z}   dano em área (arma 'mina' ou
 //                                    'choque'), um por alvo, sem bala
 //         {e:'choque', id, time, x, y, z, raio}   onda de choque da nave id
 //         {e:'explosao', arma:'mina', id, dono, time, x, y, z, raio}   mina explodiu
 //         {e:'nivel', id, nivel}     jogador subiu de nível
 //         {e:'melhoria', id, nome, time, melhoria, nivel}   alguém do time `time` comprou
-//                                    um nível de melhoria dos mineradores
+//                                    um nível de melhoria dos mineradores (ou das
+//                                    torretas: melhoria 'torretas')
 //         {e:'objetivo', id, tipo, time, bonus, segundos, quem}   um time tomou um objetivo
 //         {e:'entrega', id, time, carga, x, y, z}   minerador somou carga no placar
 //         {e:'partida', n}   começou a partida n (placar zerado)
@@ -122,7 +127,7 @@ const TIPOS = {
   '.json': 'application/json',
 };
 const MAX_MSG = 2048;
-const PEDIDOS = new Set(['comprar', 'evoluir', 'melhorar', 'usar']); // server/servicos.js
+const PEDIDOS = new Set(['comprar', 'evoluir', 'melhorar', 'reconstruir', 'usar']); // server/servicos.js
 
 async function servirArquivo(req, res) {
   const url = new URL(req.url, 'http://x');

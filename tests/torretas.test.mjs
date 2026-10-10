@@ -1,6 +1,7 @@
-// Torretas do corredor (server/torretas.js, TORRETAS em shared/terrain.js):
+// Torretas do corredor (server/torretas.js, TORRETAS em shared/terrain.js) e o
+// nível/reconstrução delas na Evolução (server/servicos.js, shared/evolucao.js):
 // posição no mapa, tiro só em inimigo, dano só de jogador inimigo, queda (física e
-// recompensa) e partida nova.
+// recompensa), Evolução e partida nova.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -8,9 +9,10 @@ import { World } from '../server/game.js';
 import { TORRETA, linhaDeTiro } from '../server/torretas.js';
 import { RECOMPENSA, xpParaNivel } from '../server/progressao.js';
 import { createShip, createBullet, WEAPONS, HOVER, SHIP_RADIUS } from '../shared/sim.js';
-import { TORRETAS, TORRETA_LADO, BASES, CORREDOR, MINERIO, ROTAS, heightAt } from '../shared/terrain.js';
+import { TORRETAS, TORRETA_LADO, BASES, CORREDOR, MINERIO, ROTAS, SERVICOS, heightAt } from '../shared/terrain.js';
 import { OBSTACULOS, TORRETA as PLANTA, alturaSolida, obstaculoAtivo } from '../shared/obstaculos.js';
 import { FAIXA_MINERADOR } from '../server/mineradores.js';
+import { MELHORIA_TORRETAS, PRECO_RECONSTRUIR, TORRETA_HP_POR_NIVEL, TORRETA_DANO_POR_NIVEL, TORRETA_NIVEL_MAX } from '../shared/evolucao.js';
 
 const SEGUNDO = 30;
 
@@ -30,6 +32,11 @@ function mundo(opcoes = {}) {
 function colocar(j, x, z, yaw = 0) {
   const armas = j.ship.armas;
   j.ship = Object.assign(createShip('bellico', x, z, yaw), { time: j.time, armas });
+}
+
+function pousar(j, servico, time = j.time) {
+  const sv = SERVICOS.find((s) => s.servico === servico && s.time === time);
+  Object.assign(j.ship, { x: sv.x, z: sv.z, vx: 0, vz: 0, pousado: true });
 }
 
 const torreta = (w, id) => w.torretas.torreta(id);
@@ -196,6 +203,81 @@ test('torretas: dano em área (onda de choque) do inimigo também fere, o do ali
   w.pushInput(a.id, { s: 1, f1: true, a: 8 });
   w.step();
   assert.equal(cheia - t.hp, WEAPONS.choque.dano);
+});
+
+test('evolução: nível das torretas cobra, pede a Evolução da própria base e para no limite', () => {
+  const { w, a, b } = mundo({ torretas: false });
+  const melhorar = (j) => w.pedido(j.id, { t: 'melhorar', melhoria: 'torretas' });
+  a.ouro = 5000;
+  assert.equal(melhorar(a).codigo, 'nao_pousado', 'voando');
+  pousar(a, 'loja');
+  assert.equal(melhorar(a).codigo, 'nao_pousado', 'na Loja');
+  pousar(a, 'evolucao', 1);
+  assert.equal(melhorar(a).codigo, 'nao_pousado', 'Evolução do outro time');
+  pousar(a, 'evolucao');
+  const t = torreta(w, 'T0-1');
+  t.hp = t.hp / 2; // meia vida: sobe junto, na mesma proporção
+  a.ouro = MELHORIA_TORRETAS.precos[0] - 1;
+  assert.equal(melhorar(a).codigo, 'ouro_insuficiente');
+  a.ouro = 5000;
+  assert.equal(melhorar(a).ok, true);
+  assert.equal(a.ouro, 5000 - MELHORIA_TORRETAS.precos[0]);
+  assert.equal(w.torretas.nivel[0], 2);
+  assert.equal(w.torretas.nivel[1], 1, 'o outro time não ganha nada');
+  assert.equal(w.torretas.hpMax(0), Math.round(TORRETA.hp * (1 + TORRETA_HP_POR_NIVEL)));
+  assert.ok(Math.abs(t.hp - w.torretas.hpMax(0) / 2) < 1, 'meia vida continua meia vida');
+  assert.ok(Math.abs(w.torretas.dano(0) - TORRETA.dano * (1 + TORRETA_DANO_POR_NIVEL)) < 1e-9);
+  const ev = w.tirarEventos().find((e) => e.e === 'melhoria');
+  assert.deepEqual(ev, { e: 'melhoria', id: a.id, nome: 'A', time: 0, melhoria: 'torretas', nivel: 2 });
+  // O colega (aqui o próprio A) paga o próximo, mais caro, e no máximo para.
+  assert.equal(melhorar(a).ok, true);
+  assert.equal(w.torretas.nivel[0], TORRETA_NIVEL_MAX);
+  const ouro = a.ouro;
+  assert.equal(melhorar(a).codigo, 'limite');
+  assert.equal(a.ouro, ouro, 'limite não cobra');
+  assert.equal(w.snapshotPara(b, [], []).torretas.find((x) => x.id === 'T0-1').nivel, TORRETA_NIVEL_MAX);
+});
+
+test('evolução: reconstruir a torreta destruída do próprio time, com o nível atual', () => {
+  const { w, a, b } = mundo({ torretas: false });
+  const reconstruir = (j, torreta) => w.pedido(j.id, { t: 'reconstruir', torreta });
+  const t = torreta(w, 'T0-3');
+  a.ouro = 5000;
+  pousar(a, 'evolucao');
+  assert.equal(reconstruir(a, 'T0-3').codigo, 'ja_possui', 'de pé');
+  assert.equal(reconstruir(a, 'T1-3').codigo, 'invalido', 'a do outro time');
+  assert.equal(reconstruir(a, 'X9').codigo, 'invalido');
+  assert.equal(reconstruir(a, { lixo: 1 }).codigo, 'invalido');
+  // Derruba (como se o time 1 tivesse destruído) e sobe o nível do time.
+  t.hp = 1;
+  w.bullets.push(Object.assign(createBullet(createShip('bellico', t.x + 40, t.z, Math.PI / 2), 'laser', w.nextId++, b.id), { time: 1, mult: 1 }));
+  for (let i = 0; i < SEGUNDO && t.viva; i++) w.step();
+  assert.equal(t.viva, false);
+  assert.equal(w.pedido(a.id, { t: 'melhorar', melhoria: 'torretas' }).ok, true);
+  a.ship.pousado = false;
+  assert.equal(reconstruir(a, 'T0-3').codigo, 'nao_pousado');
+  pousar(a, 'evolucao');
+  a.ouro = PRECO_RECONSTRUIR - 1;
+  assert.equal(reconstruir(a, 'T0-3').codigo, 'ouro_insuficiente');
+  // Uma nave no lugar: paga, mas a torreta espera ela sair.
+  colocar(b, t.x, t.z);
+  a.ouro = PRECO_RECONSTRUIR;
+  assert.equal(reconstruir(a, 'T0-3').ok, true);
+  assert.equal(a.ouro, 0);
+  assert.equal(t.viva, false);
+  assert.equal(w.snapshotPara(a, [], []).torretas.find((x) => x.id === 'T0-3').obra, true);
+  assert.equal(reconstruir(a, 'T0-3').codigo, 'ja_possui', 'já em obra');
+  w.step();
+  assert.equal(t.viva, false, 'esperando');
+  colocar(b, 0, -900);
+  w.step();
+  assert.equal(t.viva, true);
+  assert.equal(obstaculoAtivo('T0-3'), true);
+  assert.equal(t.hp, w.torretas.hpMax(0), 'inteira, com o nível 2');
+  assert.equal(w.torretas.hpMax(0), Math.round(TORRETA.hp * (1 + TORRETA_HP_POR_NIVEL)));
+  const ev = w.tirarEventos().filter((e) => e.e === 'torreta').at(-1);
+  assert.equal(ev.estado, 'reconstruida');
+  assert.equal(ev.por, a.id);
 });
 
 test('torretas: a partida nova põe todas de pé, inteiras e no nível 1', () => {
