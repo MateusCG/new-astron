@@ -23,7 +23,7 @@
 // O pulso EMP os deixa parados (sem motor, e sem minerar) enquanto durar.
 //
 // Atributos num lugar só: atributos(time, tick) junta as constantes de MINERADOR,
-// as melhorias do time (this.melhorias, que a Evolução vai preencher) e os bônus
+// as melhorias do time (this.melhorias, compradas na Evolução) e os bônus
 // por tempo dos objetivos (server/bonus.js). Quem quiser mexer em minerador mexe ali.
 
 import { createShip, stepShip, RACES, VEL_FATOR, DT } from '../shared/sim.js';
@@ -41,6 +41,7 @@ export const MINERADOR = {
   carga: 10, // minério por viagem
   mineracaoS: 5, // parado no depósito, carregando
   ouro: 40, // para quem destrói um minerador inimigo
+  defesaMax: 0.6, // teto da defesa comprada na Evolução (nunca fica imune)
 };
 /** Distância do eixo do corredor de cada faixa (ida de um lado, volta do outro). */
 export const FAIXA_MINERADOR = 15;
@@ -84,8 +85,9 @@ export class Mineradores {
     this.evento = evento;
     this.lista = [];
     this.proximaSaida = BASES.map(() => 0);
-    // Melhorias permanentes de cada time (Evolução; ainda vazias). Campos lidos em
-    // atributos(): hpMult, velocidadeMult, maxAtivos (a mais), cargaExtra.
+    // Melhorias de cada time na partida, compradas na Evolução (server/servicos.js
+    // preenche e zera). Campos lidos em atributos(): hpMult, velocidadeMult,
+    // maxAtivos (a mais), defesa (fração do dano) e cargaExtra.
     this.melhorias = BASES.map(() => ({}));
   }
 
@@ -103,6 +105,9 @@ export class Mineradores {
       velocidade: MINERADOR.velocidade * (m.velocidadeMult ?? 1) * (b('velocidade') ? BONUS.velocidade.mult : 1),
       carga: MINERADOR.carga + (m.cargaExtra ?? 0) + (b('mineracao') ? BONUS.mineracao.cargaExtra : 0),
       mineracaoTicks: Math.round(MINERADOR.mineracaoS / DT),
+      // Fração do dano que o minerador deixa de levar (melhoria de defesa; o World
+      // aplica em #ferir).
+      defesa: Math.min(MINERADOR.defesaMax, m.defesa ?? 0),
     };
   }
 

@@ -37,6 +37,11 @@
 // objetivos A, B e C em server/objetivos.js (no step, no tiro que bate na torre e
 // na morte do guardião), que ligam os bônus em this.bonus; os monstros elite
 // (Krakor e o guardião) em server/elites.js.
+//
+// Loja e Evolução (server/servicos.js): pedidos do cliente atendidos em pedido();
+// a posse de armas, a armadura, os itens e as evoluções ficam no jogador e vão
+// para cada nave nova em prepararNave (nascimento e renascimento). A armadura e a
+// defesa dos mineradores reduzem o dano em #ferir.
 
 import {
   DT,
@@ -58,7 +63,8 @@ import { Partida, N_TIMES } from './partida.js';
 import { Mineradores } from './mineradores.js';
 import { Bonus } from './bonus.js';
 import { Objetivos } from './objetivos.js';
-import { novaProgressao, recompensar, aplicarNivel, xpParaNivel } from './progressao.js';
+import { novaProgressao, recompensar, xpParaNivel } from './progressao.js';
+import { Servicos, novoEquipamento, prepararNave, reducaoArmadura } from './servicos.js';
 import { KRAKOR, N_KRAKOR, novaElite, renascerElite, iaElite } from './elites.js';
 import { alvoDoMissil, guiarMissil, novaMina, naArea } from './armas.js';
 
@@ -183,6 +189,7 @@ export class World {
       this.elites.push(novaElite('krakor', this.#id(), p.x, p.z, this.rng() * Math.PI * 2));
     }
     this.objetivos = new Objetivos(this);
+    this.servicos = new Servicos(this);
     // O que a IA dos elites lê do mundo.
     const players = this.players;
     this.ctxElite = {
@@ -304,7 +311,9 @@ export class World {
       abates: 0,
       mortes: 0,
       ...novaProgressao(), // nivel, xp
+      ...novoEquipamento(), // armas, armadura, itens, evoluções (Loja e Evolução)
     };
+    prepararNave(jogador); // só as armas de fábrica
     this.players.set(id, jogador);
     this.eventos.push({ e: 'entrou', id, nome: jogador.nome, time });
     return jogador;
@@ -316,6 +325,14 @@ export class World {
     this.players.delete(id);
     this.minas = this.minas.filter((m) => m.dono !== id); // as minas de quem saiu somem
     this.eventos.push({ e: 'saiu', id, nome: j.nome });
+  }
+
+  /**
+   * Pedido de Loja ou Evolução ({t:'comprar'|'evoluir'|'melhorar'|'usar'}) do
+   * jogador `id`. Devolve a resposta para ele (server/servicos.js).
+   */
+  pedido(id, msg) {
+    return this.servicos.pedido(this.players.get(id), msg);
   }
 
   /** Enfileira um comando do cliente. Comando fora de ordem ou repetido é ignorado. */
@@ -669,6 +686,9 @@ export class World {
       if (ev) this.eventos.push({ ...ev, alvo: alvo.id, dano: 0 });
       return;
     }
+    // Armadura do piloto (Loja) e defesa dos mineradores do time (Evolução).
+    if (alvo.tipo === 'jogador') dano *= 1 - reducaoArmadura(alvo);
+    else if (alvo.tipo === 'minerador') dano *= 1 - this.mineradores.atributos(alvo.time, this.tick).defesa;
     alvo.ship.hp -= dano;
     alvo.ultimoDano = this.tick;
     if (ev) this.eventos.push({ ...ev, alvo: alvo.id, dano });
@@ -727,7 +747,7 @@ export class World {
       ent.ship = novo.ship;
     } else {
       ent.ship = this.#naveNaBase(ent.ship.race, ent.time);
-      aplicarNivel(ent.ship, ent.nivel);
+      prepararNave(ent); // nível, evoluções, armadura e a posse de armas
       ent.fila.length = 0;
       ent.protegidoAte = this.tick + PROTECAO_TICKS;
     }
@@ -748,14 +768,16 @@ export class World {
       this.bonus.limpar();
       if (vinhaDoFim) this.minas = [];
       if (vinhaDoFim) this.objetivos.reiniciar();
+      if (vinhaDoFim) this.servicos.reiniciar(); // melhorias dos mineradores dos dois times
       this.mineradores.comecar(this.tick);
       // Depois da tela de fim, todo mundo volta para a base do time. (Na primeira
       // partida, quem entrou acabou de nascer lá.)
       if (vinhaDoFim) {
         for (const j of this.players.values()) {
           if (j.fila.length) j.ack = j.fila[j.fila.length - 1].seq; // descarta sem travar a predição
-          // Ouro, XP e nível são da partida (como num MOBA): zeram na seguinte.
-          Object.assign(j, novaProgressao(), { ouro: 0 });
+          // Ouro, XP, nível, armas compradas, armadura, itens e evoluções são da
+          // partida (como num MOBA): zeram na seguinte.
+          Object.assign(j, novaProgressao(), novoEquipamento(), { ouro: 0 });
           this.#respawn(j);
         }
       }
@@ -767,6 +789,7 @@ export class World {
       this.bonus.limpar();
       this.minas = [];
       this.objetivos.reiniciar();
+      this.servicos.reiniciar();
       this.mineradores.limpar();
     }
   }
@@ -924,7 +947,7 @@ export class World {
       ack: j.ack,
       vivo: j.vivo,
       time: j.time,
-      me: j.ship,
+      me: { ...j.ship, ...this.servicos.paraMe(j) },
       ouro: j.ouro,
       abates: j.abates,
       mortes: j.mortes,
@@ -934,6 +957,7 @@ export class World {
       xp: j.xp,
       xpProx: xpParaNivel(j.nivel),
       obj: this.cacheObj.obj,
+      melhorias: this.servicos.niveis[j.time], // níveis das melhorias dos mineradores do time
       minas: this.cacheObj.minas,
       guiados: this.cacheObj.guiados,
       ents,

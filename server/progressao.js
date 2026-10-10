@@ -16,10 +16,13 @@
 //
 // Subir de nível dá um ganho pequeno e automático: +HP_POR_NIVEL (3%) do HP máximo
 // da raça por nível acima do 1 (nível 10 = +27%). O HP sobe junto com o máximo
-// (não cura o resto). Os níveis 5, 10 e 15 serão os marcos da Evolução paga
-// (tarefa da Evolução): ela só precisa ler `j.nivel`.
+// (não cura o resto). Os níveis 5, 10 e 15 são os marcos da Evolução paga
+// (shared/evolucao.js, server/servicos.js), que lê `j.nivel`; o HP máximo do
+// jogador junta nível, evoluções e armadura em hpMaxDoJogador.
 
 import { RACES } from '../shared/sim.js';
+import { efeitosNave } from '../shared/evolucao.js';
+import { armadura } from '../shared/loja.js';
 import { MINERADOR } from './mineradores.js';
 
 export const NIVEL_MAX = 20;
@@ -51,6 +54,15 @@ export function hpMaxDoNivel(race, nivel) {
   return Math.round(base * (1 + HP_POR_NIVEL * (nivel - 1)));
 }
 
+/**
+ * HP máximo da nave do jogador: o do nível, vezes as evoluções de casco
+ * (shared/evolucao.js), mais o HP da armadura (shared/loja.js).
+ */
+export function hpMaxDoJogador(j) {
+  const hp = Math.round(hpMaxDoNivel(j.ship.race, j.nivel) * efeitosNave(j.evolucoes).hp);
+  return hp + (armadura(j.armadura)?.hp ?? 0);
+}
+
 /** Põe na nave (recém-criada) o HP máximo do nível, cheia. */
 export function aplicarNivel(ship, nivel) {
   ship.maxHp = hpMaxDoNivel(ship.race, nivel);
@@ -69,7 +81,7 @@ export function ganharXp(j, xp, eventos) {
     j.nivel++;
     subiu++;
     const s = j.ship;
-    const novo = hpMaxDoNivel(s.race, j.nivel);
+    const novo = hpMaxDoJogador(j); // com evoluções e armadura
     if (s.hp > 0) s.hp += novo - s.maxHp;
     s.maxHp = novo;
     eventos?.push({ e: 'nivel', id: j.id, nivel: j.nivel });

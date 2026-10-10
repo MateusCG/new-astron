@@ -162,7 +162,19 @@ test('servidor: não serve arquivo fora das pastas públicas', async () => {
 test('servidor: aplica a arma escolhida no comando (e limpa valor inválido)', () => {
   const w = new World({ drones: 0, monstros: 0, elites: 0 });
   const j = w.addPlayer('A', 'acron');
+  // Sem comprar na Loja, o laser duplo não está na posse: cai no simples.
   w.pushInput(j.id, { s: 1, f1: true, a: 1 });
+  w.step();
+  assert.equal(j.ship.encaixes[0], 0);
+  // Com o duplo na posse (é o que a compra faz), sai o duplo.
+  j.ship.armas = [...j.ship.armas, 1];
+  for (let s = 2; s < 12; s++) {
+    w.pushInput(j.id, { s });
+    w.step();
+  }
+  w.bullets.length = 0;
+  w.tirarEventos();
+  w.pushInput(j.id, { s: 12, f1: true, a: 1 });
   w.step();
   assert.equal(j.ship.encaixes[0], 1);
   assert.deepEqual(w.bullets.map((b) => b.kind), ['laserDuplo', 'laserDuplo']);

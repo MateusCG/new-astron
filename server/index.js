@@ -86,6 +86,7 @@ const TIPOS = {
   '.json': 'application/json',
 };
 const MAX_MSG = 2048;
+const PEDIDOS = new Set(['comprar', 'evoluir', 'melhorar', 'usar']); // server/servicos.js
 
 async function servirArquivo(req, res) {
   const url = new URL(req.url, 'http://x');
@@ -153,6 +154,9 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
         ws.send(JSON.stringify({ t: 'bemvindo', id: jogador.id, tickHz: TICK_HZ, time: jogador.time }));
       } else if (msg?.t === 'in' && jogador) {
         world.pushInput(jogador.id, msg);
+      } else if (PEDIDOS.has(msg?.t) && jogador) {
+        // Loja e Evolução: o servidor valida tudo e responde só a quem pediu.
+        ws.send(JSON.stringify(world.pedido(jogador.id, msg)));
       } else if (msg?.t === 'ping') {
         ws.send(JSON.stringify({ t: 'pong', c: msg.c }));
       }

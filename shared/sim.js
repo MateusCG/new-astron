@@ -252,7 +252,7 @@ export const ENCAIXE_PADRAO = [IDX_ARMA.laser, IDX_ARMA.plasma];
  */
 export const ARMAS_INICIAIS = [...ENCAIXE_PADRAO];
 
-/** Todas as armas do catálogo (índices). Hoje toda nave nasce com todas liberadas. */
+/** Todas as armas do catálogo (índices). Nave sem dono (createShip) nasce com todas. */
 export const TODAS_AS_ARMAS = ARMAS.map((_, i) => i);
 
 /** Índice de arma válido para o encaixe; qualquer outra coisa vira a padrão dele. */
@@ -262,8 +262,8 @@ export function armaValida(a, encaixe = 0) {
 
 /**
  * A nave pode usar a arma de índice a? Olha s.armas (as armas que o piloto possui);
- * as de fábrica (ARMAS_INICIAIS) são sempre liberadas. A Loja vai pôr o índice
- * comprado em s.armas (e o servidor guarda a lista no jogador para o renascimento).
+ * as de fábrica (ARMAS_INICIAIS) são sempre liberadas. A Loja põe o índice
+ * comprado na posse do jogador, que o servidor copia para s.armas a cada nave nova.
  */
 export function possuiArma(s, a) {
   return ARMAS_INICIAIS.includes(a) || !s.armas || s.armas.includes(a);
@@ -315,7 +315,11 @@ export function createShip(race, x, z, yaw = 0) {
     cd1: 0,
     cd2: 0,
     encaixes: [...ENCAIXE_PADRAO], // arma (índice em ARMAS) no Z e no X
-    armas: [...TODAS_AS_ARMAS], // armas que o piloto possui (ver possuiArma)
+    // Armas que a nave pode usar (ver possuiArma). Sem restrição aqui (monstros,
+    // mineradores, testes); a nave de jogador recebe a posse do piloto no World
+    // (só as de fábrica e as compradas na Loja: server/servicos.js).
+    armas: [...TODAS_AS_ARMAS],
+    velMult: 1, // multiplicador da velocidade máxima (evolução do motor, armadura pesada)
     lento: 0, // segundos restantes de lentidão (tiro criogênico); o servidor põe no acerto
     emp: 0, // segundos restantes sem tiro e sem boost (pulso EMP); o servidor põe no acerto
     boost: false,
@@ -376,7 +380,8 @@ export function stepShip(s, inp, dt = DT) {
   if (!inp.b) s.boostTravado = false;
   const querBoost = !pousado && !semSistemas && inp.b && inp.th > 0 && s.en > 0 && !s.boostTravado;
   s.boost = querBoost;
-  const maxV = raca.velocidade * VEL_FATOR * (querBoost ? BOOST_MULT : 1) * (s.lento > 0 ? CRIO_LENTIDAO : 1);
+  // s.velMult: evolução de motor e armadura pesada (o servidor põe; vai no `me`).
+  const maxV = raca.velocidade * VEL_FATOR * (s.velMult ?? 1) * (querBoost ? BOOST_MULT : 1) * (s.lento > 0 ? CRIO_LENTIDAO : 1);
   s.lento = Math.max(0, (s.lento || 0) - dt);
 
   s.yaw += inp.tu * TURN_RATE * (pousado ? POUSO_GIRO : 1) * dt;
