@@ -11,6 +11,13 @@
 // - As outras naves são desenhadas INTERP_MS no passado, interpolando entre dois
 //   snapshots, para o movimento sair liso mesmo com a rede irregular.
 //
+// Duas armas (encaixes Z e X): o menu (armas.js) guarda a escolha, que vai nos
+// campos a e a2 de cada comando. Projétil comum é previsto aqui (tiro local); o
+// míssil teleguiado não, porque quem faz a curva é o servidor: ele aparece pelo
+// evento 'tiro' (o seu também) e é corrigido pela lista `guiados` do snapshot. A
+// onda de choque própria já desenha o anel na hora; a mina aparece pela lista
+// `minas` do snapshot.
+//
 // ESC sai da partida e volta para a tela de entrada (nome e raça como estavam),
 // para trocar de piloto sem recarregar a página. Sair desmonta tudo o que a
 // partida criou (conexão, laço de quadros, listeners, cena na GPU); só o renderer
@@ -22,7 +29,7 @@ import { areaPouso } from '/shared/terrain.js';
 import { alturaSolida } from '/shared/obstaculos.js';
 import { criarCena, liberarCena } from './cena.js';
 import { criarNave, criarDrone, criarVorax, animarVorax, criarKrakor, animarKrakor, criarGuardiao, animarGuardiao, criarMinerador, animarMinerador, atualizarMotor } from './nave.js';
-import { Efeitos } from './efeitos.js';
+import { Efeitos, COR_TIME } from './efeitos.js';
 import { Controles } from './controles.js';
 import { Hud, NOME_BONUS } from './hud.js';
 import { ObjetivosNaTela } from './objetivos.js';
@@ -98,8 +105,9 @@ function montarEntrada() {
   });
 
   // Fase de captura na janela: este handler roda antes de qualquer outro keydown,
-  // então decide sozinho o que o ESC faz. Com o menu de armas (#menu-armas) aberto,
-  // ESC só fecha o menu; um segundo ESC sai da partida. Na tela de entrada (ou
+  // então decide sozinho o que o ESC faz. Com o menu de armas (#menu-armas, o mesmo
+  // elemento para o Z e o X) aberto, ESC só fecha o menu; um segundo ESC sai da
+  // partida. Na tela de entrada (ou
   // enquanto conecta) não há partida e o ESC não faz nada.
   addEventListener(
     'keydown',
@@ -197,7 +205,7 @@ function montarJogo(rede, boas, renderer, race) {
   const hud = new Hud({ meuTime });
   const placar = new Placar({ meuTime });
   const menuArmas = new MenuArmas({
-    aoTrocar: (i, kind) => hud.noticia(`Arma: ${WEAPONS[kind].nome}`, 'bom'),
+    aoTrocar: (encaixe, i, kind) => hud.noticia(`Arma do ${encaixe ? 'X' : 'Z'}: ${WEAPONS[kind].nome}`, 'bom'),
     signal: controles.parar.signal, // desliga junto com os controles ao sair
   });
   document.querySelector('#hud').hidden = false;
@@ -239,8 +247,8 @@ function montarJogo(rede, boas, renderer, race) {
   function passo() {
     if (!vivo || !pred) return;
     const inp = controles.ler();
-    // A arma escolhida no menu vai em todo comando; com o menu aberto não sai tiro.
-    inp.a = menuArmas.arma;
+    // As armas dos dois encaixes vão em todo comando; com o menu aberto não sai tiro.
+    [inp.a, inp.a2] = menuArmas.encaixes;
     if (menuArmas.aberto) inp.f1 = inp.f2 = false;
     seq++;
     rede.enviar({ t: 'in', s: seq, ...inp });
@@ -253,7 +261,9 @@ function montarJogo(rede, boas, renderer, race) {
       );
     }
     for (const { kind, off, ang } of stepShip(pred, inp)) {
-      efeitos.tiro(createBullet(pred, kind, 'l' + localSeq++, meuId, off, ang));
+      const w = WEAPONS[kind];
+      if (w.tipo === 'choque') efeitos.anelArea(pred.x, pred.y, pred.z, w.area, COR_TIME.meu);
+      else if (!w.tipo && !w.guiado) efeitos.tiro(createBullet(pred, kind, 'l' + localSeq++, meuId, off, ang));
     }
     pendentes.push({ seq, inp });
     if (pendentes.length > 120) pendentes.shift();
@@ -273,6 +283,9 @@ function montarJogo(rede, boas, renderer, race) {
       efeitos.explosao(t.x, t.y + 12, t.z, 3, '#ffb627');
     }
     tratarEventos(m.ev);
+    efeitos.corrigirGuiados(m.guiados);
+    efeitos.atualizarMinas(m.minas, meuTime);
+    menuArmas.definirPosse(m.me?.armas);
 
     if (!m.vivo) {
       if (vivo) morteEm = performance.now();
@@ -308,9 +321,17 @@ function montarJogo(rede, boas, renderer, race) {
 
   function tratarEventos(ev) {
     for (const e of ev) {
-      if (e.e === 'tiro' && e.dono !== meuId) {
+      if (e.e === 'tiro' && (e.dono !== meuId || WEAPONS[e.kind]?.guiado)) {
+        // O míssil próprio também vem daqui: a curva é do servidor, não da predição.
         const dono = outras.get(e.dono);
-        efeitos.tiro({ id: e.id, kind: e.kind, x: e.x, y: e.y, z: e.z, vx: e.vx, vy: e.vy, vz: e.vz, vida: 2.5 }, !!dono?.drone);
+        const vida = WEAPONS[e.kind]?.guiado ? WEAPONS[e.kind].vida : 2.5;
+        efeitos.tiro({ id: e.id, kind: e.kind, x: e.x, y: e.y, z: e.z, vx: e.vx, vy: e.vy, vz: e.vz, vida }, !!dono?.drone);
+      } else if (e.e === 'choque') {
+        // A sua já foi desenhada na hora, pela predição.
+        if (e.id !== meuId) efeitos.anelArea(e.x, e.y, e.z, e.raio, e.time === meuTime ? COR_TIME.meu : COR_TIME.outro);
+      } else if (e.e === 'explosao' && e.arma === 'mina') {
+        efeitos.explosao(e.x, e.y + 1.5, e.z, 3, '#ff9a3a');
+        efeitos.anelArea(e.x, e.y + 1.5, e.z, e.raio, e.time === meuTime ? COR_TIME.meu : COR_TIME.outro);
       } else if (e.e === 'acerto') {
         efeitos.removerTiro(e.bala);
         efeitos.explosao(e.x, e.y, e.z, 0.7, '#ffd080');
@@ -436,7 +457,7 @@ function montarJogo(rede, boas, renderer, race) {
       minhaNave.userData.corpo.rotation.z = lerp(ant.roll, pred.roll, alfa);
       atualizarMotor(minhaNave, pred.boost, tempo, pred.pousado);
       const eu = snaps.at(-1)?.ents.find((e) => e.id === meuId);
-      const meusEfeitos = { dreno: !!eu?.dreno && vivo, lento: pred.lento > 0 && vivo };
+      const meusEfeitos = { dreno: !!eu?.dreno && vivo, lento: pred.lento > 0 && vivo, emp: pred.emp > 0 && vivo };
       efeitos.estadoNave(minhaNave, meusEfeitos, dt, tempo);
       hud.efeitosProprios(meusEfeitos);
       foco.set(x, y, z);
@@ -472,7 +493,7 @@ function montarJogo(rede, boas, renderer, race) {
       else if (e.drone) o.obj.userData.corpo.rotation.y = Math.sin(tempo * 3 + e.id) * 0.15;
       if (e.tipo === 'minerador') animarMinerador(o.obj, e, tempo, e.id);
       else atualizarMotor(o.obj, e.boost, tempo, e.pousado);
-      efeitos.estadoNave(o.obj, { dreno: !!e.dreno, lento: !!e.lento }, dt, tempo);
+      efeitos.estadoNave(o.obj, { dreno: !!e.dreno, lento: !!e.lento, emp: !!e.emp }, dt, tempo);
       rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position, nivel: e.nivel });
     }
     for (const [id, o] of outras) {

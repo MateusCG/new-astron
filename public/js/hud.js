@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import { paredeAt, MAP_HALF_X, MAP_HALF_Z, BASES, CORREDOR, MINERIO, ENTREGAS, SERVICOS, OBJETIVOS } from '/shared/terrain.js';
-import { WEAPONS, ARMAS_PRINCIPAIS } from '/shared/sim.js';
+import { WEAPONS, ARMAS, ENCAIXE_PADRAO } from '/shared/sim.js';
 import { iconeArma } from './armas.js';
 import { relogio } from './objetivos.js';
 
@@ -42,8 +42,11 @@ export class Hud {
     this.ouro = $('#ouro');
     this.abates = $('#abates');
     this.vel = $('#vel');
-    this.armaAtual = $('#arma-atual');
-    this.armaMostrada = null;
+    // As duas armas no painel (Z e X): ícone, nome e a linha de recarga de cada uma.
+    this.slots = ['#arma-z', '#arma-x'].map((sel) => {
+      const el = $(sel);
+      return { el, icone: el.querySelector('.icone'), nome: el.querySelector('.nome'), recarga: el.querySelector('.recarga i'), kind: null };
+    });
     this.ping = $('#ping');
     this.aviso = $('#aviso');
     this.avisoPouso = $('#pouso');
@@ -237,13 +240,22 @@ export class Hud {
     this.abates.textContent = extra.abates;
     this.vel.textContent = Math.round(Math.hypot(me.vx, me.vz) * 3.6) + ' km/h';
     this.ping.textContent = ping ? `${ping} ms` : '';
-    // Mostra a arma da nave prevista (a mesma que o servidor usa no próximo tiro).
-    const kind = ARMAS_PRINCIPAIS[me.arma ?? 0] ?? ARMAS_PRINCIPAIS[0];
-    if (kind !== this.armaMostrada) {
-      this.armaMostrada = kind;
-      this.armaAtual.querySelector('.icone').innerHTML = iconeArma(kind);
-      this.armaAtual.querySelector('.nome').textContent = WEAPONS[kind].nome;
-    }
+    // As armas da nave prevista (as mesmas que o servidor usa no próximo tiro), com
+    // a recarga do encaixe de cada uma (cd1 do Z, cd2 do X) e a energia, que é uma só.
+    this.slots.forEach((slot, enc) => {
+      const kind = ARMAS[me.encaixes?.[enc] ?? ENCAIXE_PADRAO[enc]] ?? ARMAS[ENCAIXE_PADRAO[enc]];
+      const w = WEAPONS[kind];
+      if (kind !== slot.kind) {
+        slot.kind = kind;
+        slot.icone.innerHTML = iconeArma(kind);
+        slot.nome.textContent = w.nome;
+      }
+      const cd = (enc === 0 ? me.cd1 : me.cd2) ?? 0;
+      slot.recarga.style.width = `${(1 - Math.min(1, cd / w.cd)) * 100}%`;
+      slot.el.classList.toggle('carregando', cd > 0);
+      slot.el.classList.toggle('sem-energia', cd <= 0 && me.en < w.energia);
+      slot.el.classList.toggle('emp', me.emp > 0);
+    });
   }
 
   /**
@@ -305,12 +317,14 @@ export class Hud {
     el.querySelector('i').style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
   }
 
-  /** Avisa quando a própria nave começa a drenar ou fica lenta (só na mudança). */
-  efeitosProprios({ dreno, lento }) {
+  /** Avisa quando a própria nave começa a drenar, fica lenta ou leva EMP (só na mudança). */
+  efeitosProprios({ dreno, lento, emp }) {
     if (dreno && !this.drenando) this.noticia('Dreno: você está perdendo vida', 'ruim');
     if (lento && !this.lenta) this.noticia('Criogênico: sua nave está lenta', 'ruim');
+    if (emp && !this.semSistemas) this.noticia('EMP: sem energia, sem tiro e sem boost por instantes', 'ruim');
     this.drenando = dreno;
     this.lenta = lento;
+    this.semSistemas = emp;
   }
 
   mostrarAviso(texto) {

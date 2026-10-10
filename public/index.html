@@ -23,7 +23,8 @@
         <p id="erro-entrada" role="alert"></p>
         <p class="ajuda">
           <kbd>W</kbd><kbd>S</kbd> acelera/ré · <kbd>A</kbd><kbd>D</kbd> gira · <kbd>Shift</kbd> boost ·
-          <kbd>Z</kbd> arma · <kbd>X</kbd> plasma · <kbd>Q</kbd> armas (1–5) · <kbd>L</kbd> pousar · <kbd>V</kbd> câmera ·
+          <kbd>Z</kbd> e <kbd>X</kbd> atiram (uma arma em cada) · <kbd>Q</kbd> troca a arma do Z · <kbd>E</kbd> a do X ·
+          <kbd>L</kbd> pousar · <kbd>V</kbd> câmera ·
           <kbd>Esc</kbd> sair
         </p>
       </form>
@@ -56,7 +57,14 @@
           <div id="en" class="barra"><em>EN</em><span class="valor"></span><span class="txt"></span></div>
           <div id="xp" class="barra"><em>NV 1</em><span class="valor"></span><span class="txt"></span></div>
         </div>
-        <button id="arma-atual" type="button" title="Trocar de arma (Q)"><span class="icone"></span><span class="nome"></span></button>
+        <div id="armas-nave">
+          <button id="arma-z" class="arma-encaixe" type="button" title="Trocar a arma do Z (Q)">
+            <b class="tecla">Z</b><span class="icone"></span><span class="nome"></span><i class="recarga"><i></i></i>
+          </button>
+          <button id="arma-x" class="arma-encaixe" type="button" title="Trocar a arma do X (E)">
+            <b class="tecla">X</b><span class="icone"></span><span class="nome"></span><i class="recarga"><i></i></i>
+          </button>
+        </div>
         <dl>
           <dt>Ouro</dt><dd id="ouro">0</dd>
           <dt>Abates</dt><dd id="abates">0</dd>
@@ -65,18 +73,19 @@
       </footer>
 
       <section id="menu-armas" hidden aria-label="Menu de armas">
-        <h2>Arma principal <kbd>Z</kbd></h2>
+        <h2>Arma do <kbd>Z</kbd></h2>
         <div class="opcoes"></div>
         <p class="dica">
-          <span class="so-teclado"><kbd>1</kbd>–<kbd>5</kbd> escolhe · <kbd>Q</kbd> fecha</span><span class="so-toque">Toque para escolher · ARMA fecha</span>
-          · sem tiro com o menu aberto
+          <span class="so-teclado"><kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> escolhe · <span class="dica-encaixe"></span></span><span class="so-toque">Toque para escolher · ARMA Z/X troca ou fecha</span>
+          · a mesma arma pode ir nos dois · sem tiro com o menu aberto
         </p>
       </section>
 
       <div id="toque">
         <div id="stick"><span class="pino"></span></div>
         <div id="botoes">
-          <button id="btn-arma" type="button">ARMA</button>
+          <button id="btn-arma-z" class="btn-arma" type="button">ARMA Z</button>
+          <button id="btn-arma-x" class="btn-arma" type="button">ARMA X</button>
           <button id="btn-pouso" type="button">POUSAR</button>
           <button id="btn-shift" type="button">SHIFT</button>
           <button id="btn-z" type="button">Z</button>
