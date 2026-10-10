@@ -38,6 +38,13 @@
 // na morte do guardião), que ligam os bônus em this.bonus; os monstros elite
 // (Krakor e o guardião) em server/elites.js.
 //
+// Combate entre jogadores (DESIGN-PARTIDA.md, "Combate"; números em
+// server/progressao.js): todo dano de jogador inimigo (tiro, dreno, mina, choque)
+// fica anotado na vítima (`danoPor`: atacante → tick); na morte de um jogador,
+// quem do time do matador feriu na janela leva a assistência, a sequência da
+// vítima zera (e o matador ganha o bônus por encerrá-la) e o renascimento do
+// jogador demora tempoRenascer(nível, partida decorrida).
+//
 // Loja e Evolução (server/servicos.js): pedidos do cliente atendidos em pedido();
 // a posse de armas, a armadura, os itens e as evoluções ficam no jogador e vão
 // para cada nave nova em prepararNave (nascimento e renascimento). A armadura e a
@@ -63,7 +70,17 @@ import { Partida, N_TIMES } from './partida.js';
 import { Mineradores } from './mineradores.js';
 import { Bonus } from './bonus.js';
 import { Objetivos } from './objetivos.js';
-import { novaProgressao, recompensar, xpParaNivel } from './progressao.js';
+import {
+  novaProgressao,
+  novoCombate,
+  recompensar,
+  ganharXp,
+  xpParaNivel,
+  tempoRenascer,
+  ouroEncerrar,
+  recompensaAssistencia,
+  ASSISTENCIA_JANELA_S,
+} from './progressao.js';
 import { Servicos, novoEquipamento, prepararNave, reducaoArmadura } from './servicos.js';
 import { KRAKOR, N_KRAKOR, novaElite, renascerElite, iaElite } from './elites.js';
 import { alvoDoMissil, guiarMissil, novaMina, naArea } from './armas.js';
@@ -72,7 +89,8 @@ export const TICK_HZ = 30;
 const SNAP_CADA = 2; // ticks entre snapshots (15 Hz)
 const MAX_INPUTS_TICK = 4;
 const MAX_FILA = 30;
-const RESPAWN_TICKS = 3 * TICK_HZ;
+const RESPAWN_TICKS = 3 * TICK_HZ; // drones; o do jogador cresce (tempoRenascer em server/progressao.js)
+const ASSISTENCIA_TICKS = ASSISTENCIA_JANELA_S * TICK_HZ;
 const REGEN_ESPERA_TICKS = 5 * TICK_HZ;
 const VOO_REGEN_HP = 0.03; // fração do HP máximo por segundo, voando
 const POUSO_REGEN_HP = 0.08; // fração do HP máximo por segundo, pousada
@@ -311,6 +329,7 @@ export class World {
       abates: 0,
       mortes: 0,
       ...novaProgressao(), // nivel, xp
+      ...novoCombate(), // sequencia, danoPor
       ...novoEquipamento(), // armas, armadura, itens, evoluções (Loja e Evolução)
     };
     prepararNave(jogador); // só as armas de fábrica
@@ -691,12 +710,20 @@ export class World {
     else if (alvo.tipo === 'minerador') dano *= 1 - this.mineradores.atributos(alvo.time, this.tick).defesa;
     alvo.ship.hp -= dano;
     alvo.ultimoDano = this.tick;
+    // Dano de jogador inimigo: anota para a assistência.
+    const atacante = alvo.tipo === 'jogador' && dano > 0 ? this.players.get(autor) : undefined;
+    if (atacante && atacante.time !== alvo.time) alvo.danoPor.set(atacante.id, this.tick);
     if (ev) this.eventos.push({ ...ev, alvo: alvo.id, dano });
     if (alvo.ship.hp > 0) return;
     alvo.ship.hp = 0;
     alvo.vivo = false;
     alvo.drenoTicks = 0;
-    alvo.respawnTick = this.tick + (alvo.renascerTicks ?? (alvo.tipo === 'vorax' ? VORAX_RENASCER_TICKS : RESPAWN_TICKS));
+    if (alvo.tipo === 'jogador') {
+      const s = tempoRenascer(alvo.nivel, this.partida.fracaoDecorrida(this.tick));
+      alvo.respawnTick = this.tick + Math.round(s * TICK_HZ);
+    } else {
+      alvo.respawnTick = this.tick + (alvo.renascerTicks ?? (alvo.tipo === 'vorax' ? VORAX_RENASCER_TICKS : RESPAWN_TICKS));
+    }
     if (alvo.tipo === 'jogador') alvo.mortes++;
     if (alvo.tipo === 'minerador') alvo.carga = 0; // o minério que carregava se perde
     let matador = this.players.get(autor);
@@ -707,9 +734,50 @@ export class World {
     if (matador) {
       // Ouro e XP pelo tipo do que morreu (RECOMPENSA: monstro, minerador, jogador).
       matador.abates++;
+      const ouroAntes = matador.ouro;
       recompensar(matador, alvo.tipo, this.eventos);
+      if (alvo.tipo === 'jogador') this.#abateDeJogador(alvo, matador, morte);
+      morte.ouro = matador.ouro - ouroAntes;
+    }
+    if (alvo.tipo === 'jogador') {
+      // Morrer (para quem for) zera a sequência e o registro de dano.
+      alvo.sequencia = 0;
+      alvo.danoPor.clear();
+      morte.renasce = Math.round((alvo.respawnTick - this.tick) / TICK_HZ);
     }
     this.objetivos.aoMorrer(alvo, matador);
+  }
+
+  /**
+   * Extras do abate de jogador por jogador: assistências (aliados do matador que
+   * feriram a vítima na janela, cada um com recompensaAssistencia) e a sequência
+   * (o matador soma um; encerrar a da vítima dá ouroEncerrar). Completa o evento
+   * de morte com `assist` (ids), `ouroAssist`, `seq` (sequência encerrada),
+   * `encerrou` (bônus) e `seqPor` (sequência nova do matador).
+   */
+  #abateDeJogador(alvo, matador, morte) {
+    const assist = [];
+    const r = recompensaAssistencia();
+    for (const [id, tick] of alvo.danoPor) {
+      if (id === matador.id || this.tick - tick > ASSISTENCIA_TICKS) continue;
+      const j = this.players.get(id);
+      if (!j || j.time !== matador.time) continue;
+      j.ouro += r.ouro;
+      ganharXp(j, r.xp, this.eventos);
+      assist.push(id);
+    }
+    if (assist.length) {
+      morte.assist = assist;
+      morte.ouroAssist = r.ouro;
+    }
+    const bonus = ouroEncerrar(alvo.sequencia);
+    if (bonus) {
+      matador.ouro += bonus;
+      morte.seq = alvo.sequencia;
+      morte.encerrou = bonus;
+    }
+    matador.sequencia++;
+    morte.seqPor = matador.sequencia;
   }
 
   /** Dreno: um tick de dano por tempo. Na zona segura/proteção o tempo corre sem dano. */
@@ -777,7 +845,7 @@ export class World {
           if (j.fila.length) j.ack = j.fila[j.fila.length - 1].seq; // descarta sem travar a predição
           // Ouro, XP, nível, armas compradas, armadura, itens e evoluções são da
           // partida (como num MOBA): zeram na seguinte.
-          Object.assign(j, novaProgressao(), novoEquipamento(), { ouro: 0 });
+          Object.assign(j, novaProgressao(), novoCombate(), novoEquipamento(), { ouro: 0 });
           this.#respawn(j);
         }
       }
@@ -946,6 +1014,7 @@ export class World {
       tick: this.tick,
       ack: j.ack,
       vivo: j.vivo,
+      renasceEm: j.vivo ? 0 : Math.max(0, +((j.respawnTick - this.tick) / TICK_HZ).toFixed(1)),
       time: j.time,
       me: { ...j.ship, ...this.servicos.paraMe(j) },
       ouro: j.ouro,

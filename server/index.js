@@ -28,7 +28,7 @@
 //                       {t:'ping', c}
 //   servidor → cliente  {t:'bemvindo', id, tickHz, time}   time = 0 (base de baixo) ou 1
 //                       {t:'erro', codigo}   codigo 'partida_cheia' (3 em cada time); fecha
-//                       {t:'snap', tick, ack, vivo, time, me, ouro, abates, mortes,
+//                       {t:'snap', tick, ack, vivo, renasceEm, time, me, ouro, abates, mortes,
 //                        nivel, xp, xpProx, partida, bonus, obj, melhorias, minas, guiados,
 //                        ents, ev}
 //                       (me.encaixes = [arma do Z, arma do X], me.cd1/cd2 = recarga
@@ -39,7 +39,8 @@
 //                        ev 'tiro' traz kind, que diz a arma e o efeito do projétil;
 //                        nivel = nível do jogador (1 a NIVEL_MAX), xp = XP dentro do
 //                        nível, xpProx = XP para o próximo (0 no máximo); ouro, xp e
-//                        nivel zeram a cada partida)
+//                        nivel zeram a cada partida; renasceEm = s até a nave
+//                        renascer, 0 viva: cresce com o nível e com a partida)
 //                       {t:'resultado', acao, item, ok, codigo?}   resposta (só a quem
 //                       pediu) de comprar/evoluir/melhorar/usar; codigo = 'nao_pousado' |
 //                       'ouro_insuficiente' | 'nivel_insuficiente' | 'ja_possui' |
@@ -73,7 +74,15 @@
 //         carga e minerando só nos mineradores; nivel só nos jogadores
 //   ev:   {e:'tiro'|'acerto'|'fim'|'renasceu'|'saiu', ...}
 //         {e:'entrou', id, nome, time}
-//         {e:'morte', id, por, tipo, time?, x, y, z}
+//         {e:'morte', id, por, tipo, time?, x, y, z, ouro?, renasce?, assist?, ouroAssist?,
+//          seq?, encerrou?, seqPor?}
+//                                    ouro = ouro que o matador (jogador) ganhou, bônus
+//                                    incluso; em morte de jogador: renasce = s até
+//                                    renascer; assist = ids dos aliados do matador que
+//                                    feriram a vítima na janela, ouroAssist = ouro de
+//                                    cada um; seq = sequência da vítima encerrada e
+//                                    encerrou = bônus de ouro (só com seq >= 2);
+//                                    seqPor = sequência do matador com este abate
 //         {e:'garra', id, alvo, dano, x, y, z}   golpe corpo a corpo de um Vorax
 //         {e:'acerto', ..., torre}   tiro que bateu numa torre B (alvo 0)
 //         {e:'acerto', arma, alvo, dano, x, y, z}   dano em área (arma 'mina' ou

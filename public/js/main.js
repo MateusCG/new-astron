@@ -251,7 +251,7 @@ function montarJogo(rede, boas, renderer, race) {
   let camModo = 0;
   let camYaw = 0;
   let tempo = 0;
-  let morteEm = 0;
+  let renasceAte = 0; // performance.now() em que a nave renasce (do renasceEm do servidor)
   let localSeq = 0;
 
   const pose = (s) => ({ x: s.x, y: s.y, z: s.z, yaw: s.yaw, roll: s.roll });
@@ -302,7 +302,8 @@ function montarJogo(rede, boas, renderer, race) {
     painel.atualizar({ ouro: m.ouro, nivel: m.nivel, me: m.me, melhorias: m.melhorias });
 
     if (!m.vivo) {
-      if (vivo) morteEm = performance.now();
+      // O tempo de renascer é do servidor (cresce com o nível e com a partida).
+      renasceAte = performance.now() + (m.renasceEm ?? 0) * 1000;
       vivo = false;
       pendentes = [];
       pred = m.me;
@@ -370,11 +371,19 @@ function montarJogo(rede, boas, renderer, race) {
         const tipo = e.tipo ?? outras.get(e.id)?.tipo;
         efeitos.explosao(e.x, e.y, e.z, tipo === 'guardiao' ? 9 : tipo === 'krakor' ? 6 : 4, '#ff9a3a');
         const quem = nomes.get(e.id) ?? '?';
+        const matador = e.por === meuId ? 'Você' : (nomes.get(e.por) ?? '?');
         if (e.id === meuId) hud.noticia(`Você foi destruído por ${nomes.get(e.por) ?? '?'}`, 'ruim');
         else if (e.por === meuId && outras.get(e.id)?.drone) {
           hud.noticia(`Você destruiu ${tipo === 'guardiao' ? 'o' : 'um'} ${quem}${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
-        } else if (e.por === meuId) hud.noticia(`Você abateu ${quem}`, 'bom');
-        else if (!outras.get(e.id)?.drone) hud.noticia(`${nomes.get(e.por) ?? '?'} abateu ${quem}`);
+        } else if (e.por === meuId) hud.noticia(`Você abateu ${quem}${e.ouro > 0 ? ` · +${e.ouro} ouro` : ''}`, 'bom');
+        else if (!outras.get(e.id)?.drone) hud.noticia(`${matador} abateu ${quem}`, e.time === meuTime ? 'ruim' : '');
+        // Combate entre jogadores: sequência encerrada, assistência e sequência nova.
+        if (e.encerrou > 0) {
+          const de = e.id === meuId ? 'a sua sequência' : `a sequência de ${quem}`;
+          hud.noticia(`${matador} encerrou ${de} (${e.seq} abates, +${e.encerrou} ouro)`, e.por === meuId ? 'bom' : '');
+        }
+        if (e.assist?.includes(meuId)) hud.noticia(`Assistência no abate de ${quem} · +${e.ouroAssist} ouro`, 'bom');
+        if (e.seqPor >= 2) hud.noticia(`${matador} está em sequência de ${e.seqPor} abates`, e.por === meuId ? 'bom' : '');
       } else if (e.e === 'nivel') {
         // Subiu de nível: anel de luz na nave de quem subiu (você ou outro).
         const nave = e.id === meuId ? minhaNave : outras.get(e.id)?.obj;
@@ -578,9 +587,9 @@ function montarJogo(rede, boas, renderer, race) {
         ...objetivos.estado.values(),
       ]);
     }
-    if (!vivo && morteEm) {
-      const falta = Math.max(0, 3 - (performance.now() - morteEm) / 1000);
-      hud.mostrarAviso(`Nave destruída · renascendo na base em ${falta.toFixed(0)}s`);
+    if (!vivo && renasceAte) {
+      const falta = Math.max(0, (renasceAte - performance.now()) / 1000);
+      hud.mostrarAviso(`Nave destruída · renascendo na base em ${Math.ceil(falta - 1e-3)}s`);
     }
     hud.rotulosNaves(rotulos, camera, innerWidth, innerHeight);
     objetivos.desenhar(camera, innerWidth, innerHeight);

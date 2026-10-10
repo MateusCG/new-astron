@@ -91,6 +91,15 @@ export class Partida {
     return null;
   }
 
+  /**
+   * Quanto da partida já passou, de 0 (começo) a 1 (fim do cronômetro); 0 fora
+   * do andamento. O renascimento dos jogadores cresce com isto (server/progressao.js).
+   */
+  fracaoDecorrida(tick) {
+    if (!this.emAndamento) return 0;
+    return Math.min(1, Math.max(0, 1 - (this.fimTick - tick) / this.duracaoTicks));
+  }
+
   /** Segundos que faltam na partida (0 fora do andamento). */
   restante(tick) {
     return this.emAndamento ? Math.max(0, (this.fimTick - tick) * DT) : 0;

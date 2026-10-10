@@ -63,10 +63,21 @@ Os bônus do lado dos mineradores (`server/bonus.js`): `'mineracao'` +1 por viag
 - **[feito]** **XP e nível** ao destruir monstros, mineradores e jogadores inimigos, e ao tomar objetivos A e B. Começa no nível 1, vai até o 20 (`NIVEL_MAX`); para passar do nível n são `60 + 20 × (n − 1)` XP (`xpParaNivel` em `server/progressao.js`). Cada nível dá +3% do HP máximo da raça. Subir de nível: notícia e anel de luz na nave.
 - **[feito]** **Ouro** pelas mesmas fontes. XP e ouro por tipo em `RECOMPENSA`: Arnosh 20 XP / 25 ouro, Vorax 30 / 30, Krakor 120 / 90, guardião 250 / 150, minerador 40 / 40, jogador 100 / 50.
 - **[feito]** Ouro, XP e nível são **da partida** (como num MOBA): zeram quando começa a seguinte.
+- **[feito]** **Assistência e sequência de abates** em abate de jogador, e **renascimento** que demora mais com o nível e com o tempo de partida: ver "Combate".
 - **[feito]** **Evolução da nave** nos níveis **5, 10 e 15**, pagando ouro: escolher 1 de 3 (durabilidade, energia, velocidade). Ver "Loja e Evolução".
 - **[feito]** **Duas armas na nave:** Q edita o Z, E edita o X; mesma arma pode ir nos dois. Não existe arma principal: os dois encaixes escolhem do mesmo catálogo (`ARMAS` em `shared/sim.js`: laser simples, duplo, triplo, dreno, criogênico, plasma, míssil teleguiado, mina, onda de choque e pulso EMP), cada um com a sua recarga e a mesma energia. Padrão: laser simples no Z e plasma no X (as duas de fábrica, sempre possuídas).
 - **[feito]** **Loja**: comprar armas, armaduras e itens. Cada partida começa só com as armas de fábrica (laser simples e plasma); as outras oito se compram aqui e ficam na posse do piloto (no jogador, não na nave: voltam a cada renascimento). Arma não possuída fica travada no menu ("NA LOJA") e cai na padrão do encaixe.
 - **[feito]** Evolução e Loja só abrem **com a nave pousada e parada** na plataforma do serviço da **própria base**.
+
+## Combate
+
+**[feito]** Regras do combate entre jogadores (`server/progressao.js`, números no topo dele; aplicadas em `#ferir` de `server/game.js`). A morte pesa mais conforme a partida avança, e jogar junto rende.
+
+- **Renascimento crescente** (só jogadores; monstros têm o tempo deles): `3 s + 0,6 s × (nível − 1) + até 3 s pelo tempo de partida` (linear, 0 no começo e 3 s no fim do cronômetro), com **teto de 15 s** (`tempoRenascer`). Ex.: nível 1 no começo = 3 s; nível 10 na metade = 9,9 s; nível 20 no fim = 15 s. O snapshot traz `renasceEm` e o HUD conta o tempo certo.
+- **Assistência:** quem é do time do matador e feriu a vítima (jogador inimigo) nos últimos **10 s** (`ASSISTENCIA_JANELA_S`), sem dar o último tiro, ganha **50% do ouro e do XP** do abate de jogador (**25 ouro e 50 XP**), cada um a parte cheia, sem dividir (no 3 contra 3 são no máximo dois ajudantes, e dividir puniria quem joga junto). Vale todo dano com dono: tiro, dreno, mina e onda de choque. Assistência não conta como abate. Só em abate de jogador (minerador e monstro, não). O registro de dano da vítima zera quando ela morre.
+- **Sequência de abates:** cada piloto conta os abates de jogador seguidos sem morrer. Derrubar quem está com sequência de **2 ou mais** (`SEQUENCIA_MIN`) dá ao matador **+25 de ouro por abate da sequência** encerrada, com **teto de 150** (`ouroEncerrar`), além dos 50 do abate. Morrer (para jogador ou monstro) zera a sequência.
+- Sequência e registro de dano zeram também na partida nova, junto com ouro e nível.
+- Notícias: "X encerrou a sequência de Y (N abates, +B ouro)", "Assistência no abate de Y · +25 ouro" e "X está em sequência de N abates".
 
 ## Loja e Evolução
 
