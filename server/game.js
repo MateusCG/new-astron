@@ -42,6 +42,13 @@
 // a posse de armas, a armadura, os itens e as evoluções ficam no jogador e vão
 // para cada nave nova em prepararNave (nascimento e renascimento). A armadura e a
 // defesa dos mineradores reduzem o dano em #ferir.
+//
+// Recall (shared/recall.js): o campo r do comando é um pulso; a borda de subida
+// (j.rAnt) começa ou cancela a canalização no passo daquele comando, e os mesmos
+// comandos cancelam com gatilho, boost ou velocidade (#comandoRecall). Dano cancela
+// em #ferir. Terminada, a nave vai para um ponto da base do time como no
+// renascimento, mas é a mesma nave (vida, energia, nível e equipamento ficam); a
+// fila de comandos segue, e o cliente reconcilia o salto pelo `me`.
 
 import {
   DT,
@@ -67,6 +74,7 @@ import { novaProgressao, recompensar, xpParaNivel } from './progressao.js';
 import { Servicos, novoEquipamento, prepararNave, reducaoArmadura } from './servicos.js';
 import { KRAKOR, N_KRAKOR, novaElite, renascerElite, iaElite } from './elites.js';
 import { alvoDoMissil, guiarMissil, novaMina, naArea } from './armas.js';
+import { RECALL_S, motivoRecall } from '../shared/recall.js';
 
 export const TICK_HZ = 30;
 const SNAP_CADA = 2; // ticks entre snapshots (15 Hz)
@@ -92,6 +100,7 @@ export const ZONA_SEGURA = BASE.raio + 30;
 // volta para o mundo aberto: as bases são território dos jogadores.
 const DRONE_LIMITE_BASE = ZONA_SEGURA + 60;
 const PROTECAO_TICKS = 3 * TICK_HZ; // invulnerável logo depois de nascer
+const RECALL_TICKS = Math.round(RECALL_S * TICK_HZ);
 
 // Monstros Vorax: caçadores que vêm atrás de quem sai da base, de qualquer canto do
 // mapa, contornando as mesas de rocha (server/navegacao.js). Atacam com as garras, de
@@ -307,6 +316,8 @@ export class World {
       respawnTick: 0,
       ultimoDano: 0,
       protegidoAte: this.tick + PROTECAO_TICKS,
+      recall: null, // canalizando: { inicio, fim } em ticks
+      rAnt: false, // botão do recall no comando anterior (borda de subida)
       ouro: 0,
       abates: 0,
       mortes: 0,
@@ -691,6 +702,7 @@ export class World {
     else if (alvo.tipo === 'minerador') dano *= 1 - this.mineradores.atributos(alvo.time, this.tick).defesa;
     alvo.ship.hp -= dano;
     alvo.ultimoDano = this.tick;
+    if (alvo.recall && dano > 0) this.#pararRecall(alvo, 'dano'); // vale também para a morte
     if (ev) this.eventos.push({ ...ev, alvo: alvo.id, dano });
     if (alvo.ship.hp > 0) return;
     alvo.ship.hp = 0;
@@ -750,6 +762,7 @@ export class World {
       prepararNave(ent); // nível, evoluções, armadura e a posse de armas
       ent.fila.length = 0;
       ent.protegidoAte = this.tick + PROTECAO_TICKS;
+      ent.recall = null; // partida nova: quem canalizava já está na base
     }
     ent.vivo = true;
     ent.drenoTicks = 0;
@@ -794,6 +807,49 @@ export class World {
     }
   }
 
+  /**
+   * Recall depois de aplicar o comando `inp` na nave de `j`: B apertado agora (borda
+   * de subida) começa ou cancela; canalizando, gatilho, boost e velocidade cancelam.
+   * Recusa vem como evento ('na_base' ou o motivo de motivoRecall).
+   */
+  #comandoRecall(j, inp) {
+    const apertou = inp.r && !j.rAnt;
+    j.rAnt = inp.r;
+    if (j.recall) {
+      const motivo = apertou ? 'cancelou' : motivoRecall(inp, j.ship);
+      if (motivo) this.#pararRecall(j, motivo);
+      return;
+    }
+    if (!apertou) return;
+    const motivo = this.#naPropriaBase(j) ? 'na_base' : motivoRecall(inp, j.ship);
+    if (motivo) {
+      this.eventos.push({ e: 'recall', id: j.id, estado: 'recusado', motivo });
+      return;
+    }
+    j.recall = { inicio: this.tick, fim: this.tick + RECALL_TICKS };
+    this.eventos.push({ e: 'recall', id: j.id, estado: 'inicio', s: RECALL_S });
+  }
+
+  #pararRecall(j, motivo) {
+    j.recall = null;
+    this.eventos.push({ e: 'recall', id: j.id, estado: 'cancelado', motivo });
+  }
+
+  /**
+   * Fim da canalização: a mesma nave aparece num ponto da base do time, voltada para
+   * o corredor, como quem renasce (sem a proteção de nascimento: na própria base a
+   * zona segura já protege). Vida, energia, armas e efeitos ficam como estavam.
+   */
+  #chegarNaBase(j) {
+    const s = j.ship;
+    const de = { x: s.x, y: s.y, z: s.z };
+    const p = this.#pontoNaBase(j.time);
+    const nova = createShip(s.race, p.x, p.z, p.yaw);
+    Object.assign(s, { x: nova.x, y: nova.y, z: nova.z, yaw: nova.yaw, vx: 0, vz: 0, roll: 0, pousado: false, boost: false });
+    j.recall = null;
+    this.eventos.push({ e: 'recall', id: j.id, estado: 'chegou', de, x: s.x, y: s.y, z: s.z });
+  }
+
   /** Avança o mundo um passo. */
   step() {
     this.tick++;
@@ -811,8 +867,10 @@ export class World {
       for (let k = 0; k < n; k++) {
         const { seq, inp } = j.fila.shift();
         this.#atira(j, stepShip(j.ship, inp));
+        this.#comandoRecall(j, inp);
         j.ack = seq;
       }
+      if (j.recall && this.tick >= j.recall.fim) this.#chegarNaBase(j);
       this.#drenar(j);
       if (j.vivo) this.#regen(j);
     }
@@ -918,6 +976,7 @@ export class World {
       };
       if (e.time !== undefined) ent.time = e.time;
       if (e.nivel !== undefined) ent.nivel = e.nivel;
+      if (e.recall) ent.recall = +Math.min(1, (this.tick - e.recall.inicio) / (e.recall.fim - e.recall.inicio)).toFixed(2);
       if (e.tipo === 'minerador') {
         ent.carga = e.carga;
         ent.minerando = e.estado === 'minerando';
