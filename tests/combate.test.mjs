@@ -48,10 +48,15 @@ function arena(n, opcoes = {}) {
   return { w, js };
 }
 
-/** Põe a nave nova do jogador na posição `i` da arena, sem proteção e com todas as armas. */
+/**
+ * Põe a nave nova do jogador na posição `i` da arena, sem proteção, com todas as
+ * armas e a onda de choque já no Z (como se equipada na base: fora dela a troca
+ * travaria o encaixe por TROCA_ARMA_S).
+ */
 function colocar(j, i) {
   j.ship = createShip('bellico', X0 + i * 200, Z0, 0);
   j.ship.time = j.time;
+  j.ship.encaixes = [IDX_ARMA.choque, j.ship.encaixes[1]];
   j.protegidoAte = 0;
 }
 

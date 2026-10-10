@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import { paredeAt, MAP_HALF_X, MAP_HALF_Z, BASES, CORREDOR, MINERIO, ENTREGAS, SERVICOS, OBJETIVOS } from '/shared/terrain.js';
-import { WEAPONS, ARMAS, ENCAIXE_PADRAO } from '/shared/sim.js';
+import { WEAPONS, ARMAS, ENCAIXE_PADRAO, TROCA_ARMA_S } from '/shared/sim.js';
 import { iconeArma } from './armas.js';
 import { iconeItem } from './servicos.js';
 import { ITENS, ORDEM_ITENS } from '/shared/loja.js';
@@ -44,10 +44,17 @@ export class Hud {
     this.ouro = $('#ouro');
     this.abates = $('#abates');
     this.vel = $('#vel');
-    // As duas armas no painel (Z e X): ícone, nome e a linha de recarga de cada uma.
+    // As duas armas no painel (Z e X): ícone, nome e a linha de recarga de cada uma,
+    // e a contagem da recarga de troca de arma (só aparece enquanto conta).
     this.slots = ['#arma-z', '#arma-x'].map((sel) => {
       const el = $(sel);
-      return { el, icone: el.querySelector('.icone'), nome: el.querySelector('.nome'), recarga: el.querySelector('.recarga i'), kind: null };
+      let espera = el.querySelector('.espera');
+      if (!espera) {
+        espera = document.createElement('span');
+        espera.className = 'espera';
+        el.querySelector('.recarga').before(espera);
+      }
+      return { el, icone: el.querySelector('.icone'), nome: el.querySelector('.nome'), recarga: el.querySelector('.recarga i'), espera, kind: null, txtEspera: '' };
     });
     // Itens consumíveis (R e F): ícone, quantidade e a linha da recarga.
     this.itens = ORDEM_ITENS.map((id) => {
@@ -250,6 +257,8 @@ export class Hud {
     this.ping.textContent = ping ? `${ping} ms` : '';
     // As armas da nave prevista (as mesmas que o servidor usa no próximo tiro), com
     // a recarga do encaixe de cada uma (cd1 do Z, cd2 do X) e a energia, que é uma só.
+    // Com a recarga de troca contando (troca1/troca2), a linha mostra a troca e o
+    // encaixe ganha a contagem em segundos.
     this.slots.forEach((slot, enc) => {
       const kind = ARMAS[me.encaixes?.[enc] ?? ENCAIXE_PADRAO[enc]] ?? ARMAS[ENCAIXE_PADRAO[enc]];
       const w = WEAPONS[kind];
@@ -259,8 +268,13 @@ export class Hud {
         slot.nome.textContent = w.nome;
       }
       const cd = (enc === 0 ? me.cd1 : me.cd2) ?? 0;
-      slot.recarga.style.width = `${(1 - Math.min(1, cd / w.cd)) * 100}%`;
-      slot.el.classList.toggle('carregando', cd > 0);
+      const troca = (enc === 0 ? me.troca1 : me.troca2) ?? 0;
+      const fracao = troca > 0 ? troca / TROCA_ARMA_S : cd / w.cd;
+      slot.recarga.style.width = `${(1 - Math.min(1, fracao)) * 100}%`;
+      const txt = troca > 0 ? `${(Math.ceil(troca * 10) / 10).toLocaleString('pt-BR', { minimumFractionDigits: 1 })} s` : '';
+      if (txt !== slot.txtEspera) slot.espera.textContent = slot.txtEspera = txt;
+      slot.el.classList.toggle('trocando', troca > 0);
+      slot.el.classList.toggle('carregando', cd > 0 || troca > 0);
       slot.el.classList.toggle('sem-energia', cd <= 0 && me.en < w.energia);
       slot.el.classList.toggle('emp', me.emp > 0);
     });

@@ -15,12 +15,17 @@
 // sempre do snapshot. Preços e efeitos saem de shared/loja.js e shared/evolucao.js,
 // então balancear lá já atualiza os cartões.
 //
+// Na Loja, a aba "Evoluir" mostra as armas que o piloto tem (as de fábrica e as
+// compradas), cada uma com os tracinhos do nível, o que muda no próximo e o preço,
+// que cresce por nível e é por arma (evoluir duas custa o dobro). O pedido é
+// {t:'comprar', item:'evoluir:<arma>'}; o nível vem do snapshot (me.niveisArmas).
+//
 // Listeners no `signal` dos controles: sair da partida e entrar de novo não duplica.
 
-import { ARMAS, WEAPONS } from '/shared/sim.js';
-import { ARMAS_A_VENDA, PRECO_ARMA, ARMADURAS, ITENS, ORDEM_ITENS } from '/shared/loja.js';
+import { ARMAS, WEAPONS, ARMAS_INICIAIS } from '/shared/sim.js';
+import { ARMAS_A_VENDA, PRECO_ARMA, ARMADURAS, ITENS, ORDEM_ITENS, ARMA_NIVEL_MAX, PREFIXO_EVOLUIR, precoEvoluirArma } from '/shared/loja.js';
 import { MARCOS_NAVE, OPCOES_NAVE, ORDEM_OPCOES_NAVE, MELHORIAS_MINERADOR, ORDEM_MELHORIAS, proximoMarco } from '/shared/evolucao.js';
-import { iconeArma, descreverArma } from './armas.js';
+import { iconeArma, descreverArma, etiquetasArma, proximoNivelArma, pipsNivel } from './armas.js';
 
 /** Mensagem curta para cada código de erro estável do servidor. */
 export const MENSAGEM_ERRO = {
@@ -39,6 +44,7 @@ const NOME_SERVICO = { loja: 'Loja', evolucao: 'Evolução' };
 const ABAS = {
   loja: [
     ['armas', 'Armas'],
+    ['evoluir', 'Evoluir'],
     ['armaduras', 'Armaduras'],
     ['itens', 'Itens'],
   ],
@@ -110,7 +116,7 @@ export class PainelServicos {
     this.servico = null; // serviço do painel aberto (ou do último aberto)
     this.onde = null; // serviço da plataforma onde a nave está pousada (ou null)
     this.aba = { loja: 'armas', evolucao: 'nave' };
-    this.estado = { ouro: 0, nivel: 1, armas: [], armadura: -1, itens: {}, evolucoes: [], melhorias: {} };
+    this.estado = { ouro: 0, nivel: 1, armas: [], niveisArmas: [], armadura: -1, itens: {}, evolucoes: [], melhorias: {} };
     this.chave = '';
 
     aoClicar(this.el.querySelector('.fechar'), () => this.fechar(), signal);
@@ -201,6 +207,7 @@ export class PainelServicos {
       ouro: ouro ?? 0,
       nivel: nivel ?? 1,
       armas: me?.armas ?? [],
+      niveisArmas: me?.niveisArmas ?? [],
       armadura: me?.armadura ?? -1,
       itens: me?.itens ?? {},
       evolucoes: me?.evolucoes ?? [],
@@ -228,12 +235,25 @@ export class PainelServicos {
   }
 
   #textoSucesso(m) {
+    const evoluida = this.#armaEvoluida(m.item);
+    if (m.acao === 'comprar' && evoluida) {
+      // O snapshot com o nível novo pode ainda não ter chegado: conta mais um.
+      const nivel = Math.min(ARMA_NIVEL_MAX, (this.estado.niveisArmas[ARMAS.indexOf(evoluida)] ?? 1) + 1);
+      return `${WEAPONS[evoluida].nome} evoluída: nível ${nivel}`;
+    }
     if (m.acao === 'comprar') {
       const nome = WEAPONS[m.item]?.nome ?? ARMADURAS.find((a) => a.id === m.item)?.nome ?? ITENS[m.item]?.nome ?? m.item;
       return `Comprado: ${nome}`;
     }
     if (m.acao === 'evoluir') return `Nave evoluída: ${OPCOES_NAVE[m.item]?.nome ?? m.item}`;
     return `Mineradores do time: ${MELHORIAS_MINERADOR[m.item]?.nome ?? m.item}`;
+  }
+
+  /** A arma de um id 'evoluir:<arma>' (ou null se o id é outra coisa). */
+  #armaEvoluida(id) {
+    if (typeof id !== 'string' || !id.startsWith(PREFIXO_EVOLUIR)) return null;
+    const kind = id.slice(PREFIXO_EVOLUIR.length);
+    return WEAPONS[kind] ? kind : null;
   }
 
   /** Redesenha o painel; sem `forcar`, só se algo mudou (ouro, posse, aba...). */
@@ -253,7 +273,9 @@ export class PainelServicos {
     this.cartas.innerHTML =
       aba === 'armas'
         ? grade(this.#armas())
-        : aba === 'armaduras'
+        : aba === 'evoluir'
+          ? this.#evoluirArmas()
+          : aba === 'armaduras'
           ? grade(this.#armaduras())
           : aba === 'itens'
             ? grade(this.#itens())
@@ -297,8 +319,39 @@ export class PainelServicos {
         selo,
         estado,
         pedido: { t: 'comprar', item: kind },
+        extra: etiquetasArma(kind),
       });
     }).join('');
+  }
+
+  /**
+   * Evoluir as armas possuídas: nível atual (tracinhos), o que muda no próximo e o
+   * preço; no máximo, o cartão apaga com "MÁX.".
+   */
+  #evoluirArmas() {
+    const { armas, niveisArmas, ouro } = this.estado;
+    const minhas = ARMAS.map((_, i) => i).filter((i) => armas.includes(i) || ARMAS_INICIAIS.includes(i));
+    const cartoes = minhas.map((i) => {
+      const kind = ARMAS[i];
+      const nivel = niveisArmas[i] ?? 1;
+      const preco = precoEvoluirArma(kind, nivel);
+      let estado;
+      let selo;
+      if (preco === null) [estado, selo] = ['max', 'MÁX.'];
+      else [estado, selo] = ouro >= preco ? ['livre', 'EVOLUIR'] : ['sem-ouro', 'SEM OURO'];
+      return this.#cartao({
+        icone: iconeArma(kind),
+        nome: `${WEAPONS[kind].nome} <em class="nv">NV ${nivel}</em>`,
+        efeito: preco === null ? descreverArma(kind, nivel) : proximoNivelArma(kind, nivel),
+        preco,
+        selo,
+        estado,
+        pedido: { t: 'comprar', item: PREFIXO_EVOLUIR + kind },
+        extra: `<span class="linha-nivel">${etiquetasArma(kind)}${pipsNivel(nivel)}</span>`,
+      });
+    }).join('');
+    const nota = `<p class="nota">Até o nível ${ARMA_NIVEL_MAX}: mais dano, e nas de controle o efeito cresce junto. O preço é por arma: quem foca numa chega ao máximo; duas custam o dobro. Recarga e energia não mudam.</p>`;
+    return nota + `<div class="grade">${cartoes}</div>`;
   }
 
   #armaduras() {

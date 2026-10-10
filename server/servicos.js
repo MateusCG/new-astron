@@ -8,20 +8,22 @@
 // 'invalido'). Para comprar, evoluir ou melhorar o piloto tem de estar vivo,
 // POUSADO E PARADO na plataforma do serviço certo da PRÓPRIA base (Loja para
 // comprar, Evolução para evoluir e melhorar); usar um item vale em qualquer lugar.
+// Evoluir uma ARMA é uma compra da Loja ({t:'comprar', item:'evoluir:<arma>'}): exige
+// possuir a arma (senão 'sem_item'), e no máximo dá 'limite'.
 // A resposta é {t:'resultado', acao, item, ok, codigo?}, com código estável que o
 // cliente traduz: nao_pousado, ouro_insuficiente, nivel_insuficiente, ja_possui,
 // limite, invalido, e no uso de item sem_item, recarga e cheio.
 //
-// Onde fica cada coisa: a posse do piloto fica no JOGADOR (j.armas, j.armadura,
-// j.itens, j.itemPronto, j.evolucoes), porque a nave é recriada a cada
+// Onde fica cada coisa: a posse do piloto fica no JOGADOR (j.armas, j.niveisArmas,
+// j.armadura, j.itens, j.itemPronto, j.evolucoes), porque a nave é recriada a cada
 // renascimento; prepararNave() copia tudo para a nave nova junto com o nível (HP e
 // energia máximos, velocidade, armas). As melhorias dos mineradores ficam por time
 // em this.niveis e viram world.mineradores.melhorias[time]. Tudo é da partida:
 // novoEquipamento() e reiniciar() zeram na seguinte (World, #passoPartida).
 
-import { RACES, VEL_TOQUE, ARMAS_INICIAIS, DT } from '../shared/sim.js';
+import { RACES, VEL_TOQUE, ARMAS, ARMAS_INICIAIS, DT } from '../shared/sim.js';
 import { areaPouso } from '../shared/terrain.js';
-import { itemDaLoja, armadura, ITENS, ORDEM_ITENS } from '../shared/loja.js';
+import { itemDaLoja, armadura, ITENS, ORDEM_ITENS, niveisArmasIniciais, precoEvoluirArma } from '../shared/loja.js';
 import { opcaoNave, proximoMarco, efeitosNave, melhoriaMinerador, efeitosMineradores, niveisIniciais } from '../shared/evolucao.js';
 import { hpMaxDoJogador } from './progressao.js';
 
@@ -31,6 +33,7 @@ const ACOES = ['comprar', 'evoluir', 'melhorar', 'usar'];
 export function novoEquipamento() {
   return {
     armas: [...ARMAS_INICIAIS], // posse: as de fábrica e as compradas
+    niveisArmas: niveisArmasIniciais(), // nível de cada arma (índice em ARMAS), evoluído na Loja
     armadura: -1, // nível em ARMADURAS (-1 = nenhuma)
     itens: Object.fromEntries(ORDEM_ITENS.map((id) => [id, 0])), // carga de cada item
     itemPronto: Object.fromEntries(ORDEM_ITENS.map((id) => [id, 0])), // tick em que pode usar de novo
@@ -134,6 +137,7 @@ export class Servicos {
     const it = itemDaLoja(id);
     if (!it) return 'invalido';
     if (!naPlataforma(j, 'loja')) return 'nao_pousado';
+    if (it.tipo === 'evoluirArma') return this.#evoluirArma(j, it.arma);
     if (it.tipo === 'arma') {
       if (j.armas.includes(it.arma)) return 'ja_possui';
       const erro = this.#pagar(j, it.preco);
@@ -151,6 +155,18 @@ export class Servicos {
       j.itens[it.item]++;
     }
     atualizarNave(j);
+    return null;
+  }
+
+  /** Sobe um nível da arma de índice `a` (já pousado na Loja). O efeito é lido no World. */
+  #evoluirArma(j, a) {
+    if (!j.armas.includes(a)) return 'sem_item';
+    const nivel = j.niveisArmas[a];
+    const preco = precoEvoluirArma(ARMAS[a], nivel);
+    if (preco === null) return 'limite';
+    const erro = this.#pagar(j, preco);
+    if (erro) return erro;
+    j.niveisArmas = j.niveisArmas.map((n, i) => (i === a ? n + 1 : n));
     return null;
   }
 
@@ -206,7 +222,7 @@ export class Servicos {
 
   /**
    * O que vai no `me` do snapshot além da nave: armadura, itens (carga), recarga
-   * dos itens em s e as evoluções da nave.
+   * dos itens em s, as evoluções da nave e o nível de cada arma (índice em ARMAS).
    */
   paraMe(j) {
     const tick = this.world.tick;
@@ -215,6 +231,7 @@ export class Servicos {
       itens: { ...j.itens },
       cdItens: Object.fromEntries(ORDEM_ITENS.map((id) => [id, Math.max(0, +((j.itemPronto[id] - tick) * DT).toFixed(1))])),
       evolucoes: j.evolucoes,
+      niveisArmas: j.niveisArmas,
     };
   }
 }

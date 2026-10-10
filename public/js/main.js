@@ -16,7 +16,9 @@
 // míssil teleguiado não, porque quem faz a curva é o servidor: ele aparece pelo
 // evento 'tiro' (o seu também) e é corrigido pela lista `guiados` do snapshot. A
 // onda de choque própria já desenha o anel na hora; a mina aparece pela lista
-// `minas` do snapshot.
+// `minas` do snapshot. A recarga de troca de arma roda no stepShip (predição); depois
+// de cada passo o menu recebe a nave prevista (menuArmas.nave) para travar o
+// encaixe enquanto conta e mostrar a arma que a nave tem de fato.
 //
 // Loja e Evolução (servicos.js): pousado e parado na plataforma da própria base, o
 // painel abre sozinho; os pedidos vão direto pela rede e a resposta chega como
@@ -214,6 +216,7 @@ function montarJogo(rede, boas, renderer, race) {
   const placar = new Placar({ meuTime });
   const menuArmas = new MenuArmas({
     aoTrocar: (encaixe, i, kind) => hud.noticia(`Arma do ${encaixe ? 'X' : 'Z'}: ${WEAPONS[kind].nome}`, 'bom'),
+    aoRecusar: (texto) => hud.noticia(texto, 'ruim'),
     signal: controles.parar.signal, // desliga junto com os controles ao sair
   });
   const painel = new PainelServicos({
@@ -280,6 +283,8 @@ function montarJogo(rede, boas, renderer, race) {
       if (w.tipo === 'choque') efeitos.anelArea(pred.x, pred.y, pred.z, w.area, COR_TIME.meu);
       else if (!w.tipo && !w.guiado) efeitos.tiro(createBullet(pred, kind, 'l' + localSeq++, meuId, off, ang));
     }
+    // Recarga de troca e a arma que a nave tem de fato (troca recusada volta no menu).
+    menuArmas.nave(pred);
     pendentes.push({ seq, inp });
     if (pendentes.length > 120) pendentes.shift();
   }
@@ -302,6 +307,7 @@ function montarJogo(rede, boas, renderer, race) {
     efeitos.corrigirGuiados(m.guiados);
     efeitos.atualizarMinas(m.minas, meuTime);
     menuArmas.definirPosse(m.me?.armas);
+    menuArmas.definirNiveis(m.me?.niveisArmas);
     painel.atualizar({ ouro: m.ouro, nivel: m.nivel, me: m.me, melhorias: m.melhorias });
 
     if (!m.vivo) {

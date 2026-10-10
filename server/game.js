@@ -49,6 +49,13 @@
 // a posse de armas, a armadura, os itens e as evoluções ficam no jogador e vão
 // para cada nave nova em prepararNave (nascimento e renascimento). A armadura e a
 // defesa dos mineradores reduzem o dano em #ferir.
+//
+// Nível das armas (Loja, shared/loja.js): o tiro, a mina e a onda de choque levam o
+// nível da arma de quem atirou (`nivel`, lido de j.niveisArmas na hora do disparo);
+// o dano passa por multDano() e o efeito das armas de controle sai de
+// efeitoDaArma(kind, nivel). O dreno guarda o dano por segundo na entidade
+// (drenoDps) e o lento guarda a força na nave (ship.lentoMult, que vai no `me` e o
+// stepShip do alvo lê). Monstro e minerador atiram sempre no nível 1.
 
 import {
   DT,
@@ -62,7 +69,9 @@ import {
   VEL_TOQUE,
   VEL_FATOR,
   RACES,
+  IDX_ARMA,
 } from '../shared/sim.js';
+import { danoMultNivel, efeitoDaArma } from '../shared/loja.js';
 import { BASE, BASES, CORREDOR } from '../shared/terrain.js';
 import { pontoAberto } from '../shared/obstaculos.js';
 import { MapaNavegacao } from './navegacao.js';
@@ -366,21 +375,28 @@ export class World {
     j.fila.push({ seq, inp: sanitizeInput(msg) });
   }
 
+  /** Nível da arma `kind` de quem atira (Loja); 1 para quem não evolui armas. */
+  #nivelArma(ent, kind) {
+    return ent.niveisArmas?.[IDX_ARMA[kind]] ?? 1;
+  }
+
   #atira(ent, disparos) {
     for (const { kind, off, ang } of disparos) {
       const tipo = WEAPONS[kind].tipo;
+      const nivel = this.#nivelArma(ent, kind);
       if (tipo === 'mina') {
-        this.#soltarMina(ent);
+        this.#soltarMina(ent, nivel);
         continue;
       }
       if (tipo === 'choque') {
-        this.#choque(ent);
+        this.#choque(ent, nivel);
         continue;
       }
       const b = createBullet(ent.ship, kind, this.#id(), ent.id, off, ang);
       b.drone = !!ent.drone;
       b.time = ent.time; // sem fogo amigo: o tiro atravessa quem é do mesmo time
       b.mult = ent.danoMult ?? (ent.drone ? DRONE.danoMult : 1);
+      b.nivel = nivel;
       this.bullets.push(b);
       this.eventos.push({ e: 'tiro', id: b.id, dono: ent.id, kind, x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz });
     }
@@ -609,13 +625,14 @@ export class World {
   }
 
   /** Mina nova atrás da nave; passando de MINA_MAX, a mais velha do piloto some. */
-  #soltarMina(ent) {
+  #soltarMina(ent, nivel = 1) {
     const minha = this.minas.filter((m) => m.dono === ent.id);
     if (minha.length >= WEAPONS.mina.max) {
       const velha = minha[0];
       this.minas = this.minas.filter((m) => m !== velha);
     }
     const m = novaMina(this.#id(), ent, this.tick);
+    m.nivel = nivel; // nível da mina de quem soltou, para o dano da explosão
     this.minas.push(m);
   }
 
@@ -645,12 +662,13 @@ export class World {
     return n;
   }
 
-  /** Onda de choque em volta da nave de `ent`: dano em área e empurrão. */
-  #choque(ent) {
+  /** Onda de choque em volta da nave de `ent`: dano em área e empurrão (os dois crescem com o nível). */
+  #choque(ent, nivel = 1) {
     const w = WEAPONS.choque;
     const s = ent.ship;
+    const dano = Math.round(w.dano * this.multDano({ nivel, time: ent.time, owner: ent.id }));
     this.eventos.push({ e: 'choque', id: ent.id, time: ent.time, x: s.x, y: s.y, z: s.z, raio: w.area });
-    this.#area(ent, s.x, s.y, s.z, w.area, w.dano, 'choque', w.empurrao);
+    this.#area(ent, s.x, s.y, s.z, w.area, dano, 'choque', efeitoDaArma('choque', nivel).empurrao);
   }
 
   /**
@@ -665,15 +683,17 @@ export class World {
       const como = { owner: m.dono, time: m.time, drone: m.drone };
       if (!vivos.some((alvo) => this.#podeAcertar(como, alvo) && naArea(alvo, m.x, m.y, m.z, w.gatilho))) return true;
       this.eventos.push({ e: 'explosao', arma: 'mina', id: m.id, dono: m.dono, time: m.time, x: m.x, y: m.y, z: m.z, raio: w.area });
-      this.#area({ id: m.dono, time: m.time, drone: m.drone }, m.x, m.y, m.z, w.area, w.dano, 'mina');
+      const dano = Math.round(w.dano * this.multDano({ nivel: m.nivel, time: m.time, owner: m.dono }));
+      this.#area({ id: m.dono, time: m.time, drone: m.drone }, m.x, m.y, m.z, w.area, dano, 'mina');
       return false;
     });
   }
 
   /**
    * Multiplicador do dano causado pelo jogador `autorId` agora (1 para monstro,
-   * drone ou quem já saiu). Ponto único dos multiplicadores do atacante: hoje só o
-   * bônus 'furia' do time (objetivo C). Vale no impacto, então só enquanto o bônus dura.
+   * drone ou quem já saiu). Ponto único dos multiplicadores de time do atacante:
+   * hoje só o bônus 'furia' (objetivo C). Vale no impacto, então só enquanto o
+   * bônus dura. Tiro, área (mina e choque, em #area) e dreno passam por aqui.
    */
   multDanoDe(autorId) {
     const j = this.players.get(autorId);
@@ -681,25 +701,37 @@ export class World {
     return this.bonus.ativo(j.time, 'furia', this.tick) ? BONUS.furia.mult : 1;
   }
 
-  /** Dano de um tiro no impacto (arma × multiplicador de quem atirou × bônus do atacante). */
+  /**
+   * Multiplicador do dano de um golpe de arma pelo nível da arma de quem atirou
+   * (Loja: danoMultNivel). `golpe` é a bala, a mina ou {nivel, time, owner} da onda
+   * de choque. O bônus de time fica em multDanoDe, aplicado à parte.
+   */
+  multDano(golpe) {
+    return danoMultNivel(golpe.nivel);
+  }
+
+  /** Dano de um tiro no impacto (arma × multiplicador do atirador × nível × bônus do time). */
   danoDoTiro(bala) {
-    return WEAPONS[bala.kind].dano * (bala.mult ?? 1) * (bala.drone ? 1 : this.multDanoDe(bala.owner));
+    return WEAPONS[bala.kind].dano * (bala.mult ?? 1) * this.multDano(bala) * (bala.drone ? 1 : this.multDanoDe(bala.owner));
   }
 
   #dano(alvo, bala) {
-    const w = WEAPONS[bala.kind];
+    const efeito = efeitoDaArma(bala.kind, bala.nivel);
     const dano = Math.round(this.danoDoTiro(bala));
     // Efeitos de arma só pegam em quem pode levar dano. Acertar de novo renova a
-    // duração; não soma nem empilha.
-    if (!this.#protegido(alvo)) {
-      if (w.efeito?.tipo === 'dreno') {
-        alvo.drenoTicks = Math.round(w.efeito.duracao * TICK_HZ);
+    // duração; não soma nem empilha. No lento, se já havia um, fica o mais forte.
+    if (efeito && !this.#protegido(alvo)) {
+      const s = alvo.ship;
+      if (efeito.tipo === 'dreno') {
+        alvo.drenoTicks = Math.round(efeito.duracao * TICK_HZ);
         alvo.drenoDono = bala.owner;
-      } else if (w.efeito?.tipo === 'lento') {
-        alvo.ship.lento = Math.max(alvo.ship.lento || 0, w.efeito.duracao);
-      } else if (w.efeito?.tipo === 'emp') {
-        alvo.ship.en = 0;
-        alvo.ship.emp = Math.max(alvo.ship.emp || 0, w.efeito.duracao);
+        alvo.drenoDps = efeito.dps;
+      } else if (efeito.tipo === 'lento') {
+        s.lentoMult = s.lento > 0 ? Math.min(s.lentoMult ?? efeito.mult, efeito.mult) : efeito.mult;
+        s.lento = Math.max(s.lento || 0, efeito.duracao);
+      } else if (efeito.tipo === 'emp') {
+        s.en = 0;
+        s.emp = Math.max(s.emp || 0, efeito.duracao);
       }
     }
     this.#ferir(alvo, dano, bala.owner, { e: 'acerto', bala: bala.id, x: bala.x, y: bala.y, z: bala.z });
@@ -795,7 +827,7 @@ export class World {
   #drenar(ent) {
     if (!(ent.drenoTicks > 0)) return;
     ent.drenoTicks--;
-    this.#ferir(ent, WEAPONS.dreno.efeito.dps * DT * this.multDanoDe(ent.drenoDono), ent.drenoDono);
+    this.#ferir(ent, (ent.drenoDps ?? WEAPONS.dreno.efeito.dps) * DT * this.multDanoDe(ent.drenoDono), ent.drenoDono);
   }
 
   #regen(ent) {

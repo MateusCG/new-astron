@@ -67,6 +67,19 @@ Os bônus (`server/bonus.js`): dos mineradores, `'mineracao'` +1 por viagem, `'v
 - **[feito]** **Assistência e sequência de abates** em abate de jogador, e **renascimento** que demora mais com o nível e com o tempo de partida: ver "Combate".
 - **[feito]** **Evolução da nave** nos níveis **5, 10 e 15**, pagando ouro: escolher 1 de 3 (durabilidade, energia, velocidade). Ver "Loja e Evolução".
 - **[feito]** **Duas armas na nave:** Q edita o Z, E edita o X; mesma arma pode ir nos dois. Não existe arma principal: os dois encaixes escolhem do mesmo catálogo (`ARMAS` em `shared/sim.js`: laser simples, duplo, triplo, dreno, criogênico, plasma, míssil teleguiado, mina, onda de choque e pulso EMP), cada um com a sua recarga e a mesma energia. Padrão: laser simples no Z e plasma no X (as duas de fábrica, sempre possuídas).
+- **[feito]** **Recarga de troca de arma** (pedido do Mateus, para a build pesar): fora da própria base, trocar a arma de um encaixe põe **aquele encaixe** em recarga de troca por `TROCA_ARMA_S` (**3 s**): sem tiro nele e sem nova troca nele até acabar; o outro encaixe segue normal. **Dentro da própria base** (raio de `BASES[time]`) a troca é livre e a recarga de troca zera. Roda no `stepShip` (estado `troca1`/`troca2` na nave, no `me`), então a predição bate com o servidor. O menu de armas **trava** o encaixe enquanto conta: as outras cartas ficam apagadas com "TROCA EM 2,1 s", tocar numa delas só dá a notícia de quanto falta (o menu nunca manda uma troca que seria ignorada), e o painel inferior mostra a contagem no encaixe.
+- **[feito]** **Tipo de dano e função de cada arma** (`tipoDano` e `funcao` em `WEAPONS`), mostrados no menu e na Loja. Por enquanto é informação: a armadura por tipo de dano (resistir mais a laser, por exemplo) fica para depois.
+
+| Arma | Tipo de dano | Função |
+|---|---|---|
+| Laser simples, duplo, triplo | Laser | Dano |
+| Dreno | Elétrico | Controle (tira vida por segundos) |
+| Criogênico | Físico | Controle (deixa lento) |
+| Plasma | Elétrico | Dano |
+| Míssil teleguiado | Físico | Dano |
+| Mina | Físico | Dano |
+| Onda de choque | Físico | Controle (empurra para fora) |
+| Pulso EMP | Elétrico | Controle (tira energia, tiro e boost) |
 - **[feito]** **Loja**: comprar armas, armaduras e itens. Cada partida começa só com as armas de fábrica (laser simples e plasma); as outras oito se compram aqui e ficam na posse do piloto (no jogador, não na nave: voltam a cada renascimento). Arma não possuída fica travada no menu ("NA LOJA") e cai na padrão do encaixe.
 - **[feito]** Evolução e Loja só abrem **com a nave pousada e parada** na plataforma do serviço da **própria base**.
 
@@ -98,6 +111,33 @@ Os bônus (`server/bonus.js`): dos mineradores, `'mineracao'` +1 por viagem, `'v
 | Míssil teleguiado | 340 |
 
 Comprada, a arma pode ir em qualquer um dos dois encaixes (Q e E).
+
+**[feito] Evoluir armas** (aba "Evoluir" da Loja; dados em `shared/loja.js`). Cada arma possuída, as de fábrica inclusive, sobe do nível 1 até `ARMA_NIVEL_MAX` (**5**; para chegar a 10 basta mudar a constante, os preços e efeitos seguem a fórmula). O preço é **por arma** e cresce por nível, então evoluir duas armas custa o dobro: quem foca numa chega ao máximo, quem divide fica com duas medianas, mas de tipos diferentes para segurar mais gente nos objetivos (a ideia do Mateus). Pedido `{t:'comprar', item:'evoluir:<arma>'}`, pousado e parado na Loja da própria base; sem possuir a arma, `sem_item`; no máximo, `limite`. O nível é do piloto (`j.niveisArmas`, vai no `me` como `niveisArmas`): volta a cada renascimento e zera na partida seguinte.
+
+Preço para sair do nível n = `arred10(referência × 0,4 × n)` (`EVOLUIR_ARMA_FRACAO`), com referência = preço da arma na Loja (laser simples e plasma, que não se vendem: `PRECO_REFERENCIA_FABRICA` = 150).
+
+| Arma | 1→2 | 2→3 | 3→4 | 4→5 | Total até o 5 |
+|---|---|---|---|---|---|
+| Laser simples, Laser triplo, Plasma | 60 | 120 | 180 | 240 | 600 |
+| Laser duplo | 50 | 100 | 140 | 190 | 480 |
+| Criogênico | 70 | 140 | 220 | 290 | 720 |
+| Dreno | 80 | 160 | 240 | 320 | 800 |
+| Mina | 100 | 190 | 290 | 380 | 960 |
+| Onda de choque | 100 | 210 | 310 | 420 | 1040 |
+| Pulso EMP | 120 | 240 | 360 | 480 | 1200 |
+| Míssil teleguiado | 140 | 270 | 410 | 540 | 1360 |
+
+Efeito por nível, **só no servidor** (recarga e energia não mudam com o nível, porque entram na predição):
+
+| O que | Por nível acima do 1 | No nível 5 |
+|---|---|---|
+| Dano de todas (tiro, mina, choque) | +10% do dano base (`DANO_POR_NIVEL`) | +40% (laser 12 → 17) |
+| Duração do lento, do EMP e do dreno | +12,5% (`EFEITO_POR_NIVEL`) | +50% (lento 3 → 4,5 s, EMP 2,5 → 3,75 s, dreno 4 → 6 s) |
+| Dano por segundo do dreno | +12,5% | 8 → 12 HP/s |
+| Força do lento | −5 pontos da velocidade que sobra (`LENTIDAO_POR_NIVEL`, mínimo `LENTIDAO_MIN` 25%) | 50% → 30% da velocidade |
+| Empurrão da onda de choque | +12,5% | 55 → 82,5 m/s |
+
+Acertar de novo continua renovando a duração sem somar; no lento, fica o mais forte dos dois (a força vai na nave do alvo, `lentoMult`, para a predição dele bater). Monstros e mineradores atiram sempre no nível 1. O multiplicador fica num lugar só no servidor (`World.multDano`), onde outros multiplicadores de quem atira (bônus de time) podem entrar.
 
 | Armadura | Preço | Efeito |
 |---|---|---|
