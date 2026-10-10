@@ -27,7 +27,7 @@ const COR_APAGADA = '#8a7f6a'; // letra de objetivo em recarga
 // Tamanho do ponto de cada inimigo no minimapa: quanto mais perigoso, maior.
 const PONTO_INIMIGO = { vorax: 4.5, krakor: 6, guardiao: 7 };
 /** O que cada bônus faz, para o HUD (nomes de server/bonus.js). */
-export const NOME_BONUS = { mineracao: 'Mineração +1', velocidade: 'Velocidade', durabilidade: 'Durabilidade' };
+export const NOME_BONUS = { mineracao: 'Mineração +1', velocidade: 'Velocidade', durabilidade: 'Durabilidade', furia: 'Fúria' };
 
 export class Hud {
   /** @param {{ meuTime?: number }} [opcoes] time de quem joga (cor das bases no minimapa) */

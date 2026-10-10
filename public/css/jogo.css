@@ -366,6 +366,39 @@ kbd {
   filter: drop-shadow(0 0 2px var(--objetivo));
 }
 
+/* Fase final (últimos 3 minutos): faixa âmbar "MINÉRIO ×2" na largura do placar. */
+#placar .fase-final {
+  grid-column: 1 / -1;
+  margin-top: -2px;
+  padding: 1px 0;
+  border-top: 1px solid rgba(255, 182, 39, 0.35);
+  font: 700 11px/16px ui-monospace, monospace;
+  letter-spacing: 0.12em;
+  text-align: center;
+  color: var(--objetivo);
+  text-shadow: 0 0 6px rgba(255, 182, 39, 0.6);
+}
+
+#placar .fase-final[hidden] {
+  display: none;
+}
+
+/* Com a faixa, o placar fica mais alto: as notícias descem junto. */
+#placar:has(.fase-final:not([hidden])) ~ #feed {
+  top: 114px;
+}
+
+#placar .fase-final.anuncia {
+  animation: anuncia-final 0.5s ease-out 4 alternate;
+}
+
+@keyframes anuncia-final {
+  to {
+    color: #fff3d6;
+    text-shadow: 0 0 12px var(--objetivo);
+  }
+}
+
 /* ---------- Fim de partida ---------- */
 
 #fim-partida {
@@ -1645,6 +1678,9 @@ body.dano::after {
   }
   #feed {
     top: 80px;
+  }
+  #placar:has(.fase-final:not([hidden])) ~ #feed {
+    top: 98px;
   }
   #ping {
     top: 98px;

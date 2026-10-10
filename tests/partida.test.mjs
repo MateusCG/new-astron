@@ -7,7 +7,9 @@ import assert from 'node:assert/strict';
 import WebSocket from 'ws';
 import { iniciar } from '../server/index.js';
 import { World, ZONA_SEGURA } from '../server/game.js';
-import { MAX_POR_TIME } from '../server/partida.js';
+import { MAX_POR_TIME, Partida, FASE_FINAL_S, MULT_FASE_FINAL, DURACAO_PARTIDA_S } from '../server/partida.js';
+import { MINERADOR } from '../server/mineradores.js';
+import { BONUS } from '../server/bonus.js';
 import { createShip, createBullet, pousoPermitido, WEAPONS } from '../shared/sim.js';
 import { BASES, SERVICOS, OBJETIVOS } from '../shared/terrain.js';
 
@@ -215,6 +217,71 @@ test('partida: no fim vence quem minerou mais, todos veem e outra partida começ
   assert.ok(w.mineradores.lista.every((m) => Math.hypot(m.ship.x - BASES[m.time].x, m.ship.z - BASES[m.time].z) < 30), 'só os novos, saindo da base');
   assert.ok(Math.hypot(a.ship.x - BASES[0].x, a.ship.z - BASES[0].z) <= 60, 'A voltou para a base');
   assert.ok(w.tirarEventos().some((e) => e.e === 'partida' && e.n === 2));
+});
+
+test('partida: fase final nos últimos FASE_FINAL_S dobra o minério entregue, e a nova partida volta ao normal', () => {
+  const p = new Partida({ duracaoS: 10, intervaloFimS: 1, faseFinalS: 4 });
+  p.comecar(0);
+  assert.equal(p.fase(0), 'normal');
+  assert.equal(p.somar(0, 10, 0), 10, 'antes da fase final vale 1×');
+  let virou = null;
+  let tick = 0;
+  while (virou !== 'faseFinal' && tick < 20 * SEGUNDO) virou = p.passo(++tick, 1);
+  assert.equal(virou, 'faseFinal');
+  assert.equal(tick, 6 * SEGUNDO, 'começa com 4 s restantes');
+  assert.equal(p.paraSnapshot(tick).fase, 'final');
+  assert.equal(p.somar(0, 11, tick), 11 * MULT_FASE_FINAL, 'na fase final vale o dobro');
+  assert.deepEqual(p.placar, [10 + 11 * MULT_FASE_FINAL, 0]);
+  assert.equal(p.passo(tick + 1, 1), null, 'anuncia uma vez só');
+  while (p.estado !== 'fim') p.passo(++tick, 1);
+  assert.equal(p.paraSnapshot(tick).fase, 'normal', 'na tela de fim não há fase final');
+  p.comecar(tick);
+  assert.equal(p.fase(tick), 'normal', 'partida nova volta ao normal');
+  assert.equal(p.somar(0, 10, tick), 10);
+  // Partida mais curta que a fase final não tem fase final.
+  const curta = new Partida({ duracaoS: 3, faseFinalS: FASE_FINAL_S });
+  curta.comecar(0);
+  assert.equal(curta.fase(0), 'normal');
+  assert.equal(new Partida().faseFinalTicks, FASE_FINAL_S * SEGUNDO);
+});
+
+test('partida: no mundo, a entrega na fase final soma o dobro (com o bônus de mineração) e o evento anuncia', () => {
+  const w = new World({ drones: 0, monstros: 0, elites: 0, duracaoPartidaS: DURACAO_PARTIDA_S, faseFinalS: DURACAO_PARTIDA_S - 5, intervaloFimS: 1 });
+  const a = w.addPlayer('A', 'acron');
+  w.addPlayer('B', 'acron');
+  w.step();
+  assert.equal(w.snapshotPara(a, [], []).partida.fase, 'normal');
+  w.bonus.ativar(0, 'mineracao', 300, w.tick);
+  let anuncio = null;
+  let entrega = null;
+  for (let i = 0; i < 200 * SEGUNDO && !entrega; i++) {
+    w.step();
+    for (const e of w.tirarEventos()) {
+      if (e.e === 'faseFinal') anuncio = e;
+      if (e.e === 'entrega' && e.time === 0) entrega = e;
+    }
+  }
+  assert.ok(anuncio, 'evento faseFinal');
+  assert.equal(anuncio.mult, MULT_FASE_FINAL);
+  assert.equal(w.snapshotPara(a, [], []).partida.fase, 'final');
+  assert.ok(entrega, 'houve entrega');
+  assert.equal(entrega.carga, (MINERADOR.carga + BONUS.mineracao.cargaExtra) * MULT_FASE_FINAL);
+  assert.equal(w.partida.placar[0], entrega.carga);
+});
+
+test('partida: no mundo, a fase final volta ao normal na partida seguinte', () => {
+  const w = new World({ drones: 0, monstros: 0, elites: 0, duracaoPartidaS: 4, faseFinalS: 2, intervaloFimS: 1 });
+  const a = w.addPlayer('A', 'acron');
+  w.step();
+  const fases = [];
+  for (let i = 0; i < 6 * SEGUNDO && w.partida.numero < 2; i++) {
+    w.step();
+    if (w.tirarEventos().some((e) => e.e === 'faseFinal')) fases.push(w.partida.numero);
+  }
+  assert.deepEqual(fases, [1], 'a fase final da primeira partida foi anunciada');
+  assert.equal(w.partida.numero, 2);
+  assert.equal(w.snapshotPara(a, [], []).partida.fase, 'normal');
+  assert.equal(w.partida.multMinerio(w.tick), 1);
 });
 
 test('partida: empate e servidor vazio', () => {

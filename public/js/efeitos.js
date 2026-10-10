@@ -19,6 +19,13 @@ import { brilho } from './nave.js';
 const COR_DRENO = new THREE.Color('#d070ff');
 const COR_GELO = new THREE.Color('#a8e8ff');
 const COR_EMP = new THREE.Color('#c8d2ff');
+// Fúria (bônus do objetivo C): âmbar dos objetivos, de onde o bônus vem. Um anel
+// fino deitado em volta da nave, pulsando devagar, sem partículas: brilho difuso
+// some no deserto alaranjado, e o anel lê bem na câmera de perseguição sem
+// competir com tiro, explosão nem com as auras de arma (que são nuvens).
+const COR_FURIA = new THREE.Color('#ffb627');
+const FURIA_RAIO = 7.5; // m
+const FURIA_OPACIDADE = 0.9;
 const COR_BRANCO = new THREE.Color('#ffffff'); // estalo mais forte das faíscas do EMP
 const COR_CHAMA = new THREE.Color('#fff0c8'); // chama do míssil
 const COR_FUMACA = new THREE.Color('#8f8a83'); // rastro do míssil (sem brilho)
@@ -79,6 +86,16 @@ function spriteAditivo(cor, tamanho) {
   return s;
 }
 
+/** Anel da fúria: toro fino deitado em volta da nave, aditivo. */
+function anelFuria() {
+  const anel = new THREE.Mesh(
+    new THREE.TorusGeometry(FURIA_RAIO, 0.18, 4, 64, Math.PI * 2),
+    new THREE.MeshBasicMaterial({ color: COR_FURIA, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }),
+  );
+  anel.rotation.x = Math.PI / 2;
+  return anel;
+}
+
 export class Efeitos {
   /** Libera da GPU as geometrias guardadas fora da cena (saída da partida). */
   liberar() {
@@ -133,24 +150,28 @@ export class Efeitos {
   /**
    * Mostra na nave (grupo do Three.js) os efeitos ativos vindos do servidor:
    * dreno (aura violeta pulsando + partículas subindo) e lento (aura azul-gelo +
-   * cristais caindo). Chamar a cada quadro para cada nave visível.
+   * cristais caindo), e a fúria do time (anel âmbar, objetivo C). Chamar a
+   * cada quadro para cada nave visível.
    */
-  estadoNave(obj, { dreno = false, lento = false, emp = false }, dt, tempo) {
+  estadoNave(obj, { dreno = false, lento = false, emp = false, furia = false }, dt, tempo) {
     let a = obj.userData.auras;
     if (!a) {
-      if (!dreno && !lento && !emp) return;
+      if (!dreno && !lento && !emp && !furia) return;
       a = obj.userData.auras = {
         dreno: spriteAditivo(COR_DRENO, 11),
         gelo: spriteAditivo(COR_GELO, 13),
         emp: spriteAditivo(COR_EMP, 14),
+        furia: anelFuria(),
         acc: 0,
         accEmp: 0,
       };
-      obj.add(a.dreno, a.gelo, a.emp);
+      obj.add(a.dreno, a.gelo, a.emp, a.furia);
     }
     a.dreno.visible = dreno;
     a.gelo.visible = lento;
     a.emp.visible = emp;
+    a.furia.visible = furia;
+    if (furia) a.furia.material.opacity = FURIA_OPACIDADE * (0.7 + 0.3 * Math.sin(tempo * 2.5));
     if (dreno) a.dreno.material.opacity = 0.45 + 0.3 * Math.sin(tempo * 9);
     if (lento) a.gelo.material.opacity = 0.5 + 0.1 * Math.sin(tempo * 3);
     // EMP: a aura falha como um curto-circuito (pisca irregular).

@@ -66,9 +66,9 @@ import {
 import { BASE, BASES, CORREDOR } from '../shared/terrain.js';
 import { pontoAberto } from '../shared/obstaculos.js';
 import { MapaNavegacao } from './navegacao.js';
-import { Partida, N_TIMES } from './partida.js';
+import { Partida, N_TIMES, MULT_FASE_FINAL } from './partida.js';
 import { Mineradores } from './mineradores.js';
-import { Bonus } from './bonus.js';
+import { Bonus, BONUS } from './bonus.js';
 import { Objetivos } from './objetivos.js';
 import {
   novaProgressao,
@@ -175,11 +175,11 @@ function baseMaisPerto(s) {
 export class World {
   /**
    * @param {{ rng?: () => number, drones?: number, monstros?: number, elites?: number,
-   *   duracaoPartidaS?: number, intervaloFimS?: number }} [opcoes]
+   *   duracaoPartidaS?: number, intervaloFimS?: number, faseFinalS?: number }} [opcoes]
    * drones = Arnosh, monstros = Vorax, elites = Krakor (os guardiões dos objetivos C
    * sempre existem).
    */
-  constructor({ rng = Math.random, drones = N_DRONES, monstros = N_MONSTROS, elites = N_KRAKOR, duracaoPartidaS, intervaloFimS } = {}) {
+  constructor({ rng = Math.random, drones = N_DRONES, monstros = N_MONSTROS, elites = N_KRAKOR, duracaoPartidaS, intervaloFimS, faseFinalS } = {}) {
     this.rng = rng;
     this.tick = 0;
     this.nextId = 1;
@@ -192,12 +192,12 @@ export class World {
     this.eventos = [];
     // Mapa de caça dos Vorax: campo de caminhos até os jogadores caçáveis.
     this.caca = { campo: null, alvos: [], ate: 0 };
-    this.partida = new Partida({ duracaoS: duracaoPartidaS, intervaloFimS });
+    this.partida = new Partida({ duracaoS: duracaoPartidaS, intervaloFimS, faseFinalS });
     this.bonus = new Bonus();
     this.mineradores = new Mineradores({
       bonus: this.bonus,
       novoId: () => this.#id(),
-      entregar: (time, carga) => this.partida.somar(time, carga),
+      entregar: (time, carga) => this.partida.somar(time, carga, this.tick),
       evento: (ev) => this.eventos.push(ev),
     });
     for (let i = 0; i < drones; i++) this.drones.push(this.#novoDrone());
@@ -640,7 +640,7 @@ export class World {
         s.vx += ux * empurrao;
         s.vz += uz * empurrao;
       }
-      this.#ferir(alvo, dano, fonte.id, { e: 'acerto', arma, x: s.x, y: s.y, z: s.z });
+      this.#ferir(alvo, dano * this.multDanoDe(fonte.id), fonte.id, { e: 'acerto', arma, x: s.x, y: s.y, z: s.z });
     }
     return n;
   }
@@ -670,9 +670,20 @@ export class World {
     });
   }
 
-  /** Dano de um tiro no impacto (arma × multiplicador de quem atirou). */
+  /**
+   * Multiplicador do dano causado pelo jogador `autorId` agora (1 para monstro,
+   * drone ou quem já saiu). Ponto único dos multiplicadores do atacante: hoje só o
+   * bônus 'furia' do time (objetivo C). Vale no impacto, então só enquanto o bônus dura.
+   */
+  multDanoDe(autorId) {
+    const j = this.players.get(autorId);
+    if (!j) return 1;
+    return this.bonus.ativo(j.time, 'furia', this.tick) ? BONUS.furia.mult : 1;
+  }
+
+  /** Dano de um tiro no impacto (arma × multiplicador de quem atirou × bônus do atacante). */
   danoDoTiro(bala) {
-    return WEAPONS[bala.kind].dano * (bala.mult ?? 1);
+    return WEAPONS[bala.kind].dano * (bala.mult ?? 1) * (bala.drone ? 1 : this.multDanoDe(bala.owner));
   }
 
   #dano(alvo, bala) {
@@ -784,7 +795,7 @@ export class World {
   #drenar(ent) {
     if (!(ent.drenoTicks > 0)) return;
     ent.drenoTicks--;
-    this.#ferir(ent, WEAPONS.dreno.efeito.dps * DT, ent.drenoDono);
+    this.#ferir(ent, WEAPONS.dreno.efeito.dps * DT * this.multDanoDe(ent.drenoDono), ent.drenoDono);
   }
 
   #regen(ent) {
@@ -850,6 +861,8 @@ export class World {
         }
       }
       this.eventos.push({ e: 'partida', n: this.partida.numero });
+    } else if (virou === 'faseFinal') {
+      this.eventos.push({ e: 'faseFinal', mult: MULT_FASE_FINAL, restante: Math.round(this.partida.restante(this.tick)) });
     } else if (virou === 'fim') {
       const { vencedor, placar } = this.partida;
       this.eventos.push({ e: 'fimPartida', vencedor, placar: [...placar] });

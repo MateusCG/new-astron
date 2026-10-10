@@ -51,6 +51,7 @@ const EFEITO_BONUS = {
   mineracao: 'cada minerador traz +1 de minério',
   velocidade: 'mineradores mais rápidos',
   durabilidade: 'mineradores mais resistentes',
+  furia: 'naves do time com +20% de dano',
 };
 const CAMERAS = [
   { dist: 22, alt: 8, olhar: 14 },
@@ -240,6 +241,7 @@ function montarJogo(rede, boas, renderer, race) {
   const erro = new THREE.Vector3();
   let extra = { ouro: 0, abates: 0, mortes: 0, nivel: 1, xp: 0, xpProx: 0 };
   let ganhoOuro = 0; // ouro ganho no último snapshot (para a notícia de abate)
+  let bonusAtivos = {}; // bônus por time do último snapshot (aura da fúria nas naves)
   const minhaNave = criarNave(race, { aliado: true });
   scene.add(minhaNave);
 
@@ -290,6 +292,7 @@ function montarJogo(rede, boas, renderer, race) {
     while (snaps.length > 30) snaps.shift();
     for (const e of m.ents) nomes.set(e.id, e.nome);
     placar.atualizar(m.partida, m.bonus);
+    bonusAtivos = m.bonus ?? {};
     // Antes da predição: a torre B caída já sai da física daqui em diante.
     for (const t of objetivos.atualizar(m.obj)) {
       efeitos.explosao(t.x, t.y, t.z, 6, '#ff9a3a');
@@ -365,6 +368,9 @@ function montarJogo(rede, boas, renderer, race) {
         else hud.noticia(`${por} destruiu um minerador inimigo`, 'bom');
       } else if (e.e === 'entrega') {
         placar.entrega(e.time);
+      } else if (e.e === 'faseFinal') {
+        placar.faseFinal();
+        hud.noticia(`Fase final: minério entregue vale ×${e.mult} até o fim`, 'bom');
       } else if (e.e === 'partida' && e.n > 1) {
         hud.noticia('Nova partida: o time que minerar mais vence', 'bom');
       } else if (e.e === 'morte') {
@@ -393,7 +399,8 @@ function montarJogo(rede, boas, renderer, race) {
         const meu = e.time === meuTime;
         const como = { A: 'pousou no', B: 'derrubou a torre do', C: 'derrotou o guardião do' }[e.tipo];
         const quem = e.quem ? `${e.quem} ${como} objetivo ${e.tipo}` : `Objetivo ${e.tipo} tomado`;
-        hud.noticia(`${quem} · ${meu ? 'seu time' : 'inimigo'}: ${NOME_BONUS[e.bonus]} por ${e.segundos}s (${EFEITO_BONUS[e.bonus]})`, meu ? 'bom' : 'ruim');
+        const ganhos = [e.bonus, e.bonusNaves].filter(Boolean).map((b) => `${NOME_BONUS[b]} (${EFEITO_BONUS[b]})`);
+        hud.noticia(`${quem} · ${meu ? 'seu time' : 'inimigo'}: ${ganhos.join(' e ')} por ${e.segundos}s`, meu ? 'bom' : 'ruim');
       } else if (e.e === 'melhoria' && e.time === meuTime) {
         // Melhoria dos mineradores: vale para o time todo, então o time todo fica sabendo.
         const nome = MELHORIAS_MINERADOR[e.melhoria]?.nome ?? e.melhoria;
@@ -486,7 +493,7 @@ function montarJogo(rede, boas, renderer, race) {
       atualizarMotor(minhaNave, pred.boost, tempo, pred.pousado);
       const eu = snaps.at(-1)?.ents.find((e) => e.id === meuId);
       const meusEfeitos = { dreno: !!eu?.dreno && vivo, lento: pred.lento > 0 && vivo, emp: pred.emp > 0 && vivo };
-      efeitos.estadoNave(minhaNave, meusEfeitos, dt, tempo);
+      efeitos.estadoNave(minhaNave, { ...meusEfeitos, furia: vivo && !!bonusAtivos[meuTime]?.furia }, dt, tempo);
       hud.efeitosProprios(meusEfeitos);
       foco.set(x, y, z);
     }
@@ -521,7 +528,8 @@ function montarJogo(rede, boas, renderer, race) {
       else if (e.drone) o.obj.userData.corpo.rotation.y = Math.sin(tempo * 3 + e.id) * 0.15;
       if (e.tipo === 'minerador') animarMinerador(o.obj, e, tempo, e.id);
       else atualizarMotor(o.obj, e.boost, tempo, e.pousado);
-      efeitos.estadoNave(o.obj, { dreno: !!e.dreno, lento: !!e.lento, emp: !!e.emp }, dt, tempo);
+      const furia = e.tipo === 'jogador' && !!bonusAtivos[e.time]?.furia;
+      efeitos.estadoNave(o.obj, { dreno: !!e.dreno, lento: !!e.lento, emp: !!e.emp, furia }, dt, tempo);
       rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position, nivel: e.nivel });
     }
     for (const [id, o] of outras) {
