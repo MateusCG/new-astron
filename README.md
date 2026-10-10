@@ -20,12 +20,15 @@ Abra duas abas para ver o multijogador.
 | `W` / `S` (ou setas) | joystick | acelerar / ré |
 | `A` / `D` (ou setas) | joystick | girar |
 | `Shift` | SHIFT | boost (gasta energia) |
-| `Z` ou `Espaço` | Z | arma principal (a escolhida no menu de armas) |
-| `X` | X | plasma |
-| `Q` | ARMA | menu de armas: laser simples, laser duplo (2 tiros paralelos), laser triplo (3 em leque), dreno (o alvo perde vida por alguns segundos) ou criogênico (o alvo fica lento); `1` a `5` ou clique/toque escolhe. Com o menu aberto o jogo segue, mas não sai tiro |
+| `Z` ou `Espaço` | Z | atira com a arma do encaixe do Z (padrão: laser simples) |
+| `X` | X | atira com a arma do encaixe do X (padrão: plasma) |
+| `Q` | ARMA Z | menu de armas do Z |
+| `E` | ARMA X | menu de armas do X |
 | `L` | POUSAR | pousar / decolar, só no círculo de neon da base (pousada conserta mais rápido) |
 | `V` | | distância da câmera |
 | `Esc` | | sair da partida e voltar para a tela inicial (troca de nome e raça); com o menu de armas aberto, só fecha o menu |
+
+A nave tem **duas armas**, uma no Z e outra no X, e as duas escolhem do mesmo catálogo: laser simples, laser duplo (2 tiros paralelos), laser triplo (3 em leque), dreno (o alvo perde vida por alguns segundos), criogênico (o alvo fica lento), plasma (lento e pesado), míssil teleguiado (persegue o inimigo à frente), mina (fica no chão atrás da nave e explode quando um inimigo passa), onda de choque (fere e empurra quem está em volta) e pulso EMP (zera a energia do alvo: sem tiro e sem boost por instantes). Pode usar duas diferentes ou a mesma nas duas; cada encaixe tem a sua recarga, mas a energia é uma só. No menu, `1` a `9` e `0` (ou clique/toque) escolhem; com o menu aberto o jogo segue, mas não sai tiro.
 
 ## Variáveis de ambiente
 

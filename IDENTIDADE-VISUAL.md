@@ -37,6 +37,9 @@ Tokens em `public/css/jogo.css` (`:root`). Use as variáveis; não escreva hex s
 | `--laser` | `#5ff7ff` | Ícone de arma no HUD (mesmo ciano do tiro de laser) |
 | `--dreno` | `#d070ff` | Ícone da arma Dreno (mesmo violeta do tiro e da aura) |
 | `--gelo` | `#a8e8ff` | Ícone da arma Criogênico (mesmo azul-gelo do tiro e da aura) |
+| `--plasma` | `#7dff6a` | Ícone da arma Plasma (mesmo verde do tiro) |
+| `--missil` | `#fff0c8` | Ícone do Míssil teleguiado (mesmo branco-quente da chama) |
+| `--emp` | `#c8d2ff` | Ícone do Pulso EMP (mesmo branco-elétrico do tiro, da aura e das faíscas) |
 | `--inimigo` | `#ff4a2a` | Placar e coisas do outro time no HUD (mesmo vermelho dos inimigos no minimapa) |
 | `--objetivo` | `#ffb627` | Ícones dos bônus por tempo no placar (âmbar dos objetivos, de onde os bônus vêm), rótulo e barra dos objetivos |
 | `--xp` | `#b6f05a` | Barra de XP e o nível (no painel e no nome sobre a nave) e o anel de "subiu de nível". Verde-lima: cor própria do HUD, fora das três camadas, longe do ouro (amarelo), da energia (azul) e do plasma (verde mais frio, só no tiro) |
@@ -73,12 +76,16 @@ Em `public/js/efeitos.js` (`COR_TIRO`). Efeitos de luz são sempre **aditivos** 
 
 | Tiro | Cor | Forma |
 |---|---|---|
-| Laser (Z) | `#5ff7ff` ciano | Barra fina de 7 m + brilho pequeno |
-| Laser duplo (Z) | `#5ff7ff` ciano | Duas barras de 6 m, mais finas, lado a lado (2,5 m de cada lado do nariz) + brilho menor |
-| Laser triplo (Z) | `#5ff7ff` ciano | Três barras de 5 m em leque (±6°) + brilho pequeno |
-| Dreno (Z) | `#d070ff` violeta | Bola de brilho, sem barra |
-| Criogênico (Z) | `#a8e8ff` azul-gelo | Estilhaço curto e grosso (3 m) + brilho |
-| Plasma (X) | `#7dff6a` verde | Esfera de brilho grande |
+| Laser | `#5ff7ff` ciano | Barra fina de 7 m + brilho pequeno |
+| Laser duplo | `#5ff7ff` ciano | Duas barras de 6 m, mais finas, lado a lado (2,5 m de cada lado do nariz) + brilho menor |
+| Laser triplo | `#5ff7ff` ciano | Três barras de 5 m em leque (±6°) + brilho pequeno |
+| Dreno | `#d070ff` violeta | Bola de brilho, sem barra |
+| Criogênico | `#a8e8ff` azul-gelo | Estilhaço curto e grosso (3 m) + brilho |
+| Plasma | `#7dff6a` verde | Esfera de brilho grande |
+| Míssil teleguiado | casco `#c9d2d0` + chama `#fff0c8` branco-quente; fumaça `#8f8a83` | Corpo de 3 m (cilindro + nariz) com a chama atrás, vira com a curva; **rastro de fumaça cinza** (sem brilho, uma baforada a cada 4 m) que cresce e some em ~1 s |
+| Pulso EMP | `#c8d2ff` branco-elétrico | Bola de brilho média, sem barra |
+| Mina | corpo `#3a4442` + luz na cor do **time** | Disco facetado de ~3 m no chão, com quatro espinhos e uma luz em cima que pulsa: devagar enquanto não arma, rápido armada. Turquesa `#00efc0` a do seu time, vermelha `#ff3b2a` a do outro (nada de anel no chão: anel turquesa no chão é só pouso) |
+| Onda de choque / explosão de mina | cor do **time** de quem usou (turquesa ou vermelho) | Dois anéis finos aditivos abrindo no plano até o raio da área em ~0,45 s + clarão; a mina ainda solta a explosão laranja |
 | Inimigo | `#ff4a2a` vermelho | Qualquer forma, sempre vermelho |
 | Explosão | `#ff9a3a` a `#ffd28a` | Clarão + fagulhas que caem |
 
@@ -88,8 +95,9 @@ Em `public/js/efeitos.js` (`COR_TIRO`). Efeitos de luz são sempre **aditivos** 
 |---|---|---|
 | Dreno (perdendo vida) | `#d070ff` violeta | Aura pulsando em volta da nave + partículas **subindo** (a vida sendo puxada para fora). Não é fogo: nada de laranja/amarelo |
 | Lento (criogênico) | `#a8e8ff` azul-gelo | Aura fixa em volta da nave + cristais **caindo** |
+| Sem sistemas (EMP) | `#c8d2ff` branco-elétrico + `#ffffff` | Aura que **falha** (pisca irregular, como curto-circuito) + **faíscas** curtas estalando em volta, para qualquer nave, monstro ou minerador atingido |
 
-O violeta e o azul-gelo são cores de **efeito de arma**, fora das três camadas de cena: só aparecem em tiro, aura e ícone dessas armas, nunca em cenário ou interface comum.
+O violeta, o azul-gelo, o branco-quente do míssil e o branco-elétrico do EMP são cores de **efeito de arma**, fora das três camadas de cena: só aparecem em tiro, aura e ícone dessas armas, nunca em cenário ou interface comum. O branco-elétrico é azulado (puxa para o lilás claro) para não se confundir com o azul-gelo (mais ciano) nem com a chama do míssil (quente). Mina e onda de choque não têm cor própria: usam a cor do time (seu time turquesa, o outro vermelho), como tudo que é de um time.
 
 ### Mapa da partida (M1, 3 contra 3)
 
@@ -187,9 +195,10 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 - **Pouso no objetivo A:** acima da dica de pouso, um painel escuro com borda âmbar e a barra de progresso: "Tomando o objetivo A · 6,2 s" (turquesa), "O inimigo está tomando" (vermelho), "Contestado" (âmbar piscando) ou "Objetivo A em recarga · volta em 1:12".
 - **Minimapa** no canto superior esquerdo, **placar** no superior direito (na mesma chapa do painel: minério do seu time em turquesa à esquerda, tempo `mm:ss` em fonte mono no meio, que pisca em `#ff8a70` no último minuto, minério do outro time em vermelho à direita; embaixo de cada número, os bônus ativos do time como ícone de traço âmbar + segundos), **notícias** logo abaixo do placar, **avisos** no centro da tela.
 - **Tela de fim de partida** (`#fim-partida`): painel em chapa no alto e centro, sem bloquear o jogo, com "VITÓRIA" (turquesa com brilho), "DERROTA" (vermelho com brilho) ou "EMPATE" (texto claro), uma frase curta, o placar grande (seu time × outro) e "Nova partida em Ns".
-- **Menu de armas** (`#menu-armas`, tecla Q): painel na mesma chapa do painel inferior, no **alto e centro** da tela, para a nave continuar à vista (o jogo não pausa). Uma carta por arma com número da tecla, ícone, nome, dano, energia, recarga e uma linha do efeito; a arma em uso tem borda `--neon` e o selo "EM USO". **Ícone de arma** (SVG de traço, sem preenchimento): traços `--laser` para os lasers (1 simples, 2 paralelos no duplo, 3 em leque no triplo), gota `--dreno` para o Dreno e floco `--gelo` para o Criogênico; o mesmo ícone, com o nome, fica no painel inferior. No celular o menu fica entre o minimapa e os botões da direita, e o nome no painel some (só o ícone).
+- **Menu de armas** (`#menu-armas`, Q edita a arma do Z, E a do X; um elemento só, com o título "Arma do Z" / "Arma do X"): painel na mesma chapa do painel inferior, no **alto e centro** da tela, para a nave continuar à vista (o jogo não pausa). Dez cartas compactas em duas fileiras, com número da tecla (1 a 9 e 0), ícone e nome na mesma linha, dano / energia / recarga lado a lado e uma linha do efeito (em tela baixa, até 520 px, a linha do efeito some e fica no `title` da carta). A arma deste encaixe tem borda `--neon` e o selo "EM USO"; a do outro encaixe, borda tracejada `--neon-escuro` e o selo "NO X" (ou "NO Z"); a mesma nos dois mostra "EM USO · também no X". Arma que a nave não possui fica apagada com o selo "NA LOJA". **Ícone de arma** (SVG de traço, sem preenchimento): traços `--laser` para os lasers (1 simples, 2 paralelos no duplo, 3 em leque no triplo), gota `--dreno` para o Dreno, floco `--gelo` para o Criogênico, esfera `--plasma` para o Plasma, foguete `--missil` para o Míssil, mina com espinhos e ondas em `--neon` para a Mina e a Onda de choque (armas suas, na cor do seu time) e raio `--emp` para o Pulso EMP.
+- **Armas no painel inferior:** as duas, uma em cima da outra, como "Z · ícone nome" e "X · ícone nome" (a letra em `--neon`), com uma linha fina de 2 px embaixo de cada uma que enche conforme a recarga daquele encaixe (`--neon` pronta, `--texto` apagado recarregando, `--hp` se falta energia para o próximo disparo). Sob EMP, as duas ficam apagadas com a borda `--emp`. Clicar abre o menu daquele encaixe. No celular o nome some (fica "Z · ícone").
 - **Tipografia:** `system-ui` para texto e `ui-monospace` para números. Título com letras espaçadas e "ASTRO" em `--neon` com brilho.
-- **Celular:** joystick à esquerda; Z, X e SHIFT à direita (mesma disposição do AstroN), com ARMA numa pílula acima deles. Área de toque com no mínimo 64 px.
+- **Celular:** joystick à esquerda; Z, X e SHIFT à direita (mesma disposição do AstroN), com ARMA Z e ARMA X em cima (cada uma sobre a coluna do botão de tiro do seu encaixe). No menu do celular, as cartas mostram só ícone, nome e selo. Área de toque com no mínimo 64 px.
 - **Idioma:** português do Brasil, frases curtas e diretas, sem jargão técnico para o jogador ("Nave destruída · renascendo na base em 3s").
 
 ## Checklist antes de abrir o PR

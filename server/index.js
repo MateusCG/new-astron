@@ -7,19 +7,24 @@
 //
 // Protocolo (JSON):
 //   cliente → servidor  {t:'entrar', nome, race}
-//                       {t:'in', s:seq, th, tu, b, f1, f2, p, a}   um por passo de 1/30 s
+//                       {t:'in', s:seq, th, tu, b, f1, f2, p, a, a2}   um por passo de 1/30 s
 //                       (p = botão de pouso, alterna pousar/decolar na borda;
-//                        a = arma principal, índice em ARMAS_PRINCIPAIS: 0 laser
-//                        simples, 1 duplo, 2 triplo, 3 dreno, 4 criogênico; fora
-//                        da lista vira 0)
+//                        f1/f2 = gatilho do Z/X; a/a2 = arma do encaixe do Z/X,
+//                        índice em ARMAS: 0 laser simples, 1 duplo, 2 triplo,
+//                        3 dreno, 4 criogênico, 5 plasma, 6 míssil, 7 mina,
+//                        8 onda de choque, 9 pulso EMP; fora da lista, ou arma
+//                        que a nave não possui (s.armas), vira a padrão do
+//                        encaixe: 0 no Z, 5 no X)
 //                       {t:'ping', c}
 //   servidor → cliente  {t:'bemvindo', id, tickHz, time}   time = 0 (base de baixo) ou 1
 //                       {t:'erro', codigo}   codigo 'partida_cheia' (3 em cada time); fecha
 //                       {t:'snap', tick, ack, vivo, time, me, ouro, abates, mortes,
-//                        nivel, xp, xpProx, partida, bonus, obj, ents, ev}
-//                       (me.arma = arma principal, me.lento = s de lentidão,
+//                        nivel, xp, xpProx, partida, bonus, obj, minas, guiados, ents, ev}
+//                       (me.encaixes = [arma do Z, arma do X], me.cd1/cd2 = recarga
+//                        de cada encaixe, me.armas = armas que possui, me.lento =
+//                        s de lentidão, me.emp = s sem tiro e sem boost (pulso EMP),
 //                        me.time = time da nave, para a predição do pouso;
-//                        cada ent traz dreno/lento booleanos para desenhar o efeito;
+//                        cada ent traz dreno/lento/emp booleanos para desenhar o efeito;
 //                        ev 'tiro' traz kind, que diz a arma e o efeito do projétil;
 //                        nivel = nível do jogador (1 a NIVEL_MAX), xp = XP dentro do
 //                        nível, xpProx = XP para o próximo (0 no máximo); ouro, xp e
@@ -35,8 +40,12 @@
 //         s de recarga; no A, prog (0 a 1), quem (time tomando) e falta (s); no B e
 //         no C, vida (0 a 1) da torre ou do guardião. Torre B em 'recarga' está
 //         caída: o cliente a tira da física (definirObstaculoAtivo).
+//   minas: [{id, dono, time, x, y, z, armada}]   minas no chão (time de quem soltou;
+//         armada = já explode com inimigo perto)
+//   guiados: [{id, x, y, z, vx, vy, vz}]   mísseis teleguiados em voo: o cliente não
+//         prevê a curva e corrige o desenho por aqui
 //   ents: [{id, nome, tipo, drone, vivo, race, x, y, z, yaw, roll, hp, maxHp, boost, pousado,
-//           time?, carga?, minerando?, nivel?}]
+//           dreno, lento, emp, time?, carga?, minerando?, nivel?}]
 //         tipo = 'jogador' | 'arnosh' | 'vorax' | 'krakor' | 'guardiao' | 'minerador'
 //         (o que desenhar); drone = inimigo do PvE; time em jogadores e mineradores;
 //         carga e minerando só nos mineradores; nivel só nos jogadores
@@ -45,6 +54,10 @@
 //         {e:'morte', id, por, tipo, time?, x, y, z}
 //         {e:'garra', id, alvo, dano, x, y, z}   golpe corpo a corpo de um Vorax
 //         {e:'acerto', ..., torre}   tiro que bateu numa torre B (alvo 0)
+//         {e:'acerto', arma, alvo, dano, x, y, z}   dano em área (arma 'mina' ou
+//                                    'choque'), um por alvo, sem bala
+//         {e:'choque', id, time, x, y, z, raio}   onda de choque da nave id
+//         {e:'explosao', arma:'mina', id, dono, time, x, y, z, raio}   mina explodiu
 //         {e:'nivel', id, nivel}     jogador subiu de nível
 //         {e:'objetivo', id, tipo, time, bonus, segundos, quem}   um time tomou um objetivo
 //         {e:'entrega', id, time, carga, x, y, z}   minerador somou carga no placar

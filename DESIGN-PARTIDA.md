@@ -64,7 +64,8 @@ Os bônus do lado dos mineradores (`server/bonus.js`): `'mineracao'` +1 por viag
 - **[feito]** **Ouro** pelas mesmas fontes. XP e ouro por tipo em `RECOMPENSA`: Arnosh 20 XP / 25 ouro, Vorax 30 / 30, Krakor 120 / 90, guardião 250 / 150, minerador 40 / 40, jogador 100 / 50.
 - **[feito]** Ouro, XP e nível são **da partida** (como num MOBA): zeram quando começa a seguinte.
 - **Evolução da nave** nos níveis **5, 10 e 15**, pagando ouro: mais durabilidade, mais energia etc.
-- **Loja**: comprar e trocar armas, armaduras e itens (as armas do menu Q passam a ser compradas aqui).
+- **[feito]** **Duas armas na nave:** Q edita o Z, E edita o X; mesma arma pode ir nos dois. Não existe arma principal: os dois encaixes escolhem do mesmo catálogo (`ARMAS` em `shared/sim.js`: laser simples, duplo, triplo, dreno, criogênico, plasma, míssil teleguiado, mina, onda de choque e pulso EMP), cada um com a sua recarga e a mesma energia. Padrão: laser simples no Z e plasma no X (as duas de fábrica, sempre possuídas).
+- **Loja**: comprar e trocar armas, armaduras e itens (as armas do menu passam a ser compradas aqui: quem compra põe o índice em `s.armas`; arma não possuída fica travada no menu e cai na padrão do encaixe).
 - Evolução e Loja só abrem **com a nave pousada** na plataforma do serviço.
 
 ## HUD
