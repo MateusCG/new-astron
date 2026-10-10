@@ -25,7 +25,7 @@
           <kbd>W</kbd><kbd>S</kbd> acelera/ré · <kbd>A</kbd><kbd>D</kbd> gira · <kbd>Shift</kbd> boost ·
           <kbd>Z</kbd> e <kbd>X</kbd> atiram (uma arma em cada) · <kbd>Q</kbd> troca a arma do Z · <kbd>E</kbd> a do X ·
           <kbd>L</kbd> pousar (na Loja e na Evolução da base, abre o painel) · <kbd>R</kbd> kit de reparo ·
-          <kbd>F</kbd> célula de energia · <kbd>V</kbd> câmera ·
+          <kbd>F</kbd> célula de energia · <kbd>B</kbd> volta à base (6 s quase parado) · <kbd>V</kbd> câmera ·
           <kbd>Esc</kbd> sair
         </p>
       </form>
@@ -43,6 +43,7 @@
       <div id="rotulos"></div>
       <p id="aviso" hidden></p>
       <div id="prog-obj" hidden><span class="txt"></span><span class="barra"><i></i></span></div>
+      <div id="prog-recall" hidden><span class="txt"></span><span class="barra"><i></i></span></div>
       <p id="pouso" hidden></p>
       <section id="fim-partida" hidden aria-live="polite">
         <h2></h2>
@@ -107,6 +108,7 @@
           <button id="btn-arma-z" class="btn-arma" type="button">ARMA Z</button>
           <button id="btn-arma-x" class="btn-arma" type="button">ARMA X</button>
           <button id="btn-pouso" type="button">POUSAR</button>
+          <button id="btn-recall" type="button" title="Voltar à base (B)">BASE</button>
           <button id="btn-shift" type="button">SHIFT</button>
           <button id="btn-z" type="button">Z</button>
           <button id="btn-x" type="button">X</button>

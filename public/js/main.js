@@ -22,6 +22,12 @@
 // painel abre sozinho; os pedidos vão direto pela rede e a resposta chega como
 // {t:'resultado'}. Com o painel aberto, como com o menu de armas, não sai tiro.
 //
+// Recall (B, shared/recall.js): o pedido vai no campo r do comando e só o servidor
+// decide; o cliente não prevê a canalização. Na chegada a nave salta para a base:
+// a reconciliação vê o salto (mais de SALTO_M), descarta a suavização e a câmera
+// vai junto num quadro, sem atravessar o mapa (o renascimento usa o mesmo caminho).
+// A barra do HUD corre com RECALL_S entre um snapshot e outro.
+//
 // ESC sai da partida e volta para a tela de entrada (nome e raça como estavam),
 // para trocar de piloto sem recarregar a página. Sair desmonta tudo o que a
 // partida criou (conexão, laço de quadros, listeners, cena na GPU); só o renderer
@@ -42,8 +48,27 @@ import { MenuArmas } from './armas.js';
 import { Placar } from './placar.js';
 import { PainelServicos } from './servicos.js';
 import { MELHORIAS_MINERADOR } from '/shared/evolucao.js';
+import { RECALL_S } from '/shared/recall.js';
 
 const INTERP_MS = 120;
+// Diferença entre a predição e o servidor acima disso é salto (recall, renascimento),
+// não erro de predição: vai direto, sem suavizar, e a câmera acompanha na hora.
+const SALTO_M = 30;
+// Por que a volta à base foi cancelada ou recusada (motivo do evento 'recall').
+const MOTIVO_RECALL = {
+  cancelado: {
+    dano: 'você levou dano',
+    tiro: 'você apertou o gatilho',
+    boost: 'você deu boost',
+    velocidade: 'a nave passou de quase parada',
+  },
+  recusado: {
+    na_base: 'Você já está na base',
+    tiro: 'Solte o gatilho para voltar à base',
+    boost: 'Solte o boost para voltar à base',
+    velocidade: 'Freie antes: a volta à base pede a nave quase parada',
+  },
+};
 // Modelo de cada tipo de inimigo (o tipo vem do servidor em cada entidade).
 const MODELO_INIMIGO = { vorax: criarVorax, krakor: criarKrakor, guardiao: criarGuardiao };
 // O que o bônus de cada objetivo faz, para a notícia de quem tomou.
@@ -253,6 +278,8 @@ function montarJogo(rede, boas, renderer, race) {
   let tempo = 0;
   let morteEm = 0;
   let localSeq = 0;
+  let saltoCamera = false; // a nave saltou (recall, renascimento): câmera vai junto
+  let recallLocal = null; // { frac, t }: progresso da própria volta à base no último snapshot
 
   const pose = (s) => ({ x: s.x, y: s.y, z: s.z, yaw: s.yaw, roll: s.roll });
 
@@ -289,6 +316,8 @@ function montarJogo(rede, boas, renderer, race) {
     snaps.push({ t: performance.now(), ents: m.ents });
     while (snaps.length > 30) snaps.shift();
     for (const e of m.ents) nomes.set(e.id, e.nome);
+    const euNoSnap = m.ents.find((e) => e.id === meuId);
+    recallLocal = euNoSnap?.recall !== undefined ? { frac: euNoSnap.recall, t: performance.now() } : null;
     placar.atualizar(m.partida, m.bonus);
     // Antes da predição: a torre B caída já sai da física daqui em diante.
     for (const t of objetivos.atualizar(m.obj)) {
@@ -316,6 +345,7 @@ function montarJogo(rede, boas, renderer, race) {
       pendentes = pendentes.filter((p) => p.seq > m.ack);
       erro.set(0, 0, 0);
       camYaw = pred.yaw;
+      saltoCamera = true;
       hud.mostrarAviso('');
       return;
     }
@@ -326,11 +356,36 @@ function montarJogo(rede, boas, renderer, race) {
     const dx = antes.x - pred.x;
     const dy = antes.y - pred.y;
     const dz = antes.z - pred.z;
-    if (Math.hypot(dx, dy, dz) > 30) erro.set(0, 0, 0);
-    else erro.add(new THREE.Vector3(dx, dy, dz));
+    if (Math.hypot(dx, dy, dz) > SALTO_M) {
+      // Salto (recall): começa do lugar novo, sem arrastar a nave pelo caminho.
+      erro.set(0, 0, 0);
+      ant = pose(pred);
+      camYaw = pred.yaw;
+      saltoCamera = true;
+      return;
+    }
+    erro.add(new THREE.Vector3(dx, dy, dz));
     ant.x -= dx;
     ant.y -= dy;
     ant.z -= dz;
+  }
+
+  /** Volta à base (evento 'recall'): avisos para quem pediu, feixe de luz para todos. */
+  function eventoRecall(e) {
+    if (e.estado === 'chegou') {
+      const time = e.id === meuId ? meuTime : snaps.at(-1)?.ents.find((x) => x.id === e.id)?.time;
+      const cor = time === meuTime ? COR_TIME.meu : COR_TIME.outro;
+      if (e.de) efeitos.feixeRecall(e.de.x, e.de.y, e.de.z, cor);
+      efeitos.feixeRecall(e.x, e.y, e.z, cor);
+    }
+    if (e.id !== meuId) return;
+    if (e.estado === 'inicio') hud.noticia(`Voltando à base em ${e.s} s · sem tiro, sem boost, quase parado`, 'bom');
+    else if (e.estado === 'chegou') hud.noticia('De volta à base', 'bom');
+    else if (e.estado === 'cancelado') {
+      recallLocal = null;
+      const porque = MOTIVO_RECALL.cancelado[e.motivo];
+      hud.noticia(porque ? `Volta à base cancelada: ${porque}` : 'Volta à base cancelada', porque ? 'ruim' : '');
+    } else if (e.estado === 'recusado') hud.noticia(MOTIVO_RECALL.recusado[e.motivo] ?? 'Não dá para voltar à base agora', 'ruim');
   }
 
   function tratarEventos(ev) {
@@ -362,6 +417,8 @@ function montarJogo(rede, boas, renderer, race) {
         if (e.time === meuTime) hud.noticia(`${por} destruiu um minerador do seu time`, 'ruim');
         else if (e.por === meuId) hud.noticia(`Você destruiu um minerador inimigo${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
         else hud.noticia(`${por} destruiu um minerador inimigo`, 'bom');
+      } else if (e.e === 'recall') {
+        eventoRecall(e);
       } else if (e.e === 'entrega') {
         placar.entrega(e.time);
       } else if (e.e === 'partida' && e.n > 1) {
@@ -479,6 +536,10 @@ function montarJogo(rede, boas, renderer, race) {
       const meusEfeitos = { dreno: !!eu?.dreno && vivo, lento: pred.lento > 0 && vivo, emp: pred.emp > 0 && vivo };
       efeitos.estadoNave(minhaNave, meusEfeitos, dt, tempo);
       hud.efeitosProprios(meusEfeitos);
+      // Volta à base: a barra corre entre um snapshot e outro com RECALL_S.
+      const fracRecall = vivo && recallLocal ? Math.min(1, recallLocal.frac + (agora - recallLocal.t) / 1000 / RECALL_S) : null;
+      efeitos.recall(minhaNave, fracRecall, COR_TIME.meu, dt, tempo, true);
+      hud.recall(fracRecall, fracRecall === null ? 0 : (1 - fracRecall) * RECALL_S);
       foco.set(x, y, z);
     }
 
@@ -513,6 +574,7 @@ function montarJogo(rede, boas, renderer, race) {
       if (e.tipo === 'minerador') animarMinerador(o.obj, e, tempo, e.id);
       else atualizarMotor(o.obj, e.boost, tempo, e.pousado);
       efeitos.estadoNave(o.obj, { dreno: !!e.dreno, lento: !!e.lento, emp: !!e.emp }, dt, tempo);
+      efeitos.recall(o.obj, e.recall ?? null, aliado ? COR_TIME.meu : COR_TIME.outro, dt, tempo);
       rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position, nivel: e.nivel });
     }
     for (const [id, o] of outras) {
@@ -552,7 +614,10 @@ function montarJogo(rede, boas, renderer, race) {
           break;
         }
       }
-      if (camera.position.lengthSq() === 0) camera.position.copy(desejada);
+      // Primeiro quadro, ou a nave saltou (recall, renascimento): a câmera vai direto,
+      // em vez de deslizar pelo mapa atravessando rochas.
+      if (camera.position.lengthSq() === 0 || saltoCamera) camera.position.copy(desejada);
+      saltoCamera = false;
       camera.position.lerp(desejada, 1 - Math.exp(-8 * dt));
       const chao = alturaSolida(camera.position.x, camera.position.z) + 2;
       if (camera.position.y < chao) camera.position.y = chao;

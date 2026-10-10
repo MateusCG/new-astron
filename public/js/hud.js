@@ -1,6 +1,6 @@
 // HUD: painel inferior (HP, energia, nível e XP, ouro, velocidade), minimapa,
-// nomes sobre as naves, avisos de abate, a barra do pouso no objetivo A e a tela
-// de "destruído". É DOM puro por cima do canvas.
+// nomes sobre as naves, avisos de abate, a barra do pouso no objetivo A, a barra
+// do recall (volta à base) e a tela de "destruído". É DOM puro por cima do canvas.
 
 import * as THREE from 'three';
 import { paredeAt, MAP_HALF_X, MAP_HALF_Z, BASES, CORREDOR, MINERIO, ENTREGAS, SERVICOS, OBJETIVOS } from '/shared/terrain.js';
@@ -41,6 +41,8 @@ export class Hud {
     this.xpTxt = $('#xp .txt');
     this.nivel = $('#xp em');
     this.progObj = $('#prog-obj');
+    this.progRecall = $('#prog-recall');
+    this.btnRecall = $('#btn-recall');
     this.ouro = $('#ouro');
     this.abates = $('#abates');
     this.vel = $('#vel');
@@ -336,6 +338,24 @@ export class Hud {
     el.querySelector('i').style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
   }
 
+  /**
+   * Barra da volta à base (recall): `frac` de 0 a 1 e `resta` em s; null esconde.
+   * O botão BASE do celular acende enquanto canaliza.
+   */
+  recall(frac, resta) {
+    const el = this.progRecall;
+    const ligado = frac !== null && frac !== undefined;
+    el.hidden = !ligado;
+    this.btnRecall?.classList.toggle('canalizando', ligado);
+    if (!ligado) return;
+    const txt = `Voltando à base · <b>${Math.max(0, resta).toFixed(1).replace('.', ',')} s</b>`;
+    if (el.dataset.txt !== txt) {
+      el.querySelector('.txt').innerHTML = txt;
+      el.dataset.txt = txt;
+    }
+    el.querySelector('i').style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
+  }
+
   /** Avisa quando a própria nave começa a drenar, fica lenta ou leva EMP (só na mudança). */
   efeitosProprios({ dreno, lento, emp }) {
     if (dreno && !this.drenando) this.noticia('Dreno: você está perdendo vida', 'ruim');
@@ -411,6 +431,7 @@ export class Hud {
     this.mostrarAviso('');
     this.pouso(null, false);
     this.objetivoPouso(null);
+    this.recall(null);
     this.ping.textContent = '';
     document.body.classList.remove('dano');
   }
