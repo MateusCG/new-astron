@@ -27,6 +27,7 @@ Abra duas abas para ver o multijogador.
 | `L` | POUSAR | pousar / decolar, só nas áreas de pouso da sua base e nos objetivos A (pousada conserta mais rápido); pousada e parada na Loja ou na Evolução da base, o painel abre sozinho |
 | `R` | botão R no painel | usa um Kit de reparo (cura 40% do HP; recarga de 10 s) |
 | `F` | botão F no painel | usa uma Célula de energia (enche a energia; recarga de 8 s) |
+| `B` | BASE | volta à base: canaliza 6 s quase parado (dano, tiro, boost, acelerar ou B de novo cancelam) e a nave aparece na sua base com a vida e o equipamento que tinha |
 | `Enter` | toque na dica de pouso | reabre o painel da Loja/Evolução fechado com `Esc` |
 | `V` | | distância da câmera |
 | `Esc` | | sair da partida e voltar para a tela inicial (troca de nome e raça); com o menu de armas ou o painel da Loja/Evolução aberto, só fecha o menu ou o painel |

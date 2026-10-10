@@ -7,8 +7,10 @@
 //
 // Protocolo (JSON):
 //   cliente → servidor  {t:'entrar', nome, race}
-//                       {t:'in', s:seq, th, tu, b, f1, f2, p, a, a2}   um por passo de 1/30 s
+//                       {t:'in', s:seq, th, tu, b, f1, f2, p, r, a, a2}   um por passo de 1/30 s
 //                       (p = botão de pouso, alterna pousar/decolar na borda;
+//                        r = botão do recall (B), pulso: na borda começa a
+//                        canalizar a volta à base ou cancela (shared/recall.js);
 //                        f1/f2 = gatilho do Z/X; a/a2 = arma do encaixe do Z/X,
 //                        índice em ARMAS: 0 laser simples, 1 duplo, 2 triplo,
 //                        3 dreno, 4 criogênico, 5 plasma, 6 míssil, 7 mina,
@@ -79,10 +81,11 @@
 //   guiados: [{id, x, y, z, vx, vy, vz}]   mísseis teleguiados em voo: o cliente não
 //         prevê a curva e corrige o desenho por aqui
 //   ents: [{id, nome, tipo, drone, vivo, race, x, y, z, yaw, roll, hp, maxHp, boost, pousado,
-//           dreno, lento, emp, time?, carga?, minerando?, nivel?}]
+//           dreno, lento, emp, time?, carga?, minerando?, nivel?, recall?}]
 //         tipo = 'jogador' | 'arnosh' | 'vorax' | 'krakor' | 'guardiao' | 'minerador'
 //         (o que desenhar); drone = inimigo do PvE; time em jogadores e mineradores;
-//         carga e minerando só nos mineradores; nivel só nos jogadores
+//         carga e minerando só nos mineradores; nivel só nos jogadores; recall
+//         (0 a 1) só em quem está canalizando a volta à base
 //   ev:   {e:'tiro'|'acerto'|'fim'|'renasceu'|'saiu', ...}
 //         {e:'entrou', id, nome, time}
 //         {e:'morte', id, por, tipo, time?, x, y, z, ouro?, renasce?, assist?, ouroAssist?,
@@ -111,6 +114,12 @@
 //         {e:'faseFinal', mult, restante}   começou a fase final (minério × mult)
 //         {e:'partida', n}   começou a partida n (placar zerado)
 //         {e:'fimPartida', vencedor, placar}
+//         {e:'recall', id, estado, motivo?, s?, de?, x?, y?, z?}   volta à base:
+//                                    estado 'inicio' (s = segundos de canalização) |
+//                                    'recusado' | 'cancelado' (motivo 'na_base' |
+//                                    'tiro' | 'boost' | 'velocidade' | 'dano' |
+//                                    'cancelou') | 'chegou' (de = de onde saiu,
+//                                    x/y/z = onde apareceu na base)
 
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';

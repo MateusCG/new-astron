@@ -46,6 +46,18 @@ test('cliente: entrar de novo não duplica os controles', () => {
   novo.destruir();
 });
 
+test('cliente: B (recall) vai como pulso de um passo no campo r', () => {
+  const c = new Controles(raiz);
+  tecla('keydown', 'KeyB');
+  assert.equal(c.ler().r, true, 'o passo seguinte leva o pedido');
+  assert.equal(c.ler().r, false, 'segurar B não repete: o servidor liga na borda');
+  tecla('keyup', 'KeyB');
+  tecla('keydown', 'KeyB');
+  tecla('keyup', 'KeyB');
+  assert.equal(c.ler().r, true, 'um toque rápido entre dois passos não se perde');
+  c.destruir();
+});
+
 test('cliente: fechar a rede para o ping e não entrega mais mensagens', async (t) => {
   t.mock.timers.enable({ apis: ['setInterval', 'setTimeout'] });
   const enviadas = [];

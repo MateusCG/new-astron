@@ -91,10 +91,11 @@ test('comando da rede é limitado', () => {
     f1: true,
     f2: false,
     p: true,
+    r: false,
     a: 1,
     a2: 7,
   });
-  assert.deepEqual(sanitizeInput(null), { th: 0, tu: 0, b: false, f1: false, f2: false, p: false, a: 0, a2: 5 });
+  assert.deepEqual(sanitizeInput(null), { th: 0, tu: 0, b: false, f1: false, f2: false, p: false, r: false, a: 0, a2: 5 });
 });
 
 test('comando da rede: arma fora da lista vira a padrão do encaixe (Z laser, X plasma)', () => {

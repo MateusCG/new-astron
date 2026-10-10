@@ -8,6 +8,10 @@
 // arma, rápido armada); a onda de choque e a explosão da mina são anéis que abrem
 // no plano, na cor do time de quem usou; o pulso EMP é uma bola branco-elétrica, e
 // quem está sob EMP solta faíscas na mesma cor.
+//
+// Recall (volta à base): enquanto canaliza, a nave fica dentro de uma coluna de luz
+// na cor do time (relativa a quem olha) que se acende com o progresso, com anéis
+// subindo cada vez mais rápido; ao sumir e ao chegar, um feixe curto e um clarão.
 
 import * as THREE from 'three';
 import { stepBullet } from '/shared/sim.js';
@@ -77,6 +81,13 @@ const AURA_PARTICULA_S = 0.07; // intervalo entre partículas por nave afetada
 const COR_NIVEL = new THREE.Color('#b6f05a');
 const ANEL_NIVEL_S = 1.2;
 const ANEL_NIVEL_RAIO = 14; // m no fim da animação
+// Recall: coluna de luz em volta da nave canalizando (raio e altura em m), anéis
+// subindo (quantos e quanto sobem) e o feixe da partida/chegada (duração em s).
+const RECALL_COLUNA_RAIO = 6;
+const RECALL_COLUNA_ALTURA = 46;
+const RECALL_ANEIS = 3;
+const RECALL_ANEL_SOBE = 22;
+const RECALL_FEIXE_S = 0.7;
 
 function spriteAditivo(cor, tamanho) {
   const s = new THREE.Sprite(
@@ -102,7 +113,12 @@ export class Efeitos {
     for (const geo of this.geoBarra.values()) geo.dispose();
     this.geoBarra.clear();
     this.atualizarMinas([]);
-    for (const r of [this.geoMina, this.geoEspinho, this.geoLuzMina, this.matMina, this.geoMissil, this.geoNarizMissil, this.matMissil, this.geoAnel]) {
+    for (const f of this.feixes) {
+      this.scene.remove(f.m);
+      f.m.material.dispose();
+    }
+    this.feixes = [];
+    for (const r of [this.geoMina, this.geoEspinho, this.geoLuzMina, this.matMina, this.geoMissil, this.geoNarizMissil, this.matMissil, this.geoAnel, this.geoColuna, this.geoAnelRecall]) {
       r.dispose();
     }
   }
@@ -128,6 +144,80 @@ export class Efeitos {
     this.geoNarizMissil = new THREE.ConeGeometry(0.28, 0.8, 6);
     this.matMissil = new THREE.MeshBasicMaterial({ color: COR_METAL });
     this.geoAnel = new THREE.RingGeometry(0.86, 1, 48);
+    // Coluna do recall: cilindro aberto de raio e altura 1, com a cor dos vértices
+    // indo de branco embaixo a preto em cima (aditivo: preto some), para a luz
+    // "derreter" no alto em vez de acabar num corte reto.
+    this.geoColuna = new THREE.CylinderGeometry(1, 1, 1, 20, 1, true);
+    this.geoColuna.translate(0, 0.5, 0);
+    const pos = this.geoColuna.attributes.position;
+    const cores = new Float32Array(pos.count * 3);
+    for (let i = 0; i < pos.count; i++) cores.fill(1 - pos.getY(i), i * 3, i * 3 + 3);
+    this.geoColuna.setAttribute('color', new THREE.BufferAttribute(cores, 3));
+    this.geoAnelRecall = new THREE.TorusGeometry(1, 0.045, 4, 40);
+    this.feixes = []; // feixes de partida e chegada do recall
+  }
+
+  /**
+   * Recall na nave (grupo do Three.js): `frac` de 0 a 1 enquanto canaliza (null
+   * apaga), `cor` do time de quem canaliza relativa a quem olha. `propria` (a sua
+   * nave, com a câmera logo atrás) acende menos, para a coluna não cegar a tela.
+   * Chamar a cada quadro para cada nave visível.
+   */
+  recall(obj, frac, cor, dt, tempo, propria = false) {
+    let r = obj.userData.recall;
+    const ligado = frac !== null && frac !== undefined;
+    if (!r) {
+      if (!ligado) return;
+      const mat = () => new THREE.MeshBasicMaterial({ color: cor, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
+      const coluna = new THREE.Mesh(this.geoColuna, mat());
+      coluna.material.vertexColors = true;
+      coluna.scale.set(RECALL_COLUNA_RAIO, RECALL_COLUNA_ALTURA, RECALL_COLUNA_RAIO);
+      coluna.position.y = -4;
+      const aneis = [];
+      for (let i = 0; i < RECALL_ANEIS; i++) {
+        const a = new THREE.Mesh(this.geoAnelRecall, mat());
+        a.rotation.x = Math.PI / 2;
+        aneis.push(a);
+      }
+      const clarao = spriteAditivo(cor, 9);
+      r = obj.userData.recall = { coluna, aneis, clarao, fase: 0 };
+      obj.add(coluna, clarao, ...aneis);
+    }
+    r.coluna.visible = r.clarao.visible = ligado;
+    for (const a of r.aneis) a.visible = ligado;
+    if (!ligado) {
+      r.fase = 0;
+      return;
+    }
+    // A luz cresce com o progresso e pulsa de leve; os anéis sobem mais rápido
+    // perto do fim, para quem olha sentir a contagem.
+    const k = Math.max(0, Math.min(1, frac));
+    r.coluna.material.opacity = (0.14 + 0.3 * k + 0.05 * Math.sin(tempo * 6)) * (propria ? 0.45 : 1);
+    r.coluna.scale.x = r.coluna.scale.z = RECALL_COLUNA_RAIO * (1.15 - 0.35 * k);
+    r.clarao.material.opacity = (0.3 + 0.4 * k) * (propria ? 0.5 : 1);
+    r.clarao.scale.setScalar(8 + 8 * k);
+    r.fase += dt * (0.5 + 1.5 * k); // voltas por segundo
+    r.aneis.forEach((a, i) => {
+      const t = (r.fase + i / RECALL_ANEIS) % 1;
+      a.position.y = -3 + RECALL_ANEL_SOBE * t;
+      a.scale.setScalar(RECALL_COLUNA_RAIO * (1.3 - 0.7 * t));
+      a.material.opacity = (1 - t) * (0.5 + 0.5 * k);
+    });
+  }
+
+  /** Feixe curto de luz na cor `cor` onde a nave do recall sumiu ou apareceu. */
+  feixeRecall(x, y, z, cor) {
+    const m = new THREE.Mesh(
+      this.geoColuna,
+      new THREE.MeshBasicMaterial({ color: cor, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, vertexColors: true, side: THREE.DoubleSide }),
+    );
+    m.position.set(x, y - 6, z);
+    this.scene.add(m);
+    this.feixes.push({ m, vida: 0 });
+    const s = spriteAditivo(cor, 18);
+    s.position.set(x, y, z);
+    this.scene.add(s);
+    this.auras.push({ s, subida: 0, vida: 0, dur: 0.5, tamanho: 18 });
   }
 
   /** Anel de luz de "subiu de nível" em volta da nave (grupo do Three.js). */
@@ -436,6 +526,21 @@ export class Efeitos {
         a.anel.scale.setScalar(Math.max(0.5, a.raio * sai));
         a.anel.material.opacity = (1 - k) * 0.9;
       }
+      return true;
+    });
+
+    this.feixes = this.feixes.filter((f) => {
+      f.vida += dt;
+      const k = f.vida / RECALL_FEIXE_S;
+      if (k >= 1) {
+        this.scene.remove(f.m);
+        f.m.material.dispose();
+        return false;
+      }
+      // Sobe alto num instante e afina até sumir.
+      const raio = RECALL_COLUNA_RAIO * (1 - k) * 1.2;
+      f.m.scale.set(Math.max(0.2, raio), RECALL_COLUNA_ALTURA * 2 * Math.min(1, k * 5), Math.max(0.2, raio));
+      f.m.material.opacity = 0.9 * (1 - k);
       return true;
     });
 

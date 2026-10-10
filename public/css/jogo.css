@@ -736,6 +736,46 @@ kbd {
   overflow: hidden;
 }
 
+/* Recall (B): barra da volta à base, no mesmo formato da do objetivo A, mas em
+   turquesa (é coisa do seu time). Fica acima da nave (que ocupa o terço de baixo),
+   longe da barra do objetivo A, para as duas caberem juntas. */
+#prog-recall {
+  position: absolute;
+  top: 26%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  gap: 4px;
+  width: min(300px, calc(100% - 32px));
+  padding: 5px 10px 6px;
+  border: 1px solid var(--neon-escuro);
+  border-radius: 4px;
+  background: rgba(10, 22, 21, 0.8);
+  box-shadow: 0 0 12px rgba(0, 239, 192, 0.25);
+  color: var(--neon);
+  font-size: 13px;
+  text-align: center;
+  pointer-events: none;
+}
+
+#prog-recall .txt b {
+  font: 700 13px ui-monospace, monospace;
+}
+
+#prog-recall .barra {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+#prog-recall .barra i {
+  display: block;
+  height: 100%;
+  background: var(--neon);
+  box-shadow: 0 0 8px var(--neon);
+}
+
 .rotulo .nv {
   color: var(--xp);
   font: 9px ui-monospace, monospace;
@@ -1663,6 +1703,7 @@ body.dano::after {
 
 #btn-shift,
 #btn-pouso,
+#btn-recall,
 .btn-arma {
   font-size: 11px !important;
 }
@@ -1672,6 +1713,22 @@ body.dano::after {
 #botoes .btn-arma {
   height: 64px;
   border-radius: 32px;
+}
+
+/* BASE (recall) fica à esquerda do POUSAR, fora da grade, para não empurrar os
+   outros botões nem crescer a coluna da direita. */
+#botoes #btn-recall {
+  position: absolute;
+  right: calc(100% + 12px);
+  top: 76px;
+  width: 64px;
+  height: 64px;
+  margin-top: 3px;
+}
+
+#botoes #btn-recall.canalizando {
+  border-color: var(--neon);
+  color: var(--neon);
 }
 
 #botoes button.ativo {

@@ -378,7 +378,7 @@ export function createShip(race, x, z, yaw = 0) {
 }
 
 /** Comando vazio (nave solta). */
-export const INPUT_VAZIO = { th: 0, tu: 0, b: false, f1: false, f2: false, p: false, a: ENCAIXE_PADRAO[0], a2: ENCAIXE_PADRAO[1] };
+export const INPUT_VAZIO = { th: 0, tu: 0, b: false, f1: false, f2: false, p: false, r: false, a: ENCAIXE_PADRAO[0], a2: ENCAIXE_PADRAO[1] };
 
 /** Normaliza um comando vindo da rede: nunca confie no cliente. */
 export function sanitizeInput(i) {
@@ -389,6 +389,7 @@ export function sanitizeInput(i) {
     f1: !!i?.f1,
     f2: !!i?.f2,
     p: !!i?.p,
+    r: !!i?.r, // recall (B): pulso; só o servidor lê (shared/recall.js), o stepShip não
     a: armaValida(i?.a, 0),
     a2: armaValida(i?.a2, 1),
   };

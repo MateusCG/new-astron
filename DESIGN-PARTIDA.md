@@ -82,6 +82,16 @@ Os bônus (`server/bonus.js`): dos mineradores, `'mineracao'` +1 por viagem, `'v
 | Pulso EMP | Elétrico | Controle (tira energia, tiro e boost) |
 - **[feito]** **Loja**: comprar armas, armaduras e itens. Cada partida começa só com as armas de fábrica (laser simples e plasma); as outras oito se compram aqui e ficam na posse do piloto (no jogador, não na nave: voltam a cada renascimento). Arma não possuída fica travada no menu ("NA LOJA") e cai na padrão do encaixe.
 - **[feito]** Evolução e Loja só abrem **com a nave pousada e parada** na plataforma do serviço da **própria base**.
+- **[feito]** **Recall (voltar à base, tecla B)**: ver abaixo.
+
+## Recall (voltar à base)
+
+**[feito]** A Loja e a Evolução só abrem na base, a ~700 m do minério; o recall põe a compra no ritmo da partida, como num MOBA (`shared/recall.js`, regras no servidor em `server/game.js`).
+
+- **B** (no celular, o botão **BASE** ao lado do POUSAR) começa a **canalizar** por `RECALL_S` (**6 s**). No fim, a nave aparece na base do próprio time, no mesmo lugar e rumo de quem renasce, com a **vida, a energia, o nível e o equipamento** que tinha (não é renascer: não conserta nada nem dá proteção de nascimento; a zona segura da base já protege).
+- **Cancela** se a nave **levar dano**, **apertar um gatilho** (Z ou X, mesmo sem sair tiro), **der boost**, passar de `RECALL_VEL_MAX` (**8 m/s**: "quase parada"; girar no lugar pode), **morrer** ou se **B for apertado de novo**. Pousada pode.
+- **Não começa** dentro da zona segura da própria base (já está lá), rápido demais, com o gatilho ou o boost apertados, nem morto.
+- Quem canaliza vê a barra "Voltando à base · 3,2 s" no HUD; todos veem uma **coluna de luz na cor do time** em volta da nave (anéis subindo cada vez mais rápido) e um feixe onde ela some e onde aparece.
 
 ## Combate
 
