@@ -1,9 +1,10 @@
-// Bônus por tempo dos mineradores de cada time (DESIGN-PARTIDA.md, "Objetivos").
+// Bônus por tempo de cada time (DESIGN-PARTIDA.md, "Objetivos").
 //
 // Quem ATIVA um bônus é quem cuida dos objetivos (tomar o A dá 'mineracao', destruir
-// a torre do B dá 'velocidade', o C dá 'durabilidade'); quem LÊ são os mineradores
-// (server/mineradores.js, em atributos()). Este arquivo é só o contrato entre os
-// dois: guarda, por time e por nome, até que tick o bônus vale.
+// a torre do B dá 'velocidade', o C dá 'durabilidade' e 'furia'); quem LÊ são os
+// mineradores (server/mineradores.js, em atributos()) e, no caso da 'furia', o dano
+// das naves dos jogadores (World.multDanoDe em server/game.js). Este arquivo é só o
+// contrato entre eles: guarda, por time e por nome, até que tick o bônus vale.
 //
 // O tempo é contado em ticks do mundo (passo fixo DT), não em relógio: o servidor
 // pode atrasar um pouco e o bônus dura exatamente o mesmo número de passos de jogo.
@@ -13,15 +14,19 @@
 import { DT } from '../shared/sim.js';
 
 /**
- * Bônus conhecidos e o efeito de cada um nos mineradores do time:
- * - mineracao: cada viagem carrega `cargaExtra` de minério a mais (objetivo A);
- * - velocidade: velocidade multiplicada por `mult` (objetivo B);
- * - durabilidade: HP máximo multiplicado por `mult` enquanto valer (objetivo C).
+ * Bônus conhecidos e o efeito de cada um no time:
+ * - mineracao: cada viagem dos mineradores carrega `cargaExtra` a mais (objetivo A);
+ * - velocidade: velocidade dos mineradores multiplicada por `mult` (objetivo B);
+ * - durabilidade: HP máximo dos mineradores multiplicado por `mult` (objetivo C);
+ * - furia: dano causado pelas naves dos jogadores multiplicado por `mult` (objetivo
+ *   C também: matar o guardião fortalece quem foi lá brigar). Dano é só do
+ *   servidor, então a predição do cliente não muda.
  */
 export const BONUS = {
   mineracao: { cargaExtra: 1 },
   velocidade: { mult: 1.4 },
   durabilidade: { mult: 1.5 },
+  furia: { mult: 1.2 },
 };
 
 export class Bonus {

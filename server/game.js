@@ -61,7 +61,7 @@ import { pontoAberto } from '../shared/obstaculos.js';
 import { MapaNavegacao } from './navegacao.js';
 import { Partida, N_TIMES, MULT_FASE_FINAL } from './partida.js';
 import { Mineradores } from './mineradores.js';
-import { Bonus } from './bonus.js';
+import { Bonus, BONUS } from './bonus.js';
 import { Objetivos } from './objetivos.js';
 import { novaProgressao, recompensar, xpParaNivel } from './progressao.js';
 import { Servicos, novoEquipamento, prepararNave, reducaoArmadura } from './servicos.js';
@@ -621,7 +621,7 @@ export class World {
         s.vx += ux * empurrao;
         s.vz += uz * empurrao;
       }
-      this.#ferir(alvo, dano, fonte.id, { e: 'acerto', arma, x: s.x, y: s.y, z: s.z });
+      this.#ferir(alvo, dano * this.multDanoDe(fonte.id), fonte.id, { e: 'acerto', arma, x: s.x, y: s.y, z: s.z });
     }
     return n;
   }
@@ -651,9 +651,20 @@ export class World {
     });
   }
 
-  /** Dano de um tiro no impacto (arma × multiplicador de quem atirou). */
+  /**
+   * Multiplicador do dano causado pelo jogador `autorId` agora (1 para monstro,
+   * drone ou quem já saiu). Ponto único dos multiplicadores do atacante: hoje só o
+   * bônus 'furia' do time (objetivo C). Vale no impacto, então só enquanto o bônus dura.
+   */
+  multDanoDe(autorId) {
+    const j = this.players.get(autorId);
+    if (!j) return 1;
+    return this.bonus.ativo(j.time, 'furia', this.tick) ? BONUS.furia.mult : 1;
+  }
+
+  /** Dano de um tiro no impacto (arma × multiplicador de quem atirou × bônus do atacante). */
   danoDoTiro(bala) {
-    return WEAPONS[bala.kind].dano * (bala.mult ?? 1);
+    return WEAPONS[bala.kind].dano * (bala.mult ?? 1) * (bala.drone ? 1 : this.multDanoDe(bala.owner));
   }
 
   #dano(alvo, bala) {
@@ -716,7 +727,7 @@ export class World {
   #drenar(ent) {
     if (!(ent.drenoTicks > 0)) return;
     ent.drenoTicks--;
-    this.#ferir(ent, WEAPONS.dreno.efeito.dps * DT, ent.drenoDono);
+    this.#ferir(ent, WEAPONS.dreno.efeito.dps * DT * this.multDanoDe(ent.drenoDono), ent.drenoDono);
   }
 
   #regen(ent) {

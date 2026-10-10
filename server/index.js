@@ -56,7 +56,8 @@
 //         estado = 'esperando' | 'andamento' | 'fim'; fase = 'normal' | 'final'
 //         (últimos 3 min: minério entregue vale o dobro); restante e novaEm em s;
 //         vencedor = time, -1 empate, null jogando
-//   bonus: {0: {mineracao: s, velocidade: s, durabilidade: s}, 1: {...}}  só os ativos
+//   bonus: {0: {mineracao: s, velocidade: s, durabilidade: s, furia: s}, 1: {...}}
+//         só os ativos; furia = +20% de dano das naves do time (objetivo C)
 //   obj:  [{id, tipo, estado, time, resta, prog?, quem?, falta?, vida?}]  os seis
 //         objetivos (server/objetivos.js): estado = 'livre' | 'tomando' |
 //         'contestado' | 'recarga'; time = quem tomou por último (ou null); resta =
@@ -84,7 +85,9 @@
 //         {e:'nivel', id, nivel}     jogador subiu de nível
 //         {e:'melhoria', id, nome, time, melhoria, nivel}   alguém do time `time` comprou
 //                                    um nível de melhoria dos mineradores
-//         {e:'objetivo', id, tipo, time, bonus, segundos, quem}   um time tomou um objetivo
+//         {e:'objetivo', id, tipo, time, bonus, bonusNaves, segundos, quem}   um time
+//                                    tomou um objetivo (bonus = dos mineradores;
+//                                    bonusNaves = das naves do time, só no C: 'furia')
 //         {e:'entrega', id, time, carga, x, y, z}   minerador somou carga no placar
 //                                    (carga = o que entrou, já dobrado na fase final)
 //         {e:'faseFinal', mult, restante}   começou a fase final (minério × mult)
