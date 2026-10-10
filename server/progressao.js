@@ -2,7 +2,8 @@
 // jogador"). Tudo em memória: começa no nível 1 a cada entrada.
 //
 // Quem dá XP e ouro: destruir monstros (Arnosh, Vorax, Krakor, o guardião do
-// objetivo C), mineradores do outro time (tipo 'minerador', quando existirem) e
+// objetivo C), mineradores do outro time, torretas do outro time (quem dá
+// o último tiro; o resto do time ganha um pouco de ouro, em server/torretas.js) e
 // jogadores inimigos; tomar um objetivo A ou B dá XP_OBJETIVO a quem tomou (no C,
 // o XP é o do abate do guardião). Os valores por tipo ficam em RECOMPENSA.
 //
@@ -35,6 +36,7 @@ export const RECOMPENSA = {
   krakor: { xp: 120, ouro: 90 },
   guardiao: { xp: 250, ouro: 150 },
   minerador: { xp: 40, ouro: MINERADOR.ouro },
+  torreta: { xp: 80, ouro: 70 },
   jogador: { xp: 100, ouro: 50 },
 };
 

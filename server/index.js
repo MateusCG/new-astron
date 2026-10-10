@@ -29,8 +29,8 @@
 //   servidor → cliente  {t:'bemvindo', id, tickHz, time}   time = 0 (base de baixo) ou 1
 //                       {t:'erro', codigo}   codigo 'partida_cheia' (3 em cada time); fecha
 //                       {t:'snap', tick, ack, vivo, time, me, ouro, abates, mortes,
-//                        nivel, xp, xpProx, partida, bonus, obj, melhorias, minas, guiados,
-//                        ents, ev}
+//                        nivel, xp, xpProx, partida, bonus, obj, torretas, melhorias, minas,
+//                        guiados, ents, ev}
 //                       (me.encaixes = [arma do Z, arma do X], me.cd1/cd2 = recarga
 //                        de cada encaixe, me.armas = armas que possui, me.lento =
 //                        s de lentidão, me.emp = s sem tiro e sem boost (pulso EMP),
@@ -62,6 +62,12 @@
 //         s de recarga; no A, prog (0 a 1), quem (time tomando) e falta (s); no B e
 //         no C, vida (0 a 1) da torre ou do guardião. Torre B em 'recarga' está
 //         caída: o cliente a tira da física (definirObstaculoAtivo).
+//   torretas: [{id, time, vida, max, nivel, viva, alvo?, obra?}]   as oito torretas do
+//         corredor (server/torretas.js; posição em TORRETAS de shared/terrain.js):
+//         vida e max em HP, nivel = nível do time dono (1 a 3), viva = de pé e
+//         sólida (false: o cliente a tira da física com definirObstaculoAtivo);
+//         alvo = id na mira (só se mira alguém); obra = reconstrução paga
+//         esperando o lugar ficar livre
 //   minas: [{id, dono, time, x, y, z, armada}]   minas no chão (time de quem soltou;
 //         armada = já explode com inimigo perto)
 //   guiados: [{id, x, y, z, vx, vy, vz}]   mísseis teleguiados em voo: o cliente não
@@ -75,7 +81,13 @@
 //         {e:'entrou', id, nome, time}
 //         {e:'morte', id, por, tipo, time?, x, y, z}
 //         {e:'garra', id, alvo, dano, x, y, z}   golpe corpo a corpo de um Vorax
+//         {e:'tiro', ..., fonte, time}   tiro de torreta (fonte 'torreta', dono = id
+//                                    dela): cor do time
 //         {e:'acerto', ..., torre}   tiro que bateu numa torre B (alvo 0)
+//         {e:'acerto', ..., torreta}   tiro ou área que bateu numa torreta (alvo 0;
+//                                    dano 0 se não foi de jogador inimigo)
+//         {e:'torreta', id, time, estado, por, nome, x, y, z}   estado 'destruida' (por =
+//                                    quem deu o último tiro) ou 'reconstruida'
 //         {e:'acerto', arma, alvo, dano, x, y, z}   dano em área (arma 'mina' ou
 //                                    'choque'), um por alvo, sem bala
 //         {e:'choque', id, time, x, y, z, raio}   onda de choque da nave id

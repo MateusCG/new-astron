@@ -14,22 +14,25 @@
 // os mineradores e ficam as plataformas de serviço) ficam livres.
 //
 // Fora das bases: os cristais do depósito de minério (o miolo é sólido; a coroa em
-// volta fica livre para os mineradores carregarem) e as torres dos objetivos B.
+// volta fica livre para os mineradores carregarem), as torres dos objetivos B e as
+// torretas de defesa nas bordas do corredor (TORRETAS em shared/terrain.js).
 //
 // Formas: 'caixa' (retângulo girado em yaw, como os hangares) e 'cilindro'. Cada
-// uma tem `topo` (altura absoluta do alto), `grupo` ('base', 'minerio' ou
-// 'objetivo') e, nas bases, `time`.
+// uma tem `topo` (altura absoluta do alto), `grupo` ('base', 'minerio', 'objetivo'
+// ou 'torreta') e, nas bases e torretas, `time`.
 //
-// Construção que pode sumir: a torre de cada objetivo B é destruída na partida e
-// volta depois da recarga (server/objetivos.js). Ela tem `id` (o do objetivo, 'B1'
-// ou 'B2') e definirObstaculoAtivo(id, false) a tira da física (alturaSolida,
-// colisão de nave e de tiro). O estado é do módulo, igual nos dois lados: o
-// servidor muda quando a torre cai ou volta, e o cliente aplica o que vem no
-// snapshot (`obj`), para a predição bater com o servidor. A grade de navegação dos
-// monstros, montada uma vez, pede alturaSolida(..., todos = true): considera a
-// torre sempre de pé (com ela caída, o monstro só contorna uns 12 m a mais).
+// Construções que podem sumir: a torre de cada objetivo B é destruída na partida e
+// volta depois da recarga (server/objetivos.js); cada torreta é destruída e só
+// volta se o time a reconstruir na Evolução (server/torretas.js). Elas têm `id` (o
+// do objetivo, 'B1' ou 'B2', ou o da torreta, 'T0-1' a 'T1-4') e
+// definirObstaculoAtivo(id, false) a tira da física (alturaSolida, colisão de nave
+// e de tiro). O estado é do módulo, igual nos dois lados: o servidor muda quando a
+// construção cai ou volta, e o cliente aplica o que vem no snapshot (`obj` e
+// `torretas`), para a predição bater com o servidor. A grade de navegação dos
+// monstros, montada uma vez, pede alturaSolida(..., todos = true): considera tudo
+// sempre de pé (com a construção caída, o monstro só contorna uns 12 m a mais).
 
-import { heightAt, noMapaAberto, BASES, CORREDOR, MINERIO, OBJETIVOS, ARENA_C, MAP_HALF_X, MAP_HALF_Z, MURALHA } from './terrain.js';
+import { heightAt, noMapaAberto, BASES, CORREDOR, MINERIO, OBJETIVOS, TORRETAS, ARENA_C, MAP_HALF_X, MAP_HALF_Z, MURALHA } from './terrain.js';
 
 /** Hangares em volta da plataforma, no fundo da base (longe do corredor). */
 export const HANGAR = { raio: 150, largura: 30, profundidade: 22, altura: 16, quantidade: 5 };
@@ -44,6 +47,12 @@ export const ANTENAS = { pontos: [[-75, 45], [75, 45]], raio: 1.6, altura: 40 };
 export const CRISTAIS = { centro: { raio: 8, altura: 20 }, coroa: { quantidade: 6, dist: 19, raio: 4.5, altura: 11 } };
 /** Torre dos objetivos B (destruí-la vai ser o objetivo). */
 export const TORRE_B = { raio: 6, altura: 32 };
+/**
+ * Torreta do corredor: torre baixa e grossa. Mais alta que a altura de voo (o
+ * canhão fica na altura das naves, HOVER, e o tiro de quem passa bate nela), mas
+ * bem mais baixa que a torre B, para não tampar a visão do corredor.
+ */
+export const TORRETA = { raio: 4.5, altura: 16 };
 
 /**
  * Leva um ponto do referencial da base do time 0 (centro na origem, corredor para
@@ -97,6 +106,9 @@ function montar() {
   for (const o of OBJETIVOS.filter((o) => o.tipo === 'B')) {
     lista.push(cilindro('torre-objetivo', { grupo: 'objetivo', objetivo: o.id, id: o.id }, o.x, o.z, TORRE_B.raio, TORRE_B.altura));
   }
+  for (const t of TORRETAS) {
+    lista.push(cilindro('torreta', { grupo: 'torreta', time: t.time, id: t.id }, t.x, t.z, TORRETA.raio, TORRETA.altura));
+  }
   // Raio que envolve a forma: atalho para descartar rápido o que está longe.
   for (const o of lista) o.alcance = o.forma === 'caixa' ? Math.hypot(o.meiaLarg, o.meiaProf) : o.raio;
   return lista;
@@ -106,7 +118,7 @@ export const OBSTACULOS = montar();
 
 /**
  * Liga (ativo = true) ou desliga uma construção que pode sumir (a torre do objetivo
- * B de `id`). Desligada, ela não é mais sólida para nave nem tiro.
+ * B ou a torreta de `id`). Desligada, ela não é mais sólida para nave nem tiro.
  */
 export function definirObstaculoAtivo(id, ativo) {
   for (const o of OBSTACULOS) if (o.id === id) o.desligado = !ativo;

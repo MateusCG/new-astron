@@ -15,6 +15,11 @@
 //   mais mineradores ao mesmo tempo, durabilidade, defesa e velocidade. Cada uma
 //   tem níveis com preço crescente e um limite. Qualquer piloto do time pode pagar
 //   o próximo nível; o servidor põe o efeito em world.mineradores.melhorias[time].
+// - Torretas do time (as quatro do corredor, server/torretas.js): o nível vale para
+//   as quatro de uma vez (MELHORIA_TORRETAS: mais HP e mais dano por nível, do 1
+//   ao TORRETA_NIVEL_MAX) e cada torreta destruída pode ser reconstruída
+//   (PRECO_RECONSTRUIR, preço fixo; volta inteira, com o nível atual do time).
+//   Como nos mineradores, qualquer piloto do time paga e vale para o time.
 
 /** Marcos da Evolução da nave: nível do piloto exigido e preço em ouro. */
 export const MARCOS_NAVE = [
@@ -93,4 +98,32 @@ export function efeitosMineradores(niveis) {
     defesa: MIN_DEFESA_POR_NIVEL * n('defesa'),
     velocidadeMult: 1 + MIN_VEL_POR_NIVEL * n('velocidade'),
   };
+}
+
+export const TORRETA_HP_POR_NIVEL = 0.35; // +35% do HP da torreta por nível acima do 1
+export const TORRETA_DANO_POR_NIVEL = 0.25; // +25% do dano do tiro por nível acima do 1
+
+/**
+ * Nível das torretas do time: precos[n - 1] leva do nível n ao n + 1 (a lista dá o
+ * limite). id é o `melhoria` de {t:'melhorar', melhoria:'torretas'}.
+ */
+export const MELHORIA_TORRETAS = {
+  id: 'torretas',
+  nome: 'Torretas do corredor',
+  precos: [250, 400],
+  efeito: `+${TORRETA_HP_POR_NIVEL * 100}% de HP e +${TORRETA_DANO_POR_NIVEL * 100}% de dano`,
+};
+export const TORRETA_NIVEL_MAX = MELHORIA_TORRETAS.precos.length + 1;
+/** Preço para reconstruir UMA torreta destruída ({t:'reconstruir', torreta}). */
+export const PRECO_RECONSTRUIR = 200;
+
+/** Preço do próximo nível das torretas a partir do nível `nivel` (null: no máximo). */
+export function precoNivelTorretas(nivel) {
+  return MELHORIA_TORRETAS.precos[nivel - 1] ?? null;
+}
+
+/** Multiplicadores das torretas no nível (1 a TORRETA_NIVEL_MAX): { hp, dano }. */
+export function efeitosTorretas(nivel = 1) {
+  const n = Math.max(0, Math.min(TORRETA_NIVEL_MAX, nivel) - 1);
+  return { hp: 1 + TORRETA_HP_POR_NIVEL * n, dano: 1 + TORRETA_DANO_POR_NIVEL * n };
 }
