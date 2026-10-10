@@ -237,6 +237,7 @@ function montarJogo(rede, boas, renderer, race) {
     signal: controles.parar.signal, // desliga junto com os controles ao sair
   });
   const painel = new PainelServicos({
+    meuTime,
     enviar: (m) => rede.enviar(m),
     noticia: (texto, tipo) => hud.noticia(texto, tipo),
     signal: controles.parar.signal,
@@ -326,7 +327,7 @@ function montarJogo(rede, boas, renderer, race) {
     efeitos.corrigirGuiados(m.guiados);
     efeitos.atualizarMinas(m.minas, meuTime);
     menuArmas.definirPosse(m.me?.armas);
-    painel.atualizar({ ouro: m.ouro, nivel: m.nivel, me: m.me, melhorias: m.melhorias });
+    painel.atualizar({ ouro: m.ouro, nivel: m.nivel, me: m.me, melhorias: m.melhorias, torretas: m.torretas });
 
     if (!m.vivo) {
       if (vivo) morteEm = performance.now();
