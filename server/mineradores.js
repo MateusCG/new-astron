@@ -76,7 +76,7 @@ function yawPara(x, z, ax, az) {
 export class Mineradores {
   /**
    * @param {{ bonus: import('./bonus.js').Bonus, novoId: () => number,
-   *   entregar: (time: number, carga: number) => void, evento: (ev: object) => void }} ctx
+   *   entregar: (time: number, carga: number) => number | void, evento: (ev: object) => void }} ctx
    */
   constructor({ bonus, novoId, entregar, evento }) {
     this.bonus = bonus;
@@ -217,8 +217,9 @@ export class Mineradores {
 
     const e = ENTREGAS[m.time];
     if (m.estado === 'volta' && Math.abs(s.x - e.x) <= e.largura / 2 && Math.abs(s.z - e.z) <= e.profundidade / 2) {
-      this.entregar(m.time, m.carga);
-      this.evento({ e: 'entrega', id: m.id, time: m.time, carga: m.carga, x: s.x, y: s.y, z: s.z });
+      // O placar decide quanto a carga vale (dobra na fase final); o evento leva isso.
+      const valor = this.entregar(m.time, m.carga) ?? m.carga;
+      this.evento({ e: 'entrega', id: m.id, time: m.time, carga: valor, x: s.x, y: s.y, z: s.z });
       m.carga = 0;
       m.estado = 'ida';
       // Segue para o primeiro ponto da rota que fica adiante, rumo ao minério.

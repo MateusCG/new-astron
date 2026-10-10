@@ -59,7 +59,7 @@ import {
 import { BASE, BASES, CORREDOR } from '../shared/terrain.js';
 import { pontoAberto } from '../shared/obstaculos.js';
 import { MapaNavegacao } from './navegacao.js';
-import { Partida, N_TIMES } from './partida.js';
+import { Partida, N_TIMES, MULT_FASE_FINAL } from './partida.js';
 import { Mineradores } from './mineradores.js';
 import { Bonus } from './bonus.js';
 import { Objetivos } from './objetivos.js';
@@ -157,11 +157,11 @@ function baseMaisPerto(s) {
 export class World {
   /**
    * @param {{ rng?: () => number, drones?: number, monstros?: number, elites?: number,
-   *   duracaoPartidaS?: number, intervaloFimS?: number }} [opcoes]
+   *   duracaoPartidaS?: number, intervaloFimS?: number, faseFinalS?: number }} [opcoes]
    * drones = Arnosh, monstros = Vorax, elites = Krakor (os guardiões dos objetivos C
    * sempre existem).
    */
-  constructor({ rng = Math.random, drones = N_DRONES, monstros = N_MONSTROS, elites = N_KRAKOR, duracaoPartidaS, intervaloFimS } = {}) {
+  constructor({ rng = Math.random, drones = N_DRONES, monstros = N_MONSTROS, elites = N_KRAKOR, duracaoPartidaS, intervaloFimS, faseFinalS } = {}) {
     this.rng = rng;
     this.tick = 0;
     this.nextId = 1;
@@ -174,12 +174,12 @@ export class World {
     this.eventos = [];
     // Mapa de caça dos Vorax: campo de caminhos até os jogadores caçáveis.
     this.caca = { campo: null, alvos: [], ate: 0 };
-    this.partida = new Partida({ duracaoS: duracaoPartidaS, intervaloFimS });
+    this.partida = new Partida({ duracaoS: duracaoPartidaS, intervaloFimS, faseFinalS });
     this.bonus = new Bonus();
     this.mineradores = new Mineradores({
       bonus: this.bonus,
       novoId: () => this.#id(),
-      entregar: (time, carga) => this.partida.somar(time, carga),
+      entregar: (time, carga) => this.partida.somar(time, carga, this.tick),
       evento: (ev) => this.eventos.push(ev),
     });
     for (let i = 0; i < drones; i++) this.drones.push(this.#novoDrone());
@@ -782,6 +782,8 @@ export class World {
         }
       }
       this.eventos.push({ e: 'partida', n: this.partida.numero });
+    } else if (virou === 'faseFinal') {
+      this.eventos.push({ e: 'faseFinal', mult: MULT_FASE_FINAL, restante: Math.round(this.partida.restante(this.tick)) });
     } else if (virou === 'fim') {
       const { vencedor, placar } = this.partida;
       this.eventos.push({ e: 'fimPartida', vencedor, placar: [...placar] });

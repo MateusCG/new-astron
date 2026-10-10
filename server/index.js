@@ -52,8 +52,9 @@
 //         stepShip da predição); maxHp e maxEn já com nível, evoluções e armadura
 //   melhorias: {quantidade, durabilidade, defesa, velocidade}   níveis comprados
 //         das melhorias dos mineradores do time de quem recebe (zeram a cada partida)
-//   partida: {n, estado, restante, placar:[t0, t1], vencedor, novaEm}
-//         estado = 'esperando' | 'andamento' | 'fim'; restante e novaEm em s;
+//   partida: {n, estado, fase, restante, placar:[t0, t1], vencedor, novaEm}
+//         estado = 'esperando' | 'andamento' | 'fim'; fase = 'normal' | 'final'
+//         (últimos 3 min: minério entregue vale o dobro); restante e novaEm em s;
 //         vencedor = time, -1 empate, null jogando
 //   bonus: {0: {mineracao: s, velocidade: s, durabilidade: s}, 1: {...}}  só os ativos
 //   obj:  [{id, tipo, estado, time, resta, prog?, quem?, falta?, vida?}]  os seis
@@ -85,6 +86,8 @@
 //                                    um nível de melhoria dos mineradores
 //         {e:'objetivo', id, tipo, time, bonus, segundos, quem}   um time tomou um objetivo
 //         {e:'entrega', id, time, carga, x, y, z}   minerador somou carga no placar
+//                                    (carga = o que entrou, já dobrado na fase final)
+//         {e:'faseFinal', mult, restante}   começou a fase final (minério × mult)
 //         {e:'partida', n}   começou a partida n (placar zerado)
 //         {e:'fimPartida', vencedor, placar}
 
