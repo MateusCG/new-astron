@@ -22,8 +22,9 @@ function mundo(opcoes = {}) {
   const a = w.addPlayer('A', 'bellico'); // time 0
   const b = w.addPlayer('B', 'bellico'); // time 1
   a.protegidoAte = b.protegidoAte = 0;
-  // Mineradores fora do caminho: o teste é da torreta.
+  // Mineradores e escoltas fora do caminho: o teste é da torreta.
   w.mineradores.passo = () => {};
+  w.escoltas.passo = () => {};
   w.step();
   return { w, a, b };
 }

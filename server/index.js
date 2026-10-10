@@ -77,15 +77,16 @@
 //         prevê a curva e corrige o desenho por aqui
 //   ents: [{id, nome, tipo, drone, vivo, race, x, y, z, yaw, roll, hp, maxHp, boost, pousado,
 //           dreno, lento, emp, time?, carga?, minerando?, nivel?}]
-//         tipo = 'jogador' | 'arnosh' | 'vorax' | 'krakor' | 'guardiao' | 'minerador'
-//         (o que desenhar); drone = inimigo do PvE; time em jogadores e mineradores;
+//         tipo = 'jogador' | 'arnosh' | 'vorax' | 'krakor' | 'guardiao' | 'minerador' |
+//         'escolta' (o que desenhar); drone = inimigo do PvE; time em jogadores,
+//         mineradores e escoltas;
 //         carga e minerando só nos mineradores; nivel só nos jogadores
 //   ev:   {e:'tiro'|'acerto'|'fim'|'renasceu'|'saiu', ...}
 //         {e:'entrou', id, nome, time}
 //         {e:'morte', id, por, tipo, time?, x, y, z}
 //         {e:'garra', id, alvo, dano, x, y, z}   golpe corpo a corpo de um Vorax
 //         {e:'tiro', ..., fonte, time}   tiro de torreta (fonte 'torreta', dono = id
-//                                    dela): cor do time
+//                                    dela) ou de escolta (fonte 'escolta'): cor do time
 //         {e:'acerto', ..., torre}   tiro que bateu numa torre B (alvo 0)
 //         {e:'acerto', ..., torreta}   tiro ou área que bateu numa torreta (alvo 0;
 //                                    dano 0 se não foi de jogador inimigo)
