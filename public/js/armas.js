@@ -8,8 +8,9 @@
 //
 // O menu só guarda a escolha do piloto: ela vai nos campos `a` (Z) e `a2` (X) de
 // cada comando e quem troca a arma de verdade é stepShip (no servidor e na predição,
-// no mesmo passo). Arma que a nave não possui (s.armas, a Loja vai preencher) fica
-// travada no menu; se chegar ao stepShip, ela cai na padrão do encaixe. Como é
+// no mesmo passo). Arma que a nave não possui (s.armas: as de fábrica e as compradas
+// na Loja) fica travada no menu com o selo "NA LOJA"; se chegar ao stepShip, ela cai
+// na padrão do encaixe. Como é
 // multijogador, o jogo não pausa com o menu aberto; só os tiros ficam travados
 // enquanto ele está na tela. Os números das cartas saem de WEAPONS, então balancear
 // em shared/sim.js já atualiza o menu.

@@ -231,9 +231,9 @@ test('armas: nenhuma é estritamente melhor que as outras', () => {
   assert.ok(gasto(WEAPONS.laserTriplo) > gasto(simples));
 });
 
-test('armas: só dá para usar arma que a nave possui (hoje todas)', () => {
+test('armas: só dá para usar arma que a nave possui', () => {
   const s = createShip('acron', 0, 0, 0);
-  assert.deepEqual(s.armas, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 'nasce com todas liberadas');
+  assert.deepEqual(s.armas, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 'nave sem dono nasce com todas (a de jogador recebe a posse no World)');
   s.armas = [2];
   assert.equal(stepShip(s, { ...PARADO, f1: true, a: 3 })[0].kind, 'laser', 'sem o dreno, o Z cai no laser simples');
   assert.equal(s.encaixes[0], 0);
