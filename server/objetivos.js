@@ -210,16 +210,28 @@ export class Objetivos {
     });
   }
 
-  /** Bônus ligados de cada time, em segundos que faltam: [{ velocidade: 42 }, {}]. */
-  bonusDosTimes() {
-    const w = this.world;
-    return [0, 1].map((time) => {
-      const r = {};
-      for (const nome of Object.values(BONUS_DO_TIPO)) {
-        const s = w.bonus.restante(time, nome, w.tick);
-        if (s > 0) r[nome] = Math.ceil(s);
+  /**
+   * Volta tudo ao começo (nova partida): objetivos disponíveis, torres de pé,
+   * guardiões vivos no meio da arena. Os bônus ficam em world.bonus (limpar()).
+   */
+  reiniciar() {
+    for (const o of this.lista) {
+      o.recargaAte = 0;
+      o.time = null;
+      o.prog = 0;
+      o.quem = null;
+      o.contestado = false;
+      if (o.tipo === 'B') {
+        o.hp = TORRE_B_HP;
+        definirObstaculoAtivo(o.id, true);
       }
-      return r;
-    });
+      if (o.tipo === 'C') {
+        const g = o.guardiao;
+        this.renascerGuardiao(g);
+        g.vivo = true;
+        g.respawnTick = 0;
+        g.drenoTicks = 0;
+      }
+    }
   }
 }

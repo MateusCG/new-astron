@@ -260,3 +260,37 @@ test('objetivo B: a grade dos monstros conta a torre de pé mesmo montada com el
     definirObstaculoAtivo('B2', true);
   }
 });
+
+test('objetivos: reiniciar (nova partida) põe tudo disponível, a torre de pé e o guardião vivo', () => {
+  const w = mundo();
+  const o = (id) => w.objetivos.lista.find((x) => x.id === id);
+  o('B1').hp = 0;
+  o('B1').recargaAte = w.tick + 999;
+  definirObstaculoAtivo('B1', false);
+  o('A1').recargaAte = w.tick + 999;
+  o('A1').time = 1;
+  const g = o('C1').guardiao;
+  g.vivo = false;
+  g.respawnTick = w.tick + 999;
+  w.objetivos.reiniciar();
+  for (const r of w.objetivos.estado()) {
+    assert.equal(r.estado, 'livre', r.id);
+    assert.equal(r.time, null, r.id);
+  }
+  assert.equal(obstaculoAtivo('B1'), true);
+  assert.equal(g.vivo, true);
+  assert.equal(g.ship.hp, g.ship.maxHp);
+});
+
+test('objetivos: a partida seguinte começa com os objetivos disponíveis', () => {
+  const w = new World({ drones: 0, monstros: 0, elites: 0, duracaoPartidaS: 1, intervaloFimS: 1 });
+  w.addPlayer('A', 'acron');
+  w.step();
+  const a1 = w.objetivos.lista.find((x) => x.id === 'A1');
+  a1.recargaAte = w.tick + 999 * TICK;
+  a1.time = 0;
+  for (let i = 0; i < 5 * TICK && w.partida.numero < 2; i++) w.step();
+  assert.equal(w.partida.numero, 2);
+  assert.equal(estado(w, 'A1').estado, 'livre');
+  assert.equal(estado(w, 'A1').time, null);
+});

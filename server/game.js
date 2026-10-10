@@ -652,6 +652,7 @@ export class World {
     const virou = this.partida.passo(this.tick, this.players.size);
     if (virou === 'comecou') {
       this.bonus.limpar();
+      if (vinhaDoFim) this.objetivos.reiniciar();
       this.mineradores.comecar(this.tick);
       // Depois da tela de fim, todo mundo volta para a base do time. (Na primeira
       // partida, quem entrou acabou de nascer lá.)
@@ -669,6 +670,7 @@ export class World {
       this.eventos.push({ e: 'fimPartida', vencedor, placar: [...placar] });
     } else if (virou === 'vazia') {
       this.bonus.limpar();
+      this.objetivos.reiniciar();
       this.mineradores.limpar();
     }
   }
