@@ -8,6 +8,7 @@ Documento de referência do modo de jogo principal. Toda tarefa de jogabilidade 
 
 - **[feito]** **Partida de 10 minutos**, **dois times de 3 jogadores** (`server/partida.js`). O cronômetro começa quando entra o primeiro jogador; com os dois times cheios, quem chega é recusado (`partida_cheia`). Sem fogo amigo. A zona segura de cada base só protege o time dono dela.
 - **[feito]** **Vence o time que mais minerou**: o que conta é o minério que os **mineradores** (mini-naves controladas pelo jogo) entregam na base. Empate é possível. Depois da tela de fim (15 s) começa outra partida do zero.
+- **[feito]** **Fase final**: nos últimos 3 minutos (a partir dos 7:00 decorridos; `FASE_FINAL_S` = 180 em `server/partida.js`) o **minério entregue vale o dobro** (`MULT_FASE_FINAL` = 2, aplicado na entrega em cima da carga que já vem com o bônus de mineração: 10 vira 20, 11 vira 22). O snapshot traz `partida.fase` (`'normal'` ou `'final'`), o evento `faseFinal` anuncia a virada e o placar mostra "MINÉRIO ×2". Partida nova volta à fase normal. (Partida mais curta que a fase final, só nos testes, não tem fase final.)
 - Os jogadores não mineram: eles **protegem os próprios mineradores, destroem os do outro time**, caçam monstros no mundo aberto para ganhar **XP, nível e ouro**, tomam **objetivos** que dão bônus aos mineradores e gastam o ouro na **Evolução** e na **Loja** da base (**[feito]**, ver "Loja e Evolução").
 
 ## Mapa (vista de cima; -z é "em cima" no desenho)
@@ -46,7 +47,7 @@ Escala do desenho: 1 px ≈ 3 m. Retângulo aberto com muralha só na borda.
 |---|---|---|
 | **A** | Ficar **pousado 10 s** na marcação | Cada minerador do time minera **+1** de minério por viagem, por 1 minuto |
 | **B** | **Destruir a torre** | Mineradores do time **mais rápidos** por 1 minuto |
-| **C** | Livre (proposta: derrotar o **guardião** da arena) | A definir (proposta: mineradores com mais durabilidade por 1 minuto) |
+| **C** | Derrotar o **guardião** da arena | Mineradores do time com **mais durabilidade** e naves do time com **+20% de dano** (fúria), por 1 minuto |
 
 Objetivos voltam a ficar disponíveis depois de um tempo (a definir).
 
@@ -54,9 +55,9 @@ Objetivos voltam a ficar disponíveis depois de um tempo (a definir).
 
 - **A (pouso):** conta o tempo de quem está **pousado e parado** na marcação; com `OBJ_A_POUSO_S` (10 s) o time toma: bônus `'mineracao'` e +`XP_OBJETIVO` (60) para cada nave do time pousada lá. Ninguém pousado: o progresso zera (decolar antes perde tudo). Naves dos dois times pousadas: **contestado**, o progresso trava. Se só o outro time fica, o progresso recomeça do zero para ele.
 - **B (torre):** a torre tem `TORRE_B_HP` (800) de vida e só tiro de jogador a machuca (tiro de monstro bate e some). Quem dá o **último tiro** toma: bônus `'velocidade'` e +60 XP. A torre cai (deixa de ser sólida para nave e tiro, nos dois lados: `definirObstaculoAtivo`) e volta inteira no fim da recarga, esperando sair quem estiver no lugar dela.
-- **C (guardião, decisão combinada com o Mateus):** um guardião (monstro elite único, 1500 de HP, atira um leque de três plasmas) fica preso na arena. Quem o **mata** toma: bônus `'durabilidade'` para o time (o XP é o do abate: 250, e 150 de ouro). Ele renasce no meio da arena no fim da recarga.
+- **C (guardião, decisão combinada com o Mateus):** um guardião (monstro elite único, 1500 de HP, atira um leque de três plasmas) fica preso na arena. Quem o **mata** toma: bônus `'durabilidade'` para os mineradores do time e **[feito]** `'furia'` para as **naves dos jogadores do time** (todas, não só quem matou), pelos mesmos 60 s (o XP é o do abate: 250, e 150 de ouro). Ele renasce no meio da arena no fim da recarga.
 
-Os bônus do lado dos mineradores (`server/bonus.js`): `'mineracao'` +1 por viagem, `'velocidade'` ×1,4, `'durabilidade'` ×1,5; aparecem no placar com contagem regressiva.
+Os bônus (`server/bonus.js`): dos mineradores, `'mineracao'` +1 por viagem, `'velocidade'` ×1,4, `'durabilidade'` ×1,5; das naves, `'furia'` ×1,2 no dano causado (tiro, míssil, mina, onda de choque e dreno; só o servidor calcula dano, em `World.multDanoDe`, então a predição não muda). Aparecem no placar com contagem regressiva; a fúria também como anel âmbar em volta das naves do time.
 
 ## Progressão do jogador
 
@@ -131,6 +132,6 @@ Os efeitos ficam no estado da nave e voltam a cada renascimento, junto com o ní
 
 ## HUD
 
-- **[feito]** **Canto superior direito**: minério de cada time (placar, seu time em turquesa à esquerda) e o tempo restante da partida, com os bônus ativos de cada time embaixo.
+- **[feito]** **Canto superior direito**: minério de cada time (placar, seu time em turquesa à esquerda) e o tempo restante da partida, com os bônus ativos de cada time embaixo (mineração, velocidade, durabilidade e fúria). Na fase final, a faixa "MINÉRIO ×2" embaixo do placar e a notícia "Fase final: minério entregue vale ×2 até o fim" quando ela começa.
 - **[feito]** Ouro, nível e XP do jogador (barra de XP com o nível no painel; nível também no nome sobre a nave).
 - **[feito]** Fim da partida: tela com o time vencedor, o placar e a contagem para a próxima.
