@@ -4,7 +4,8 @@
 // cliente não conta tempo nem minério, só mostra. O seu time fica sempre à
 // esquerda, em turquesa; o outro à direita, em vermelho. Embaixo de cada número,
 // os bônus por tempo que o time tem agora (ícone âmbar, a cor dos objetivos, que
-// é de onde os bônus vêm) com a contagem regressiva.
+// é de onde os bônus vêm) com a contagem regressiva. Na fase final (últimos 3
+// minutos, `partida.fase === 'final'`) aparece a faixa "MINÉRIO ×2" embaixo de tudo.
 
 const $ = (s) => document.querySelector(s);
 
@@ -25,6 +26,11 @@ const ICONE_BONUS = {
     nome: 'Durabilidade: mineradores com mais vida',
     svg: '<path d="M12 3 L19 6 V12 C19 16 16 19 12 21 C8 19 5 16 5 12 V6 Z"/>',
   },
+  // Raio: naves do time batem mais forte.
+  furia: {
+    nome: 'Fúria: naves do time com +20% de dano',
+    svg: '<path d="M13 3 L6 13 H11 L10 21 L18 10 H13 Z"/>',
+  },
 };
 
 /** "mm:ss" de um número de segundos. */
@@ -42,6 +48,7 @@ export class Placar {
     this.meu = this.el.querySelector('.time.meu');
     this.outro = this.el.querySelector('.time.outro');
     this.tempo = this.el.querySelector('.relogio');
+    this.faixaFinal = this.el.querySelector('.fase-final');
     this.fim = $('#fim-partida');
     this.ultimo = '';
     this.el.hidden = false;
@@ -57,6 +64,7 @@ export class Placar {
     this.outro.querySelector('b').textContent = partida.placar[this.outroTime];
     this.tempo.textContent = partida.estado === 'andamento' ? relogio(partida.restante) : partida.estado === 'fim' ? 'FIM' : '--:--';
     this.tempo.classList.toggle('acabando', partida.estado === 'andamento' && partida.restante <= 60);
+    this.faixaFinal.hidden = partida.fase !== 'final';
     this.#bonus(this.meu.querySelector('.bonus'), bonus[this.meuTime]);
     this.#bonus(this.outro.querySelector('.bonus'), bonus[this.outroTime]);
     this.#telaFim(partida);
@@ -94,6 +102,14 @@ export class Placar {
     el.classList.remove('pulsa');
     void el.offsetWidth;
     el.classList.add('pulsa');
+  }
+
+  /** Começou a fase final: a faixa "MINÉRIO ×2" pisca para chamar atenção. */
+  faseFinal() {
+    this.faixaFinal.hidden = false;
+    this.faixaFinal.classList.remove('anuncia');
+    void this.faixaFinal.offsetWidth;
+    this.faixaFinal.classList.add('anuncia');
   }
 
   /** Esconde tudo (saída da partida). */
