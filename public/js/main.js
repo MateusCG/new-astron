@@ -24,7 +24,8 @@
 //
 // Torretas do corredor (torretas.js): o snapshot traz o estado delas (`torretas`);
 // caída sai da física da predição (definirObstaculoAtivo) e tomba no cenário. Tiro de
-// torreta vem pelo evento 'tiro' com `fonte` e `time` e sai na cor do time dela.
+// torreta e de escolta vem pelo evento 'tiro' com `fonte` e `time` e sai na cor do
+// time de quem atirou.
 //
 // ESC sai da partida e volta para a tela de entrada (nome e raça como estavam),
 // para trocar de piloto sem recarregar a página. Sair desmonta tudo o que a
@@ -47,6 +48,8 @@ import {
   animarGuardiao,
   criarMinerador,
   animarMinerador,
+  criarEscolta,
+  animarEscolta,
   atualizarMotor,
 } from './nave.js';
 import { Efeitos, COR_TIME } from './efeitos.js';
@@ -360,10 +363,12 @@ function montarJogo(rede, boas, renderer, race) {
   function tratarEventos(ev) {
     for (const e of ev) {
       if (e.e === 'tiro' && e.fonte) {
-        // Torreta: tiro na cor do time de quem atirou, e o canhão vira.
+        // Torreta ou escolta: tiro na cor do time de quem atirou, e o canhão vira.
         const b = { id: e.id, kind: e.kind, x: e.x, y: e.y, z: e.z, vx: e.vx, vy: e.vy, vz: e.vz, vida: 2.5 };
         efeitos.tiro(b, false, e.time === meuTime ? COR_TIME.meu : COR_TIME.outro);
         if (e.fonte === 'torreta') torretas.disparou(e.dono, e.vx, e.vz);
+        const escolta = outras.get(e.dono)?.obj;
+        if (escolta) Object.assign(escolta.userData, { mira: Math.atan2(-e.vx, -e.vz), miraAte: tempo + 1.5 });
       } else if (e.e === 'tiro' && (e.dono !== meuId || WEAPONS[e.kind]?.guiado)) {
         // O míssil próprio também vem daqui: a curva é do servidor, não da predição.
         const dono = outras.get(e.dono);
@@ -391,6 +396,12 @@ function montarJogo(rede, boas, renderer, race) {
         if (e.time === meuTime) hud.noticia(`${por} destruiu um minerador do seu time`, 'ruim');
         else if (e.por === meuId) hud.noticia(`Você destruiu um minerador inimigo${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
         else hud.noticia(`${por} destruiu um minerador inimigo`, 'bom');
+      } else if (e.e === 'morte' && e.tipo === 'escolta') {
+        efeitos.explosao(e.x, e.y, e.z, 3.5, '#ff9a3a');
+        const por = nomes.get(e.por) ?? '?';
+        if (e.time === meuTime) hud.noticia(`${por} destruiu a escolta do seu time`, 'ruim');
+        else if (e.por === meuId) hud.noticia(`Você destruiu a escolta inimiga${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
+        else hud.noticia(`${por} destruiu a escolta inimiga`, 'bom');
       } else if (e.e === 'torreta') {
         const minha = e.time === meuTime;
         const quem = e.por === meuId ? 'Você' : e.nome ?? '?';
@@ -533,7 +544,13 @@ function montarJogo(rede, boas, renderer, race) {
       if (!o) {
         const obj =
           MODELO_INIMIGO[e.tipo]?.() ??
-          (e.tipo === 'minerador' ? criarMinerador({ aliado }) : e.drone ? criarDrone() : criarNave(e.race, { aliado }));
+          (e.tipo === 'minerador'
+            ? criarMinerador({ aliado })
+            : e.tipo === 'escolta'
+              ? criarEscolta({ aliado })
+              : e.drone
+                ? criarDrone()
+                : criarNave(e.race, { aliado }));
         o = { obj, drone: e.drone, tipo: e.tipo, aliado };
         scene.add(o.obj);
         outras.set(e.id, o);
@@ -549,6 +566,7 @@ function montarJogo(rede, boas, renderer, race) {
       else if (e.tipo === 'guardiao') animarGuardiao(o.obj, tempo);
       else if (e.drone) o.obj.userData.corpo.rotation.y = Math.sin(tempo * 3 + e.id) * 0.15;
       if (e.tipo === 'minerador') animarMinerador(o.obj, e, tempo, e.id);
+      else if (e.tipo === 'escolta') animarEscolta(o.obj, tempo, dt, e.id);
       else atualizarMotor(o.obj, e.boost, tempo, e.pousado);
       efeitos.estadoNave(o.obj, { dreno: !!e.dreno, lento: !!e.lento, emp: !!e.emp }, dt, tempo);
       rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position, nivel: e.nivel });

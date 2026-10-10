@@ -166,6 +166,17 @@ export class Hud {
         ctx.fill();
         continue;
       }
+      if (e.tipo === 'escolta') {
+        // Escolta: losango pequeno (armada, entre o minerador e a nave).
+        ctx.beginPath();
+        ctx.moveTo(x, z - 2.6);
+        ctx.lineTo(x + 2.2, z);
+        ctx.lineTo(x, z + 2.6);
+        ctx.lineTo(x - 2.2, z);
+        ctx.closePath();
+        ctx.fill();
+        continue;
+      }
       // Quem é mais perigoso (Vorax, Krakor, guardião) num ponto maior que o Arnosh.
       const t = PONTO_INIMIGO[e.tipo] ?? 3;
       ctx.fillRect(x - t / 2, z - t / 2, t, t);
