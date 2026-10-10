@@ -18,13 +18,17 @@
 // onda de choque própria já desenha o anel na hora; a mina aparece pela lista
 // `minas` do snapshot.
 //
+// Loja e Evolução (servicos.js): pousado e parado na plataforma da própria base, o
+// painel abre sozinho; os pedidos vão direto pela rede e a resposta chega como
+// {t:'resultado'}. Com o painel aberto, como com o menu de armas, não sai tiro.
+//
 // ESC sai da partida e volta para a tela de entrada (nome e raça como estavam),
 // para trocar de piloto sem recarregar a página. Sair desmonta tudo o que a
 // partida criou (conexão, laço de quadros, listeners, cena na GPU); só o renderer
 // WebGL fica, porque é reaproveitado na próxima entrada.
 
 import * as THREE from 'three';
-import { DT, RACES, WEAPONS, createBullet, stepShip, bulletHits, forward, pousoPermitido } from '/shared/sim.js';
+import { DT, RACES, WEAPONS, VEL_TOQUE, createBullet, stepShip, bulletHits, forward, pousoPermitido } from '/shared/sim.js';
 import { areaPouso } from '/shared/terrain.js';
 import { alturaSolida } from '/shared/obstaculos.js';
 import { criarCena, liberarCena } from './cena.js';
@@ -36,6 +40,8 @@ import { ObjetivosNaTela } from './objetivos.js';
 import { Rede } from './rede.js';
 import { MenuArmas } from './armas.js';
 import { Placar } from './placar.js';
+import { PainelServicos } from './servicos.js';
+import { MELHORIAS_MINERADOR } from '/shared/evolucao.js';
 
 const INTERP_MS = 120;
 // Modelo de cada tipo de inimigo (o tipo vem do servidor em cada entidade).
@@ -106,9 +112,9 @@ function montarEntrada() {
 
   // Fase de captura na janela: este handler roda antes de qualquer outro keydown,
   // então decide sozinho o que o ESC faz. Com o menu de armas (#menu-armas, o mesmo
-  // elemento para o Z e o X) aberto, ESC só fecha o menu; um segundo ESC sai da
-  // partida. Na tela de entrada (ou
-  // enquanto conecta) não há partida e o ESC não faz nada.
+  // elemento para o Z e o X) aberto, ESC só fecha o menu; com o painel da Loja ou
+  // da Evolução (#servico) aberto, só fecha o painel; senão sai da partida. Na tela
+  // de entrada (ou enquanto conecta) não há partida e o ESC não faz nada.
   addEventListener(
     'keydown',
     (e) => {
@@ -118,6 +124,7 @@ function montarEntrada() {
         menu.hidden = true;
         return;
       }
+      if (jogoAtual.fecharPainel()) return;
       voltarParaEntrada();
     },
     { capture: true },
@@ -208,6 +215,11 @@ function montarJogo(rede, boas, renderer, race) {
     aoTrocar: (encaixe, i, kind) => hud.noticia(`Arma do ${encaixe ? 'X' : 'Z'}: ${WEAPONS[kind].nome}`, 'bom'),
     signal: controles.parar.signal, // desliga junto com os controles ao sair
   });
+  const painel = new PainelServicos({
+    enviar: (m) => rede.enviar(m),
+    noticia: (texto, tipo) => hud.noticia(texto, tipo),
+    signal: controles.parar.signal,
+  });
   document.querySelector('#hud').hidden = false;
   const objetivos = new ObjetivosNaTela({ definirObjetivo, meuTime, container: document.querySelector('#rotulos-obj') });
 
@@ -247,9 +259,10 @@ function montarJogo(rede, boas, renderer, race) {
   function passo() {
     if (!vivo || !pred) return;
     const inp = controles.ler();
-    // As armas dos dois encaixes vão em todo comando; com o menu aberto não sai tiro.
+    // As armas dos dois encaixes vão em todo comando; com o menu ou o painel da
+    // Loja/Evolução aberto não sai tiro.
     [inp.a, inp.a2] = menuArmas.encaixes;
-    if (menuArmas.aberto) inp.f1 = inp.f2 = false;
+    if (menuArmas.aberto || painel.aberto) inp.f1 = inp.f2 = false;
     seq++;
     rede.enviar({ t: 'in', s: seq, ...inp });
     ant = pose(pred);
@@ -286,6 +299,7 @@ function montarJogo(rede, boas, renderer, race) {
     efeitos.corrigirGuiados(m.guiados);
     efeitos.atualizarMinas(m.minas, meuTime);
     menuArmas.definirPosse(m.me?.armas);
+    painel.atualizar({ ouro: m.ouro, nivel: m.nivel, me: m.me, melhorias: m.melhorias });
 
     if (!m.vivo) {
       if (vivo) morteEm = performance.now();
@@ -371,6 +385,10 @@ function montarJogo(rede, boas, renderer, race) {
         const como = { A: 'pousou no', B: 'derrubou a torre do', C: 'derrotou o guardião do' }[e.tipo];
         const quem = e.quem ? `${e.quem} ${como} objetivo ${e.tipo}` : `Objetivo ${e.tipo} tomado`;
         hud.noticia(`${quem} · ${meu ? 'seu time' : 'inimigo'}: ${NOME_BONUS[e.bonus]} por ${e.segundos}s (${EFEITO_BONUS[e.bonus]})`, meu ? 'bom' : 'ruim');
+      } else if (e.e === 'melhoria' && e.time === meuTime) {
+        // Melhoria dos mineradores: vale para o time todo, então o time todo fica sabendo.
+        const nome = MELHORIAS_MINERADOR[e.melhoria]?.nome ?? e.melhoria;
+        hud.noticia(`${e.id === meuId ? 'Você' : e.nome} melhorou os mineradores: ${nome} nível ${e.nivel}`, 'bom');
       } else if (e.e === 'entrou' && e.id !== meuId) {
         hud.noticia(`${e.nome} entrou no setor`);
       } else if (e.e === 'saiu') {
@@ -381,6 +399,7 @@ function montarJogo(rede, boas, renderer, race) {
 
   rede.aoReceber = (m) => {
     if (m.t === 'snap') aoSnapshot(m);
+    else if (m.t === 'resultado') painel.resultado(m);
   };
   rede.aoFechar = () => hud.mostrarAviso('Conexão perdida. Aperte Esc ou recarregue a página.');
 
@@ -547,10 +566,13 @@ function montarJogo(rede, boas, renderer, race) {
 
     if (pred) {
       hud.painel(pred, extra, rede.ping);
-      // Plataforma do outro time não oferece pouso.
-      hud.pouso(vivo && pousoPermitido(pred) ? areaPouso(pred.x, pred.z) : null, vivo && pred.pousado);
-      // Pousada na marcação de um objetivo A: barra do progresso.
       const area = vivo ? areaPouso(pred.x, pred.z) : null;
+      // Pousada e parada na Loja ou na Evolução da própria base: o painel abre.
+      const parada = vivo && pred.pousado && Math.hypot(pred.vx, pred.vz) < VEL_TOQUE;
+      painel.lugar(parada && area?.servico && area.time === meuTime ? area.servico : null);
+      // Plataforma do outro time não oferece pouso.
+      hud.pouso(vivo && pousoPermitido(pred) ? area : null, vivo && pred.pousado, painel.aberto);
+      // Pousada na marcação de um objetivo A: barra do progresso.
       hud.objetivoPouso(area?.objetivo && pred.pousado ? objetivos.estado.get(area.objetivo) : null);
       hud.minimapa(vivo ? { x: foco.x, z: foco.z, yaw: minhaNave.rotation.y } : null, snaps.at(-1)?.ents ?? [], meuId, [
         ...objetivos.estado.values(),
@@ -582,6 +604,7 @@ function montarJogo(rede, boas, renderer, race) {
     scene,
     camera,
     menuArmas,
+    painel,
     objetivos,
     efeitos,
     minhaNave,
@@ -599,6 +622,7 @@ function montarJogo(rede, boas, renderer, race) {
     rede.fechar();
     controles.destruir();
     menuArmas.el.hidden = true;
+    painel.lugar(null);
     removeEventListener('resize', redimensionar);
     hud.limpar();
     placar.limpar();
@@ -610,7 +634,14 @@ function montarJogo(rede, boas, renderer, race) {
     if (window.__astron?.scene === scene) window.__astron = null;
   }
 
-  return { sair };
+  /** ESC com o painel da Loja/Evolução aberto: fecha só ele. Devolve se fechou. */
+  function fecharPainel() {
+    if (!painel.aberto) return false;
+    painel.fechar();
+    return true;
+  }
+
+  return { sair, fecharPainel };
 }
 
 montarEntrada();

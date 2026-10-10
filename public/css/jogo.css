@@ -19,6 +19,8 @@
   --inimigo: #ff4a2a;
   --objetivo: #ffb627;
   --xp: #b6f05a;
+  --evolucao: #a58bff;
+  --loja: #ff6fd8;
 }
 
 * {
@@ -1021,6 +1023,415 @@ dd {
   text-align: center;
 }
 
+/* ---------- Itens consumíveis no painel inferior (R e F) ---------- */
+
+#itens-nave {
+  display: grid;
+  gap: 4px;
+}
+
+.item-nave {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 18px auto;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px 6px;
+  border: 1px solid var(--neon-escuro);
+  border-radius: 4px;
+  background: rgba(8, 17, 16, 0.7);
+  color: var(--texto);
+  font: 12px system-ui, sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.item-nave .tecla {
+  font: 700 11px ui-monospace, monospace;
+  color: var(--neon);
+}
+
+.item-nave .tecla::after {
+  content: ' ·';
+  color: var(--texto);
+  opacity: 0.6;
+}
+
+.item-nave .qtd {
+  font: 700 12px ui-monospace, monospace;
+}
+
+.item-nave .qtd::before {
+  content: '×';
+  opacity: 0.6;
+}
+
+.item-nave .icone-servico {
+  width: 18px;
+  height: 18px;
+}
+
+.item-nave .recarga {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 2px;
+  height: 2px;
+  border-radius: 1px;
+  background: rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.item-nave .recarga i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--neon);
+}
+
+.item-nave.carregando .recarga i {
+  background: var(--texto);
+  opacity: 0.55;
+}
+
+/* Sem nenhum no compartimento: apagado (a Loja vende). */
+.item-nave.vazio {
+  opacity: 0.4;
+}
+
+/* Ícones de traço da Loja e da Evolução (itens, armaduras, evoluções): vida em
+   --hp, energia em --en, o resto (tecnologia) em --neon. */
+.icone-servico {
+  stroke: var(--neon);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  filter: drop-shadow(0 0 3px var(--neon));
+}
+
+.icone-servico.vida {
+  stroke: var(--hp);
+  filter: drop-shadow(0 0 3px var(--hp));
+}
+
+.icone-servico.energia {
+  stroke: var(--en);
+  filter: drop-shadow(0 0 3px var(--en));
+}
+
+/* ---------- Painel da Loja e da Evolução (pousado na plataforma) ---------- */
+
+/* Em cima, no centro, como o menu de armas (que fica por cima dele se abrir junto).
+   A cor de destaque é a do serviço, a mesma da plataforma no chão: magenta na
+   Loja, violeta na Evolução. */
+#servico {
+  --cor-servico: var(--loja);
+  position: absolute;
+  z-index: 9;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  width: min(720px, calc(100% - 32px));
+  max-height: calc(100% - 150px);
+  padding: 8px 14px 8px;
+  border: 2px solid var(--chapa-clara);
+  border-top-color: var(--cor-servico);
+  border-radius: 14px 14px 8px 8px;
+  background: linear-gradient(180deg, var(--chapa-clara), var(--chapa) 30%, #0c1a19);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 0 0 1px var(--neon-escuro),
+    0 4px 20px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+  animation: desce 0.15s ease-out;
+}
+
+#servico[data-servico='evolucao'] {
+  --cor-servico: var(--evolucao);
+}
+
+#servico header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#servico h2 {
+  margin: 0;
+  font: 700 13px system-ui, sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cor-servico);
+  text-shadow: 0 0 10px var(--cor-servico);
+}
+
+/* Ouro em destaque: o que dá para gastar. */
+#servico .ouro {
+  margin: 0 0 0 auto;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+#servico .ouro span {
+  opacity: 0.7;
+}
+
+#servico .ouro b {
+  font: 700 20px ui-monospace, monospace;
+  color: var(--ouro);
+  text-shadow: 0 0 10px rgba(255, 209, 102, 0.45);
+  vertical-align: middle;
+}
+
+#servico .fechar {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 6px;
+  background: #0f1e1d;
+  color: var(--texto);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+#servico .abas {
+  display: flex;
+  gap: 4px;
+  margin: 6px 0;
+}
+
+#servico .abas button {
+  padding: 4px 12px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 6px 6px 2px 2px;
+  background: #0f1e1d;
+  color: var(--texto);
+  font: 600 12px system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#servico .abas button.sel {
+  border-color: var(--cor-servico);
+  color: var(--cor-servico);
+  box-shadow: inset 0 -2px 0 var(--cor-servico);
+}
+
+#servico .cartas {
+  overflow-y: auto;
+  touch-action: pan-y;
+  min-height: 0;
+}
+
+#servico .grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+}
+
+#servico .nota {
+  margin: 0 0 6px;
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+#servico .msg {
+  min-height: 1.4em;
+  margin: 6px 0 0;
+  font-size: 12px;
+  text-align: center;
+}
+
+#servico .msg.bom {
+  color: var(--neon);
+}
+
+#servico .msg.ruim {
+  color: #ff8a70;
+}
+
+/* Cartão: ícone e nome, efeito, preço em ouro e o selo do estado. */
+.carta-servico {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  padding: 6px 7px 5px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 6px;
+  background: #0f1e1d;
+  color: var(--texto);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.carta-servico.livre:hover {
+  border-color: var(--cor-servico);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--cor-servico) 35%, transparent);
+}
+
+.carta-servico .cab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+}
+
+.carta-servico .icone-arma,
+.carta-servico .icone-servico {
+  flex: none;
+  width: 22px;
+  height: 22px;
+}
+
+.carta-servico strong {
+  font-size: 12px;
+  line-height: 1.15;
+}
+
+.carta-servico .efeito {
+  min-height: 2.6em;
+  font-size: 10.5px;
+  line-height: 1.3;
+  opacity: 0.85;
+}
+
+.carta-servico .vezes {
+  font-size: 10px;
+  color: var(--cor-servico);
+}
+
+.carta-servico .rodape {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.carta-servico .preco {
+  font: 700 12px ui-monospace, monospace;
+  color: var(--ouro);
+}
+
+.carta-servico .preco::after {
+  content: ' ouro';
+  font: 9px system-ui, sans-serif;
+  opacity: 0.7;
+}
+
+.carta-servico .selo {
+  margin-left: auto;
+  font: 700 9.5px system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  color: var(--cor-servico);
+  text-align: right;
+}
+
+/* Comprada ou equipada: borda neon (é seu). */
+.carta-servico.comprado,
+.carta-servico.equipado {
+  border-color: var(--neon-escuro);
+  cursor: default;
+}
+
+.carta-servico.equipado {
+  border-color: var(--neon);
+  box-shadow: 0 0 12px rgba(0, 239, 192, 0.3);
+}
+
+.carta-servico.comprado .selo,
+.carta-servico.equipado .selo {
+  color: var(--neon);
+}
+
+/* Sem ouro: preço em vermelho-claro; bloqueado por nível ou no máximo: apagado. */
+.carta-servico.sem-ouro .preco,
+.carta-servico.sem-ouro .selo {
+  color: #ff8a70;
+}
+
+.carta-servico.sem-ouro {
+  opacity: 0.75;
+}
+
+.carta-servico.bloqueado,
+.carta-servico.max {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.carta-servico.bloqueado .selo,
+.carta-servico.max .selo {
+  color: var(--texto);
+}
+
+/* Níveis das melhorias dos mineradores: bolinhas, cheias até o nível comprado. */
+.carta-servico .pips {
+  display: flex;
+  gap: 3px;
+}
+
+.carta-servico .pips i {
+  width: 14px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.carta-servico .pips i.on {
+  background: var(--cor-servico);
+  box-shadow: 0 0 6px var(--cor-servico);
+}
+
+/* Faixa dos marcos da nave (NV 5, 10, 15). */
+#servico .marcos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+}
+
+#servico .marcos li {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 3px 7px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+#servico .marcos b {
+  font: 700 11px ui-monospace, monospace;
+}
+
+#servico .marcos li.feito {
+  border-color: var(--neon-escuro);
+  color: var(--neon);
+}
+
+#servico .marcos li.proximo {
+  border-color: var(--cor-servico);
+  color: var(--cor-servico);
+}
+
+#servico .marcos li.bloqueado,
+#servico .marcos li.depois {
+  opacity: 0.55;
+}
+
+/* Pousada num serviço com o painel fechado: a dica vira botão que abre de novo. */
+#pouso.servico {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
 /* Clarão vermelho ao levar dano. */
 body.dano::after {
   content: '';
@@ -1174,6 +1585,43 @@ body.dano::after {
 
 .toque .arma-encaixe {
   grid-template-columns: auto 18px;
+}
+
+/* No celular o painel fica entre o minimapa e os botões da direita, e o cartão
+   mostra o essencial (sem a linha do efeito). */
+.toque #servico {
+  left: 12px;
+  right: 190px;
+  width: auto;
+  max-height: calc(100% - 110px);
+  transform: none;
+  padding: 6px 8px;
+  animation: none;
+}
+
+.toque #servico .grade {
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+
+.toque .carta-servico .efeito {
+  display: none;
+}
+
+.toque #servico .abas button {
+  padding: 8px 12px;
+}
+
+.toque .item-nave {
+  grid-template-columns: auto 18px auto;
+}
+
+@media (max-height: 520px) {
+  #servico .nota {
+    display: none;
+  }
+  #servico .carta-servico .efeito {
+    min-height: 0;
+  }
 }
 
 @media (max-width: 520px) {

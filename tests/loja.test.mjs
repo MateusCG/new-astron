@@ -214,7 +214,6 @@ test('loja: kit de reparo cura e célula de energia enche, com recarga e limite'
   assert.equal(j.ship.en, j.ship.maxEn);
   assert.equal(j.ship.boostTravado, false);
   assert.equal(usar(w, j, 'energia').codigo, 'sem_item');
-  assert.ok(w.eventos.some((e) => e.e === 'item' && e.item === 'energia' && e.id === j.id));
 
   j.vivo = false;
   assert.equal(usar(w, j, 'energia').codigo, 'invalido', 'morto não usa item');

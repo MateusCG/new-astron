@@ -24,7 +24,8 @@
         <p class="ajuda">
           <kbd>W</kbd><kbd>S</kbd> acelera/ré · <kbd>A</kbd><kbd>D</kbd> gira · <kbd>Shift</kbd> boost ·
           <kbd>Z</kbd> e <kbd>X</kbd> atiram (uma arma em cada) · <kbd>Q</kbd> troca a arma do Z · <kbd>E</kbd> a do X ·
-          <kbd>L</kbd> pousar · <kbd>V</kbd> câmera ·
+          <kbd>L</kbd> pousar (na Loja e na Evolução da base, abre o painel) · <kbd>R</kbd> kit de reparo ·
+          <kbd>F</kbd> célula de energia · <kbd>V</kbd> câmera ·
           <kbd>Esc</kbd> sair
         </p>
       </form>
@@ -65,6 +66,14 @@
             <b class="tecla">X</b><span class="icone"></span><span class="nome"></span><i class="recarga"><i></i></i>
           </button>
         </div>
+        <div id="itens-nave">
+          <button id="item-reparo" class="item-nave vazio" type="button" title="Kit de reparo (R)">
+            <b class="tecla">R</b><span class="icone"></span><span class="qtd">0</span><i class="recarga"><i></i></i>
+          </button>
+          <button id="item-energia" class="item-nave vazio" type="button" title="Célula de energia (F)">
+            <b class="tecla">F</b><span class="icone"></span><span class="qtd">0</span><i class="recarga"><i></i></i>
+          </button>
+        </div>
         <dl>
           <dt>Ouro</dt><dd id="ouro">0</dd>
           <dt>Abates</dt><dd id="abates">0</dd>
@@ -79,6 +88,17 @@
           <span class="so-teclado"><kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> escolhe · <span class="dica-encaixe"></span></span><span class="so-toque">Toque para escolher · ARMA Z/X troca ou fecha</span>
           · a mesma arma pode ir nos dois · sem tiro com o menu aberto
         </p>
+      </section>
+
+      <section id="servico" hidden aria-label="Loja e Evolução">
+        <header>
+          <h2>Loja</h2>
+          <p class="ouro"><span>Ouro</span> <b>0</b></p>
+          <button class="fechar" type="button" title="Fechar (Esc)">✕</button>
+        </header>
+        <nav class="abas"></nav>
+        <div class="cartas"></div>
+        <p class="msg" aria-live="polite"></p>
       </section>
 
       <div id="toque">

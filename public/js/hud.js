@@ -6,6 +6,8 @@ import * as THREE from 'three';
 import { paredeAt, MAP_HALF_X, MAP_HALF_Z, BASES, CORREDOR, MINERIO, ENTREGAS, SERVICOS, OBJETIVOS } from '/shared/terrain.js';
 import { WEAPONS, ARMAS, ENCAIXE_PADRAO } from '/shared/sim.js';
 import { iconeArma } from './armas.js';
+import { iconeItem } from './servicos.js';
+import { ITENS, ORDEM_ITENS } from '/shared/loja.js';
 import { relogio } from './objetivos.js';
 
 const $ = (s) => document.querySelector(s);
@@ -46,6 +48,12 @@ export class Hud {
     this.slots = ['#arma-z', '#arma-x'].map((sel) => {
       const el = $(sel);
       return { el, icone: el.querySelector('.icone'), nome: el.querySelector('.nome'), recarga: el.querySelector('.recarga i'), kind: null };
+    });
+    // Itens consumíveis (R e F): ícone, quantidade e a linha da recarga.
+    this.itens = ORDEM_ITENS.map((id) => {
+      const el = $(`#item-${id}`);
+      el.querySelector('.icone').innerHTML = iconeItem(id);
+      return { id, el, qtd: el.querySelector('.qtd'), recarga: el.querySelector('.recarga i') };
     });
     this.ping = $('#ping');
     this.aviso = $('#aviso');
@@ -256,14 +264,24 @@ export class Hud {
       slot.el.classList.toggle('sem-energia', cd <= 0 && me.en < w.energia);
       slot.el.classList.toggle('emp', me.emp > 0);
     });
+    // Itens: quantidade (apagado sem nenhum) e a recarga (s, do `me`) enchendo.
+    for (const it of this.itens) {
+      const n = me.itens?.[it.id] ?? 0;
+      const cd = me.cdItens?.[it.id] ?? 0;
+      it.qtd.textContent = n;
+      it.el.classList.toggle('vazio', n <= 0);
+      it.el.classList.toggle('carregando', cd > 0);
+      it.recarga.style.width = `${(1 - Math.min(1, cd / ITENS[it.id].recargaS)) * 100}%`;
+    }
   }
 
   /**
    * Dica de pouso. `area` é a área de pouso onde a nave está (AREAS_POUSO) ou
-   * null; `pousada` diz se ela já está no chão. Nos serviços, pousada mostra que a
-   * tela ainda vem ("em breve").
+   * null; `pousada` diz se ela já está no chão. Pousada num serviço, com o painel
+   * fechado (`painelAberto` false, depois do ESC), a dica ensina a abrir de novo
+   * (Enter ou tocar nela).
    */
-  pouso(area, pousada) {
+  pouso(area, pousada, painelAberto = false) {
     const nome = !area
       ? ''
       : area.servico
@@ -272,7 +290,7 @@ export class Hud {
           ? `Objetivo ${area.tipo}`
           : 'Área de pouso';
     let html = '';
-    if (pousada && area?.servico) html = `${nome} · em breve · <kbd>L</kbd> decola`;
+    if (pousada && area?.servico) html = painelAberto ? `${nome} · <kbd>L</kbd> decola` : `${nome} · <kbd>Enter</kbd> ou toque abre · <kbd>L</kbd> decola`;
     else if (pousada) html = `${area?.objetivo ? nome + ' · ' : ''}Pousada · consertando · <kbd>L</kbd> decola`;
     else if (area) html = `${nome} · <kbd>L</kbd> pousa`;
     if (this.avisoPouso.dataset.html !== html) {
@@ -280,6 +298,7 @@ export class Hud {
       this.avisoPouso.dataset.html = html;
     }
     this.avisoPouso.hidden = !html;
+    this.avisoPouso.classList.toggle('servico', !!(pousada && area?.servico && !painelAberto));
   }
 
   /**

@@ -201,7 +201,6 @@ export class Servicos {
     }
     j.itens[item.id]--;
     j.itemPronto[item.id] = tick + Math.round(item.recargaS / DT);
-    this.world.eventos.push({ e: 'item', id: j.id, item: item.id, x: s.x, y: s.y, z: s.z });
     return null;
   }
 
