@@ -817,6 +817,25 @@ dd {
   opacity: 0.6;
 }
 
+/* Recarga de troca de arma: ícone apagado e a contagem em segundos ao lado. */
+.arma-encaixe .espera {
+  display: none;
+  font: 700 11px ui-monospace, monospace;
+  color: var(--texto);
+}
+
+.arma-encaixe.trocando {
+  grid-template-columns: auto 18px auto auto;
+}
+
+.arma-encaixe.trocando .espera {
+  display: inline;
+}
+
+.arma-encaixe.trocando .icone-arma {
+  opacity: 0.4;
+}
+
 .icone-arma {
   stroke: var(--laser);
   stroke-width: 3;
@@ -951,6 +970,7 @@ dd {
   gap: 5px;
   min-height: 24px;
   padding-left: 18px;
+  padding-right: 26px; /* o nível fica no canto */
 }
 
 .opcao-arma .icone-arma {
@@ -1021,6 +1041,92 @@ dd {
   font-size: 11px;
   opacity: 0.7;
   text-align: center;
+}
+
+/* Linha da troca de arma, entre o título e as cartas: "Na base: troca livre" em
+   neon, a regra de fora da base em texto, e a contagem (troca em recarga) como
+   mensagem ruim. */
+#menu-armas .aviso-troca {
+  margin: -4px 0 6px;
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+#menu-armas .aviso-troca.livre {
+  color: var(--neon);
+}
+
+#menu-armas.trocando .aviso-troca {
+  color: #ff8a70;
+  opacity: 1;
+}
+
+#menu-armas .aviso-troca b {
+  font-family: ui-monospace, monospace;
+}
+
+/* Troca em recarga: as outras armas apagadas (tocar só avisa quanto falta). */
+.opcao-arma.espera {
+  opacity: 0.4;
+  cursor: wait;
+}
+
+.opcao-arma.espera .selo {
+  color: #ff8a70;
+}
+
+/* Tipo de dano e função ("Laser · Dano") e, no cartão de evoluir, os tracinhos do
+   nível; quebra a linha se não couber (cartão estreito no celular). */
+.linha-nivel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3px 4px;
+  min-height: 12px;
+}
+
+.etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.etiquetas i {
+  padding: 0 4px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 3px;
+  font: 600 8.5px system-ui, sans-serif;
+  font-style: normal;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 12px;
+  white-space: nowrap;
+}
+
+.etiquetas .funcao.controle {
+  border-color: var(--neon-escuro);
+  color: var(--neon);
+}
+
+/* Nível da arma (evoluído na Loja) no canto de cima da carta, oposto à tecla. */
+.opcao-arma .nivel {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font: 700 9px ui-monospace, monospace;
+  color: var(--neon);
+  white-space: nowrap;
+}
+
+.opcao-arma .nivel.base {
+  color: var(--texto);
+  opacity: 0.5;
+}
+
+.pips {
+  display: flex;
+  gap: 2px;
 }
 
 /* ---------- Itens consumíveis no painel inferior (R e F) ---------- */
@@ -1256,6 +1362,7 @@ dd {
 
 /* Cartão: ícone e nome, efeito, preço em ouro e o selo do estado. */
 .carta-servico {
+  min-width: 0; /* texto longo quebra dentro do cartão, sem invadir o vizinho */
   display: grid;
   align-content: start;
   gap: 3px;
@@ -1369,7 +1476,15 @@ dd {
   color: var(--texto);
 }
 
-/* Níveis das melhorias dos mineradores: bolinhas, cheias até o nível comprado. */
+/* Nível da arma no cartão de evoluir: "NV 3" ao lado do nome. */
+.carta-servico .nv {
+  font: 700 10px ui-monospace, monospace;
+  font-style: normal;
+  color: var(--cor-servico);
+  white-space: nowrap;
+}
+
+/* Níveis das melhorias dos mineradores (e das armas): tracinhos, cheios até o nível. */
 .carta-servico .pips {
   display: flex;
   gap: 3px;
@@ -1559,9 +1674,10 @@ body.dano::after {
   font-size: 11px;
 }
 
-/* No celular a carta mostra só o essencial: ícone, nome e selo. */
+/* No celular a carta mostra só o essencial: ícone, nome, nível e selo. */
 .toque .opcao-arma dl,
 .toque .opcao-arma .efeito,
+.toque .opcao-arma .etiquetas,
 .toque .opcao-arma > kbd {
   display: none;
 }
@@ -1585,6 +1701,10 @@ body.dano::after {
 
 .toque .arma-encaixe {
   grid-template-columns: auto 18px;
+}
+
+.toque .arma-encaixe.trocando {
+  grid-template-columns: auto 18px auto;
 }
 
 /* No celular o painel fica à esquerda do placar e dos botões da direita, com o
@@ -1649,4 +1769,9 @@ body.dano::after {
   #ping {
     top: 98px;
   }
+}
+
+/* No cartão de evoluir arma, os tracinhos dividem a linha com as etiquetas. */
+.carta-servico .linha-nivel .pips i {
+  width: 8px;
 }
