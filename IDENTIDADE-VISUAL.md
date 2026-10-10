@@ -38,7 +38,8 @@ Tokens em `public/css/jogo.css` (`:root`). Use as variáveis; não escreva hex s
 | `--dreno` | `#d070ff` | Ícone da arma Dreno (mesmo violeta do tiro e da aura) |
 | `--gelo` | `#a8e8ff` | Ícone da arma Criogênico (mesmo azul-gelo do tiro e da aura) |
 | `--inimigo` | `#ff4a2a` | Placar e coisas do outro time no HUD (mesmo vermelho dos inimigos no minimapa) |
-| `--objetivo` | `#ffb627` | Ícones dos bônus por tempo no placar (âmbar dos objetivos, de onde os bônus vêm) |
+| `--objetivo` | `#ffb627` | Ícones dos bônus por tempo no placar (âmbar dos objetivos, de onde os bônus vêm), rótulo e barra dos objetivos |
+| `--xp` | `#b6f05a` | Barra de XP e o nível (no painel e no nome sobre a nave) e o anel de "subiu de nível". Verde-lima: cor própria do HUD, fora das três camadas, longe do ouro (amarelo), da energia (azul) e do plasma (verde mais frio, só no tiro) |
 
 - **Botão primário:** fundo `#00efc0`, texto `#032b22`, peso 700. É o mesmo turquesa do Sideral, de propósito: os dois jogos são da mesma casa.
 - **Mensagens:** boas em `--neon`, ruins em `#ff8a70`, neutras em `--texto`.
@@ -111,6 +112,8 @@ O mapa segue `DESIGN-PARTIDA.md` e `shared/terrain.js`. Cores em `public/js/cena
 | Minerador | casco `#9aa5a3` + faixas do time; minério `#9fe8ff` (cristais) sobre bloco `#2f7fb8` | Mini-nave de carga de ~6 m (`criarMinerador` em `nave.js`): casco quadrado, cabine em pirâmide na frente, dois motores laterais, moldura de contêiner em cima. Cheio, aparecem o bloco e os cristais azuis no contêiner; minerando, desce um feixe azul-gelo pulsando até o chão | Leva o minério do depósito até a entrega |
 
 - **Âmbar = objetivo.** Os três tipos usam âmbar e se distinguem pela forma (losango, torre, triângulo) e, no minimapa, pela letra.
+- **Estado do objetivo** (vem do servidor, `public/js/objetivos.js`): sobre cada marcação, um rótulo em chapa escura com a letra numa caixinha `--objetivo` e o estado em uma linha: o que fazer ("Pouse para tomar", "Destrua a torre", "Derrote o guardião", com barra de vida âmbar no B e no C), progresso ("Seu time · 6 s" em turquesa ou "Inimigo · 6 s" em vermelho, com barra na mesma cor), "Contestado" (âmbar piscando) ou a recarga ("Volta em 1:12 · seu time", letra e borda em cinza-areia `#8a7f6a`). Em recarga o âmbar da marcação **para de pulsar e apaga** (0,2). A torre B caída some e deixa **destroços** escuros baixos (até 1,5 m, sem colisão) em volta do pedestal, depois de uma explosão laranja + âmbar.
+- **Objetivos no minimapa:** em cima da letra, um arco de progresso do A na cor do time que está tomando (âmbar piscando se contestado), arco vermelho com a vida da torre B ou do guardião quando ferido; em recarga, a letra fica `#8a7f6a`, com um anel na cor de quem tomou e os segundos que faltam embaixo.
 - **Azul = circuito do minério** (estrada, entregas, cristais). Os cristais usam o mesmo azul-gelo do Criogênico, mas só no chão; aura em nave é sempre efeito de arma.
 - **Minimapa:** retângulo inteiro do mapa; sua base em turquesa, a outra em vermelho, corredor em azul apagado, entregas e minério em azul, serviços em violeta e magenta, objetivos com a letra em âmbar.
 - **Mesas de rocha** do mundo aberto: a mesma rocha em estratos das paredes de cânion, com o alto mais claro (`#b9804f`) e torres de treliça em cima.
@@ -139,8 +142,10 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
   |---|---|---|
   | Arnosh (drone) | Disco de icosaedro com espinhos em volta, olho na frente | Patrulha e atira de longe |
   | Vorax (monstro) | Comprido, três gomos (cabeça, tórax, cauda com ferrão), espinhos nas costas, duas garras em foice que abrem e fecham | Caça de qualquer distância e ataca de perto; o golpe de garra é uma faísca `#ff4a2a` em quem leva |
+  | Krakor (elite) | "Tanque" largo e alto (~17 m): carapaça em cúpula, chifre comprido para a frente, placas espinhentas em duas fileiras no lombo, seis patas curtas penduradas que balançam devagar, um olho embaixo do chifre | Raro e lento; guarda o covil e cospe plasma (tiro inimigo vermelho) em quem chega perto |
+  | Guardião (objetivo C) | Colosso **vertical** (~23 m de altura): núcleo facetado, coroa de sete chifres abertos no alto, três lascas de carapaça girando em volta, olho grande na frente | Único em cada arena; atira um leque de três plasmas e não sai da arena |
 
-  No minimapa todo inimigo é ponto vermelho; o Vorax num ponto maior.
+  No minimapa todo inimigo é ponto vermelho, maior quanto mais perigoso: Arnosh 3 px, Vorax 4,5, Krakor 6, guardião 7.
 - **Área de pouso é sempre marcada no chão**, com a cor do que ela é: anel com o neon da base (turquesa na sua), placa violeta da Evolução, placa magenta da Loja, anel âmbar do objetivo A (`AREAS_POUSO`). Nenhum anel turquesa no chão pode existir fora da sua base, para o jogador não confundir.
 - **Tudo projeta sombra** (`castShadow`), e o terreno a recebe.
 
@@ -150,6 +155,8 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 |---|---|
 | Nave de jogador | ~11 m de comprimento, ~12 m de envergadura |
 | Minerador | ~6 m de comprimento, ~4 m de largura (metade da nave), voa na mesma altura (`HOVER`) |
+| Krakor | ~17 m de comprimento, ~10 m de largura (acerto com raio 8 m, `KRAKOR.raio`) |
+| Guardião | ~23 m de altura, lascas girando a 9 m do centro (acerto com raio 10 m) |
 | Altura de voo | 10 m acima do chão (`HOVER`) |
 | Nave pousada | 1,4 m (`ALTURA_POUSADO`), com trem de pouso visível e motores quase apagados |
 | Parede de cânion / mesa de rocha | ~50 a 95 m; começa com um degrau vertical de ~20 m (nem de lado a nave sobe) |
@@ -175,7 +182,9 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 
 ## Interface
 
-- **Painel inferior em chapa metálica** (degradê `--chapa-clara` para `--chapa`, cantos de cima mais arredondados, contorno `--neon-escuro`). Barras de HP e EN com rótulo à esquerda e número à direita, em fonte mono.
+- **Painel inferior em chapa metálica** (degradê `--chapa-clara` para `--chapa`, cantos de cima mais arredondados, contorno `--neon-escuro`). Barras de HP e EN com rótulo à esquerda e número à direita, em fonte mono. Embaixo delas, uma **barra de XP** mais baixa (12 px) em `--xp`, com "NV n" à esquerda e "xp / próximo" à direita ("máx." no nível 20).
+- **Subiu de nível:** dois anéis finos `--xp` (aditivos) abrindo em volta da nave até ~14 m e subindo, com um clarão suave, por 1,2 s; vale para qualquer nave (a sua e as dos outros). Notícia "Nível n! HP máximo maior".
+- **Pouso no objetivo A:** acima da dica de pouso, um painel escuro com borda âmbar e a barra de progresso: "Tomando o objetivo A · 6,2 s" (turquesa), "O inimigo está tomando" (vermelho), "Contestado" (âmbar piscando) ou "Objetivo A em recarga · volta em 1:12".
 - **Minimapa** no canto superior esquerdo, **placar** no superior direito (na mesma chapa do painel: minério do seu time em turquesa à esquerda, tempo `mm:ss` em fonte mono no meio, que pisca em `#ff8a70` no último minuto, minério do outro time em vermelho à direita; embaixo de cada número, os bônus ativos do time como ícone de traço âmbar + segundos), **notícias** logo abaixo do placar, **avisos** no centro da tela.
 - **Tela de fim de partida** (`#fim-partida`): painel em chapa no alto e centro, sem bloquear o jogo, com "VITÓRIA" (turquesa com brilho), "DERROTA" (vermelho com brilho) ou "EMPATE" (texto claro), uma frase curta, o placar grande (seu time × outro) e "Nova partida em Ns".
 - **Menu de armas** (`#menu-armas`, tecla Q): painel na mesma chapa do painel inferior, no **alto e centro** da tela, para a nave continuar à vista (o jogo não pausa). Uma carta por arma com número da tecla, ícone, nome, dano, energia, recarga e uma linha do efeito; a arma em uso tem borda `--neon` e o selo "EM USO". **Ícone de arma** (SVG de traço, sem preenchimento): traços `--laser` para os lasers (1 simples, 2 paralelos no duplo, 3 em leque no triplo), gota `--dreno` para o Dreno e floco `--gelo` para o Criogênico; o mesmo ícone, com o nome, fica no painel inferior. No celular o menu fica entre o minimapa e os botões da direita, e o nome no painel some (só o ícone).

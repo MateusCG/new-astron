@@ -16,25 +16,37 @@
 //   servidor → cliente  {t:'bemvindo', id, tickHz, time}   time = 0 (base de baixo) ou 1
 //                       {t:'erro', codigo}   codigo 'partida_cheia' (3 em cada time); fecha
 //                       {t:'snap', tick, ack, vivo, time, me, ouro, abates, mortes,
-//                        partida, bonus, ents, ev}
+//                        nivel, xp, xpProx, partida, bonus, obj, ents, ev}
 //                       (me.arma = arma principal, me.lento = s de lentidão,
 //                        me.time = time da nave, para a predição do pouso;
 //                        cada ent traz dreno/lento booleanos para desenhar o efeito;
-//                        ev 'tiro' traz kind, que diz a arma e o efeito do projétil)
+//                        ev 'tiro' traz kind, que diz a arma e o efeito do projétil;
+//                        nivel = nível do jogador (1 a NIVEL_MAX), xp = XP dentro do
+//                        nível, xpProx = XP para o próximo (0 no máximo); ouro, xp e
+//                        nivel zeram a cada partida)
 //                       {t:'pong', c}
 //   partida: {n, estado, restante, placar:[t0, t1], vencedor, novaEm}
 //         estado = 'esperando' | 'andamento' | 'fim'; restante e novaEm em s;
 //         vencedor = time, -1 empate, null jogando
 //   bonus: {0: {mineracao: s, velocidade: s, durabilidade: s}, 1: {...}}  só os ativos
+//   obj:  [{id, tipo, estado, time, resta, prog?, quem?, falta?, vida?}]  os seis
+//         objetivos (server/objetivos.js): estado = 'livre' | 'tomando' |
+//         'contestado' | 'recarga'; time = quem tomou por último (ou null); resta =
+//         s de recarga; no A, prog (0 a 1), quem (time tomando) e falta (s); no B e
+//         no C, vida (0 a 1) da torre ou do guardião. Torre B em 'recarga' está
+//         caída: o cliente a tira da física (definirObstaculoAtivo).
 //   ents: [{id, nome, tipo, drone, vivo, race, x, y, z, yaw, roll, hp, maxHp, boost, pousado,
-//           time?, carga?, minerando?}]
-//         tipo = 'jogador' | 'arnosh' | 'vorax' | 'minerador' (o que desenhar);
-//         drone = inimigo do PvE; time em jogadores e mineradores; carga e
-//         minerando só nos mineradores
+//           time?, carga?, minerando?, nivel?}]
+//         tipo = 'jogador' | 'arnosh' | 'vorax' | 'krakor' | 'guardiao' | 'minerador'
+//         (o que desenhar); drone = inimigo do PvE; time em jogadores e mineradores;
+//         carga e minerando só nos mineradores; nivel só nos jogadores
 //   ev:   {e:'tiro'|'acerto'|'fim'|'renasceu'|'saiu', ...}
 //         {e:'entrou', id, nome, time}
 //         {e:'morte', id, por, tipo, time?, x, y, z}
 //         {e:'garra', id, alvo, dano, x, y, z}   golpe corpo a corpo de um Vorax
+//         {e:'acerto', ..., torre}   tiro que bateu numa torre B (alvo 0)
+//         {e:'nivel', id, nivel}     jogador subiu de nível
+//         {e:'objetivo', id, tipo, time, bonus, segundos, quem}   um time tomou um objetivo
 //         {e:'entrega', id, time, carga, x, y, z}   minerador somou carga no placar
 //         {e:'partida', n}   começou a partida n (placar zerado)
 //         {e:'fimPartida', vencedor, placar}

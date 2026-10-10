@@ -31,6 +31,15 @@ Escala do desenho: 1 px ≈ 3 m. Retângulo aberto com muralha só na borda.
 - **[feito]** **Podem ser destruídos** pelos jogadores do outro time (o minério que carregavam se perde; quem destrói ganha 40 de ouro). Na própria base são protegidos como os jogadores.
 - Melhoráveis na Evolução: **mais mineradores**, mais **durabilidade**, mais **defesa**, mais **velocidade**. (O gancho já existe: `melhorias[time]` lido em `atributos(time, tick)`.)
 
+## Monstros do mundo aberto
+
+**[feito]** XP e ouro de cada um em `RECOMPENSA` (`server/progressao.js`).
+
+- **Arnosh** (`N_DRONES` = 14): drones espalhados que patrulham e atiram de longe. Patrulhando, não entram nas bases nem na faixa do corredor (dão meia volta); caçando um jogador, entram no corredor atrás dele.
+- **Vorax** (6): caçadores que vêm de qualquer canto atrás de quem sai da base. Seguem o jogador também pelo corredor (escolha: o corredor é onde se briga pelos mineradores, e eles não atacam minerador), mas nunca entram nas bases.
+- **Krakor** (`N_KRAKOR` = 4, `server/elites.js`): elite raro, grande e lento (450 de HP, 24 m/s), com covil longe das bases e do corredor; patrulha o território (260 m), vai atrás de quem entra na visão até a borda dele e cospe plasma mirando adiantado. Nunca entra nas bases nem na faixa do corredor. Renasce em 30 s num covil novo, longe dos jogadores.
+- **Guardião** (um em cada objetivo C): ver abaixo.
+
 ## Objetivos (bônus por tempo para os mineradores do time que tomar)
 
 | Tipo | Como toma | Bônus (exemplo do Mateus) |
@@ -41,12 +50,19 @@ Escala do desenho: 1 px ≈ 3 m. Retângulo aberto com muralha só na borda.
 
 Objetivos voltam a ficar disponíveis depois de um tempo (a definir).
 
-**[em parte]** Os bônus já existem do lado dos mineradores (`server/bonus.js`: `'mineracao'` +1 por viagem, `'velocidade'` ×1,4, `'durabilidade'` ×1,5) e aparecem no HUD com contagem regressiva; falta tomar os objetivos, que é quem os ativa (`world.bonus.ativar(time, nome, segundos, world.tick)`).
+**[feito]** Regras exatas (`server/objetivos.js`; números no topo dele). O bônus vai para o **time** de quem tomou, por `OBJ_BONUS_S` (60 s; tomar de novo renova, não soma), e o objetivo entra em recarga por `OBJ_RECARGA_S` (90 s), mostrada sobre a marcação e no minimapa. Numa partida nova tudo volta ao começo.
+
+- **A (pouso):** conta o tempo de quem está **pousado e parado** na marcação; com `OBJ_A_POUSO_S` (10 s) o time toma: bônus `'mineracao'` e +`XP_OBJETIVO` (60) para cada nave do time pousada lá. Ninguém pousado: o progresso zera (decolar antes perde tudo). Naves dos dois times pousadas: **contestado**, o progresso trava. Se só o outro time fica, o progresso recomeça do zero para ele.
+- **B (torre):** a torre tem `TORRE_B_HP` (800) de vida e só tiro de jogador a machuca (tiro de monstro bate e some). Quem dá o **último tiro** toma: bônus `'velocidade'` e +60 XP. A torre cai (deixa de ser sólida para nave e tiro, nos dois lados: `definirObstaculoAtivo`) e volta inteira no fim da recarga, esperando sair quem estiver no lugar dela.
+- **C (guardião, decisão combinada com o Mateus):** um guardião (monstro elite único, 1500 de HP, atira um leque de três plasmas) fica preso na arena. Quem o **mata** toma: bônus `'durabilidade'` para o time (o XP é o do abate: 250, e 150 de ouro). Ele renasce no meio da arena no fim da recarga.
+
+Os bônus do lado dos mineradores (`server/bonus.js`): `'mineracao'` +1 por viagem, `'velocidade'` ×1,4, `'durabilidade'` ×1,5; aparecem no placar com contagem regressiva.
 
 ## Progressão do jogador
 
-- **XP e nível** ao destruir monstros, mineradores e jogadores inimigos. Começa no nível 1.
-- **Ouro** pelas mesmas fontes.
+- **[feito]** **XP e nível** ao destruir monstros, mineradores e jogadores inimigos, e ao tomar objetivos A e B. Começa no nível 1, vai até o 20 (`NIVEL_MAX`); para passar do nível n são `60 + 20 × (n − 1)` XP (`xpParaNivel` em `server/progressao.js`). Cada nível dá +3% do HP máximo da raça. Subir de nível: notícia e anel de luz na nave.
+- **[feito]** **Ouro** pelas mesmas fontes. XP e ouro por tipo em `RECOMPENSA`: Arnosh 20 XP / 25 ouro, Vorax 30 / 30, Krakor 120 / 90, guardião 250 / 150, minerador 40 / 40, jogador 100 / 50.
+- **[feito]** Ouro, XP e nível são **da partida** (como num MOBA): zeram quando começa a seguinte.
 - **Evolução da nave** nos níveis **5, 10 e 15**, pagando ouro: mais durabilidade, mais energia etc.
 - **Loja**: comprar e trocar armas, armaduras e itens (as armas do menu Q passam a ser compradas aqui).
 - Evolução e Loja só abrem **com a nave pousada** na plataforma do serviço.
@@ -54,5 +70,5 @@ Objetivos voltam a ficar disponíveis depois de um tempo (a definir).
 ## HUD
 
 - **[feito]** **Canto superior direito**: minério de cada time (placar, seu time em turquesa à esquerda) e o tempo restante da partida, com os bônus ativos de cada time embaixo.
-- **[em parte]** Ouro, nível e XP do jogador (ouro já; nível e XP a fazer).
+- **[feito]** Ouro, nível e XP do jogador (barra de XP com o nível no painel; nível também no nome sobre a nave).
 - **[feito]** Fim da partida: tela com o time vencedor, o placar e a contagem para a próxima.
