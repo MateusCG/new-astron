@@ -20,6 +20,7 @@
 // A física é a mesma das naves (stepShip), com o acelerador limitado para dar a
 // velocidade do minerador: assim eles batem nas construções (alturaSolida) e
 // deslizam nelas como qualquer nave, e o tiro criogênico também os deixa lentos.
+// O pulso EMP os deixa parados (sem motor, e sem minerar) enquanto durar.
 //
 // Atributos num lugar só: atributos(time, tick) junta as constantes de MINERADOR,
 // as melhorias do time (this.melhorias, que a Evolução vai preencher) e os bônus
@@ -163,6 +164,12 @@ export class Mineradores {
     if (s.maxHp !== a.hp) {
       s.hp = (s.hp / s.maxHp) * a.hp;
       s.maxHp = a.hp;
+    }
+    if (s.emp > 0) {
+      // Pulso EMP: motor desligado (para aos poucos) e a mineração não anda.
+      stepShip(s, { th: 0, tu: 0, b: false, f1: false, f2: false, p: false, a: 0 });
+      if (m.estado === 'minerando') m.mineraAte++;
+      return;
     }
     const rota = ROTAS[m.time];
     const ultimo = rota.length - 1;

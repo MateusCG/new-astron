@@ -16,6 +16,15 @@
 // que o stepShip usa e o snapshot leva no `me` (para a predição bater). As
 // entidades do snapshot trazem `dreno` e `lento` para todos desenharem o efeito.
 //
+// Duas armas na nave (encaixes Z e X, shared/sim.js): o que stepShip devolve pode
+// ser projétil (createBullet), mina ou onda de choque, resolvidas aqui com a
+// geometria de server/armas.js. O míssil teleguiado é um projétil que o servidor
+// curva a cada passo (o cliente o desenha pelo evento e pela lista `guiados` do
+// snapshot). As minas ficam em this.minas e vão no snapshot (`minas`). O pulso EMP
+// zera a energia e põe ship.emp (sem tiro e sem boost, lido no stepShip; monstro
+// também fica sem garra e sem cuspe, minerador fica parado). Mina e choque usam o
+// mesmo #ferir: sem fogo amigo, zona segura e proteção de nascimento valem igual.
+//
 // Partida 3 contra 3 (DESIGN-PARTIDA.md): times, cronômetro e placar ficam em
 // server/partida.js; os mineradores em server/mineradores.js; os bônus por tempo
 // dos mineradores em server/bonus.js. Aqui ficam só os ganchos: o jogador entra no
@@ -51,6 +60,7 @@ import { Bonus } from './bonus.js';
 import { Objetivos } from './objetivos.js';
 import { novaProgressao, recompensar, aplicarNivel, xpParaNivel } from './progressao.js';
 import { KRAKOR, N_KRAKOR, novaElite, renascerElite, iaElite } from './elites.js';
+import { alvoDoMissil, guiarMissil, novaMina, naArea } from './armas.js';
 
 export const TICK_HZ = 30;
 const SNAP_CADA = 2; // ticks entre snapshots (15 Hz)
@@ -154,6 +164,7 @@ export class World {
     this.monstros = [];
     this.elites = []; // Krakor e guardiões
     this.bullets = [];
+    this.minas = [];
     this.eventos = [];
     // Mapa de caça dos Vorax: campo de caminhos até os jogadores caçáveis.
     this.caca = { campo: null, alvos: [], ate: 0 };
@@ -303,6 +314,7 @@ export class World {
     const j = this.players.get(id);
     if (!j) return;
     this.players.delete(id);
+    this.minas = this.minas.filter((m) => m.dono !== id); // as minas de quem saiu somem
     this.eventos.push({ e: 'saiu', id, nome: j.nome });
   }
 
@@ -320,6 +332,15 @@ export class World {
 
   #atira(ent, disparos) {
     for (const { kind, off, ang } of disparos) {
+      const tipo = WEAPONS[kind].tipo;
+      if (tipo === 'mina') {
+        this.#soltarMina(ent);
+        continue;
+      }
+      if (tipo === 'choque') {
+        this.#choque(ent);
+        continue;
+      }
       const b = createBullet(ent.ship, kind, this.#id(), ent.id, off, ang);
       b.drone = !!ent.drone;
       b.time = ent.time; // sem fogo amigo: o tiro atravessa quem é do mesmo time
@@ -504,6 +525,7 @@ export class World {
 
   /** Golpe de garra no jogador mais perto ao alcance (nunca na zona segura). */
   #garra(m) {
+    if (m.ship.emp > 0) return; // pulso EMP: sem garra enquanto durar
     if (this.tick - m.ultimoGolpe < VORAX_INTERVALO_TICKS) return;
     let alvo = null;
     let melhor = VORAX.alcance;
@@ -543,6 +565,75 @@ export class World {
     return true;
   }
 
+  /** Todas as entidades que podem levar dano e estão vivas. */
+  #vivos() {
+    return [...this.players.values(), ...this.drones, ...this.monstros, ...this.elites, ...this.mineradores.lista].filter(
+      (e) => e.vivo,
+    );
+  }
+
+  /** Mina nova atrás da nave; passando de MINA_MAX, a mais velha do piloto some. */
+  #soltarMina(ent) {
+    const minha = this.minas.filter((m) => m.dono === ent.id);
+    if (minha.length >= WEAPONS.mina.max) {
+      const velha = minha[0];
+      this.minas = this.minas.filter((m) => m !== velha);
+    }
+    const m = novaMina(this.#id(), ent, this.tick);
+    this.minas.push(m);
+  }
+
+  /**
+   * Fere com `dano` todos os inimigos de `fonte` ({id, time, drone}) a `raio` m do
+   * ponto e, com `empurrao`, os joga para fora do centro. Devolve quantos pegou.
+   */
+  #area(fonte, x, y, z, raio, dano, arma, empurrao = 0) {
+    let n = 0;
+    const como = { owner: fonte.id, time: fonte.time, drone: !!fonte.drone };
+    for (const alvo of this.#vivos()) {
+      if (!this.#podeAcertar(como, alvo) || !naArea(alvo, x, y, z, raio)) continue;
+      n++;
+      const s = alvo.ship;
+      if (empurrao && !this.#protegido(alvo)) {
+        const dx = s.x - x;
+        const dz = s.z - z;
+        const d = Math.hypot(dx, dz);
+        // No centro exato não há "para fora": empurra para a frente do alvo.
+        const ux = d > 1e-6 ? dx / d : -Math.sin(s.yaw);
+        const uz = d > 1e-6 ? dz / d : -Math.cos(s.yaw);
+        s.vx += ux * empurrao;
+        s.vz += uz * empurrao;
+      }
+      this.#ferir(alvo, dano, fonte.id, { e: 'acerto', arma, x: s.x, y: s.y, z: s.z });
+    }
+    return n;
+  }
+
+  /** Onda de choque em volta da nave de `ent`: dano em área e empurrão. */
+  #choque(ent) {
+    const w = WEAPONS.choque;
+    const s = ent.ship;
+    this.eventos.push({ e: 'choque', id: ent.id, time: ent.time, x: s.x, y: s.y, z: s.z, raio: w.area });
+    this.#area(ent, s.x, s.y, s.z, w.area, w.dano, 'choque', w.empurrao);
+  }
+
+  /**
+   * Minas: vencem sozinhas; armadas, explodem quando um inimigo de quem soltou
+   * chega a MINA_GATILHO m, ferindo todos os inimigos na área.
+   */
+  #passoMinas(vivos) {
+    const w = WEAPONS.mina;
+    this.minas = this.minas.filter((m) => {
+      if (this.tick >= m.fimTick) return false;
+      if (this.tick < m.armaTick) return true;
+      const como = { owner: m.dono, time: m.time, drone: m.drone };
+      if (!vivos.some((alvo) => this.#podeAcertar(como, alvo) && naArea(alvo, m.x, m.y, m.z, w.gatilho))) return true;
+      this.eventos.push({ e: 'explosao', arma: 'mina', id: m.id, dono: m.dono, time: m.time, x: m.x, y: m.y, z: m.z, raio: w.area });
+      this.#area({ id: m.dono, time: m.time, drone: m.drone }, m.x, m.y, m.z, w.area, w.dano, 'mina');
+      return false;
+    });
+  }
+
   /** Dano de um tiro no impacto (arma × multiplicador de quem atirou). */
   danoDoTiro(bala) {
     return WEAPONS[bala.kind].dano * (bala.mult ?? 1);
@@ -559,6 +650,9 @@ export class World {
         alvo.drenoDono = bala.owner;
       } else if (w.efeito?.tipo === 'lento') {
         alvo.ship.lento = Math.max(alvo.ship.lento || 0, w.efeito.duracao);
+      } else if (w.efeito?.tipo === 'emp') {
+        alvo.ship.en = 0;
+        alvo.ship.emp = Math.max(alvo.ship.emp || 0, w.efeito.duracao);
       }
     }
     this.#ferir(alvo, dano, bala.owner, { e: 'acerto', bala: bala.id, x: bala.x, y: bala.y, z: bala.z });
@@ -652,6 +746,7 @@ export class World {
     const virou = this.partida.passo(this.tick, this.players.size);
     if (virou === 'comecou') {
       this.bonus.limpar();
+      if (vinhaDoFim) this.minas = [];
       if (vinhaDoFim) this.objetivos.reiniciar();
       this.mineradores.comecar(this.tick);
       // Depois da tela de fim, todo mundo volta para a base do time. (Na primeira
@@ -670,6 +765,7 @@ export class World {
       this.eventos.push({ e: 'fimPartida', vencedor, placar: [...placar] });
     } else if (virou === 'vazia') {
       this.bonus.limpar();
+      this.minas = [];
       this.objetivos.reiniciar();
       this.mineradores.limpar();
     }
@@ -733,17 +829,18 @@ export class World {
         continue;
       }
       const { inp, disparos } = iaElite(e, this.ctxElite);
-      this.#atira(e, [...stepShip(e.ship, inp), ...disparos]);
+      const semCuspe = e.ship.emp > 0; // pulso EMP: o cuspe também para
+      this.#atira(e, [...stepShip(e.ship, inp), ...(semCuspe ? [] : disparos)]);
       this.#drenar(e);
       if (e.vivo) this.#regen(e);
     }
 
     this.objetivos.step();
 
-    const vivos = [...this.players.values(), ...this.drones, ...this.monstros, ...this.elites, ...this.mineradores.lista].filter(
-      (e) => e.vivo,
-    );
+    const vivos = this.#vivos();
+    this.#passoMinas(vivos);
     this.bullets = this.bullets.filter((b) => {
+      if (WEAPONS[b.kind].guiado) guiarMissil(b, alvoDoMissil(b, vivos.filter((a) => this.#podeAcertar(b, a))));
       const segue = stepBullet(b);
       if (this.objetivos.tiroNaTorre(b)) return false; // bateu na torre de um objetivo B
       if (!segue) {
@@ -794,6 +891,7 @@ export class World {
         pousado: e.ship.pousado,
         dreno: e.drenoTicks > 0,
         lento: e.ship.lento > 0,
+        emp: e.ship.emp > 0,
       };
       if (e.time !== undefined) ent.time = e.time;
       if (e.nivel !== undefined) ent.nivel = e.nivel;
@@ -818,7 +916,7 @@ export class World {
    */
   snapshotPara(j, ents, eventos) {
     if (this.cacheObj?.tick !== this.tick) {
-      this.cacheObj = { tick: this.tick, obj: this.objetivos.estado() };
+      this.cacheObj = { tick: this.tick, obj: this.objetivos.estado(), minas: this.#minasSnap(), guiados: this.#guiadosSnap() };
     }
     return {
       t: 'snap',
@@ -836,9 +934,31 @@ export class World {
       xp: j.xp,
       xpProx: xpParaNivel(j.nivel),
       obj: this.cacheObj.obj,
+      minas: this.cacheObj.minas,
+      guiados: this.cacheObj.guiados,
       ents,
       ev: eventos,
     };
+  }
+
+  /** Minas no mapa para o snapshot: posição, time de quem soltou e se já armou. */
+  #minasSnap() {
+    return this.minas.map((m) => ({
+      id: m.id,
+      dono: m.dono,
+      time: m.time,
+      x: +m.x.toFixed(2),
+      y: +m.y.toFixed(2),
+      z: +m.z.toFixed(2),
+      armada: this.tick >= m.armaTick,
+    }));
+  }
+
+  /** Mísseis teleguiados em voo, para o cliente corrigir a curva que ele não prevê. */
+  #guiadosSnap() {
+    return this.bullets
+      .filter((b) => WEAPONS[b.kind].guiado)
+      .map((b) => ({ id: b.id, x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2), vx: +b.vx.toFixed(2), vy: +b.vy.toFixed(2), vz: +b.vz.toFixed(2) }));
   }
 
   /** Esvazia a lista de eventos acumulados desde o último snapshot. */
