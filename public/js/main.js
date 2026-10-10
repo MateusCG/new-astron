@@ -22,6 +22,10 @@
 // painel abre sozinho; os pedidos vão direto pela rede e a resposta chega como
 // {t:'resultado'}. Com o painel aberto, como com o menu de armas, não sai tiro.
 //
+// Torretas do corredor (torretas.js): o snapshot traz o estado delas (`torretas`);
+// caída sai da física da predição (definirObstaculoAtivo) e tomba no cenário. Tiro de
+// torreta vem pelo evento 'tiro' com `fonte` e `time` e sai na cor do time dela.
+//
 // ESC sai da partida e volta para a tela de entrada (nome e raça como estavam),
 // para trocar de piloto sem recarregar a página. Sair desmonta tudo o que a
 // partida criou (conexão, laço de quadros, listeners, cena na GPU); só o renderer
@@ -32,16 +36,30 @@ import { DT, RACES, WEAPONS, VEL_TOQUE, createBullet, stepShip, bulletHits, forw
 import { areaPouso } from '/shared/terrain.js';
 import { alturaSolida } from '/shared/obstaculos.js';
 import { criarCena, liberarCena } from './cena.js';
-import { criarNave, criarDrone, criarVorax, animarVorax, criarKrakor, animarKrakor, criarGuardiao, animarGuardiao, criarMinerador, animarMinerador, atualizarMotor } from './nave.js';
+import {
+  criarNave,
+  criarDrone,
+  criarVorax,
+  animarVorax,
+  criarKrakor,
+  animarKrakor,
+  criarGuardiao,
+  animarGuardiao,
+  criarMinerador,
+  animarMinerador,
+  atualizarMotor,
+} from './nave.js';
 import { Efeitos, COR_TIME } from './efeitos.js';
 import { Controles } from './controles.js';
 import { Hud, NOME_BONUS } from './hud.js';
 import { ObjetivosNaTela } from './objetivos.js';
+import { TorretasNaTela } from './torretas.js';
 import { Rede } from './rede.js';
 import { MenuArmas } from './armas.js';
 import { Placar } from './placar.js';
 import { PainelServicos } from './servicos.js';
-import { MELHORIAS_MINERADOR } from '/shared/evolucao.js';
+import { MELHORIAS_MINERADOR, MELHORIA_TORRETAS } from '/shared/evolucao.js';
+import { TORRETAS } from '/shared/terrain.js';
 
 const INTERP_MS = 120;
 // Modelo de cada tipo de inimigo (o tipo vem do servidor em cada entidade).
@@ -222,6 +240,7 @@ function montarJogo(rede, boas, renderer, race) {
   });
   document.querySelector('#hud').hidden = false;
   const objetivos = new ObjetivosNaTela({ definirObjetivo, meuTime, container: document.querySelector('#rotulos-obj') });
+  const torretas = new TorretasNaTela({ scene, meuTime });
 
   function redimensionar() {
     renderer.setSize(innerWidth, innerHeight);
@@ -246,7 +265,7 @@ function montarJogo(rede, boas, renderer, race) {
   // Outras naves.
   const snaps = [];
   const outras = new Map(); // id -> { obj, drone, nome, race }
-  const nomes = new Map();
+  const nomes = new Map(TORRETAS.map((t) => [t.id, 'Torreta'])); // "destruído por Torreta"
 
   let camModo = 0;
   let camYaw = 0;
@@ -295,6 +314,11 @@ function montarJogo(rede, boas, renderer, race) {
       efeitos.explosao(t.x, t.y, t.z, 6, '#ff9a3a');
       efeitos.explosao(t.x, t.y + 12, t.z, 3, '#ffb627');
     }
+    // Torreta que caiu: explosão laranja e faíscas na cor do time dela.
+    for (const t of torretas.atualizar(m.torretas)) {
+      efeitos.explosao(t.x, t.y, t.z, 5, '#ff9a3a');
+      efeitos.explosao(t.x, t.y + 4, t.z, 2.5, TORRETAS.find((x) => x.id === t.id).time === meuTime ? '#00efc0' : '#ff3b2a');
+    }
     tratarEventos(m.ev);
     efeitos.corrigirGuiados(m.guiados);
     efeitos.atualizarMinas(m.minas, meuTime);
@@ -335,7 +359,12 @@ function montarJogo(rede, boas, renderer, race) {
 
   function tratarEventos(ev) {
     for (const e of ev) {
-      if (e.e === 'tiro' && (e.dono !== meuId || WEAPONS[e.kind]?.guiado)) {
+      if (e.e === 'tiro' && e.fonte) {
+        // Torreta: tiro na cor do time de quem atirou, e o canhão vira.
+        const b = { id: e.id, kind: e.kind, x: e.x, y: e.y, z: e.z, vx: e.vx, vy: e.vy, vz: e.vz, vida: 2.5 };
+        efeitos.tiro(b, false, e.time === meuTime ? COR_TIME.meu : COR_TIME.outro);
+        if (e.fonte === 'torreta') torretas.disparou(e.dono, e.vx, e.vz);
+      } else if (e.e === 'tiro' && (e.dono !== meuId || WEAPONS[e.kind]?.guiado)) {
         // O míssil próprio também vem daqui: a curva é do servidor, não da predição.
         const dono = outras.get(e.dono);
         const vida = WEAPONS[e.kind]?.guiado ? WEAPONS[e.kind].vida : 2.5;
@@ -362,6 +391,13 @@ function montarJogo(rede, boas, renderer, race) {
         if (e.time === meuTime) hud.noticia(`${por} destruiu um minerador do seu time`, 'ruim');
         else if (e.por === meuId) hud.noticia(`Você destruiu um minerador inimigo${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
         else hud.noticia(`${por} destruiu um minerador inimigo`, 'bom');
+      } else if (e.e === 'torreta') {
+        const minha = e.time === meuTime;
+        const quem = e.por === meuId ? 'Você' : e.nome ?? '?';
+        if (e.estado === 'reconstruida') {
+          if (minha) hud.noticia(`${quem} reconstruiu uma torreta do seu time`, 'bom');
+        } else if (minha) hud.noticia(`${quem} destruiu uma torreta do seu time`, 'ruim');
+        else hud.noticia(`${quem} destruiu uma torreta inimiga${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
       } else if (e.e === 'entrega') {
         placar.entrega(e.time);
       } else if (e.e === 'partida' && e.n > 1) {
@@ -385,6 +421,8 @@ function montarJogo(rede, boas, renderer, race) {
         const como = { A: 'pousou no', B: 'derrubou a torre do', C: 'derrotou o guardião do' }[e.tipo];
         const quem = e.quem ? `${e.quem} ${como} objetivo ${e.tipo}` : `Objetivo ${e.tipo} tomado`;
         hud.noticia(`${quem} · ${meu ? 'seu time' : 'inimigo'}: ${NOME_BONUS[e.bonus]} por ${e.segundos}s (${EFEITO_BONUS[e.bonus]})`, meu ? 'bom' : 'ruim');
+      } else if (e.e === 'melhoria' && e.time === meuTime && e.melhoria === MELHORIA_TORRETAS.id) {
+        hud.noticia(`${e.id === meuId ? 'Você' : e.nome} evoluiu as torretas do time: nível ${e.nivel}`, 'bom');
       } else if (e.e === 'melhoria' && e.time === meuTime) {
         // Melhoria dos mineradores: vale para o time todo, então o time todo fica sabendo.
         const nome = MELHORIAS_MINERADOR[e.melhoria]?.nome ?? e.melhoria;
@@ -515,6 +553,9 @@ function montarJogo(rede, boas, renderer, race) {
       efeitos.estadoNave(o.obj, { dreno: !!e.dreno, lento: !!e.lento, emp: !!e.emp }, dt, tempo);
       rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position, nivel: e.nivel });
     }
+    // Torretas: queda, subida e a cabeça atrás do alvo (posição desenhada dele).
+    torretas.quadro(dt, tempo, (id) => (id === meuId ? (vivo ? foco : null) : outras.get(id)?.obj.position ?? null));
+    rotulos.push(...torretas.rotulos());
     for (const [id, o] of outras) {
       if (!presentes.has(id)) {
         scene.remove(o.obj);
@@ -574,9 +615,13 @@ function montarJogo(rede, boas, renderer, race) {
       hud.pouso(vivo && pousoPermitido(pred) ? area : null, vivo && pred.pousado, painel.aberto);
       // Pousada na marcação de um objetivo A: barra do progresso.
       hud.objetivoPouso(area?.objetivo && pred.pousado ? objetivos.estado.get(area.objetivo) : null);
-      hud.minimapa(vivo ? { x: foco.x, z: foco.z, yaw: minhaNave.rotation.y } : null, snaps.at(-1)?.ents ?? [], meuId, [
-        ...objetivos.estado.values(),
-      ]);
+      hud.minimapa(
+        vivo ? { x: foco.x, z: foco.z, yaw: minhaNave.rotation.y } : null,
+        snaps.at(-1)?.ents ?? [],
+        meuId,
+        [...objetivos.estado.values()],
+        torretas.estados(),
+      );
     }
     if (!vivo && morteEm) {
       const falta = Math.max(0, 3 - (performance.now() - morteEm) / 1000);
@@ -606,6 +651,7 @@ function montarJogo(rede, boas, renderer, race) {
     menuArmas,
     painel,
     objetivos,
+    torretas,
     efeitos,
     minhaNave,
   };
@@ -627,6 +673,7 @@ function montarJogo(rede, boas, renderer, race) {
     hud.limpar();
     placar.limpar();
     objetivos.limpar();
+    torretas.limpar();
     renderer.domElement.remove();
     efeitos.liberar();
     liberarCena(scene);
