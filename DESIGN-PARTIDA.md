@@ -18,6 +18,7 @@ Escala do desenho: 1 px ≈ 3 m. Retângulo aberto com muralha só na borda.
 |---|---|---|
 | Base de cada time | Círculos verdes em cima e embaixo | `BASES` (x 0, z ±700, raio 200). Nasce, renasce, pousa e conserta ali; zona segura |
 | Corredor dos mineradores | Faixa vermelha ligando as bases | `CORREDOR` (x 0, largura 100): estrada por onde os mineradores vão e voltam |
+| Torretas | (não estão no desenho; pedido do Mateus) | `TORRETAS`: 4 por time, 2 de cada lado da estrada (x ±62), a 340 e 480 m do centro da base, na metade do time **[feito]** (ver "Torretas") |
 | Minério | Bola azul no centro | `MINERIO` (0, 0, raio 60): depósito de cristais onde os mineradores carregam |
 | Entrega | Retângulos azuis nas pontas do corredor | `ENTREGAS`: cada minerador entrega **10 de minério** ao chegar |
 | Evolução | Retângulo preto da esquerda em cada base | Plataforma de pouso: **pousado e parado**, abre o painel da Evolução **[feito]** |
@@ -29,7 +30,24 @@ Escala do desenho: 1 px ≈ 3 m. Retângulo aberto com muralha só na borda.
 
 - **[feito]** Saem da base de cada time de tempos em tempos (um a cada 20 s, até 3 por time), vão pelo corredor até o minério, carregam (5 s) e voltam até a entrega do próprio time: **+10 de minério** para o time por entrega. Depois da entrega voltam para o minério (`server/mineradores.js`).
 - **[feito]** **Podem ser destruídos** pelos jogadores do outro time (o minério que carregavam se perde; quem destrói ganha 40 de ouro). Na própria base são protegidos como os jogadores.
+- **[feito]** **Escolta armada** (`server/escoltas.js`, números em `ESCOLTA`): uma por time, que sai da base 3 s depois do começo da partida (e, destruída, 30 s depois) e anda com os mineradores pela mesma rota: ao lado do minerador mais longe da base (14 m para fora do corredor, um pouco atrás); sem minerador, faz a ronda da rota. Não minera. Atira como torre giratória (sem virar a nave) no inimigo mais perto a até 110 m, com linha de tiro livre: jogadores, mineradores e escoltas do outro time (monstros e torretas não). Dano fraco (6 por tiro, um a cada 0,6 s), 220 de HP, 45 m/s. Criogênico a deixa lenta e EMP a deixa parada e sem tiro, como os mineradores; na própria base é protegida. Destruída: 50 XP e 45 de ouro para quem destruiu.
 - **[feito]** Melhoráveis na Evolução, para o time inteiro: **mais mineradores**, mais **durabilidade**, mais **defesa** (reduz o dano que o minerador leva) e mais **velocidade** (números em "Loja e Evolução"; `melhorias[time]` lido em `atributos(time, tick)`).
+
+## Torretas
+
+**[feito]** Pedido do Mateus: defesas fixas no corredor (`server/torretas.js`; posições em `TORRETAS` de `shared/terrain.js`; a construção é sólida, na mesma planta da física e do desenho em `shared/obstaculos.js`).
+
+- **Onde:** 4 por time, 2 de cada lado da estrada, a 62 m do eixo (fora da estrada e longe das faixas dos mineradores), a 340 m e 480 m do centro da base, na metade do próprio time. As do time 1 são as do time 0 giradas 180°. As z (±360 e ±220) fogem dos caminhos retos do corredor até os objetivos. Alcançam a entrega e a metade do time, mas não a coroa do minério do outro lado.
+- **Tiro:** no inimigo **mais perto** a até 160 m, com linha de tiro livre (rocha e construção tampam): jogadores, mineradores e escoltas do outro time. Monstros não: a torreta é da guerra entre times, e se limpasse os Vorax bastaria voar até ela para se livrar de qualquer caçada. Mira adiantada pela velocidade do alvo; o tiro acerta o que estiver no caminho.
+- **Dano recebido:** só de **jogador do outro time** (tiro, mina e onda de choque). Tiro de aliado, de monstro, de minerador ou de escolta bate nela e some. Dreno, lentidão e EMP não pegam em estrutura, e o míssil não a persegue.
+- **Destruída:** cai (sai da física dos dois lados, como a torre B); quem deu o último tiro ganha **80 XP e 70 de ouro** (`RECOMPENSA.torreta`) e cada outro piloto do time dele **25 de ouro**. **Não renasce sozinha**: só se o time dono a reconstruir na Evolução.
+- **Partida nova:** todas de pé, inteiras, nível 1. Só atiram com a partida em andamento.
+
+| Nível (do time) | HP | Dano por tiro | Cadência |
+|---|---|---|---|
+| 1 | 700 | 10 | 1 a cada 0,75 s |
+| 2 | 945 | 12,5 | igual |
+| 3 | 1190 | 15 | igual |
 
 ## Monstros do mundo aberto
 
@@ -61,7 +79,7 @@ Os bônus do lado dos mineradores (`server/bonus.js`): `'mineracao'` +1 por viag
 ## Progressão do jogador
 
 - **[feito]** **XP e nível** ao destruir monstros, mineradores e jogadores inimigos, e ao tomar objetivos A e B. Começa no nível 1, vai até o 20 (`NIVEL_MAX`); para passar do nível n são `60 + 20 × (n − 1)` XP (`xpParaNivel` em `server/progressao.js`). Cada nível dá +3% do HP máximo da raça. Subir de nível: notícia e anel de luz na nave.
-- **[feito]** **Ouro** pelas mesmas fontes. XP e ouro por tipo em `RECOMPENSA`: Arnosh 20 XP / 25 ouro, Vorax 30 / 30, Krakor 120 / 90, guardião 250 / 150, minerador 40 / 40, jogador 100 / 50.
+- **[feito]** **Ouro** pelas mesmas fontes. XP e ouro por tipo em `RECOMPENSA`: Arnosh 20 XP / 25 ouro, Vorax 30 / 30, Krakor 120 / 90, guardião 250 / 150, minerador 40 / 40, escolta 50 / 45, torreta 80 / 70 (+25 de ouro para cada colega de time), jogador 100 / 50.
 - **[feito]** Ouro, XP e nível são **da partida** (como num MOBA): zeram quando começa a seguinte.
 - **[feito]** **Evolução da nave** nos níveis **5, 10 e 15**, pagando ouro: escolher 1 de 3 (durabilidade, energia, velocidade). Ver "Loja e Evolução".
 - **[feito]** **Duas armas na nave:** Q edita o Z, E edita o X; mesma arma pode ir nos dois. Não existe arma principal: os dois encaixes escolhem do mesmo catálogo (`ARMAS` em `shared/sim.js`: laser simples, duplo, triplo, dreno, criogênico, plasma, míssil teleguiado, mina, onda de choque e pulso EMP), cada um com a sua recarga e a mesma energia. Padrão: laser simples no Z e plasma no X (as duas de fábrica, sempre possuídas).
@@ -128,6 +146,15 @@ Os efeitos ficam no estado da nave e voltam a cada renascimento, junto com o ní
 | Casco de carga (durabilidade) | +25% de HP | 120, 200, 300 |
 | Blindagem de carga (defesa) | −15% de dano recebido | 120, 200, 300 |
 | Motor de carga (velocidade) | +10% de velocidade | 120, 200, 300 |
+
+**Torretas do time** **[feito]** (aba Torretas; `MELHORIA_TORRETAS` e `PRECO_RECONSTRUIR` em `shared/evolucao.js`): qualquer piloto paga, vale para o time e o time recebe a notícia.
+
+| Compra | Efeito | Preço |
+|---|---|---|
+| Nível das torretas (`{t:'melhorar', melhoria:'torretas'}`) | +35% de HP e +25% de dano por nível, nas quatro (nível 1 a 3; as de pé ganham vida na mesma proporção) | 250 (nível 2), 400 (nível 3) |
+| Reconstruir uma torreta (`{t:'reconstruir', torreta}`) | Volta inteira, com o nível atual do time; se houver nave no lugar, espera ela sair | 200 cada |
+
+Reconstruir só vale para torreta destruída do próprio time (a do outro time é `invalido`; de pé ou já em obra, `ja_possui`); nível no máximo é `limite`.
 
 ## HUD
 
