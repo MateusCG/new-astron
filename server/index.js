@@ -14,10 +14,15 @@
 //                        3 dreno, 4 criogênico, 5 plasma, 6 míssil, 7 mina,
 //                        8 onda de choque, 9 pulso EMP; fora da lista, ou arma
 //                        que a nave não possui (s.armas), vira a padrão do
-//                        encaixe: 0 no Z, 5 no X)
+//                        encaixe: 0 no Z, 5 no X; fora da própria base, trocar a
+//                        arma de um encaixe o põe em recarga de troca de
+//                        TROCA_ARMA_S, e outra troca nele enquanto conta é
+//                        ignorada: o stepShip fica com a arma que tem)
 //                       {t:'comprar', item}      Loja: item = id de shared/loja.js (arma
 //                        pelo nome em ARMAS, 'armaduraLeve' | 'armaduraMedia' |
-//                        'armaduraPesada', 'reparo' | 'energia')
+//                        'armaduraPesada', 'reparo' | 'energia', ou
+//                        'evoluir:<arma>' para subir um nível de uma arma possuída,
+//                        ex. 'evoluir:crio'; sem possuir: 'sem_item'; no máximo: 'limite')
 //                       {t:'evoluir', opcao}     Evolução da nave: 'casco' | 'reator' | 'motor'
 //                       {t:'melhorar', melhoria} mineradores do time: 'quantidade' |
 //                        'durabilidade' | 'defesa' | 'velocidade'
@@ -32,8 +37,11 @@
 //                        nivel, xp, xpProx, partida, bonus, obj, melhorias, minas, guiados,
 //                        ents, ev}
 //                       (me.encaixes = [arma do Z, arma do X], me.cd1/cd2 = recarga
-//                        de cada encaixe, me.armas = armas que possui, me.lento =
-//                        s de lentidão, me.emp = s sem tiro e sem boost (pulso EMP),
+//                        de cada encaixe, me.troca1/troca2 = s de recarga de troca
+//                        de arma de cada encaixe (sem tiro e sem troca nele),
+//                        me.armas = armas que possui, me.lento = s de lentidão,
+//                        me.lentoMult = fração da velocidade enquanto lento (a
+//                        predição usa), me.emp = s sem tiro e sem boost (pulso EMP),
 //                        me.time = time da nave, para a predição do pouso;
 //                        cada ent traz dreno/lento/emp booleanos para desenhar o efeito;
 //                        ev 'tiro' traz kind, que diz a arma e o efeito do projétil;
@@ -46,7 +54,8 @@
 //                       'limite' | 'invalido' | 'sem_item' | 'recarga' | 'cheio'
 //                       {t:'pong', c}
 //   me (Loja e Evolução): armas = posse (de fábrica + compradas; zera a cada
-//         partida), armadura (-1 ou 0 a 2), itens {reparo, energia} (carga),
+//         partida), niveisArmas = nível de cada arma (índice em ARMAS, 1 a
+//         ARMA_NIVEL_MAX; evoluído na Loja, zera a cada partida), armadura (-1 ou 0 a 2), itens {reparo, energia} (carga),
 //         cdItens {reparo, energia} (s de recarga), evolucoes (ids das opções da
 //         nave, uma por marco), velMult (multiplicador de velocidade, lido no
 //         stepShip da predição); maxHp e maxEn já com nível, evoluções e armadura
