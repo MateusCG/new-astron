@@ -1587,11 +1587,11 @@ body.dano::after {
   grid-template-columns: auto 18px;
 }
 
-/* No celular o painel fica entre o minimapa e os botões da direita, e o cartão
-   mostra o essencial (sem a linha do efeito). */
+/* No celular o painel fica à esquerda do placar e dos botões da direita, com o
+   cartão mais compacto (a lista rola com o dedo). */
 .toque #servico {
   left: 12px;
-  right: 190px;
+  right: 210px;
   width: auto;
   max-height: calc(100% - 110px);
   transform: none;
@@ -1604,7 +1604,8 @@ body.dano::after {
 }
 
 .toque .carta-servico .efeito {
-  display: none;
+  min-height: 0;
+  font-size: 9.5px;
 }
 
 .toque #servico .abas button {
