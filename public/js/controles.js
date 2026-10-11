@@ -1,5 +1,6 @@
 // Controles: teclado no PC e joystick virtual + botões na tela de toque, no mesmo
-// esquema do AstroN no celular (analógico à esquerda; Z, X, SHIFT e pouso à direita).
+// esquema do AstroN no celular (analógico à esquerda; Z, X, SHIFT e pouso à direita,
+// e BASE, o recall, ao lado do pouso).
 // ler() devolve o comando do passo atual no formato de shared/sim.js.
 //
 // Todos os listeners (globais e dos botões de toque, que ficam no HTML fixo da
@@ -16,6 +17,7 @@ const TECLAS = {
   laser: ['KeyZ', 'Space', 'KeyJ'],
   plasma: ['KeyX', 'KeyK'],
   pouso: ['KeyL'],
+  recall: ['KeyB'], // a V já é a câmera
 };
 
 export class Controles {
@@ -27,11 +29,13 @@ export class Controles {
     // Toques curtos (pouso) ficam guardados até o próximo passo ler: um L rápido que
     // cai entre dois quadros (celular lento, aba pesada) não pode se perder.
     this.pulsoPouso = false;
+    this.pulsoRecall = false; // B (recall): também um pulso, lido na borda pelo servidor
     this.toque = { th: 0, tu: 0, b: false, f1: false, f2: false, p: false };
     addEventListener('keydown', (e) => {
       if (e.target instanceof HTMLInputElement) return;
       this.apertadas.add(e.code);
       if (TECLAS.pouso.includes(e.code) && !e.repeat) this.pulsoPouso = true;
+      if (TECLAS.recall.includes(e.code) && !e.repeat) this.pulsoRecall = true;
       if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
     }, { signal });
     addEventListener('keyup', (e) => this.apertadas.delete(e.code), { signal });
@@ -44,6 +48,7 @@ export class Controles {
     this.parar.abort();
     this.apertadas.clear();
     this.pulsoPouso = false;
+    this.pulsoRecall = false;
     this.toque = { th: 0, tu: 0, b: false, f1: false, f2: false, p: false };
     this.raiz.classList.remove('toque');
     const pino = this.raiz.querySelector?.('#stick .pino');
@@ -101,11 +106,13 @@ export class Controles {
       ['#btn-x', 'f2'],
       ['#btn-shift', 'b'],
       ['#btn-pouso', 'p'],
+      ['#btn-recall', 'r'],
     ]) {
       const btn = raiz.querySelector(id);
       btn.addEventListener('touchstart', (e) => {
         this.toque[campo] = true;
         if (campo === 'p') this.pulsoPouso = true;
+        if (campo === 'r') this.pulsoRecall = true;
         btn.classList.add('ativo');
         e.preventDefault();
       }, { signal });
@@ -124,6 +131,9 @@ export class Controles {
     const p = this.pulsoPouso && !this.pousoEnviado;
     this.pousoEnviado = p;
     if (p) this.pulsoPouso = false;
+    const r = this.pulsoRecall && !this.recallEnviado;
+    this.recallEnviado = r;
+    if (r) this.pulsoRecall = false;
     const th = (this.#tecla('frente') ? 1 : 0) - (this.#tecla('re') ? 1 : 0) || this.toque.th;
     const tu = (this.#tecla('esq') ? 1 : 0) - (this.#tecla('dir') ? 1 : 0) || this.toque.tu;
     return {
@@ -133,6 +143,7 @@ export class Controles {
       f1: this.#tecla('laser') || this.toque.f1,
       f2: this.#tecla('plasma') || this.toque.f2,
       p,
+      r,
     };
   }
 

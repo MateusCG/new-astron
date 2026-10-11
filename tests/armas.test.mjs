@@ -41,14 +41,16 @@ function rngFixo(semente = 1) {
  * Cada `pos` é [dx, dz] a partir do ponto de A; os times alternam (A 0, B 1, C 0, D 1).
  */
 function arena(...pos) {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, rng: rngFixo() });
+  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false, rng: rngFixo() });
   w.mineradores.passo = () => {}; // sem mineradores no caminho dos tiros
   const x0 = BASE.x;
   const z0 = BASE.z - ZONA_SEGURA - 120;
   const js = [[0, 0], ...pos].map(([dx, dz], i) => {
     const j = w.addPlayer('P' + i, 'bellico');
+    // Nave sem `time` na física: troca de arma livre, como se tivesse equipado na
+    // base antes de sair (a recarga de troca tem testes próprios). O time do
+    // jogador (j.time, fogo amigo) continua valendo.
     j.ship = createShip('bellico', x0 + dx, z0 + dz, 0);
-    j.ship.time = j.time;
     j.protegidoAte = 0;
     return j;
   });

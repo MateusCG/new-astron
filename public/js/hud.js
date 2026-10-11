@@ -1,10 +1,10 @@
 // HUD: painel inferior (HP, energia, nível e XP, ouro, velocidade), minimapa,
-// nomes sobre as naves, avisos de abate, a barra do pouso no objetivo A e a tela
-// de "destruído". É DOM puro por cima do canvas.
+// nomes sobre as naves, avisos de abate, a barra do pouso no objetivo A, a barra
+// do recall (volta à base) e a tela de "destruído". É DOM puro por cima do canvas.
 
 import * as THREE from 'three';
-import { paredeAt, MAP_HALF_X, MAP_HALF_Z, BASES, CORREDOR, MINERIO, ENTREGAS, SERVICOS, OBJETIVOS } from '/shared/terrain.js';
-import { WEAPONS, ARMAS, ENCAIXE_PADRAO } from '/shared/sim.js';
+import { paredeAt, MAP_HALF_X, MAP_HALF_Z, BASES, CORREDOR, MINERIO, ENTREGAS, SERVICOS, OBJETIVOS, TORRETAS } from '/shared/terrain.js';
+import { WEAPONS, ARMAS, ENCAIXE_PADRAO, TROCA_ARMA_S } from '/shared/sim.js';
 import { iconeArma } from './armas.js';
 import { iconeItem } from './servicos.js';
 import { ITENS, ORDEM_ITENS } from '/shared/loja.js';
@@ -27,7 +27,7 @@ const COR_APAGADA = '#8a7f6a'; // letra de objetivo em recarga
 // Tamanho do ponto de cada inimigo no minimapa: quanto mais perigoso, maior.
 const PONTO_INIMIGO = { vorax: 4.5, krakor: 6, guardiao: 7 };
 /** O que cada bônus faz, para o HUD (nomes de server/bonus.js). */
-export const NOME_BONUS = { mineracao: 'Mineração +1', velocidade: 'Velocidade', durabilidade: 'Durabilidade' };
+export const NOME_BONUS = { mineracao: 'Mineração +1', velocidade: 'Velocidade', durabilidade: 'Durabilidade', furia: 'Fúria' };
 
 export class Hud {
   /** @param {{ meuTime?: number }} [opcoes] time de quem joga (cor das bases no minimapa) */
@@ -41,13 +41,22 @@ export class Hud {
     this.xpTxt = $('#xp .txt');
     this.nivel = $('#xp em');
     this.progObj = $('#prog-obj');
+    this.progRecall = $('#prog-recall');
+    this.btnRecall = $('#btn-recall');
     this.ouro = $('#ouro');
     this.abates = $('#abates');
     this.vel = $('#vel');
-    // As duas armas no painel (Z e X): ícone, nome e a linha de recarga de cada uma.
+    // As duas armas no painel (Z e X): ícone, nome e a linha de recarga de cada uma,
+    // e a contagem da recarga de troca de arma (só aparece enquanto conta).
     this.slots = ['#arma-z', '#arma-x'].map((sel) => {
       const el = $(sel);
-      return { el, icone: el.querySelector('.icone'), nome: el.querySelector('.nome'), recarga: el.querySelector('.recarga i'), kind: null };
+      let espera = el.querySelector('.espera');
+      if (!espera) {
+        espera = document.createElement('span');
+        espera.className = 'espera';
+        el.querySelector('.recarga').before(espera);
+      }
+      return { el, icone: el.querySelector('.icone'), nome: el.querySelector('.nome'), recarga: el.querySelector('.recarga i'), espera, kind: null, txtEspera: '' };
     });
     // Itens consumíveis (R e F): ícone, quantidade e a linha da recarga.
     this.itens = ORDEM_ITENS.map((id) => {
@@ -147,12 +156,13 @@ export class Hud {
 
   /**
    * Desenha o minimapa com o mapa fixo, o estado dos objetivos (`obj` do
-   * snapshot), os outros (pontos) e você (seta).
+   * snapshot) e das torretas (`torretas`), os outros (pontos) e você (seta).
    */
-  minimapa(eu, ents, meuId, obj = []) {
+  minimapa(eu, ents, meuId, obj = [], torretas = []) {
     const ctx = this.ctx;
     ctx.drawImage(this.fundoMapa, 0, 0);
     this.#objetivosNoMapa(obj);
+    this.#torretasNoMapa(torretas);
     for (const e of ents) {
       if (e.id === meuId || !e.vivo) continue;
       const [x, z] = this.#paraMapa(e.x, e.z);
@@ -162,6 +172,17 @@ export class Hud {
         // Minerador: bolinha menor que o quadrado das naves.
         ctx.beginPath();
         ctx.arc(x, z, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        continue;
+      }
+      if (e.tipo === 'escolta') {
+        // Escolta: losango pequeno (armada, entre o minerador e a nave).
+        ctx.beginPath();
+        ctx.moveTo(x, z - 2.6);
+        ctx.lineTo(x + 2.2, z);
+        ctx.lineTo(x, z + 2.6);
+        ctx.lineTo(x - 2.2, z);
+        ctx.closePath();
         ctx.fill();
         continue;
       }
@@ -231,6 +252,45 @@ export class Hud {
     }
   }
 
+  /**
+   * Torretas: triângulo na cor do time (cheio de pé, só o contorno com a obra
+   * esperando o lugar), e um "x" cinza-areia onde ela caiu.
+   */
+  #torretasNoMapa(torretas) {
+    const ctx = this.ctx;
+    for (const r of torretas) {
+      const t = TORRETAS.find((x) => x.id === r.id);
+      if (!t) continue;
+      const [cx, cz] = this.#paraMapa(t.x, t.z);
+      const cor = t.time === this.meuTime ? COR_MEU_TIME : COR_OUTRO_TIME;
+      if (!r.viva && !r.obra) {
+        ctx.strokeStyle = COR_APAGADA;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(cx - 2, cz - 2);
+        ctx.lineTo(cx + 2, cz + 2);
+        ctx.moveTo(cx + 2, cz - 2);
+        ctx.lineTo(cx - 2, cz + 2);
+        ctx.stroke();
+        continue;
+      }
+      ctx.beginPath();
+      ctx.moveTo(cx, cz - 3.2);
+      ctx.lineTo(cx + 3, cz + 2.2);
+      ctx.lineTo(cx - 3, cz + 2.2);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.strokeStyle = cor;
+      ctx.lineWidth = 1.2;
+      if (r.viva) {
+        ctx.fillStyle = cor;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
+      } else ctx.fill();
+      ctx.stroke();
+    }
+  }
+
   painel(me, extra, ping) {
     const php = Math.max(0, me.hp / me.maxHp);
     this.hp.style.width = `${php * 100}%`;
@@ -250,6 +310,8 @@ export class Hud {
     this.ping.textContent = ping ? `${ping} ms` : '';
     // As armas da nave prevista (as mesmas que o servidor usa no próximo tiro), com
     // a recarga do encaixe de cada uma (cd1 do Z, cd2 do X) e a energia, que é uma só.
+    // Com a recarga de troca contando (troca1/troca2), a linha mostra a troca e o
+    // encaixe ganha a contagem em segundos.
     this.slots.forEach((slot, enc) => {
       const kind = ARMAS[me.encaixes?.[enc] ?? ENCAIXE_PADRAO[enc]] ?? ARMAS[ENCAIXE_PADRAO[enc]];
       const w = WEAPONS[kind];
@@ -259,8 +321,13 @@ export class Hud {
         slot.nome.textContent = w.nome;
       }
       const cd = (enc === 0 ? me.cd1 : me.cd2) ?? 0;
-      slot.recarga.style.width = `${(1 - Math.min(1, cd / w.cd)) * 100}%`;
-      slot.el.classList.toggle('carregando', cd > 0);
+      const troca = (enc === 0 ? me.troca1 : me.troca2) ?? 0;
+      const fracao = troca > 0 ? troca / TROCA_ARMA_S : cd / w.cd;
+      slot.recarga.style.width = `${(1 - Math.min(1, fracao)) * 100}%`;
+      const txt = troca > 0 ? `${(Math.ceil(troca * 10) / 10).toLocaleString('pt-BR', { minimumFractionDigits: 1 })} s` : '';
+      if (txt !== slot.txtEspera) slot.espera.textContent = slot.txtEspera = txt;
+      slot.el.classList.toggle('trocando', troca > 0);
+      slot.el.classList.toggle('carregando', cd > 0 || troca > 0);
       slot.el.classList.toggle('sem-energia', cd <= 0 && me.en < w.energia);
       slot.el.classList.toggle('emp', me.emp > 0);
     });
@@ -333,6 +400,24 @@ export class Hud {
       el.dataset.html = html;
     }
     el.className = classe;
+    el.querySelector('i').style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
+  }
+
+  /**
+   * Barra da volta à base (recall): `frac` de 0 a 1 e `resta` em s; null esconde.
+   * O botão BASE do celular acende enquanto canaliza.
+   */
+  recall(frac, resta) {
+    const el = this.progRecall;
+    const ligado = frac !== null && frac !== undefined;
+    el.hidden = !ligado;
+    this.btnRecall?.classList.toggle('canalizando', ligado);
+    if (!ligado) return;
+    const txt = `Voltando à base · <b>${Math.max(0, resta).toFixed(1).replace('.', ',')} s</b>`;
+    if (el.dataset.txt !== txt) {
+      el.querySelector('.txt').innerHTML = txt;
+      el.dataset.txt = txt;
+    }
     el.querySelector('i').style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
   }
 
@@ -411,6 +496,7 @@ export class Hud {
     this.mostrarAviso('');
     this.pouso(null, false);
     this.objetivoPouso(null);
+    this.recall(null);
     this.ping.textContent = '';
     document.body.classList.remove('dano');
   }

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World, ZONA_SEGURA } from '../server/game.js';
 import { MapaNavegacao } from '../server/navegacao.js';
-import { Bonus } from '../server/bonus.js';
+import { Bonus, BONUS } from '../server/bonus.js';
 import { OBJ_A_POUSO_S, OBJ_RECARGA_S, OBJ_BONUS_S, TORRE_B_HP } from '../server/objetivos.js';
 import { RECOMPENSA, XP_OBJETIVO, xpParaNivel } from '../server/progressao.js';
 import { createShip, stepShip, INPUT_VAZIO, DT } from '../shared/sim.js';
@@ -293,4 +293,48 @@ test('objetivos: a partida seguinte começa com os objetivos disponíveis', () =
   assert.equal(w.partida.numero, 2);
   assert.equal(estado(w, 'A1').estado, 'livre');
   assert.equal(estado(w, 'A1').time, null);
+});
+
+test('objetivo C: matar o guardião dá fúria às naves do time (+dano) só enquanto dura', () => {
+  const w = mundo();
+  const g = w.elites.find((e) => e.tipo === 'guardiao' && e.objetivo === 'C1');
+  const j = w.addPlayer('Herói', 'bellico');
+  const aliado = w.addPlayer('Aliado', 'acron');
+  const inimigo = w.addPlayer('Inimigo', 'acron');
+  j.time = 1;
+  aliado.time = 1;
+  inimigo.time = 0;
+  j.ship = createShip('bellico', C1.x + 150, C1.z, Math.PI / 2);
+  j.protegidoAte = Infinity;
+  const laser = (dono) => ({ kind: 'laser', owner: dono.id, mult: 1 });
+  const base = w.danoDoTiro(laser(aliado));
+  assert.equal(w.multDanoDe(aliado.id), 1, 'sem bônus antes');
+
+  g.ship.hp = 20;
+  let seq = j.ack;
+  for (let t = 0; t < 10 * TICK && g.vivo; t++) {
+    const yawAlvo = Math.atan2(-(g.ship.x - j.ship.x), -(g.ship.z - j.ship.z));
+    let d = yawAlvo - j.ship.yaw;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    while (d < -Math.PI) d += 2 * Math.PI;
+    w.pushInput(j.id, { s: ++seq, f1: true, tu: Math.max(-1, Math.min(1, d * 3)) });
+    w.step();
+  }
+  assert.equal(g.vivo, false, 'derrotado');
+  assert.equal(w.bonus.ativo(1, 'furia', w.tick), true);
+  assert.equal(w.bonus.ativo(1, 'durabilidade', w.tick), true, 'os mineradores continuam ganhando');
+  assert.equal(w.bonus.ativo(0, 'furia', w.tick), false);
+  const ev = w.tirarEventos().find((e) => e.e === 'objetivo' && e.id === 'C1');
+  assert.equal(ev.bonusNaves, 'furia');
+  assert.ok(w.snapshotPara(aliado, [], []).bonus[1].furia > 0, 'o snapshot mostra a fúria');
+
+  // Vale para todas as naves do time (não só quem matou); não para o outro time nem para monstros.
+  assert.ok(Math.abs(w.danoDoTiro(laser(aliado)) - base * BONUS.furia.mult) < 1e-9);
+  assert.ok(Math.abs(w.danoDoTiro(laser(j)) - base * BONUS.furia.mult) < 1e-9);
+  assert.equal(w.danoDoTiro(laser(inimigo)), base);
+  assert.equal(w.danoDoTiro({ kind: 'laser', owner: g.id, mult: 1, drone: true }), base);
+
+  passos(w, OBJ_BONUS_S * TICK);
+  assert.equal(w.bonus.ativo(1, 'furia', w.tick), false, 'acabou');
+  assert.equal(w.danoDoTiro(laser(aliado)), base, 'dano volta ao normal');
 });

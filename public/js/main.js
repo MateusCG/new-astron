@@ -16,11 +16,24 @@
 // míssil teleguiado não, porque quem faz a curva é o servidor: ele aparece pelo
 // evento 'tiro' (o seu também) e é corrigido pela lista `guiados` do snapshot. A
 // onda de choque própria já desenha o anel na hora; a mina aparece pela lista
-// `minas` do snapshot.
+// `minas` do snapshot. A recarga de troca de arma roda no stepShip (predição); depois
+// de cada passo o menu recebe a nave prevista (menuArmas.nave) para travar o
+// encaixe enquanto conta e mostrar a arma que a nave tem de fato.
 //
 // Loja e Evolução (servicos.js): pousado e parado na plataforma da própria base, o
 // painel abre sozinho; os pedidos vão direto pela rede e a resposta chega como
 // {t:'resultado'}. Com o painel aberto, como com o menu de armas, não sai tiro.
+//
+// Recall (B, shared/recall.js): o pedido vai no campo r do comando e só o servidor
+// decide; o cliente não prevê a canalização. Na chegada a nave salta para a base:
+// a reconciliação vê o salto (mais de SALTO_M), descarta a suavização e a câmera
+// vai junto num quadro, sem atravessar o mapa (o renascimento usa o mesmo caminho).
+// A barra do HUD corre com RECALL_S entre um snapshot e outro.
+//
+// Torretas do corredor (torretas.js): o snapshot traz o estado delas (`torretas`);
+// caída sai da física da predição (definirObstaculoAtivo) e tomba no cenário. Tiro de
+// torreta e de escolta vem pelo evento 'tiro' com `fonte` e `time` e sai na cor do
+// time de quem atirou.
 //
 // ESC sai da partida e volta para a tela de entrada (nome e raça como estavam),
 // para trocar de piloto sem recarregar a página. Sair desmonta tudo o que a
@@ -32,18 +45,53 @@ import { DT, RACES, WEAPONS, VEL_TOQUE, createBullet, stepShip, bulletHits, forw
 import { areaPouso } from '/shared/terrain.js';
 import { alturaSolida } from '/shared/obstaculos.js';
 import { criarCena, liberarCena } from './cena.js';
-import { criarNave, criarDrone, criarVorax, animarVorax, criarKrakor, animarKrakor, criarGuardiao, animarGuardiao, criarMinerador, animarMinerador, atualizarMotor } from './nave.js';
+import {
+  criarNave,
+  criarDrone,
+  criarVorax,
+  animarVorax,
+  criarKrakor,
+  animarKrakor,
+  criarGuardiao,
+  animarGuardiao,
+  criarMinerador,
+  animarMinerador,
+  criarEscolta,
+  animarEscolta,
+  atualizarMotor,
+} from './nave.js';
 import { Efeitos, COR_TIME } from './efeitos.js';
 import { Controles } from './controles.js';
 import { Hud, NOME_BONUS } from './hud.js';
 import { ObjetivosNaTela } from './objetivos.js';
+import { TorretasNaTela } from './torretas.js';
 import { Rede } from './rede.js';
 import { MenuArmas } from './armas.js';
 import { Placar } from './placar.js';
 import { PainelServicos } from './servicos.js';
-import { MELHORIAS_MINERADOR } from '/shared/evolucao.js';
+import { MELHORIAS_MINERADOR, MELHORIA_TORRETAS } from '/shared/evolucao.js';
+import { RECALL_S } from '/shared/recall.js';
+import { TORRETAS } from '/shared/terrain.js';
 
 const INTERP_MS = 120;
+// Diferença entre a predição e o servidor acima disso é salto (recall, renascimento),
+// não erro de predição: vai direto, sem suavizar, e a câmera acompanha na hora.
+const SALTO_M = 30;
+// Por que a volta à base foi cancelada ou recusada (motivo do evento 'recall').
+const MOTIVO_RECALL = {
+  cancelado: {
+    dano: 'você levou dano',
+    tiro: 'você apertou o gatilho',
+    boost: 'você deu boost',
+    velocidade: 'a nave passou de quase parada',
+  },
+  recusado: {
+    na_base: 'Você já está na base',
+    tiro: 'Solte o gatilho para voltar à base',
+    boost: 'Solte o boost para voltar à base',
+    velocidade: 'Freie antes: a volta à base pede a nave quase parada',
+  },
+};
 // Modelo de cada tipo de inimigo (o tipo vem do servidor em cada entidade).
 const MODELO_INIMIGO = { vorax: criarVorax, krakor: criarKrakor, guardiao: criarGuardiao };
 // O que o bônus de cada objetivo faz, para a notícia de quem tomou.
@@ -51,6 +99,7 @@ const EFEITO_BONUS = {
   mineracao: 'cada minerador traz +1 de minério',
   velocidade: 'mineradores mais rápidos',
   durabilidade: 'mineradores mais resistentes',
+  furia: 'naves do time com +20% de dano',
 };
 const CAMERAS = [
   { dist: 22, alt: 8, olhar: 14 },
@@ -213,15 +262,18 @@ function montarJogo(rede, boas, renderer, race) {
   const placar = new Placar({ meuTime });
   const menuArmas = new MenuArmas({
     aoTrocar: (encaixe, i, kind) => hud.noticia(`Arma do ${encaixe ? 'X' : 'Z'}: ${WEAPONS[kind].nome}`, 'bom'),
+    aoRecusar: (texto) => hud.noticia(texto, 'ruim'),
     signal: controles.parar.signal, // desliga junto com os controles ao sair
   });
   const painel = new PainelServicos({
+    meuTime,
     enviar: (m) => rede.enviar(m),
     noticia: (texto, tipo) => hud.noticia(texto, tipo),
     signal: controles.parar.signal,
   });
   document.querySelector('#hud').hidden = false;
   const objetivos = new ObjetivosNaTela({ definirObjetivo, meuTime, container: document.querySelector('#rotulos-obj') });
+  const torretas = new TorretasNaTela({ scene, meuTime });
 
   function redimensionar() {
     renderer.setSize(innerWidth, innerHeight);
@@ -240,19 +292,22 @@ function montarJogo(rede, boas, renderer, race) {
   const erro = new THREE.Vector3();
   let extra = { ouro: 0, abates: 0, mortes: 0, nivel: 1, xp: 0, xpProx: 0 };
   let ganhoOuro = 0; // ouro ganho no último snapshot (para a notícia de abate)
+  let bonusAtivos = {}; // bônus por time do último snapshot (aura da fúria nas naves)
   const minhaNave = criarNave(race, { aliado: true });
   scene.add(minhaNave);
 
   // Outras naves.
   const snaps = [];
   const outras = new Map(); // id -> { obj, drone, nome, race }
-  const nomes = new Map();
+  const nomes = new Map(TORRETAS.map((t) => [t.id, 'Torreta'])); // "destruído por Torreta"
 
   let camModo = 0;
   let camYaw = 0;
   let tempo = 0;
-  let morteEm = 0;
+  let renasceAte = 0; // performance.now() em que a nave renasce (do renasceEm do servidor)
   let localSeq = 0;
+  let saltoCamera = false; // a nave saltou (recall, renascimento): câmera vai junto
+  let recallLocal = null; // { frac, t }: progresso da própria volta à base no último snapshot
 
   const pose = (s) => ({ x: s.x, y: s.y, z: s.z, yaw: s.yaw, roll: s.roll });
 
@@ -278,6 +333,8 @@ function montarJogo(rede, boas, renderer, race) {
       if (w.tipo === 'choque') efeitos.anelArea(pred.x, pred.y, pred.z, w.area, COR_TIME.meu);
       else if (!w.tipo && !w.guiado) efeitos.tiro(createBullet(pred, kind, 'l' + localSeq++, meuId, off, ang));
     }
+    // Recarga de troca e a arma que a nave tem de fato (troca recusada volta no menu).
+    menuArmas.nave(pred);
     pendentes.push({ seq, inp });
     if (pendentes.length > 120) pendentes.shift();
   }
@@ -289,20 +346,30 @@ function montarJogo(rede, boas, renderer, race) {
     snaps.push({ t: performance.now(), ents: m.ents });
     while (snaps.length > 30) snaps.shift();
     for (const e of m.ents) nomes.set(e.id, e.nome);
+    const euNoSnap = m.ents.find((e) => e.id === meuId);
+    recallLocal = euNoSnap?.recall !== undefined ? { frac: euNoSnap.recall, t: performance.now() } : null;
     placar.atualizar(m.partida, m.bonus);
+    bonusAtivos = m.bonus ?? {};
     // Antes da predição: a torre B caída já sai da física daqui em diante.
     for (const t of objetivos.atualizar(m.obj)) {
       efeitos.explosao(t.x, t.y, t.z, 6, '#ff9a3a');
       efeitos.explosao(t.x, t.y + 12, t.z, 3, '#ffb627');
     }
+    // Torreta que caiu: explosão laranja e faíscas na cor do time dela.
+    for (const t of torretas.atualizar(m.torretas)) {
+      efeitos.explosao(t.x, t.y, t.z, 5, '#ff9a3a');
+      efeitos.explosao(t.x, t.y + 4, t.z, 2.5, TORRETAS.find((x) => x.id === t.id).time === meuTime ? '#00efc0' : '#ff3b2a');
+    }
     tratarEventos(m.ev);
     efeitos.corrigirGuiados(m.guiados);
     efeitos.atualizarMinas(m.minas, meuTime);
     menuArmas.definirPosse(m.me?.armas);
-    painel.atualizar({ ouro: m.ouro, nivel: m.nivel, me: m.me, melhorias: m.melhorias });
+    menuArmas.definirNiveis(m.me?.niveisArmas);
+    painel.atualizar({ ouro: m.ouro, nivel: m.nivel, me: m.me, melhorias: m.melhorias, torretas: m.torretas });
 
     if (!m.vivo) {
-      if (vivo) morteEm = performance.now();
+      // O tempo de renascer é do servidor (cresce com o nível e com a partida).
+      renasceAte = performance.now() + (m.renasceEm ?? 0) * 1000;
       vivo = false;
       pendentes = [];
       pred = m.me;
@@ -316,6 +383,7 @@ function montarJogo(rede, boas, renderer, race) {
       pendentes = pendentes.filter((p) => p.seq > m.ack);
       erro.set(0, 0, 0);
       camYaw = pred.yaw;
+      saltoCamera = true;
       hud.mostrarAviso('');
       return;
     }
@@ -326,16 +394,48 @@ function montarJogo(rede, boas, renderer, race) {
     const dx = antes.x - pred.x;
     const dy = antes.y - pred.y;
     const dz = antes.z - pred.z;
-    if (Math.hypot(dx, dy, dz) > 30) erro.set(0, 0, 0);
-    else erro.add(new THREE.Vector3(dx, dy, dz));
+    if (Math.hypot(dx, dy, dz) > SALTO_M) {
+      // Salto (recall): começa do lugar novo, sem arrastar a nave pelo caminho.
+      erro.set(0, 0, 0);
+      ant = pose(pred);
+      camYaw = pred.yaw;
+      saltoCamera = true;
+      return;
+    }
+    erro.add(new THREE.Vector3(dx, dy, dz));
     ant.x -= dx;
     ant.y -= dy;
     ant.z -= dz;
   }
 
+  /** Volta à base (evento 'recall'): avisos para quem pediu, feixe de luz para todos. */
+  function eventoRecall(e) {
+    if (e.estado === 'chegou') {
+      const time = e.id === meuId ? meuTime : snaps.at(-1)?.ents.find((x) => x.id === e.id)?.time;
+      const cor = time === meuTime ? COR_TIME.meu : COR_TIME.outro;
+      if (e.de) efeitos.feixeRecall(e.de.x, e.de.y, e.de.z, cor);
+      efeitos.feixeRecall(e.x, e.y, e.z, cor);
+    }
+    if (e.id !== meuId) return;
+    if (e.estado === 'inicio') hud.noticia(`Voltando à base em ${e.s} s · sem tiro, sem boost, quase parado`, 'bom');
+    else if (e.estado === 'chegou') hud.noticia('De volta à base', 'bom');
+    else if (e.estado === 'cancelado') {
+      recallLocal = null;
+      const porque = MOTIVO_RECALL.cancelado[e.motivo];
+      hud.noticia(porque ? `Volta à base cancelada: ${porque}` : 'Volta à base cancelada', porque ? 'ruim' : '');
+    } else if (e.estado === 'recusado') hud.noticia(MOTIVO_RECALL.recusado[e.motivo] ?? 'Não dá para voltar à base agora', 'ruim');
+  }
+
   function tratarEventos(ev) {
     for (const e of ev) {
-      if (e.e === 'tiro' && (e.dono !== meuId || WEAPONS[e.kind]?.guiado)) {
+      if (e.e === 'tiro' && e.fonte) {
+        // Torreta ou escolta: tiro na cor do time de quem atirou, e o canhão vira.
+        const b = { id: e.id, kind: e.kind, x: e.x, y: e.y, z: e.z, vx: e.vx, vy: e.vy, vz: e.vz, vida: 2.5 };
+        efeitos.tiro(b, false, e.time === meuTime ? COR_TIME.meu : COR_TIME.outro);
+        if (e.fonte === 'torreta') torretas.disparou(e.dono, e.vx, e.vz);
+        const escolta = outras.get(e.dono)?.obj;
+        if (escolta) Object.assign(escolta.userData, { mira: Math.atan2(-e.vx, -e.vz), miraAte: tempo + 1.5 });
+      } else if (e.e === 'tiro' && (e.dono !== meuId || WEAPONS[e.kind]?.guiado)) {
         // O míssil próprio também vem daqui: a curva é do servidor, não da predição.
         const dono = outras.get(e.dono);
         const vida = WEAPONS[e.kind]?.guiado ? WEAPONS[e.kind].vida : 2.5;
@@ -362,19 +462,45 @@ function montarJogo(rede, boas, renderer, race) {
         if (e.time === meuTime) hud.noticia(`${por} destruiu um minerador do seu time`, 'ruim');
         else if (e.por === meuId) hud.noticia(`Você destruiu um minerador inimigo${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
         else hud.noticia(`${por} destruiu um minerador inimigo`, 'bom');
+      } else if (e.e === 'recall') {
+        eventoRecall(e);
+      } else if (e.e === 'morte' && e.tipo === 'escolta') {
+        efeitos.explosao(e.x, e.y, e.z, 3.5, '#ff9a3a');
+        const por = nomes.get(e.por) ?? '?';
+        if (e.time === meuTime) hud.noticia(`${por} destruiu a escolta do seu time`, 'ruim');
+        else if (e.por === meuId) hud.noticia(`Você destruiu a escolta inimiga${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
+        else hud.noticia(`${por} destruiu a escolta inimiga`, 'bom');
+      } else if (e.e === 'torreta') {
+        const minha = e.time === meuTime;
+        const quem = e.por === meuId ? 'Você' : e.nome ?? '?';
+        if (e.estado === 'reconstruida') {
+          if (minha) hud.noticia(`${quem} reconstruiu uma torreta do seu time`, 'bom');
+        } else if (minha) hud.noticia(`${quem} destruiu uma torreta do seu time`, 'ruim');
+        else hud.noticia(`${quem} destruiu uma torreta inimiga${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
       } else if (e.e === 'entrega') {
         placar.entrega(e.time);
+      } else if (e.e === 'faseFinal') {
+        placar.faseFinal();
+        hud.noticia(`Fase final: minério entregue vale ×${e.mult} até o fim`, 'bom');
       } else if (e.e === 'partida' && e.n > 1) {
         hud.noticia('Nova partida: o time que minerar mais vence', 'bom');
       } else if (e.e === 'morte') {
         const tipo = e.tipo ?? outras.get(e.id)?.tipo;
         efeitos.explosao(e.x, e.y, e.z, tipo === 'guardiao' ? 9 : tipo === 'krakor' ? 6 : 4, '#ff9a3a');
         const quem = nomes.get(e.id) ?? '?';
+        const matador = e.por === meuId ? 'Você' : (nomes.get(e.por) ?? '?');
         if (e.id === meuId) hud.noticia(`Você foi destruído por ${nomes.get(e.por) ?? '?'}`, 'ruim');
         else if (e.por === meuId && outras.get(e.id)?.drone) {
           hud.noticia(`Você destruiu ${tipo === 'guardiao' ? 'o' : 'um'} ${quem}${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
-        } else if (e.por === meuId) hud.noticia(`Você abateu ${quem}`, 'bom');
-        else if (!outras.get(e.id)?.drone) hud.noticia(`${nomes.get(e.por) ?? '?'} abateu ${quem}`);
+        } else if (e.por === meuId) hud.noticia(`Você abateu ${quem}${e.ouro > 0 ? ` · +${e.ouro} ouro` : ''}`, 'bom');
+        else if (!outras.get(e.id)?.drone) hud.noticia(`${matador} abateu ${quem}`, e.time === meuTime ? 'ruim' : '');
+        // Combate entre jogadores: sequência encerrada, assistência e sequência nova.
+        if (e.encerrou > 0) {
+          const de = e.id === meuId ? 'a sua sequência' : `a sequência de ${quem}`;
+          hud.noticia(`${matador} encerrou ${de} (${e.seq} abates, +${e.encerrou} ouro)`, e.por === meuId ? 'bom' : '');
+        }
+        if (e.assist?.includes(meuId)) hud.noticia(`Assistência no abate de ${quem} · +${e.ouroAssist} ouro`, 'bom');
+        if (e.seqPor >= 2) hud.noticia(`${matador} está em sequência de ${e.seqPor} abates`, e.por === meuId ? 'bom' : '');
       } else if (e.e === 'nivel') {
         // Subiu de nível: anel de luz na nave de quem subiu (você ou outro).
         const nave = e.id === meuId ? minhaNave : outras.get(e.id)?.obj;
@@ -384,7 +510,10 @@ function montarJogo(rede, boas, renderer, race) {
         const meu = e.time === meuTime;
         const como = { A: 'pousou no', B: 'derrubou a torre do', C: 'derrotou o guardião do' }[e.tipo];
         const quem = e.quem ? `${e.quem} ${como} objetivo ${e.tipo}` : `Objetivo ${e.tipo} tomado`;
-        hud.noticia(`${quem} · ${meu ? 'seu time' : 'inimigo'}: ${NOME_BONUS[e.bonus]} por ${e.segundos}s (${EFEITO_BONUS[e.bonus]})`, meu ? 'bom' : 'ruim');
+        const ganhos = [e.bonus, e.bonusNaves].filter(Boolean).map((b) => `${NOME_BONUS[b]} (${EFEITO_BONUS[b]})`);
+        hud.noticia(`${quem} · ${meu ? 'seu time' : 'inimigo'}: ${ganhos.join(' e ')} por ${e.segundos}s`, meu ? 'bom' : 'ruim');
+      } else if (e.e === 'melhoria' && e.time === meuTime && e.melhoria === MELHORIA_TORRETAS.id) {
+        hud.noticia(`${e.id === meuId ? 'Você' : e.nome} evoluiu as torretas do time: nível ${e.nivel}`, 'bom');
       } else if (e.e === 'melhoria' && e.time === meuTime) {
         // Melhoria dos mineradores: vale para o time todo, então o time todo fica sabendo.
         const nome = MELHORIAS_MINERADOR[e.melhoria]?.nome ?? e.melhoria;
@@ -477,8 +606,12 @@ function montarJogo(rede, boas, renderer, race) {
       atualizarMotor(minhaNave, pred.boost, tempo, pred.pousado);
       const eu = snaps.at(-1)?.ents.find((e) => e.id === meuId);
       const meusEfeitos = { dreno: !!eu?.dreno && vivo, lento: pred.lento > 0 && vivo, emp: pred.emp > 0 && vivo };
-      efeitos.estadoNave(minhaNave, meusEfeitos, dt, tempo);
+      efeitos.estadoNave(minhaNave, { ...meusEfeitos, furia: vivo && !!bonusAtivos[meuTime]?.furia }, dt, tempo);
       hud.efeitosProprios(meusEfeitos);
+      // Volta à base: a barra corre entre um snapshot e outro com RECALL_S.
+      const fracRecall = vivo && recallLocal ? Math.min(1, recallLocal.frac + (agora - recallLocal.t) / 1000 / RECALL_S) : null;
+      efeitos.recall(minhaNave, fracRecall, COR_TIME.meu, dt, tempo, true);
+      hud.recall(fracRecall, fracRecall === null ? 0 : (1 - fracRecall) * RECALL_S);
       foco.set(x, y, z);
     }
 
@@ -495,7 +628,13 @@ function montarJogo(rede, boas, renderer, race) {
       if (!o) {
         const obj =
           MODELO_INIMIGO[e.tipo]?.() ??
-          (e.tipo === 'minerador' ? criarMinerador({ aliado }) : e.drone ? criarDrone() : criarNave(e.race, { aliado }));
+          (e.tipo === 'minerador'
+            ? criarMinerador({ aliado })
+            : e.tipo === 'escolta'
+              ? criarEscolta({ aliado })
+              : e.drone
+                ? criarDrone()
+                : criarNave(e.race, { aliado }));
         o = { obj, drone: e.drone, tipo: e.tipo, aliado };
         scene.add(o.obj);
         outras.set(e.id, o);
@@ -511,10 +650,16 @@ function montarJogo(rede, boas, renderer, race) {
       else if (e.tipo === 'guardiao') animarGuardiao(o.obj, tempo);
       else if (e.drone) o.obj.userData.corpo.rotation.y = Math.sin(tempo * 3 + e.id) * 0.15;
       if (e.tipo === 'minerador') animarMinerador(o.obj, e, tempo, e.id);
+      else if (e.tipo === 'escolta') animarEscolta(o.obj, tempo, dt, e.id);
       else atualizarMotor(o.obj, e.boost, tempo, e.pousado);
-      efeitos.estadoNave(o.obj, { dreno: !!e.dreno, lento: !!e.lento, emp: !!e.emp }, dt, tempo);
+      const furia = e.tipo === 'jogador' && !!bonusAtivos[e.time]?.furia;
+      efeitos.estadoNave(o.obj, { dreno: !!e.dreno, lento: !!e.lento, emp: !!e.emp, furia }, dt, tempo);
+      efeitos.recall(o.obj, e.recall ?? null, aliado ? COR_TIME.meu : COR_TIME.outro, dt, tempo);
       rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position, nivel: e.nivel });
     }
+    // Torretas: queda, subida e a cabeça atrás do alvo (posição desenhada dele).
+    torretas.quadro(dt, tempo, (id) => (id === meuId ? (vivo ? foco : null) : outras.get(id)?.obj.position ?? null));
+    rotulos.push(...torretas.rotulos());
     for (const [id, o] of outras) {
       if (!presentes.has(id)) {
         scene.remove(o.obj);
@@ -552,7 +697,10 @@ function montarJogo(rede, boas, renderer, race) {
           break;
         }
       }
-      if (camera.position.lengthSq() === 0) camera.position.copy(desejada);
+      // Primeiro quadro, ou a nave saltou (recall, renascimento): a câmera vai direto,
+      // em vez de deslizar pelo mapa atravessando rochas.
+      if (camera.position.lengthSq() === 0 || saltoCamera) camera.position.copy(desejada);
+      saltoCamera = false;
       camera.position.lerp(desejada, 1 - Math.exp(-8 * dt));
       const chao = alturaSolida(camera.position.x, camera.position.z) + 2;
       if (camera.position.y < chao) camera.position.y = chao;
@@ -574,13 +722,17 @@ function montarJogo(rede, boas, renderer, race) {
       hud.pouso(vivo && pousoPermitido(pred) ? area : null, vivo && pred.pousado, painel.aberto);
       // Pousada na marcação de um objetivo A: barra do progresso.
       hud.objetivoPouso(area?.objetivo && pred.pousado ? objetivos.estado.get(area.objetivo) : null);
-      hud.minimapa(vivo ? { x: foco.x, z: foco.z, yaw: minhaNave.rotation.y } : null, snaps.at(-1)?.ents ?? [], meuId, [
-        ...objetivos.estado.values(),
-      ]);
+      hud.minimapa(
+        vivo ? { x: foco.x, z: foco.z, yaw: minhaNave.rotation.y } : null,
+        snaps.at(-1)?.ents ?? [],
+        meuId,
+        [...objetivos.estado.values()],
+        torretas.estados(),
+      );
     }
-    if (!vivo && morteEm) {
-      const falta = Math.max(0, 3 - (performance.now() - morteEm) / 1000);
-      hud.mostrarAviso(`Nave destruída · renascendo na base em ${falta.toFixed(0)}s`);
+    if (!vivo && renasceAte) {
+      const falta = Math.max(0, (renasceAte - performance.now()) / 1000);
+      hud.mostrarAviso(`Nave destruída · renascendo na base em ${Math.ceil(falta - 1e-3)}s`);
     }
     hud.rotulosNaves(rotulos, camera, innerWidth, innerHeight);
     objetivos.desenhar(camera, innerWidth, innerHeight);
@@ -606,6 +758,7 @@ function montarJogo(rede, boas, renderer, race) {
     menuArmas,
     painel,
     objetivos,
+    torretas,
     efeitos,
     minhaNave,
   };
@@ -627,6 +780,7 @@ function montarJogo(rede, boas, renderer, race) {
     hud.limpar();
     placar.limpar();
     objetivos.limpar();
+    torretas.limpar();
     renderer.domElement.remove();
     efeitos.liberar();
     liberarCena(scene);

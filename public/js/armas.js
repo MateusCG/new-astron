@@ -18,8 +18,22 @@
 // O estado "aberto" vem do próprio elemento #menu-armas (atributo hidden), um só
 // para os dois encaixes, para quem mais precisar fechar o menu (o ESC, por exemplo)
 // só esconder o elemento.
+//
+// Recarga de troca (TROCA_ARMA_S em shared/sim.js): fora da própria base, trocar a
+// arma de um encaixe o trava por alguns segundos, e o stepShip ignora outra troca
+// nele enquanto conta. Para o piloto nunca pedir uma troca que vai ser ignorada
+// calado, o menu TRAVA o encaixe enquanto conta: as outras cartas ficam apagadas
+// com a contagem, e escolher uma delas só dá a notícia (aoRecusar) sem mudar nada.
+// main.js passa a nave prevista a cada passo (nave()), e o menu sempre volta a
+// mostrar a arma que a nave tem de fato (se a predição recusou, o menu acompanha).
+// Na base a troca é livre e a dica diz isso.
+//
+// Cada carta também mostra o tipo de dano e a função da arma (WEAPONS[].tipoDano e
+// .funcao) e o nível dela (evoluído na Loja: definirNiveis), com o dano e o efeito
+// já do nível.
 
-import { WEAPONS, ARMAS, ENCAIXE_PADRAO, TODAS_AS_ARMAS, ARMAS_INICIAIS } from '/shared/sim.js';
+import { WEAPONS, ARMAS, ENCAIXE_PADRAO, TODAS_AS_ARMAS, ARMAS_INICIAIS, TROCA_ARMA_S, TIPOS_DANO, FUNCOES_ARMA, trocaLivre } from '/shared/sim.js';
+import { danoMultNivel, efeitoDaArma, ARMA_NIVEL_MAX } from '/shared/loja.js';
 
 /** Tecla, nome e botões de cada encaixe (0 = Z, 1 = X). */
 export const ENCAIXES = [
@@ -53,13 +67,20 @@ export function classeArma(kind) {
   return 'laser';
 }
 
-/** Frase curta do que a arma faz, montada das constantes de shared/sim.js. */
-export function descreverArma(kind) {
+/** Segundos com uma casa (só quando precisa), no jeito brasileiro. */
+const seg = (v) => numero(v, Number.isInteger(+v.toFixed(1)) ? 0 : 1);
+
+/**
+ * Frase curta do que a arma faz no nível dado (1 se omitido), montada das
+ * constantes de shared/sim.js e dos efeitos por nível de shared/loja.js.
+ */
+export function descreverArma(kind, nivel = 1) {
   const w = WEAPONS[kind];
-  const s = (v) => numero(v, Number.isInteger(v) ? 0 : 1);
-  if (w.efeito?.tipo === 'dreno') return `Drena ${w.efeito.dps} HP/s por ${s(w.efeito.duracao)} s`;
-  if (w.efeito?.tipo === 'lento') return `Alvo ${Math.round((1 - w.efeito.mult) * 100)}% mais lento por ${s(w.efeito.duracao)} s`;
-  if (w.efeito?.tipo === 'emp') return `Zera a energia: sem tiro e sem boost por ${s(w.efeito.duracao)} s`;
+  const e = efeitoDaArma(kind, nivel);
+  const s = seg;
+  if (e?.tipo === 'dreno') return `Drena ${numero(e.dps, Number.isInteger(e.dps) ? 0 : 1)} HP/s por ${s(e.duracao)} s`;
+  if (e?.tipo === 'lento') return `Alvo ${Math.round((1 - e.mult) * 100)}% mais lento por ${s(e.duracao)} s`;
+  if (e?.tipo === 'emp') return `Zera a energia: sem tiro e sem boost por ${s(e.duracao)} s`;
   if (w.tipo === 'mina') return `Cai atrás, arma em ${s(w.armaS)} s e explode em ${w.area} m · até ${w.max}`;
   if (w.tipo === 'choque') return `Área de ${w.area} m em volta, empurra para fora`;
   if (w.guiado) return `Persegue inimigo à frente (±${graus(w.guiado.cone)}°, ${w.guiado.alcance} m)`;
@@ -114,10 +135,46 @@ export function iconeArma(kind) {
   return `<svg class="icone-arma ${classe}" viewBox="0 0 24 24" aria-hidden="true">${desenho}</svg>`;
 }
 
+/** Dano por projétil (ou em área) da arma no nível, arredondado como no servidor. */
+export function danoNoNivel(kind, nivel = 1) {
+  return Math.round(WEAPONS[kind].dano * danoMultNivel(nivel));
+}
+
 /** Texto do dano na carta: "7×2" (por projétil × quantos) ou o número (a área vai no efeito). */
-function textoDano(w) {
-  const n = projeteis(w);
-  return n > 1 ? `${w.dano}×${n}` : String(w.dano);
+export function textoDano(kind, nivel = 1) {
+  const n = projeteis(WEAPONS[kind]);
+  const d = danoNoNivel(kind, nivel);
+  return n > 1 ? `${d}×${n}` : String(d);
+}
+
+/** Etiquetas de tipo de dano e função ("Laser · Dano"), para o menu e a Loja. */
+export function etiquetasArma(kind) {
+  const w = WEAPONS[kind];
+  return `<span class="etiquetas"><i class="tipo-dano ${w.tipoDano}">${TIPOS_DANO[w.tipoDano]}</i><i class="funcao ${w.funcao}">${FUNCOES_ARMA[w.funcao]}</i></span>`;
+}
+
+/**
+ * O que muda do nível `nivel` para o seguinte, em texto curto: o dano e, nas de
+ * controle, o efeito ("Dano 12 → 13 · lento 50% → 55%, 3 → 3,4 s"). '' no máximo.
+ */
+export function proximoNivelArma(kind, nivel) {
+  if (nivel >= ARMA_NIVEL_MAX) return '';
+  const partes = [`Dano ${textoDano(kind, nivel)} → ${textoDano(kind, nivel + 1)}`];
+  const a = efeitoDaArma(kind, nivel);
+  const b = efeitoDaArma(kind, nivel + 1);
+  const um = (v) => numero(v, Number.isInteger(+v.toFixed(1)) ? 0 : 1);
+  if (a?.tipo === 'dreno') partes.push(`dreno ${um(a.dps)} → ${um(b.dps)} HP/s, ${seg(a.duracao)} → ${seg(b.duracao)} s`);
+  else if (a?.tipo === 'lento') {
+    const pct = (e) => `${Math.round((1 - e.mult) * 100)}%`;
+    partes.push(`lento ${pct(a)} → ${pct(b)}, ${seg(a.duracao)} → ${seg(b.duracao)} s`);
+  } else if (a?.tipo === 'emp') partes.push(`EMP ${seg(a.duracao)} → ${seg(b.duracao)} s`);
+  else if (a?.tipo === 'empurrao') partes.push(`empurrão +${Math.round((b.empurrao / a.empurrao - 1) * 100)}%`);
+  return partes.join(' · ');
+}
+
+/** Tracinhos do nível da arma (1 a ARMA_NIVEL_MAX), acesos até o nível. */
+export function pipsNivel(nivel) {
+  return `<span class="pips" title="Nível ${nivel} de ${ARMA_NIVEL_MAX}">${Array.from({ length: ARMA_NIVEL_MAX }, (_, i) => `<i class="${i < nivel ? 'on' : ''}"></i>`).join('')}</span>`;
 }
 
 /** Chama fn no clique (mouse) e no toque, sem esperar o clique atrasado do celular. */
@@ -137,9 +194,11 @@ export class MenuArmas {
    * `signal` desliga todos os listeners do menu (teclado e botões, que ficam no HTML
    * fixo da página) quando a partida acaba; sem ele, sair com ESC e entrar de novo
    * deixaria o Q alternando o menu duas vezes.
-   * @param {{ aoTrocar?: (encaixe: number, indice: number, kind: string) => void, signal?: AbortSignal }} [opcoes]
+   * `aoRecusar(texto)` avisa quando o piloto tenta trocar um encaixe em recarga de troca.
+   * @param {{ aoTrocar?: (encaixe: number, indice: number, kind: string) => void,
+   *   aoRecusar?: (texto: string) => void, signal?: AbortSignal }} [opcoes]
    */
-  constructor({ aoTrocar, signal } = {}) {
+  constructor({ aoTrocar, aoRecusar, signal } = {}) {
     this.el = document.querySelector('#menu-armas');
     this.titulo = this.el.querySelector('h2');
     this.dica = this.el.querySelector('.dica-encaixe');
@@ -147,28 +206,37 @@ export class MenuArmas {
     this.lista.replaceChildren(); // nova partida: cartas desenhadas do zero
     this.el.hidden = true;
     this.aoTrocar = aoTrocar;
+    this.aoRecusar = aoRecusar;
     this.encaixes = [...ENCAIXE_PADRAO];
     this.encaixe = 0; // qual encaixe o menu está editando
     this.posse = [...TODAS_AS_ARMAS];
+    this.niveis = ARMAS.map(() => 1);
+    this.troca = [0, 0]; // s de recarga de troca de cada encaixe (da nave prevista)
+    this.livre = true; // na própria base: troca sem recarga
+    this.textoTroca = '';
     this.botoes = ARMAS.map((kind, i) => {
       const w = WEAPONS[kind];
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'opcao-arma';
       b.dataset.arma = String(i);
-      b.title = descreverArma(kind); // em tela baixa o efeito some da carta e fica aqui
-      b.innerHTML = `<kbd>${(i + 1) % 10}</kbd><span class="cab">${iconeArma(kind)}<strong>${w.nome}</strong></span>
+      b.innerHTML = `<kbd>${(i + 1) % 10}</kbd><span class="nivel"></span><span class="cab">${iconeArma(kind)}<strong>${w.nome}</strong></span>
+        ${etiquetasArma(kind)}
         <dl>
-          <dt>Dano</dt><dd>${textoDano(w)}</dd>
+          <dt>Dano</dt><dd class="val-dano"></dd>
           <dt>Energia</dt><dd>${w.energia}</dd>
           <dt>Recarga</dt><dd>${numero(w.cd, 2)} s</dd>
         </dl>
-        <small class="efeito">${descreverArma(kind)}</small>
+        <small class="efeito"></small>
         <span class="selo"></span>`;
       aoTocar(b, () => this.escolher(i), signal);
       this.lista.append(b);
       return b;
     });
+    this.aviso = document.createElement('p');
+    this.aviso.className = 'aviso-troca';
+    this.lista.before(this.aviso);
+    this.#desenharNiveis();
     this.#marcar();
 
     addEventListener('keydown', (e) => {
@@ -207,14 +275,70 @@ export class MenuArmas {
     this.el.hidden = false;
   }
 
+  /** Segundos de recarga de troca do encaixe (0 se pode trocar agora). */
+  esperaTroca(encaixe) {
+    return this.livre ? 0 : this.troca[encaixe] ?? 0;
+  }
+
   /** Escolhe a arma de índice i para o encaixe em edição e fecha o menu. */
   escolher(i) {
     if (!this.posse.includes(i) && !ARMAS_INICIAIS.includes(i)) return; // travada: a Loja libera
+    const espera = this.esperaTroca(this.encaixe);
+    if (espera > 0 && i !== this.encaixes[this.encaixe]) {
+      // O stepShip ignoraria a troca: avisa e não muda nada (o menu continua aberto).
+      this.aoRecusar?.(`Arma do ${ENCAIXES[this.encaixe].tecla} em troca: ${seg(espera)} s`);
+      return;
+    }
     const mudou = i !== this.encaixes[this.encaixe];
     this.encaixes[this.encaixe] = i;
     this.#marcar();
     this.el.hidden = true;
     if (mudou) this.aoTrocar?.(this.encaixe, i, ARMAS[i]);
+  }
+
+  /**
+   * A cada passo, a nave prevista (formato de shared/sim.js): recarga de troca de
+   * cada encaixe, se está na própria base e as armas que ela tem de fato. Se a nave
+   * ficou com outra arma (a troca não passou), o menu volta a mostrar a dela.
+   */
+  nave(s) {
+    if (!s) return;
+    this.troca = [s.troca1 ?? 0, s.troca2 ?? 0];
+    this.livre = trocaLivre(s);
+    let mudou = false;
+    if (Array.isArray(s.encaixes)) {
+      s.encaixes.forEach((a, enc) => {
+        if (Number.isInteger(a) && a !== this.encaixes[enc]) {
+          this.encaixes[enc] = a;
+          mudou = true;
+        }
+      });
+    }
+    if (mudou) this.#marcar();
+    else if (this.aberto) this.#marcarTroca();
+  }
+
+  /** Nível de cada arma (índice em ARMAS; me.niveisArmas), para o dano e o efeito das cartas. */
+  definirNiveis(niveis) {
+    if (!Array.isArray(niveis)) return;
+    if (niveis.length === this.niveis.length && niveis.every((n, i) => n === this.niveis[i])) return;
+    this.niveis = ARMAS.map((_, i) => niveis[i] ?? 1);
+    this.#desenharNiveis();
+  }
+
+  #desenharNiveis() {
+    this.botoes.forEach((b, i) => {
+      const kind = ARMAS[i];
+      const nivel = this.niveis[i];
+      const nv = b.querySelector('.nivel');
+      nv.textContent = `NV ${nivel}`;
+      nv.classList.toggle('base', nivel <= 1);
+      nv.classList.toggle('max', nivel >= ARMA_NIVEL_MAX);
+      b.querySelector('.val-dano').textContent = textoDano(kind, nivel);
+      const efeito = descreverArma(kind, nivel);
+      b.querySelector('.efeito').textContent = efeito;
+      b.title = `${efeito} · ${TIPOS_DANO[WEAPONS[kind].tipoDano]}, ${FUNCOES_ARMA[WEAPONS[kind].funcao].toLowerCase()}`; // em tela baixa o efeito some da carta e fica aqui
+    });
   }
 
   /**
@@ -237,15 +361,44 @@ export class MenuArmas {
     this.el.dataset.encaixe = x.tecla;
     this.titulo.innerHTML = `Arma do <kbd>${x.tecla}</kbd>`;
     if (this.dica) this.dica.innerHTML = `<kbd>${x.letraMenu}</kbd> fecha · <kbd>${y.letraMenu}</kbd> edita o ${y.tecla}`;
+    this.textoTroca = null;
+    this.#marcarTroca();
+  }
+
+  /**
+   * Cartas e aviso da recarga de troca do encaixe em edição: com a troca contando,
+   * as outras armas ficam apagadas ("TROCA EM 2,1 s") até acabar. Só mexe no DOM
+   * quando o texto muda (a contagem anda de décimo em décimo).
+   */
+  #marcarTroca() {
+    const enc = this.encaixe;
+    const outro = 1 - enc;
+    const y = ENCAIXES[outro];
+    const espera = this.esperaTroca(enc);
+    const texto = espera > 0 ? seg(Math.ceil(espera * 10) / 10) : '';
+    const chave = `${enc}|${texto}|${this.livre}`;
+    if (chave === this.textoTroca) return;
+    this.textoTroca = chave;
+    this.el.classList.toggle('trocando', espera > 0);
+    this.aviso.innerHTML =
+      espera > 0
+        ? `Troca do <kbd>${ENCAIXES[enc].tecla}</kbd> em recarga: <b>${texto} s</b>`
+        : this.livre
+          ? 'Na base: troca livre'
+          : `Fora da base: trocar trava o encaixe por ${seg(TROCA_ARMA_S)} s`;
+    this.aviso.classList.toggle('livre', this.livre && espera <= 0);
     this.botoes.forEach((b, i) => {
       const aqui = i === this.encaixes[enc];
       const la = i === this.encaixes[outro];
       const travada = !this.posse.includes(i) && !ARMAS_INICIAIS.includes(i);
+      const esperando = !travada && !aqui && espera > 0;
       b.classList.toggle('sel', aqui);
       b.classList.toggle('no-outro', la);
       b.classList.toggle('travada', travada);
+      b.classList.toggle('espera', esperando);
       b.disabled = travada;
-      b.querySelector('.selo').textContent = aqui && la ? `EM USO · também no ${y.tecla}` : aqui ? 'EM USO' : la ? `NO ${y.tecla}` : travada ? 'NA LOJA' : '';
+      b.querySelector('.selo').textContent =
+        aqui && la ? `EM USO · também no ${y.tecla}` : aqui ? 'EM USO' : travada ? 'NA LOJA' : esperando ? `TROCA EM ${texto} s` : la ? `NO ${y.tecla}` : '';
     });
   }
 }

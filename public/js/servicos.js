@@ -15,12 +15,34 @@
 // sempre do snapshot. Preços e efeitos saem de shared/loja.js e shared/evolucao.js,
 // então balancear lá já atualiza os cartões.
 //
+// Na Loja, a aba "Evoluir" mostra as armas que o piloto tem (as de fábrica e as
+// compradas), cada uma com os tracinhos do nível, o que muda no próximo e o preço,
+// que cresce por nível e é por arma (evoluir duas custa o dobro). O pedido é
+// {t:'comprar', item:'evoluir:<arma>'}; o nível vem do snapshot (me.niveisArmas).
+//
+// Evolução › Torretas: o nível das quatro torretas do time ({t:'melhorar',
+// melhoria:'torretas'}) e um cartão por torreta do time, com a vida (de pé), a obra
+// esperando o lugar ficar livre ou o botão de reconstruir ({t:'reconstruir',
+// torreta}). O estado vem do snapshot (`torretas`, filtrado pelo meuTime).
+//
 // Listeners no `signal` dos controles: sair da partida e entrar de novo não duplica.
 
-import { ARMAS, WEAPONS } from '/shared/sim.js';
-import { ARMAS_A_VENDA, PRECO_ARMA, ARMADURAS, ITENS, ORDEM_ITENS } from '/shared/loja.js';
-import { MARCOS_NAVE, OPCOES_NAVE, ORDEM_OPCOES_NAVE, MELHORIAS_MINERADOR, ORDEM_MELHORIAS, proximoMarco } from '/shared/evolucao.js';
-import { iconeArma, descreverArma } from './armas.js';
+import { ARMAS, WEAPONS, ARMAS_INICIAIS } from '/shared/sim.js';
+import { ARMAS_A_VENDA, PRECO_ARMA, ARMADURAS, ITENS, ORDEM_ITENS, ARMA_NIVEL_MAX, PREFIXO_EVOLUIR, precoEvoluirArma } from '/shared/loja.js';
+import {
+  MARCOS_NAVE,
+  OPCOES_NAVE,
+  ORDEM_OPCOES_NAVE,
+  MELHORIAS_MINERADOR,
+  ORDEM_MELHORIAS,
+  proximoMarco,
+  MELHORIA_TORRETAS,
+  TORRETA_NIVEL_MAX,
+  PRECO_RECONSTRUIR,
+  precoNivelTorretas,
+} from '/shared/evolucao.js';
+import { TORRETAS } from '/shared/terrain.js';
+import { iconeArma, descreverArma, etiquetasArma, proximoNivelArma, pipsNivel } from './armas.js';
 
 /** Mensagem curta para cada código de erro estável do servidor. */
 export const MENSAGEM_ERRO = {
@@ -39,12 +61,14 @@ const NOME_SERVICO = { loja: 'Loja', evolucao: 'Evolução' };
 const ABAS = {
   loja: [
     ['armas', 'Armas'],
+    ['evoluir', 'Evoluir'],
     ['armaduras', 'Armaduras'],
     ['itens', 'Itens'],
   ],
   evolucao: [
     ['nave', 'Nave'],
     ['mineradores', 'Mineradores do time'],
+    ['torretas', 'Torretas'],
   ],
 };
 const TECLA_ITEM = Object.fromEntries(ORDEM_ITENS.map((id) => [`Key${ITENS[id].tecla}`, id]));
@@ -72,6 +96,8 @@ function iconeEvolucao(id) {
     reator: ['energia', '<circle cx="12" cy="12" r="8.5" /><path d="M13 6 L9 13 H12.5 L11 18 L15 11 H11.5 Z" />'],
     motor: ['tec', '<path d="M5 6 L11 12 L5 18 M12 6 L18 12 L12 18" />'],
     quantidade: ['tec', '<rect x="3" y="9" width="11" height="8" rx="1.5" /><path d="M6 9 V6 H11 V9 M18 8 V16 M14 12 H22" />'],
+    torreta: ['tec', '<path d="M6 21 H18 L16.5 14 H7.5 Z" /><rect x="7" y="9" width="10" height="5" rx="1.5" /><path d="M10 11 H3 M14 11 H21 M12 9 V5" />'],
+    reconstruir: ['tec', '<path d="M6 21 H18 L16.5 14 H7.5 Z" /><path d="M12 11 V3 M8.5 6.5 L12 3 L15.5 6.5" />'],
     durabilidade: ['vida', '<rect x="3" y="8" width="18" height="10" rx="2" /><path d="M12 10 V16 M9 13 H15" />'],
     defesa: ['tec', '<path d="M12 3 L19 6 V11 C19 15.5 16 18.5 12 20 C8 18.5 5 15.5 5 11 V6 Z" /><path d="M9 11.5 L11.2 13.7 L15.5 9.3" />'],
     velocidade: ['tec', '<rect x="9" y="8" width="12" height="8" rx="1.5" /><path d="M2 9 H7 M3 12 H7 M2 15 H7" />'],
@@ -95,9 +121,10 @@ function aoClicar(el, fn, signal) {
 export class PainelServicos {
   /**
    * @param {{ enviar: (msg: object) => void, noticia: (texto: string, tipo?: string) => void,
-   *   signal: AbortSignal }} opcoes
+   *   signal: AbortSignal, meuTime?: number }} opcoes
    */
-  constructor({ enviar, noticia, signal }) {
+  constructor({ enviar, noticia, signal, meuTime = 0 }) {
+    this.meuTime = meuTime;
     this.enviar = enviar;
     this.noticia = noticia;
     this.el = document.querySelector('#servico');
@@ -110,7 +137,7 @@ export class PainelServicos {
     this.servico = null; // serviço do painel aberto (ou do último aberto)
     this.onde = null; // serviço da plataforma onde a nave está pousada (ou null)
     this.aba = { loja: 'armas', evolucao: 'nave' };
-    this.estado = { ouro: 0, nivel: 1, armas: [], armadura: -1, itens: {}, evolucoes: [], melhorias: {} };
+    this.estado = { ouro: 0, nivel: 1, armas: [], niveisArmas: [], armadura: -1, itens: {}, evolucoes: [], melhorias: {}, torretas: [] };
     this.chave = '';
 
     aoClicar(this.el.querySelector('.fechar'), () => this.fechar(), signal);
@@ -195,16 +222,21 @@ export class PainelServicos {
     this.enviar({ t: 'usar', item: id });
   }
 
-  /** Estado que vem do snapshot: ouro, nível, `me` e as melhorias do time. */
-  atualizar({ ouro, nivel, me, melhorias }) {
+  /** Estado que vem do snapshot: ouro, nível, `me`, as melhorias e as torretas do time. */
+  atualizar({ ouro, nivel, me, melhorias, torretas }) {
     this.estado = {
       ouro: ouro ?? 0,
       nivel: nivel ?? 1,
       armas: me?.armas ?? [],
+      niveisArmas: me?.niveisArmas ?? [],
       armadura: me?.armadura ?? -1,
       itens: me?.itens ?? {},
       evolucoes: me?.evolucoes ?? [],
       melhorias: melhorias ?? {},
+      // Só as do time, com a vida em passos de 5% (o painel não redesenha a cada tiro).
+      torretas: (torretas ?? [])
+        .filter((t) => t.time === this.meuTime)
+        .map((t) => ({ id: t.id, viva: t.viva, obra: !!t.obra, nivel: t.nivel, vida: Math.ceil((t.vida / t.max) * 20) / 20 })),
     };
     if (this.aberto) this.#desenhar(false);
   }
@@ -228,12 +260,27 @@ export class PainelServicos {
   }
 
   #textoSucesso(m) {
+    const evoluida = this.#armaEvoluida(m.item);
+    if (m.acao === 'comprar' && evoluida) {
+      // O snapshot com o nível novo pode ainda não ter chegado: conta mais um.
+      const nivel = Math.min(ARMA_NIVEL_MAX, (this.estado.niveisArmas[ARMAS.indexOf(evoluida)] ?? 1) + 1);
+      return `${WEAPONS[evoluida].nome} evoluída: nível ${nivel}`;
+    }
     if (m.acao === 'comprar') {
       const nome = WEAPONS[m.item]?.nome ?? ARMADURAS.find((a) => a.id === m.item)?.nome ?? ITENS[m.item]?.nome ?? m.item;
       return `Comprado: ${nome}`;
     }
     if (m.acao === 'evoluir') return `Nave evoluída: ${OPCOES_NAVE[m.item]?.nome ?? m.item}`;
+    if (m.acao === 'reconstruir') return 'Torreta reconstruída';
+    if (m.item === MELHORIA_TORRETAS.id) return 'Torretas do time: nível novo';
     return `Mineradores do time: ${MELHORIAS_MINERADOR[m.item]?.nome ?? m.item}`;
+  }
+
+  /** A arma de um id 'evoluir:<arma>' (ou null se o id é outra coisa). */
+  #armaEvoluida(id) {
+    if (typeof id !== 'string' || !id.startsWith(PREFIXO_EVOLUIR)) return null;
+    const kind = id.slice(PREFIXO_EVOLUIR.length);
+    return WEAPONS[kind] ? kind : null;
   }
 
   /** Redesenha o painel; sem `forcar`, só se algo mudou (ouro, posse, aba...). */
@@ -253,13 +300,17 @@ export class PainelServicos {
     this.cartas.innerHTML =
       aba === 'armas'
         ? grade(this.#armas())
-        : aba === 'armaduras'
+        : aba === 'evoluir'
+          ? this.#evoluirArmas()
+          : aba === 'armaduras'
           ? grade(this.#armaduras())
           : aba === 'itens'
             ? grade(this.#itens())
             : aba === 'nave'
               ? this.#nave()
-              : this.#mineradores();
+              : aba === 'torretas'
+                ? this.#torretas()
+                : this.#mineradores();
   }
 
   /**
@@ -297,8 +348,39 @@ export class PainelServicos {
         selo,
         estado,
         pedido: { t: 'comprar', item: kind },
+        extra: etiquetasArma(kind),
       });
     }).join('');
+  }
+
+  /**
+   * Evoluir as armas possuídas: nível atual (tracinhos), o que muda no próximo e o
+   * preço; no máximo, o cartão apaga com "MÁX.".
+   */
+  #evoluirArmas() {
+    const { armas, niveisArmas, ouro } = this.estado;
+    const minhas = ARMAS.map((_, i) => i).filter((i) => armas.includes(i) || ARMAS_INICIAIS.includes(i));
+    const cartoes = minhas.map((i) => {
+      const kind = ARMAS[i];
+      const nivel = niveisArmas[i] ?? 1;
+      const preco = precoEvoluirArma(kind, nivel);
+      let estado;
+      let selo;
+      if (preco === null) [estado, selo] = ['max', 'MÁX.'];
+      else [estado, selo] = ouro >= preco ? ['livre', 'EVOLUIR'] : ['sem-ouro', 'SEM OURO'];
+      return this.#cartao({
+        icone: iconeArma(kind),
+        nome: `${WEAPONS[kind].nome} <em class="nv">NV ${nivel}</em>`,
+        efeito: preco === null ? descreverArma(kind, nivel) : proximoNivelArma(kind, nivel),
+        preco,
+        selo,
+        estado,
+        pedido: { t: 'comprar', item: PREFIXO_EVOLUIR + kind },
+        extra: `<span class="linha-nivel">${etiquetasArma(kind)}${pipsNivel(nivel)}</span>`,
+      });
+    }).join('');
+    const nota = `<p class="nota">Até o nível ${ARMA_NIVEL_MAX}: mais dano, e nas de controle o efeito cresce junto. O preço é por arma: quem foca numa chega ao máximo; duas custam o dobro. Recarga e energia não mudam.</p>`;
+    return nota + `<div class="grade">${cartoes}</div>`;
   }
 
   #armaduras() {
@@ -360,6 +442,55 @@ export class PainelServicos {
       ? `<p class="nota">Marco do nível ${marco.nivel}: escolha 1 de 3. Os efeitos voltam a cada renascimento.</p>`
       : '<p class="nota">Os três marcos da nave já foram feitos nesta partida.</p>';
     return faixa + dica + `<div class="grade">${cartoes}</div>`;
+  }
+
+  /** Nível das torretas do time e um cartão por torreta (vida ou reconstruir). */
+  #torretas() {
+    const minhas = this.estado.torretas;
+    const nivel = minhas[0]?.nivel ?? 1;
+    const precoNivel = precoNivelTorretas(nivel);
+    const pips = `<span class="pips">${Array.from({ length: TORRETA_NIVEL_MAX - 1 }, (_, i) => `<i class="${i < nivel - 1 ? 'on' : ''}"></i>`).join('')}</span>`;
+    const [estadoNivel, seloNivel] =
+      precoNivel == null ? ['max', 'MÁX.'] : this.estado.ouro >= precoNivel ? ['livre', `NÍVEL ${nivel + 1}`] : ['sem-ouro', 'SEM OURO'];
+    const cartaNivel = this.#cartao({
+      icone: iconeEvolucao('torreta'),
+      nome: `${MELHORIA_TORRETAS.nome} · NV ${nivel}`,
+      efeito: `${MELHORIA_TORRETAS.efeito} por nível, nas quatro`,
+      preco: precoNivel,
+      selo: seloNivel,
+      estado: estadoNivel,
+      pedido: { t: 'melhorar', melhoria: MELHORIA_TORRETAS.id },
+      extra: pips,
+    });
+    const cartas = minhas.map((r, i) => {
+      let estado;
+      let selo;
+      let extra;
+      let preco = null;
+      if (r.viva) {
+        [estado, selo] = ['comprado', `DE PÉ · ${Math.round(r.vida * 100)}%`];
+        extra = `<span class="vida-torreta"><i style="width:${r.vida * 100}%"></i></span>`;
+      } else if (r.obra) {
+        [estado, selo] = ['bloqueado', 'SUBINDO · LIBERE O LUGAR'];
+        extra = '<span class="vida-torreta caida"><i></i></span>';
+      } else {
+        preco = PRECO_RECONSTRUIR;
+        [estado, selo] = this.estado.ouro >= preco ? ['livre', 'RECONSTRUIR'] : ['sem-ouro', 'SEM OURO'];
+        extra = '<span class="vida-torreta caida"><i></i></span>';
+      }
+      return this.#cartao({
+        icone: iconeEvolucao(r.viva ? 'torreta' : 'reconstruir'),
+        nome: `Torreta ${i + 1}${r.viva ? '' : ' · destruída'}`,
+        efeito: TORRETAS.find((x) => x.id === r.id)?.nome ?? r.id,
+        preco,
+        selo,
+        estado,
+        pedido: { t: 'reconstruir', torreta: r.id },
+        extra,
+      });
+    });
+    const nota = 'Vale para o time inteiro: qualquer piloto paga. Destruída, a torreta só volta se alguém reconstruir (inteira, no nível do time).';
+    return `<p class="nota">${nota}</p><div class="grade">${cartaNivel}${cartas.join('')}</div>`;
   }
 
   #mineradores() {

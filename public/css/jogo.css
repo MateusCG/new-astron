@@ -366,6 +366,39 @@ kbd {
   filter: drop-shadow(0 0 2px var(--objetivo));
 }
 
+/* Fase final (últimos 3 minutos): faixa âmbar "MINÉRIO ×2" na largura do placar. */
+#placar .fase-final {
+  grid-column: 1 / -1;
+  margin-top: -2px;
+  padding: 1px 0;
+  border-top: 1px solid rgba(255, 182, 39, 0.35);
+  font: 700 11px/16px ui-monospace, monospace;
+  letter-spacing: 0.12em;
+  text-align: center;
+  color: var(--objetivo);
+  text-shadow: 0 0 6px rgba(255, 182, 39, 0.6);
+}
+
+#placar .fase-final[hidden] {
+  display: none;
+}
+
+/* Com a faixa, o placar fica mais alto: as notícias descem junto. */
+#placar:has(.fase-final:not([hidden])) ~ #feed {
+  top: 114px;
+}
+
+#placar .fase-final.anuncia {
+  animation: anuncia-final 0.5s ease-out 4 alternate;
+}
+
+@keyframes anuncia-final {
+  to {
+    color: #fff3d6;
+    text-shadow: 0 0 12px var(--objetivo);
+  }
+}
+
 /* ---------- Fim de partida ---------- */
 
 #fim-partida {
@@ -703,6 +736,46 @@ kbd {
   overflow: hidden;
 }
 
+/* Recall (B): barra da volta à base, no mesmo formato da do objetivo A, mas em
+   turquesa (é coisa do seu time). Fica acima da nave (que ocupa o terço de baixo),
+   longe da barra do objetivo A, para as duas caberem juntas. */
+#prog-recall {
+  position: absolute;
+  top: 26%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  gap: 4px;
+  width: min(300px, calc(100% - 32px));
+  padding: 5px 10px 6px;
+  border: 1px solid var(--neon-escuro);
+  border-radius: 4px;
+  background: rgba(10, 22, 21, 0.8);
+  box-shadow: 0 0 12px rgba(0, 239, 192, 0.25);
+  color: var(--neon);
+  font-size: 13px;
+  text-align: center;
+  pointer-events: none;
+}
+
+#prog-recall .txt b {
+  font: 700 13px ui-monospace, monospace;
+}
+
+#prog-recall .barra {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+#prog-recall .barra i {
+  display: block;
+  height: 100%;
+  background: var(--neon);
+  box-shadow: 0 0 8px var(--neon);
+}
+
 .rotulo .nv {
   color: var(--xp);
   font: 9px ui-monospace, monospace;
@@ -815,6 +888,25 @@ dd {
 .arma-encaixe.emp {
   border-color: var(--emp);
   opacity: 0.6;
+}
+
+/* Recarga de troca de arma: ícone apagado e a contagem em segundos ao lado. */
+.arma-encaixe .espera {
+  display: none;
+  font: 700 11px ui-monospace, monospace;
+  color: var(--texto);
+}
+
+.arma-encaixe.trocando {
+  grid-template-columns: auto 18px auto auto;
+}
+
+.arma-encaixe.trocando .espera {
+  display: inline;
+}
+
+.arma-encaixe.trocando .icone-arma {
+  opacity: 0.4;
 }
 
 .icone-arma {
@@ -951,6 +1043,7 @@ dd {
   gap: 5px;
   min-height: 24px;
   padding-left: 18px;
+  padding-right: 26px; /* o nível fica no canto */
 }
 
 .opcao-arma .icone-arma {
@@ -1021,6 +1114,92 @@ dd {
   font-size: 11px;
   opacity: 0.7;
   text-align: center;
+}
+
+/* Linha da troca de arma, entre o título e as cartas: "Na base: troca livre" em
+   neon, a regra de fora da base em texto, e a contagem (troca em recarga) como
+   mensagem ruim. */
+#menu-armas .aviso-troca {
+  margin: -4px 0 6px;
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+#menu-armas .aviso-troca.livre {
+  color: var(--neon);
+}
+
+#menu-armas.trocando .aviso-troca {
+  color: #ff8a70;
+  opacity: 1;
+}
+
+#menu-armas .aviso-troca b {
+  font-family: ui-monospace, monospace;
+}
+
+/* Troca em recarga: as outras armas apagadas (tocar só avisa quanto falta). */
+.opcao-arma.espera {
+  opacity: 0.4;
+  cursor: wait;
+}
+
+.opcao-arma.espera .selo {
+  color: #ff8a70;
+}
+
+/* Tipo de dano e função ("Laser · Dano") e, no cartão de evoluir, os tracinhos do
+   nível; quebra a linha se não couber (cartão estreito no celular). */
+.linha-nivel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3px 4px;
+  min-height: 12px;
+}
+
+.etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.etiquetas i {
+  padding: 0 4px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 3px;
+  font: 600 8.5px system-ui, sans-serif;
+  font-style: normal;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 12px;
+  white-space: nowrap;
+}
+
+.etiquetas .funcao.controle {
+  border-color: var(--neon-escuro);
+  color: var(--neon);
+}
+
+/* Nível da arma (evoluído na Loja) no canto de cima da carta, oposto à tecla. */
+.opcao-arma .nivel {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font: 700 9px ui-monospace, monospace;
+  color: var(--neon);
+  white-space: nowrap;
+}
+
+.opcao-arma .nivel.base {
+  color: var(--texto);
+  opacity: 0.5;
+}
+
+.pips {
+  display: flex;
+  gap: 2px;
 }
 
 /* ---------- Itens consumíveis no painel inferior (R e F) ---------- */
@@ -1256,6 +1435,7 @@ dd {
 
 /* Cartão: ícone e nome, efeito, preço em ouro e o selo do estado. */
 .carta-servico {
+  min-width: 0; /* texto longo quebra dentro do cartão, sem invadir o vizinho */
   display: grid;
   align-content: start;
   gap: 3px;
@@ -1369,7 +1549,15 @@ dd {
   color: var(--texto);
 }
 
-/* Níveis das melhorias dos mineradores: bolinhas, cheias até o nível comprado. */
+/* Nível da arma no cartão de evoluir: "NV 3" ao lado do nome. */
+.carta-servico .nv {
+  font: 700 10px ui-monospace, monospace;
+  font-style: normal;
+  color: var(--cor-servico);
+  white-space: nowrap;
+}
+
+/* Níveis das melhorias dos mineradores (e das armas): tracinhos, cheios até o nível. */
 .carta-servico .pips {
   display: flex;
   gap: 3px;
@@ -1385,6 +1573,28 @@ dd {
 .carta-servico .pips i.on {
   background: var(--cor-servico);
   box-shadow: 0 0 6px var(--cor-servico);
+}
+
+/* Vida de cada torreta do time (Evolução › Torretas): barra fina em --neon (é do
+   seu time); caída, a barra fica vazia com a borda tracejada. */
+.carta-servico .vida-torreta {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.carta-servico .vida-torreta i {
+  display: block;
+  height: 100%;
+  background: var(--neon);
+  box-shadow: 0 0 6px var(--neon);
+}
+
+.carta-servico .vida-torreta.caida {
+  background: none;
+  outline: 1px dashed rgba(255, 138, 112, 0.6);
 }
 
 /* Faixa dos marcos da nave (NV 5, 10, 15). */
@@ -1515,6 +1725,7 @@ body.dano::after {
 
 #btn-shift,
 #btn-pouso,
+#btn-recall,
 .btn-arma {
   font-size: 11px !important;
 }
@@ -1524,6 +1735,22 @@ body.dano::after {
 #botoes .btn-arma {
   height: 64px;
   border-radius: 32px;
+}
+
+/* BASE (recall) fica à esquerda do POUSAR, fora da grade, para não empurrar os
+   outros botões nem crescer a coluna da direita. */
+#botoes #btn-recall {
+  position: absolute;
+  right: calc(100% + 12px);
+  top: 76px;
+  width: 64px;
+  height: 64px;
+  margin-top: 3px;
+}
+
+#botoes #btn-recall.canalizando {
+  border-color: var(--neon);
+  color: var(--neon);
 }
 
 #botoes button.ativo {
@@ -1559,9 +1786,10 @@ body.dano::after {
   font-size: 11px;
 }
 
-/* No celular a carta mostra só o essencial: ícone, nome e selo. */
+/* No celular a carta mostra só o essencial: ícone, nome, nível e selo. */
 .toque .opcao-arma dl,
 .toque .opcao-arma .efeito,
+.toque .opcao-arma .etiquetas,
 .toque .opcao-arma > kbd {
   display: none;
 }
@@ -1585,6 +1813,10 @@ body.dano::after {
 
 .toque .arma-encaixe {
   grid-template-columns: auto 18px;
+}
+
+.toque .arma-encaixe.trocando {
+  grid-template-columns: auto 18px auto;
 }
 
 /* No celular o painel fica à esquerda do placar e dos botões da direita, com o
@@ -1646,7 +1878,15 @@ body.dano::after {
   #feed {
     top: 80px;
   }
+  #placar:has(.fase-final:not([hidden])) ~ #feed {
+    top: 98px;
+  }
   #ping {
     top: 98px;
   }
+}
+
+/* No cartão de evoluir arma, os tracinhos dividem a linha com as etiquetas. */
+.carta-servico .linha-nivel .pips i {
+  width: 8px;
 }

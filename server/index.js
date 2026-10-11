@@ -7,86 +7,136 @@
 //
 // Protocolo (JSON):
 //   cliente → servidor  {t:'entrar', nome, race}
-//                       {t:'in', s:seq, th, tu, b, f1, f2, p, a, a2}   um por passo de 1/30 s
+//                       {t:'in', s:seq, th, tu, b, f1, f2, p, r, a, a2}   um por passo de 1/30 s
 //                       (p = botão de pouso, alterna pousar/decolar na borda;
+//                        r = botão do recall (B), pulso: na borda começa a
+//                        canalizar a volta à base ou cancela (shared/recall.js);
 //                        f1/f2 = gatilho do Z/X; a/a2 = arma do encaixe do Z/X,
 //                        índice em ARMAS: 0 laser simples, 1 duplo, 2 triplo,
 //                        3 dreno, 4 criogênico, 5 plasma, 6 míssil, 7 mina,
 //                        8 onda de choque, 9 pulso EMP; fora da lista, ou arma
 //                        que a nave não possui (s.armas), vira a padrão do
-//                        encaixe: 0 no Z, 5 no X)
+//                        encaixe: 0 no Z, 5 no X; fora da própria base, trocar a
+//                        arma de um encaixe o põe em recarga de troca de
+//                        TROCA_ARMA_S, e outra troca nele enquanto conta é
+//                        ignorada: o stepShip fica com a arma que tem)
 //                       {t:'comprar', item}      Loja: item = id de shared/loja.js (arma
 //                        pelo nome em ARMAS, 'armaduraLeve' | 'armaduraMedia' |
-//                        'armaduraPesada', 'reparo' | 'energia')
+//                        'armaduraPesada', 'reparo' | 'energia', ou
+//                        'evoluir:<arma>' para subir um nível de uma arma possuída,
+//                        ex. 'evoluir:crio'; sem possuir: 'sem_item'; no máximo: 'limite')
 //                       {t:'evoluir', opcao}     Evolução da nave: 'casco' | 'reator' | 'motor'
 //                       {t:'melhorar', melhoria} mineradores do time: 'quantidade' |
-//                        'durabilidade' | 'defesa' | 'velocidade'
+//                        'durabilidade' | 'defesa' | 'velocidade'; ou 'torretas' (sobe
+//                        o nível das quatro torretas do time)
+//                       {t:'reconstruir', torreta}  reconstrói uma torreta destruída do
+//                        próprio time: torreta = id em TORRETAS ('T0-1' a 'T1-4')
 //                       {t:'usar', item}         item consumível: 'reparo' (R) | 'energia' (F)
-//                       (comprar/evoluir/melhorar só vivo, pousado e parado na
+//                       (comprar/evoluir/melhorar/reconstruir só vivo, pousado e parado na
 //                        plataforma do serviço da própria base; usar vale em qualquer
 //                        lugar; tudo validado em server/servicos.js)
 //                       {t:'ping', c}
 //   servidor → cliente  {t:'bemvindo', id, tickHz, time}   time = 0 (base de baixo) ou 1
 //                       {t:'erro', codigo}   codigo 'partida_cheia' (3 em cada time); fecha
-//                       {t:'snap', tick, ack, vivo, time, me, ouro, abates, mortes,
-//                        nivel, xp, xpProx, partida, bonus, obj, melhorias, minas, guiados,
-//                        ents, ev}
+//                       {t:'snap', tick, ack, vivo, renasceEm, time, me, ouro, abates, mortes,
+//                        nivel, xp, xpProx, partida, bonus, obj, torretas, melhorias, minas,
+//                        guiados, ents, ev}
 //                       (me.encaixes = [arma do Z, arma do X], me.cd1/cd2 = recarga
-//                        de cada encaixe, me.armas = armas que possui, me.lento =
-//                        s de lentidão, me.emp = s sem tiro e sem boost (pulso EMP),
+//                        de cada encaixe, me.troca1/troca2 = s de recarga de troca
+//                        de arma de cada encaixe (sem tiro e sem troca nele),
+//                        me.armas = armas que possui, me.lento = s de lentidão,
+//                        me.lentoMult = fração da velocidade enquanto lento (a
+//                        predição usa), me.emp = s sem tiro e sem boost (pulso EMP),
 //                        me.time = time da nave, para a predição do pouso;
 //                        cada ent traz dreno/lento/emp booleanos para desenhar o efeito;
 //                        ev 'tiro' traz kind, que diz a arma e o efeito do projétil;
 //                        nivel = nível do jogador (1 a NIVEL_MAX), xp = XP dentro do
 //                        nível, xpProx = XP para o próximo (0 no máximo); ouro, xp e
-//                        nivel zeram a cada partida)
+//                        nivel zeram a cada partida; renasceEm = s até a nave
+//                        renascer, 0 viva: cresce com o nível e com a partida)
 //                       {t:'resultado', acao, item, ok, codigo?}   resposta (só a quem
-//                       pediu) de comprar/evoluir/melhorar/usar; codigo = 'nao_pousado' |
+//                       pediu) de comprar/evoluir/melhorar/reconstruir/usar; codigo = 'nao_pousado' |
 //                       'ouro_insuficiente' | 'nivel_insuficiente' | 'ja_possui' |
 //                       'limite' | 'invalido' | 'sem_item' | 'recarga' | 'cheio'
 //                       {t:'pong', c}
 //   me (Loja e Evolução): armas = posse (de fábrica + compradas; zera a cada
-//         partida), armadura (-1 ou 0 a 2), itens {reparo, energia} (carga),
+//         partida), niveisArmas = nível de cada arma (índice em ARMAS, 1 a
+//         ARMA_NIVEL_MAX; evoluído na Loja, zera a cada partida), armadura (-1 ou 0 a 2), itens {reparo, energia} (carga),
 //         cdItens {reparo, energia} (s de recarga), evolucoes (ids das opções da
 //         nave, uma por marco), velMult (multiplicador de velocidade, lido no
 //         stepShip da predição); maxHp e maxEn já com nível, evoluções e armadura
 //   melhorias: {quantidade, durabilidade, defesa, velocidade}   níveis comprados
 //         das melhorias dos mineradores do time de quem recebe (zeram a cada partida)
-//   partida: {n, estado, restante, placar:[t0, t1], vencedor, novaEm}
-//         estado = 'esperando' | 'andamento' | 'fim'; restante e novaEm em s;
+//   partida: {n, estado, fase, restante, placar:[t0, t1], vencedor, novaEm}
+//         estado = 'esperando' | 'andamento' | 'fim'; fase = 'normal' | 'final'
+//         (últimos 3 min: minério entregue vale o dobro); restante e novaEm em s;
 //         vencedor = time, -1 empate, null jogando
-//   bonus: {0: {mineracao: s, velocidade: s, durabilidade: s}, 1: {...}}  só os ativos
+//   bonus: {0: {mineracao: s, velocidade: s, durabilidade: s, furia: s}, 1: {...}}
+//         só os ativos; furia = +20% de dano das naves do time (objetivo C)
 //   obj:  [{id, tipo, estado, time, resta, prog?, quem?, falta?, vida?}]  os seis
 //         objetivos (server/objetivos.js): estado = 'livre' | 'tomando' |
 //         'contestado' | 'recarga'; time = quem tomou por último (ou null); resta =
 //         s de recarga; no A, prog (0 a 1), quem (time tomando) e falta (s); no B e
 //         no C, vida (0 a 1) da torre ou do guardião. Torre B em 'recarga' está
 //         caída: o cliente a tira da física (definirObstaculoAtivo).
+//   torretas: [{id, time, vida, max, nivel, viva, alvo?, obra?}]   as oito torretas do
+//         corredor (server/torretas.js; posição em TORRETAS de shared/terrain.js):
+//         vida e max em HP, nivel = nível do time dono (1 a 3), viva = de pé e
+//         sólida (false: o cliente a tira da física com definirObstaculoAtivo);
+//         alvo = id na mira (só se mira alguém); obra = reconstrução paga
+//         esperando o lugar ficar livre
 //   minas: [{id, dono, time, x, y, z, armada}]   minas no chão (time de quem soltou;
 //         armada = já explode com inimigo perto)
 //   guiados: [{id, x, y, z, vx, vy, vz}]   mísseis teleguiados em voo: o cliente não
 //         prevê a curva e corrige o desenho por aqui
 //   ents: [{id, nome, tipo, drone, vivo, race, x, y, z, yaw, roll, hp, maxHp, boost, pousado,
-//           dreno, lento, emp, time?, carga?, minerando?, nivel?}]
-//         tipo = 'jogador' | 'arnosh' | 'vorax' | 'krakor' | 'guardiao' | 'minerador'
-//         (o que desenhar); drone = inimigo do PvE; time em jogadores e mineradores;
-//         carga e minerando só nos mineradores; nivel só nos jogadores
+//           dreno, lento, emp, time?, carga?, minerando?, nivel?, recall?}]
+//         tipo = 'jogador' | 'arnosh' | 'vorax' | 'krakor' | 'guardiao' | 'minerador' |
+//         'escolta' (o que desenhar); drone = inimigo do PvE; time em jogadores,
+//         mineradores e escoltas; carga e minerando só nos mineradores; nivel só nos
+//         jogadores; recall (0 a 1) só em quem está canalizando a volta à base
 //   ev:   {e:'tiro'|'acerto'|'fim'|'renasceu'|'saiu', ...}
 //         {e:'entrou', id, nome, time}
-//         {e:'morte', id, por, tipo, time?, x, y, z}
+//         {e:'morte', id, por, tipo, time?, x, y, z, ouro?, renasce?, assist?, ouroAssist?,
+//          seq?, encerrou?, seqPor?}
+//                                    ouro = ouro que o matador (jogador) ganhou, bônus
+//                                    incluso; em morte de jogador: renasce = s até
+//                                    renascer; assist = ids dos aliados do matador que
+//                                    feriram a vítima na janela, ouroAssist = ouro de
+//                                    cada um; seq = sequência da vítima encerrada e
+//                                    encerrou = bônus de ouro (só com seq >= 2);
+//                                    seqPor = sequência do matador com este abate
 //         {e:'garra', id, alvo, dano, x, y, z}   golpe corpo a corpo de um Vorax
+//         {e:'tiro', ..., fonte, time}   tiro de torreta (fonte 'torreta', dono = id
+//                                    dela) ou de escolta (fonte 'escolta'): cor do time
 //         {e:'acerto', ..., torre}   tiro que bateu numa torre B (alvo 0)
+//         {e:'acerto', ..., torreta}   tiro ou área que bateu numa torreta (alvo 0;
+//                                    dano 0 se não foi de jogador inimigo)
+//         {e:'torreta', id, time, estado, por, nome, x, y, z}   estado 'destruida' (por =
+//                                    quem deu o último tiro) ou 'reconstruida' (por =
+//                                    quem pagou)
 //         {e:'acerto', arma, alvo, dano, x, y, z}   dano em área (arma 'mina' ou
 //                                    'choque'), um por alvo, sem bala
 //         {e:'choque', id, time, x, y, z, raio}   onda de choque da nave id
 //         {e:'explosao', arma:'mina', id, dono, time, x, y, z, raio}   mina explodiu
 //         {e:'nivel', id, nivel}     jogador subiu de nível
 //         {e:'melhoria', id, nome, time, melhoria, nivel}   alguém do time `time` comprou
-//                                    um nível de melhoria dos mineradores
-//         {e:'objetivo', id, tipo, time, bonus, segundos, quem}   um time tomou um objetivo
+//                                    um nível de melhoria dos mineradores (ou das
+//                                    torretas: melhoria 'torretas')
+//         {e:'objetivo', id, tipo, time, bonus, bonusNaves, segundos, quem}   um time
+//                                    tomou um objetivo (bonus = dos mineradores;
+//                                    bonusNaves = das naves do time, só no C: 'furia')
 //         {e:'entrega', id, time, carga, x, y, z}   minerador somou carga no placar
+//                                    (carga = o que entrou, já dobrado na fase final)
+//         {e:'faseFinal', mult, restante}   começou a fase final (minério × mult)
 //         {e:'partida', n}   começou a partida n (placar zerado)
 //         {e:'fimPartida', vencedor, placar}
+//         {e:'recall', id, estado, motivo?, s?, de?, x?, y?, z?}   volta à base:
+//                                    estado 'inicio' (s = segundos de canalização) |
+//                                    'recusado' | 'cancelado' (motivo 'na_base' |
+//                                    'tiro' | 'boost' | 'velocidade' | 'dano' |
+//                                    'cancelou') | 'chegou' (de = de onde saiu,
+//                                    x/y/z = onde apareceu na base)
 
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
@@ -110,7 +160,7 @@ const TIPOS = {
   '.json': 'application/json',
 };
 const MAX_MSG = 2048;
-const PEDIDOS = new Set(['comprar', 'evoluir', 'melhorar', 'usar']); // server/servicos.js
+const PEDIDOS = new Set(['comprar', 'evoluir', 'melhorar', 'reconstruir', 'usar']); // server/servicos.js
 
 async function servirArquivo(req, res) {
   const url = new URL(req.url, 'http://x');

@@ -8,6 +8,7 @@ Documento de referência do modo de jogo principal. Toda tarefa de jogabilidade 
 
 - **[feito]** **Partida de 10 minutos**, **dois times de 3 jogadores** (`server/partida.js`). O cronômetro começa quando entra o primeiro jogador; com os dois times cheios, quem chega é recusado (`partida_cheia`). Sem fogo amigo. A zona segura de cada base só protege o time dono dela.
 - **[feito]** **Vence o time que mais minerou**: o que conta é o minério que os **mineradores** (mini-naves controladas pelo jogo) entregam na base. Empate é possível. Depois da tela de fim (15 s) começa outra partida do zero.
+- **[feito]** **Fase final**: nos últimos 3 minutos (a partir dos 7:00 decorridos; `FASE_FINAL_S` = 180 em `server/partida.js`) o **minério entregue vale o dobro** (`MULT_FASE_FINAL` = 2, aplicado na entrega em cima da carga que já vem com o bônus de mineração: 10 vira 20, 11 vira 22). O snapshot traz `partida.fase` (`'normal'` ou `'final'`), o evento `faseFinal` anuncia a virada e o placar mostra "MINÉRIO ×2". Partida nova volta à fase normal. (Partida mais curta que a fase final, só nos testes, não tem fase final.)
 - Os jogadores não mineram: eles **protegem os próprios mineradores, destroem os do outro time**, caçam monstros no mundo aberto para ganhar **XP, nível e ouro**, tomam **objetivos** que dão bônus aos mineradores e gastam o ouro na **Evolução** e na **Loja** da base (**[feito]**, ver "Loja e Evolução").
 
 ## Mapa (vista de cima; -z é "em cima" no desenho)
@@ -18,6 +19,7 @@ Escala do desenho: 1 px ≈ 3 m. Retângulo aberto com muralha só na borda.
 |---|---|---|
 | Base de cada time | Círculos verdes em cima e embaixo | `BASES` (x 0, z ±700, raio 200). Nasce, renasce, pousa e conserta ali; zona segura |
 | Corredor dos mineradores | Faixa vermelha ligando as bases | `CORREDOR` (x 0, largura 100): estrada por onde os mineradores vão e voltam |
+| Torretas | (não estão no desenho; pedido do Mateus) | `TORRETAS`: 4 por time, 2 de cada lado da estrada (x ±62), a 340 e 480 m do centro da base, na metade do time **[feito]** (ver "Torretas") |
 | Minério | Bola azul no centro | `MINERIO` (0, 0, raio 60): depósito de cristais onde os mineradores carregam |
 | Entrega | Retângulos azuis nas pontas do corredor | `ENTREGAS`: cada minerador entrega **10 de minério** ao chegar |
 | Evolução | Retângulo preto da esquerda em cada base | Plataforma de pouso: **pousado e parado**, abre o painel da Evolução **[feito]** |
@@ -29,7 +31,24 @@ Escala do desenho: 1 px ≈ 3 m. Retângulo aberto com muralha só na borda.
 
 - **[feito]** Saem da base de cada time de tempos em tempos (um a cada 20 s, até 3 por time), vão pelo corredor até o minério, carregam (5 s) e voltam até a entrega do próprio time: **+10 de minério** para o time por entrega. Depois da entrega voltam para o minério (`server/mineradores.js`).
 - **[feito]** **Podem ser destruídos** pelos jogadores do outro time (o minério que carregavam se perde; quem destrói ganha 40 de ouro). Na própria base são protegidos como os jogadores.
+- **[feito]** **Escolta armada** (`server/escoltas.js`, números em `ESCOLTA`): uma por time, que sai da base 3 s depois do começo da partida (e, destruída, 30 s depois) e anda com os mineradores pela mesma rota: ao lado do minerador mais longe da base (14 m para fora do corredor, um pouco atrás); sem minerador, faz a ronda da rota. Não minera. Atira como torre giratória (sem virar a nave) no inimigo mais perto a até 110 m, com linha de tiro livre: jogadores, mineradores e escoltas do outro time (monstros e torretas não). Dano fraco (6 por tiro, um a cada 0,6 s), 220 de HP, 45 m/s. Criogênico a deixa lenta e EMP a deixa parada e sem tiro, como os mineradores; na própria base é protegida. Destruída: 50 XP e 45 de ouro para quem destruiu.
 - **[feito]** Melhoráveis na Evolução, para o time inteiro: **mais mineradores**, mais **durabilidade**, mais **defesa** (reduz o dano que o minerador leva) e mais **velocidade** (números em "Loja e Evolução"; `melhorias[time]` lido em `atributos(time, tick)`).
+
+## Torretas
+
+**[feito]** Pedido do Mateus: defesas fixas no corredor (`server/torretas.js`; posições em `TORRETAS` de `shared/terrain.js`; a construção é sólida, na mesma planta da física e do desenho em `shared/obstaculos.js`).
+
+- **Onde:** 4 por time, 2 de cada lado da estrada, a 62 m do eixo (fora da estrada e longe das faixas dos mineradores), a 340 m e 480 m do centro da base, na metade do próprio time. As do time 1 são as do time 0 giradas 180°. As z (±360 e ±220) fogem dos caminhos retos do corredor até os objetivos. Alcançam a entrega e a metade do time, mas não a coroa do minério do outro lado.
+- **Tiro:** no inimigo **mais perto** a até 160 m, com linha de tiro livre (rocha e construção tampam): jogadores, mineradores e escoltas do outro time. Monstros não: a torreta é da guerra entre times, e se limpasse os Vorax bastaria voar até ela para se livrar de qualquer caçada. Mira adiantada pela velocidade do alvo; o tiro acerta o que estiver no caminho.
+- **Dano recebido:** só de **jogador do outro time** (tiro, mina e onda de choque). Tiro de aliado, de monstro, de minerador ou de escolta bate nela e some. Dreno, lentidão e EMP não pegam em estrutura, e o míssil não a persegue.
+- **Destruída:** cai (sai da física dos dois lados, como a torre B); quem deu o último tiro ganha **80 XP e 70 de ouro** (`RECOMPENSA.torreta`) e cada outro piloto do time dele **25 de ouro**. **Não renasce sozinha**: só se o time dono a reconstruir na Evolução.
+- **Partida nova:** todas de pé, inteiras, nível 1. Só atiram com a partida em andamento.
+
+| Nível (do time) | HP | Dano por tiro | Cadência |
+|---|---|---|---|
+| 1 | 700 | 10 | 1 a cada 0,75 s |
+| 2 | 945 | 12,5 | igual |
+| 3 | 1190 | 15 | igual |
 
 ## Monstros do mundo aberto
 
@@ -46,7 +65,7 @@ Escala do desenho: 1 px ≈ 3 m. Retângulo aberto com muralha só na borda.
 |---|---|---|
 | **A** | Ficar **pousado 10 s** na marcação | Cada minerador do time minera **+1** de minério por viagem, por 1 minuto |
 | **B** | **Destruir a torre** | Mineradores do time **mais rápidos** por 1 minuto |
-| **C** | Livre (proposta: derrotar o **guardião** da arena) | A definir (proposta: mineradores com mais durabilidade por 1 minuto) |
+| **C** | Derrotar o **guardião** da arena | Mineradores do time com **mais durabilidade** e naves do time com **+20% de dano** (fúria), por 1 minuto |
 
 Objetivos voltam a ficar disponíveis depois de um tempo (a definir).
 
@@ -54,19 +73,53 @@ Objetivos voltam a ficar disponíveis depois de um tempo (a definir).
 
 - **A (pouso):** conta o tempo de quem está **pousado e parado** na marcação; com `OBJ_A_POUSO_S` (10 s) o time toma: bônus `'mineracao'` e +`XP_OBJETIVO` (60) para cada nave do time pousada lá. Ninguém pousado: o progresso zera (decolar antes perde tudo). Naves dos dois times pousadas: **contestado**, o progresso trava. Se só o outro time fica, o progresso recomeça do zero para ele.
 - **B (torre):** a torre tem `TORRE_B_HP` (800) de vida e só tiro de jogador a machuca (tiro de monstro bate e some). Quem dá o **último tiro** toma: bônus `'velocidade'` e +60 XP. A torre cai (deixa de ser sólida para nave e tiro, nos dois lados: `definirObstaculoAtivo`) e volta inteira no fim da recarga, esperando sair quem estiver no lugar dela.
-- **C (guardião, decisão combinada com o Mateus):** um guardião (monstro elite único, 1500 de HP, atira um leque de três plasmas) fica preso na arena. Quem o **mata** toma: bônus `'durabilidade'` para o time (o XP é o do abate: 250, e 150 de ouro). Ele renasce no meio da arena no fim da recarga.
+- **C (guardião, decisão combinada com o Mateus):** um guardião (monstro elite único, 1500 de HP, atira um leque de três plasmas) fica preso na arena. Quem o **mata** toma: bônus `'durabilidade'` para os mineradores do time e **[feito]** `'furia'` para as **naves dos jogadores do time** (todas, não só quem matou), pelos mesmos 60 s (o XP é o do abate: 250, e 150 de ouro). Ele renasce no meio da arena no fim da recarga.
 
-Os bônus do lado dos mineradores (`server/bonus.js`): `'mineracao'` +1 por viagem, `'velocidade'` ×1,4, `'durabilidade'` ×1,5; aparecem no placar com contagem regressiva.
+Os bônus (`server/bonus.js`): dos mineradores, `'mineracao'` +1 por viagem, `'velocidade'` ×1,4, `'durabilidade'` ×1,5; das naves, `'furia'` ×1,2 no dano causado (tiro, míssil, mina, onda de choque e dreno; só o servidor calcula dano, em `World.multDanoDe`, então a predição não muda). Aparecem no placar com contagem regressiva; a fúria também como anel âmbar em volta das naves do time.
 
 ## Progressão do jogador
 
 - **[feito]** **XP e nível** ao destruir monstros, mineradores e jogadores inimigos, e ao tomar objetivos A e B. Começa no nível 1, vai até o 20 (`NIVEL_MAX`); para passar do nível n são `60 + 20 × (n − 1)` XP (`xpParaNivel` em `server/progressao.js`). Cada nível dá +3% do HP máximo da raça. Subir de nível: notícia e anel de luz na nave.
-- **[feito]** **Ouro** pelas mesmas fontes. XP e ouro por tipo em `RECOMPENSA`: Arnosh 20 XP / 25 ouro, Vorax 30 / 30, Krakor 120 / 90, guardião 250 / 150, minerador 40 / 40, jogador 100 / 50.
+- **[feito]** **Ouro** pelas mesmas fontes. XP e ouro por tipo em `RECOMPENSA`: Arnosh 20 XP / 25 ouro, Vorax 30 / 30, Krakor 120 / 90, guardião 250 / 150, minerador 40 / 40, escolta 50 / 45, torreta 80 / 70 (+25 de ouro para cada colega de time), jogador 100 / 50.
 - **[feito]** Ouro, XP e nível são **da partida** (como num MOBA): zeram quando começa a seguinte.
+- **[feito]** **Assistência e sequência de abates** em abate de jogador, e **renascimento** que demora mais com o nível e com o tempo de partida: ver "Combate".
 - **[feito]** **Evolução da nave** nos níveis **5, 10 e 15**, pagando ouro: escolher 1 de 3 (durabilidade, energia, velocidade). Ver "Loja e Evolução".
 - **[feito]** **Duas armas na nave:** Q edita o Z, E edita o X; mesma arma pode ir nos dois. Não existe arma principal: os dois encaixes escolhem do mesmo catálogo (`ARMAS` em `shared/sim.js`: laser simples, duplo, triplo, dreno, criogênico, plasma, míssil teleguiado, mina, onda de choque e pulso EMP), cada um com a sua recarga e a mesma energia. Padrão: laser simples no Z e plasma no X (as duas de fábrica, sempre possuídas).
+- **[feito]** **Recarga de troca de arma** (pedido do Mateus, para a build pesar): fora da própria base, trocar a arma de um encaixe põe **aquele encaixe** em recarga de troca por `TROCA_ARMA_S` (**3 s**): sem tiro nele e sem nova troca nele até acabar; o outro encaixe segue normal. **Dentro da própria base** (raio de `BASES[time]`) a troca é livre e a recarga de troca zera. Roda no `stepShip` (estado `troca1`/`troca2` na nave, no `me`), então a predição bate com o servidor. O menu de armas **trava** o encaixe enquanto conta: as outras cartas ficam apagadas com "TROCA EM 2,1 s", tocar numa delas só dá a notícia de quanto falta (o menu nunca manda uma troca que seria ignorada), e o painel inferior mostra a contagem no encaixe.
+- **[feito]** **Tipo de dano e função de cada arma** (`tipoDano` e `funcao` em `WEAPONS`), mostrados no menu e na Loja. Por enquanto é informação: a armadura por tipo de dano (resistir mais a laser, por exemplo) fica para depois.
+
+| Arma | Tipo de dano | Função |
+|---|---|---|
+| Laser simples, duplo, triplo | Laser | Dano |
+| Dreno | Elétrico | Controle (tira vida por segundos) |
+| Criogênico | Físico | Controle (deixa lento) |
+| Plasma | Elétrico | Dano |
+| Míssil teleguiado | Físico | Dano |
+| Mina | Físico | Dano |
+| Onda de choque | Físico | Controle (empurra para fora) |
+| Pulso EMP | Elétrico | Controle (tira energia, tiro e boost) |
 - **[feito]** **Loja**: comprar armas, armaduras e itens. Cada partida começa só com as armas de fábrica (laser simples e plasma); as outras oito se compram aqui e ficam na posse do piloto (no jogador, não na nave: voltam a cada renascimento). Arma não possuída fica travada no menu ("NA LOJA") e cai na padrão do encaixe.
 - **[feito]** Evolução e Loja só abrem **com a nave pousada e parada** na plataforma do serviço da **própria base**.
+- **[feito]** **Recall (voltar à base, tecla B)**: ver abaixo.
+
+## Recall (voltar à base)
+
+**[feito]** A Loja e a Evolução só abrem na base, a ~700 m do minério; o recall põe a compra no ritmo da partida, como num MOBA (`shared/recall.js`, regras no servidor em `server/game.js`).
+
+- **B** (no celular, o botão **BASE** ao lado do POUSAR) começa a **canalizar** por `RECALL_S` (**6 s**). No fim, a nave aparece na base do próprio time, no mesmo lugar e rumo de quem renasce, com a **vida, a energia, o nível e o equipamento** que tinha (não é renascer: não conserta nada nem dá proteção de nascimento; a zona segura da base já protege).
+- **Cancela** se a nave **levar dano**, **apertar um gatilho** (Z ou X, mesmo sem sair tiro), **der boost**, passar de `RECALL_VEL_MAX` (**8 m/s**: "quase parada"; girar no lugar pode), **morrer** ou se **B for apertado de novo**. Pousada pode.
+- **Não começa** dentro da zona segura da própria base (já está lá), rápido demais, com o gatilho ou o boost apertados, nem morto.
+- Quem canaliza vê a barra "Voltando à base · 3,2 s" no HUD; todos veem uma **coluna de luz na cor do time** em volta da nave (anéis subindo cada vez mais rápido) e um feixe onde ela some e onde aparece.
+
+## Combate
+
+**[feito]** Regras do combate entre jogadores (`server/progressao.js`, números no topo dele; aplicadas em `#ferir` de `server/game.js`). A morte pesa mais conforme a partida avança, e jogar junto rende.
+
+- **Renascimento crescente** (só jogadores; monstros têm o tempo deles): `3 s + 0,6 s × (nível − 1) + até 3 s pelo tempo de partida` (linear, 0 no começo e 3 s no fim do cronômetro), com **teto de 15 s** (`tempoRenascer`). Ex.: nível 1 no começo = 3 s; nível 10 na metade = 9,9 s; nível 20 no fim = 15 s. O snapshot traz `renasceEm` e o HUD conta o tempo certo.
+- **Assistência:** quem é do time do matador e feriu a vítima (jogador inimigo) nos últimos **10 s** (`ASSISTENCIA_JANELA_S`), sem dar o último tiro, ganha **50% do ouro e do XP** do abate de jogador (**25 ouro e 50 XP**), cada um a parte cheia, sem dividir (no 3 contra 3 são no máximo dois ajudantes, e dividir puniria quem joga junto). Vale todo dano com dono: tiro, dreno, mina e onda de choque. Assistência não conta como abate. Só em abate de jogador (minerador e monstro, não). O registro de dano da vítima zera quando ela morre.
+- **Sequência de abates:** cada piloto conta os abates de jogador seguidos sem morrer. Derrubar quem está com sequência de **2 ou mais** (`SEQUENCIA_MIN`) dá ao matador **+25 de ouro por abate da sequência** encerrada, com **teto de 150** (`ouroEncerrar`), além dos 50 do abate. Morrer (para jogador ou monstro) zera a sequência.
+- Sequência e registro de dano zeram também na partida nova, junto com ouro e nível.
+- Notícias: "X encerrou a sequência de Y (N abates, +B ouro)", "Assistência no abate de Y · +25 ouro" e "X está em sequência de N abates".
 
 ## Loja e Evolução
 
@@ -86,6 +139,33 @@ Os bônus do lado dos mineradores (`server/bonus.js`): `'mineracao'` +1 por viag
 | Míssil teleguiado | 340 |
 
 Comprada, a arma pode ir em qualquer um dos dois encaixes (Q e E).
+
+**[feito] Evoluir armas** (aba "Evoluir" da Loja; dados em `shared/loja.js`). Cada arma possuída, as de fábrica inclusive, sobe do nível 1 até `ARMA_NIVEL_MAX` (**5**; para chegar a 10 basta mudar a constante, os preços e efeitos seguem a fórmula). O preço é **por arma** e cresce por nível, então evoluir duas armas custa o dobro: quem foca numa chega ao máximo, quem divide fica com duas medianas, mas de tipos diferentes para segurar mais gente nos objetivos (a ideia do Mateus). Pedido `{t:'comprar', item:'evoluir:<arma>'}`, pousado e parado na Loja da própria base; sem possuir a arma, `sem_item`; no máximo, `limite`. O nível é do piloto (`j.niveisArmas`, vai no `me` como `niveisArmas`): volta a cada renascimento e zera na partida seguinte.
+
+Preço para sair do nível n = `arred10(referência × 0,4 × n)` (`EVOLUIR_ARMA_FRACAO`), com referência = preço da arma na Loja (laser simples e plasma, que não se vendem: `PRECO_REFERENCIA_FABRICA` = 150).
+
+| Arma | 1→2 | 2→3 | 3→4 | 4→5 | Total até o 5 |
+|---|---|---|---|---|---|
+| Laser simples, Laser triplo, Plasma | 60 | 120 | 180 | 240 | 600 |
+| Laser duplo | 50 | 100 | 140 | 190 | 480 |
+| Criogênico | 70 | 140 | 220 | 290 | 720 |
+| Dreno | 80 | 160 | 240 | 320 | 800 |
+| Mina | 100 | 190 | 290 | 380 | 960 |
+| Onda de choque | 100 | 210 | 310 | 420 | 1040 |
+| Pulso EMP | 120 | 240 | 360 | 480 | 1200 |
+| Míssil teleguiado | 140 | 270 | 410 | 540 | 1360 |
+
+Efeito por nível, **só no servidor** (recarga e energia não mudam com o nível, porque entram na predição):
+
+| O que | Por nível acima do 1 | No nível 5 |
+|---|---|---|
+| Dano de todas (tiro, mina, choque) | +10% do dano base (`DANO_POR_NIVEL`) | +40% (laser 12 → 17) |
+| Duração do lento, do EMP e do dreno | +12,5% (`EFEITO_POR_NIVEL`) | +50% (lento 3 → 4,5 s, EMP 2,5 → 3,75 s, dreno 4 → 6 s) |
+| Dano por segundo do dreno | +12,5% | 8 → 12 HP/s |
+| Força do lento | −5 pontos da velocidade que sobra (`LENTIDAO_POR_NIVEL`, mínimo `LENTIDAO_MIN` 25%) | 50% → 30% da velocidade |
+| Empurrão da onda de choque | +12,5% | 55 → 82,5 m/s |
+
+Acertar de novo continua renovando a duração sem somar; no lento, fica o mais forte dos dois (a força vai na nave do alvo, `lentoMult`, para a predição dele bater). Monstros e mineradores atiram sempre no nível 1. O multiplicador fica num lugar só no servidor (`World.multDano`), onde outros multiplicadores de quem atira (bônus de time) podem entrar.
 
 | Armadura | Preço | Efeito |
 |---|---|---|
@@ -129,8 +209,17 @@ Os efeitos ficam no estado da nave e voltam a cada renascimento, junto com o ní
 | Blindagem de carga (defesa) | −15% de dano recebido | 120, 200, 300 |
 | Motor de carga (velocidade) | +10% de velocidade | 120, 200, 300 |
 
+**Torretas do time** **[feito]** (aba Torretas; `MELHORIA_TORRETAS` e `PRECO_RECONSTRUIR` em `shared/evolucao.js`): qualquer piloto paga, vale para o time e o time recebe a notícia.
+
+| Compra | Efeito | Preço |
+|---|---|---|
+| Nível das torretas (`{t:'melhorar', melhoria:'torretas'}`) | +35% de HP e +25% de dano por nível, nas quatro (nível 1 a 3; as de pé ganham vida na mesma proporção) | 250 (nível 2), 400 (nível 3) |
+| Reconstruir uma torreta (`{t:'reconstruir', torreta}`) | Volta inteira, com o nível atual do time; se houver nave no lugar, espera ela sair | 200 cada |
+
+Reconstruir só vale para torreta destruída do próprio time (a do outro time é `invalido`; de pé ou já em obra, `ja_possui`); nível no máximo é `limite`.
+
 ## HUD
 
-- **[feito]** **Canto superior direito**: minério de cada time (placar, seu time em turquesa à esquerda) e o tempo restante da partida, com os bônus ativos de cada time embaixo.
+- **[feito]** **Canto superior direito**: minério de cada time (placar, seu time em turquesa à esquerda) e o tempo restante da partida, com os bônus ativos de cada time embaixo (mineração, velocidade, durabilidade e fúria). Na fase final, a faixa "MINÉRIO ×2" embaixo do placar e a notícia "Fase final: minério entregue vale ×2 até o fim" quando ela começa.
 - **[feito]** Ouro, nível e XP do jogador (barra de XP com o nível no painel; nível também no nome sobre a nave).
 - **[feito]** Fim da partida: tela com o time vencedor, o placar e a contagem para a próxima.

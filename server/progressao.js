@@ -2,7 +2,8 @@
 // jogador"). Tudo em memória: começa no nível 1 a cada entrada.
 //
 // Quem dá XP e ouro: destruir monstros (Arnosh, Vorax, Krakor, o guardião do
-// objetivo C), mineradores do outro time (tipo 'minerador', quando existirem) e
+// objetivo C), mineradores e escoltas do outro time, torretas do outro time (quem dá
+// o último tiro; o resto do time ganha um pouco de ouro, em server/torretas.js) e
 // jogadores inimigos; tomar um objetivo A ou B dá XP_OBJETIVO a quem tomou (no C,
 // o XP é o do abate do guardião). Os valores por tipo ficam em RECOMPENSA.
 //
@@ -19,6 +20,17 @@
 // (não cura o resto). Os níveis 5, 10 e 15 são os marcos da Evolução paga
 // (shared/evolucao.js, server/servicos.js), que lê `j.nivel`; o HP máximo do
 // jogador junta nível, evoluções e armadura em hpMaxDoJogador.
+//
+// Combate entre jogadores (DESIGN-PARTIDA.md, "Combate"): morrer custa mais tempo
+// conforme o nível e a partida avançam (tempoRenascer), para a briga do fim da
+// partida pesar mais que a do começo e o mais forte não voltar na hora. Quem ajudou
+// num abate de jogador (feriu a vítima nos últimos ASSISTENCIA_JANELA_S) ganha
+// ASSISTENCIA_FRACAO do ouro e do XP do abate, cada um a parte cheia (não divide:
+// no 3 contra 3 são no máximo dois ajudantes, e dividir puniria quem joga junto).
+// Cada piloto conta os abates de jogador seguidos sem morrer (`sequencia`); quem
+// derruba alguém com sequência de SEQUENCIA_MIN ou mais ganha bônus de ouro por
+// encerrá-la (ouroEncerrar). Sequência e o registro de dano zeram ao morrer e na
+// partida nova (novoCombate).
 
 import { RACES } from '../shared/sim.js';
 import { efeitosNave } from '../shared/evolucao.js';
@@ -35,8 +47,54 @@ export const RECOMPENSA = {
   krakor: { xp: 120, ouro: 90 },
   guardiao: { xp: 250, ouro: 150 },
   minerador: { xp: 40, ouro: MINERADOR.ouro },
+  escolta: { xp: 50, ouro: 45 },
+  torreta: { xp: 80, ouro: 70 },
   jogador: { xp: 100, ouro: 50 },
 };
+
+// Renascimento do jogador (monstros têm o tempo deles em server/game.js).
+export const RENASCER_BASE_S = 3; // no nível 1, no começo da partida
+export const RENASCER_POR_NIVEL_S = 0.6; // a mais por nível acima do 1
+export const RENASCER_PARTIDA_S = 3; // a mais no fim do cronômetro (cresce linear)
+export const RENASCER_MAX_S = 15; // teto
+// Assistência em abate de jogador.
+export const ASSISTENCIA_JANELA_S = 10; // feriu a vítima até este tempo antes da morte
+export const ASSISTENCIA_FRACAO = 0.5; // do ouro e do XP de RECOMPENSA.jogador, para cada ajudante
+// Sequência de abates de jogador sem morrer.
+export const SEQUENCIA_MIN = 2; // a partir daqui encerrar a sequência dá bônus
+export const ENCERRAR_OURO_POR_ABATE = 25; // ouro por abate da sequência da vítima
+export const ENCERRAR_OURO_MAX = 150; // teto do bônus
+
+/**
+ * Segundos até o jogador renascer: RENASCER_BASE_S + RENASCER_POR_NIVEL_S por
+ * nível acima do 1 + até RENASCER_PARTIDA_S conforme `fracaoPartida` (0 a 1),
+ * com teto RENASCER_MAX_S.
+ */
+export function tempoRenascer(nivel, fracaoPartida = 0) {
+  const f = Math.min(1, Math.max(0, fracaoPartida));
+  const t = RENASCER_BASE_S + RENASCER_POR_NIVEL_S * (Math.max(1, nivel) - 1) + RENASCER_PARTIDA_S * f;
+  return Math.min(RENASCER_MAX_S, t);
+}
+
+/** Bônus de ouro por encerrar uma sequência de `seq` abates (0 abaixo de SEQUENCIA_MIN). */
+export function ouroEncerrar(seq) {
+  return seq >= SEQUENCIA_MIN ? Math.min(ENCERRAR_OURO_MAX, ENCERRAR_OURO_POR_ABATE * seq) : 0;
+}
+
+/** Ouro e XP de uma assistência em abate de jogador. */
+export function recompensaAssistencia() {
+  const r = RECOMPENSA.jogador;
+  return { ouro: Math.round(r.ouro * ASSISTENCIA_FRACAO), xp: Math.round(r.xp * ASSISTENCIA_FRACAO) };
+}
+
+/**
+ * Estado de combate de um jogador: sequência de abates e, por atacante (id), o
+ * tick do último dano que levou dele (para a assistência). Zera ao morrer e na
+ * partida nova.
+ */
+export function novoCombate() {
+  return { sequencia: 0, danoPor: new Map() };
+}
 
 /** Campos de progressão de um jogador que acabou de entrar. */
 export function novaProgressao() {

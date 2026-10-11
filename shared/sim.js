@@ -21,7 +21,7 @@
 // no servidor). Só o L decola de novo; acelerar pousada não faz nada. A nave freia
 // antes de tocar o chão: só desce de vez abaixo de VEL_TOQUE.
 
-import { heightAt, areaPouso, topoPouso } from './terrain.js';
+import { heightAt, areaPouso, topoPouso, BASES } from './terrain.js';
 import { alturaSolida } from './obstaculos.js';
 
 export const DT = 1 / 30;
@@ -138,18 +138,35 @@ export const EMP_DURACAO = 2.5; // s sem tiro e sem boost; acertar de novo volta
 /** Diferença de altura (m) até onde área (mina e choque) ainda pega. */
 export const AREA_ALTURA = 12;
 
+// Troca de arma: trocar a arma de um encaixe fora da própria base põe AQUELE
+// encaixe em recarga de troca por TROCA_ARMA_S (s.troca1 no Z, s.troca2 no X): sem
+// tiro nele e sem nova troca nele até acabar (o outro encaixe segue normal). Sem
+// isso dava para trocar no meio da luta a cada tiro e a build não pesava nada.
+// Dentro da própria base (raio de BASES[s.time]) a troca é livre e a recarga de
+// troca zera. Nave sem time (monstros, testes) troca livre, como no pouso. Fica no
+// estado da nave e roda no stepShip, então a predição bate com o servidor.
+export const TROCA_ARMA_S = 3;
+
 /**
  * Catálogo de armas (as mesmas para os dois encaixes). tipo: sem tipo é projétil
  * (createBullet); 'mina' e 'choque' não têm projétil e o servidor resolve na hora.
+ * tipoDano: 'laser', 'fisico' ou 'eletrico' (o tipo de dano do documento de design;
+ * o campo não se chama `tipo` porque `tipo` já diz a forma: mina ou choque). funcao:
+ * 'dano' ou 'controle' (as de debuff: dreno, lento, empurrão, EMP; na Loja, evoluir
+ * uma de controle também aumenta o efeito, ver shared/loja.js). Por enquanto
+ * tipoDano é só informação no menu e na Loja: a armadura por tipo de dano (resistir
+ * mais a laser, por exemplo) fica para depois.
  * Projétil: por disparo saem projéteis em cada combinação de canos (deslocamento
  * lateral em m, + = direita) e leque (ângulo em rad, + = esquerda, como o yaw); sem
  * os dois, um projétil só, reto pelo nariz. energia é por disparo. efeito é aplicado
  * pelo servidor em quem o projétil acerta; guiado diz que o servidor faz a curva.
  */
 export const WEAPONS = {
-  laser: { nome: 'Laser simples', dano: 12, vel: 340, cd: 0.16, energia: 2, vida: 1.3, raio: 5 },
+  laser: { nome: 'Laser simples', tipoDano: 'laser', funcao: 'dano', dano: 12, vel: 340, cd: 0.16, energia: 2, vida: 1.3, raio: 5 },
   laserDuplo: {
     nome: 'Laser duplo',
+    tipoDano: 'laser',
+    funcao: 'dano',
     dano: LASER_DUPLO_DANO,
     vel: 340,
     cd: LASER_DUPLO_CD,
@@ -160,6 +177,8 @@ export const WEAPONS = {
   },
   laserTriplo: {
     nome: 'Laser triplo',
+    tipoDano: 'laser',
+    funcao: 'dano',
     dano: LASER_TRIPLO_DANO,
     vel: 340,
     cd: LASER_TRIPLO_CD,
@@ -170,6 +189,8 @@ export const WEAPONS = {
   },
   dreno: {
     nome: 'Dreno',
+    tipoDano: 'eletrico',
+    funcao: 'controle',
     dano: DRENO_DANO,
     vel: 260,
     cd: DRENO_CD,
@@ -180,6 +201,8 @@ export const WEAPONS = {
   },
   crio: {
     nome: 'Criogênico',
+    tipoDano: 'fisico',
+    funcao: 'controle',
     dano: CRIO_DANO,
     vel: 300,
     cd: CRIO_CD,
@@ -188,9 +211,11 @@ export const WEAPONS = {
     raio: 5,
     efeito: { tipo: 'lento', mult: CRIO_LENTIDAO, duracao: CRIO_DURACAO },
   },
-  plasma: { nome: 'Plasma', dano: PLASMA_DANO, vel: 190, cd: PLASMA_CD, energia: PLASMA_ENERGIA, vida: 2.2, raio: 6.5 },
+  plasma: { nome: 'Plasma', tipoDano: 'eletrico', funcao: 'dano', dano: PLASMA_DANO, vel: 190, cd: PLASMA_CD, energia: PLASMA_ENERGIA, vida: 2.2, raio: 6.5 },
   missil: {
     nome: 'Míssil teleguiado',
+    tipoDano: 'fisico',
+    funcao: 'dano',
     dano: MISSIL_DANO,
     vel: MISSIL_VEL,
     cd: MISSIL_CD,
@@ -201,6 +226,8 @@ export const WEAPONS = {
   },
   mina: {
     nome: 'Mina',
+    tipoDano: 'fisico',
+    funcao: 'dano',
     tipo: 'mina',
     dano: MINA_DANO,
     cd: MINA_CD,
@@ -214,6 +241,8 @@ export const WEAPONS = {
   },
   choque: {
     nome: 'Onda de choque',
+    tipoDano: 'fisico',
+    funcao: 'controle',
     tipo: 'choque',
     dano: CHOQUE_DANO,
     cd: CHOQUE_CD,
@@ -223,6 +252,8 @@ export const WEAPONS = {
   },
   emp: {
     nome: 'Pulso EMP',
+    tipoDano: 'eletrico',
+    funcao: 'controle',
     dano: EMP_DANO,
     vel: 240,
     cd: EMP_CD,
@@ -252,6 +283,10 @@ export const ENCAIXE_PADRAO = [IDX_ARMA.laser, IDX_ARMA.plasma];
  */
 export const ARMAS_INICIAIS = [...ENCAIXE_PADRAO];
 
+/** Nome de cada tipo de dano e de cada função, para o menu e a Loja. */
+export const TIPOS_DANO = { laser: 'Laser', fisico: 'Físico', eletrico: 'Elétrico' };
+export const FUNCOES_ARMA = { dano: 'Dano', controle: 'Controle' };
+
 /** Todas as armas do catálogo (índices). Nave sem dono (createShip) nasce com todas. */
 export const TODAS_AS_ARMAS = ARMAS.map((_, i) => i);
 
@@ -273,6 +308,16 @@ export function possuiArma(s, a) {
 export function armaDoEncaixe(s, pedida, encaixe) {
   const a = armaValida(pedida, encaixe);
   return possuiArma(s, a) ? a : ENCAIXE_PADRAO[encaixe];
+}
+
+/**
+ * A nave está dentro da própria base (raio de BASES[s.time]), onde trocar de arma é
+ * livre? Nave sem time conta como dentro (troca livre fora da partida).
+ */
+export function trocaLivre(s) {
+  const b = BASES[s.time];
+  if (s.time === undefined || !b) return true;
+  return Math.hypot(s.x - b.x, s.z - b.z) <= b.raio;
 }
 
 /**
@@ -314,6 +359,8 @@ export function createShip(race, x, z, yaw = 0) {
     maxEn: r.energia,
     cd1: 0,
     cd2: 0,
+    troca1: 0, // s de recarga de troca do Z (TROCA_ARMA_S): sem tiro e sem troca nele
+    troca2: 0, // o mesmo no X
     encaixes: [...ENCAIXE_PADRAO], // arma (índice em ARMAS) no Z e no X
     // Armas que a nave pode usar (ver possuiArma). Sem restrição aqui (monstros,
     // mineradores, testes); a nave de jogador recebe a posse do piloto no World
@@ -321,6 +368,7 @@ export function createShip(race, x, z, yaw = 0) {
     armas: [...TODAS_AS_ARMAS],
     velMult: 1, // multiplicador da velocidade máxima (evolução do motor, armadura pesada)
     lento: 0, // segundos restantes de lentidão (tiro criogênico); o servidor põe no acerto
+    lentoMult: CRIO_LENTIDAO, // fração da velocidade enquanto lento (o nível do criogênico de quem acertou a abaixa)
     emp: 0, // segundos restantes sem tiro e sem boost (pulso EMP); o servidor põe no acerto
     boost: false,
     boostTravado: false,
@@ -330,7 +378,7 @@ export function createShip(race, x, z, yaw = 0) {
 }
 
 /** Comando vazio (nave solta). */
-export const INPUT_VAZIO = { th: 0, tu: 0, b: false, f1: false, f2: false, p: false, a: ENCAIXE_PADRAO[0], a2: ENCAIXE_PADRAO[1] };
+export const INPUT_VAZIO = { th: 0, tu: 0, b: false, f1: false, f2: false, p: false, r: false, a: ENCAIXE_PADRAO[0], a2: ENCAIXE_PADRAO[1] };
 
 /** Normaliza um comando vindo da rede: nunca confie no cliente. */
 export function sanitizeInput(i) {
@@ -341,6 +389,7 @@ export function sanitizeInput(i) {
     f1: !!i?.f1,
     f2: !!i?.f2,
     p: !!i?.p,
+    r: !!i?.r, // recall (B): pulso; só o servidor lê (shared/recall.js), o stepShip não
     a: armaValida(i?.a, 0),
     a2: armaValida(i?.a2, 1),
   };
@@ -361,10 +410,26 @@ function bloqueado(gAtual, x, z, passo) {
 export function stepShip(s, inp, dt = DT) {
   const raca = RACES[s.race];
   // As armas dos dois encaixes vêm no comando (a = Z, a2 = X) a cada passo, para
-  // predição e servidor trocarem no mesmo passo. A recarga é do encaixe, não da
-  // arma: trocar de arma não zera a espera do tiro. Arma que a nave não possui (ou
-  // índice ruim) cai na padrão do encaixe.
-  s.encaixes = [armaDoEncaixe(s, inp.a, 0), armaDoEncaixe(s, inp.a2, 1)];
+  // predição e servidor trocarem no mesmo passo. A recarga do tiro é do encaixe,
+  // não da arma: trocar de arma não zera a espera do tiro. Arma que a nave não
+  // possui (ou índice ruim) cai na padrão do encaixe. Fora da própria base, trocar
+  // põe o encaixe em recarga de troca (TROCA_ARMA_S); pedir outra troca enquanto
+  // ela conta é ignorado (a nave fica com a arma que tem).
+  const livre = trocaLivre(s);
+  if (livre) s.troca1 = s.troca2 = 0;
+  const encaixes = s.encaixes ?? ENCAIXE_PADRAO;
+  s.encaixes = [0, 1].map((enc) => {
+    const atual = encaixes[enc];
+    const pedida = armaDoEncaixe(s, enc === 0 ? inp.a : inp.a2, enc);
+    if (pedida === atual) return atual;
+    // A arma do encaixe deixou de ser possuída (não acontece no jogo): volta à padrão sem recarga.
+    if (!possuiArma(s, atual)) return ENCAIXE_PADRAO[enc];
+    if (livre) return pedida;
+    const troca = enc === 0 ? 'troca1' : 'troca2';
+    if (s[troca] > 0) return atual;
+    s[troca] = TROCA_ARMA_S;
+    return pedida;
+  });
   // Pulso EMP: sem tiro e sem boost enquanto durar (o servidor zerou a energia).
   const semSistemas = s.emp > 0;
   s.emp = Math.max(0, (s.emp || 0) - dt);
@@ -381,7 +446,9 @@ export function stepShip(s, inp, dt = DT) {
   const querBoost = !pousado && !semSistemas && inp.b && inp.th > 0 && s.en > 0 && !s.boostTravado;
   s.boost = querBoost;
   // s.velMult: evolução de motor e armadura pesada (o servidor põe; vai no `me`).
-  const maxV = raca.velocidade * VEL_FATOR * (s.velMult ?? 1) * (querBoost ? BOOST_MULT : 1) * (s.lento > 0 ? CRIO_LENTIDAO : 1);
+  // s.lentoMult: força do lento de quem acertou (o servidor põe no acerto; vai no `me`).
+  const lento = s.lento > 0 ? (s.lentoMult ?? CRIO_LENTIDAO) : 1;
+  const maxV = raca.velocidade * VEL_FATOR * (s.velMult ?? 1) * (querBoost ? BOOST_MULT : 1) * lento;
   s.lento = Math.max(0, (s.lento || 0) - dt);
 
   s.yaw += inp.tu * TURN_RATE * (pousado ? POUSO_GIRO : 1) * dt;
@@ -433,16 +500,19 @@ export function stepShip(s, inp, dt = DT) {
 
   s.cd1 = Math.max(0, s.cd1 - dt);
   s.cd2 = Math.max(0, s.cd2 - dt);
+  s.troca1 = Math.max(0, (s.troca1 || 0) - dt);
+  s.troca2 = Math.max(0, (s.troca2 || 0) - dt);
   const disparos = [];
   if (pousado || semSistemas) return disparos;
   // Z primeiro, depois X, cada um com a sua recarga e gastando da mesma energia.
-  for (const [encaixe, aperto, cd] of [
-    [0, inp.f1, 'cd1'],
-    [1, inp.f2, 'cd2'],
+  // Encaixe em recarga de troca não atira.
+  for (const [encaixe, aperto, cd, troca] of [
+    [0, inp.f1, 'cd1', 'troca1'],
+    [1, inp.f2, 'cd2', 'troca2'],
   ]) {
     const kind = ARMAS[s.encaixes[encaixe]];
     const w = WEAPONS[kind];
-    if (!aperto || s[cd] > 0 || s.en < w.energia) continue;
+    if (!aperto || s[cd] > 0 || s[troca] > 0 || s.en < w.energia) continue;
     s[cd] = w.cd;
     s.en -= w.energia;
     for (const off of w.canos ?? [0]) {

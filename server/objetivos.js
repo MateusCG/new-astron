@@ -17,7 +17,10 @@
 //   snapshot) e volta inteira no fim da recarga; se houver nave em cima do lugar,
 //   espera ela sair, para ninguém ficar preso dentro da torre.
 // - C (guardião): o guardião (server/elites.js) fica na arena. Quem o mata toma:
-//   bônus 'durabilidade' para o time dele (o XP é o do abate, RECOMPENSA.guardiao).
+//   bônus 'durabilidade' para os mineradores do time dele e 'furia' (mais dano)
+//   para as naves dos jogadores do time, pelo mesmo OBJ_BONUS_S. O C é o objetivo
+//   mais caro (1500 de HP, leque de plasma), então paga também quem foi brigar
+//   lá. O XP é o do abate, RECOMPENSA.guardiao.
 //   Ele renasce, com HP cheio, no fim da recarga.
 //
 // Times: o jogador tem `j.time` (0 ou 1) quando a partida de times existir; até lá
@@ -35,6 +38,8 @@ export const OBJ_BONUS_S = 60; // s de bônus para o time que tomou
 export const TORRE_B_HP = 800;
 /** Bônus que cada tipo de objetivo dá (nomes do contrato de server/bonus.js). */
 export const BONUS_DO_TIPO = { A: 'mineracao', B: 'velocidade', C: 'durabilidade' };
+/** Bônus extra para as naves dos jogadores do time, por tipo (só o C tem). */
+export const BONUS_NAVES_DO_TIPO = { C: 'furia' };
 
 const A_TICKS = Math.round(OBJ_A_POUSO_S / DT);
 const RECARGA_TICKS = Math.round(OBJ_RECARGA_S / DT);
@@ -86,7 +91,9 @@ export class Objetivos {
     o.quem = null;
     o.contestado = false;
     w.bonus.ativar(time, BONUS_DO_TIPO[o.tipo], OBJ_BONUS_S, w.tick);
-    w.eventos.push({ e: 'objetivo', id: o.id, tipo: o.tipo, time, bonus: BONUS_DO_TIPO[o.tipo], segundos: OBJ_BONUS_S, quem: quem?.nome ?? null });
+    const naves = BONUS_NAVES_DO_TIPO[o.tipo] ?? null;
+    if (naves) w.bonus.ativar(time, naves, OBJ_BONUS_S, w.tick);
+    w.eventos.push({ e: 'objetivo', id: o.id, tipo: o.tipo, time, bonus: BONUS_DO_TIPO[o.tipo], ...(naves && { bonusNaves: naves }), segundos: OBJ_BONUS_S, quem: quem?.nome ?? null });
   }
 
   /** Avança um tick: pouso nos A, volta das torres B. */

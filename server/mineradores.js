@@ -25,6 +25,10 @@
 // Atributos num lugar só: atributos(time, tick) junta as constantes de MINERADOR,
 // as melhorias do time (this.melhorias, compradas na Evolução) e os bônus
 // por tempo dos objetivos (server/bonus.js). Quem quiser mexer em minerador mexe ali.
+//
+// A escolta armada que anda com eles (server/escoltas.js) usa a mesma rota e as
+// mesmas faixas (pontoRota), mas é outro módulo: não minera, não entra no placar e
+// não lê as melhorias nem os bônus dos mineradores.
 
 import { createShip, stepShip, RACES, VEL_FATOR, DT } from '../shared/sim.js';
 import { BASES, ROTAS, ENTREGAS } from '../shared/terrain.js';
@@ -48,15 +52,16 @@ export const FAIXA_MINERADOR = 15;
 const CHEGOU = 12; // m: perto assim de um ponto da rota, segue para o próximo
 const FREIA_DIST = 40; // m antes do depósito: começa a frear para parar nele
 
-function anguloEntre(a, b) {
+/** Diferença de ângulo de a para b, em (-π, π]. */
+export function anguloEntre(a, b) {
   let d = b - a;
   while (d > Math.PI) d -= 2 * Math.PI;
   while (d < -Math.PI) d += 2 * Math.PI;
   return d;
 }
 
-/** Ponto `i` da rota do time, na faixa do sentido (ida ou volta). */
-function pontoRota(time, i, ida) {
+/** Ponto `i` da rota do time, na faixa do sentido (ida ou volta). A escolta usa também. */
+export function pontoRota(time, i, ida) {
   const rota = ROTAS[time];
   const fim = rota[rota.length - 1];
   const ini = rota[0];
@@ -69,14 +74,14 @@ function pontoRota(time, i, ida) {
 }
 
 /** Yaw (convenção de shared/sim.js) de quem olha de (x, z) para (ax, az). */
-function yawPara(x, z, ax, az) {
+export function yawPara(x, z, ax, az) {
   return Math.atan2(-(ax - x), -(az - z));
 }
 
 export class Mineradores {
   /**
    * @param {{ bonus: import('./bonus.js').Bonus, novoId: () => number,
-   *   entregar: (time: number, carga: number) => void, evento: (ev: object) => void }} ctx
+   *   entregar: (time: number, carga: number) => number | void, evento: (ev: object) => void }} ctx
    */
   constructor({ bonus, novoId, entregar, evento }) {
     this.bonus = bonus;
@@ -217,8 +222,9 @@ export class Mineradores {
 
     const e = ENTREGAS[m.time];
     if (m.estado === 'volta' && Math.abs(s.x - e.x) <= e.largura / 2 && Math.abs(s.z - e.z) <= e.profundidade / 2) {
-      this.entregar(m.time, m.carga);
-      this.evento({ e: 'entrega', id: m.id, time: m.time, carga: m.carga, x: s.x, y: s.y, z: s.z });
+      // O placar decide quanto a carga vale (dobra na fase final); o evento leva isso.
+      const valor = this.entregar(m.time, m.carga) ?? m.carga;
+      this.evento({ e: 'entrega', id: m.id, time: m.time, carga: valor, x: s.x, y: s.y, z: s.z });
       m.carga = 0;
       m.estado = 'ida';
       // Segue para o primeiro ponto da rota que fica adiante, rumo ao minério.

@@ -38,10 +38,37 @@
 // na morte do guardião), que ligam os bônus em this.bonus; os monstros elite
 // (Krakor e o guardião) em server/elites.js.
 //
+// Combate entre jogadores (DESIGN-PARTIDA.md, "Combate"; números em
+// server/progressao.js): todo dano de jogador inimigo (tiro, dreno, mina, choque)
+// fica anotado na vítima (`danoPor`: atacante → tick); na morte de um jogador,
+// quem do time do matador feriu na janela leva a assistência, a sequência da
+// vítima zera (e o matador ganha o bônus por encerrá-la) e o renascimento do
+// jogador demora tempoRenascer(nível, partida decorrida).
+//
+// Torretas do corredor (server/torretas.js) e a escolta armada dos mineradores
+// (server/escoltas.js): ganchos no step (andar e atirar), no tiro que bate numa
+// torreta (tiroNaTorreta, como a torre B), no dano em área (#area) e no snapshot
+// (`torretas`; a escolta é uma entidade como o minerador). Os tiros delas entram
+// por adicionarTiro, com `fonte` e `time` no evento para o cliente pintar.
+//
 // Loja e Evolução (server/servicos.js): pedidos do cliente atendidos em pedido();
 // a posse de armas, a armadura, os itens e as evoluções ficam no jogador e vão
 // para cada nave nova em prepararNave (nascimento e renascimento). A armadura e a
 // defesa dos mineradores reduzem o dano em #ferir.
+//
+// Nível das armas (Loja, shared/loja.js): o tiro, a mina e a onda de choque levam o
+// nível da arma de quem atirou (`nivel`, lido de j.niveisArmas na hora do disparo);
+// o dano passa por multDano() e o efeito das armas de controle sai de
+// efeitoDaArma(kind, nivel). O dreno guarda o dano por segundo na entidade
+// (drenoDps) e o lento guarda a força na nave (ship.lentoMult, que vai no `me` e o
+// stepShip do alvo lê). Monstro e minerador atiram sempre no nível 1.
+//
+// Recall (shared/recall.js): o campo r do comando é um pulso; a borda de subida
+// (j.rAnt) começa ou cancela a canalização no passo daquele comando, e os mesmos
+// comandos cancelam com gatilho, boost ou velocidade (#comandoRecall). Dano cancela
+// em #ferir. Terminada, a nave vai para um ponto da base do time como no
+// renascimento, mas é a mesma nave (vida, energia, nível e equipamento ficam); a
+// fila de comandos segue, e o cliente reconcilia o salto pelo `me`.
 
 import {
   DT,
@@ -55,24 +82,40 @@ import {
   VEL_TOQUE,
   VEL_FATOR,
   RACES,
+  IDX_ARMA,
 } from '../shared/sim.js';
+import { danoMultNivel, efeitoDaArma } from '../shared/loja.js';
 import { BASE, BASES, CORREDOR } from '../shared/terrain.js';
 import { pontoAberto } from '../shared/obstaculos.js';
 import { MapaNavegacao } from './navegacao.js';
-import { Partida, N_TIMES } from './partida.js';
+import { Partida, N_TIMES, MULT_FASE_FINAL } from './partida.js';
 import { Mineradores } from './mineradores.js';
-import { Bonus } from './bonus.js';
+import { Escoltas } from './escoltas.js';
+import { Torretas } from './torretas.js';
+import { Bonus, BONUS } from './bonus.js';
 import { Objetivos } from './objetivos.js';
-import { novaProgressao, recompensar, xpParaNivel } from './progressao.js';
+import {
+  novaProgressao,
+  novoCombate,
+  recompensar,
+  ganharXp,
+  xpParaNivel,
+  tempoRenascer,
+  ouroEncerrar,
+  recompensaAssistencia,
+  ASSISTENCIA_JANELA_S,
+} from './progressao.js';
 import { Servicos, novoEquipamento, prepararNave, reducaoArmadura } from './servicos.js';
 import { KRAKOR, N_KRAKOR, novaElite, renascerElite, iaElite } from './elites.js';
 import { alvoDoMissil, guiarMissil, novaMina, naArea } from './armas.js';
+import { RECALL_S, motivoRecall } from '../shared/recall.js';
 
 export const TICK_HZ = 30;
 const SNAP_CADA = 2; // ticks entre snapshots (15 Hz)
 const MAX_INPUTS_TICK = 4;
 const MAX_FILA = 30;
-const RESPAWN_TICKS = 3 * TICK_HZ;
+const RESPAWN_TICKS = 3 * TICK_HZ; // drones; o do jogador cresce (tempoRenascer em server/progressao.js)
+const ASSISTENCIA_TICKS = ASSISTENCIA_JANELA_S * TICK_HZ;
 const REGEN_ESPERA_TICKS = 5 * TICK_HZ;
 const VOO_REGEN_HP = 0.03; // fração do HP máximo por segundo, voando
 const POUSO_REGEN_HP = 0.08; // fração do HP máximo por segundo, pousada
@@ -92,6 +135,7 @@ export const ZONA_SEGURA = BASE.raio + 30;
 // volta para o mundo aberto: as bases são território dos jogadores.
 const DRONE_LIMITE_BASE = ZONA_SEGURA + 60;
 const PROTECAO_TICKS = 3 * TICK_HZ; // invulnerável logo depois de nascer
+const RECALL_TICKS = Math.round(RECALL_S * TICK_HZ);
 
 // Monstros Vorax: caçadores que vêm atrás de quem sai da base, de qualquer canto do
 // mapa, contornando as mesas de rocha (server/navegacao.js). Atacam com as garras, de
@@ -157,12 +201,23 @@ function baseMaisPerto(s) {
 export class World {
   /**
    * @param {{ rng?: () => number, drones?: number, monstros?: number, elites?: number,
-   *   duracaoPartidaS?: number, intervaloFimS?: number }} [opcoes]
+   *   duracaoPartidaS?: number, intervaloFimS?: number, faseFinalS?: number, torretas?: boolean }} [opcoes]
    * drones = Arnosh, monstros = Vorax, elites = Krakor (os guardiões dos objetivos C
-   * sempre existem).
+   * sempre existem). torretas = false deixa as torretas de pé mas sem atirar (testes
+   * que brigam no meio do corredor).
    */
-  constructor({ rng = Math.random, drones = N_DRONES, monstros = N_MONSTROS, elites = N_KRAKOR, duracaoPartidaS, intervaloFimS } = {}) {
+  constructor({
+    rng = Math.random,
+    drones = N_DRONES,
+    monstros = N_MONSTROS,
+    elites = N_KRAKOR,
+    duracaoPartidaS,
+    intervaloFimS,
+    faseFinalS,
+    torretas = true,
+  } = {}) {
     this.rng = rng;
+    this.torretasAtiram = torretas;
     this.tick = 0;
     this.nextId = 1;
     this.players = new Map();
@@ -174,14 +229,15 @@ export class World {
     this.eventos = [];
     // Mapa de caça dos Vorax: campo de caminhos até os jogadores caçáveis.
     this.caca = { campo: null, alvos: [], ate: 0 };
-    this.partida = new Partida({ duracaoS: duracaoPartidaS, intervaloFimS });
+    this.partida = new Partida({ duracaoS: duracaoPartidaS, intervaloFimS, faseFinalS });
     this.bonus = new Bonus();
     this.mineradores = new Mineradores({
       bonus: this.bonus,
       novoId: () => this.#id(),
-      entregar: (time, carga) => this.partida.somar(time, carga),
+      entregar: (time, carga) => this.partida.somar(time, carga, this.tick),
       evento: (ev) => this.eventos.push(ev),
     });
+    this.escoltas = new Escoltas(this);
     for (let i = 0; i < drones; i++) this.drones.push(this.#novoDrone());
     for (let i = 0; i < monstros; i++) this.monstros.push(this.#novoVorax());
     for (let i = 0; i < elites; i++) {
@@ -189,6 +245,7 @@ export class World {
       this.elites.push(novaElite('krakor', this.#id(), p.x, p.z, this.rng() * Math.PI * 2));
     }
     this.objetivos = new Objetivos(this);
+    this.torretas = new Torretas(this);
     this.servicos = new Servicos(this);
     // O que a IA dos elites lê do mundo.
     const players = this.players;
@@ -307,10 +364,13 @@ export class World {
       respawnTick: 0,
       ultimoDano: 0,
       protegidoAte: this.tick + PROTECAO_TICKS,
+      recall: null, // canalizando: { inicio, fim } em ticks
+      rAnt: false, // botão do recall no comando anterior (borda de subida)
       ouro: 0,
       abates: 0,
       mortes: 0,
       ...novaProgressao(), // nivel, xp
+      ...novoCombate(), // sequencia, danoPor
       ...novoEquipamento(), // armas, armadura, itens, evoluções (Loja e Evolução)
     };
     prepararNave(jogador); // só as armas de fábrica
@@ -335,6 +395,16 @@ export class World {
     return this.servicos.pedido(this.players.get(id), msg);
   }
 
+  /**
+   * Tiro que não sai de nave de jogador nem de monstro (torreta, escolta): entra no
+   * mundo e vira o evento 'tiro', com `extra` ({fonte, time}) para o cliente pintar
+   * na cor do time.
+   */
+  adicionarTiro(b, extra = {}) {
+    this.bullets.push(b);
+    this.eventos.push({ e: 'tiro', id: b.id, dono: b.owner, kind: b.kind, x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz, ...extra });
+  }
+
   /** Enfileira um comando do cliente. Comando fora de ordem ou repetido é ignorado. */
   pushInput(id, msg) {
     const j = this.players.get(id);
@@ -347,21 +417,28 @@ export class World {
     j.fila.push({ seq, inp: sanitizeInput(msg) });
   }
 
+  /** Nível da arma `kind` de quem atira (Loja); 1 para quem não evolui armas. */
+  #nivelArma(ent, kind) {
+    return ent.niveisArmas?.[IDX_ARMA[kind]] ?? 1;
+  }
+
   #atira(ent, disparos) {
     for (const { kind, off, ang } of disparos) {
       const tipo = WEAPONS[kind].tipo;
+      const nivel = this.#nivelArma(ent, kind);
       if (tipo === 'mina') {
-        this.#soltarMina(ent);
+        this.#soltarMina(ent, nivel);
         continue;
       }
       if (tipo === 'choque') {
-        this.#choque(ent);
+        this.#choque(ent, nivel);
         continue;
       }
       const b = createBullet(ent.ship, kind, this.#id(), ent.id, off, ang);
       b.drone = !!ent.drone;
       b.time = ent.time; // sem fogo amigo: o tiro atravessa quem é do mesmo time
       b.mult = ent.danoMult ?? (ent.drone ? DRONE.danoMult : 1);
+      b.nivel = nivel;
       this.bullets.push(b);
       this.eventos.push({ e: 'tiro', id: b.id, dono: ent.id, kind, x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz });
     }
@@ -574,29 +651,35 @@ export class World {
     return !ent.drone && (this.tick < ent.protegidoAte || this.#naPropriaBase(ent));
   }
 
-  /** O tiro `b` pode acertar `alvo`? Não acerta o dono, aliado nem (se de drone) drone ou minerador. */
+  /** O tiro `b` pode acertar `alvo`? Não acerta o dono, aliado nem (se de drone) drone, minerador ou escolta. */
   #podeAcertar(b, alvo) {
     if (alvo.id === b.owner || !alvo.vivo) return false;
     if (b.time !== undefined && b.time === alvo.time) return false; // sem fogo amigo
-    if (b.drone && (alvo.drone || alvo.tipo === 'minerador')) return false;
+    if (b.drone && (alvo.drone || alvo.tipo === 'minerador' || alvo.tipo === 'escolta')) return false;
     return true;
   }
 
   /** Todas as entidades que podem levar dano e estão vivas. */
   #vivos() {
-    return [...this.players.values(), ...this.drones, ...this.monstros, ...this.elites, ...this.mineradores.lista].filter(
-      (e) => e.vivo,
-    );
+    return [
+      ...this.players.values(),
+      ...this.drones,
+      ...this.monstros,
+      ...this.elites,
+      ...this.mineradores.lista,
+      ...this.escoltas.lista,
+    ].filter((e) => e.vivo);
   }
 
   /** Mina nova atrás da nave; passando de MINA_MAX, a mais velha do piloto some. */
-  #soltarMina(ent) {
+  #soltarMina(ent, nivel = 1) {
     const minha = this.minas.filter((m) => m.dono === ent.id);
     if (minha.length >= WEAPONS.mina.max) {
       const velha = minha[0];
       this.minas = this.minas.filter((m) => m !== velha);
     }
     const m = novaMina(this.#id(), ent, this.tick);
+    m.nivel = nivel; // nível da mina de quem soltou, para o dano da explosão
     this.minas.push(m);
   }
 
@@ -621,17 +704,18 @@ export class World {
         s.vx += ux * empurrao;
         s.vz += uz * empurrao;
       }
-      this.#ferir(alvo, dano, fonte.id, { e: 'acerto', arma, x: s.x, y: s.y, z: s.z });
+      this.#ferir(alvo, dano * this.multDanoDe(fonte.id), fonte.id, { e: 'acerto', arma, x: s.x, y: s.y, z: s.z });
     }
-    return n;
+    return n + this.torretas.area(fonte, x, y, z, raio, dano * this.multDanoDe(fonte.id), arma); // só jogador fere torreta
   }
 
-  /** Onda de choque em volta da nave de `ent`: dano em área e empurrão. */
-  #choque(ent) {
+  /** Onda de choque em volta da nave de `ent`: dano em área e empurrão (os dois crescem com o nível). */
+  #choque(ent, nivel = 1) {
     const w = WEAPONS.choque;
     const s = ent.ship;
+    const dano = Math.round(w.dano * this.multDano({ nivel, time: ent.time, owner: ent.id }));
     this.eventos.push({ e: 'choque', id: ent.id, time: ent.time, x: s.x, y: s.y, z: s.z, raio: w.area });
-    this.#area(ent, s.x, s.y, s.z, w.area, w.dano, 'choque', w.empurrao);
+    this.#area(ent, s.x, s.y, s.z, w.area, dano, 'choque', efeitoDaArma('choque', nivel).empurrao);
   }
 
   /**
@@ -646,30 +730,55 @@ export class World {
       const como = { owner: m.dono, time: m.time, drone: m.drone };
       if (!vivos.some((alvo) => this.#podeAcertar(como, alvo) && naArea(alvo, m.x, m.y, m.z, w.gatilho))) return true;
       this.eventos.push({ e: 'explosao', arma: 'mina', id: m.id, dono: m.dono, time: m.time, x: m.x, y: m.y, z: m.z, raio: w.area });
-      this.#area({ id: m.dono, time: m.time, drone: m.drone }, m.x, m.y, m.z, w.area, w.dano, 'mina');
+      const dano = Math.round(w.dano * this.multDano({ nivel: m.nivel, time: m.time, owner: m.dono }));
+      this.#area({ id: m.dono, time: m.time, drone: m.drone }, m.x, m.y, m.z, w.area, dano, 'mina');
       return false;
     });
   }
 
-  /** Dano de um tiro no impacto (arma × multiplicador de quem atirou). */
+  /**
+   * Multiplicador do dano causado pelo jogador `autorId` agora (1 para monstro,
+   * drone ou quem já saiu). Ponto único dos multiplicadores de time do atacante:
+   * hoje só o bônus 'furia' (objetivo C). Vale no impacto, então só enquanto o
+   * bônus dura. Tiro, área (mina e choque, em #area) e dreno passam por aqui.
+   */
+  multDanoDe(autorId) {
+    const j = this.players.get(autorId);
+    if (!j) return 1;
+    return this.bonus.ativo(j.time, 'furia', this.tick) ? BONUS.furia.mult : 1;
+  }
+
+  /**
+   * Multiplicador do dano de um golpe de arma pelo nível da arma de quem atirou
+   * (Loja: danoMultNivel). `golpe` é a bala, a mina ou {nivel, time, owner} da onda
+   * de choque. O bônus de time fica em multDanoDe, aplicado à parte.
+   */
+  multDano(golpe) {
+    return danoMultNivel(golpe.nivel);
+  }
+
+  /** Dano de um tiro no impacto (arma × multiplicador do atirador × nível × bônus do time). */
   danoDoTiro(bala) {
-    return WEAPONS[bala.kind].dano * (bala.mult ?? 1);
+    return WEAPONS[bala.kind].dano * (bala.mult ?? 1) * this.multDano(bala) * (bala.drone ? 1 : this.multDanoDe(bala.owner));
   }
 
   #dano(alvo, bala) {
-    const w = WEAPONS[bala.kind];
+    const efeito = efeitoDaArma(bala.kind, bala.nivel);
     const dano = Math.round(this.danoDoTiro(bala));
     // Efeitos de arma só pegam em quem pode levar dano. Acertar de novo renova a
-    // duração; não soma nem empilha.
-    if (!this.#protegido(alvo)) {
-      if (w.efeito?.tipo === 'dreno') {
-        alvo.drenoTicks = Math.round(w.efeito.duracao * TICK_HZ);
+    // duração; não soma nem empilha. No lento, se já havia um, fica o mais forte.
+    if (efeito && !this.#protegido(alvo)) {
+      const s = alvo.ship;
+      if (efeito.tipo === 'dreno') {
+        alvo.drenoTicks = Math.round(efeito.duracao * TICK_HZ);
         alvo.drenoDono = bala.owner;
-      } else if (w.efeito?.tipo === 'lento') {
-        alvo.ship.lento = Math.max(alvo.ship.lento || 0, w.efeito.duracao);
-      } else if (w.efeito?.tipo === 'emp') {
-        alvo.ship.en = 0;
-        alvo.ship.emp = Math.max(alvo.ship.emp || 0, w.efeito.duracao);
+        alvo.drenoDps = efeito.dps;
+      } else if (efeito.tipo === 'lento') {
+        s.lentoMult = s.lento > 0 ? Math.min(s.lentoMult ?? efeito.mult, efeito.mult) : efeito.mult;
+        s.lento = Math.max(s.lento || 0, efeito.duracao);
+      } else if (efeito.tipo === 'emp') {
+        s.en = 0;
+        s.emp = Math.max(s.emp || 0, efeito.duracao);
       }
     }
     this.#ferir(alvo, dano, bala.owner, { e: 'acerto', bala: bala.id, x: bala.x, y: bala.y, z: bala.z });
@@ -691,12 +800,21 @@ export class World {
     else if (alvo.tipo === 'minerador') dano *= 1 - this.mineradores.atributos(alvo.time, this.tick).defesa;
     alvo.ship.hp -= dano;
     alvo.ultimoDano = this.tick;
+    // Dano de jogador inimigo: anota para a assistência.
+    const atacante = alvo.tipo === 'jogador' && dano > 0 ? this.players.get(autor) : undefined;
+    if (atacante && atacante.time !== alvo.time) alvo.danoPor.set(atacante.id, this.tick);
+    if (alvo.recall && dano > 0) this.#pararRecall(alvo, 'dano'); // vale também para a morte
     if (ev) this.eventos.push({ ...ev, alvo: alvo.id, dano });
     if (alvo.ship.hp > 0) return;
     alvo.ship.hp = 0;
     alvo.vivo = false;
     alvo.drenoTicks = 0;
-    alvo.respawnTick = this.tick + (alvo.renascerTicks ?? (alvo.tipo === 'vorax' ? VORAX_RENASCER_TICKS : RESPAWN_TICKS));
+    if (alvo.tipo === 'jogador') {
+      const s = tempoRenascer(alvo.nivel, this.partida.fracaoDecorrida(this.tick));
+      alvo.respawnTick = this.tick + Math.round(s * TICK_HZ);
+    } else {
+      alvo.respawnTick = this.tick + (alvo.renascerTicks ?? (alvo.tipo === 'vorax' ? VORAX_RENASCER_TICKS : RESPAWN_TICKS));
+    }
     if (alvo.tipo === 'jogador') alvo.mortes++;
     if (alvo.tipo === 'minerador') alvo.carga = 0; // o minério que carregava se perde
     let matador = this.players.get(autor);
@@ -707,16 +825,57 @@ export class World {
     if (matador) {
       // Ouro e XP pelo tipo do que morreu (RECOMPENSA: monstro, minerador, jogador).
       matador.abates++;
+      const ouroAntes = matador.ouro;
       recompensar(matador, alvo.tipo, this.eventos);
+      if (alvo.tipo === 'jogador') this.#abateDeJogador(alvo, matador, morte);
+      morte.ouro = matador.ouro - ouroAntes;
+    }
+    if (alvo.tipo === 'jogador') {
+      // Morrer (para quem for) zera a sequência e o registro de dano.
+      alvo.sequencia = 0;
+      alvo.danoPor.clear();
+      morte.renasce = Math.round((alvo.respawnTick - this.tick) / TICK_HZ);
     }
     this.objetivos.aoMorrer(alvo, matador);
+  }
+
+  /**
+   * Extras do abate de jogador por jogador: assistências (aliados do matador que
+   * feriram a vítima na janela, cada um com recompensaAssistencia) e a sequência
+   * (o matador soma um; encerrar a da vítima dá ouroEncerrar). Completa o evento
+   * de morte com `assist` (ids), `ouroAssist`, `seq` (sequência encerrada),
+   * `encerrou` (bônus) e `seqPor` (sequência nova do matador).
+   */
+  #abateDeJogador(alvo, matador, morte) {
+    const assist = [];
+    const r = recompensaAssistencia();
+    for (const [id, tick] of alvo.danoPor) {
+      if (id === matador.id || this.tick - tick > ASSISTENCIA_TICKS) continue;
+      const j = this.players.get(id);
+      if (!j || j.time !== matador.time) continue;
+      j.ouro += r.ouro;
+      ganharXp(j, r.xp, this.eventos);
+      assist.push(id);
+    }
+    if (assist.length) {
+      morte.assist = assist;
+      morte.ouroAssist = r.ouro;
+    }
+    const bonus = ouroEncerrar(alvo.sequencia);
+    if (bonus) {
+      matador.ouro += bonus;
+      morte.seq = alvo.sequencia;
+      morte.encerrou = bonus;
+    }
+    matador.sequencia++;
+    morte.seqPor = matador.sequencia;
   }
 
   /** Dreno: um tick de dano por tempo. Na zona segura/proteção o tempo corre sem dano. */
   #drenar(ent) {
     if (!(ent.drenoTicks > 0)) return;
     ent.drenoTicks--;
-    this.#ferir(ent, WEAPONS.dreno.efeito.dps * DT, ent.drenoDono);
+    this.#ferir(ent, (ent.drenoDps ?? WEAPONS.dreno.efeito.dps) * DT * this.multDanoDe(ent.drenoDono), ent.drenoDono);
   }
 
   #regen(ent) {
@@ -750,6 +909,7 @@ export class World {
       prepararNave(ent); // nível, evoluções, armadura e a posse de armas
       ent.fila.length = 0;
       ent.protegidoAte = this.tick + PROTECAO_TICKS;
+      ent.recall = null; // partida nova: quem canalizava já está na base
     }
     ent.vivo = true;
     ent.drenoTicks = 0;
@@ -769,7 +929,9 @@ export class World {
       if (vinhaDoFim) this.minas = [];
       if (vinhaDoFim) this.objetivos.reiniciar();
       if (vinhaDoFim) this.servicos.reiniciar(); // melhorias dos mineradores dos dois times
+      if (vinhaDoFim) this.torretas.reiniciar(); // todas de pé, nível 1
       this.mineradores.comecar(this.tick);
+      this.escoltas.comecar(this.tick);
       // Depois da tela de fim, todo mundo volta para a base do time. (Na primeira
       // partida, quem entrou acabou de nascer lá.)
       if (vinhaDoFim) {
@@ -777,11 +939,13 @@ export class World {
           if (j.fila.length) j.ack = j.fila[j.fila.length - 1].seq; // descarta sem travar a predição
           // Ouro, XP, nível, armas compradas, armadura, itens e evoluções são da
           // partida (como num MOBA): zeram na seguinte.
-          Object.assign(j, novaProgressao(), novoEquipamento(), { ouro: 0 });
+          Object.assign(j, novaProgressao(), novoCombate(), novoEquipamento(), { ouro: 0 });
           this.#respawn(j);
         }
       }
       this.eventos.push({ e: 'partida', n: this.partida.numero });
+    } else if (virou === 'faseFinal') {
+      this.eventos.push({ e: 'faseFinal', mult: MULT_FASE_FINAL, restante: Math.round(this.partida.restante(this.tick)) });
     } else if (virou === 'fim') {
       const { vencedor, placar } = this.partida;
       this.eventos.push({ e: 'fimPartida', vencedor, placar: [...placar] });
@@ -790,8 +954,53 @@ export class World {
       this.minas = [];
       this.objetivos.reiniciar();
       this.servicos.reiniciar();
+      this.torretas.reiniciar();
       this.mineradores.limpar();
+      this.escoltas.limpar();
     }
+  }
+
+  /**
+   * Recall depois de aplicar o comando `inp` na nave de `j`: B apertado agora (borda
+   * de subida) começa ou cancela; canalizando, gatilho, boost e velocidade cancelam.
+   * Recusa vem como evento ('na_base' ou o motivo de motivoRecall).
+   */
+  #comandoRecall(j, inp) {
+    const apertou = inp.r && !j.rAnt;
+    j.rAnt = inp.r;
+    if (j.recall) {
+      const motivo = apertou ? 'cancelou' : motivoRecall(inp, j.ship);
+      if (motivo) this.#pararRecall(j, motivo);
+      return;
+    }
+    if (!apertou) return;
+    const motivo = this.#naPropriaBase(j) ? 'na_base' : motivoRecall(inp, j.ship);
+    if (motivo) {
+      this.eventos.push({ e: 'recall', id: j.id, estado: 'recusado', motivo });
+      return;
+    }
+    j.recall = { inicio: this.tick, fim: this.tick + RECALL_TICKS };
+    this.eventos.push({ e: 'recall', id: j.id, estado: 'inicio', s: RECALL_S });
+  }
+
+  #pararRecall(j, motivo) {
+    j.recall = null;
+    this.eventos.push({ e: 'recall', id: j.id, estado: 'cancelado', motivo });
+  }
+
+  /**
+   * Fim da canalização: a mesma nave aparece num ponto da base do time, voltada para
+   * o corredor, como quem renasce (sem a proteção de nascimento: na própria base a
+   * zona segura já protege). Vida, energia, armas e efeitos ficam como estavam.
+   */
+  #chegarNaBase(j) {
+    const s = j.ship;
+    const de = { x: s.x, y: s.y, z: s.z };
+    const p = this.#pontoNaBase(j.time);
+    const nova = createShip(s.race, p.x, p.z, p.yaw);
+    Object.assign(s, { x: nova.x, y: nova.y, z: nova.z, yaw: nova.yaw, vx: 0, vz: 0, roll: 0, pousado: false, boost: false });
+    j.recall = null;
+    this.eventos.push({ e: 'recall', id: j.id, estado: 'chegou', de, x: s.x, y: s.y, z: s.z });
   }
 
   /** Avança o mundo um passo. */
@@ -811,8 +1020,10 @@ export class World {
       for (let k = 0; k < n; k++) {
         const { seq, inp } = j.fila.shift();
         this.#atira(j, stepShip(j.ship, inp));
+        this.#comandoRecall(j, inp);
         j.ack = seq;
       }
+      if (j.recall && this.tick >= j.recall.fim) this.#chegarNaBase(j);
       this.#drenar(j);
       if (j.vivo) this.#regen(j);
     }
@@ -841,9 +1052,14 @@ export class World {
       this.#regen(m);
     }
 
-    // Mineradores andam só com a partida em andamento (na tela de fim ficam parados).
-    if (this.partida.emAndamento) this.mineradores.passo(this.tick);
+    // Mineradores e escoltas andam só com a partida em andamento (na tela de fim
+    // ficam parados).
+    if (this.partida.emAndamento) {
+      this.mineradores.passo(this.tick);
+      this.escoltas.passo(this.tick);
+    }
     for (const m of this.mineradores.lista) if (m.vivo) this.#drenar(m);
+    for (const e of this.escoltas.lista) if (e.vivo) this.#drenar(e);
 
     this.ctxElite.tick = this.tick;
     for (const e of this.elites) {
@@ -859,6 +1075,7 @@ export class World {
     }
 
     this.objetivos.step();
+    this.torretas.passo(this.partida.emAndamento && this.torretasAtiram);
 
     const vivos = this.#vivos();
     this.#passoMinas(vivos);
@@ -866,6 +1083,7 @@ export class World {
       if (WEAPONS[b.kind].guiado) guiarMissil(b, alvoDoMissil(b, vivos.filter((a) => this.#podeAcertar(b, a))));
       const segue = stepBullet(b);
       if (this.objetivos.tiroNaTorre(b)) return false; // bateu na torre de um objetivo B
+      if (this.torretas.tiroNaTorreta(b)) return false; // bateu numa torreta
       if (!segue) {
         this.eventos.push({ e: 'fim', bala: b.id, x: b.x, y: b.y, z: b.z });
         return false;
@@ -888,9 +1106,9 @@ export class World {
 
   /**
    * Entidades visíveis para todos (mesma lista para cada jogador). `tipo` diz o
-   * que desenhar ('jogador', 'arnosh', 'vorax', 'krakor', 'guardiao' ou
-   * 'minerador'); `drone` continua true para todo inimigo do PvE. Jogadores e
-   * mineradores trazem `time`; os mineradores também `carga` (minério no contêiner)
+   * que desenhar ('jogador', 'arnosh', 'vorax', 'krakor', 'guardiao', 'minerador'
+   * ou 'escolta'); `drone` continua true para todo inimigo do PvE. Jogadores,
+   * mineradores e escoltas trazem `time`; os mineradores também `carga` (minério no contêiner)
    * e `minerando`. Jogador traz `nivel`.
    */
   entidades() {
@@ -918,6 +1136,7 @@ export class World {
       };
       if (e.time !== undefined) ent.time = e.time;
       if (e.nivel !== undefined) ent.nivel = e.nivel;
+      if (e.recall) ent.recall = +Math.min(1, (this.tick - e.recall.inicio) / (e.recall.fim - e.recall.inicio)).toFixed(2);
       if (e.tipo === 'minerador') {
         ent.carga = e.carga;
         ent.minerando = e.estado === 'minerando';
@@ -928,6 +1147,7 @@ export class World {
     for (const d of this.drones) add(d);
     for (const m of this.monstros) add(m);
     for (const m of this.mineradores.lista) add(m);
+    for (const e of this.escoltas.lista) add(e);
     for (const e of this.elites) add(e);
     return lista;
   }
@@ -935,17 +1155,25 @@ export class World {
   /**
    * Snapshot para um jogador: estado completo da própria nave + o resto do mundo.
    * Também o nível e o XP dele (xp dentro do nível, xpProx para o próximo; 0 no
-   * máximo) e o estado dos objetivos (`obj`, igual para todos: cache por tick).
+   * máximo), o estado dos objetivos (`obj`) e das torretas (`torretas`), iguais
+   * para todos: cache por tick.
    */
   snapshotPara(j, ents, eventos) {
     if (this.cacheObj?.tick !== this.tick) {
-      this.cacheObj = { tick: this.tick, obj: this.objetivos.estado(), minas: this.#minasSnap(), guiados: this.#guiadosSnap() };
+      this.cacheObj = {
+        tick: this.tick,
+        obj: this.objetivos.estado(),
+        torretas: this.torretas.estado(),
+        minas: this.#minasSnap(),
+        guiados: this.#guiadosSnap(),
+      };
     }
     return {
       t: 'snap',
       tick: this.tick,
       ack: j.ack,
       vivo: j.vivo,
+      renasceEm: j.vivo ? 0 : Math.max(0, +((j.respawnTick - this.tick) / TICK_HZ).toFixed(1)),
       time: j.time,
       me: { ...j.ship, ...this.servicos.paraMe(j) },
       ouro: j.ouro,
@@ -957,6 +1185,7 @@ export class World {
       xp: j.xp,
       xpProx: xpParaNivel(j.nivel),
       obj: this.cacheObj.obj,
+      torretas: this.cacheObj.torretas,
       melhorias: this.servicos.niveis[j.time], // níveis das melhorias dos mineradores do time
       minas: this.cacheObj.minas,
       guiados: this.cacheObj.guiados,
