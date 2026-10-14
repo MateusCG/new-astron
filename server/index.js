@@ -162,6 +162,9 @@ const TIPOS = {
   '.svg': 'image/svg+xml',
   '.json': 'application/json',
   '.glb': 'model/gltf-binary',
+  '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
+  '.mp3': 'audio/mpeg',
 };
 const MAX_MSG = 2048;
 const PEDIDOS = new Set(['comprar', 'evoluir', 'melhorar', 'reconstruir', 'usar']); // server/servicos.js
