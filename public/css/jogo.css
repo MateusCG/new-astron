@@ -17,6 +17,7 @@
   --xp: #b6f05a;
   --evolucao: #a58bff;
   --loja: #ff6fd8;
+  --vida-aliado: #3f8cff;
 }
 
 * {
@@ -763,9 +764,14 @@ kbd {
   background: var(--hp);
 }
 
-/* Jogadores e mineradores: nome e barra na cor do time de quem olha. */
+/* Jogadores e mineradores: nome na cor do time de quem olha; a barra de vida dos
+   aliados é azul e a dos inimigos, vermelha (pedido do Mateus: lê de longe quem é quem). */
 .rotulo.aliado .nome {
   color: var(--neon);
+}
+
+.rotulo.aliado .barra i {
+  background: var(--vida-aliado);
 }
 
 #painel {

@@ -42,6 +42,7 @@ Tokens em `public/css/jogo.css` (`:root`). Use as variáveis; não escreva hex s
 | `--objetivo` | `#ffb627` | Ícones dos bônus por tempo no placar (âmbar dos objetivos, de onde os bônus vêm), faixa "MINÉRIO ×2" da fase final, rótulo e barra dos objetivos |
 | `--evolucao` | `#a58bff` | Painel da Evolução (título, aba ativa, selo, níveis das melhorias): o mesmo violeta da plataforma |
 | `--loja` | `#ff6fd8` | Painel da Loja (título, aba ativa, selo "COMPRAR"): o mesmo magenta da plataforma |
+| `--vida-aliado` | `#3f8cff` | Barra de vida sobre as naves, mineradores, escoltas e torretas do seu time (a do inimigo é `--hp`). Azul pedido pelo Mateus, um pouco mais fundo que a energia (`--en`) para não se confundir com ela |
 | `--xp` | `#b6f05a` | Barra de XP e o nível (no painel e no nome sobre a nave) e o anel de "subiu de nível". Verde-lima: cor própria do HUD, fora das três camadas, longe do ouro (amarelo), da energia (azul) e do plasma (verde mais frio, só no tiro) |
 
 - **Botão primário:** fundo `#00efc0`, texto `#032b22`, peso 700. É o mesmo turquesa do Sideral, de propósito: os dois jogos são da mesma casa.
@@ -59,7 +60,7 @@ Na partida 3 contra 3 a cor de time é sempre **relativa a quem olha**: o que é
 |---|---|
 | Nave de jogador | **Marca de luz do time**: uma luz de neon em cada ponta de asa, nos encaixes de arma da ponta do modelo (`l_fire01`/`r_fire01`), o que mais aparece na câmera de perseguição. A sua nave é sempre turquesa. A cor da raça continua no brilho dos motores. Enquanto o modelo de uma nave ainda está baixando, um **losango neon** na cor do time segura o lugar |
 | Minerador | Faixas de neon nos dois lados do casco e brilho dos motores na cor do time |
-| Rótulo sobre a nave | Nome e barra de vida turquesa (aliado) ou vermelhos (inimigo: outro time e monstros). Nas naves de jogador, só a barra em cima |
+| Rótulo sobre a nave | Nome turquesa e **barra de vida azul `--vida-aliado`** no aliado (pedido do Mateus: azul é "do meu lado", vermelho é "inimigo"); nome e barra vermelhos no inimigo (outro time e monstros). Nas naves de jogador, só a barra em cima. Vale para naves, mineradores, escoltas e torretas |
 | Etiqueta do piloto | **Embaixo** de toda nave de jogador (a sua inclusive): plaquinha de chapa escura (`rgba(8,20,19,.72)`, cantos de 8 px) com o nick na cor do time e "NV n" em `--xp` mono; borda `--neon-escuro` no aliado, vermelha apagada no inimigo e `--neon` na sua |
 | Minimapa | Pontos do seu time em turquesa, do outro time e monstros em vermelho; minerador é uma bolinha menor que o quadrado das naves |
 | Placar | Seu time sempre à esquerda, em turquesa; o outro à direita, em vermelho |
