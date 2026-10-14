@@ -68,13 +68,29 @@ body {
     #2a0f1c;
 }
 
+/* Tela inicial larga no computador: em cima o nome do jogo; embaixo, à esquerda,
+   piloto, raça, classe, prévia e Decolar; à direita, os comandos um embaixo do
+   outro ("tecla · ação"), em uma, duas ou três colunas conforme a largura. */
 #form-entrada {
-  width: min(560px, 100%);
-  padding: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas: 'topo topo' 'principal comandos';
+  gap: 4px 32px;
+  width: min(1480px, 100%);
+  padding: 16px 32px 20px;
   border: 1px solid var(--neon-escuro);
   border-radius: 10px;
   background: linear-gradient(180deg, rgba(24, 48, 46, 0.92), rgba(10, 22, 21, 0.95));
   box-shadow: 0 0 40px rgba(0, 239, 192, 0.15);
+}
+
+.topo-entrada {
+  grid-area: topo;
+}
+
+.entrada-principal {
+  grid-area: principal;
+  min-width: 0;
 }
 
 h1 {
@@ -368,11 +384,83 @@ input:focus {
   color: #ff8a70;
 }
 
-.ajuda {
+/* Comandos da tela inicial: um por linha, a tecla (ou as teclas) numa coluna fixa
+   e a ação ao lado; as linhas se arrumam em colunas conforme a largura. */
+.comandos {
+  grid-area: comandos;
+  min-width: 0;
+  padding-left: 28px;
+  border-left: 1px solid var(--chapa-clara);
+}
+
+.comandos h2 {
+  margin: 4px 0 8px;
+  font: 700 16px system-ui, sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--neon);
+}
+
+.comandos dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
+  gap: 4px 20px;
+  font-size: 16px;
+}
+
+.comandos dl > div {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(44, 74, 70, 0.6);
+}
+
+.comandos dt {
+  opacity: 1;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.comandos dt kbd {
+  color: var(--neon);
+}
+
+.comandos dd {
   margin: 0;
-  font-size: 12px;
-  opacity: 0.7;
-  text-align: center;
+  text-align: left;
+  font-family: inherit;
+  line-height: 1.3;
+  opacity: 0.85;
+}
+
+/* Modo de teste e volume, embaixo dos comandos (o Decolar fica à vista sem rolar). */
+.opcoes-entrada {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.opcoes-entrada .modo-teste {
+  margin: 0;
+}
+
+.opcoes-entrada .botao-som {
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  #form-entrada {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'topo' 'principal' 'comandos';
+  }
+
+  .comandos {
+    padding-left: 0;
+    border-left: 0;
+  }
 }
 
 kbd {
