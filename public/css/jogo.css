@@ -18,6 +18,11 @@
   --evolucao: #a58bff;
   --loja: #ff6fd8;
   --vida-aliado: #3f8cff;
+  /* Tipos de dano (STATUS, INVENTÁRIO, ícones de escudo, armadura e potenciador): a
+     leitura do original (Ph. verde, El. azul, Op. vermelho) nos tons dos tiros. */
+  --dano-fisico: #6ee07a;
+  --dano-eletrico: #8fa0ff;
+  --dano-laser: #ff6b8b;
 }
 
 * {
@@ -2739,4 +2744,79 @@ body.dano::after {
   #menu-armas .opcoes {
     max-height: 62vh;
   }
+}
+
+/* ---------- Tipos de dano e ícones de equipamento ---------- */
+
+.tipo-fisico {
+  --cor-tipo: var(--dano-fisico);
+}
+
+.tipo-eletrico {
+  --cor-tipo: var(--dano-eletrico);
+}
+
+.tipo-laser {
+  --cor-tipo: var(--dano-laser);
+}
+
+.tipo-geral {
+  --cor-tipo: var(--neon);
+}
+
+/* Escudo, armadura e potenciador: SVG de traço como os de arma, na cor do tipo. */
+.icone-equip {
+  stroke: var(--cor-tipo, var(--neon));
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  filter: drop-shadow(0 0 3px var(--cor-tipo, var(--neon)));
+}
+
+.icone-equip.vazio {
+  stroke: var(--chapa-clara);
+  filter: none;
+}
+
+.carta-servico .icone-equip {
+  flex: none;
+  width: 22px;
+  height: 22px;
+}
+
+/* Loja › Escudos, Armaduras, Potenciadores: classe exigida, onde está o item e a
+   próxima versão. */
+.carta-servico.possuido {
+  border-color: var(--neon-escuro);
+}
+
+.carta-servico .so-classe,
+.carta-servico .selo-nave {
+  padding: 0 4px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 3px;
+  font: 600 8.5px system-ui, sans-serif;
+  font-style: normal;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 12px;
+  white-space: nowrap;
+}
+
+.carta-servico .selo-nave {
+  border-color: var(--neon-escuro);
+  color: var(--neon);
+}
+
+.carta-servico .selo-nave.guardado {
+  border-color: var(--chapa-clara);
+  color: var(--texto);
+  opacity: 0.7;
+}
+
+.carta-servico .proxima {
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--cor-servico);
 }
