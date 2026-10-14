@@ -1671,9 +1671,32 @@ small.original {
 /* Ouro em destaque: o que dá para gastar. */
 #servico .ouro {
   margin: 0 0 0 auto;
-  font-size: 11px;
+  font-size: 15px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+/* Loja: quanto cabe no compartimento do Inventário (para onde vai o que se compra);
+   cheio, em vermelho-claro. */
+#servico .comp-loja {
+  margin: 0 0 0 auto;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.85;
+}
+
+#servico .comp-loja b {
+  font: 700 17px ui-monospace, monospace;
+  color: var(--neon);
+}
+
+#servico .comp-loja.cheio b {
+  color: #ff8a70;
+}
+
+#servico .comp-loja:not([hidden]) + .ouro {
+  margin-left: 22px;
 }
 
 #servico .ouro span {
