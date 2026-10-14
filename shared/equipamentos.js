@@ -2,11 +2,12 @@
 // (enhancers) das lojas do Astro-N original (dados em shared/equipamentos-original.js,
 // gerado por tools/gerar_equipamentos.mjs), convertidos para a escala do jogo novo.
 //
-// Na nave vão 1 escudo, 1 armadura e 2 potenciadores (podem ser iguais: duas cópias
-// do mesmo, compradas à parte; shared/loja.js), além das duas armas. Cada item tem as
-// versões V1 a V8 do original, que são o NÍVEL do item (1 a 8), como nas armas:
-// comprar dá a V1; evoluir paga a taxa de tuning do original (sem chance de falhar),
-// sem pedir nível do piloto (shared/versoes.js). Alguns itens são de uma classe só
+// Na nave vão 1 escudo, 1 armadura e 2 potenciadores (podem ser iguais: duas
+// instâncias do mesmo, compradas à parte; o inventário está em shared/loja.js), além
+// das duas armas. Cada item tem as versões V1 a V8 do original, que são o NÍVEL do
+// item (1 a 8), como nas armas: comprar dá a V1; evoluir a instância paga a taxa de
+// tuning do original (sem chance de falhar), sem pedir nível do piloto
+// (shared/versoes.js). Alguns itens são de uma classe só
 // (as colunas de classe do original): podeUsar.
 //
 // O que cada categoria faz (o efeito de tudo junto, com os pontos do piloto, é

@@ -238,8 +238,7 @@ test('validação: no servidor, o encaixe só aceita arma da raça e classe que 
   w.pushInput(j.id, { s: 1, a: outraClasse, a2: daClasse });
   w.step();
   assert.deepEqual(j.ship.encaixes, armasIniciais('bellico'), 'sem comprar, nada muda');
-  j.armas = [daClasse, outraClasse];
-  j.ship.armas = [daClasse, outraClasse];
+  j.ship.armas = [daClasse, outraClasse]; // a posse na nave (o servidor a tira de j.inv)
   w.pushInput(j.id, { s: 2, a: outraClasse, a2: daClasse });
   w.step();
   assert.deepEqual(j.ship.encaixes, [armasIniciais('bellico')[0], daClasse], 'a da outra classe continua recusada');

@@ -1,8 +1,9 @@
 // Loja da base (shared/loja.js + server/servicos.js): só compra pousado e parado na
-// Loja da própria base e com ouro; armas compradas nos dois encaixes; posse no
-// jogador (sobrevive ao renascimento, zera na partida nova); equipamentos do
-// original (escudo, armadura, potenciadores: tests/inventario.test.mjs tem o resto);
-// itens com recarga e limite; pedido malformado não quebra nada.
+// Loja da própria base e com ouro; a compra vira uma instância no inventário (a arma
+// comprada vai nos dois encaixes); posse no jogador (sobrevive ao renascimento, zera
+// na partida nova); equipamentos do original (escudo, armadura, potenciadores:
+// tests/inventario.test.mjs tem o resto); itens com recarga e limite; pedido
+// malformado não quebra nada.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -48,6 +49,16 @@ function mundo() {
 }
 
 const comprar = (w, j, item) => w.pedido(j.id, { t: 'comprar', item });
+/** Chaves das armas no inventário de `j`. */
+const armasDoInv = (j) => j.inv.filter((x) => x.tipo === 'arma').map((x) => x.chave);
+/** Compra o equipamento `k` e o põe na nave (a compra vai para o compartimento). */
+function comprarEquipar(w, j, k) {
+  const r = comprar(w, j, k);
+  if (!r.ok) return r;
+  const cat = EQUIPAMENTOS[k].categoria;
+  const slot = cat === 'potenciador' ? ['pot1', 'pot2'][j.equipado.pot.indexOf(null)] : cat;
+  return w.pedido(j.id, { t: 'equipar', slot, inst: j.inv.at(-1).id });
+}
 const usar = (w, j, item) => w.pedido(j.id, { t: 'usar', item });
 
 test('loja: à venda as armas da raça e da classe que não são de fábrica, com o preço do original', () => {
@@ -58,11 +69,12 @@ test('loja: à venda as armas da raça e da classe que não são de fábrica, co
   assert.ok(!venda.includes(IDX_ARMA.o312010), 'arma de outra raça não');
   assert.equal(PRECO_ARMA.missil, 230, '3800 do original × 0,06, arredondado à dezena');
   assert.ok(PRECO_ARMA.emp > PRECO_ARMA.missil, 'Invulnerabilidade é das mais caras');
-  // Equipamentos do original: compra pela chave, evolução por 'evoluir:<chave>'.
+  // Equipamentos do original: compra pela chave; a Loja não evolui (é por instância).
   for (const k of ORDEM_EQUIP) {
     assert.deepEqual(itemDaLoja(k), { tipo: 'equip', chave: k, categoria: EQUIPAMENTOS[k].categoria, preco: EQUIPAMENTOS[k].preco });
-    assert.deepEqual(itemDaLoja('evoluir:' + k), { tipo: 'evoluirEquip', chave: k });
+    assert.equal(itemDaLoja('evoluir:' + k), null);
   }
+  assert.equal(itemDaLoja('evoluir:' + MISSIL), null);
   for (const velha of ['armaduraLeve', 'armaduraMedia', 'armaduraPesada']) assert.equal(itemDaLoja(velha), null, 'as armaduras genéricas saíram');
 });
 
@@ -86,11 +98,12 @@ test('loja: só compra pousado e parado na Loja da própria base, e com ouro', (
 
   j.ouro = PRECO_ARMA.missil - 1;
   assert.equal(comprar(w, j, MISSIL).codigo, 'ouro_insuficiente');
-  assert.ok(!j.armas.includes(missil));
+  assert.ok(!armasDoInv(j).includes(MISSIL));
   j.ouro = PRECO_ARMA.missil + 5;
   assert.equal(comprar(w, j, MISSIL).ok, true);
   assert.equal(j.ouro, 5, 'cobrou o preço');
-  assert.ok(j.armas.includes(missil) && j.ship.armas.includes(missil));
+  assert.ok(armasDoInv(j).includes(MISSIL) && j.ship.armas.includes(missil));
+  assert.deepEqual(j.inv.at(-1), { id: j.inv.at(-1).id, tipo: 'arma', chave: MISSIL, nivel: 1, pago: PRECO_ARMA.missil });
   j.ouro = 1000;
   assert.equal(comprar(w, j, MISSIL).codigo, 'ja_possui');
   assert.equal(j.ouro, 1000, 'recusa não cobra');
@@ -102,7 +115,7 @@ test('loja: só compra pousado e parado na Loja da própria base, e com ouro', (
 test('loja: arma comprada vai nos dois encaixes; não comprada cai na padrão', () => {
   const w = mundo();
   const j = w.addPlayer('A', 'bellico');
-  assert.deepEqual(j.armas, [], 'começa sem nada comprado');
+  assert.deepEqual(armasDoInv(j), ARMAS_INICIAIS.map((a) => ARMAS[a]), 'começa só com as de fábrica');
   assert.deepEqual(j.ship.armas, ARMAS_INICIAIS, 'a nave tem as de fábrica');
   let seq = 0;
   const comando = (a, a2) => {
@@ -124,7 +137,8 @@ test('loja: a posse sobrevive ao renascimento e zera na partida seguinte', () =>
   w.step();
   pousar(j, 'loja');
   j.ouro = 2000;
-  for (const item of [MISSIL, TITANIO, VELOCIDADE, 'reparo', 'energia']) assert.equal(comprar(w, j, item).ok, true, item);
+  for (const item of [MISSIL, 'reparo', 'energia']) assert.equal(comprar(w, j, item).ok, true, item);
+  for (const item of [TITANIO, VELOCIDADE]) assert.equal(comprarEquipar(w, j, item).ok, true, item);
 
   // Morre e renasce: nave nova, mesma posse.
   j.ship.hp = 0;
@@ -135,22 +149,23 @@ test('loja: a posse sobrevive ao renascimento e zera na partida seguinte', () =>
   assert.ok(j.ship.armas.includes(missil), 'a arma comprada volta na nave nova');
   assert.equal(j.ship.maxHp, Math.round(hpMaxDoNivel(naveDe('bellico', 'assault', 0).hp, 1) + versaoEquip(TITANIO, 1).hp), 'a armadura volta');
   assert.ok(j.ship.velMult > 1, 'o potenciador de velocidade volta');
-  assert.equal(j.equipado.armadura, TITANIO);
+  assert.equal(j.inv.find((x) => x.id === j.equipado.armadura).chave, TITANIO);
   assert.equal(j.itens.reparo, 1);
 
   // Partida seguinte: tudo volta ao começo.
   for (let i = 0; i < SEGUNDO * 10 && w.partida.numero < 2; i++) w.step();
   assert.equal(w.partida.numero, 2);
-  assert.deepEqual(j.armas, []);
-  assert.deepEqual(j.ship.armas, ARMAS_INICIAIS);
-  assert.deepEqual(j.equip, {});
+  assert.deepEqual(armasDoInv(j), ARMAS_INICIAIS.map((a) => ARMAS[a]), 'só as duas de fábrica');
+  assert.equal(j.inv.length, 2);
+  assert.deepEqual(j.ship.armas, [...ARMAS_INICIAIS].sort((a, b) => a - b));
   assert.deepEqual(j.equipado, { escudo: null, armadura: null, pot: [null, null] });
   assert.deepEqual(j.itens, { reparo: 0, energia: 0 });
   assert.equal(j.ship.maxHp, hpMaxDoNivel(naveDe('bellico', 'assault', 0).hp, 1));
   assert.equal(j.ship.velMult, 1);
   const me = w.snapshotPara(j, [], []).me;
-  assert.deepEqual(me.armas, ARMAS_INICIAIS);
-  assert.deepEqual(me.equip, {});
+  assert.deepEqual(me.armas, [...ARMAS_INICIAIS].sort((a, b) => a - b));
+  assert.equal(me.inv.length, 2);
+  assert.equal(me.equip, undefined, 'a posse por chave saiu do me');
   assert.equal(me.armadura, undefined, 'o número da armadura genérica saiu do me');
 });
 
@@ -161,7 +176,7 @@ function danoDeUmLaser(equipDeB) {
   const b = w.addPlayer('B', 'shrewdo');
   b.ouro = 1000;
   pousar(b, 'loja');
-  for (const item of equipDeB) assert.equal(comprar(w, b, item).ok, true, item);
+  for (const item of equipDeB) assert.equal(comprarEquipar(w, b, item).ok, true, item);
   const z = BASE.z - ZONA_SEGURA - 120;
   Object.assign(a.ship, createShip('acron', BASE.x, z, 0), { time: a.time, armas: a.ship.armas });
   Object.assign(b.ship, { x: BASE.x, z: z - 20, y: a.ship.y, vx: 0, vz: 0, pousado: false });
@@ -184,11 +199,12 @@ test('loja: a armadura do original dá HP e resistência; o potenciador de veloc
   j.ouro = 2000;
   const hp0 = j.ship.maxHp;
   assert.equal(comprar(w, j, ALCANIO).ok, true);
+  assert.equal(j.ship.maxHp, hp0, 'no compartimento não muda a nave');
+  assert.equal(w.pedido(j.id, { t: 'equipar', slot: 'armadura', inst: j.inv.at(-1).id }).ok, true);
   assert.equal(j.ship.maxHp, Math.round(hp0 + versaoEquip(ALCANIO, 1).hp));
   assert.equal(j.ship.hp, j.ship.maxHp, 'a vida sobe junto com o máximo');
-  assert.equal(comprar(w, j, ALCANIO).codigo, 'ja_possui');
   assert.equal(comprar(w, j, TITANIO).codigo, 'invalido', 'Titânio é só da Assault');
-  assert.equal(comprar(w, j, VELOCIDADE).ok, true);
+  assert.equal(comprarEquipar(w, j, VELOCIDADE).ok, true);
   const vel = versaoEquip(VELOCIDADE, 1).efeitos[0].valor;
   assert.equal(j.ship.velMult, 1 + vel);
   assert.equal(j.ouro, 2000 - EQUIPAMENTOS[ALCANIO].preco - EQUIPAMENTOS[VELOCIDADE].preco);
@@ -271,6 +287,10 @@ test('loja: pedidos malformados são recusados sem quebrar nada', () => {
   ];
   for (const item of lixo) {
     for (const t of ['comprar', 'usar']) assert.equal(w.pedido(j.id, { t, item }).codigo, 'invalido', `${t} ${String(item).slice(0, 20)}`);
+    // Instância: só inteiro (42 é um id que ele não tem).
+    const esperado = item === 42 ? 'sem_item' : 'invalido';
+    for (const t of ['vender', 'evoluirItem']) assert.equal(w.pedido(j.id, { t, inst: item }).codigo, esperado, `${t} ${String(item).slice(0, 20)}`);
+    if (item !== null) assert.equal(w.pedido(j.id, { t: 'equipar', slot: 'escudo', inst: item }).codigo, esperado, `equipar ${String(item).slice(0, 20)}`);
     assert.equal(w.pedido(j.id, { t: 'evoluir', opcao: item }).codigo, 'invalido');
     assert.equal(w.pedido(j.id, { t: 'melhorar', melhoria: item }).codigo, 'invalido');
   }
@@ -278,7 +298,7 @@ test('loja: pedidos malformados são recusados sem quebrar nada', () => {
   assert.equal(w.pedido(j.id, { t: 'roubar', item: MISSIL }).codigo, 'invalido');
   assert.equal(w.pedido(9999, { t: 'comprar', item: MISSIL }).codigo, 'invalido', 'jogador que não existe');
   assert.equal(j.ouro, 5000, 'nada foi cobrado');
-  assert.deepEqual(j.armas, []);
+  assert.equal(j.inv.length, 2, 'nada entrou no inventário');
   const r = w.pedido(j.id, { t: 'comprar', item: 'x'.repeat(5000) });
   assert.ok(r.item.length <= 32, 'a resposta não ecoa texto gigante');
 });

@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { World, ZONA_SEGURA, ESCUDO_ESPERA_S, CRITICO_MULT } from '../server/game.js';
 import { createShip, stepShip, sanitizeInput, armasIniciais, versaoArma, WEAPONS, ARMAS } from '../shared/sim.js';
 import { BASE, SERVICOS } from '../shared/terrain.js';
-import { versaoEquip } from '../shared/equipamentos.js';
+import { versaoEquip, EQUIPAMENTOS } from '../shared/equipamentos.js';
 import { porPonto, multRecarga } from '../shared/status.js';
 
 const SEGUNDO = 30;
@@ -34,12 +34,22 @@ function mundo() {
   return w;
 }
 
-/** Compra (pousado na Loja da própria base) os equipamentos da lista. */
+/**
+ * Compra (pousado na Loja da própria base) os equipamentos da lista e põe cada um na
+ * nave (a compra vai para o compartimento): no encaixe da categoria, o potenciador no
+ * primeiro vazio.
+ */
 function equipar(w, j, itens) {
   const sv = SERVICOS.find((s) => s.servico === 'loja' && s.time === j.time);
   Object.assign(j.ship, { x: sv.x, z: sv.z, vx: 0, vz: 0, pousado: true });
   j.ouro += 10000;
-  for (const k of itens) assert.equal(w.pedido(j.id, { t: 'comprar', item: k }).ok, true, k);
+  for (const k of itens) {
+    assert.equal(w.pedido(j.id, { t: 'comprar', item: k }).ok, true, k);
+    const inst = j.inv.at(-1).id;
+    const cat = EQUIPAMENTOS[k].categoria;
+    const slot = cat === 'potenciador' ? ['pot1', 'pot2'][j.equipado.pot.indexOf(null)] : cat;
+    assert.equal(w.pedido(j.id, { t: 'equipar', slot, inst }).ok, true, `equipar ${k}`);
+  }
 }
 
 /**

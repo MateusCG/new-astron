@@ -1,50 +1,60 @@
 // Loja e Evolução no servidor (DESIGN-PARTIDA.md): valida e cobra as compras, guarda
 // o que cada piloto e cada time têm, e aplica os efeitos na nave e nos mineradores.
-// Os dados (preços, efeitos, limites) ficam em shared/loja.js, shared/evolucao.js e
-// shared/naves.js (as naves da Evolução).
+// Os dados (preços, efeitos, limites, as contas do inventário) ficam em
+// shared/loja.js, shared/evolucao.js e shared/naves.js (as naves da Evolução).
 //
 // O cliente só PEDE ({t:'comprar', item}, {t:'evoluir', opcao:'nave'}, {t:'melhorar',
 // melhoria}, {t:'reconstruir', torreta}, {t:'usar', item}, {t:'pontos', atributo,
-// qtd}, {t:'equipar', slot, item}); nada do pedido é confiado além do id, que tem de
-// existir no catálogo (qualquer outra coisa, string malformada inclusive, vira
-// 'invalido'). Para comprar, evoluir ou melhorar o piloto tem de estar vivo,
+// qtd}, {t:'equipar', slot, inst}, {t:'vender', inst}, {t:'evoluirItem', inst});
+// nada do pedido é confiado além do id, que tem de existir no catálogo ou no
+// inventário do piloto (qualquer outra coisa, string malformada inclusive, vira
+// 'invalido'). Para comprar, evoluir a nave ou melhorar o piloto tem de estar vivo,
 // POUSADO E PARADO na plataforma do serviço certo da PRÓPRIA base (Loja para
 // comprar, Evolução para evoluir, melhorar e reconstruir); usar um item vale em
 // qualquer lugar. Arma só da raça e da classe do piloto (armasDisponiveis; de outra,
-// 'invalido'); equipamento só da classe (podeUsar; de outra, 'invalido'). Evoluir
-// uma ARMA ou um EQUIPAMENTO é uma compra da Loja ({t:'comprar',
-// item:'evoluir:<chave>'}): sobe para a próxima versão do original, exige possuir o
-// item (senão 'sem_item'), em qualquer nível do piloto; na V8, 'limite'.
+// 'invalido'); equipamento só da classe (podeUsar; de outra, 'invalido').
 // A resposta é {t:'resultado', acao, item, ok, codigo?}, com código estável que o
 // cliente traduz: nao_pousado, ouro_insuficiente, nivel_insuficiente, ja_possui,
-// limite, invalido, no uso de item sem_item, recarga e cheio, e nos pontos
-// sem_pontos e maximo.
+// limite, invalido, sem_item, recarga, cheio (item cheio ou compartimento cheio),
+// equipado, e nos pontos sem_pontos e maximo.
+//
+// Inventário por instância (como o INVENTORY do original): cada coisa comprada é um
+// objeto do piloto em j.inv, { id, tipo: 'arma' | 'equip', chave, nivel, pago,
+// fabrica? } (id inteiro, crescente por piloto: j.invProx). A nave leva 2 armas
+// (encaixes Z/X, escolhidos no comando a/a2), 1 escudo, 1 armadura e 2
+// potenciadores (j.equipado: ids de instância); o resto é o COMPARTIMENTO, com no
+// máximo COMPARTIMENTO_MAX (shared/loja.js: noCompartimento). Por pedido:
+// - comprar (na Loja): cria a instância V1 no compartimento, sem equipar; arma que já
+//   tem, 'ja_possui' (uma de cada: o encaixe é por índice); compartimento cheio,
+//   'cheio'. Equipamento pode repetir (cada um com a sua versão).
+// - equipar ({slot: 'escudo' | 'armadura' | 'pot1' | 'pot2', inst: id | null}): em
+//   QUALQUER lugar, vivo (morto, 'invalido'); a instância tem de estar no
+//   compartimento (ou já num encaixe: no mesmo nada muda, no outro encaixe de
+//   potenciador as duas trocam de lugar); sem ela, 'sem_item'; categoria errada,
+//   outra classe ou slot ruim, 'invalido'; null tira para o compartimento (cheio,
+//   'cheio'). Trocar de escudo zera o escudo atual (sem trocar para encher).
+// - vender: pousado e parado numa área de pouso da própria base (senão
+//   'nao_pousado'); só do compartimento (na nave, 'equipado'); arma de fábrica,
+//   'invalido'; dá precoVenda (metade do pago, para baixo).
+// - evoluirItem: pousado e parado na própria base (senão 'nao_pousado'); vale no
+//   compartimento e na nave; paga a taxa de tuning da versão (precoEvoluirInst), que
+//   soma no pago; na V8, 'limite'. Sem nível do piloto (o limite é o ouro).
 //
 // Pontos do piloto ({t:'pontos', atributo, qtd}): põe até qtd (1 a PONTO_MAX,
 // padrão 1) pontos livres no atributo (distribuirPontos em shared/status.js), em
 // qualquer lugar, vivo ou morto; não há devolver. Vão em j.pontos e zeram com o
 // nível na partida nova.
 //
-// Equipamento ({t:'equipar', slot, item}): a nave leva 1 escudo, 1 armadura e 2
-// potenciadores (slot 'escudo' | 'armadura' | 'pot1' | 'pot2'); item = chave de um
-// equipamento possuído ou null (tira). Só pousado e parado em qualquer área de pouso
-// da PRÓPRIA base (anel ou plataformas; senão 'nao_pousado'), para a build não
-// mudar no meio da briga; sem o item, 'sem_item'; categoria errada, outra classe ou
-// slot que não existe, 'invalido'; o mesmo potenciador nos dois slots só com as duas
-// cópias (j.copias; com uma só, 'sem_item').
-// Comprar um equipamento com o encaixe da categoria vazio já o equipa.
-//
-// Onde fica cada coisa: a posse do piloto fica no JOGADOR (j.armas = as compradas,
-// j.niveisArmas = índice → nível das evoluídas, j.equip = chave → nível dos
-// equipamentos possuídos, j.equipado = o que está na nave, j.itens, j.itemPronto,
-// j.tier, j.pontos), porque a nave é recriada a cada renascimento; prepararNave()
-// copia tudo para a nave nova junto com o nível (armas: as de fábrica da raça mais
-// as compradas em s.armas, e os níveis em s.niveis) e aplica o status do piloto
-// (aplicarStatus: statusDoPiloto de shared/status.js, guardado em j.status): HP
-// máximo (nave + nível + hpExtra), energia máxima (nave + enExtra), regenerações
-// (nave + extras), escudo (s.maxEscudo, s.regenEscudo), velocidade e aceleração
-// (s.velMult, s.acelMult) e a recarga por tipo de dano (s.recargaMult), que o
-// stepShip lê (a predição acompanha). O dano (poder, resistência, penetração,
+// Onde fica cada coisa: a posse do piloto fica no JOGADOR (j.inv, j.invProx,
+// j.equipado, j.itens, j.itemPronto, j.tier, j.pontos), porque a nave é recriada a
+// cada renascimento; prepararNave() tira dela o que vai na nave junto com o nível
+// (as armas possuídas em s.armas e as versões delas em s.niveis, derivadas de j.inv:
+// armasDoInv, niveisDoInv) e aplica o status do piloto (aplicarStatus:
+// statusDoPiloto de shared/status.js com as instâncias equipadas, guardado em
+// j.status): HP máximo (nave + nível + hpExtra), energia máxima (nave + enExtra),
+// regenerações (nave + extras), escudo (s.maxEscudo, s.regenEscudo), velocidade e
+// aceleração (s.velMult, s.acelMult) e a recarga por tipo de dano (s.recargaMult),
+// que o stepShip lê (a predição acompanha). O dano (poder, resistência, penetração,
 // crítico e o escudo) o World aplica em #ferir e multDanoDe, lendo j.status.
 //
 // Evolução da nave ({t:'evoluir', opcao:'nave'}): compra a PRÓXIMA nave da linha
@@ -64,9 +74,24 @@
 // na partida seguinte. Como nas melhorias dos mineradores, o time recebe a notícia
 // (evento 'melhoria' com melhoria 'torretas'; a reconstrução vira o evento 'torreta').
 
-import { VEL_TOQUE, DT, NAVE_SEM_CLASSE, aplicarNave, armasIniciais, armasDisponiveis } from '../shared/sim.js';
+import { VEL_TOQUE, DT, NAVE_SEM_CLASSE, aplicarNave, armasDisponiveis } from '../shared/sim.js';
 import { areaPouso } from '../shared/terrain.js';
-import { itemDaLoja, ITENS, ORDEM_ITENS, niveisArmasIniciais, precoEvoluirArma, copiasMax, precoCopiaEquip, precoEvoluirComCopias } from '../shared/loja.js';
+import {
+  itemDaLoja,
+  ITENS,
+  ORDEM_ITENS,
+  COMPARTIMENTO_MAX,
+  equipadoVazio,
+  invInicial,
+  instDoInv,
+  armasDoInv,
+  niveisDoInv,
+  naNave,
+  noCompartimento,
+  slotAceita,
+  precoVenda,
+  precoEvoluirInst,
+} from '../shared/loja.js';
 import { naveDe } from '../shared/naves.js';
 import { equipamento, podeUsar, CATEGORIA_DO_SLOT, ORDEM_TIPOS_DANO } from '../shared/equipamentos.js';
 import { distribuirPontos, pontosLivres, multRecarga } from '../shared/status.js';
@@ -80,35 +105,37 @@ import {
 } from '../shared/evolucao.js';
 import { hpMaxDoJogador, naveDoJogador, statusDoJogador } from './progressao.js';
 
-const ACOES = ['comprar', 'evoluir', 'melhorar', 'reconstruir', 'usar', 'pontos', 'equipar'];
+const ACOES = ['comprar', 'evoluir', 'melhorar', 'reconstruir', 'usar', 'pontos', 'equipar', 'vender', 'evoluirItem'];
+/** Pedidos sobre uma instância do inventário: o `item` da resposta é o id dela. */
+const POR_INSTANCIA = new Set(['vender', 'evoluirItem']);
 
-/** Encaixes de equipamento vazios (o que vai em j.equipado). */
-export function equipadoVazio() {
-  return { escudo: null, armadura: null, pot: [null, null] };
-}
+export { equipadoVazio };
 
-/** Quantas cópias do equipamento `chave` o piloto tem (0 se nenhuma). */
-export function copiasDe(j, chave) {
-  return Object.hasOwn(j.equip, chave) ? (j.copias?.[chave] ?? 1) : 0;
-}
-
-/** Campos de loja e evolução de um piloto no começo da partida. */
-export function novoEquipamento() {
+/**
+ * Campos de loja e evolução de um piloto no começo da partida: o inventário com as
+ * duas armas de fábrica da raça `race` (ids a partir de `proxId`, para o id nunca
+ * repetir no mesmo piloto), nada equipado, sem itens e a primeira nave da linha.
+ */
+export function novoEquipamento(race, proxId = 1) {
+  const { inv, proxId: invProx } = invInicial(race, proxId);
   return {
-    armas: [], // posse: as compradas (as de fábrica da raça valem sempre: armasDoPiloto)
-    niveisArmas: niveisArmasIniciais(), // índice em ARMAS → nível (V1..V8), só as evoluídas
-    equip: {}, // posse de equipamentos: chave → nível (V1..V8)
-    copias: {}, // chave → cópias no total, só do potenciador comprado 2 vezes (as duas na mesma versão)
-    equipado: equipadoVazio(), // o que está na nave: { escudo, armadura, pot: [a, b] } (chave ou null)
+    inv, // instâncias: { id, tipo: 'arma' | 'equip', chave, nivel, pago, fabrica? }
+    invProx, // próximo id de instância
+    equipado: equipadoVazio(), // o que está na nave: { escudo, armadura, pot: [a, b] } (id ou null)
     itens: Object.fromEntries(ORDEM_ITENS.map((id) => [id, 0])), // carga de cada item
     itemPronto: Object.fromEntries(ORDEM_ITENS.map((id) => [id, 0])), // tick em que pode usar de novo
     tier: 0, // nave da linha comprada na Evolução (0 = a primeira, de fábrica)
   };
 }
 
-/** Armas que o piloto possui (índices): as de fábrica da raça e as compradas. */
-export function armasDoPiloto(j) {
-  return [...new Set([...armasIniciais(j.ship.race), ...j.armas])];
+/** Instâncias do compartimento do piloto (o que tem e não está na nave). */
+export function compartimento(j) {
+  return noCompartimento(j.inv, j.equipado, j.ship?.encaixes);
+}
+
+/** Cabe mais um item no compartimento? */
+function cabe(j) {
+  return compartimento(j).length < COMPARTIMENTO_MAX;
 }
 
 /**
@@ -123,8 +150,8 @@ function aplicarStatus(j) {
   const st = statusDoJogador(j);
   j.status = st;
   aplicarNave(s, nave);
-  s.armas = armasDoPiloto(j);
-  s.niveis = { ...j.niveisArmas };
+  s.armas = armasDoInv(j.inv);
+  s.niveis = niveisDoInv(j.inv);
   s.maxHp = hpMaxDoJogador(j, st);
   s.maxEn = Math.round((nave?.energia ?? NAVE_SEM_CLASSE.energia) + st.enExtra);
   s.regenEn += st.regenEnExtra;
@@ -213,12 +240,16 @@ export class Servicos {
               ? msg?.atributo
               : acao === 'equipar'
                 ? msg?.slot
-                : msg?.item;
-    const item = typeof id === 'string' ? id.slice(0, 32) : null;
+                : POR_INSTANCIA.has(acao)
+                  ? msg?.inst
+                  : msg?.item;
+    const item = typeof id === 'string' ? id.slice(0, 32) : POR_INSTANCIA.has(acao) && Number.isInteger(id) ? id : null;
     let codigo;
     if (!j) codigo = 'invalido';
     else if (acao === 'pontos') codigo = this.#pontos(j, item, msg?.qtd);
-    else if (acao === 'equipar') codigo = this.#equipar(j, item, msg?.item);
+    else if (acao === 'equipar') codigo = this.#equipar(j, item, msg?.inst);
+    else if (acao === 'vender') codigo = this.#vender(j, item);
+    else if (acao === 'evoluirItem') codigo = this.#evoluirItem(j, item);
     else if (acao === 'comprar') codigo = this.#comprar(j, item);
     else if (acao === 'evoluir') codigo = this.#evoluir(j, item);
     else if (acao === 'melhorar') codigo = item === MELHORIA_TORRETAS.id ? this.#melhorarTorretas(j) : this.#melhorar(j, item);
@@ -239,75 +270,62 @@ export class Servicos {
     const it = itemDaLoja(id);
     if (!it) return 'invalido';
     if (!naPlataforma(j, 'loja')) return 'nao_pousado';
-    if (it.tipo === 'evoluirArma') return this.#evoluirArma(j, it.arma);
-    if (it.tipo === 'evoluirEquip') return this.#evoluirEquip(j, it.chave);
-    if (it.tipo === 'equip') return this.#comprarEquip(j, it.chave);
-    if (it.tipo === 'arma') {
-      if (!armasDisponiveis(j.ship.race, j.classe).includes(it.arma)) return 'invalido'; // outra raça ou classe
-      if (armasDoPiloto(j).includes(it.arma)) return 'ja_possui';
-      const erro = this.#pagar(j, it.preco);
-      if (erro) return erro;
-      j.armas = [...j.armas, it.arma].sort((a, b) => a - b);
-    } else {
+    if (it.tipo === 'item') {
       if (j.itens[it.item] >= ITENS[it.item].max) return 'limite';
       const erro = this.#pagar(j, it.preco);
       if (erro) return erro;
       j.itens[it.item]++;
+      return null;
     }
-    atualizarNave(j);
+    let chave;
+    if (it.tipo === 'arma') {
+      if (!armasDisponiveis(j.ship.race, j.classe).includes(it.arma)) return 'invalido'; // outra raça ou classe
+      chave = id;
+      if (j.inv.some((x) => x.tipo === 'arma' && x.chave === chave)) return 'ja_possui'; // uma de cada
+    } else {
+      if (!podeUsar(it.chave, j.classe)) return 'invalido'; // de outra classe
+      chave = it.chave;
+    }
+    if (!cabe(j)) return 'cheio';
+    const erro = this.#pagar(j, it.preco);
+    if (erro) return erro;
+    j.inv = [...j.inv, { id: j.invProx++, tipo: it.tipo, chave, nivel: 1, pago: it.preco }];
+    atualizarNave(j); // arma nova entra em s.armas (o comando já pode pô-la num encaixe)
     return null;
   }
 
-  /** Sobe a arma de índice `a` para a próxima versão (já pousado na Loja); a nave lê a versão de s.niveis. */
-  #evoluirArma(j, a) {
-    if (!armasDoPiloto(j).includes(a)) return 'sem_item';
-    const nivel = j.niveisArmas[a] ?? 1;
-    const preco = precoEvoluirArma(a, nivel);
-    if (preco === null) return 'limite';
-    const erro = this.#pagar(j, preco);
-    if (erro) return erro;
-    j.niveisArmas = { ...j.niveisArmas, [a]: nivel + 1 };
+  /**
+   * Vende a instância `inst` do compartimento (pousado e parado na própria base) por
+   * precoVenda (metade do que se pagou nela, compra e evoluções).
+   */
+  #vender(j, inst) {
+    if (!Number.isInteger(inst)) return 'invalido';
+    if (!pousadoNaPropriaBase(j)) return 'nao_pousado';
+    const x = instDoInv(j.inv, inst);
+    if (!x) return 'sem_item';
+    if (x.fabrica) return 'invalido'; // as de fábrica não se vendem
+    if (naNave(x, j.equipado, j.ship.encaixes)) return 'equipado';
+    j.ouro += precoVenda(x);
+    j.inv = j.inv.filter((y) => y !== x);
     atualizarNave(j);
     return null;
   }
 
   /**
-   * Compra a V1 de um equipamento (já pousado na Loja); com o encaixe da categoria
-   * vazio, já equipa. Potenciador que o piloto já tem: compra a segunda cópia, na
-   * versão da primeira e pelo que ela custou até ali (precoCopiaEquip).
+   * Sobe a instância `inst` (no compartimento ou na nave) para a próxima versão,
+   * pousado e parado na própria base; a taxa paga soma no `pago` dela. Arma: a nave
+   * lê a versão nova de s.niveis; equipamento na nave: o status muda na hora.
    */
-  #comprarEquip(j, chave) {
-    if (!podeUsar(chave, j.classe)) return 'invalido'; // de outra classe
-    const tem = copiasDe(j, chave);
-    if (tem >= copiasMax(chave)) return 'ja_possui';
-    const erro = this.#pagar(j, tem ? precoCopiaEquip(chave, j.equip[chave]) : equipamento(chave).preco);
-    if (erro) return erro;
-    if (tem) j.copias = { ...j.copias, [chave]: tem + 1 };
-    else j.equip = { ...j.equip, [chave]: 1 };
-    const cat = equipamento(chave).categoria;
-    const eq = j.equipado;
-    let trocouEscudo = false;
-    if (cat === 'escudo' && !eq.escudo) {
-      eq.escudo = chave;
-      trocouEscudo = true;
-    } else if (cat === 'armadura' && !eq.armadura) eq.armadura = chave;
-    else if (cat === 'potenciador') {
-      const vazio = eq.pot.indexOf(null);
-      if (vazio >= 0) eq.pot[vazio] = chave;
-    }
-    atualizarNave(j, { trocouEscudo });
-    return null;
-  }
-
-  /** Sobe o equipamento possuído para a próxima versão (já pousado na Loja); as cópias sobem juntas, pagando cada uma. */
-  #evoluirEquip(j, chave) {
-    if (!Object.hasOwn(j.equip, chave)) return 'sem_item';
-    const nivel = j.equip[chave];
-    const preco = precoEvoluirComCopias(chave, nivel, copiasDe(j, chave));
+  #evoluirItem(j, inst) {
+    if (!Number.isInteger(inst)) return 'invalido';
+    if (!pousadoNaPropriaBase(j)) return 'nao_pousado';
+    const x = instDoInv(j.inv, inst);
+    if (!x) return 'sem_item';
+    const preco = precoEvoluirInst(x);
     if (preco === null) return 'limite';
     const erro = this.#pagar(j, preco);
     if (erro) return erro;
-    j.equip = { ...j.equip, [chave]: nivel + 1 };
+    j.inv = j.inv.map((y) => (y === x ? { ...x, nivel: x.nivel + 1, pago: x.pago + preco } : y));
     atualizarNave(j);
     return null;
   }
@@ -321,27 +339,36 @@ export class Servicos {
     return null;
   }
 
-  /** Põe (ou tira, com item null) um equipamento possuído num encaixe da nave. */
-  #equipar(j, slot, chave) {
+  /**
+   * Põe no encaixe `slot` a instância `inst` do compartimento (ou tira, com null),
+   * em qualquer lugar, vivo. A que estava no encaixe volta ao compartimento.
+   */
+  #equipar(j, slot, inst) {
     if (!Object.hasOwn(CATEGORIA_DO_SLOT, slot ?? '')) return 'invalido';
-    if (chave !== null) {
-      const e = equipamento(chave);
-      if (!e || e.categoria !== CATEGORIA_DO_SLOT[slot] || !podeUsar(chave, j.classe)) return 'invalido';
-    }
-    if (!pousadoNaPropriaBase(j)) return 'nao_pousado';
-    if (chave !== null && !Object.hasOwn(j.equip, chave)) return 'sem_item';
+    if (inst !== null && !Number.isInteger(inst)) return 'invalido';
+    if (!j.vivo) return 'invalido';
     const eq = j.equipado;
-    if (slot === 'pot1' || slot === 'pot2') {
-      const i = slot === 'pot1' ? 0 : 1;
-      // O mesmo potenciador nos dois encaixes só com as duas cópias.
-      if (chave !== null && eq.pot[1 - i] === chave && copiasDe(j, chave) < 2) return 'sem_item';
-      eq.pot = i === 0 ? [chave, eq.pot[1]] : [eq.pot[0], chave];
-      atualizarNave(j);
+    const pot = slot === 'pot1' ? 0 : slot === 'pot2' ? 1 : -1;
+    const atual = pot >= 0 ? eq.pot[pot] : eq[slot];
+    if (inst === null) {
+      if (atual === null) return null; // já vazio
+      if (!cabe(j)) return 'cheio'; // não tem para onde ir
     } else {
-      const trocou = eq[slot] !== chave;
-      eq[slot] = chave;
-      atualizarNave(j, { trocouEscudo: slot === 'escudo' && trocou });
+      const x = instDoInv(j.inv, inst);
+      if (!x) return 'sem_item';
+      if (x.tipo !== 'equip' || !slotAceita(slot, equipamento(x.chave)?.categoria) || !podeUsar(x.chave, j.classe)) return 'invalido';
+      if (atual === inst) return null; // já está aí
+      if (naNave(x, eq, j.ship.encaixes)) {
+        // Só pode estar no outro encaixe de potenciador: os dois trocam de lugar.
+        if (pot < 0 || eq.pot[1 - pot] !== inst) return 'invalido';
+        eq.pot = pot === 0 ? [inst, atual] : [atual, inst];
+        atualizarNave(j);
+        return null;
+      }
     }
+    if (pot >= 0) eq.pot = pot === 0 ? [inst, eq.pot[1]] : [eq.pot[0], inst];
+    else eq[slot] = inst;
+    atualizarNave(j, { trocouEscudo: slot === 'escudo' });
     return null;
   }
 
@@ -424,19 +451,20 @@ export class Servicos {
 
   /**
    * O que vai no `me` do snapshot além da nave (que já traz classe, tier,
-   * velocidade, regenEn, regenHpVoo e regenHpPousada, a posse de armas em `armas` e
-   * os níveis delas em `niveis`, escudo, maxEscudo, regenEscudo, velMult, acelMult e
-   * recargaMult): pontos e pontos livres, a posse de equipamentos (equip) e o que
-   * está na nave (equipado), o status do piloto já somado (para a janela STATUS),
-   * itens (carga) e recarga dos itens em s.
+   * velocidade, regenEn, regenHpVoo e regenHpPousada, os encaixes Z/X, as armas
+   * possuídas em `armas` e as versões delas em `niveis`, escudo, maxEscudo,
+   * regenEscudo, velMult, acelMult e recargaMult): pontos e pontos livres, o
+   * inventário (inv, cópia das instâncias), o tamanho do compartimento (compMax), o
+   * que está na nave (equipado, ids), o status do piloto já somado (para a janela
+   * STATUS), itens (carga) e recarga dos itens em s.
    */
   paraMe(j) {
     const tick = this.world.tick;
     return {
       pontos: { ...j.pontos },
       pontosLivres: pontosLivres(j.nivel, j.pontos),
-      equip: { ...j.equip },
-      copias: { ...j.copias },
+      inv: j.inv.map((x) => ({ ...x })),
+      compMax: COMPARTIMENTO_MAX,
       equipado: { escudo: j.equipado.escudo, armadura: j.equipado.armadura, pot: [...j.equipado.pot] },
       status: j.status,
       itens: { ...j.itens },
