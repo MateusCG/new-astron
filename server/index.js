@@ -7,12 +7,18 @@
 // modelo da nave em public/modelos/) em /vendor/addons/.
 //
 // Protocolo (JSON):
-//   cliente → servidor  {t:'entrar', nome, race, classe}
+//   cliente → servidor  {t:'entrar', nome, race, classe, teste?}   teste: true = modo de
+//                        teste, num mundo só seu (partida sem relógio; MAX_MUNDOS_TESTE
+//                        ao mesmo tempo, senão {t:'erro', codigo:'teste_cheio'})
 //                       (race = 'acron' | 'bellico' | 'shrewdo'; 'mechan' ainda sem
 //                        naves é recusada com 'raca_bloqueada', outra coisa com
 //                        'raca_invalida'; classe = 'assault' | 'mobile' |
 //                        'functional', inválida ou ausente vira 'assault'; o piloto
 //                        começa na primeira nave da linha, shared/naves.js)
+//                       {t:'teste', acao}   só no modo de teste: 'ouro' (+1000), 'xp'
+//                        (+100), 'nivel' (sobe um), 'nivelMax' (vai ao 20); resposta
+//                        {t:'resultado', acao:'teste', item, ok, codigo?} ('limite' no
+//                        nível máximo, 'invalido' fora do modo de teste)
 //                       {t:'in', s:seq, th, tu, b, f1, f2, p, r, a, a2}   um por passo de 1/30 s
 //                       (p = botão de pouso, alterna pousar/decolar na borda;
 //                        r = botão do recall (B), pulso: na borda começa a
@@ -51,7 +57,7 @@
 //                        plataforma do serviço da própria base; usar vale em qualquer
 //                        lugar; tudo validado em server/servicos.js)
 //                       {t:'ping', c}
-//   servidor → cliente  {t:'bemvindo', id, tickHz, time}   time = 0 (base de baixo) ou 1
+//   servidor → cliente  {t:'bemvindo', id, tickHz, time, teste}   time = 0 (base de baixo) ou 1
 //                       {t:'erro', codigo}   codigo 'partida_cheia' (3 em cada time),
 //                        'raca_bloqueada' ou 'raca_invalida'; fecha
 //                       {t:'snap', tick, ack, vivo, renasceEm, time, me, ouro, abates, mortes,
@@ -99,7 +105,8 @@
 //         nave, o nível e a armadura
 //   melhorias: {quantidade, durabilidade, defesa, velocidade}   níveis comprados
 //         das melhorias dos mineradores do time de quem recebe (zeram a cada partida)
-//   partida: {n, estado, fase, restante, placar:[t0, t1], vencedor, novaEm}
+//   partida: {n, estado, fase, restante, semTempo, placar:[t0, t1], vencedor, novaEm}
+//            (semTempo: modo de teste, a partida não acaba e restante vem 0)
 //         estado = 'esperando' | 'andamento' | 'fim'; fase = 'normal' | 'final'
 //         (últimos 3 min: minério entregue vale o dobro); restante e novaEm em s;
 //         vencedor = time, -1 empate, null jogando
@@ -226,6 +233,11 @@ const TIPOS = {
   '.mp3': 'audio/mpeg',
 };
 const MAX_MSG = 2048;
+// Modo de teste: cada piloto que entra com {teste: true} ganha um mundo só dele
+// (World com teste: true: partida sem relógio e pedidos de ouro/XP), para testar a
+// progressão da nave sem mexer na partida dos outros. Limite de mundos de teste ao
+// mesmo tempo, porque cada um roda a simulação inteira (monstros, mineradores...).
+const MAX_MUNDOS_TESTE = 4;
 const PEDIDOS = new Set(['comprar', 'evoluir', 'melhorar', 'reconstruir', 'usar']); // server/servicos.js
 
 async function servirArquivo(req, res) {
@@ -271,10 +283,13 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
   });
 
   const wss = new WebSocketServer({ server, path: '/ws', maxPayload: MAX_MSG });
-  const sockets = new Map(); // id do jogador -> ws
+  // Mundos rodando: o da partida de verdade e os de teste. Cada um com os sockets
+  // dos seus jogadores (os ids de jogador são por mundo).
+  const mundos = new Map([[world, new Map()]]); // World -> (id do jogador -> ws)
 
   wss.on('connection', (ws) => {
     let jogador = null;
+    let mundo = world;
     ws.on('message', (bruto) => {
       let msg;
       try {
@@ -290,28 +305,42 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
           ws.close();
           return;
         }
-        jogador = world.addPlayer(msg.nome, msg.race, msg.classe);
+        if (msg.teste === true) {
+          const testes = [...mundos.keys()].filter((m) => m.teste).length;
+          if (testes >= MAX_MUNDOS_TESTE) {
+            ws.send(JSON.stringify({ t: 'erro', codigo: 'teste_cheio' }));
+            ws.close();
+            return;
+          }
+          mundo = new World({ teste: true });
+          mundos.set(mundo, new Map());
+        }
+        jogador = mundo.addPlayer(msg.nome, msg.race, msg.classe);
         if (!jogador) {
           // Os dois times cheios: código estável que o cliente traduz na tela de entrada.
           ws.send(JSON.stringify({ t: 'erro', codigo: 'partida_cheia' }));
           ws.close();
           return;
         }
-        sockets.set(jogador.id, ws);
-        ws.send(JSON.stringify({ t: 'bemvindo', id: jogador.id, tickHz: TICK_HZ, time: jogador.time }));
+        mundos.get(mundo).set(jogador.id, ws);
+        ws.send(JSON.stringify({ t: 'bemvindo', id: jogador.id, tickHz: TICK_HZ, time: jogador.time, teste: mundo.teste }));
       } else if (msg?.t === 'in' && jogador) {
-        world.pushInput(jogador.id, msg);
+        mundo.pushInput(jogador.id, msg);
       } else if (PEDIDOS.has(msg?.t) && jogador) {
         // Loja e Evolução: o servidor valida tudo e responde só a quem pediu.
-        ws.send(JSON.stringify(world.pedido(jogador.id, msg)));
+        ws.send(JSON.stringify(mundo.pedido(jogador.id, msg)));
+      } else if (msg?.t === 'teste' && jogador) {
+        // Modo de teste (ouro, XP, nível): só o mundo de teste aceita.
+        ws.send(JSON.stringify(mundo.pedidoTeste(jogador.id, msg)));
       } else if (msg?.t === 'ping') {
         ws.send(JSON.stringify({ t: 'pong', c: msg.c }));
       }
     });
     ws.on('close', () => {
       if (!jogador) return;
-      sockets.delete(jogador.id);
-      world.removePlayer(jogador.id);
+      mundos.get(mundo)?.delete(jogador.id);
+      mundo.removePlayer(jogador.id);
+      if (mundo.teste) mundos.delete(mundo); // o mundo de teste era só dele
     });
   });
 
@@ -326,13 +355,14 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
     ultimo = agora;
     while (acumulado >= passoMs) {
       acumulado -= passoMs;
-      world.step();
-      if (world.ehTickDeSnapshot()) {
-        const ents = world.entidades();
-        const ev = world.tirarEventos();
+      for (const [w, sockets] of mundos) {
+        w.step();
+        if (!w.ehTickDeSnapshot()) continue;
+        const ents = w.entidades();
+        const ev = w.tirarEventos();
         for (const [id, ws] of sockets) {
-          const j = world.players.get(id);
-          if (j && ws.readyState === ws.OPEN) ws.send(JSON.stringify(world.snapshotPara(j, ents, ev)));
+          const j = w.players.get(id);
+          if (j && ws.readyState === ws.OPEN) ws.send(JSON.stringify(w.snapshotPara(j, ents, ev)));
         }
       }
     }

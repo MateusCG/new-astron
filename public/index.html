@@ -36,6 +36,10 @@
             </div>
           </div>
         </section>
+        <label class="modo-teste" title="Para testar a progressão: a partida não acaba e um painel dá ouro e XP">
+          <input type="checkbox" id="modo-teste" /> <span>Modo de teste</span>
+          <small>Num mundo só seu: sem tempo de partida, ouro e XP à vontade</small>
+        </label>
         <button type="submit" class="decolar">Decolar</button>
         <p id="erro-entrada" role="alert"></p>
         <button type="button" id="botao-som" class="botao-som" title="Liga e desliga o som (M)"><span class="estado-som">Som ligado</span> · <kbd>M</kbd></button>
@@ -71,6 +75,13 @@
         <p class="nova"></p>
       </section>
       <span id="ping"></span>
+      <section id="painel-teste" hidden aria-label="Modo de teste">
+        <h3>Modo de teste</h3>
+        <button type="button" data-acao="ouro">+1000 ouro</button>
+        <button type="button" data-acao="xp">+100 XP</button>
+        <button type="button" data-acao="nivel">+1 nível</button>
+        <button type="button" data-acao="nivelMax">Nível 20</button>
+      </section>
       <span id="som-hud" class="estado-som" title="M liga e desliga o som"></span>
 
       <footer id="painel">

@@ -636,6 +636,66 @@ kbd {
   opacity: 0.6;
 }
 
+/* Modo de teste: painel pequeno à esquerda, embaixo do minimapa, em chapa com a
+   borda tracejada em ouro (é ferramenta, não parte do jogo). */
+#painel-teste {
+  position: absolute;
+  top: 162px;
+  left: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  padding: 8px;
+  border: 1px dashed var(--ouro);
+  border-radius: 8px;
+  background: linear-gradient(var(--chapa-clara), var(--chapa));
+  pointer-events: auto;
+}
+
+#painel-teste h3 {
+  grid-column: 1 / -1;
+  margin: 0 0 2px;
+  color: var(--ouro);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+#painel-teste button {
+  padding: 4px 8px;
+  border: 1px solid var(--neon-escuro);
+  border-radius: 5px;
+  background: var(--chapa);
+  color: var(--texto);
+  font: 600 11px system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#painel-teste button:hover {
+  border-color: var(--ouro);
+  color: var(--ouro);
+}
+
+.modo-teste {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 8px;
+  align-items: center;
+  margin: 4px 0 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.modo-teste small {
+  grid-column: 2;
+  opacity: 0.65;
+  font-size: 11px;
+}
+
+.modo-teste input {
+  accent-color: var(--ouro);
+}
+
 #aviso {
   position: absolute;
   top: 38%;

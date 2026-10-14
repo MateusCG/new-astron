@@ -18,6 +18,9 @@
 // proteger os mineradores no fim, e quem está na frente não pode relaxar. Só
 // existe em partida mais longa que ela (as partidas curtinhas dos testes seriam
 // "final" do começo ao fim). Partida nova volta à fase normal.
+//
+// Modo de teste (duracaoS = Infinity, mundo de teste em server/index.js): a partida
+// nunca acaba nem entra na fase final; o snapshot avisa com semTempo.
 
 import { DT } from '../shared/sim.js';
 
@@ -130,8 +133,13 @@ export class Partida {
    * do andamento. O renascimento dos jogadores cresce com isto (server/progressao.js).
    */
   fracaoDecorrida(tick) {
-    if (!this.emAndamento) return 0;
+    if (!this.emAndamento || this.semTempo) return 0;
     return Math.min(1, Math.max(0, 1 - (this.fimTick - tick) / this.duracaoTicks));
+  }
+
+  /** Partida sem relógio (modo de teste): nunca acaba. */
+  get semTempo() {
+    return !Number.isFinite(this.duracaoTicks);
   }
 
   /** Segundos que faltam na partida (0 fora do andamento). */
@@ -140,7 +148,7 @@ export class Partida {
   }
 
   /**
-   * Estado para o snapshot: `{ n, estado, fase, restante, placar, vencedor, novaEm }`
+   * Estado para o snapshot: `{ n, estado, fase, restante, semTempo, placar, vencedor, novaEm }`
    * (fase 'normal' ou 'final'; tempos em segundos inteiros, arredondados para cima).
    */
   paraSnapshot(tick) {
@@ -148,7 +156,8 @@ export class Partida {
       n: this.numero,
       estado: this.estado,
       fase: this.fase(tick),
-      restante: Math.ceil(this.restante(tick) - 1e-9),
+      restante: this.semTempo ? 0 : Math.ceil(this.restante(tick) - 1e-9),
+      semTempo: this.semTempo,
       placar: [...this.placar],
       vencedor: this.vencedor,
       novaEm: this.estado === 'fim' ? Math.max(0, Math.ceil((this.novaTick - tick) * DT - 1e-9)) : 0,

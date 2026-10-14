@@ -89,6 +89,7 @@ import { Rede } from './rede.js';
 import { mostrarPrevia, pararPrevia } from './vitrine.js';
 import { MenuArmas } from './armas.js';
 import { Placar } from './placar.js';
+import { PainelTeste } from './teste.js';
 import { PainelServicos } from './servicos.js';
 import { MELHORIAS_MINERADOR, MELHORIA_TORRETAS } from '/shared/evolucao.js';
 import { RECALL_S } from '/shared/recall.js';
@@ -304,7 +305,7 @@ function montarEntrada() {
     const erro = document.querySelector('#erro-entrada');
     erro.textContent = '';
     try {
-      jogoAtual = await iniciar(nome.value, racaEscolhida, classeEscolhida);
+      jogoAtual = await iniciar(nome.value, racaEscolhida, classeEscolhida, document.querySelector('#modo-teste').checked);
       pararPrevia();
       document.querySelector('#entrada').hidden = true;
       // Quem decola com Enter no campo de nome deixaria o foco no <input>, e os
@@ -369,6 +370,7 @@ const MENSAGENS_ERRO = {
   tempo_esgotado: 'O servidor demorou demais para responder. Tente de novo em instantes.',
   conexao_fechada: 'O servidor fechou a conexão antes de você entrar. Tente de novo.',
   partida_cheia: 'A partida está cheia (3 contra 3). Tente de novo em instantes.',
+  teste_cheio: 'Muitos pilotos no modo de teste agora. Tente de novo em instantes ou entre na partida normal.',
   raca_bloqueada: 'Essa raça ainda não está liberada. Escolha Acron, Bellico ou Shrewdo.',
   raca_invalida: 'Raça desconhecida. Escolha Acron, Bellico ou Shrewdo.',
 };
@@ -394,12 +396,12 @@ function criarRenderer() {
  * depois de conectado, fecha a conexão para a nave não ficar parada no mundo.
  * Devolve { sair } para desmontar a partida.
  */
-async function iniciar(nome, race, classe) {
+async function iniciar(nome, race, classe, teste = false) {
   const renderer = criarRenderer();
   // Só o modelo da SUA nave carrega antes de conectar; os outros, quando aparecerem.
   await carregarModelos(race, classe, 0);
   const rede = new Rede();
-  const boas = await rede.entrar(nome, race, classe);
+  const boas = await rede.entrar(nome, race, classe, teste);
   try {
     return montarJogo(rede, boas, renderer, race, classe);
   } catch (err) {
@@ -426,6 +428,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
   const controles = new Controles(document.body);
   const hud = new Hud({ meuTime });
   const placar = new Placar({ meuTime });
+  // Modo de teste (mundo só seu): painel com ouro e XP à vontade.
+  const painelTeste = boas.teste
+    ? new PainelTeste({ enviar: (m) => rede.enviar(m), noticia: (texto, tipo) => hud.noticia(texto, tipo), signal: controles.parar.signal })
+    : null;
   const menuArmas = new MenuArmas({
     race,
     classe,
@@ -780,6 +786,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
 
   rede.aoReceber = (m) => {
     if (m.t === 'snap') aoSnapshot(m);
+    else if (m.t === 'resultado' && m.acao === 'teste') painelTeste?.resultado(m);
     else if (m.t === 'resultado') {
       painel.resultado(m);
       // Som da resposta: compra/uso que deu certo, ou o "não" da Loja.
@@ -1082,6 +1089,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     rede.fechar();
     controles.destruir();
     menuArmas.el.hidden = true;
+    painelTeste?.fechar();
     painel.lugar(null);
     removeEventListener('resize', redimensionar);
     hud.limpar();

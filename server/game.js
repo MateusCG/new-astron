@@ -84,6 +84,7 @@ import {
   recompensar,
   ganharXp,
   xpParaNivel,
+  NIVEL_MAX,
   tempoRenascer,
   ouroEncerrar,
   recompensaAssistencia,
@@ -120,6 +121,9 @@ const POUSO_REGEN_ESPERA_TICKS = 1 * TICK_HZ;
 // defendendo a arena de quem entra.
 const N_DRONES = 28;
 const RAIVA_S = 20;
+// Modo de teste: quanto cada botão dá.
+const TESTE_OURO = 1000;
+const TESTE_XP = 100;
 const RAIVA_TICKS = RAIVA_S * TICK_HZ;
 // visao: até onde o Arnosh provocado ainda persegue quem o atacou.
 const DRONE = { nome: 'Arnosh', hp: 90, visao: 400, alcance: 210, danoMult: 0.5 };
@@ -199,10 +203,12 @@ function baseMaisPerto(s) {
 export class World {
   /**
    * @param {{ rng?: () => number, drones?: number, monstros?: number, elites?: number,
-   *   duracaoPartidaS?: number, intervaloFimS?: number, faseFinalS?: number, torretas?: boolean }} [opcoes]
+   *   duracaoPartidaS?: number, intervaloFimS?: number, faseFinalS?: number, torretas?: boolean,
+   *   teste?: boolean }} [opcoes]
    * drones = Arnosh, monstros = Vorax, elites = Krakor (os guardiões dos objetivos C
    * sempre existem). torretas = false deixa as torretas de pé mas sem atirar (testes
-   * que brigam no meio do corredor).
+   * que brigam no meio do corredor). teste = mundo do modo de teste (um por piloto,
+   * server/index.js): partida sem relógio e os pedidos {t:'teste'} (pedidoTeste).
    */
   constructor({
     rng = Math.random,
@@ -213,7 +219,9 @@ export class World {
     intervaloFimS,
     faseFinalS,
     torretas = true,
+    teste = false,
   } = {}) {
+    this.teste = teste;
     this.rng = rng;
     this.torretasAtiram = torretas;
     this.tick = 0;
@@ -227,7 +235,7 @@ export class World {
     this.eventos = [];
     // Mapa de caça dos Vorax: campo de caminhos até os jogadores caçáveis.
     this.caca = { campo: null, alvos: [], ate: 0 };
-    this.partida = new Partida({ duracaoS: duracaoPartidaS, intervaloFimS, faseFinalS });
+    this.partida = new Partida({ duracaoS: teste ? Infinity : duracaoPartidaS, intervaloFimS, faseFinalS });
     this.bonus = new Bonus();
     this.mineradores = new Mineradores({
       bonus: this.bonus,
@@ -404,6 +412,28 @@ export class World {
    */
   pedido(id, msg) {
     return this.servicos.pedido(this.players.get(id), msg);
+  }
+
+  /**
+   * Pedido do modo de teste ({t:'teste', acao}): só vale no mundo de teste (no mundo
+   * de verdade responde 'invalido'). acao: 'ouro' (+TESTE_OURO), 'xp' (+TESTE_XP),
+   * 'nivel' (sobe um nível) ou 'nivelMax' (vai ao NIVEL_MAX). Responde como a Loja:
+   * {t:'resultado', acao:'teste', item: acao, ok, codigo?}.
+   */
+  pedidoTeste(id, msg) {
+    const j = this.players.get(id);
+    const acao = typeof msg?.acao === 'string' ? msg.acao : '';
+    const resposta = (ok, codigo) => ({ t: 'resultado', acao: 'teste', item: acao, ok, ...(codigo ? { codigo } : {}) });
+    if (!this.teste || !j) return resposta(false, 'invalido');
+    if (acao === 'ouro') j.ouro += TESTE_OURO;
+    else if (acao === 'xp' || acao === 'nivel' || acao === 'nivelMax') {
+      if (j.nivel >= NIVEL_MAX) return resposta(false, 'limite');
+      const falta = xpParaNivel(j.nivel) - j.xp;
+      if (acao === 'xp') ganharXp(j, TESTE_XP, this.eventos);
+      else if (acao === 'nivel') ganharXp(j, falta, this.eventos);
+      else while (j.nivel < NIVEL_MAX) ganharXp(j, xpParaNivel(j.nivel) - j.xp, this.eventos);
+    } else return resposta(false, 'invalido');
+    return resposta(true);
   }
 
   /**
