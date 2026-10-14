@@ -269,7 +269,7 @@ export function textoEfeito(ef) {
     case 'vulneravel':
       return `Alvo leva +${p(ef.k)} de dano${ef.tipoDano ? ` ${TIPOS_DANO[ef.tipoDano].toLowerCase()}` : ''}${d}`;
     case 'quebraEscudo':
-      return `Tira ${p(ef.frac)} do HP máximo na hora`;
+      return `Descarrega ${p(ef.frac / ESCUDO_EQUIV_HP)} do escudo na hora (sem escudo, ${p(ef.frac)} do HP máximo)`;
     case 'cego':
       return `Desliga o radar do alvo${d}`;
     case 'desgoverno':
