@@ -1,6 +1,7 @@
 // HUD: painel inferior (escudo, HP, energia, nível e XP, ouro, velocidade), minimapa,
 // nomes sobre as naves, avisos de abate, a barra do pouso no objetivo A, a barra
-// do recall (volta à base) e a tela de "destruído". É DOM puro por cima do canvas.
+// do recall (volta à base), o "CARREGANDO" da troca de arma e a tela de
+// "destruído". É DOM puro por cima do canvas.
 
 import * as THREE from 'three';
 import { paredeAt, MAP_HALF_X, MAP_HALF_Z, BASES, CORREDOR, MINERIO, ENTREGAS, SERVICOS, OBJETIVOS, TORRETAS } from '/shared/terrain.js';
@@ -60,6 +61,11 @@ export class Hud {
     this.nivel = $('#xp em');
     this.progObj = $('#prog-obj');
     this.progRecall = $('#prog-recall');
+    // "CARREGANDO" no meio da tela: uma linha por encaixe em recarga de troca.
+    this.linhasCarregando = [0, 1].map((enc) => {
+      const el = $(`#carregando [data-enc="${enc}"]`);
+      return { el, ic: el.querySelector('.ic'), nm: el.querySelector('.nm'), seg: el.querySelector('.seg'), barra: el.querySelector('.barra i'), kind: null, txt: '' };
+    });
     this.btnRecall = $('#btn-recall');
     this.ouro = $('#ouro');
     this.abates = $('#abates');
@@ -452,6 +458,32 @@ export class Hud {
   }
 
   /**
+   * "CARREGANDO" no meio da tela enquanto a recarga de troca de arma conta
+   * (troca1 no Z, troca2 no X, da nave prevista; TROCA_ARMA_S em shared/sim.js):
+   * qual encaixe, a arma nova, quanto falta e a barra enchendo. A regra é do
+   * stepShip (fora da própria base, trocar trava o encaixe: sem tiro nele); aqui só
+   * se mostra, para o piloto não achar que a arma "travou". null (morto) esconde.
+   */
+  carregando(me) {
+    for (const [enc, linha] of this.linhasCarregando.entries()) {
+      const troca = (enc === 0 ? me?.troca1 : me?.troca2) ?? 0;
+      linha.el.hidden = !(troca > 0);
+      if (!(troca > 0)) continue;
+      const idx = me.encaixes?.[enc];
+      const kind = ARMAS[idx];
+      const nivel = me.niveis?.[idx] ?? 1;
+      if (kind !== linha.kind) {
+        linha.kind = kind;
+        linha.ic.innerHTML = WEAPONS[kind] ? iconeArma(kind, nivel) : '';
+        linha.nm.textContent = WEAPONS[kind]?.nome ?? '';
+      }
+      const txt = `${(Math.ceil(troca * 10) / 10).toLocaleString('pt-BR', { minimumFractionDigits: 1 })} s`;
+      if (txt !== linha.txt) linha.seg.textContent = linha.txt = txt;
+      linha.barra.style.width = `${(1 - Math.min(1, troca / TROCA_ARMA_S)) * 100}%`;
+    }
+  }
+
+  /**
    * Avisa quando um efeito de arma começa na própria nave (só na mudança): os do
    * inimigo (dreno, lento, paralisia, desgoverno, energia, radar) como ruins e os
    * próprios (camuflagem, invulnerável) como bons.
@@ -574,6 +606,7 @@ export class Hud {
     this.pouso(null, false);
     this.objetivoPouso(null);
     this.recall(null);
+    this.carregando(null);
     this.ping.textContent = '';
     document.body.classList.remove('dano');
   }

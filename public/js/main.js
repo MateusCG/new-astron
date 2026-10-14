@@ -973,6 +973,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
       const fracRecall = vivo && recallLocal ? Math.min(1, recallLocal.frac + (agora - recallLocal.t) / 1000 / RECALL_S) : null;
       efeitos.recall(minhaNave, fracRecall, COR_TIME.meu, dt, tempo, true);
       hud.recall(fracRecall, fracRecall === null ? 0 : (1 - fracRecall) * RECALL_S);
+      // Troca de arma fora da base: "CARREGANDO" no meio da tela enquanto conta.
+      hud.carregando(vivo ? pred : null);
       foco.set(x, y, z);
     }
 

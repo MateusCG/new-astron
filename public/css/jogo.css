@@ -1037,6 +1037,83 @@ kbd {
   pointer-events: none;
 }
 
+/* "CARREGANDO" da troca de arma fora da base (TROCA_ARMA_S): no meio da tela, no
+   alto (no céu, acima do horizonte e da barra do recall), longe da linha de tiro à
+   frente da nave. Uma pílula por encaixe em espera: "CARREGANDO" em --neon com
+   letras espaçadas, o encaixe, a arma (ícone e nome), os segundos em mono e a
+   barra enchendo em --neon. Fundo escuro translúcido: discreto, mas lê no céu. */
+#carregando {
+  position: absolute;
+  top: max(168px, 20%); /* abaixo do minimapa e dos botões do HUD */
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+#carregando p {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 5px 14px 9px;
+  border: 1px solid var(--neon-escuro);
+  border-radius: 6px;
+  background: rgba(10, 22, 21, 0.72);
+  box-shadow: 0 0 10px rgba(0, 239, 192, 0.18);
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+#carregando .rot {
+  font: 700 14px system-ui, sans-serif;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--neon);
+  animation: pisca 0.7s infinite alternate;
+}
+
+#carregando .enc {
+  opacity: 0.8;
+}
+
+#carregando .enc kbd {
+  color: var(--neon);
+}
+
+#carregando .ic svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+
+#carregando .seg {
+  min-width: 3.4em;
+  font: 700 16px ui-monospace, monospace;
+  text-align: right;
+}
+
+#carregando .barra {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 3px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+#carregando .barra i {
+  display: block;
+  height: 100%;
+  background: var(--neon);
+  box-shadow: 0 0 6px var(--neon);
+}
+
 #prog-recall .txt b {
   font: 700 17px ui-monospace, monospace;
 }
