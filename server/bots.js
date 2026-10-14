@@ -28,8 +28,13 @@
 // - Vida baixa: usa o kit de reparo (se tiver), e volta para a base (recall se
 //   estiver longe e sossegado; voando, se não), pousa no anel e conserta.
 // - Ouro sobrando: pousa na Evolução para a próxima nave da linha e na Loja para
-//   as versões das duas armas de fábrica e kits.
+//   as versões das duas armas de fábrica, o equipamento (um escudo, uma armadura
+//   geral e dois potenciadores: o Reforço do tipo de dano das armas dele e o de
+//   Durabilidade; comprar com o encaixe vazio já equipa), as versões dele e kits.
 //   Guarda ouro para a nave quando já tem o nível dela.
+// - Pontos do piloto: a cada nível, distribui os livres (o mesmo pedido {t:'pontos'}
+//   do cliente) entre o poder do tipo de dano das armas dele e a Energia
+//   (IA.fracaoEnergia dos pontos).
 // - Para não parecer máquina: demora um pouco para reagir a um alvo novo
 //   (IA.reacaoS), erra a mira um pouco (menos com o nível) e cada um tem a sua
 //   agressividade (sorteada ao entrar).
@@ -39,10 +44,12 @@
 // senão segue o campo de caminhos até o destino (campos de destinos fixos ficam em
 // cache; o de alvo que anda é refeito quando ele se move). Preso numa quina, dá ré.
 
-import { DT, sanitizeInput, versaoArma, armasIniciais, velocidadeBase, ARMAS } from '../shared/sim.js';
+import { DT, sanitizeInput, versaoArma, armasIniciais, velocidadeBase, ARMAS, WEAPONS } from '../shared/sim.js';
 import { BASES, MINERIO, AREAS_POUSO, TORRETAS } from '../shared/terrain.js';
 import { naveDe } from '../shared/naves.js';
 import { precoEvoluirArma, nivelPilotoDaVersao, ITENS, PREFIXO_EVOLUIR } from '../shared/loja.js';
+import { EQUIPAMENTOS, equipamentosAVenda, precoEvoluirEquip, nivelPilotoDaVersaoItem } from '../shared/equipamentos.js';
+import { pontosLivres, PONTO_MAX, ORDEM_ATRIBUTOS } from '../shared/status.js';
 import { NIVEL_MAX } from './progressao.js';
 import { MapaNavegacao } from './navegacao.js';
 import { TORRETA } from './torretas.js';
@@ -91,6 +98,8 @@ export const IA = {
   pousoVel: 9, // m/s: abaixo disto, dentro da área, aperta o L
   compraMin: 110, // ouro de compras para valer a viagem à base
   kitsDesejados: 2,
+  fracaoEnergia: 0.3, // dos pontos do piloto, esta fração vai na Energia; o resto no poder das armas
+  potenciadorVida: 'e340001', // Potenciador de Durabilidade: o segundo potenciador de todo computador
 };
 
 /** Nomes próprios brasileiros para o nick ("JOAO (IA)"). */
@@ -216,6 +225,7 @@ export class Bots {
     const vida = s.hp / s.maxHp;
     if (!w.partida.emAndamento) return this.#mudar(j, 'parado');
     this.#usarItens(j, vida);
+    this.#distribuirPontos(j);
 
     if (j.recall) return this.#mudar(j, 'recall'); // canalizando: mãos fora do gatilho
     if (s.pousado) return this.#pousado(j, vida);
@@ -444,8 +454,8 @@ export class Bots {
 
   /**
    * O que comprar agora, na ordem: a próxima nave (se já tem o nível; guarda ouro
-   * para ela), as versões das armas de fábrica e kits de reparo. Cada desejo:
-   * { servico, pedido, preco }.
+   * para ela), as versões das armas de fábrica, o equipamento (compra e versões) e
+   * kits de reparo. Cada desejo: { servico, pedido, preco }.
    */
   #desejos(j) {
     const out = [];
@@ -464,11 +474,72 @@ export class Bots {
       out.push({ servico: 'loja', pedido: { t: 'comprar', item: PREFIXO_EVOLUIR + ARMAS[a] }, preco });
       ouro -= preco;
     }
+    // Equipamento: compra o que falta (vai direto para o encaixe vazio) e depois
+    // evolui o que tem, quando o nível do piloto deixa.
+    for (const chave of this.#equipDesejado(j)) {
+      const nv = j.equip[chave];
+      const preco = nv === undefined ? EQUIPAMENTOS[chave].preco : precoEvoluirEquip(chave, nv);
+      if (preco === null || ouro < preco) continue;
+      if (nv !== undefined && j.nivel < nivelPilotoDaVersaoItem(nv + 1)) continue;
+      out.push({ servico: 'loja', pedido: { t: 'comprar', item: nv === undefined ? chave : PREFIXO_EVOLUIR + chave }, preco });
+      ouro -= preco;
+    }
     for (let k = j.itens.reparo; k < IA.kitsDesejados && ouro >= ITENS.reparo.preco; k++) {
       out.push({ servico: 'loja', pedido: { t: 'comprar', item: 'reparo' }, preco: ITENS.reparo.preco });
       ouro -= ITENS.reparo.preco;
     }
     return out;
+  }
+
+  /** Tipo de dano que mais aparece nas armas dos encaixes do computador. */
+  #tipoDasArmas(j) {
+    const conta = {};
+    for (const a of j.ship.encaixes ?? []) {
+      const t = WEAPONS[ARMAS[a]]?.tipoDano;
+      if (t) conta[t] = (conta[t] ?? 0) + 1;
+    }
+    return Object.keys(conta).sort((a, b) => conta[b] - conta[a])[0] ?? 'laser';
+  }
+
+  /**
+   * O equipamento que o computador quer, na ordem de compra: o escudo de mais
+   * escudo, a armadura geral (sem tipo) de mais HP, o Reforço do tipo das armas dele
+   * e o Potenciador de Durabilidade. Só da classe dele.
+   */
+  #equipDesejado(j) {
+    const melhor = (lista, valor) => lista.reduce((m, k) => (m === null || valor(k) > valor(m) ? k : m), null);
+    const escudo = melhor(equipamentosAVenda(j.classe, 'escudo'), (k) => EQUIPAMENTOS[k].versoes[0].maxEscudo);
+    const geral = equipamentosAVenda(j.classe, 'armadura').filter((k) => EQUIPAMENTOS[k].tipoDano === null);
+    const armadura = melhor(geral, (k) => EQUIPAMENTOS[k].versoes[0].hp);
+    const tipo = this.#tipoDasArmas(j);
+    const reforco = equipamentosAVenda(j.classe, 'potenciador').find(
+      (k) => EQUIPAMENTOS[k].tipoDano === tipo && EQUIPAMENTOS[k].versoes[0].efeitos.some((e) => e.tipo === 'poder') && EQUIPAMENTOS[k].versoes[0].efeitos.length > 1,
+    );
+    return [escudo, armadura, reforco, IA.potenciadorVida].filter((k) => k && EQUIPAMENTOS[k]);
+  }
+
+  /**
+   * Pontos livres do piloto: Energia até IA.fracaoEnergia do total, o resto no
+   * poder do tipo de dano das armas dele; atributo no máximo (99), o que sobrar vai
+   * nos outros. Pelo mesmo pedido do cliente ({t:'pontos'}).
+   */
+  #distribuirPontos(j) {
+    const livres = pontosLivres(j.nivel, j.pontos);
+    if (!livres) return;
+    const p = j.pontos;
+    const total = p.energia + p.fisico + p.eletrico + p.laser + livres;
+    const energia = Math.min(livres, Math.max(0, Math.round(IA.fracaoEnergia * total) - p.energia));
+    const poder = this.#tipoDasArmas(j);
+    const pedidos = [
+      ['energia', energia],
+      [poder, livres - energia],
+      ...['energia', poder, ...ORDEM_ATRIBUTOS].map((a) => [a, PONTO_MAX]), // sobra (atributo cheio)
+    ];
+    for (const [atributo, qtd] of pedidos) {
+      if (qtd < 1) continue;
+      const r = this.world.servicos.pedido(j, { t: 'pontos', atributo, qtd: Math.min(qtd, PONTO_MAX) });
+      if (!r.ok && r.codigo === 'sem_pontos') return;
+    }
   }
 
   /** Vale a viagem até a base para comprar? */
