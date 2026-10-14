@@ -2,30 +2,35 @@
 // na nave, como a INVENTORY do Astro-N original, com a identidade visual do jogo
 // novo. Em cima, a tabela Ph. / El. / Op. × Arma Z / Arma X / Resistência e a
 // miniatura da nave; no meio, os seis encaixes (Arma Z, Arma X, Escudo, Armadura,
-// Potenciador 1 e 2); embaixo, o compartimento: tudo o que o piloto tem e não está
-// na nave (armas compradas e de fábrica, escudos, armaduras, potenciadores).
+// Potenciador 1 e 2); embaixo, o COMPARTIMENTO "n/12": tudo o que o piloto tem e
+// não está na nave (armas fora do Z e do X, inclusive as de fábrica, e escudos,
+// armaduras e potenciadores fora dos encaixes).
 //
-// Clique (ou toque) num item do compartimento equipa no encaixe da categoria dele:
-// - Escudo, armadura e potenciador pedem ao servidor {t:'equipar', slot, item}
-//   (o potenciador vai no primeiro encaixe vazio, ou no 1). Só vale POUSADO na
-//   própria base (anel ou plataformas): fora dela a janela abre igual e avisa, e o
-//   servidor recusa com 'nao_pousado'. Clique num desses encaixes ocupado tira o
-//   item ({item: null}).
-// - Armas não passam pelo servidor aqui: são os `encaixes` do cliente, que vão nos
-//   campos a/a2 de cada comando, a mesma coisa que o menu do Q/E faz (reusa
-//   MenuArmas.equipar, com a recarga de troca fora da base). A arma vai no encaixe
-//   marcado (Z ou X: clique no encaixe da arma escolhe qual); a nave sempre tem
-//   duas armas, então o encaixe de arma não esvazia.
+// Cada coisa é um objeto (uma instância de me.inv, com a sua versão V1 a V8 e o ouro
+// pago nela). Clicar (ou tocar) num item abre uma caixinha junto dele com o que dá
+// para fazer, e cada opção que não dá agora fica apagada com o porquê embaixo:
+// - Item do compartimento: Equipar (arma: no Z ou no X; potenciador: no 1 ou no 2),
+//   Vender (metade do que foi pago; arma de fábrica não vende) e Evoluir (Vn → Vn+1
+//   pela taxa de tuning; na V8 acabou).
+// - Encaixe ocupado: Tirar (volta para o compartimento; cheio, não cabe) e Evoluir.
+//   Encaixe de arma não esvazia (a nave sempre leva duas): no lugar do Tirar vem
+//   Trocar, que abre o menu do Q/E daquele encaixe.
+// Equipar vale em qualquer lugar; vender e evoluir só pousado e parado na própria base
+// (anel ou plataformas). O cliente só PEDE ({t:'equipar', slot, inst}, {t:'vender',
+// inst}, {t:'evoluirItem', inst}); o servidor valida, cobra e o snapshot traz o
+// inventário novo. As armas Z/X não passam pelo servidor: são os `encaixes` do
+// cliente, que vão nos campos a/a2 de cada comando, o mesmo caminho do menu do Q/E
+// (MenuArmas.equipar, com a recarga de troca fora da base).
 //
-// Passar o mouse (ou tocar) num item mostra o detalhe como no original: nome e
-// versão (V1 a V8), tipo de equipamento, efeitos e classe. A posse e o que está
-// equipado vêm do snapshot (me.equip, me.copias, me.equipado, me.armas, me.niveis);
-// o potenciador com duas cópias aparece duas vezes (as duas podem ir na nave).
+// Passar o mouse (ou tocar) num item mostra o detalhe como no original, à esquerda da
+// janela: nome e versão, tipo, efeitos e classe. Preços e contas saem de
+// shared/loja.js (precoVenda, precoEvoluirInst, noCompartimento), as mesmas do servidor.
 
-import { EQUIPAMENTOS, ORDEM_EQUIP, CATEGORIA_DO_SLOT } from '/shared/equipamentos.js';
-import { ARMAS } from '/shared/sim.js';
-import { iconeArma, nomeArma, ordenarPorCategoria } from './armas.js';
-import { iconeEquip, nomeEquip, detalheEquip, detalheArma, tabelaTipos } from './equipamento.js';
+import { EQUIPAMENTOS, CATEGORIA_DO_SLOT, NIVEL_ITEM_MAX } from '/shared/equipamentos.js';
+import { ARMAS, IDX_ARMA } from '/shared/sim.js';
+import { COMPARTIMENTO_MAX, armaDaInst, instDoInv, noCompartimento, precoVenda, precoEvoluirInst, equipadoVazio } from '/shared/loja.js';
+import { iconeArma, nomeArma, ENCAIXES } from './armas.js';
+import { iconeEquip, detalheEquip, detalheArma, tabelaTipos } from './equipamento.js';
 import { MENSAGEM_ERRO } from './servicos.js';
 import { miniatura } from './vitrine.js';
 import { naveDe } from '/shared/naves.js';
@@ -39,22 +44,40 @@ const ENCAIXES_INV = [
   { slot: 'pot1', nome: 'Potenciador 1' },
   { slot: 'pot2', nome: 'Potenciador 2' },
 ];
+const NOME_SLOT = Object.fromEntries(ENCAIXES_INV.map((e) => [e.slot, e.nome]));
 
-/** Mensagens do pedido {t:'equipar'} (o resto vem do painel da Loja). */
+/** Mensagens dos pedidos do inventário (o resto vem do painel da Loja). */
 const MENSAGEM = {
   ...MENSAGEM_ERRO,
-  nao_pousado: 'Para equipar, pouse na sua base (anel ou plataformas)',
-  invalido: 'Esse item não vai nesse encaixe',
-  sem_item: 'Você não tem esse item: compre na Loja (o mesmo potenciador nos dois encaixes pede a 2ª cópia)',
+  nao_pousado: 'Para vender e evoluir, pouse e pare na sua base (anel ou plataformas)',
+  cheio: 'Compartimento cheio: venda algo antes de tirar da nave',
+  equipado: 'Esse item está na nave: tire antes de vender',
+  sem_item: 'Esse item não está mais com você',
+  limite: 'Já está na V8, a última versão',
+  ouro_insuficiente: 'Ouro insuficiente para evoluir',
+};
+/** 'invalido' muda de sentido conforme o pedido. */
+const INVALIDO = {
+  equipar: 'Esse item não vai nesse encaixe',
+  vender: 'Arma de fábrica não se vende',
+  evoluirItem: 'Esse item não evolui',
 };
 
-const vazioEquipado = () => ({ escudo: null, armadura: null, pot: [null, null] });
+const numero = (v) => Math.round(v).toLocaleString('pt-BR');
+const esc = (t) => String(t).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-/** O item equipado no encaixe de equipamento (chave ou null). */
+/** Id da instância no encaixe de equipamento (ou null). */
 function noSlot(equipado, slot) {
   if (slot === 'pot1') return equipado.pot?.[0] ?? null;
   if (slot === 'pot2') return equipado.pot?.[1] ?? null;
   return equipado[slot] ?? null;
+}
+
+/** Nome da instância com a versão ("Escudo Neutron Op. V3"). */
+function nomeInst(inst) {
+  if (!inst) return '';
+  if (inst.tipo === 'arma') return `${nomeArma(inst.chave)} V${inst.nivel}`;
+  return `${EQUIPAMENTOS[inst.chave]?.nomePt ?? inst.chave} V${inst.nivel}`;
 }
 
 export class PainelInventario {
@@ -69,6 +92,7 @@ export class PainelInventario {
     this.noticia = noticia;
     this.aoAbrir = aoAbrir;
     this.el = document.querySelector('#inventario');
+    this.corpo = this.el.querySelector('.corpo');
     this.tabela = this.el.querySelector('.tabela');
     this.nave = this.el.querySelector('.nave-inv');
     this.slotsEl = this.el.querySelector('.slots');
@@ -76,11 +100,19 @@ export class PainelInventario {
     this.conta = this.el.querySelector('.conta-inv');
     this.avisoBase = this.el.querySelector('.aviso-base');
     this.msg = this.el.querySelector('.msg');
+    this.ouroEl = this.el.querySelector('.ouro-janela b');
     this.detalhe = this.el.querySelector('.detalhe');
+    this.caixaEl = document.createElement('div');
+    this.caixaEl.className = 'caixa-item';
+    this.caixaEl.hidden = true;
+    this.caixaEl.setAttribute('role', 'menu');
+    // Dentro da área que rola: a caixinha anda junto com o item.
+    this.corpo.append(this.caixaEl);
     this.el.hidden = true;
-    this.alvoArma = 0; // encaixe que recebe a próxima arma (0 = Z, 1 = X)
     this.naBase = false;
-    this.estado = { race: null, classe: null, tier: 0, nivel: 1, equip: {}, copias: {}, equipado: vazioEquipado(), status: null };
+    this.estado = { race: null, classe: null, tier: 0, ouro: 0, inv: [], compMax: COMPARTIMENTO_MAX, equipado: equipadoVazio(), status: null };
+    this.caixa = null; // { inst } (item do compartimento) ou { slot } (encaixe), com a caixinha aberta
+    this.pedidos = new Map(); // id da instância -> texto do sucesso (venda e evolução)
     this.chave = '';
     this.chaveNave = '';
     this.foco = null;
@@ -89,11 +121,14 @@ export class PainelInventario {
       'click',
       (e) => {
         const b = e.target.closest('button');
-        if (!b) return;
+        if (!b) {
+          if (!e.target.closest('.caixa-item')) this.fecharCaixa();
+          return;
+        }
         if (b.classList.contains('fechar')) this.fechar();
-        else if (b.dataset.slot) this.#clicarSlot(b.dataset.slot);
-        else if (b.dataset.arma) this.#equiparArma(Number(b.dataset.arma));
-        else if (b.dataset.equip) this.#equiparItem(b.dataset.equip);
+        else if (b.dataset.acao) this.#agir(b);
+        else if (b.dataset.slot) this.#abrirCaixa({ slot: b.dataset.slot }, b);
+        else if (b.dataset.inst) this.#abrirCaixa({ inst: Number(b.dataset.inst) }, b);
         b.blur(); // o foco no botão não pode prender as teclas do jogo
       },
       { signal },
@@ -101,7 +136,8 @@ export class PainelInventario {
     this.el.addEventListener(
       'pointerover',
       (e) => {
-        const alvo = e.target.closest?.('[data-slot], [data-arma], [data-equip]');
+        if (this.caixa || e.target.closest?.('.caixa-item')) return;
+        const alvo = e.target.closest?.('[data-slot], [data-inst]');
         if (alvo) this.#focar(alvo);
       },
       { signal },
@@ -144,6 +180,7 @@ export class PainelInventario {
 
   fechar() {
     if (this.el.contains(document.activeElement)) document.activeElement.blur();
+    this.fecharCaixa();
     this.el.hidden = true;
     this.#focar(null);
   }
@@ -153,16 +190,26 @@ export class PainelInventario {
     else this.abrir();
   }
 
-  /** Estado do snapshot: { me, nivel }. Tolera os campos novos ausentes. */
-  atualizar({ me, nivel }) {
+  /** Fecha a caixinha do item; devolve se ela estava aberta (o ESC fecha só ela). */
+  fecharCaixa() {
+    const estava = !!this.caixa;
+    this.caixa = null;
+    this.caixaEl.hidden = true;
+    for (const el of this.el.querySelectorAll('.com-caixa')) el.classList.remove('com-caixa');
+    return estava;
+  }
+
+  /** Estado do snapshot: { me, nivel, ouro }. Tolera os campos novos ausentes. */
+  atualizar({ me, nivel, ouro }) {
     const eq = me?.equipado;
     this.estado = {
       race: me?.race ?? null,
       classe: me?.classe ?? null,
       tier: me?.tier ?? 0,
       nivel: nivel ?? 1,
-      equip: me?.equip ?? {},
-      copias: me?.copias ?? {},
+      ouro: ouro ?? 0,
+      inv: Array.isArray(me?.inv) ? me.inv : [],
+      compMax: me?.compMax ?? COMPARTIMENTO_MAX,
       equipado: { escudo: eq?.escudo ?? null, armadura: eq?.armadura ?? null, pot: [eq?.pot?.[0] ?? null, eq?.pot?.[1] ?? null] },
       status: me?.status ?? null,
     };
@@ -170,8 +217,8 @@ export class PainelInventario {
   }
 
   /**
-   * A cada quadro, de main.js: a nave está pousada na própria base (anel ou
-   * plataforma)? Só aí o servidor deixa trocar escudo, armadura e potenciador.
+   * A cada quadro, de main.js: a nave está pousada e parada na própria base (anel ou
+   * plataforma)? Só aí o servidor deixa vender e evoluir.
    */
   lugar(naBase) {
     if (naBase === this.naBase) return;
@@ -179,102 +226,227 @@ export class PainelInventario {
     if (this.aberto) this.#desenhar(true);
   }
 
-  /** Resposta do servidor a um pedido {t:'equipar'}. */
+  /** Resposta do servidor a um pedido {t:'equipar'|'vender'|'evoluirItem'}. */
   resultado(m) {
     const ok = !!m.ok;
-    this.msg.textContent = ok ? 'Feito' : (MENSAGEM[m.codigo] ?? 'Não deu certo');
+    let texto;
+    if (ok) {
+      texto = m.acao === 'equipar' ? 'Feito' : (this.pedidos.get(m.item) ?? 'Feito');
+      if (m.acao === 'vender') this.noticia(texto, 'bom');
+    } else if (m.codigo === 'invalido') texto = INVALIDO[m.acao] ?? MENSAGEM.invalido;
+    else texto = MENSAGEM[m.codigo] ?? 'Não deu certo';
+    this.pedidos.delete(m.item);
+    this.msg.textContent = texto;
     this.msg.className = 'msg ' + (ok ? 'bom' : 'ruim');
   }
 
-  #clicarSlot(slot) {
+  /** Instâncias do compartimento (as armas pelos encaixes do cliente, que vão no comando). */
+  #compartimento() {
+    const s = this.estado;
+    return noCompartimento(s.inv, s.equipado, this.menuArmas.encaixes);
+  }
+
+  /** A instância da arma que está no encaixe enc (0 = Z, 1 = X). */
+  #instDaArma(enc) {
+    const kind = ARMAS[this.menuArmas.encaixes[enc]];
+    return this.estado.inv.find((x) => x.tipo === 'arma' && x.chave === kind) ?? null;
+  }
+
+  /** A instância no encaixe (de arma ou de equipamento), ou null. */
+  #instDoSlot(slot) {
     const enc = ENCAIXES_INV.find((x) => x.slot === slot);
-    if (!enc) return;
-    if (enc.arma !== undefined) {
-      // Encaixe de arma: escolhe para qual vai a próxima arma do compartimento.
-      this.alvoArma = enc.arma;
-      this.#desenhar(true);
+    if (!enc) return null;
+    if (enc.arma !== undefined) return this.#instDaArma(enc.arma);
+    return instDoInv(this.estado.inv, noSlot(this.estado.equipado, slot));
+  }
+
+  /** Abre (ou fecha, se já aberta no mesmo) a caixinha junto do botão clicado. */
+  #abrirCaixa(alvo, botao) {
+    const mesmo = this.caixa && (alvo.slot ? this.caixa.slot === alvo.slot : this.caixa.inst === alvo.inst);
+    this.fecharCaixa();
+    if (mesmo) return;
+    if (alvo.slot && !this.#instDoSlot(alvo.slot)) return; // encaixe vazio: nada a fazer
+    this.caixa = alvo;
+    this.#focar(null); // o detalhe do mouse sai: a caixinha já diz o que é
+    botao.classList.add('com-caixa');
+    this.#desenharCaixa();
+    // Embaixo do item (ou em cima, se não couber na parte visível), alinhada com ele;
+    // as contas são na área que rola (a caixinha mora nela).
+    const c = this.corpo.getBoundingClientRect();
+    const r = botao.getBoundingClientRect();
+    this.caixaEl.hidden = false;
+    const w = this.caixaEl.offsetWidth;
+    const h = this.caixaEl.offsetHeight;
+    const left = Math.max(0, Math.min(r.left - c.left, c.width - w - 4));
+    const baixo = r.bottom - c.top + 4;
+    const cabe = baixo + h <= c.height || r.top - c.top - h - 4 < 0;
+    const top = this.corpo.scrollTop + (cabe ? baixo : r.top - c.top - h - 4);
+    this.caixaEl.style.left = `${left}px`;
+    this.caixaEl.style.top = `${top}px`;
+  }
+
+  /** Por que não dá para vender a instância agora ('' = dá). */
+  #porqueNaoVende(inst) {
+    if (inst.fabrica) return 'Arma de fábrica não se vende';
+    if (!this.naBase) return 'Só pousado e parado na sua base';
+    return '';
+  }
+
+  /** Por que não dá para evoluir a instância agora ('' = dá), e o preço. */
+  #evolucao(inst) {
+    const preco = precoEvoluirInst(inst);
+    if (preco === null) return { preco, porque: `Já está na V${NIVEL_ITEM_MAX}, a última versão` };
+    if (!this.naBase) return { preco, porque: 'Só pousado e parado na sua base' };
+    if (this.estado.ouro < preco) return { preco, porque: `Ouro insuficiente: faltam ${numero(preco - this.estado.ouro)}` };
+    return { preco, porque: '' };
+  }
+
+  /** Conteúdo da caixinha: o nome e as opções (apagadas com o motivo quando não dá). */
+  #desenharCaixa() {
+    const c = this.caixa;
+    if (!c) return;
+    const s = this.estado;
+    const inst = c.slot ? this.#instDoSlot(c.slot) : instDoInv(s.inv, c.inst);
+    // Sumiu (vendido, ou o encaixe esvaziou) ou deixou o compartimento: fecha.
+    if (!inst || (c.inst !== undefined && !this.#compartimento().some((x) => x.id === inst.id))) {
+      this.fecharCaixa();
       return;
     }
-    if (!noSlot(this.estado.equipado, slot)) return;
-    this.enviar({ t: 'equipar', slot, item: null });
-  }
-
-  #equiparArma(i) {
-    if (this.menuArmas.equipar(this.alvoArma, i)) {
-      this.msg.textContent = '';
-      this.#desenhar(true);
+    const opcao = (rotulo, acao, dados, porque = '', destaque = '') =>
+      `<button type="button" class="opcao-caixa ${destaque}" role="menuitem" data-acao="${acao}" ${Object.entries(dados)
+        .map(([k, v]) => `data-${k}="${esc(v)}"`)
+        .join(' ')} ${porque ? 'disabled' : ''}>${rotulo}</button>${porque ? `<small class="porque">${esc(porque)}</small>` : ''}`;
+    const ops = [];
+    const id = inst.id;
+    if (c.slot) {
+      const enc = ENCAIXES_INV.find((x) => x.slot === c.slot);
+      if (enc.arma !== undefined) {
+        const tecla = ENCAIXES[enc.arma].letraMenu;
+        ops.push(opcao(`Trocar <kbd>${tecla}</kbd>`, 'trocar', { enc: enc.arma }));
+        ops.push(opcao('Tirar', 'tirar', {}, 'A nave sempre leva duas armas: equipe outra no lugar'));
+      } else {
+        const cheio = this.#compartimento().length >= s.compMax;
+        ops.push(opcao('Tirar', 'tirar', { slot: c.slot }, cheio ? `Compartimento cheio (${s.compMax}/${s.compMax})` : ''));
+      }
+    } else if (inst.tipo === 'arma') {
+      const idx = armaDaInst(inst);
+      for (const enc of [0, 1]) {
+        const espera = this.menuArmas.esperaTroca(enc);
+        const porque = espera > 0 ? `Arma ${ENCAIXES[enc].tecla} carregando: ${espera.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} s` : '';
+        ops.push(opcao(`Equipar no <kbd>${ENCAIXES[enc].tecla}</kbd>`, 'arma', { enc, idx }, porque, 'principal'));
+      }
+    } else {
+      const cat = EQUIPAMENTOS[inst.chave]?.categoria;
+      const slots = Object.keys(CATEGORIA_DO_SLOT).filter((k) => CATEGORIA_DO_SLOT[k] === cat);
+      for (const slot of slots) {
+        const ocupado = instDoInv(s.inv, noSlot(s.equipado, slot));
+        const rotulo = slots.length > 1 ? `Equipar no ${slot === 'pot1' ? '1' : '2'}` : 'Equipar';
+        const troca = ocupado ? ` <i>troca com ${esc(nomeInst(ocupado))}</i>` : '';
+        ops.push(opcao(rotulo + troca, 'equipar', { slot, inst: id }, '', 'principal'));
+      }
+    }
+    if (!c.slot) {
+      const valor = precoVenda(inst);
+      ops.push(opcao(`Vender${valor !== null ? ` <b class="ouro">+${numero(valor)}</b>` : ''}`, 'vender', { inst: id, valor: valor ?? 0 }, this.#porqueNaoVende(inst)));
+    }
+    const ev = this.#evolucao(inst);
+    const rotEv = ev.preco === null ? 'Evoluir' : `Evoluir V${inst.nivel} → V${inst.nivel + 1} <b class="preco">${numero(ev.preco)}</b>`;
+    ops.push(opcao(rotEv, 'evoluir', { inst: id }, ev.porque));
+    const onde = c.slot ? NOME_SLOT[c.slot] : 'No compartimento';
+    const html = `<p class="titulo-caixa"><span>${onde}</span><strong>${esc(nomeInst(inst))}</strong></p>${ops.join('')}`;
+    if (this.caixaEl.dataset.html !== html) {
+      this.caixaEl.innerHTML = html;
+      this.caixaEl.dataset.html = html;
     }
   }
 
-  #equiparItem(chave) {
-    const e = EQUIPAMENTOS[chave];
-    if (!e) return;
-    let slot = e.categoria;
-    if (e.categoria === 'potenciador') {
-      const [a, b] = this.estado.equipado.pot;
-      slot = !a ? 'pot1' : !b ? 'pot2' : 'pot1';
+  /** Clique numa opção da caixinha. */
+  #agir(b) {
+    if (b.disabled) return;
+    const d = b.dataset;
+    const inst = instDoInv(this.estado.inv, Number(d.inst));
+    if (d.acao === 'arma') {
+      if (this.menuArmas.equipar(Number(d.enc), Number(d.idx))) {
+        this.msg.textContent = '';
+        this.fecharCaixa();
+        this.#desenhar(true);
+      }
+      return;
     }
-    this.enviar({ t: 'equipar', slot, item: chave });
-  }
-
-  /** Armas que a nave tem (de fábrica e compradas), na ordem do menu. */
-  #armasPossuidas() {
-    const m = this.menuArmas;
-    return ordenarPorCategoria(m.disponiveis.filter((i) => m.possui(i)));
+    if (d.acao === 'trocar') {
+      this.fecharCaixa();
+      if (!this.menuArmas.aberto || this.menuArmas.encaixe !== Number(d.enc)) this.menuArmas.alternar(Number(d.enc));
+      return;
+    }
+    if (d.acao === 'equipar') this.enviar({ t: 'equipar', slot: d.slot, inst: Number(d.inst) });
+    else if (d.acao === 'tirar' && d.slot) this.enviar({ t: 'equipar', slot: d.slot, inst: null });
+    else if (d.acao === 'vender' && inst) {
+      this.pedidos.set(inst.id, `Vendido: ${nomeInst(inst)} · +${numero(Number(d.valor))} ouro`);
+      this.enviar({ t: 'vender', inst: inst.id });
+    } else if (d.acao === 'evoluir' && inst) {
+      // Evoluir mantém a caixinha aberta (dá para subir várias versões seguidas).
+      this.pedidos.set(inst.id, `${nomeInst({ ...inst, nivel: inst.nivel + 1 })}: evoluído`);
+      this.enviar({ t: 'evoluirItem', inst: inst.id });
+      return;
+    }
+    this.fecharCaixa();
   }
 
   #desenhar(forcar) {
     const s = this.estado;
     const m = this.menuArmas;
     const encaixes = [...m.encaixes];
-    const chave = JSON.stringify([s, encaixes, m.niveis, m.posse, this.alvoArma, this.naBase]);
-    if (!forcar && chave === this.chave) return;
+    const espera = [m.esperaTroca(0) > 0, m.esperaTroca(1) > 0];
+    const chave = JSON.stringify([s, encaixes, m.niveis, espera, this.naBase]);
+    if (!forcar && chave === this.chave) {
+      if (this.caixa) this.#desenharCaixa();
+      return;
+    }
     this.chave = chave;
 
+    if (this.ouroEl) this.ouroEl.textContent = numero(s.ouro);
     this.tabela.innerHTML = tabelaTipos({ encaixes, niveis: m.niveis, status: s.status });
     this.#desenharNave();
 
     // Encaixes da nave.
+    const caixaSlot = this.caixa?.slot;
     this.slotsEl.innerHTML = ENCAIXES_INV.map((enc) => {
+      const inst = this.#instDoSlot(enc.slot);
+      const marcado = caixaSlot === enc.slot ? ' com-caixa' : '';
       if (enc.arma !== undefined) {
         const i = encaixes[enc.arma];
-        const nv = m.niveis[i] ?? 1;
-        const alvo = this.alvoArma === enc.arma;
-        return `<button type="button" class="slot arma${alvo ? ' alvo' : ''}" data-slot="${enc.slot}" title="${alvo ? 'A próxima arma do compartimento vai aqui' : 'Clique para a próxima arma ir aqui'}">
-          <span class="rot">${enc.nome}${alvo ? ' <i>◂ recebe</i>' : ''}</span><span class="ic">${ARMAS[i] ? iconeArma(ARMAS[i], nv) : ''}</span><span class="nm">${ARMAS[i] ? nomeArma(ARMAS[i]) : ''}</span><b class="v">V${nv}</b>
+        const nv = inst?.nivel ?? m.niveis[i] ?? 1;
+        return `<button type="button" class="slot arma${marcado}" data-slot="${enc.slot}" title="Clique para trocar ou evoluir">
+          <span class="rot">${enc.nome}</span><span class="ic">${ARMAS[i] ? iconeArma(ARMAS[i], nv) : ''}</span><span class="nm">${ARMAS[i] ? nomeArma(ARMAS[i]) : ''}</span><b class="v">V${nv}</b>
         </button>`;
       }
-      const k = noSlot(s.equipado, enc.slot);
-      const nv = s.equip[k] ?? 1;
-      return `<button type="button" class="slot${k ? '' : ' vazio'}" data-slot="${enc.slot}" ${k ? `data-chave="${k}"` : ''} title="${k ? 'Clique para tirar' : 'Vazio'}">
-        <span class="rot">${enc.nome}</span><span class="ic">${iconeEquip(k, CATEGORIA_DO_SLOT[enc.slot])}</span><span class="nm">${k ? EQUIPAMENTOS[k].nomePt : 'Vazio'}</span>${k ? `<b class="v">V${nv}</b>` : ''}
+      const k = inst?.chave ?? null;
+      return `<button type="button" class="slot${k ? '' : ' vazio'}${marcado}" data-slot="${enc.slot}" title="${k ? 'Clique para tirar ou evoluir' : 'Vazio: equipe pelo compartimento'}">
+        <span class="rot">${enc.nome}</span><span class="ic">${iconeEquip(k, CATEGORIA_DO_SLOT[enc.slot])}</span><span class="nm">${k ? EQUIPAMENTOS[k].nomePt : 'Vazio'}</span>${k ? `<b class="v">V${inst.nivel}</b>` : ''}
       </button>`;
     }).join('');
 
     this.avisoBase.className = 'aviso-base' + (this.naBase ? ' livre' : '');
     this.avisoBase.textContent = this.naBase
-      ? 'Na base: escudo, armadura e potenciadores trocam livre'
-      : 'Escudo, armadura e potenciadores só trocam pousado na sua base · armas trocam em qualquer lugar';
+      ? 'Na base: equipar, vender e evoluir liberados'
+      : 'Equipar vale em qualquer lugar · vender e evoluir, só pousado e parado na sua base';
 
-    // Compartimento: o que se tem e não está na nave (cada cópia de potenciador conta).
-    const armas = this.#armasPossuidas().filter((i) => !encaixes.includes(i));
-    const naNave = [s.equipado.escudo, s.equipado.armadura, ...s.equipado.pot].filter(Boolean);
-    const itens = ORDEM_EQUIP.filter((k) => Object.hasOwn(s.equip, k)).flatMap((k) => {
-      const sobra = (s.copias[k] ?? 1) - naNave.filter((x) => x === k).length;
-      return Array.from({ length: Math.max(0, sobra) }, () => k);
+    // Compartimento: as armas primeiro (na ordem do catálogo), depois os equipamentos.
+    const comp = this.#compartimento().sort((a, b) => (a.tipo === b.tipo ? (a.tipo === 'arma' ? IDX_ARMA[a.chave] - IDX_ARMA[b.chave] : a.id - b.id) : a.tipo === 'arma' ? -1 : 1));
+    const caixaInst = this.caixa?.inst;
+    const cartas = comp.map((x) => {
+      const ic = x.tipo === 'arma' ? iconeArma(x.chave, x.nivel) : iconeEquip(x.chave);
+      const nm = x.tipo === 'arma' ? nomeArma(x.chave) : (EQUIPAMENTOS[x.chave]?.nomePt ?? x.chave);
+      const marcado = caixaInst === x.id ? ' com-caixa' : '';
+      return `<button type="button" class="item-inv${marcado}" data-inst="${x.id}"><span class="ic">${ic}</span><span class="nm">${esc(nm)}</span><b class="v">V${x.nivel}</b></button>`;
     });
-    const cartas = [
-      ...armas.map((i) => {
-        const nv = m.niveis[i] ?? 1;
-        return `<button type="button" class="item-inv" data-arma="${i}"><span class="ic">${iconeArma(ARMAS[i], nv)}</span><span class="nm">${nomeArma(ARMAS[i])}</span><b class="v">V${nv}</b></button>`;
-      }),
-      ...itens.map((k) => {
-        const nv = s.equip[k] ?? 1;
-        return `<button type="button" class="item-inv" data-equip="${k}"><span class="ic">${iconeEquip(k)}</span><span class="nm">${EQUIPAMENTOS[k].nomePt}</span><b class="v">V${nv}</b></button>`;
-      }),
-    ];
-    this.conta.textContent = String(cartas.length);
+    this.conta.textContent = `${comp.length}/${s.compMax}`;
+    this.conta.classList.toggle('cheio', comp.length >= s.compMax);
     this.grade.innerHTML = cartas.length ? cartas.join('') : '<p class="nota-inv">Vazio: o que você comprar na Loja e não estiver na nave aparece aqui</p>';
+    if (this.caixa) {
+      // Os botões foram refeitos: a caixinha continua (o item marcado vem do HTML).
+      this.#desenharCaixa();
+    }
     if (this.foco) this.#focar(this.el.querySelector(this.foco), true);
   }
 
@@ -301,28 +473,18 @@ export class PainelInventario {
       this.detalhe.hidden = true;
       return;
     }
-    const s = this.estado;
-    const m = this.menuArmas;
     let html = '';
-    const tecla = this.alvoArma ? 'X' : 'Z';
+    const acao = 'Clique para ver o que dá para fazer';
     if (alvo.dataset.slot) {
-      const enc = ENCAIXES_INV.find((x) => x.slot === alvo.dataset.slot);
-      if (enc.arma !== undefined) {
-        const i = m.encaixes[enc.arma];
-        html = detalheArma(i, m.niveis[i] ?? 1, `No ${enc.arma ? 'X' : 'Z'} · clique para a próxima arma ir aqui`);
-      } else if (alvo.dataset.chave) {
-        const k = alvo.dataset.chave;
-        html = detalheEquip(k, s.equip[k] ?? 1, this.naBase ? 'Clique para tirar' : 'Para tirar, pouse na sua base', !this.naBase);
-      }
+      const inst = this.#instDoSlot(alvo.dataset.slot);
+      if (inst?.tipo === 'arma') html = detalheArma(armaDaInst(inst), inst.nivel, acao);
+      else if (inst) html = detalheEquip(inst.chave, inst.nivel, acao);
       this.foco = `[data-slot="${alvo.dataset.slot}"]`;
-    } else if (alvo.dataset.arma) {
-      const i = Number(alvo.dataset.arma);
-      html = detalheArma(i, m.niveis[i] ?? 1, `Clique para equipar no ${tecla}`);
-      this.foco = `[data-arma="${i}"]`;
-    } else if (alvo.dataset.equip) {
-      const k = alvo.dataset.equip;
-      html = detalheEquip(k, s.equip[k] ?? 1, this.naBase ? 'Clique para equipar' : 'Para equipar, pouse na sua base', !this.naBase);
-      this.foco = `[data-equip="${k}"]`;
+    } else if (alvo.dataset.inst) {
+      const inst = instDoInv(this.estado.inv, Number(alvo.dataset.inst));
+      if (inst?.tipo === 'arma') html = detalheArma(armaDaInst(inst), inst.nivel, acao);
+      else if (inst) html = detalheEquip(inst.chave, inst.nivel, acao);
+      this.foco = `[data-inst="${alvo.dataset.inst}"]`;
     }
     if (!html) {
       this.detalhe.hidden = true;

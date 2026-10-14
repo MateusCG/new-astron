@@ -2992,6 +2992,25 @@ body.dano::after {
   cursor: pointer;
 }
 
+/* Ouro no cabeçalho do INVENTÁRIO (vender e evoluir mexem nele). */
+.janela-lateral .ouro-janela {
+  margin: 0 0 0 auto;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.9;
+}
+
+.janela-lateral .ouro-janela b {
+  font: 700 20px ui-monospace, monospace;
+  color: var(--ouro);
+  text-shadow: 0 0 10px rgba(255, 209, 102, 0.45);
+}
+
+.janela-lateral .ouro-janela + .fechar {
+  margin-left: 14px;
+}
+
 .janela-lateral .corpo {
   position: relative; /* a caixinha do item do INVENTÁRIO mora aqui e rola junto */
   display: grid;
@@ -3570,6 +3589,104 @@ body.dano::after {
   margin: 0;
   font-size: 15px;
   opacity: 0.6;
+}
+
+#inventario h3 .conta-inv.cheio {
+  color: #ff8a70;
+  opacity: 1;
+}
+
+/* Item com a caixinha aberta: borda neon, como selecionado. */
+.slot.com-caixa,
+.item-inv.com-caixa {
+  border-color: var(--neon);
+  box-shadow: 0 0 10px rgba(0, 239, 192, 0.3);
+}
+
+/* Caixinha do item (clique num item do compartimento ou num encaixe ocupado): chapa
+   escura colada no item, com o nome e as opções empilhadas. A opção que não dá agora
+   fica apagada, com o motivo logo embaixo em vermelho-claro (mensagem ruim). Vender
+   mostra o ouro que volta (--ouro) e Evoluir, o preço (--ouro, mono). */
+.caixa-item {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  gap: 4px;
+  width: min(320px, calc(100% - 16px));
+  padding: 8px 10px 10px;
+  border: 1px solid var(--neon);
+  border-radius: 8px;
+  background: rgba(8, 20, 19, 0.97);
+  box-shadow:
+    0 0 14px rgba(0, 239, 192, 0.25),
+    0 6px 22px rgba(0, 0, 0, 0.6);
+  animation: surge 0.12s ease-out;
+}
+
+.caixa-item .titulo-caixa {
+  display: grid;
+  margin: 0 0 4px;
+}
+
+.caixa-item .titulo-caixa span {
+  font: 700 13px system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--neon);
+}
+
+.caixa-item .titulo-caixa strong {
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.opcao-caixa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 4px 12px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 6px;
+  background: #0f1e1d;
+  color: var(--texto);
+  font: 600 16px system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.opcao-caixa.principal {
+  border-color: var(--neon-escuro);
+  color: var(--neon);
+}
+
+.opcao-caixa:not(:disabled):hover {
+  border-color: var(--neon);
+  box-shadow: 0 0 10px rgba(0, 239, 192, 0.3);
+}
+
+.opcao-caixa i {
+  font: 400 14px system-ui, sans-serif;
+  font-style: normal;
+  color: var(--texto);
+  opacity: 0.7;
+}
+
+.opcao-caixa b {
+  margin-left: auto;
+  font: 700 16px ui-monospace, monospace;
+  color: var(--ouro);
+}
+
+.opcao-caixa:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.caixa-item .porque {
+  margin: -2px 0 2px 4px;
+  font-size: 14px;
+  color: #ff8a70;
 }
 
 /* Tela estreita e celular: a janela fica à esquerda dos botões da direita, e o
