@@ -192,3 +192,24 @@ test('computador: distribui os pontos ao subir de nível e monta escudo, armadur
   assert.ok(bot.inv.filter((x) => x.tipo === 'equip').every((x) => naNave.includes(x.id)), 'nada comprado ficou parado no compartimento');
   assert.ok(bot.ship.maxEscudo > 0);
 });
+
+test('computador: entra no nível 1 com a primeira nave e só compra a próxima com o nível dela (o ouro, o servidor cobra: naves.test.mjs)', () => {
+  const { w, h } = mundoComHumano({ drones: 0, monstros: 0, elites: 0 });
+  for (const lado of ['meu', 'meu', 'inimigo', 'inimigo']) w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado });
+  const bots = [...w.players.values()].filter((j) => j.ia);
+  assert.equal(bots.length, 4);
+  for (const b of bots) {
+    assert.equal(b.nivel, 1, b.nome);
+    assert.equal(b.tier, 0, b.nome);
+    assert.equal(b.ship.tier, 0, `${b.nome}: a nave em uso é a primeira da linha`);
+    const ent = w.entidades().find((e) => e.id === b.id);
+    assert.equal(ent?.tier, 0, `${b.nome}: o snapshot desenha a primeira nave`);
+  }
+  // Com ouro de sobra mas sem o nível 5, não compra.
+  const [b] = bots;
+  b.ouro = 5000;
+  b.nivel = 4;
+  const eventos = rodar(w, h, 40);
+  assert.ok(!eventos.some((e) => e.e === 'nave' && e.id === b.id), 'sem o nível, não compra');
+  assert.equal(b.tier, 0);
+});
