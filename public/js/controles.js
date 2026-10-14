@@ -18,7 +18,11 @@ const TECLAS = {
   plasma: ['KeyX', 'KeyK'],
   pouso: ['KeyL'],
   recall: ['KeyB'], // a V já é a câmera
+  camCima: ['KeyT', 'PageUp'], // câmera mais de cima (segurar)
+  camBaixo: ['KeyG', 'PageDown'], // câmera mais de baixo (segurar)
 };
+
+const CAM_VEL = 0.7; // rad/s com T ou G seguradas
 
 export class Controles {
   constructor(raiz) {
@@ -39,6 +43,17 @@ export class Controles {
       if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
     }, { signal });
     addEventListener('keyup', (e) => this.apertadas.delete(e.code), { signal });
+    // Roda do mouse sobre o jogo (não sobre um painel que rola): sobe e desce a
+    // câmera. Acumula até o laço ler (rodaCamera).
+    this.roda = 0;
+    addEventListener(
+      'wheel',
+      (e) => {
+        if (e.target.closest?.('#menu-armas, #servico, #entrada')) return;
+        this.roda += Math.sign(e.deltaY);
+      },
+      { signal, passive: true },
+    );
     addEventListener('blur', () => this.apertadas.clear(), { signal });
     if (matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window) this.#montarToque(raiz, signal);
   }
@@ -49,6 +64,7 @@ export class Controles {
     this.apertadas.clear();
     this.pulsoPouso = false;
     this.pulsoRecall = false;
+    this.roda = 0;
     this.toque = { th: 0, tu: 0, b: false, f1: false, f2: false, p: false };
     this.raiz.classList.remove('toque');
     const pino = this.raiz.querySelector?.('#stick .pino');
@@ -148,6 +164,19 @@ export class Controles {
   }
 
   /** Alternou a distância da câmera (tecla V) desde a última chamada? */
+  /**
+   * Quanto subir (+) ou descer (−) o ângulo da câmera neste quadro, em radianos: T
+   * ou PageUp e G ou PageDown seguradas dão ±CAM_VEL rad/s, e cada passo da roda do
+   * mouse um degrau (roda para cima sobe a câmera, para baixo desce).
+   */
+  ajusteCamera(dt) {
+    let v = (this.#tecla('camCima') ? 1 : 0) - (this.#tecla('camBaixo') ? 1 : 0);
+    v *= CAM_VEL * dt;
+    v -= this.roda * 0.08; // roda para cima (deltaY < 0) sobe a câmera
+    this.roda = 0;
+    return v;
+  }
+
   trocouCamera() {
     if (this.apertadas.has('KeyV')) {
       this.apertadas.delete('KeyV');

@@ -127,6 +127,20 @@ const CAMERAS = [
   { dist: 34, alt: 13, olhar: 18 },
   { dist: 14, alt: 5, olhar: 12 },
 ];
+// Altura da câmera escolhida pelo piloto (T/G, PageUp/PageDown ou a roda do mouse):
+// um ângulo somado ao de cada modo do V, de CAM_ANG_MIN (por baixo da nave, olhando
+// para cima) a CAM_ANG_MAX (quase de cima). Fica guardado no navegador.
+const CAM_ANG_MIN = -0.35; // rad (~20° abaixo da nave)
+const CAM_ANG_MAX = 1.25; // rad (~72° acima)
+const CHAVE_CAM_ANG = 'astron.camAngulo';
+function lerCamAngulo() {
+  try {
+    const v = Number(localStorage.getItem(CHAVE_CAM_ANG));
+    return Number.isFinite(v) ? v : 0;
+  } catch {
+    return 0;
+  }
+}
 
 // ---------- Tela de entrada ----------
 //
@@ -479,6 +493,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
   const nomes = new Map(TORRETAS.map((t) => [t.id, 'Torreta'])); // "destruído por Torreta"
 
   let camModo = 0;
+  let camAjuste = lerCamAngulo(); // rad somados ao ângulo do modo
+  let camAjusteSalvo = camAjuste;
   let camYaw = 0;
   let tempo = 0;
   let renasceAte = 0; // performance.now() em que a nave renasce (do renasceEm do servidor)
@@ -832,6 +848,17 @@ function montarJogo(rede, boas, renderer, race, classe) {
     }
     const alfa = acumulado / DT;
     if (controles.trocouCamera()) camModo = (camModo + 1) % CAMERAS.length;
+    const ajuste = controles.ajusteCamera(dt);
+    if (ajuste) {
+      const base = Math.atan2(CAMERAS[camModo].alt, CAMERAS[camModo].dist);
+      camAjuste = Math.max(CAM_ANG_MIN - base, Math.min(CAM_ANG_MAX - base, camAjuste + ajuste));
+    } else if (camAjuste !== camAjusteSalvo) {
+      // Soltou: guarda (uma vez, não a cada quadro).
+      camAjusteSalvo = camAjuste;
+      try {
+        localStorage.setItem(CHAVE_CAM_ANG, String(camAjuste));
+      } catch {}
+    }
 
     // Própria nave.
     erro.multiplyScalar(Math.exp(-10 * dt));
@@ -950,7 +977,11 @@ function montarJogo(rede, boas, renderer, race, classe) {
       if (vivo) camYaw = lerpAng(camYaw, minhaNave.rotation.y, 1 - Math.exp(-5 * dt));
       else camYaw += dt * 0.4; // morto: gira devagar em volta dos destroços
       const f = forward(camYaw);
-      desejada.set(foco.x - f.x * cfg.dist, foco.y + cfg.alt, foco.z - f.z * cfg.dist);
+      // Mesma distância do modo, no ângulo do modo mais o ajuste do piloto.
+      const raio = Math.hypot(cfg.dist, cfg.alt);
+      const ang = Math.max(CAM_ANG_MIN, Math.min(CAM_ANG_MAX, Math.atan2(cfg.alt, cfg.dist) + camAjuste));
+      const horiz = raio * Math.cos(ang);
+      desejada.set(foco.x - f.x * horiz, foco.y + raio * Math.sin(ang), foco.z - f.z * horiz);
       // Não deixa a câmera entrar na parede do cânion nem numa construção: aproxima
       // até ver a nave.
       for (let i = 1; i <= 8; i++) {
@@ -971,7 +1002,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
       camera.position.lerp(desejada, 1 - Math.exp(-8 * dt));
       const chao = alturaSolida(camera.position.x, camera.position.z) + 2;
       if (camera.position.y < chao) camera.position.y = chao;
-      alvoCam.set(foco.x + f.x * cfg.olhar, foco.y + 2, foco.z + f.z * cfg.olhar);
+      // Quanto mais de cima, mais a câmera mira na própria nave (senão ela some
+      // embaixo do painel); por baixo, mira à frente como no modo normal.
+      const kOlhar = Math.min(1, Math.cos(ang) / Math.cos(Math.atan2(cfg.alt, cfg.dist))) ** 2;
+      alvoCam.set(foco.x + f.x * cfg.olhar * kOlhar, foco.y + 2, foco.z + f.z * cfg.olhar * kOlhar);
       camera.lookAt(alvoCam);
       camera.fov = lerp(camera.fov, pred.boost ? 74 : 65, 1 - Math.exp(-4 * dt));
       camera.updateProjectionMatrix();
