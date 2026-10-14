@@ -109,11 +109,20 @@ const REGEN_ESPERA_TICKS = 5 * TICK_HZ;
 const VOO_REGEN_HP = 0.03; // fração do HP máximo por segundo, voando (sem nave do catálogo)
 const POUSO_REGEN_HP = 0.08; // fração do HP máximo por segundo, pousada (sem nave do catálogo)
 const POUSO_REGEN_ESPERA_TICKS = 1 * TICK_HZ;
-// Monstros do mundo aberto (3000 × 2000 m): Arnosh espalhados patrulhando, Vorax
-// caçando (N_MONSTROS) e os Krakor, elites raros (N_KRAKOR em server/elites.js).
-// XP e ouro de cada tipo ficam em RECOMPENSA (server/progressao.js).
-const N_DRONES = 14;
-const DRONE = { nome: 'Arnosh', hp: 90, visao: 200, alcance: 210, danoMult: 0.5 };
+// Monstros do mundo aberto (3000 × 2000 m): Arnosh, Vorax (N_MONSTROS) e os Krakor,
+// elites (N_KRAKOR em server/elites.js). XP e ouro de cada tipo ficam em RECOMPENSA
+// (server/progressao.js).
+//
+// São PASSIVOS (pedido do Mateus): patrulham a "jungle" e só seguem e atacam quem os
+// atacou. Cada monstro guarda quem o feriu (`raiva`: id do jogador → tick até onde
+// lembra) e esquece RAIVA_S depois do último golpe recebido, quando o jogador morre
+// ou quando o próprio monstro morre. O guardião do objetivo C não é da jungle: segue
+// defendendo a arena de quem entra.
+const N_DRONES = 28;
+const RAIVA_S = 20;
+const RAIVA_TICKS = RAIVA_S * TICK_HZ;
+// visao: até onde o Arnosh provocado ainda persegue quem o atacou.
+const DRONE = { nome: 'Arnosh', hp: 90, visao: 400, alcance: 210, danoMult: 0.5 };
 // Arnosh patrulhando não entra na faixa do corredor (é dos mineradores): dá meia
 // volta a esta distância do meio dele. Caçando um jogador, entra.
 const DRONE_LIMITE_CORREDOR = CORREDOR.largura / 2 + 40;
@@ -126,14 +135,15 @@ const DRONE_LIMITE_BASE = ZONA_SEGURA + 60;
 const PROTECAO_TICKS = 3 * TICK_HZ; // invulnerável logo depois de nascer
 const RECALL_TICKS = Math.round(RECALL_S * TICK_HZ);
 
-// Monstros Vorax: caçadores que vêm atrás de quem sai da base, de qualquer canto do
-// mapa, contornando as mesas de rocha (server/navegacao.js). Atacam com as garras, de
+// Monstros Vorax: caçadores que, provocados, vêm atrás de quem os atacou, de qualquer
+// canto do mapa, contornando as mesas de rocha (server/navegacao.js); sem raiva,
+// patrulham a jungle como os Arnosh. Atacam com as garras, de
 // perto, e não atiram. Mais lentos que qualquer nave de jogador (a mais lenta faz
 // ~50 m/s sem boost), para dar para fugir ou virar e brigar. Não entram na zona
 // segura: quem está na base fica a salvo e eles rondam a borda esperando. Quando
 // morrem, renascem longe de todo mundo e voltam a caçar, para sempre ter monstro
 // vindo.
-const N_MONSTROS = 6;
+const N_MONSTROS = 12;
 const VORAX = {
   nome: 'Vorax',
   raca: 'mechan', // só para a física (stepShip); o tipo é que diz o que ele é
@@ -152,7 +162,6 @@ const VORAX_PERTO = 60; // m: daqui para dentro, com linha livre, vai direto no 
 const VORAX_AFASTAR = 16; // m: dois monstros mais perto que isso se empurram
 const VORAX_ESPACO = 9; // m: não encosta mais que isso numa nave (não fica dentro dela)
 const VORAX_MARGEM_ZONA = 5; // m além da zona segura que o monstro não cruza
-const VORAX_RONDA_TROCA_TICKS = 4 * TICK_HZ; // ronda na borda troca de sentido
 const VORAX_PRESO_TICKS = 1.5 * TICK_HZ; // parado esse tempo querendo andar: dá ré
 const VORAX_RE_TICKS = 0.6 * TICK_HZ;
 const LIMITE_VORAX = ZONA_SEGURA + VORAX_MARGEM_ZONA;
@@ -252,6 +261,7 @@ export class World {
       },
       naZonaSegura: (s) => this.#naZonaSegura(s),
       zonaSegura: ZONA_SEGURA,
+      provocado: (e, j) => this.#provocado(e, j),
     };
   }
 
@@ -434,7 +444,7 @@ export class World {
     let alvo = null;
     let melhor = DRONE.visao;
     for (const j of this.players.values()) {
-      if (!j.vivo || this.#naZonaSegura(j.ship)) continue;
+      if (!j.vivo || this.#naZonaSegura(j.ship) || !this.#provocado(d, j)) continue;
       const dist = Math.hypot(j.ship.x - s.x, j.ship.z - s.z);
       if (dist < melhor) {
         melhor = dist;
@@ -466,15 +476,18 @@ export class World {
 
   /**
    * Refaz de tempos em tempos o mapa de caça: o caminho, contornando as rochas, de cada
-   * ponto do mapa até o jogador caçável mais próximo (vivo e fora da zona segura).
-   * Sem ninguém caçável, o mapa leva até a borda da zona segura.
+   * ponto do mapa até o jogador caçável mais próximo (vivo, fora da zona segura e que
+   * provocou algum Vorax). Sem ninguém assim, não há mapa: todos patrulham.
    */
   #atualizarCaca() {
     if (this.caca.campo && this.tick < this.caca.ate) return;
     this.caca.ate = this.tick + VORAX_RECALCULO_TICKS;
-    const alvos = [...this.players.values()].filter((j) => j.vivo && !this.#naZonaSegura(j.ship));
+    const alvos = [...this.players.values()].filter(
+      (j) => j.vivo && !this.#naZonaSegura(j.ship) && this.monstros.some((m) => m.vivo && this.#provocado(m, j)),
+    );
     if (!alvos.length) {
-      this.caca.campo = nav().campoBase();
+      // Ninguém provocou Vorax nenhum: sem campo (todos patrulham).
+      this.caca.campo = null;
       this.caca.alvos = [];
       return;
     }
@@ -497,43 +510,29 @@ export class World {
     const passo = this.caca.campo ? nav().proximoPonto(this.caca.campo, s.x, s.z) : null;
     let alvo = passo && passo.origem >= 0 ? this.caca.alvos[passo.origem] : null;
     if (alvo && (!alvo.vivo || !this.players.has(alvo.id) || this.#naZonaSegura(alvo.ship))) alvo = null;
+    let direto = false;
+    if (!alvo || !this.#provocado(m, alvo)) {
+      // O campo leva a quem provocou OUTRO monstro (ou a ninguém): este vai reto até
+      // quem o atacou, se houver.
+      alvo = this.#provocadorMaisPerto(m);
+      direto = true;
+    }
     m.alvo = alvo?.id ?? 0;
+    // Sem raiva de ninguém: patrulha a jungle.
+    if (!alvo) return this.#patrulha(m, thMax);
 
-    let dx = 0;
-    let dz = 0;
+    let dx = alvo.ship.x - s.x;
+    let dz = alvo.ship.z - s.z;
     let th = thMax;
-    if (alvo) {
-      const ax = alvo.ship.x - s.x;
-      const az = alvo.ship.z - s.z;
-      const d = Math.hypot(ax, az);
-      if (d < VORAX_PERTO && nav().linhaLivre(s.x, s.z, alvo.ship.x, alvo.ship.z)) {
-        // Já vê o jogador: vai direto e, encostado, freia para ficar grudado nele.
-        dx = ax;
-        dz = az;
-        if (d < VORAX.alcance * 0.7) th = 0;
-        else if (d < VORAX.alcance * 1.5) th = thMax * 0.5;
-      } else if (passo) {
-        dx = passo.x - s.x;
-        dz = passo.z - s.z;
-      }
-    } else if (passo && passo.dist > 3) {
-      // Ninguém caçável: vai para a borda da zona segura.
+    const d = Math.hypot(dx, dz);
+    if (direto || (d < VORAX_PERTO && nav().linhaLivre(s.x, s.z, alvo.ship.x, alvo.ship.z))) {
+      // Vê o jogador (ou não tem caminho melhor): vai direto e, encostado, freia para
+      // ficar grudado nele.
+      if (d < VORAX.alcance * 0.7) th = 0;
+      else if (d < VORAX.alcance * 1.5) th = thMax * 0.5;
+    } else {
       dx = passo.x - s.x;
       dz = passo.z - s.z;
-    } else if (passo) {
-      // Na borda da zona segura: ronda em volta da base, trocando de sentido às vezes.
-      if (this.tick % VORAX_RONDA_TROCA_TICKS === m.id % VORAX_RONDA_TROCA_TICKS) m.ronda = this.rng() < 0.5 ? 1 : -1;
-      const b = baseMaisPerto(s);
-      const rx = s.x - b.x;
-      const rz = s.z - b.z;
-      const r = Math.hypot(rx, rz) || 1;
-      dx = (-rz / r) * m.ronda + (rx / r) * 0.3;
-      dz = (rx / r) * m.ronda + (rz / r) * 0.3;
-      th = thMax * 0.45;
-    } else {
-      // Sem caminho daqui (canto isolado): patrulha devagar como o Arnosh.
-      if (this.tick % 45 === m.id % 45) m.ronda = this.rng() < 0.5 ? 1 : -1;
-      return { th: thMax * 0.5, tu: Math.hypot(s.vx, s.vz) < 4 ? 1 : m.ronda * 0.3, b: false, f1: false, f2: false };
     }
 
     // Monstros perto um do outro se empurram, para cercar o jogador em vez de
@@ -563,6 +562,51 @@ export class World {
       m.ronda = -m.ronda;
     }
     return { th, tu: Math.max(-1, Math.min(1, diff * 2.5)), b: false, f1: false, f2: false };
+  }
+
+  /** O monstro `ent` está com raiva do jogador `j` (foi atacado por ele há pouco)? */
+  #provocado(ent, j) {
+    const ate = ent.raiva?.get(j.id);
+    if (ate === undefined) return false;
+    if (ate > this.tick && j.vivo) return true;
+    ent.raiva.delete(j.id); // esqueceu (tempo passou ou o jogador morreu)
+    return false;
+  }
+
+  /** O jogador caçável mais perto de quem o monstro tem raiva, ou null. */
+  #provocadorMaisPerto(ent) {
+    let melhor = null;
+    let dist = Infinity;
+    for (const id of ent.raiva?.keys() ?? []) {
+      const j = this.players.get(id);
+      if (!j || !this.#provocado(ent, j) || this.#naZonaSegura(j.ship)) continue;
+      const d = Math.hypot(j.ship.x - ent.ship.x, j.ship.z - ent.ship.z);
+      if (d < dist) {
+        dist = d;
+        melhor = j;
+      }
+    }
+    return melhor;
+  }
+
+  /**
+   * Patrulha da jungle (Arnosh e Vorax sem raiva): anda devagar mudando de rumo aos
+   * poucos, dá meia volta perto das bases e da faixa do corredor (são dos jogadores
+   * e dos mineradores) e, parado, vira.
+   */
+  #patrulha(ent, thMax = 1) {
+    const s = ent.ship;
+    const b = baseMaisPerto(s);
+    let rumo = null;
+    if (Math.hypot(s.x - b.x, s.z - b.z) < DRONE_LIMITE_BASE) rumo = Math.atan2(-(s.x - b.x), -(s.z - b.z));
+    else if (Math.abs(s.x - CORREDOR.x) < DRONE_LIMITE_CORREDOR) rumo = Math.atan2(-(Math.sign(s.x - CORREDOR.x) || 1), 0);
+    if (rumo !== null) {
+      const diff = anguloEntre(s.yaw, rumo);
+      return { th: thMax * (Math.abs(diff) > 1 ? 0.2 : 0.6), tu: Math.max(-1, Math.min(1, diff * 2.5)), b: false, f1: false, f2: false };
+    }
+    if (this.tick % 45 === ent.id % 45) ent.giro = (this.rng() * 2 - 1) * 0.6;
+    const vel = Math.hypot(s.vx, s.vz);
+    return { th: thMax * 0.45, tu: vel < 4 ? 1 : ent.giro ?? 0, b: false, f1: false, f2: false };
   }
 
   /** Monstro não cruza a zona segura: se a física o pôs dentro, volta para a borda. */
@@ -603,7 +647,7 @@ export class World {
     let alvo = null;
     let melhor = VORAX.alcance;
     for (const j of this.players.values()) {
-      if (!j.vivo || this.#naZonaSegura(j.ship) || Math.abs(j.ship.y - m.ship.y) > 8) continue;
+      if (!j.vivo || this.#naZonaSegura(j.ship) || Math.abs(j.ship.y - m.ship.y) > 8 || !this.#provocado(m, j)) continue;
       const d = Math.hypot(j.ship.x - m.ship.x, j.ship.z - m.ship.z);
       if (d < melhor) {
         melhor = d;
@@ -684,6 +728,8 @@ export class World {
    */
   #ferir(alvo, dano, autor, ev, opcoes = {}) {
     if (!alvo.vivo) return; // já morreu neste tick (área e efeito no mesmo golpe)
+    // Monstro da jungle atacado por um jogador: passa a caçá-lo (ver RAIVA_S).
+    if (alvo.drone && this.players.has(autor)) (alvo.raiva ??= new Map()).set(autor, this.tick + RAIVA_TICKS);
     if (this.#protegido(alvo)) {
       if (ev) this.eventos.push({ ...ev, alvo: alvo.id, dano: 0 });
       return;
@@ -705,6 +751,7 @@ export class World {
     alvo.vivo = false;
     alvo.drenoTicks = 0;
     alvo.st = {};
+    alvo.raiva?.clear(); // monstro que morre esquece; renasce passivo
     if (alvo.tipo === 'jogador') {
       const s = tempoRenascer(alvo.nivel, this.partida.fracaoDecorrida(this.tick));
       alvo.respawnTick = this.tick + Math.round(s * TICK_HZ);

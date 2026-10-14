@@ -7,7 +7,9 @@
 // entre pontos sorteados do território. Quando um jogador entra na visão (fora da
 // zona segura), vira para ele, vai atrás até a borda do território e cospe plasma
 // (tiro inimigo, vermelho no cliente) mirando onde o jogador vai estar. Não
-// perseguem para fora do território: dá para fugir e voltar.
+// perseguem para fora do território: dá para fugir e voltar. O Krakor é da jungle
+// e é PASSIVO (`passivo`): só olha para quem o atacou (ctx.provocado, a raiva que
+// server/game.js guarda); o guardião defende a arena de quem entrar.
 //
 // - Krakor: besta grande e lenta (mais lenta que qualquer nave), com casco
 //   grosso. N_KRAKOR deles no mapa, cada um num covil longe das bases e do
@@ -41,6 +43,7 @@ export const KRAKOR = {
   renascerS: 30,
   folgaBase: 300, // m além do raio da base onde o covil não nasce
   folgaCorredor: 180, // m além da beira do corredor onde o covil não nasce
+  passivo: true, // só ataca quem o atacou
 };
 /** Guardião da arena dos objetivos C. */
 export const GUARDIAO = {
@@ -56,7 +59,7 @@ export const GUARDIAO = {
   leque: [0.12, 0, -0.12], // rad: três projéteis por disparo
   territorio: ARENA_C - 15,
 };
-export const N_KRAKOR = 4;
+export const N_KRAKOR = 8;
 const ELITE_PERTO = 70; // m: mais perto que isso do alvo, para de avançar e só atira
 const ELITE_MIRA_MAX = 0.7; // rad: só atira com o alvo nesse cone à frente
 const ELITE_PATRULHA_TROCA_TICKS = 8 / DT;
@@ -142,10 +145,10 @@ function pontoPatrulha(e, rng, zonaSegura) {
  * projéteis do cuspe ([{ kind, off, ang }], como stepShip devolve), que quem chama
  * cria com createBullet.
  * @param {object} e elite (novaElite)
- * @param {{ tick: number, rng: () => number, jogadores: Iterable<object>, naZonaSegura: (s: object) => boolean, zonaSegura: number }} ctx
+ * @param {{ tick: number, rng: () => number, jogadores: Iterable<object>, naZonaSegura: (s: object) => boolean, zonaSegura: number, provocado?: (e: object, j: object) => boolean }} ctx
  */
 export function iaElite(e, ctx) {
-  const { tick, rng, jogadores, naZonaSegura, zonaSegura } = ctx;
+  const { tick, rng, jogadores, naZonaSegura, zonaSegura, provocado } = ctx;
   const s = e.ship;
   const cfg = e.cfg;
   const thMax = Math.min(1, cfg.velocidade / velocidadeBase(s));
@@ -163,6 +166,7 @@ export function iaElite(e, ctx) {
   let dist = cfg.visao;
   for (const j of jogadores) {
     if (!j.vivo || naZonaSegura(j.ship)) continue;
+    if (cfg.passivo && !provocado?.(e, j)) continue;
     const d = Math.hypot(j.ship.x - s.x, j.ship.z - s.z);
     if (d < dist && Math.hypot(j.ship.x - e.covil.x, j.ship.z - e.covil.z) < cfg.territorio + cfg.visao) {
       dist = d;

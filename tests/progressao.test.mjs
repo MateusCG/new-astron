@@ -145,13 +145,14 @@ test('monstros: abater um Krakor dá o XP e o ouro dele', () => {
   assert.equal(j.xp, RECOMPENSA.krakor.xp - xpParaNivel(1));
 });
 
-test('monstros: o Krakor ataca quem chega perto do covil, cuspindo plasma', () => {
+test('monstros: provocado, o Krakor ataca quem está perto do covil, cuspindo plasma', () => {
   const w = new World({ drones: 0, monstros: 0, elites: 0, elites: 1, rng: rngFixo(9) });
   const k = w.elites.find((e) => e.tipo === 'krakor');
   const j = w.addPlayer('Presa', 'bellico');
   j.ship = createShip('bellico', k.covil.x, k.covil.z, 0);
   j.protegidoAte = 0;
   k.ship = createShip('bellico', k.covil.x, k.covil.z + 120, 0);
+  k.raiva = new Map([[j.id, Infinity]]); // passivo: só ataca quem o atacou
   const hp = j.ship.hp;
   for (let t = 0; t < 30 * 8; t++) w.step();
   assert.ok(j.ship.hp < hp, 'levou dano do Krakor');

@@ -15,6 +15,10 @@ function rngFixo(semente = 1) {
 const distBase = (s) => Math.min(...BASES.map((b) => Math.hypot(s.x - b.x, s.z - b.z)));
 const CORREDOR = { x: BASE.x, z: BASE.z - ZONA_SEGURA - 250 }; // corredor dos mineradores, fora da base
 
+// Os monstros da jungle são passivos: só caçam quem os atacou. Nos testes que medem a
+// caça, o monstro já começa com raiva do jogador.
+const provocar = (monstro, jogador) => (monstro.raiva = new Map([[jogador.id, Infinity]]));
+
 test('monstros: o snapshot diz o tipo de cada entidade', () => {
   const w = new World({ drones: 1, monstros: 2, elites: 1, rng: rngFixo() });
   w.addPlayer('A', 'acron');
@@ -40,6 +44,7 @@ test('monstros: Vorax solto longe contorna as rochas até o jogador fora da base
   const ini = { x: -1300, z: 100 };
   assert.equal(new MapaNavegacao({ raioBloqueio: ZONA_SEGURA }).linhaLivre(ini.x, ini.z, j.ship.x, j.ship.z), false, 'tem rocha no meio');
   m.ship = createShip('mechan', ini.x, ini.z, 0);
+  provocar(m, j);
   let chegou = -1;
   for (let t = 0; t < 30 * 60; t++) {
     w.step();
@@ -52,28 +57,54 @@ test('monstros: Vorax solto longe contorna as rochas até o jogador fora da base
   assert.ok(chegou > 0, `chegou perto do jogador (em ${chegou}s)`);
 });
 
-test('monstros: com todo mundo na base, rondam a borda da zona segura sem entrar', () => {
-  const w = new World({ drones: 0, monstros: 6, elites: 0, rng: rngFixo(5) });
-  const j = w.addPlayer('Seguro', 'shrewdo');
+test('monstros: sem ser atacados, patrulham a jungle e ignoram quem passa perto', () => {
+  const w = new World({ drones: 2, monstros: 6, elites: 1, rng: rngFixo(5) });
+  const j = w.addPlayer('Passante', 'shrewdo');
+  j.ship = createShip('shrewdo', CORREDOR.x, CORREDOR.z, 0);
   j.protegidoAte = 0;
+  // Um de cada tipo colado na nave: nenhum ataca.
+  w.monstros[0].ship = createShip('mechan', CORREDOR.x, CORREDOR.z - 20, 0);
+  w.drones[0].ship = createShip('mechan', CORREDOR.x + 60, CORREDOR.z, 0);
+  const k = w.elites.find((e) => e.tipo === 'krakor');
+  k.ship = createShip('bellico', CORREDOR.x - 80, CORREDOR.z, 0);
+  k.covil = { x: CORREDOR.x - 80, z: CORREDOR.z };
   const hp = j.ship.hp;
-  let perto = 0;
-  for (let t = 0; t < 30 * 60; t++) {
+  for (let t = 0; t < 30 * 20; t++) {
     w.step();
     for (const m of w.monstros) assert.ok(distBase(m.ship) >= ZONA_SEGURA, 'monstro dentro da zona segura');
   }
-  for (const m of w.monstros) if (distBase(m.ship) < ZONA_SEGURA + 120) perto++;
-  assert.ok(perto >= 4, `${perto} de 6 rondando a borda`);
-  assert.equal(j.ship.hp, hp, 'ninguém se machuca na base');
-  assert.ok(!w.tirarEventos().some((e) => e.e === 'garra'), 'nem tenta golpear');
+  assert.equal(j.ship.hp, hp, 'ninguém atacou');
+  assert.ok(!w.tirarEventos().some((e) => e.e === 'garra' || (e.e === 'tiro' && e.dono !== j.id)), 'nem golpe nem tiro');
 });
 
-test('monstros: garra machuca o jogador fora da base', () => {
+test('monstros: atacado, o monstro fica com raiva de quem atirou e esquece depois', () => {
+  const w = new World({ drones: 0, monstros: 1, elites: 0, rng: rngFixo(7) });
+  const j = w.addPlayer('Atirador', 'acron');
+  j.ship = createShip('acron', CORREDOR.x, CORREDOR.z, 0); // olha para -z
+  j.protegidoAte = Infinity;
+  const m = w.monstros[0];
+  m.ship = createShip('mechan', CORREDOR.x, CORREDOR.z - 60, 0);
+  m.ship.hp = m.ship.maxHp = 1e6; // não morre na conta
+  let seq = 0;
+  for (let t = 0; t < 30 * 2 && !m.raiva?.has(j.id); t++) {
+    w.pushInput(j.id, { s: ++seq, th: 0, tu: 0, f1: true });
+    w.step();
+  }
+  assert.ok(m.raiva?.get(j.id) > w.tick, 'anotou a raiva de quem atirou');
+  // Passado o tempo da raiva, volta a ser passivo.
+  m.raiva.set(j.id, w.tick + 3);
+  for (let t = 0; t < 10; t++) w.step();
+  assert.ok(!m.raiva.has(j.id), 'esqueceu');
+  assert.equal(m.alvo, 0);
+});
+
+test('monstros: provocado, a garra machuca o jogador fora da base', () => {
   const w = new World({ drones: 0, monstros: 1, elites: 0, rng: rngFixo(7) });
   const j = w.addPlayer('Presa', 'bellico');
   j.ship = createShip('bellico', CORREDOR.x, CORREDOR.z, 0);
   j.protegidoAte = 0;
   w.monstros[0].ship = createShip('mechan', CORREDOR.x, CORREDOR.z - 30, 0);
+  provocar(w.monstros[0], j);
   const hp = j.ship.hp;
   for (let t = 0; t < 30 * 5; t++) w.step();
   assert.ok(j.ship.hp < hp, 'levou dano');
