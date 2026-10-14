@@ -6,8 +6,8 @@ Guia obrigatório para qualquer coisa que entre no jogo: cenário, nave, inimigo
 
 **Ficção científica industrial, low-poly facetado, em planetas hostis ao entardecer.**
 
-- A referência é o AstroN (naves voando baixo por cânions e bases, painel metálico verde-azulado). É **inspiração, não cópia**: nada de sprites, modelos, logos ou nomes tirados do jogo original.
-- Tudo é **feito em código** (primitivas do Three.js, shaders e ruído), sem texturas fotográficas. O estilo low-poly é escolha estética e de desempenho: roda no navegador e no celular.
+- A referência é o AstroN (naves voando baixo por cânions e bases, painel metálico verde-azulado). É **inspiração, não cópia**: nada de sprites, modelos, logos ou nomes tirados do jogo original. **Exceção, por decisão do Mateus:** a nave de jogador é a **Ulysses**, modelo do AstroN original (`au0014.3dx`, exportado para `public/modelos/ulysses.glb`, low-poly de 498 triângulos com textura própria de 256 px). Outro modelo do jogo original só entra com a mesma decisão explícita.
+- Fora a nave de jogador, tudo é **feito em código** (primitivas do Three.js, shaders e ruído), sem texturas fotográficas. O estilo low-poly é escolha estética e de desempenho: roda no navegador e no celular.
 - Três camadas de cor em toda cena:
   1. **Ambiente** quente e dessaturado (rocha, areia, céu);
   2. **Tecnologia** em cinza-metal com **neon turquesa**;
@@ -52,7 +52,7 @@ Tokens em `public/css/jogo.css` (`:root`). Use as variáveis; não escreva hex s
 
 ### Raças
 
-Definidas em `shared/sim.js` (`RACES[].cor`). A cor da raça vai **só** nas asas, no leme e no brilho do motor; o casco é sempre cinza-claro (`#c9d2d0`). O rótulo (nome e barra) usa a cor do **time**, não a da raça (ver "Times" abaixo).
+Definidas em `shared/sim.js` (`RACES[].cor`). Todas as raças usam a mesma nave (a Ulysses, com a textura dourada do modelo); a cor da raça vai **só** no brilho dos motores. O rótulo (nome e barra) usa a cor do **time**, não a da raça (ver "Times" abaixo).
 
 ### Times (cor relativa a quem olha)
 
@@ -60,7 +60,7 @@ Na partida 3 contra 3 a cor de time é sempre **relativa a quem olha**: o que é
 
 | Onde | Como |
 |---|---|
-| Nave de jogador | **Marca de luz do time**: anel de neon em volta da fuselagem, atrás da cabine, e uma luz em cada ponta de asa (o que mais aparece na câmera de perseguição). A sua nave é sempre turquesa. A cor da raça continua nas asas, no leme e no motor |
+| Nave de jogador | **Marca de luz do time**: uma luz de neon em cada ponta de asa, nos encaixes de arma da ponta do modelo (`l_fire01`/`r_fire01`), o que mais aparece na câmera de perseguição. A sua nave é sempre turquesa. A cor da raça continua no brilho dos motores |
 | Minerador | Faixas de neon nos dois lados do casco e brilho dos motores na cor do time |
 | Rótulo sobre a nave | Nome e barra de vida turquesa (aliado) ou vermelhos (inimigo: outro time e monstros) |
 | Minimapa | Pontos do seu time em turquesa, do outro time e monstros em vermelho; minerador é uma bolinha menor que o quadrado das naves |
@@ -151,7 +151,7 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 - **Low-poly facetado:** `flatShading: true` em terreno, naves e estruturas. Nada de superfícies lisas brilhantes.
 - **Metal sem mapa de ambiente:** `metalness` até **0.5** e `roughness` de **0.4 a 0.8**. Metal alto sem nada para refletir fica preto ou estoura no reflexo do sol.
 - **Neon:** material com `color` e `emissive` iguais e `emissiveIntensity` entre **0.8 e 1.2**. Acima disso o tone mapping (ACES) puxa para o branco e a cor some. Luz piscando vai de 0.1 a 1.2.
-- **Uma cor de destaque por objeto.** Hangar e portal: cinza + neon da base (turquesa na sua, vermelho na do outro time). Nave: casco cinza + cor da raça.
+- **Uma cor de destaque por objeto.** Hangar e portal: cinza + neon da base (turquesa na sua, vermelho na do outro time). Nave de jogador: a textura do modelo + neon do time nas pontas das asas.
 - **Inimigos são orgânicos:** formas irregulares (icosaedro, espinhos), pele escura `#4a1414`/`#8c2a1f` e **olho vermelho emissivo**. Nunca usar o visual "nave limpa" dos jogadores neles.
 - **Cada inimigo tem silhueta própria**, para o jogador saber de longe o que vem:
 
@@ -170,7 +170,7 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 
 | Coisa | Tamanho |
 |---|---|
-| Nave de jogador | ~11 m de comprimento, ~12 m de envergadura |
+| Nave de jogador | 13 m de comprimento, ~10 m de envergadura (`COMPRIMENTO_NAVE` em `nave.js`; o modelo é escalado para isso ao carregar) |
 | Minerador | ~6 m de comprimento, ~4 m de largura (metade da nave), voa na mesma altura (`HOVER`) |
 | Krakor | ~17 m de comprimento, ~10 m de largura (acerto com raio 8 m, `KRAKOR.raio`) |
 | Guardião | ~23 m de altura, lascas girando a 9 m do centro (acerto com raio 10 m) |

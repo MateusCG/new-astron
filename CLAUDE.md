@@ -34,7 +34,8 @@ Um processo Node só: serve o cliente (HTTP) e roda o mundo (WebSocket `/ws`). O
 | `server/index.js` | HTTP estático + WebSocket + laço de 30 Hz; `iniciar({ porta, world })` para testes |
 | `public/js/main.js` | Laço do cliente: predição, reconciliação, interpolação, câmera |
 | `public/js/cena.js` | Céu, terreno, bases (cor relativa ao time: `criarCena({ meuTime })`), corredor, minério, entregas, serviços, objetivos, decoração, luz e poeira |
-| `public/js/nave.js` | Modelos das naves (com a marca de luz do time), do minerador, do drone Arnosh e dos monstros Vorax, Krakor e guardião (primitivas low-poly) |
+| `public/js/nave.js` | Modelos das naves: a de jogador é a Ulysses (`public/modelos/ulysses.glb`, lido pelo `GLTFLoader` em `carregarModelos`, que `iniciar` espera antes de conectar), com a marca de luz do time; minerador, drone Arnosh e monstros Vorax, Krakor e guardião em primitivas low-poly |
+| `public/modelos/` | Modelos 3D de arquivo (glTF binário), servidos como estáticos. Os addons do Three (`three/addons/`) vêm de `/vendor/addons/` |
 | `public/js/objetivos.js` | `ObjetivosNaTela`: aplica o `obj` do snapshot (torre B fora da física, marcação apagada em recarga) e desenha o rótulo de estado sobre cada objetivo |
 | `public/js/placar.js` | Placar dos times, tempo da partida e bônus ativos (`#placar`), e a tela de fim de partida (`#fim-partida`) |
 | `public/js/efeitos.js` | Tiros, faíscas, explosões, míssil com rastro (`corrigirGuiados`), minas (`atualizarMinas`), anel de área (`anelArea`) e auras de dreno, gelo e EMP (só visual) |
