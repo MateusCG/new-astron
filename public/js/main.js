@@ -46,6 +46,7 @@ import { areaPouso } from '/shared/terrain.js';
 import { alturaSolida } from '/shared/obstaculos.js';
 import { criarCena, liberarCena } from './cena.js';
 import {
+  carregarModelos,
   criarNave,
   criarDrone,
   criarVorax,
@@ -232,6 +233,8 @@ function criarRenderer() {
  */
 async function iniciar(nome, race) {
   const renderer = criarRenderer();
+  // O modelo da nave carrega antes de conectar: sem ele não há o que desenhar.
+  await carregarModelos();
   const rede = new Rede();
   const boas = await rede.entrar(nome, race);
   try {

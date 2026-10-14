@@ -159,6 +159,28 @@ test('servidor: não serve arquivo fora das pastas públicas', async () => {
   }
 });
 
+test('servidor: serve o modelo da nave e o GLTFLoader que o lê', async () => {
+  const srv = await iniciar({ porta: 0, world: new World({ drones: 0, monstros: 0, elites: 0, torretas: false }) });
+  try {
+    const modelo = await fetch(`http://localhost:${srv.porta}/modelos/ulysses.glb`);
+    assert.equal(modelo.status, 200);
+    assert.equal(modelo.headers.get('content-type'), 'model/gltf-binary');
+    // Cabeçalho do glTF binário: "glTF" e versão 2.
+    const bytes = new DataView(await modelo.arrayBuffer());
+    assert.equal(bytes.getUint32(0, true), 0x46546c67);
+    assert.equal(bytes.getUint32(4, true), 2);
+    // O loader importa '../utils/BufferGeometryUtils.js': a pasta de addons tem que vir inteira.
+    for (const rota of ['/vendor/addons/loaders/GLTFLoader.js', '/vendor/addons/utils/BufferGeometryUtils.js']) {
+      const r = await fetch(`http://localhost:${srv.porta}${rota}`);
+      assert.equal(r.status, 200, rota);
+    }
+    const fora = await fetch(`http://localhost:${srv.porta}/vendor/addons/%2e%2e/%2e%2e/%2e%2e/package.json`);
+    assert.equal(fora.status, 404);
+  } finally {
+    await srv.fechar();
+  }
+});
+
 test('servidor: aplica a arma escolhida no comando (e limpa valor inválido)', () => {
   const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
   const j = w.addPlayer('A', 'acron');

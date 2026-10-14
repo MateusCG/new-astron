@@ -3,7 +3,8 @@
 //
 // Sem Express e sem build: o cliente é ES module puro carregado direto do navegador,
 // e o Three.js vem do próprio node_modules em /vendor/ (versão travada no
-// package.json, sem depender de CDN no ar).
+// package.json, sem depender de CDN no ar), com os addons (GLTFLoader, que lê o
+// modelo da nave em public/modelos/) em /vendor/addons/.
 //
 // Protocolo (JSON):
 //   cliente → servidor  {t:'entrar', nome, race}
@@ -148,6 +149,8 @@ import { World, TICK_HZ } from './game.js';
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PASTAS = {
   '/shared/': path.join(RAIZ, 'shared'),
+  // Antes de '/vendor/': o primeiro prefixo que bate é o que vale.
+  '/vendor/addons/': path.join(RAIZ, 'node_modules', 'three', 'examples', 'jsm'),
   '/vendor/': path.join(RAIZ, 'node_modules', 'three', 'build'),
   '/': path.join(RAIZ, 'public'),
 };
@@ -158,6 +161,7 @@ const TIPOS = {
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.json': 'application/json',
+  '.glb': 'model/gltf-binary',
 };
 const MAX_MSG = 2048;
 const PEDIDOS = new Set(['comprar', 'evoluir', 'melhorar', 'reconstruir', 'usar']); // server/servicos.js

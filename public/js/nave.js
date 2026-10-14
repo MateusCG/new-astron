@@ -1,14 +1,13 @@
-// Modelos 3D das naves, montados com primitivas (low-poly, sem arquivo de modelo).
+// Modelos 3D das naves.
 //
-// A nave olha para -z (convenção do Three.js e de shared/sim.js). Cada raça usa a
-// mesma silhueta de caça com a cor da raça nas asas, e o time vem marcado por um
-// anel de luz na fuselagem e luzes nas pontas das asas (turquesa = do seu time,
-// vermelho = do outro, relativo a quem olha); os mineradores são mini-naves de
+// A nave olha para -z (convenção do Three.js e de shared/sim.js). A nave de
+// jogador é o modelo da Ulysses (arquivo glTF, igual para todas as raças, com a
+// cor da raça no brilho dos motores), e o time vem marcado por luzes nas pontas
+// das asas (turquesa = do seu time, vermelho = do outro, relativo a quem olha); o
+// resto é montado com primitivas (low-poly): os mineradores são mini-naves de
 // carga com a mesma marca de time, e a escolta armada é o mesmo casco com uma torre
-// de dois canos em cima; os drones Arnosh são uma
-// criatura orgânica escura com olho vermelho, como os inimigos dos planetas de
-// missão do AstroN. Quando houver modelos de verdade (glTF feitos no Blender),
-// só este arquivo muda.
+// de dois canos em cima; os drones Arnosh são uma criatura orgânica escura com olho
+// vermelho, como os inimigos dos planetas de missão do AstroN.
 
 import * as THREE from 'three';
 import { RACES } from '/shared/sim.js';
@@ -39,22 +38,6 @@ function spriteBrilho(cor, tamanho) {
   return s;
 }
 
-function asa(cor) {
-  // Asa em flecha: perfil 2D extrudado com pouca espessura.
-  const f = new THREE.Shape();
-  f.moveTo(0, -1.5);
-  f.lineTo(5.8, 2.6);
-  f.lineTo(5.8, 3.6);
-  f.lineTo(0, 3.2);
-  f.closePath();
-  const geo = new THREE.ExtrudeGeometry(f, { depth: 0.35, bevelEnabled: false });
-  geo.rotateX(Math.PI / 2);
-  geo.translate(0, 0.17, 0);
-  // DoubleSide porque a asa esquerda é a direita espelhada (scale.x = -1).
-  const mat = new THREE.MeshStandardMaterial({ color: cor, metalness: 0.55, roughness: 0.4, flatShading: true, side: THREE.DoubleSide });
-  return new THREE.Mesh(geo, mat);
-}
-
 /** Neon do time relativo a quem olha (mesmos tons das bases em cena.js). */
 export const COR_TIME = { aliado: new THREE.Color('#00efc0'), inimigo: new THREE.Color('#ff3b2a') };
 
@@ -63,78 +46,105 @@ function matNeon(cor) {
   return new THREE.MeshStandardMaterial({ color: cor, emissive: cor, emissiveIntensity: 1, flatShading: true });
 }
 
+// Nave de jogador: o modelo da Ulysses (public/modelos/ulysses.glb), carregado uma
+// vez antes de entrar no jogo (carregarModelos) e compartilhado por todas as naves
+// (mesma geometria e material; cada nave é só um Mesh novo). O arquivo vem com o
+// nariz para +x e escala própria: aqui ele gira para -z, encolhe para
+// COMPRIMENTO_NAVE e fica centrado na origem, como as naves de primitivas eram.
+// Os pontos de encaixe do arquivo (nós l_/r_/c_) passam pela mesma conta e dizem
+// onde ficam os motores e as pontas das asas.
+const URL_NAVE = '/modelos/ulysses.glb';
+const COMPRIMENTO_NAVE = 13; // m, do nariz à cauda (fica com ~10 m de envergadura)
+let modeloNave = null; // { geometria, material, encaixes: Map<nome, Vector3>, caixa: Box3 }
+
+/** Carrega os modelos de arquivo (a nave). Chame e espere antes de criarNave. */
+export async function carregarModelos() {
+  if (modeloNave) return;
+  const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+  const gltf = await new GLTFLoader().loadAsync(URL_NAVE);
+  gltf.scene.updateMatrixWorld(true);
+  let malha = null;
+  const pontos = new Map();
+  gltf.scene.traverse((o) => {
+    if (o.isMesh) malha ??= o;
+    else if (o.userData?.astron_helper) pontos.set(o.name, o.getWorldPosition(new THREE.Vector3()));
+  });
+  if (!malha) throw new Error('modelo da nave sem malha');
+
+  // Nariz de +x para -z, depois escala e centro.
+  const ajuste = new THREE.Matrix4().makeRotationY(Math.PI / 2).multiply(malha.matrixWorld);
+  const geometria = malha.geometry.clone().applyMatrix4(ajuste);
+  geometria.computeBoundingBox();
+  const tamanho = geometria.boundingBox.getSize(new THREE.Vector3());
+  const centro = geometria.boundingBox.getCenter(new THREE.Vector3());
+  const escala = COMPRIMENTO_NAVE / tamanho.z;
+  const final = new THREE.Matrix4().makeScale(escala, escala, escala).multiply(new THREE.Matrix4().makeTranslation(-centro.x, -centro.y, -centro.z));
+  geometria.applyMatrix4(final);
+  geometria.computeBoundingBox();
+  const giro = new THREE.Matrix4().makeRotationY(Math.PI / 2);
+  for (const p of pontos.values()) p.applyMatrix4(giro).applyMatrix4(final);
+
+  // Material dentro das regras do guia (facetado, metal até 0.5), com a textura do modelo.
+  const material = new THREE.MeshStandardMaterial({
+    map: malha.material.map,
+    metalness: 0.4,
+    roughness: 0.5,
+    flatShading: true,
+    side: THREE.DoubleSide,
+  });
+  modeloNave = { geometria, material, encaixes: pontos, caixa: geometria.boundingBox };
+}
+
 /**
- * Nave de jogador da raça dada. `aliado` decide a marca do time (anel na
- * fuselagem e luzes nas pontas das asas): turquesa se é do seu time, vermelho se
- * não. userData.motores guarda os brilhos do motor.
+ * Nave de jogador da raça dada (precisa de carregarModelos antes). `aliado` decide
+ * a marca do time (luzes nas pontas das asas): turquesa se
+ * é do seu time, vermelho se não. A cor da raça vai no brilho dos motores.
+ * userData: corpo (inclina nas curvas), motores (brilhos), trem (pouso).
  */
 export function criarNave(race, { aliado = true } = {}) {
+  if (!modeloNave) throw new Error('criarNave antes de carregarModelos');
+  const { geometria, material, encaixes, caixa } = modeloNave;
   const cor = new THREE.Color(RACES[race]?.cor ?? 0xffffff);
   const g = new THREE.Group();
-  const casco = new THREE.MeshStandardMaterial({ color: '#c9d2d0', metalness: 0.7, roughness: 0.35, flatShading: true });
-  const escuro = new THREE.MeshStandardMaterial({ color: '#2b3233', metalness: 0.6, roughness: 0.5, flatShading: true });
+  const escuro = new THREE.MeshStandardMaterial({ color: '#2b3233', metalness: 0.4, roughness: 0.6, flatShading: true });
+  g.add(new THREE.Mesh(geometria, material));
 
-  const fuselagem = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 1.3, 7.5, 6), casco);
-  fuselagem.rotation.x = -Math.PI / 2;
-  const nariz = new THREE.Mesh(new THREE.ConeGeometry(0.7, 3.2, 6), casco);
-  nariz.rotation.x = -Math.PI / 2;
-  nariz.position.z = -5.35;
-  const cabine = new THREE.Mesh(
-    new THREE.SphereGeometry(0.75, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2),
-    new THREE.MeshStandardMaterial({ color: '#0b2a33', emissive: '#00b3ff', emissiveIntensity: 0.6, metalness: 0.2, roughness: 0.1 }),
-  );
-  cabine.scale.set(1, 0.8, 2.2);
-  cabine.position.set(0, 0.55, -1.6);
-
-  const asaD = asa(cor);
-  asaD.position.set(0.6, -0.1, -0.2);
-  const asaE = asa(cor);
-  asaE.scale.x = -1;
-  asaE.position.set(-0.6, -0.1, -0.2);
-
-  const leme = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1.8, 2.2), new THREE.MeshStandardMaterial({ color: cor, flatShading: true }));
-  leme.position.set(0, 1.1, 2.6);
-  leme.rotation.x = -0.35;
-
-  g.add(fuselagem, nariz, cabine, asaD, asaE, leme);
-
-  // Marca do time: anel de luz em volta da fuselagem, atrás da cabine, e uma luz
-  // em cada ponta de asa (o que mais aparece na câmera de perseguição).
+  // Marca do time: uma luz em cada ponta de asa (o que mais aparece na câmera de
+  // perseguição), nos encaixes de arma da ponta (l_/r_fire01).
   const neonTime = matNeon(aliado ? COR_TIME.aliado : COR_TIME.inimigo);
-  const anelTime = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.14, 4, 16), neonTime);
-  anelTime.position.z = 1.6;
-  g.add(anelTime);
-  for (const lado of [-1, 1]) {
-    const ponta = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 1), neonTime);
-    ponta.position.set(lado * 6.45, 0.17, 3.1);
+  for (const nome of ['l_fire01', 'r_fire01']) {
+    const p = encaixes.get(nome);
+    if (!p) continue;
+    const ponta = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 1.4), neonTime);
+    ponta.position.copy(p);
     g.add(ponta);
   }
 
+  // Motores: brilho na cor da raça em cada bocal (encaixes l_/r_propulsion).
   const motores = [];
-  for (const lado of [-1, 1]) {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.65, 2.6, 8), escuro);
-    m.rotation.x = -Math.PI / 2;
-    m.position.set(lado * 1.5, 0, 3.2);
-    const bocal = new THREE.Mesh(
-      new THREE.CircleGeometry(0.5, 10),
-      new THREE.MeshBasicMaterial({ color: cor.clone().lerp(new THREE.Color('#ffffff'), 0.5) }),
-    );
-    bocal.position.set(lado * 1.5, 0, 4.52);
+  for (const nome of ['l_propulsion', 'r_propulsion']) {
+    const p = encaixes.get(nome);
+    if (!p) continue;
     const chama = spriteBrilho(cor.clone().lerp(new THREE.Color('#fff2c0'), 0.15), 2.6);
     chama.material.opacity = 0.75;
-    chama.position.set(lado * 1.5, 0, 5.1);
+    chama.position.copy(p).add(new THREE.Vector3(0, 0, 0.6));
     motores.push(chama);
-    g.add(m, bocal, chama);
+    g.add(chama);
   }
-  // Trem de pouso: três pernas que só aparecem com a nave pousada.
+
+  // Trem de pouso: três pernas que só aparecem com a nave pousada, do fundo do
+  // casco até 1,45 m abaixo do centro (pousada, a nave fica a ALTURA_POUSADO do chão).
   const trem = new THREE.Group();
+  const fundo = caixa.min.y;
+  const comp = caixa.max.z - caixa.min.z;
   for (const [x, z] of [
-    [0, -3.6],
-    [-1.6, 2.2],
-    [1.6, 2.2],
+    [0, -comp * 0.3],
+    [-1.6, comp * 0.18],
+    [1.6, comp * 0.18],
   ]) {
-    const perna = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.4, 5), escuro);
-    perna.position.set(x, -0.8, z);
+    const altura = fundo + 1.45;
+    const perna = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, altura, 5), escuro);
+    perna.position.set(x, fundo - altura / 2, z);
     const pe = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.15, 8), escuro);
     pe.position.set(x, -1.45, z);
     trem.add(perna, pe);
