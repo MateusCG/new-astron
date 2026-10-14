@@ -10,7 +10,7 @@
 // vermelho, como os inimigos dos planetas de missão do AstroN.
 
 import * as THREE from 'three';
-import { RACES } from '/shared/sim.js';
+import { RACES, WEAPONS, ARMAS } from '/shared/sim.js';
 import { naveDe } from '/shared/naves.js';
 
 let texturaBrilho = null;
@@ -68,6 +68,14 @@ function matNeon(cor) {
 // Trocar de nave (Evolução) troca o modelo na hora: definirNave(raiz, ...) monta o
 // modelo novo dentro do mesmo grupo, então o que estiver pendurado nele (auras,
 // recall, anel de nível) continua.
+//
+// Armas na asa (como no original): o modelo da arma do Z vai pendurado no encaixe
+// l_item da nave e o da do X no r_item (public/modelos/armas/<modelo>.glb, a peça da
+// esquerda e a da direita quando a arma tem par). A arma passa pela MESMA conta da
+// nave (a matriz do nó, o giro de +x para -z e a escala da nave), sem escala própria,
+// então fica do tamanho certo em qualquer nave. O nó `fire` da arma é a boca: de lá
+// sai o clarão e o desenho do tiro (bocaDaArma). Trocar de arma (definirArmas) troca o
+// modelo, para você e para os outros (o snapshot traz as armas de cada jogador).
 
 /** Tamanho da nave (m, média de comprimento e envergadura) por tier: ~11 a ~14 m de comprimento. */
 const TAMANHO_POR_TIER = [9.6, 10.1, 10.6, 11.1, 11.6];
@@ -154,12 +162,14 @@ function prepararModelo(gltf, tamanho) {
   const malhas = [];
   const encaixes = new Map();
   const propulsores = [];
+  const itensOriginal = new Map(); // 'l_item' | 'r_item' -> matriz do nó (espaço do arquivo)
   gltf.scene.traverse((o) => {
     if (o.isMesh) malhas.push(o);
     else if (o.userData?.astron_helper) {
       const p = o.getWorldPosition(new THREE.Vector3());
       if (!encaixes.has(o.name)) encaixes.set(o.name, p);
       if (/_propulsion$/.test(o.name)) propulsores.push(p.clone());
+      if (/^[lr]_item$/.test(o.name) && !itensOriginal.has(o.name)) itensOriginal.set(o.name, o.matrixWorld.clone());
     }
   });
   if (!malhas.length) throw new Error('modelo da nave sem malha');
@@ -179,13 +189,112 @@ function prepararModelo(gltf, tamanho) {
   for (const g of geos) orientarFaces(g.applyMatrix4(final));
   for (const p of [...encaixes.values(), ...propulsores]) p.applyMatrix4(giro).applyMatrix4(final);
   caixa.applyMatrix4(final);
+  // Onde as armas penduram: a matriz do nó passando pela mesma conta da nave.
+  const itens = {};
+  for (const [nome, m] of itensOriginal) itens[nome[0]] = new THREE.Matrix4().multiplyMatrices(final, giro).multiply(m);
 
   // Material dentro das regras do guia (facetado, metal até 0.5), com a textura do modelo.
   const partes = malhas.map((m, i) => ({
     geometria: geos[i],
     material: new THREE.MeshStandardMaterial({ map: m.material.map, metalness: 0.4, roughness: 0.5, flatShading: true, side: THREE.DoubleSide }),
   }));
-  return { partes, encaixes, propulsores, caixa };
+  return { partes, encaixes, propulsores, caixa, itens };
+}
+
+// ---------- Armas na asa ----------
+
+const armasCarregando = new Map(); // modelo -> Promise({ partes, boca })
+const armasProntas = new Map(); // modelo -> { partes, boca }
+
+/** Baixa o modelo de arma (public/modelos/armas/<modelo>.glb), uma vez por arquivo. */
+function carregarArma(modelo) {
+  if (!armasCarregando.has(modelo)) {
+    const p = (async () => {
+      carregador ??= new (await import('three/addons/loaders/GLTFLoader.js')).GLTFLoader();
+      const gltf = await carregador.loadAsync(`/modelos/armas/${modelo}.glb`);
+      gltf.scene.updateMatrixWorld(true);
+      const partes = [];
+      let boca = null;
+      gltf.scene.traverse((o) => {
+        if (o.isMesh) {
+          const geo = o.geometry.clone().applyMatrix4(o.matrixWorld);
+          orientarFaces(geo);
+          partes.push({ geometria: geo, material: new THREE.MeshStandardMaterial({ map: o.material.map, metalness: 0.4, roughness: 0.5, flatShading: true, side: THREE.DoubleSide }) });
+        } else if (o.name === 'fire' && o.userData?.astron_helper) boca = o.getWorldPosition(new THREE.Vector3());
+      });
+      const pronta = { partes, boca };
+      armasProntas.set(modelo, pronta);
+      return pronta;
+    })();
+    p.catch(() => armasCarregando.delete(modelo));
+    armasCarregando.set(modelo, p);
+  }
+  return armasCarregando.get(modelo);
+}
+
+/** Modelo da peça da arma (índice em ARMAS) no lado do encaixe (0 = Z, esquerda; 1 = X, direita). */
+function modeloDaArma(arma, enc) {
+  const w = WEAPONS[ARMAS[arma]];
+  return w?.modelo?.[enc] ?? null;
+}
+
+/**
+ * Pendura (ou troca) os modelos das armas da nave: `armas` = [índice do Z, do X].
+ * Sem o encaixe no modelo da nave (losango enquanto carrega), não desenha nada.
+ */
+export function definirArmas(raiz, armas) {
+  const ud = raiz.userData;
+  const chave = (armas ?? []).join();
+  if (ud.chaveArmas === chave) return;
+  ud.chaveArmas = chave;
+  ud.armas = armas ? [...armas] : null;
+  montarArmas(raiz);
+}
+
+function montarArmas(raiz) {
+  const ud = raiz.userData;
+  if (!ud.casco || !ud.armas) return;
+  ud.pecasArmas ??= [null, null];
+  ud.bocas ??= [null, null];
+  [0, 1].forEach((enc) => {
+    const modelo = modeloDaArma(ud.armas[enc], enc);
+    const m = ud.itens?.[enc ? 'r' : 'l'];
+    const atual = ud.pecasArmas[enc];
+    if (atual?.userData.modelo === modelo && atual.parent === ud.casco) return;
+    if (atual) atual.parent?.remove(atual);
+    ud.pecasArmas[enc] = null;
+    ud.bocas[enc] = null;
+    if (!modelo || !m) return;
+    const montar = (pronta) => {
+      if (modeloDaArma(ud.armas?.[enc], enc) !== modelo || ud.pecasArmas[enc]) return;
+      const g = new THREE.Group();
+      g.userData.modelo = modelo;
+      for (const { geometria, material } of pronta.partes) {
+        const malha = new THREE.Mesh(geometria, material);
+        malha.castShadow = true;
+        g.add(malha);
+      }
+      g.matrixAutoUpdate = false;
+      g.matrix.copy(m);
+      ud.casco.add(g);
+      ud.pecasArmas[enc] = g;
+      ud.bocas[enc] = pronta.boca ? pronta.boca.clone().applyMatrix4(m) : new THREE.Vector3().setFromMatrixPosition(m);
+    };
+    const pronta = armasProntas.get(modelo);
+    if (pronta) montar(pronta);
+    else carregarArma(modelo).then(montar).catch((err) => console.error('Falha ao carregar a arma', modelo, err));
+  });
+}
+
+/**
+ * Posição no mundo da boca da arma do encaixe (0 = Z, 1 = X) da nave, ou null se
+ * a arma ainda não está montada. Serve para o clarão e o começo do desenho do tiro.
+ */
+export function bocaDaArma(raiz, enc, alvo = new THREE.Vector3()) {
+  const b = raiz?.userData.bocas?.[enc];
+  if (!b) return null;
+  raiz.userData.corpo.updateWorldMatrix(true, false);
+  return alvo.copy(b).applyMatrix4(raiz.userData.corpo.matrixWorld);
 }
 
 /**
@@ -267,9 +376,10 @@ function montarCasco(raiz, modelo, race) {
   let caixa;
   let encaixes;
   let propulsores;
+  let itens = null;
   if (modelo) {
     for (const { geometria, material } of modelo.partes) casco.add(new THREE.Mesh(geometria, material));
-    ({ caixa, encaixes, propulsores } = modelo);
+    ({ caixa, encaixes, propulsores, itens } = modelo);
   } else {
     // Losango neon do time enquanto o modelo não chega (do tamanho de uma nave).
     const lugar = new THREE.Mesh(GEO_LOSANGO, neonTime);
@@ -324,7 +434,8 @@ function montarCasco(raiz, modelo, race) {
     if (o.isMesh) o.castShadow = true;
   });
   corpo.add(casco);
-  Object.assign(raiz.userData, { casco, motores, trem });
+  Object.assign(raiz.userData, { casco, motores, trem, itens, pecasArmas: [null, null], bocas: [null, null] });
+  montarArmas(raiz); // as armas voltam penduradas na nave nova
 }
 
 /**

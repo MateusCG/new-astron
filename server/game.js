@@ -1026,6 +1026,7 @@ export class World {
         // Qual nave desenhar: raça (acima), classe e tier (muda ao evoluir).
         ent.classe = e.ship.classe;
         ent.tier = e.ship.tier;
+        ent.arm = e.ship.encaixes; // armas do Z e do X (o modelo na asa de cada uma)
       }
       if (e.recall) ent.recall = +Math.min(1, (this.tick - e.recall.inicio) / (e.recall.fim - e.recall.inicio)).toFixed(2);
       if (e.tipo === 'minerador') {
@@ -1126,7 +1127,7 @@ export class World {
   #guiadosSnap() {
     return this.bullets
       .filter((b) => b.g?.guia)
-      .map((b) => ({ id: b.id, x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2), vx: +b.vx.toFixed(2), vy: +b.vy.toFixed(2), vz: +b.vz.toFixed(2) }));
+      .map((b) => ({ id: b.id, kind: b.kind, nv: b.nivel, p: b.prof, x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2), vx: +b.vx.toFixed(2), vy: +b.vy.toFixed(2), vz: +b.vz.toFixed(2) }));
   }
 
   /** Esvazia a lista de eventos acumulados desde o último snapshot. */

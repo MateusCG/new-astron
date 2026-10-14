@@ -12,10 +12,20 @@
 // Recall (volta à base): enquanto canaliza, a nave fica dentro de uma coluna de luz
 // na cor do time (relativa a quem olha) que se acende com o progresso, com anéis
 // subindo cada vez mais rápido; ao sumir e ao chegar, um feixe curto e um clarão.
+//
+// Armas do Astro-N original (catálogo de shared/armas.js): o desenho de cada tiro,
+// clarão, impacto, área, nova e o decalque das minas e campos vêm de
+// efeitos-armas.js, com as texturas e as cores do original. O tiro nasce na boca da
+// arma pendurada na asa e escorrega para a linha do tiro de verdade (a da física) em
+// DESVIO_S, para o desenho sair da arma sem mentir onde a bala está. Os tiros dos NPCs
+// (laser e plasma) continuam com a forma de antes. As naves atingidas mostram os
+// efeitos das armas pela lista `fx` de cada entidade (paralisia, desgoverno, energia,
+// invulnerável, escudo, fraco, conserto, aceleração, camuflagem).
 
 import * as THREE from 'three';
-import { stepBullet } from '/shared/sim.js';
+import { stepBullet, WEAPONS } from '/shared/sim.js';
 import { brilho } from './nave.js';
+import { VisualArmas } from './efeitos-armas.js';
 
 // Cores dos efeitos de arma (ver IDENTIDADE-VISUAL.md): o dreno é violeta e o
 // criogênico azul-gelo, para não se confundirem com o laser ciano, o plasma verde
@@ -81,6 +91,22 @@ const AURA_PARTICULA_S = 0.07; // intervalo entre partículas por nave afetada
 const COR_NIVEL = new THREE.Color('#b6f05a');
 const ANEL_NIVEL_S = 1.2;
 const ANEL_NIVEL_RAIO = 14; // m no fim da animação
+// O desenho do tiro sai da boca da arma e encontra a linha da física neste tempo (s).
+const DESVIO_S = 0.15;
+// Efeitos das armas na nave atingida (lista `fx` do servidor): cor da aura de cada um.
+const COR_FX = {
+  para: new THREE.Color('#c8d2ff'),
+  desg: new THREE.Color('#b47cff'),
+  energia: new THREE.Color('#3fa9ff'),
+  invul: new THREE.Color('#ffe28a'),
+  escudo: new THREE.Color('#8fd0ff'),
+  fraco: new THREE.Color('#ff8a70'),
+  regen: new THREE.Color('#7dff9a'),
+  acel: new THREE.Color('#7fd8ff'),
+};
+const FX_PARTICULA_S = 0.09;
+// Camuflagem: a nave (sua ou de aliado) fica fantasma, nesta opacidade.
+const FANTASMA_OPACIDADE = 0.28;
 // Recall: coluna de luz em volta da nave canalizando (raio e altura em m), anéis
 // subindo (quantos e quanto sobem) e o feixe da partida/chegada (duração em s).
 const RECALL_COLUNA_RAIO = 6;
@@ -110,6 +136,9 @@ function anelFuria() {
 export class Efeitos {
   /** Libera da GPU as geometrias guardadas fora da cena (saída da partida). */
   liberar() {
+    for (const t of this.tiros.values()) if (t.visual) this.armas.soltarProjetil(t.g);
+    this.armas.liberar();
+    this.matFantasma?.dispose();
     for (const geo of this.geoBarra.values()) geo.dispose();
     this.geoBarra.clear();
     this.atualizarMinas([]);
@@ -155,6 +184,7 @@ export class Efeitos {
     this.geoColuna.setAttribute('color', new THREE.BufferAttribute(cores, 3));
     this.geoAnelRecall = new THREE.TorusGeometry(1, 0.045, 4, 40);
     this.feixes = []; // feixes de partida e chegada do recall
+    this.armas = new VisualArmas(scene);
   }
 
   /**
@@ -243,7 +273,8 @@ export class Efeitos {
    * cristais caindo), e a fúria do time (anel âmbar, objetivo C). Chamar a
    * cada quadro para cada nave visível.
    */
-  estadoNave(obj, { dreno = false, lento = false, emp = false, furia = false }, dt, tempo) {
+  estadoNave(obj, { dreno = false, lento = false, emp = false, furia = false, fx = [] }, dt, tempo) {
+    this.#fxArmas(obj, fx, dt, tempo);
     let a = obj.userData.auras;
     if (!a) {
       if (!dreno && !lento && !emp && !furia) return;
@@ -288,6 +319,65 @@ export class Efeitos {
     }
   }
 
+  /**
+   * Efeitos das armas do original na nave (lista `fx` do servidor): aura na cor de
+   * cada um (paralisia pisca como curto, invulnerável e escudo envolvem a nave,
+   * conserto e aceleração soltam partículas), e a camuflagem deixa a nave fantasma.
+   */
+  #fxArmas(obj, fx, dt, tempo) {
+    const ud = obj.userData;
+    const ativos = new Set(fx ?? []);
+    this.#fantasma(obj, ativos.has('inv'));
+    if (!ud.fx) {
+      if (!ativos.size) return;
+      ud.fx = { auras: {}, acc: 0 };
+    }
+    for (const [k, cor] of Object.entries(COR_FX)) {
+      let s = ud.fx.auras[k];
+      if (!ativos.has(k)) {
+        if (s) s.visible = false;
+        continue;
+      }
+      if (!s) {
+        s = ud.fx.auras[k] = spriteAditivo(cor, k === 'invul' || k === 'escudo' ? 15 : 12);
+        obj.add(s);
+      }
+      s.visible = true;
+      const pisca = k === 'para' ? (Math.sin(tempo * 41) * Math.sin(tempo * 17) > 0 ? 0.6 : 0.15) : 0.35 + 0.15 * Math.sin(tempo * (k === 'invul' ? 5 : 3));
+      s.material.opacity = pisca;
+    }
+    if (!(ativos.has('regen') || ativos.has('acel') || ativos.has('energia'))) return;
+    obj.getWorldPosition(this.v);
+    ud.fx.acc += dt;
+    while (ud.fx.acc >= FX_PARTICULA_S) {
+      ud.fx.acc -= FX_PARTICULA_S;
+      if (ativos.has('regen')) this.#particula(COR_FX.regen, 1.6, 5, 0.8);
+      if (ativos.has('energia')) this.#particula(COR_FX.energia, 1.4, -5, 0.7);
+      if (ativos.has('acel')) this.#particula(COR_FX.acel, 2.2, 0, 0.35, 3);
+    }
+  }
+
+  /** Nave camuflada (vista por você ou aliado): materiais do casco trocados por um fantasma. */
+  #fantasma(obj, ligado) {
+    const ud = obj.userData;
+    if (!!ud.fantasma === ligado && (!ligado || ud.fantasmaCasco === ud.casco)) return;
+    this.matFantasma ??= new THREE.MeshBasicMaterial({ color: '#9fb4c8', transparent: true, opacity: FANTASMA_OPACIDADE, depthWrite: false });
+    if (ud.fantasma && ud.fantasmaCasco) {
+      for (const [m, mat] of ud.fantasma) m.material = mat;
+    }
+    ud.fantasma = null;
+    ud.fantasmaCasco = null;
+    if (!ligado || !ud.casco) return;
+    ud.fantasma = new Map();
+    ud.fantasmaCasco = ud.casco;
+    ud.casco.traverse((o) => {
+      if (o.isMesh) {
+        ud.fantasma.set(o, o.material);
+        o.material = this.matFantasma;
+      }
+    });
+  }
+
   #particula(cor, tamanho, subida, dur, espalha = 4.5) {
     const s = spriteAditivo(cor, tamanho);
     s.position.set(
@@ -322,17 +412,36 @@ export class Efeitos {
   }
 
   /**
-   * Minas do snapshot ([{ id, time, x, y, z, armada }]): cria as novas, tira as que
-   * sumiram (explodiram, venceram ou passaram do limite). Cor relativa a meuTime.
+   * Minas e campos do snapshot ([{ id, time, kind, nv, p, campo, raio, x, y, z,
+   * armada }]): cria os novos, tira os que sumiram (explodiram, venceram, passaram do
+   * limite ou foram desarmados). A mina é o disco com a luz do time e o decalque da
+   * arma no chão; o campo é só o decalque, do tamanho da área, pulsando. Cor do time
+   * relativa a meuTime.
    */
   atualizarMinas(lista, meuTime) {
     const vistas = new Set();
     for (const m of lista ?? []) {
       vistas.add(m.id);
       let v = this.minas.get(m.id);
+      if (!v && m.campo) {
+        const g = new THREE.Group();
+        const decal = this.armas.decalque(m.kind, m.nv, m.p, Math.max(3, m.raio ?? 10));
+        g.add(decal);
+        const cor = m.time === meuTime ? COR_TIME.meu : COR_TIME.outro;
+        const brilhoCampo = spriteAditivo(cor, 4);
+        brilhoCampo.position.y = 1.5;
+        g.add(brilhoCampo);
+        this.scene.add(g);
+        v = { g, luz: null, brilho: brilhoCampo, decal, campo: true, fase: Math.random() * Math.PI * 2 };
+        this.minas.set(m.id, v);
+      }
       if (!v) {
         const cor = m.time === meuTime ? COR_TIME.meu : COR_TIME.outro;
         const g = new THREE.Group();
+        if (m.kind) {
+          const decal = this.armas.decalque(m.kind, m.nv, m.p, 2.6);
+          g.add(decal);
+        }
         const corpo = new THREE.Mesh(this.geoMina, this.matMina);
         corpo.position.y = 0.3;
         corpo.castShadow = true;
@@ -360,7 +469,7 @@ export class Efeitos {
     for (const [id, v] of this.minas) {
       if (vistas.has(id)) continue;
       this.scene.remove(v.g);
-      v.luz.material.dispose();
+      v.luz?.material.dispose();
       v.brilho.material.dispose();
       this.minas.delete(id);
     }
@@ -375,7 +484,7 @@ export class Efeitos {
     for (const g of lista ?? []) {
       const t = this.tiros.get(g.id);
       if (!t) {
-        this.tiro({ id: g.id, kind: 'missil', x: g.x, y: g.y, z: g.z, vx: g.vx, vy: g.vy, vz: g.vz, vida: 3 });
+        this.tiro({ id: g.id, kind: g.kind ?? 'plasma', nv: g.nv, p: g.p, x: g.x, y: g.y, z: g.z, vx: g.vx, vy: g.vy, vz: g.vz, vida: 3 });
         continue;
       }
       Object.assign(t.b, { x: g.x, y: g.y, z: g.z, vx: g.vx, vy: g.vy, vz: g.vz });
@@ -392,9 +501,21 @@ export class Efeitos {
   /**
    * Cria um tiro visual. inimigo = tiro de drone (vermelho); `cor` troca a cor da
    * arma pela do time (tiro de torreta e de escolta: turquesa do seu time,
-   * vermelho do outro).
+   * vermelho do outro). Arma do original (b.kind 'o...', com b.nv e b.p): o desenho
+   * dela (efeitos-armas.js); `boca` (Vector3) é de onde o desenho sai.
    */
-  tiro(b, inimigo = false, cor = inimigo ? COR_TIRO.inimigo : COR_TIRO[b.kind] ?? COR_TIRO.laser) {
+  tiro(b, inimigo = false, cor = null, boca = null) {
+    const w = WEAPONS[b.kind];
+    if (w && !w.npc && !inimigo && !cor) {
+      const p = this.armas.projetil(b.kind, b.nv ?? 1, b.p ?? 0);
+      p.g.position.set(b.x, b.y, b.z);
+      p.g.lookAt(b.x + b.vx, b.y + b.vy, b.z + b.vz);
+      this.scene.add(p.g);
+      const desvio = boca ? { x: boca.x - b.x, y: boca.y - b.y, z: boca.z - b.z, t: 0 } : null;
+      this.tiros.set(b.id, { b, g: p.g, visual: true, guiado: p.guiado, giro: p.giro, onda: p.onda, corRastro: p.rastro, rastro: { x: b.x, y: b.y, z: b.z }, desvio });
+      return;
+    }
+    cor ??= inimigo ? COR_TIRO.inimigo : (COR_TIRO[b.kind] ?? COR_TIRO.laser);
     const forma = FORMA_TIRO[b.kind] ?? FORMA_TIRO.laser;
     const g = new THREE.Group();
     if (forma.barra) {
@@ -422,9 +543,14 @@ export class Efeitos {
     this.tiros.set(b.id, { b, g, guiado: !!forma.corpo, rastro: { x: b.x, y: b.y, z: b.z } });
   }
 
-  /** Uma baforada de fumaça (sem brilho: rastro do míssil) no ponto dado. */
-  #fumaca(x, y, z) {
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: brilho(), color: COR_FUMACA, depthWrite: false, transparent: true, opacity: 0.7 }));
+  /**
+   * Uma baforada do rastro do míssil no ponto dado: fumaça cinza sem brilho ou, com
+   * a cor do rastro do original (`cor`), luz aditiva naquela cor.
+   */
+  #fumaca(x, y, z, cor = null) {
+    const s = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: brilho(), color: cor ?? COR_FUMACA, depthWrite: false, transparent: true, opacity: 0.7, blending: cor ? THREE.AdditiveBlending : THREE.NormalBlending }),
+    );
     s.position.set(x, y, z);
     s.scale.setScalar(2);
     this.scene.add(s);
@@ -435,6 +561,7 @@ export class Efeitos {
     const t = this.tiros.get(id);
     if (!t) return null;
     this.scene.remove(t.g);
+    if (t.visual) this.armas.soltarProjetil(t.g);
     this.tiros.delete(id);
     return t.b;
   }
@@ -484,11 +611,22 @@ export class Efeitos {
         }
       }
       if (!vivo) {
-        if (t.b.vida > 0) this.explosao(t.b.x, t.b.y, t.b.z, 0.4, '#ffcf90');
+        if (t.b.vida > 0 && !t.visual) this.explosao(t.b.x, t.b.y, t.b.z, 0.4, '#ffcf90');
         this.removerTiro(id);
         continue;
       }
       t.g.position.set(t.b.x, t.b.y, t.b.z);
+      if (t.desvio) {
+        // Sai da boca da arma e encontra a linha do tiro de verdade.
+        t.desvio.t += dt;
+        const k = Math.max(0, 1 - t.desvio.t / DESVIO_S);
+        if (k > 0) t.g.position.add(this.v.set(t.desvio.x * k, t.desvio.y * k, t.desvio.z * k));
+        else t.desvio = null;
+      }
+      if (t.visual) {
+        this.armas.animarProjetil(t, dt);
+        if (t.b.vx || t.b.vz) t.g.lookAt(t.g.position.x + t.b.vx, t.g.position.y + t.b.vy, t.g.position.z + t.b.vz);
+      }
       if (t.guiado) {
         // O míssil vira com a curva e deixa fumaça para trás.
         t.g.lookAt(t.b.x + t.b.vx, t.b.y + t.b.vy, t.b.z + t.b.vz);
@@ -497,19 +635,21 @@ export class Efeitos {
         const n = Math.min(FUMACA_MAX, Math.floor(dist / FUMACA_PASSO));
         for (let i = 1; i <= n; i++) {
           const k = (i * FUMACA_PASSO) / dist;
-          this.#fumaca(r.x + (t.b.x - r.x) * k, r.y + (t.b.y - r.y) * k, r.z + (t.b.z - r.z) * k);
+          this.#fumaca(r.x + (t.b.x - r.x) * k, r.y + (t.b.y - r.y) * k, r.z + (t.b.z - r.z) * k, t.corRastro);
         }
         if (n) Object.assign(r, { x: t.b.x, y: t.b.y, z: t.b.z });
       }
     }
 
     this.tempo += dt;
+    this.armas.atualizar(dt);
     for (const m of this.minas.values()) {
-      // Pulsa devagar enquanto não arma e rápido armada.
+      // Pulsa devagar enquanto não arma e rápido armada; o decalque gira devagar.
       const f = m.armada ? MINA_PISCA.armada : MINA_PISCA.desarmada;
       const k = 0.5 + 0.5 * Math.sin(this.tempo * f * Math.PI * 2 + m.fase);
-      m.luz.material.emissiveIntensity = m.armada ? 0.2 + k : 0.15 + 0.5 * k;
+      if (m.luz) m.luz.material.emissiveIntensity = m.armada ? 0.2 + k : 0.15 + 0.5 * k;
       m.brilho.material.opacity = m.armada ? 0.25 + 0.75 * k : 0.12 + 0.3 * k;
+      if (m.decal) m.decal.rotation.y += dt * (m.campo ? 0.4 : 1.2);
     }
 
     this.aneisArea = this.aneisArea.filter((a) => {

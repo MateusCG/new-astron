@@ -105,6 +105,7 @@ export class Golpes {
       if (g.forma === 'projetil') {
         const b = createBullet(s, d.kind, this.#id(), ent.id, d.off, d.ang, f.nivel, g);
         this.#prepararTiro(b, f, g, s.yaw + (d.ang ?? 0));
+        b.enc = d.enc; // de qual encaixe saiu (o cliente desenha da boca daquela arma)
         this.#lancar(b, g);
       } else if (g.forma === 'nova') {
         this.#nova(f, g, s.x, s.y, s.z);
@@ -156,6 +157,7 @@ export class Golpes {
       vy: +b.vy.toFixed(2),
       vz: +b.vz.toFixed(2),
       vida: +b.vida.toFixed(2),
+      ...(b.enc !== undefined ? { enc: b.enc } : {}),
     });
   }
 
