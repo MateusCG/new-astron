@@ -31,7 +31,9 @@ function abater(w, j, alvo, segundos = 15) {
 }
 
 test('progressão: curva de XP sobe a cada nível e fecha no máximo', () => {
+  assert.equal(NIVEL_MAX, 25, 'nível máximo do piloto (pedido do Mateus)');
   assert.equal(xpParaNivel(1), 60);
+  assert.equal(xpParaNivel(24), 60 + 20 * 23);
   for (let n = 1; n < NIVEL_MAX - 1; n++) assert.ok(xpParaNivel(n + 1) > xpParaNivel(n), `nível ${n}`);
   assert.equal(xpParaNivel(NIVEL_MAX), 0, 'no máximo não há próximo');
   // Marcos da Evolução alcançáveis numa partida de 10 minutos.

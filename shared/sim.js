@@ -89,7 +89,7 @@ export const NAVE_SEM_CLASSE = { hp: 250, energia: 60, velocidade: 52.25 }; // v
 // duas gastam dela.
 //
 // O catálogo (shared/armas.js) é o do Astro-N original: 140 armas das lojas de
-// Acron, Bellico e Shrewdo, cada uma com as versões V1 a V5 (o NÍVEL da arma, 1 a 5,
+// Acron, Bellico e Shrewdo, cada uma com as versões V1 a V8 (o NÍVEL da arma, 1 a 8,
 // evoluído na Loja). Aqui o stepShip lê da versão do encaixe (s.niveis[arma]) a
 // recarga, a energia, a rajada, a varredura do padrão e se a arma é de segurar a
 // tecla, e devolve os disparos; quem cria o golpe (projétil, nova, mina, campo,
@@ -160,7 +160,7 @@ export function armaDoEncaixe(s, pedida, encaixe) {
   return a >= 0 && possuiArma(s, a) ? a : encaixePadrao(s)[encaixe];
 }
 
-/** Nível (1 a 5) da arma de índice a na nave (s.niveis, que o servidor copia do piloto). */
+/** Nível (1 a 8) da arma de índice a na nave (s.niveis, que o servidor copia do piloto). */
 export function nivelDaArma(s, a) {
   return nivelArmaValido(s.niveis?.[a] ?? 1);
 }
@@ -251,7 +251,18 @@ export function createShip(race, x, z, yaw = 0, classe = CLASSE_PADRAO, tier = 0
     raj2: 0, // o mesmo no X
     seg1: -1, // arma de segurar ligada no Z (índice; -1 desligada)
     seg2: -1, // o mesmo no X
-    velMult: 1, // multiplicador da velocidade máxima (armadura pesada da Loja)
+    // Status do piloto (server/servicos.js põe na nave de jogador; vão no `me` e o
+    // stepShip lê, então a predição bate): multiplicadores da velocidade máxima e da
+    // aceleração (potenciadores), e da recarga das armas por tipo de dano (pontos não
+    // mexem nela; potenciadores de recarga, sim).
+    velMult: 1,
+    acelMult: 1,
+    recargaMult: { fisico: 1, laser: 1, eletrico: 1 },
+    // Escudo do equipamento (s.escudo de s.maxEscudo, recupera s.regenEscudo por s):
+    // quem conta é o servidor (dano em World#ferir); vai no `me` só para o HUD.
+    escudo: 0,
+    maxEscudo: 0,
+    regenEscudo: 0,
     // Efeitos que o servidor põe na nave atingida (s restantes; ver o bloco das armas).
     lento: 0,
     lentoMult: 1,
@@ -266,7 +277,7 @@ export function createShip(race, x, z, yaw = 0, classe = CLASSE_PADRAO, tier = 0
   // testes): a nave de jogador recebe a do piloto no World (server/servicos.js).
   s.encaixes = [...armasIniciais(raca)];
   s.armas = [...armasDisponiveis(raca, s.classe)];
-  s.niveis = {}; // nível de cada arma (índice → 1 a 5; sem entrada = 1)
+  s.niveis = {}; // nível de cada arma (índice → 1 a 8; sem entrada = 1)
   s.hp = s.maxHp;
   s.en = s.maxEn;
   return s;
@@ -407,8 +418,8 @@ export function stepShip(s, inp, dt = DT) {
   if (!inp.b) s.boostTravado = false;
   const querBoost = !pousado && !semBoost && inp.b && inp.th > 0 && s.en > 0 && !s.boostTravado;
   s.boost = querBoost;
-  // s.velocidade: a da nave (shared/naves.js); s.velMult: armadura pesada (o
-  // servidor põe; os dois vão no `me`). s.lentoMult: força do lento de quem acertou
+  // s.velocidade: a da nave (shared/naves.js); s.velMult e s.acelMult: status do
+  // piloto (potenciadores; o servidor põe e vão no `me`). s.lentoMult: força do lento de quem acertou
   // (o servidor põe no acerto; vai no `me`); 0 é paralisia do movimento.
   const lento = s.lento > 0 ? (s.lentoMult ?? 1) : 1;
   const maxV = velocidadeBase(s) * (s.velMult ?? 1) * aceleraMult * (querBoost ? BOOST_MULT : 1) * lento;
@@ -428,7 +439,7 @@ export function stepShip(s, inp, dt = DT) {
   const travada = s.trava > 0 && !pousado;
   contar(s, 'trava', dt);
   const alvo = pousado || parada ? 0 : inp.th >= 0 ? inp.th * maxV : inp.th * maxV * 0.4;
-  if (!travada) vf += (alvo - vf) * Math.min(1, (pousado ? 3 : querBoost ? 3.2 : 2.2) * dt);
+  if (!travada) vf += (alvo - vf) * Math.min(1, (pousado ? 3 : (querBoost ? 3.2 : 2.2) * (s.acelMult ?? 1)) * dt);
   else if (vf > maxV) vf = maxV; // travada, mas sem passar do máximo (com lento junto, por exemplo)
   vl *= Math.exp(-5 * dt); // a nave não derrapa muito de lado
   s.vx = f.x * vf + r.x * vl;
@@ -514,7 +525,8 @@ export function stepShip(s, inp, dt = DT) {
     const aperto = enc ? inp.f2 : inp.f1;
     const custo = v.energia * enMult;
     if (!aperto || s[cd] > 0 || s[troca] > 0 || s.en < custo) continue;
-    s[cd] = v.cd * cadMult;
+    // Recarga: a da versão, × cadência (debuff) × recarga do piloto no tipo de dano da arma.
+    s[cd] = v.cd * cadMult * (s.recargaMult?.[WEAPONS[kind]?.tipoDano] ?? 1);
     s.en -= custo;
     if (v.zeraEnergia) s.en = 0; // Nova Doadora e Recarrega-Escudo: custa toda a energia
     atirar(0);

@@ -16,7 +16,7 @@
 //                        'functional', inválida ou ausente vira 'assault'; o piloto
 //                        começa na primeira nave da linha, shared/naves.js)
 //                       {t:'teste', acao}   só no modo de teste: 'ouro' (+1000), 'xp'
-//                        (+100), 'nivel' (sobe um), 'nivelMax' (vai ao 20); resposta
+//                        (+100), 'nivel' (sobe um), 'nivelMax' (vai ao 25); resposta
 //                        {t:'resultado', acao:'teste', item, ok, codigo?} ('limite' no
 //                        nível máximo, 'invalido' fora do modo de teste)
 //                       {t:'in', s:seq, th, tu, b, f1, f2, p, r, a, a2}   um por passo de 1/30 s
@@ -38,12 +38,31 @@
 //                        ignorada: o stepShip fica com a arma que tem)
 //                       {t:'comprar', item}      Loja: item = id de shared/loja.js (arma
 //                        pela chave, ex. 'o312010', só da raça e da classe do
-//                        piloto, senão 'invalido'; 'armaduraLeve' | 'armaduraMedia' |
-//                        'armaduraPesada', 'reparo' | 'energia', ou
-//                        'evoluir:<arma>' para subir a arma possuída para a próxima
-//                        versão do original (V2 a V5), ex. 'evoluir:o311001'; sem
-//                        possuir: 'sem_item'; sem o nível do piloto da versão (5,
-//                        10, 15, 20): 'nivel_insuficiente'; na V5: 'limite')
+//                        piloto, senão 'invalido'; equipamento pela chave, ex.
+//                        'e330010' (escudo, armadura ou potenciador de
+//                        shared/equipamentos.js, só da classe do piloto, senão
+//                        'invalido'; já possuído, 'ja_possui'; compra a V1 e, com o
+//                        encaixe da categoria vazio, já equipa: potenciador no
+//                        primeiro dos dois vazio); 'reparo' | 'energia'; ou
+//                        'evoluir:<chave>' para subir a arma ou o equipamento
+//                        possuído para a próxima versão do original (V2 a V8), ex.
+//                        'evoluir:o311001', 'evoluir:e330010'; sem possuir:
+//                        'sem_item'; sem o nível do piloto da versão (4, 7, 10, 13,
+//                        16, 19, 22): 'nivel_insuficiente'; na V8: 'limite')
+//                       {t:'pontos', atributo, qtd}   põe pontos livres do piloto num
+//                        atributo: 'energia' | 'fisico' | 'eletrico' | 'laser' (Op.);
+//                        qtd inteiro 1 a 99 (padrão 1), põe o que couber nos livres
+//                        e no máximo de 99 do atributo; vale em qualquer lugar, vivo
+//                        ou morto; 'sem_pontos' sem livres, 'maximo' com o atributo
+//                        em 99, 'invalido' atributo ou qtd ruins (shared/status.js)
+//                       {t:'equipar', slot, item}   slot 'escudo' | 'armadura' | 'pot1' |
+//                        'pot2'; item = chave de um equipamento possuído, ou null
+//                        para tirar; só pousado e parado em qualquer área de pouso da
+//                        própria base (anel ou plataformas), senão 'nao_pousado';
+//                        'sem_item' sem possuir; 'invalido' categoria errada para o
+//                        slot, outra classe ou slot ruim; 'ja_possui' o mesmo
+//                        potenciador já está no outro slot. Trocar de escudo zera o
+//                        escudo atual
 //                       {t:'evoluir', opcao:'nave'}  Evolução da nave: compra a próxima
 //                        nave da linha da raça e classe (nível e ouro dela; na
 //                        última, 'limite'; outra opcao, 'invalido')
@@ -53,7 +72,9 @@
 //                       {t:'reconstruir', torreta}  reconstrói uma torreta destruída do
 //                        próprio time: torreta = id em TORRETAS ('T0-1' a 'T1-4')
 //                       {t:'usar', item}         item consumível: 'reparo' (R) | 'energia' (F)
-//                       (comprar/evoluir/melhorar/reconstruir só vivo, pousado e parado na
+//                       (resposta de pontos e equipar: {t:'resultado', acao, item:
+//                        atributo ou slot, ok, codigo?};
+//                        comprar/evoluir/melhorar/reconstruir só vivo, pousado e parado na
 //                        plataforma do serviço da própria base; usar vale em qualquer
 //                        lugar; tudo validado em server/servicos.js)
 //                       {t:'ia', acao, lado?, id?}   computador: acao 'adicionar' com
@@ -74,7 +95,7 @@
 //                        de cada encaixe, me.troca1/troca2 = s de recarga de troca
 //                        de arma de cada encaixe (sem tiro e sem troca nele),
 //                        me.armas = armas que possui (as de fábrica da raça e as
-//                        compradas), me.niveis = nível (versão V1–V5) de cada arma
+//                        compradas), me.niveis = nível (versão V1–V8) de cada arma
 //                        evoluída {índice: nível} (o stepShip lê a versão daqui),
 //                        me.raj1/raj2 (+ rajT, rajK) = rajada em andamento de cada
 //                        encaixe, me.seg1/seg2 = arma de segurar ligada (-1 nenhuma),
@@ -99,17 +120,30 @@
 //                        nivel zeram a cada partida; renasceEm = s até a nave
 //                        renascer, 0 viva: cresce com o nível e com a partida)
 //                       {t:'resultado', acao, item, ok, codigo?}   resposta (só a quem
-//                       pediu) de comprar/evoluir/melhorar/reconstruir/usar; codigo = 'nao_pousado' |
-//                       'ouro_insuficiente' | 'nivel_insuficiente' | 'ja_possui' |
-//                       'limite' | 'invalido' | 'sem_item' | 'recarga' | 'cheio'
+//                       pediu) de comprar/evoluir/melhorar/reconstruir/usar/pontos/equipar;
+//                       codigo = 'nao_pousado' | 'ouro_insuficiente' | 'nivel_insuficiente' |
+//                       'ja_possui' | 'limite' | 'invalido' | 'sem_item' | 'recarga' |
+//                       'cheio' | 'sem_pontos' | 'maximo'
 //                       {t:'pong', c}
 //   me (Loja e Evolução): armas = posse (de fábrica + compradas; zera a cada
-//         partida), niveis = {índice em ARMAS: nível 2 a 5} das armas evoluídas na
-//         Loja (zera a cada partida), armadura (-1 ou 0 a 2), itens {reparo, energia} (carga),
+//         partida), niveis = {índice em ARMAS: nível 2 a 8} das armas evoluídas na
+//         Loja (zera a cada partida), itens {reparo, energia} (carga),
 //         cdItens {reparo, energia} (s de recarga), tier (nave da linha comprada,
-//         0 a 4; zera a cada partida), velMult (multiplicador de velocidade da
-//         armadura pesada, lido no stepShip da predição); maxHp e maxEn já com a
-//         nave, o nível e a armadura
+//         0 a 4; zera a cada partida); maxHp e maxEn já com a nave, o nível, os
+//         pontos e o equipamento
+//   me (STATUS e INVENTÁRIO; tudo zera a cada partida): pontos = {energia, fisico,
+//         eletrico, laser} distribuídos, pontosLivres (10 por nível menos os
+//         gastos), equip = {chave: nível 1 a 8} equipamentos possuídos, equipado =
+//         {escudo, armadura, pot: [a, b]} (chave ou null) o que está na nave,
+//         escudo / maxEscudo / regenEscudo (por s) = escudo do equipamento (o
+//         servidor conta; recupera depois de 3 s sem dano, enche pousado na base e
+//         ao renascer), status = o statusDoPiloto já somado (shared/status.js:
+//         {hpExtra, maxEscudo, regenEscudo, enExtra, regenEnExtra, regenHpExtra,
+//         poder, recarga, resist, penetra: {fisico, laser, eletrico}, critico,
+//         velMult, acelMult}), e lidos no stepShip da predição: velMult e acelMult
+//         (multiplicadores de velocidade máxima e aceleração) e recargaMult =
+//         {fisico, laser, eletrico} (multiplicador da recarga da arma daquele tipo
+//         de dano); regenEn, regenHpVoo e regenHpPousada já somam os extras
 //   melhorias: {quantidade, durabilidade, defesa, velocidade}   níveis comprados
 //         das melhorias dos mineradores do time de quem recebe (zeram a cada partida)
 //   jogadores: [{id, nome, time, nivel, ia?, abates, mortes, vivo}]   todos os
@@ -146,7 +180,9 @@
 //         -1 = segurando a camuflagem): o HUD avisa, e cego esconde os inimigos do
 //         minimapa e dos rótulos
 //   ents: [{id, nome, tipo, drone, vivo, race, x, y, z, yaw, roll, hp, maxHp, boost, pousado,
-//           dreno, lento, emp, fx?, time?, carga?, minerando?, nivel?, classe?, tier?, arm?, recall?}]
+//           dreno, lento, emp, fx?, time?, carga?, minerando?, nivel?, classe?, tier?, arm?, esc?,
+//           recall?}]
+//         esc = fração (0 a 1) do escudo do equipamento, só em jogador com escudo;
 //         fx = efeitos de arma visíveis ('para', 'desg', 'energia', 'invul',
 //         'escudo', 'fraco', 'regen', 'acel', 'inv'); arm = [arma do Z, arma do X]
 //         dos jogadores (o modelo pendurado em cada asa). Jogador camuflado do outro
@@ -181,8 +217,11 @@
 //         {e:'torreta', id, time, estado, por, nome, x, y, z}   estado 'destruida' (por =
 //                                    quem deu o último tiro) ou 'reconstruida' (por =
 //                                    quem pagou)
-//         {e:'acerto', kind, alvo, dano, x, y, z, bala?}   golpe de arma num alvo (um
-//                                    por alvo; bala = o tiro que bateu direto)
+//         {e:'acerto', kind, alvo, dano, x, y, z, bala?, escudo?, crit?}   golpe de arma
+//                                    num alvo (um por alvo; bala = o tiro que bateu
+//                                    direto; dano = o total, escudo + HP; escudo = a
+//                                    parte que o escudo do equipamento segurou; crit =
+//                                    golpe crítico, dano dobrado)
 //         {e:'explosao', arma, nv, p, dono, time, x, y, z, raio, mina?}   área de um
 //                                    golpe (impacto com área, fim da vida, mina; raio
 //                                    0 = mina que atirou e sumiu)
@@ -248,7 +287,7 @@ const MAX_MSG = 2048;
 // progressão da nave sem mexer na partida dos outros. Limite de mundos de teste ao
 // mesmo tempo, porque cada um roda a simulação inteira (monstros, mineradores...).
 const MAX_MUNDOS_TESTE = 4;
-const PEDIDOS = new Set(['comprar', 'evoluir', 'melhorar', 'reconstruir', 'usar']); // server/servicos.js
+const PEDIDOS = new Set(['comprar', 'evoluir', 'melhorar', 'reconstruir', 'usar', 'pontos', 'equipar']); // server/servicos.js
 
 async function servirArquivo(req, res) {
   const url = new URL(req.url, 'http://x');
@@ -337,7 +376,7 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
       } else if (msg?.t === 'in' && jogador) {
         mundo.pushInput(jogador.id, msg);
       } else if (PEDIDOS.has(msg?.t) && jogador) {
-        // Loja e Evolução: o servidor valida tudo e responde só a quem pediu.
+        // Loja, Evolução, pontos e equipamento: o servidor valida tudo e responde só a quem pediu.
         ws.send(JSON.stringify(mundo.pedido(jogador.id, msg)));
       } else if (msg?.t === 'ia' && jogador) {
         // Computador no seu time ou no outro (ou tirar um): o servidor decide e responde.

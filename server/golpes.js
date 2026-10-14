@@ -48,8 +48,8 @@ export class Golpes {
   /**
    * @param {import('./game.js').World} world
    * @param {{ ferir: Function, podeAcertar: Function, protegido: Function }} ctx os
-   *   privados do World que os golpes usam (ferir passa por zona segura, armadura,
-   *   morte e recompensa).
+   *   privados do World que os golpes usam (ferir passa por zona segura, status do
+   *   piloto, escudo, morte e recompensa).
    */
   constructor(world, ctx) {
     this.world = world;
@@ -271,8 +271,8 @@ export class Golpes {
     const kind = fonte.kind;
     const como = { owner: fonte.owner ?? fonte.id, time: fonte.time, drone: fonte.drone };
     const autor = como.owner;
-    const dano = (g.dano ?? 0) * (fonte.mult ?? 1) * (fonte.drone ? 1 : w.multDanoDe(autor));
     const tipoDano = WEAPONS[kind]?.tipoDano;
+    const dano = (g.dano ?? 0) * (fonte.mult ?? 1) * (fonte.drone ? 1 : w.multDanoDe(autor, tipoDano));
     const alvos = [];
     if (g.area > 0) {
       for (const a of w.vivosAgora()) if (naArea(a, x, y, z, g.area)) alvos.push(a);
@@ -300,7 +300,7 @@ export class Golpes {
     for (const ef of g.efeitos) if (ef.alvo === 'inimigo') this.#aplicarInimigo(ef, alvo, autor, fonte);
   }
 
-  #aplicarInimigo(ef, alvo, autor) {
+  #aplicarInimigo(ef, alvo, autor, fonte) {
     const s = alvo.ship;
     switch (ef.tipo) {
       case 'dreno':
@@ -308,6 +308,7 @@ export class Golpes {
         alvo.drenoTicks = ticks(ef.dur);
         alvo.drenoDono = autor;
         alvo.drenoDps = ef.dps;
+        alvo.drenoTipo = WEAPONS[fonte?.kind]?.tipoDano; // o poder de quem drena e a resistência do alvo contam
         if (ef.tipo === 'drenoDuplo') {
           s.drenoEn = Math.max(s.drenoEn ?? 0, ef.dur);
           s.drenoEnPs = ef.enPs;
@@ -474,8 +475,8 @@ export class Golpes {
       const g = n.g;
       n.r = g.nova.vel > 0 ? Math.min(g.nova.raio, n.r + g.nova.vel * DT) : g.nova.raio;
       const como = { owner: n.owner, time: n.time, drone: n.drone };
-      const dano = (g.dano ?? 0) * (n.mult ?? 1) * (n.drone ? 1 : w.multDanoDe(n.owner));
       const tipoDano = WEAPONS[n.kind]?.tipoDano;
+      const dano = (g.dano ?? 0) * (n.mult ?? 1) * (n.drone ? 1 : w.multDanoDe(n.owner, tipoDano));
       for (const a of vivos) {
         if (n.atingidos.has(a.id) || !a.vivo || !naArea(a, n.x, n.y, n.z, n.r)) continue;
         if (g.inimigo && this.ctx.podeAcertar(como, a)) {
@@ -573,8 +574,9 @@ export class Golpes {
 
   #acertoCampo(fonte, g, a) {
     const w = this.world;
-    const dano = (g.dano ?? 0) * (fonte.mult ?? 1) * (fonte.drone ? 1 : w.multDanoDe(fonte.owner));
-    if (dano > 0) this.ctx.ferir(a, dano, fonte.owner, { e: 'acerto', kind: fonte.kind, x: +a.ship.x.toFixed(2), y: +a.ship.y.toFixed(2), z: +a.ship.z.toFixed(2) }, { tipoDano: WEAPONS[fonte.kind]?.tipoDano });
+    const tipoDano = WEAPONS[fonte.kind]?.tipoDano;
+    const dano = (g.dano ?? 0) * (fonte.mult ?? 1) * (fonte.drone ? 1 : w.multDanoDe(fonte.owner, tipoDano));
+    if (dano > 0) this.ctx.ferir(a, dano, fonte.owner, { e: 'acerto', kind: fonte.kind, x: +a.ship.x.toFixed(2), y: +a.ship.y.toFixed(2), z: +a.ship.z.toFixed(2) }, { tipoDano });
     if (a.vivo) this.#efeitosInimigo(g, a, fonte.owner, fonte);
   }
 

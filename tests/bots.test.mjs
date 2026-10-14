@@ -125,7 +125,7 @@ test('computador: joga pelos comandos de jogador e caça os monstros da jungle',
   assert.ok(bot.ack > 0, 'os comandos dele passam pela fila, como os da rede');
   const abates = eventos.filter((e) => e.e === 'morte' && e.por === bot.id && ['arnosh', 'vorax', 'krakor'].includes(e.tipo));
   assert.ok(abates.length >= 2, `caçou ${abates.length} monstros em 60 s`);
-  assert.ok(bot.ouro > 0 || bot.armadura >= 0, 'ganhou ouro');
+  assert.ok(bot.ouro > 0, 'ganhou ouro');
   assert.ok(bot.nivel >= 2, `subiu de nível (está no ${bot.nivel})`);
 });
 
@@ -139,7 +139,6 @@ test('computador: com nível e ouro, pousa na Evolução e compra a próxima nav
   assert.ok(eventos.some((e) => e.e === 'nave' && e.id === bot.id), 'comprou a nave');
   assert.equal(bot.tier, 1);
   assert.ok(bot.niveisArmas && Object.keys(bot.niveisArmas).length >= 1, 'evoluiu as armas na Loja');
-  assert.ok(bot.armadura >= 0, 'comprou armadura');
   assert.ok(bot.ouro < 2000);
 });
 

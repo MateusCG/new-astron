@@ -28,7 +28,7 @@
 // - Vida baixa: usa o kit de reparo (se tiver), e volta para a base (recall se
 //   estiver longe e sossegado; voando, se não), pousa no anel e conserta.
 // - Ouro sobrando: pousa na Evolução para a próxima nave da linha e na Loja para
-//   as versões das duas armas de fábrica, armadura (leve, depois média) e kits.
+//   as versões das duas armas de fábrica e kits.
 //   Guarda ouro para a nave quando já tem o nível dela.
 // - Para não parecer máquina: demora um pouco para reagir a um alvo novo
 //   (IA.reacaoS), erra a mira um pouco (menos com o nível) e cada um tem a sua
@@ -42,7 +42,8 @@
 import { DT, sanitizeInput, versaoArma, armasIniciais, velocidadeBase, ARMAS } from '../shared/sim.js';
 import { BASES, MINERIO, AREAS_POUSO, TORRETAS } from '../shared/terrain.js';
 import { naveDe } from '../shared/naves.js';
-import { precoEvoluirArma, nivelPilotoDaVersao, ARMADURAS, ITENS, PREFIXO_EVOLUIR } from '../shared/loja.js';
+import { precoEvoluirArma, nivelPilotoDaVersao, ITENS, PREFIXO_EVOLUIR } from '../shared/loja.js';
+import { NIVEL_MAX } from './progressao.js';
 import { MapaNavegacao } from './navegacao.js';
 import { TORRETA } from './torretas.js';
 import { GUARDIAO } from './elites.js';
@@ -56,7 +57,7 @@ const TICK_HZ = Math.round(1 / DT);
 export const IA = {
   pensarTicks: 5, // decide o que fazer 6 vezes por segundo
   reacaoS: [0.25, 0.6], // demora para começar a atirar num alvo novo
-  erroMira: 0.045, // rad de erro de mira no nível 1 (cai pela metade no 20)
+  erroMira: 0.045, // rad de erro de mira no nível 1 (cai pela metade no NIVEL_MAX)
   visaoJogador: 320, // m: jogador inimigo mais perto que isso vira briga
   defenderRaio: 260, // m: inimigo perto assim de um minerador do time também
   defenderMax: 750, // m: ...se o computador estiver a até isto
@@ -90,7 +91,6 @@ export const IA = {
   pousoVel: 9, // m/s: abaixo disto, dentro da área, aperta o L
   compraMin: 110, // ouro de compras para valer a viagem à base
   kitsDesejados: 2,
-  armaduraMax: 1, // compra até a média (a pesada deixa a nave lenta)
 };
 
 /** Nomes próprios brasileiros para o nick ("JOAO (IA)"). */
@@ -266,7 +266,7 @@ export class Bots {
   #atacar(j, alvo) {
     const ia = j.ia;
     // Erro de mira sorteado a cada decisão: menos com o nível.
-    const erro = IA.erroMira * (1 - (0.5 * (j.nivel - 1)) / 19);
+    const erro = IA.erroMira * (1 - (0.5 * (j.nivel - 1)) / (NIVEL_MAX - 1));
     ia.erro = (this.world.rng() * 2 - 1) * erro;
     this.#mudar(j, 'atacar', { alvo });
   }
@@ -444,8 +444,8 @@ export class Bots {
 
   /**
    * O que comprar agora, na ordem: a próxima nave (se já tem o nível; guarda ouro
-   * para ela), as versões das armas de fábrica, armadura e kits de reparo. Cada
-   * desejo: { servico, pedido, preco }.
+   * para ela), as versões das armas de fábrica e kits de reparo. Cada desejo:
+   * { servico, pedido, preco }.
    */
   #desejos(j) {
     const out = [];
@@ -463,11 +463,6 @@ export class Bots {
       if (preco === null || j.nivel < nivelPilotoDaVersao(a, nv + 1) || ouro < preco) continue;
       out.push({ servico: 'loja', pedido: { t: 'comprar', item: PREFIXO_EVOLUIR + ARMAS[a] }, preco });
       ouro -= preco;
-    }
-    const arm = ARMADURAS[j.armadura + 1];
-    if (arm && j.armadura + 1 <= IA.armaduraMax && ouro >= arm.preco) {
-      out.push({ servico: 'loja', pedido: { t: 'comprar', item: arm.id }, preco: arm.preco });
-      ouro -= arm.preco;
     }
     for (let k = j.itens.reparo; k < IA.kitsDesejados && ouro >= ITENS.reparo.preco; k++) {
       out.push({ servico: 'loja', pedido: { t: 'comprar', item: 'reparo' }, preco: ITENS.reparo.preco });
