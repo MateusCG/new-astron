@@ -7,11 +7,11 @@ Efeitos sonoros tirados de `old-astron/reference/audio/sfx/` por `tools/sons_do_
 | Arquivo | Duração | Uso no original |
 |---|---|---|
 | `shot_ray` | 0,47 s | Feixe simples (Bellico Blow Beam, TRifle Rifle Beam, 3way Rifle Beam) |
-| `shot_ray3_2` … `shot_ray3_5` | 0,66–1,55 s | Feixes em série (Array Blow Beam, Clone Array/Sector, CircleBlow); o número sobe com a versão da arma, cada vez mais cheio |
+| `shot_ray3_2`, `shot_ray3_3`, `shot_ray3_4`, `shot_ray3_5` | 0,66–1,55 s | Feixes em série (Array Blow Beam, Clone Array/Sector, CircleBlow); o número sobe com a versão da arma, cada vez mais cheio |
 | `shot_ray4` | 0,61 s | Feixe pesado (MagmaStorm, CircleStorm, Force Magma, Clone Storm, LightningStorm) |
 | `shot_ray_hm` | 0,88 s | Feixe teleguiado (HomingStorm, Homing Sector Beam) |
 | `laser1` | 0,83 s | Feixe perfurante (Piercing Magma/Circle/Array Beam) |
-| `shot_30m` … `shot_30m5` | 0,37–0,67 s | Metralhadoras ("Gun": Vulkan, Storm Gun, Spinradius); o número sobe com a variante |
+| `shot_30m`, `shot_30m2`, `shot_30m3`, `shot_30m4`, `shot_30m5` | 0,37–0,67 s | Metralhadoras ("Gun": Vulkan, Storm Gun, Spinradius); o número sobe com a variante |
 | `shot_cc` | 1,16 s | Canhões (Sector/Array Cannon, canhões de efeito: Freezer, Paralyzing, Energy Discharging) |
 | `shot_ct` | 1,36 s | Mísseis (Acceleration, Cruise, Shield Breaking, Lock-Down) |
 | `shot_nova` | 2,34 s | Novas (Energy Nova, SpeedTrap Nova, Acceleration Paralysis Nova) |
@@ -63,7 +63,7 @@ Efeitos sonoros tirados de `old-astron/reference/audio/sfx/` por `tools/sons_do_
 
 | Arquivo | Duração | Uso |
 |---|---|---|
-| `click` … `click4` | 1,32 s | Cliques de botão (quatro variações quase iguais) |
+| `click`, `click2`, `click3`, `click4` | 1,32 s | Cliques de botão (quatro variações quase iguais) |
 | `error` | 0,51 s | Ação negada |
 | `count` | 0,27 s | Bipe de contagem regressiva |
 | `get_item` | 0,59 s | Ganhou item (serve para a compra) |
