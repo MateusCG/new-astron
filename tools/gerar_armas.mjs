@@ -4,9 +4,9 @@
 // De onde vêm os dados: a pesquisa das armas (fora do repositório, em
 // new-astron-progresso/armas/) decodificou o inititemweapon.cfg do jogo original
 // (colunas, unidades, efeitos, subprojéteis, visual e sons) em armas_completo.json.
-// O tools/dados/armas.json é esse arquivo enxuto: só as armas de loja, só as versões
-// V1 a V5 (os níveis 1, 5, 10, 15 e 20 do jogo novo) e só os campos que a mecânica e
-// a interface usam, mais o dicionário dos efeitos visuais (id → texturas e cores).
+// O tools/dados/armas.json é esse arquivo enxuto: só as armas de loja, as versões V1
+// a V8 (os níveis 1 a 8 da arma no jogo novo) e só os campos que a mecânica e a
+// interface usam, mais o dicionário dos efeitos visuais (id → texturas e cores).
 //
 //   node tools/gerar_armas.mjs --enxugar <armas_completo.json>   refaz tools/dados/armas.json
 //   node tools/gerar_armas.mjs                                   refaz shared/armas-original.js
@@ -30,7 +30,7 @@ import path from 'node:path';
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DADOS = path.join(RAIZ, 'tools', 'dados', 'armas.json');
 const SAIDA = path.join(RAIZ, 'shared', 'armas-original.js');
-const N_VERSOES = 5; // V1..V5 = níveis 1, 5, 10, 15 e 20
+const N_VERSOES = 8; // V1..V8 (NIVEL_POR_VERSAO em shared/versoes.js)
 const RACAS = ['acron', 'bellico', 'shrewdo'];
 
 // ---------- enxugar: armas_completo.json -> tools/dados/armas.json ----------
@@ -275,7 +275,7 @@ function gerar() {
   const texto = `// GERADO por tools/gerar_armas.mjs a partir de tools/dados/armas.json: não edite à mão.
 //
 // As ${saida.length} armas das lojas do Astro-N original (Acron, Bellico e Shrewdo), na
-// ordem das lojas, com as versões V1 a V5 (níveis 1, 5, 10, 15 e 20). Números nas
+// ordem das lojas, com as versões V1 a V8 (níveis 1 a 8 da arma). Números nas
 // unidades do original (ms, metro, m/ms, HP e energia do original): a conversão para
 // o jogo novo é de shared/armas.js. EFEITOS_VISUAIS: id do efeito do original ->
 // modelos e texturas (public/texturas/efeitos/<png>.png) com a cor dominante.

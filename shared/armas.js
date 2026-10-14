@@ -25,10 +25,11 @@
 //   1 m acertava naves de ~40 m; aqui a nave tem 4,5 m de raio e sem essa folga quase
 //   nada acertaria (o laser de antes já usava 5).
 //
-// Versões: cada arma tem as versões V1 a V5 do original, que são os NÍVEIS 1 a 5 da
-// arma (versaoArma). Evoluir na Loja pede o nível do piloto da versão (1, 5, 10, 15,
-// 20) e o preço da taxa de tuning do original (sem chance de falhar). A versão muda
-// tudo: dano, recarga, energia, número de projéteis, efeito.
+// Versões: cada arma tem as versões V1 a V8 do original, que são os NÍVEIS 1 a 8 da
+// arma (versaoArma). Evoluir na Loja pede o nível do piloto da versão (o mesmo de
+// todo item: NIVEL_POR_VERSAO em shared/versoes.js, 1, 4, 7 ... 22) e o preço da taxa
+// de tuning do original (sem chance de falhar). A versão muda tudo: dano, recarga,
+// energia, número de projéteis, efeito.
 //
 // O golpe (o que a arma cria) tem uma FORMA, e cada forma o servidor implementa uma
 // vez (server/golpes.js): 'projetil' (canos, leque, rajada, atravessar, área no
@@ -42,6 +43,7 @@
 
 import { ARMAS_ORIGINAL, EFEITOS_VISUAIS } from './armas-original.js';
 import { FATOR_ESCALA_HP, FATOR_ENERGIA, FATOR_RECARGA, FATOR_VELOCIDADE } from './naves.js';
+import { NIVEL_ITEM_MAX, NIVEL_POR_VERSAO } from './versoes.js';
 
 export { EFEITOS_VISUAIS };
 
@@ -56,7 +58,7 @@ export const FATOR_OURO = 0.06; // preço de compra e de evolução
 export const MS = 1000;
 
 export const RAIO_TIRO_MIN = 4; // m: raio de acerto mínimo de projétil
-export const NIVEL_ARMA_MAX = 5; // V1..V5
+export const NIVEL_ARMA_MAX = NIVEL_ITEM_MAX; // V1..V8
 export const PRECO_MIN = 60; // ouro: a arma mais barata
 
 // Projétil e área.
@@ -438,7 +440,9 @@ function converterArma(a) {
     const versao = {
       nivel: i + 1,
       id: v.id,
-      nivelPiloto: v.nivel, // nível do piloto exigido (1, 5, 10, 15, 20)
+      // Nível do piloto exigido: o do jogo novo, igual para todo item (o do original,
+      // 1 a 40, não cabe no nível máximo 25).
+      nivelPiloto: NIVEL_POR_VERSAO[i],
       // Ouro para chegar a esta versão: a V1 é a compra; as seguintes, a taxa de tuning da anterior.
       preco: i === 0 ? Math.max(PRECO_MIN, Math.round((v.preco * FATOR_OURO) / 10) * 10) : Math.round((anterior.taxa * FATOR_OURO) / 10) * 10,
       cd: ((v.recargaMs ?? 0) / MS) * FATOR_RECARGA_ARMA,
@@ -584,7 +588,7 @@ export function nivelArmaValido(n) {
   return Number.isInteger(n) && n >= 1 ? Math.min(n, NIVEL_ARMA_MAX) : 1;
 }
 
-/** A versão da arma (chave ou índice) no nível (1 a 5): números na escala do jogo. */
+/** A versão da arma (chave ou índice) no nível (1 a 8): números na escala do jogo. */
 export function versaoArma(arma, nivel = 1) {
   const w = typeof arma === 'number' ? WEAPONS[ARMAS[arma]] : WEAPONS[arma];
   if (!w) return null;
@@ -608,7 +612,7 @@ export function precoEvoluirArma(arma, nivel) {
   return w.versoes[nivel].preco;
 }
 
-/** Nível do piloto exigido para a arma no nível `nivel` (1, 5, 10, 15, 20). */
+/** Nível do piloto exigido para a arma no nível `nivel` (NIVEL_POR_VERSAO: 1, 4, 7 ... 22). */
 export function nivelPilotoDaVersao(arma, nivel) {
   return versaoArma(arma, nivel)?.nivelPiloto ?? 1;
 }
