@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { World } from '../server/game.js';
 import { TORRETA, linhaDeTiro } from '../server/torretas.js';
 import { RECOMPENSA, xpParaNivel } from '../server/progressao.js';
-import { createShip, createBullet, WEAPONS, HOVER, SHIP_RADIUS } from '../shared/sim.js';
+import { createShip, createBullet, WEAPONS, HOVER, SHIP_RADIUS, IDX_ARMA, versaoArma } from '../shared/sim.js';
 import { TORRETAS, TORRETA_LADO, BASES, CORREDOR, MINERIO, ROTAS, SERVICOS, heightAt } from '../shared/terrain.js';
 import { OBSTACULOS, TORRETA as PLANTA, alturaSolida, obstaculoAtivo } from '../shared/obstaculos.js';
 import { FAIXA_MINERADOR } from '../server/mineradores.js';
@@ -189,23 +189,27 @@ test('torretas: destruída sai da física, paga quem derrubou e um pouco ao time
   assert.equal(t.viva, false);
 });
 
-test('torretas: dano em área (onda de choque) do inimigo também fere, o do aliado não', () => {
+test('torretas: dano em área (nova) do inimigo também fere, o do aliado não', () => {
   const { w, a, b } = mundo({ torretas: false });
   const t = torreta(w, 'T0-1'); // (-62, 360)
+  const nova = IDX_ARMA.o212015; // Nova Trava-Aceleração (Bellico Functional): área de 55 m
+  const dano = versaoArma(nova, 1).golpe.dano;
   colocar(b, t.x + 15, t.z, 0);
-  b.ship.armas = [0, 5, 8]; // com a onda de choque
-  b.ship.encaixes = [8, 5]; // já no Z, como se equipada na base (fora dela a troca trava)
+  b.ship.classe = 'functional';
+  b.ship.armas = [...b.ship.armas, nova];
+  b.ship.encaixes = [nova, b.ship.encaixes[1]]; // já no Z, como se equipada na base (fora dela a troca trava)
   const cheia = t.hp;
-  w.pushInput(b.id, { s: 1, f1: true, a: 8 });
-  w.step();
-  assert.equal(cheia - t.hp, WEAPONS.choque.dano);
+  w.pushInput(b.id, { s: 1, f1: true, a: nova });
+  for (let i = 0; i < 2 * SEGUNDO; i++) w.step();
+  assert.ok(Math.abs(cheia - t.hp - dano) < 1e-9, `${cheia - t.hp}`);
   // A do aliado não.
   colocar(a, t.x + 15, t.z, 0);
-  a.ship.armas = [0, 5, 8];
-  a.ship.encaixes = [8, 5];
-  w.pushInput(a.id, { s: 1, f1: true, a: 8 });
-  w.step();
-  assert.equal(cheia - t.hp, WEAPONS.choque.dano);
+  a.ship.classe = 'functional';
+  a.ship.armas = [...a.ship.armas, nova];
+  a.ship.encaixes = [nova, a.ship.encaixes[1]];
+  w.pushInput(a.id, { s: 1, f1: true, a: nova });
+  for (let i = 0; i < 2 * SEGUNDO; i++) w.step();
+  assert.ok(Math.abs(cheia - t.hp - dano) < 1e-9);
 });
 
 test('evolução: nível das torretas cobra, pede a Evolução da própria base e para no limite', () => {

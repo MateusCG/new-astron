@@ -6,8 +6,8 @@ Guia obrigatório para qualquer coisa que entre no jogo: cenário, nave, inimigo
 
 **Ficção científica industrial, low-poly facetado, em planetas hostis ao entardecer.**
 
-- A referência é o AstroN (naves voando baixo por cânions e bases, painel metálico verde-azulado). É **inspiração, não cópia**: nada de sprites, modelos, logos ou nomes tirados do jogo original. **Exceção, por decisão do Mateus:** a nave de jogador é a **Ulysses**, modelo do AstroN original (`au0014.3dx`, exportado para `public/modelos/ulysses.glb`, low-poly de 498 triângulos com textura própria de 256 px). Outro modelo do jogo original só entra com a mesma decisão explícita.
-- Fora a nave de jogador, tudo é **feito em código** (primitivas do Three.js, shaders e ruído), sem texturas fotográficas. O estilo low-poly é escolha estética e de desempenho: roda no navegador e no celular.
+- A referência é o AstroN (naves voando baixo por cânions e bases, painel metálico verde-azulado). É **inspiração, não cópia**: nada de sprites, modelos, logos ou nomes tirados do jogo original. **Exceção, por decisão do Mateus (out/2026):** entram do AstroN original as **45 naves de jogador com classe** das raças Acron, Bellico e Shrewdo (`public/modelos/naves/<raca>/<classe>/<id>.glb`, low-poly de ~170 a ~740 triângulos, com a textura própria de cada uma; as faces do avesso de algumas são corrigidas ao carregar, `orientarFaces` em `nave.js`), os **modelos das armas** (`public/modelos/armas/`), as **texturas dos efeitos de tiro** (`public/texturas/efeitos/`) e os **sons** (`public/sons/`), cada pasta com a sua `LISTA.md`. Outra coisa do jogo original só entra com a mesma decisão explícita.
+- Fora as naves de jogador, as armas penduradas nelas, os efeitos de tiro e os sons, tudo é **feito em código** (primitivas do Three.js, shaders e ruído), sem texturas fotográficas. O estilo low-poly é escolha estética e de desempenho: roda no navegador e no celular.
 - Três camadas de cor em toda cena:
   1. **Ambiente** quente e dessaturado (rocha, areia, céu);
   2. **Tecnologia** em cinza-metal com **neon turquesa**;
@@ -35,12 +35,9 @@ Tokens em `public/css/jogo.css` (`:root`). Use as variáveis; não escreva hex s
 | `--hp` | `#ff5a3c` | Vida, dano, inimigo |
 | `--en` | `#3fa9ff` | Energia |
 | `--ouro` | `#ffd166` | Ouro e recompensas |
-| `--laser` | `#5ff7ff` | Ícone de arma no HUD (mesmo ciano do tiro de laser) |
-| `--dreno` | `#d070ff` | Ícone da arma Dreno (mesmo violeta do tiro e da aura) |
-| `--gelo` | `#a8e8ff` | Ícone da arma Criogênico (mesmo azul-gelo do tiro e da aura) |
-| `--plasma` | `#7dff6a` | Ícone da arma Plasma (mesmo verde do tiro) |
-| `--missil` | `#fff0c8` | Ícone do Míssil teleguiado (mesmo branco-quente da chama) |
-| `--emp` | `#c8d2ff` | Ícone do Pulso EMP (mesmo branco-elétrico do tiro, da aura e das faíscas) |
+| `--laser` | `#5ff7ff` | Cor de reserva do ícone de arma (quando a arma não traz cor) |
+| `--cor-arma` | (por arma) | Cor do ícone de cada arma: a cor do projétil do original, posta no próprio SVG (`corDaArma` em `public/js/armas.js`) |
+| `--emp` | `#c8d2ff` | Borda das armas no painel inferior com a nave sem sistemas (EMP), o mesmo branco-elétrico da aura |
 | `--inimigo` | `#ff4a2a` | Placar e coisas do outro time no HUD (mesmo vermelho dos inimigos no minimapa) |
 | `--objetivo` | `#ffb627` | Ícones dos bônus por tempo no placar (âmbar dos objetivos, de onde os bônus vêm), faixa "MINÉRIO ×2" da fase final, rótulo e barra dos objetivos |
 | `--evolucao` | `#a58bff` | Painel da Evolução (título, aba ativa, selo, níveis das melhorias): o mesmo violeta da plataforma |
@@ -52,7 +49,7 @@ Tokens em `public/css/jogo.css` (`:root`). Use as variáveis; não escreva hex s
 
 ### Raças
 
-Definidas em `shared/sim.js` (`RACES[].cor`). Todas as raças usam a mesma nave (a Ulysses, com a textura dourada do modelo); a cor da raça vai **só** no brilho dos motores. O rótulo (nome e barra) usa a cor do **time**, não a da raça (ver "Times" abaixo).
+Definidas em `shared/sim.js` (`RACES[].cor`). Cada raça, classe e tier tem o seu modelo do original, com a textura dele (Acron dourada, Bellico vermelha e cobre, Shrewdo verde-oliva e areia); a cor da raça vai **só** no brilho dos motores. Mechan aparece na tela inicial apagada, com o selo "EM BREVE". O rótulo (nome e barra) usa a cor do **time**, não a da raça (ver "Times" abaixo).
 
 ### Times (cor relativa a quem olha)
 
@@ -60,7 +57,7 @@ Na partida 3 contra 3 a cor de time é sempre **relativa a quem olha**: o que é
 
 | Onde | Como |
 |---|---|
-| Nave de jogador | **Marca de luz do time**: uma luz de neon em cada ponta de asa, nos encaixes de arma da ponta do modelo (`l_fire01`/`r_fire01`), o que mais aparece na câmera de perseguição. A sua nave é sempre turquesa. A cor da raça continua no brilho dos motores |
+| Nave de jogador | **Marca de luz do time**: uma luz de neon em cada ponta de asa, nos encaixes de arma da ponta do modelo (`l_fire01`/`r_fire01`), o que mais aparece na câmera de perseguição. A sua nave é sempre turquesa. A cor da raça continua no brilho dos motores. Enquanto o modelo de uma nave ainda está baixando, um **losango neon** na cor do time segura o lugar |
 | Minerador | Faixas de neon nos dois lados do casco e brilho dos motores na cor do time |
 | Rótulo sobre a nave | Nome e barra de vida turquesa (aliado) ou vermelhos (inimigo: outro time e monstros) |
 | Minimapa | Pontos do seu time em turquesa, do outro time e monstros em vermelho; minerador é uma bolinha menor que o quadrado das naves |
@@ -75,35 +72,42 @@ Na partida 3 contra 3 a cor de time é sempre **relativa a quem olha**: o que é
 
 ### Armas e efeitos
 
-Em `public/js/efeitos.js` (`COR_TIRO`). Efeitos de luz são sempre **aditivos** (`AdditiveBlending`) com a textura radial de `brilho()`.
+As armas de jogador são as do AstroN original (`shared/armas.js`), com o **visual do original**: cada golpe traz os ids dos efeitos dele (clarão do disparo, projétil, rastro, impacto, fim/área, armadilha) e cada efeito, as texturas (`public/texturas/efeitos/`) e a cor dominante. Desenho em `public/js/efeitos-armas.js`. Efeitos de luz são sempre **aditivos** (`AdditiveBlending`; o fundo preto das texturas do original vira transparente). Quase todos são planos deitados (compridos no rumo do tiro), o que lê bem na câmera de perseguição; o projétil ganha um plano em pé (cruz) para não sumir de lado e um brilho na cor da arma. As cores são as do original, fora das três camadas de cena (por família, em geral: feixes vermelho-rosados, metralhadoras verdes, efeitos elétricos azuis e violeta) e só aparecem em tiro, aura e ícone de arma.
 
-| Tiro | Cor | Forma |
-|---|---|---|
-| Laser | `#5ff7ff` ciano | Barra fina de 7 m + brilho pequeno |
-| Laser duplo | `#5ff7ff` ciano | Duas barras de 6 m, mais finas, lado a lado (2,5 m de cada lado do nariz) + brilho menor |
-| Laser triplo | `#5ff7ff` ciano | Três barras de 5 m em leque (±6°) + brilho pequeno |
-| Dreno | `#d070ff` violeta | Bola de brilho, sem barra |
-| Criogênico | `#a8e8ff` azul-gelo | Estilhaço curto e grosso (3 m) + brilho |
-| Plasma | `#7dff6a` verde | Esfera de brilho grande |
-| Míssil teleguiado | casco `#c9d2d0` + chama `#fff0c8` branco-quente; fumaça `#8f8a83` | Corpo de 3 m (cilindro + nariz) com a chama atrás, vira com a curva; **rastro de fumaça cinza** (sem brilho, uma baforada a cada 4 m) que cresce e some em ~1 s |
-| Pulso EMP | `#c8d2ff` branco-elétrico | Bola de brilho média, sem barra |
-| Mina | corpo `#3a4442` + luz na cor do **time** | Disco facetado de ~3 m no chão, com quatro espinhos e uma luz em cima que pulsa: devagar enquanto não arma, rápido armada. Turquesa `#00efc0` a do seu time, vermelha `#ff3b2a` a do outro (nada de anel no chão: anel turquesa no chão é só pouso) |
-| Onda de choque / explosão de mina | cor do **time** de quem usou (turquesa ou vermelho) | Dois anéis finos aditivos abrindo no plano até o raio da área em ~0,45 s + clarão; a mina ainda solta a explosão laranja |
-| Torreta e escolta | cor do **time** de quem atira (turquesa `#00efc0` do seu, vermelho `#ff3b2a` do outro) | A forma do laser (barra + brilho), na cor do time: é tiro de estrutura do time, não arma de piloto |
-| Inimigo | `#ff4a2a` vermelho | Qualquer forma, sempre vermelho |
-| Explosão | `#ff9a3a` a `#ffd28a` | Clarão + fagulhas que caem |
+| Categoria | Forma |
+|---|---|
+| Feixe e raio | Plano comprido com a textura do original e **núcleo claro** no meio |
+| Metralhadora | Traçador fino na cor da arma (as texturas dela no original são do casco 3D da bala) |
+| Canhão | Carga animada (sprite que gira os quadros do original) |
+| Míssil | Casco + chama na cor da arma e rastro esfumaçado na cor do rastro do original |
+| Onda | Arco que cresce com o raio de acerto |
+| Lâmina e lançador | Hélice girando |
+| Nova | Anel deitado crescendo + casca esférica clara |
+| Mina e campo | Decalque da arma no chão girando devagar; o campo é um disco na cor da arma |
+| Tiro de NPC (drones, torretas, escolta, elites) | Como antes: barra + brilho do laser e esfera do plasma; torreta e escolta na cor do time de quem atira, inimigo `#ff4a2a` |
+| Explosão | `#ff9a3a` a `#ffd28a`: clarão + fagulhas que caem |
 
-**Efeitos de arma na nave atingida** (qualquer nave, drone ou monstro; vêm do servidor em `dreno`/`lento` de cada entidade):
+**Arma na asa:** o modelo de cada arma do original vai pendurado na nave, a do Z no encaixe `l_item` e a do X no `r_item`, com a mesma transformação do modelo da nave (sem escala própria; peças `_l`/`_r` por lado), e troca quando o piloto troca de arma. O tiro sai da boca da arma (nó `fire`) ou dos encaixes `*_fire01/02` da nave, como no original.
 
-| Efeito | Cor | Forma |
-|---|---|---|
-| Dreno (perdendo vida) | `#d070ff` violeta | Aura pulsando em volta da nave + partículas **subindo** (a vida sendo puxada para fora). Não é fogo: nada de laranja/amarelo |
-| Lento (criogênico) | `#a8e8ff` azul-gelo | Aura fixa em volta da nave + cristais **caindo** |
-| Sem sistemas (EMP) | `#c8d2ff` branco-elétrico + `#ffffff` | Aura que **falha** (pisca irregular, como curto-circuito) + **faíscas** curtas estalando em volta, para qualquer nave, monstro ou minerador atingido |
+**Efeitos de arma na nave atingida** (qualquer nave, drone ou monstro; vêm do servidor em `dreno`/`lento`/`emp` e na lista `fx` de cada entidade): aura aditiva em volta da nave, na cor do efeito.
+
+| Efeito | Cor |
+|---|---|
+| Dreno (perdendo vida) | `#d070ff` violeta, partículas **subindo** |
+| Lento / paralisado | `#a8e8ff` azul-gelo, cristais **caindo** |
+| Sem sistemas (EMP) e parado | `#c8d2ff` branco-elétrico, aura que **falha** + faíscas |
+| Desgoverno | `#b47cff` |
+| Perdendo energia | `#3fa9ff` |
+| Invulnerável | `#ffe28a` |
+| Escudo | `#8fd0ff` |
+| Fraco | `#ff8a70` |
+| Consertando | `#7dff9a` |
+| Acelerado | `#7fd8ff` |
+| Camuflado | a nave vira um **fantasma** `#9fb4c8` para você e os aliados; o outro time não a vê |
 
 **Bônus na nave** (vem do `bonus` do snapshot, pelo time da nave): **Fúria** (objetivo C, +20% de dano) = anel fino `#ffb627` âmbar, aditivo, deitado em volta da nave (raio 7,5 m), pulsando devagar, sem partículas, em toda nave de jogador do time com o bônus (a sua inclusive). É âmbar porque vem de um objetivo; é anel, e não nuvem, porque brilho difuso âmbar some no deserto alaranjado e para não parecer aura de arma.
 
-O violeta, o azul-gelo, o branco-quente do míssil e o branco-elétrico do EMP são cores de **efeito de arma**, fora das três camadas de cena: só aparecem em tiro, aura e ícone dessas armas, nunca em cenário ou interface comum. O branco-elétrico é azulado (puxa para o lilás claro) para não se confundir com o azul-gelo (mais ciano) nem com a chama do míssil (quente). Mina e onda de choque não têm cor própria: usam a cor do time (seu time turquesa, o outro vermelho), como tudo que é de um time.
+As cores de tiro e de aura são cores de **efeito de arma**, fora das três camadas de cena: só aparecem em tiro, aura e ícone de arma, nunca em cenário ou interface comum.
 
 ### Mapa da partida (M1, 3 contra 3)
 
@@ -151,7 +155,7 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 - **Low-poly facetado:** `flatShading: true` em terreno, naves e estruturas. Nada de superfícies lisas brilhantes.
 - **Metal sem mapa de ambiente:** `metalness` até **0.5** e `roughness` de **0.4 a 0.8**. Metal alto sem nada para refletir fica preto ou estoura no reflexo do sol.
 - **Neon:** material com `color` e `emissive` iguais e `emissiveIntensity` entre **0.8 e 1.2**. Acima disso o tone mapping (ACES) puxa para o branco e a cor some. Luz piscando vai de 0.1 a 1.2.
-- **Uma cor de destaque por objeto.** Hangar e portal: cinza + neon da base (turquesa na sua, vermelho na do outro time). Nave de jogador: a textura do modelo + neon do time nas pontas das asas.
+- **Uma cor de destaque por objeto.** Hangar e portal: cinza + neon da base (turquesa na sua, vermelho na do outro time). Nave de jogador: a textura do modelo do original + neon do time nas pontas das asas.
 - **Inimigos são orgânicos:** formas irregulares (icosaedro, espinhos), pele escura `#4a1414`/`#8c2a1f` e **olho vermelho emissivo**. Nunca usar o visual "nave limpa" dos jogadores neles.
 - **Cada inimigo tem silhueta própria**, para o jogador saber de longe o que vem:
 
@@ -170,7 +174,7 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 
 | Coisa | Tamanho |
 |---|---|
-| Nave de jogador | 13 m de comprimento, ~10 m de envergadura (`COMPRIMENTO_NAVE` em `nave.js`; o modelo é escalado para isso ao carregar) |
+| Nave de jogador | 9,6 m (1ª nave da linha) a 11,6 m (5ª) na média de comprimento × envergadura; a Assault 4% maior, a Mobile 3% menor; envergadura no máximo 1,45× esse tamanho (o modelo é escalado ao carregar, em `nave.js`) |
 | Minerador | ~6 m de comprimento, ~4 m de largura (metade da nave), voa na mesma altura (`HOVER`) |
 | Krakor | ~17 m de comprimento, ~10 m de largura (acerto com raio 8 m, `KRAKOR.raio`) |
 | Guardião | ~23 m de altura, lascas girando a 9 m do centro (acerto com raio 10 m) |
@@ -206,10 +210,12 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 - **Pouso no objetivo A:** acima da dica de pouso, um painel escuro com borda âmbar e a barra de progresso: "Tomando o objetivo A · 6,2 s" (turquesa), "O inimigo está tomando" (vermelho), "Contestado" (âmbar piscando) ou "Objetivo A em recarga · volta em 1:12".
 - **Minimapa** no canto superior esquerdo, **placar** no superior direito (na mesma chapa do painel: minério do seu time em turquesa à esquerda, tempo `mm:ss` em fonte mono no meio, que pisca em `#ff8a70` no último minuto, minério do outro time em vermelho à direita; embaixo de cada número, os bônus ativos do time como ícone de traço âmbar + segundos: cristal = mineração, setas = velocidade, escudo = durabilidade, raio = fúria; na **fase final** (últimos 3 min), uma faixa âmbar "MINÉRIO ×2" na largura do placar, separada por um fio âmbar, que pisca ao começar), **notícias** logo abaixo do placar (descem junto quando a faixa aparece), **avisos** no centro da tela.
 - **Tela de fim de partida** (`#fim-partida`): painel em chapa no alto e centro, sem bloquear o jogo, com "VITÓRIA" (turquesa com brilho), "DERROTA" (vermelho com brilho) ou "EMPATE" (texto claro), uma frase curta, o placar grande (seu time × outro) e "Nova partida em Ns".
-- **Menu de armas** (`#menu-armas`, Q edita a arma do Z, E a do X; um elemento só, com o título "Arma do Z" / "Arma do X"): painel na mesma chapa do painel inferior, no **alto e centro** da tela, para a nave continuar à vista (o jogo não pausa). Dez cartas compactas em duas fileiras, com número da tecla (1 a 9 e 0), ícone e nome na mesma linha, dano / energia / recarga lado a lado e uma linha do efeito (em tela baixa, até 520 px, a linha do efeito some e fica no `title` da carta). A arma deste encaixe tem borda `--neon` e o selo "EM USO"; a do outro encaixe, borda tracejada `--neon-escuro` e o selo "NO X" (ou "NO Z"); a mesma nos dois mostra "EM USO · também no X". Arma que a nave não possui fica apagada com o selo "NA LOJA". Embaixo do nome, duas etiquetas de contorno `--chapa-clara` em caixa alta 8,5 px: o tipo de dano (LASER, FÍSICO, ELÉTRICO) e a função (DANO; CONTROLE com contorno `--neon-escuro` e texto `--neon`). No canto de cima, oposto à tecla, o nível da arma ("NV 3", mono 9 px, `--neon`; "NV 1" apagado), com o dano e o efeito da carta já do nível. Entre o título e as cartas, a linha da troca: "Na base: troca livre" em `--neon`, "Fora da base: trocar trava o encaixe por 3 s" em texto, e com a recarga de troca contando "Troca do Z em recarga: 2,1 s" em `#ff8a70`, com as outras cartas apagadas (0,4) e o selo "TROCA EM 2,1 s" em `#ff8a70`. **Ícone de arma** (SVG de traço, sem preenchimento): traços `--laser` para os lasers (1 simples, 2 paralelos no duplo, 3 em leque no triplo), gota `--dreno` para o Dreno, floco `--gelo` para o Criogênico, esfera `--plasma` para o Plasma, foguete `--missil` para o Míssil, mina com espinhos e ondas em `--neon` para a Mina e a Onda de choque (armas suas, na cor do seu time) e raio `--emp` para o Pulso EMP.
-- **Painel da Loja e da Evolução** (`#servico`, um elemento para os dois; `public/js/servicos.js`): abre sozinho com a nave pousada e parada na plataforma do serviço da própria base, na mesma chapa do painel inferior, no **alto e centro** (como o menu de armas, que abre por cima dele). A **cor do serviço** é a da plataforma no chão: borda de cima, título com brilho, aba ativa e selos em `--loja` (magenta) na Loja e `--evolucao` (violeta) na Evolução. No cabeçalho, o **ouro em destaque** (`--ouro`, mono, 20 px, com brilho) e o botão ✕. Abas: Loja = Armas · Evoluir · Armaduras · Itens (na aba Evoluir, um cartão por arma possuída com "NV n" mono na cor do serviço ao lado do nome, o que muda no próximo nível como efeito, as etiquetas de tipo e função e os tracinhos do nível na cor do serviço; selo "EVOLUIR", ou "MÁX." apagado); Evolução = Nave · Mineradores do time · Torretas. Na aba Torretas: um cartão com o nível do time (tracinhos como nas melhorias) e um por torreta do time, com a barra de vida fina em `--neon` e o selo "DE PÉ · n%" (é seu), "RECONSTRUIR" com o preço (caída; barra vazia tracejada em `#ff8a70`) ou "SUBINDO" apagado; ícones de torreta e de reconstruir (seta para cima) em traço `--neon`. **Cartões** em grade (mín. 150 px): ícone de traço e nome, uma linha de efeito, preço em `--ouro` mono ("120 ouro") e o selo do estado à direita: "COMPRAR" / "ESCOLHER" / "NÍVEL n" na cor do serviço (disponível); "COMPRADA · Q/E equipa" e "EQUIPADA" em `--neon` com borda neon (é seu); "SEM OURO" com preço e selo em `#ff8a70`; "PEDE NV 10", "JÁ TEM MELHOR", "CHEIO 3/3", "MÁX." e "COMPLETA" apagados (0,45). Na Evolução da nave, uma faixa com os três marcos (NV 5 · 10 · 15): feito em `--neon` com o nome da escolha, próximo com borda da cor do serviço, os outros apagados. Melhorias dos mineradores com tracinhos de nível acesos na cor do serviço. Embaixo, uma linha com a resposta do servidor (boa em `--neon`, ruim em `#ff8a70`). **Ícones da Loja/Evolução** (SVG de traço, como os de arma): armas com o próprio ícone de arma; armadura = escudo `--neon` com 1 a 3 divisas; Kit de reparo = cruz em quadrado `--hp`; Célula de energia = bateria com raio `--en`; Casco reforçado e Casco de carga em `--hp`, Reator em `--en`, Motor, Mais mineradores, Blindagem e Motor de carga em `--neon`. Fechado com ESC ainda pousado, a dica de pouso vira botão: "Loja · Enter ou toque abre · L decola".
+- **Menu de armas** (`#menu-armas`, Q edita a arma do Z, E a do X; um elemento só, com o título "Arma do Z" / "Arma do X"): painel na mesma chapa do painel inferior, no **alto e centro** da tela, para a nave continuar à vista (o jogo não pausa). Com 18 a 28 armas por raça e classe, ele **rola**: em cima, "SUAS ARMAS" (as de fábrica e as compradas), na ordem das categorias do original, com as teclas 1 a 9 e 0 nas dez primeiras; embaixo, apagadas e agrupadas por categoria, as que estão "NA LOJA". Cada carta: tecla, ícone e nome em português, nível da arma ("NV 3", mono, `--neon`), etiquetas de tipo de dano (LASER, FÍSICO, ELÉTRICO) e papel (ATAQUE; BLOQUEIO, REFORÇO e SUPORTE com contorno `--neon-escuro` e texto `--neon`), dano / energia / recarga da versão e uma linha do que a arma faz. A arma deste encaixe tem borda `--neon` e o selo "EM USO"; a do outro encaixe, borda tracejada `--neon-escuro` e o selo "NO X" (ou "NO Z"). Linha da troca entre o título e as cartas: "Na base: troca livre" em `--neon`, "Fora da base: trocar trava o encaixe por 3 s" em texto, e com a recarga contando "Troca do Z em recarga: 2,1 s" em `#ff8a70`, com as outras cartas apagadas (0,4). **Ícone de arma** (SVG de traço, sem preenchimento): um desenho por categoria (traços paralelos ou em leque para feixe e metralhadora, carga para canhão, foguete para míssil, hélice para lâmina, espinhos para mina, anel para nova, escudo/raio para dispositivo), na **cor do projétil do original** (`--cor-arma`).
+- **Painel da Loja e da Evolução** (`#servico`, um elemento para os dois; `public/js/servicos.js`): abre sozinho com a nave pousada e parada na plataforma do serviço da própria base, na mesma chapa do painel inferior, no **alto e centro** (como o menu de armas, que abre por cima dele). A **cor do serviço** é a da plataforma no chão: borda de cima, título com brilho, aba ativa e selos em `--loja` (magenta) na Loja e `--evolucao` (violeta) na Evolução. No cabeçalho, o **ouro em destaque** (`--ouro`, mono, 20 px, com brilho) e o botão ✕. Abas: Loja = Armas · Evoluir · Armaduras · Itens. Na aba Armas, só as da raça e da classe, com **filtro por categoria** (pílulas "Todas 26 · Feixe 6 · ..." na cor do serviço) e, em cada cartão, o nome em português com o original em inglês pequeno embaixo, a linha do que faz e a linha mono de dano / recarga / energia. Na aba Evoluir, um cartão por arma possuída com "NV n" (a versão do original, V1 a V5) mono na cor do serviço ao lado do nome, o que muda na próxima versão, o nível de piloto que ela pede e os tracinhos do nível na cor do serviço; selo "EVOLUIR", "PEDE NV n" ou "MÁX." apagado; Evolução = Nave · Mineradores do time · Torretas. Na aba Torretas: um cartão com o nível do time (tracinhos como nas melhorias) e um por torreta do time, com a barra de vida fina em `--neon` e o selo "DE PÉ · n%" (é seu), "RECONSTRUIR" com o preço (caída; barra vazia tracejada em `#ff8a70`) ou "SUBINDO" apagado; ícones de torreta e de reconstruir (seta para cima) em traço `--neon`. **Cartões** em grade (mín. 150 px): ícone de traço e nome, uma linha de efeito, preço em `--ouro` mono ("120 ouro") e o selo do estado à direita: "COMPRAR" / "ESCOLHER" / "NÍVEL n" na cor do serviço (disponível); "COMPRADA · Q/E equipa" e "EQUIPADA" em `--neon` com borda neon (é seu); "SEM OURO" com preço e selo em `#ff8a70`; "PEDE NV 10", "JÁ TEM MELHOR", "CHEIO 3/3", "MÁX." e "COMPLETA" apagados (0,45). Na Evolução da nave (aba Nave), cinco cartões com a linha de naves da raça e da classe: nome e "NV n", **miniatura 3D** da nave (renderizada uma vez por modelo, `public/js/vitrine.js`), HP / energia / velocidade com a diferença para a atual em `--neon` (e a regeneração em voo nas Bellico), preço em `--ouro` e o selo: "ATUAL" em `--neon` com borda neon, "COMPRAR" na cor do serviço, "PEDE NV n", "SEM OURO" e "JÁ PASSOU" apagados. Melhorias dos mineradores com tracinhos de nível acesos na cor do serviço. Embaixo, uma linha com a resposta do servidor (boa em `--neon`, ruim em `#ff8a70`). **Ícones da Loja/Evolução** (SVG de traço, como os de arma): armas com o próprio ícone de arma; armadura = escudo `--neon` com 1 a 3 divisas; Kit de reparo = cruz em quadrado `--hp`; Célula de energia = bateria com raio `--en`; Casco de carga em `--hp`, Mais mineradores, Blindagem e Motor de carga em `--neon`. Fechado com ESC ainda pousado, a dica de pouso vira botão: "Loja · Enter ou toque abre · L decola".
 - **Itens no painel inferior** (`#itens-nave`, ao lado das armas): "R · ícone ×2" e "F · ícone ×1", no mesmo formato das armas (a letra em `--neon`, a quantidade em mono), com a linha de 2 px da recarga do item; sem nenhum, o botão fica apagado (0,4). Clicar (ou tocar) usa o item.
 - **Armas no painel inferior:** as duas, uma em cima da outra, como "Z · ícone nome" e "X · ícone nome" (a letra em `--neon`), com uma linha fina de 2 px embaixo de cada uma que enche conforme a recarga daquele encaixe (`--neon` pronta, `--texto` apagado recarregando, `--hp` se falta energia para o próximo disparo). Sob EMP, as duas ficam apagadas com a borda `--emp`. Com a recarga de troca contando, o ícone do encaixe apaga (0,4), a linha mostra a troca enchendo em `--texto` e a contagem aparece ao lado ("2,1 s", mono, `--texto`), no celular também. Clicar abre o menu daquele encaixe. No celular o nome some (fica "Z · ícone").
+- **Tela inicial em dois passos** (na mesma chapa): "1 Escolha sua raça" com um cartão por raça (Mechan apagada, não clicável, com o selo "EM BREVE"); depois "2 Escolha sua classe", com um botão de voltar com o nome da raça na cor dela e três cartões (Assault, Mobile, Functional) com a especialidade, a primeira nave da linha e barras de HP (`--hp`), energia (`--en`), velocidade (`--neon`) e regeneração; embaixo, a **prévia 3D** da primeira nave girando e a linha das próximas ("Na Evolução: Falcon (NV 5) › Eagle (NV 10) › ..."). Botão de som (M) embaixo do Decolar.
+- **Som:** os efeitos do original (`public/sons/`, WAV) tocam pelo `public/js/sons.js`: disparo na posição do tiro, impacto, explosão e os de interface (subir de nível, compra, erro, painel). Volume pela distância (cheio até 60 m, some aos 900 m), pan estéreo pela direção, no máximo 6 vozes por som e 24 no total (metralhadora não estoura). **M** liga e desliga; o estado fica no navegador e aparece no HUD ("Som ligado" / "Sem som", texto pequeno ao lado do ping) e na tela inicial.
 - **Tipografia:** `system-ui` para texto e `ui-monospace` para números. Título com letras espaçadas e "ASTRO" em `--neon` com brilho.
 - **Celular:** joystick à esquerda; Z, X e SHIFT à direita (mesma disposição do AstroN), com ARMA Z e ARMA X em cima (cada uma sobre a coluna do botão de tiro do seu encaixe). No menu do celular, as cartas mostram só ícone, nome e selo. O painel da Loja/Evolução fica entre a borda esquerda e o placar (sem cobrir os botões), com cartões menores (efeito em 9,5 px), abas mais altas para o dedo e a lista rolando com o dedo. Área de toque com no mínimo 64 px.
 - **Idioma:** português do Brasil, frases curtas e diretas, sem jargão técnico para o jogador ("Nave destruída · renascendo na base em 3s").

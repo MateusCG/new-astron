@@ -79,28 +79,52 @@ Os bônus (`server/bonus.js`): dos mineradores, `'mineracao'` +1 por viagem, `'v
 
 ## Progressão do jogador
 
-- **[feito]** **XP e nível** ao destruir monstros, mineradores e jogadores inimigos, e ao tomar objetivos A e B. Começa no nível 1, vai até o 20 (`NIVEL_MAX`); para passar do nível n são `60 + 20 × (n − 1)` XP (`xpParaNivel` em `server/progressao.js`). Cada nível dá +3% do HP máximo da raça. Subir de nível: notícia e anel de luz na nave.
+- **[feito]** **XP e nível** ao destruir monstros, mineradores e jogadores inimigos, e ao tomar objetivos A e B. Começa no nível 1, vai até o 20 (`NIVEL_MAX`); para passar do nível n são `60 + 20 × (n − 1)` XP (`xpParaNivel` em `server/progressao.js`). Cada nível dá +3% do HP máximo da nave. Subir de nível: notícia e anel de luz na nave.
 - **[feito]** **Ouro** pelas mesmas fontes. XP e ouro por tipo em `RECOMPENSA`: Arnosh 20 XP / 25 ouro, Vorax 30 / 30, Krakor 120 / 90, guardião 250 / 150, minerador 40 / 40, escolta 50 / 45, torreta 80 / 70 (+25 de ouro para cada colega de time), jogador 100 / 50.
 - **[feito]** Ouro, XP e nível são **da partida** (como num MOBA): zeram quando começa a seguinte.
 - **[feito]** **Assistência e sequência de abates** em abate de jogador, e **renascimento** que demora mais com o nível e com o tempo de partida: ver "Combate".
-- **[feito]** **Evolução da nave** nos níveis **5, 10 e 15**, pagando ouro: escolher 1 de 3 (durabilidade, energia, velocidade). Ver "Loja e Evolução".
-- **[feito]** **Duas armas na nave:** Q edita o Z, E edita o X; mesma arma pode ir nos dois. Não existe arma principal: os dois encaixes escolhem do mesmo catálogo (`ARMAS` em `shared/sim.js`: laser simples, duplo, triplo, dreno, criogênico, plasma, míssil teleguiado, mina, onda de choque e pulso EMP), cada um com a sua recarga e a mesma energia. Padrão: laser simples no Z e plasma no X (as duas de fábrica, sempre possuídas).
+- **[feito]** **Evolução da nave**: a cada 5 níveis (5, 10, 15, 20) o piloto pode comprar a **próxima nave da linha** da raça e da classe, pagando ouro. Ver "Raças, classes e naves" e "Loja e Evolução".
+- **[feito]** **Duas armas na nave:** Q edita o Z, E edita o X; mesma arma pode ir nos dois. Não existe arma principal: os dois encaixes escolhem do mesmo catálogo, que são **as armas do Astro-N original da raça e da classe do piloto** (ver "Armas"), cada um com a sua recarga e a mesma energia. Cada partida começa com as **duas armas de fábrica da raça** (um feixe no Z e uma metralhadora no X, sempre possuídas).
 - **[feito]** **Recarga de troca de arma** (pedido do Mateus, para a build pesar): fora da própria base, trocar a arma de um encaixe põe **aquele encaixe** em recarga de troca por `TROCA_ARMA_S` (**3 s**): sem tiro nele e sem nova troca nele até acabar; o outro encaixe segue normal. **Dentro da própria base** (raio de `BASES[time]`) a troca é livre e a recarga de troca zera. Roda no `stepShip` (estado `troca1`/`troca2` na nave, no `me`), então a predição bate com o servidor. O menu de armas **trava** o encaixe enquanto conta: as outras cartas ficam apagadas com "TROCA EM 2,1 s", tocar numa delas só dá a notícia de quanto falta (o menu nunca manda uma troca que seria ignorada), e o painel inferior mostra a contagem no encaixe.
-- **[feito]** **Tipo de dano e função de cada arma** (`tipoDano` e `funcao` em `WEAPONS`), mostrados no menu e na Loja. Por enquanto é informação: a armadura por tipo de dano (resistir mais a laser, por exemplo) fica para depois.
-
-| Arma | Tipo de dano | Função |
-|---|---|---|
-| Laser simples, duplo, triplo | Laser | Dano |
-| Dreno | Elétrico | Controle (tira vida por segundos) |
-| Criogênico | Físico | Controle (deixa lento) |
-| Plasma | Elétrico | Dano |
-| Míssil teleguiado | Físico | Dano |
-| Mina | Físico | Dano |
-| Onda de choque | Físico | Controle (empurra para fora) |
-| Pulso EMP | Elétrico | Controle (tira energia, tiro e boost) |
-- **[feito]** **Loja**: comprar armas, armaduras e itens. Cada partida começa só com as armas de fábrica (laser simples e plasma); as outras oito se compram aqui e ficam na posse do piloto (no jogador, não na nave: voltam a cada renascimento). Arma não possuída fica travada no menu ("NA LOJA") e cai na padrão do encaixe.
+- **[feito]** **Loja**: comprar armas (só as da raça e da classe), armaduras e itens. As armas compradas ficam na posse do piloto (no jogador, não na nave: voltam a cada renascimento). Arma não possuída fica apagada no menu ("NA LOJA") e cai na de fábrica do encaixe.
 - **[feito]** Evolução e Loja só abrem **com a nave pousada e parada** na plataforma do serviço da **própria base**.
 - **[feito]** **Recall (voltar à base, tecla B)**: ver abaixo.
+
+## Raças, classes e naves
+
+**[feito]** Pedido do Mateus (out/2026), com as naves e os números do Astro-N original (`old-astron`, `initunit.cfg`). Dados em `shared/naves.js`.
+
+- **Tela inicial em dois passos:** primeiro a **raça** (Acron, Bellico, Shrewdo; **Mechan aparece apagada com "EM BREVE"** e não se escolhe), depois a **classe**, cada uma com a especialidade do original: **Assault = mais HP**, **Mobile = mais velocidade**, **Functional = mais energia**. A tela mostra a primeira nave da escolha girando, com os status. Raça e classe ficam lembradas no navegador. O servidor recusa raça bloqueada (`raca_bloqueada`) ou desconhecida (`raca_invalida`); classe inválida vira Assault.
+- **Cinco naves por raça e classe** (45 no total), na ordem do original. O piloto **começa na primeira** (ex.: Acron Assault = Warrior; Acron Functional = Esper) e, na Evolução, compra a seguinte quando tem o nível e o ouro. A nave comprada volta em cada renascimento e zera na partida seguinte.
+
+| Tier | Nível | Preço (ouro) |
+|---|---|---|
+| 1ª nave | 1 | (de graça) |
+| 2ª | 5 | 200 |
+| 3ª | 10 | 400 |
+| 4ª | 15 | 650 |
+| 5ª | 20 | 900 |
+
+| Raça | Assault | Mobile | Functional |
+|---|---|---|---|
+| Acron | Warrior, Paladin, Tristan, Kamasutra, Ulysses | Ranger, Tracker, Windwalker, Eurus, Sephiros | Esper, Mirage, Mystique, Mobius, Garuda |
+| Bellico | Lioner, Tigera, Liger, Elephantera, Cheetahar | Condor, Falcon, Eagle, Phantom, Phoenix | Turtle, Snaker, Dragoner, Sphinx, Chimera |
+| Shrewdo | Assault Wing, Power Wing, Plate Wing, Uranium Wing, Hellion Wing | Speed Wing, Rapier Wing, Thunder Wing, Lightning Wing, Alchemium Wing | Chaos Wing, Techron Wing, Magic Wing, Energy Wing, Cyclone Wing |
+
+- **Escala do original para o jogo** (constantes nomeadas em `shared/naves.js`; as armas usam as mesmas): HP ×0,2 (`FATOR_ESCALA_HP`), energia ×0,3 (`FATOR_ENERGIA`), velocidade do original em m/ms × 1000 × 0,5 (`FATOR_VELOCIDADE`, a Warrior faz ~55,6 m/s), regeneração de energia por s = original/ms × 1000 × 0,3 / 0,5. Ex.: Warrior 170 HP, 27 de energia; Ulysses 668 HP, 132 de energia, 60 m/s.
+- **Regeneração de vida da nave:** em voo, só as **Bellico** se recuperam (contínuo, como no original); pousada e parada, cada nave conserta no ritmo dela (`regenHpPousada`).
+- **Números do original mantidos de propósito**, mesmo quando a nave seguinte perde em algum status: Ulysses tem menos HP que Kamasutra (mas mais energia e velocidade), o mesmo em Cheetahar × Elephantera e Hellion × Uranium; Sephiros, Phoenix e Alchemium são mais lentas que a anterior; Garuda, Chimera e Cyclone têm menos energia que a anterior.
+
+## Armas
+
+**[feito]** As **140 armas de loja** do Astro-N original (Acron 48, Bellico 43, Shrewdo 49), com os números decodificados do `inititemweapon.cfg`. Catálogo gerado em `shared/armas-original.js` (de `tools/dados/armas.json` por `tools/gerar_armas.mjs`), conversão para a escala do jogo em `shared/armas.js`, golpes no servidor em `server/golpes.js`.
+
+- **Por raça e classe:** cada arma tem as classes que podem usá-la (bandeiras do original). Armas por classe: Acron 18 / 22 / 28, Bellico 18 / 22 / 27, Shrewdo 21 / 23 / 26 (Assault / Mobile / Functional). Arma de outra raça ou classe não se compra (`invalido`) nem se equipa (cai na de fábrica).
+- **De fábrica** (as duas mais baratas que servem nas três classes): Acron = Feixe Rifle Triplo + Vulcan Acron; Bellico = Feixe Bellico + Vulcan Bellico; Shrewdo = Feixe Duplo + Metralha Shrewdo.
+- **Mecânica pelo padrão do original:** feixes e metralhadoras com canos lado a lado, leque, rajada (às vezes varrendo), atravessar alvos, área no impacto, explodir no fim, dividir em subprojéteis, mira travada e teleguiado; mísseis; canhões de bloqueio que aplicam efeito no alvo (paralisar, lento, dreno de vida ou de energia, sem tiro, desgoverno, sem regeneração, energia mais cara, vulnerável a um tipo de dano, fraco, cego, revelar camuflado...); novas (área que abre no lugar); minas e campos no chão (alguns atiram); dispositivos na própria nave (camuflagem, invulnerável, escudo, resistência, conserto, acelerar, teleporte), alguns de **segurar a tecla**; e suporte para aliados (cura, limpar efeitos, doar energia, desarmar minas, rebater tiros).
+- **Escala:** dano ×0,2, energia por disparo ×0,3, recarga ×0,5, velocidade e alcance ×0,5, raios e vão entre canos ×0,25 (com raio mínimo de acerto de 4 m), durações iguais ao original, preço = original × 0,06 (`FATOR_*` no topo de `shared/armas.js`). Com as de fábrica, o tempo para matar uma nave do tier 1 com fogo contínuo fica entre ~1,2 s (Bellico, que bate mais forte, como no original) e ~3,3 s (Acron).
+- **Aproximações** onde o original não cabia no jogo (escolhas de design, ajustáveis): escudo do original = 15% do HP máximo; resistência em pontos = 0,5% por ponto (até 75%); crítico e chances aleatórias ficaram de fora (regra fixa); camuflado some da tela do outro time salvo a 25 m ou logo depois de atirar (monstros ainda veem); teleporte salta para a frente até chão livre.
+- **No 3D:** o modelo de cada arma fica pendurado na asa (Z na esquerda, X na direita, nos encaixes `l_item`/`r_item` da nave) e o tiro tem a textura, a cor e o som do original.
 
 ## Recall (voltar à base)
 
@@ -123,49 +147,13 @@ Os bônus (`server/bonus.js`): dos mineradores, `'mineracao'` +1 por viagem, `'v
 
 ## Loja e Evolução
 
-**[feito]** Dados em `shared/loja.js` e `shared/evolucao.js`; o servidor valida e cobra em `server/servicos.js`. Pousado e parado na plataforma da própria base, o painel abre sozinho; decolar (L) ou ESC fecha (Enter, ou tocar na dica de pouso, reabre). Tudo é **da partida**: na seguinte, posse de armas, armadura, itens, evoluções da nave e melhorias dos mineradores (dos dois times) voltam ao começo, junto com ouro e nível. Erros têm código estável (`nao_pousado`, `ouro_insuficiente`, `nivel_insuficiente`, `ja_possui`, `limite`, `invalido`; no uso de item `sem_item`, `recarga`, `cheio`).
+**[feito]** Dados em `shared/loja.js` e `shared/evolucao.js`; o servidor valida e cobra em `server/servicos.js`. Pousado e parado na plataforma da própria base, o painel abre sozinho; decolar (L) ou ESC fecha (Enter, ou tocar na dica de pouso, reabre). Tudo é **da partida**: na seguinte, posse e nível das armas, armadura, itens, a nave comprada e as melhorias dos mineradores (dos dois times) voltam ao começo, junto com ouro e nível. Erros têm código estável (`nao_pousado`, `ouro_insuficiente`, `nivel_insuficiente`, `ja_possui`, `limite`, `invalido`; no uso de item `sem_item`, `recarga`, `cheio`).
 
 ### Loja (plataforma magenta)
 
-| Arma | Preço (ouro) |
-|---|---|
-| Laser duplo | 120 |
-| Laser triplo | 150 |
-| Criogênico | 180 |
-| Dreno | 200 |
-| Mina | 240 |
-| Onda de choque | 260 |
-| Pulso EMP | 300 |
-| Míssil teleguiado | 340 |
+**Armas:** só as da raça e da classe do piloto (menos as de fábrica), organizadas por categoria (feixe, metralhadora, canhão, míssil, lâmina, mina, nova, dispositivo...) com filtro. Preço = preço do original × 0,06 (`FATOR_OURO`; de 60 a ~360 de ouro). O pedido leva a chave da arma: `{t:'comprar', item:'o311001'}`. Comprada, a arma pode ir em qualquer um dos dois encaixes (Q e E).
 
-Comprada, a arma pode ir em qualquer um dos dois encaixes (Q e E).
-
-**[feito] Evoluir armas** (aba "Evoluir" da Loja; dados em `shared/loja.js`). Cada arma possuída, as de fábrica inclusive, sobe do nível 1 até `ARMA_NIVEL_MAX` (**5**; para chegar a 10 basta mudar a constante, os preços e efeitos seguem a fórmula). O preço é **por arma** e cresce por nível, então evoluir duas armas custa o dobro: quem foca numa chega ao máximo, quem divide fica com duas medianas, mas de tipos diferentes para segurar mais gente nos objetivos (a ideia do Mateus). Pedido `{t:'comprar', item:'evoluir:<arma>'}`, pousado e parado na Loja da própria base; sem possuir a arma, `sem_item`; no máximo, `limite`. O nível é do piloto (`j.niveisArmas`, vai no `me` como `niveisArmas`): volta a cada renascimento e zera na partida seguinte.
-
-Preço para sair do nível n = `arred10(referência × 0,4 × n)` (`EVOLUIR_ARMA_FRACAO`), com referência = preço da arma na Loja (laser simples e plasma, que não se vendem: `PRECO_REFERENCIA_FABRICA` = 150).
-
-| Arma | 1→2 | 2→3 | 3→4 | 4→5 | Total até o 5 |
-|---|---|---|---|---|---|
-| Laser simples, Laser triplo, Plasma | 60 | 120 | 180 | 240 | 600 |
-| Laser duplo | 50 | 100 | 140 | 190 | 480 |
-| Criogênico | 70 | 140 | 220 | 290 | 720 |
-| Dreno | 80 | 160 | 240 | 320 | 800 |
-| Mina | 100 | 190 | 290 | 380 | 960 |
-| Onda de choque | 100 | 210 | 310 | 420 | 1040 |
-| Pulso EMP | 120 | 240 | 360 | 480 | 1200 |
-| Míssil teleguiado | 140 | 270 | 410 | 540 | 1360 |
-
-Efeito por nível, **só no servidor** (recarga e energia não mudam com o nível, porque entram na predição):
-
-| O que | Por nível acima do 1 | No nível 5 |
-|---|---|---|
-| Dano de todas (tiro, mina, choque) | +10% do dano base (`DANO_POR_NIVEL`) | +40% (laser 12 → 17) |
-| Duração do lento, do EMP e do dreno | +12,5% (`EFEITO_POR_NIVEL`) | +50% (lento 3 → 4,5 s, EMP 2,5 → 3,75 s, dreno 4 → 6 s) |
-| Dano por segundo do dreno | +12,5% | 8 → 12 HP/s |
-| Força do lento | −5 pontos da velocidade que sobra (`LENTIDAO_POR_NIVEL`, mínimo `LENTIDAO_MIN` 25%) | 50% → 30% da velocidade |
-| Empurrão da onda de choque | +12,5% | 55 → 82,5 m/s |
-
-Acertar de novo continua renovando a duração sem somar; no lento, fica o mais forte dos dois (a força vai na nave do alvo, `lentoMult`, para a predição dele bater). Monstros e mineradores atiram sempre no nível 1. O multiplicador fica num lugar só no servidor (`World.multDano`), onde outros multiplicadores de quem atira (bônus de time) podem entrar.
+**[feito] Evoluir armas** (aba "Evoluir" da Loja). Cada arma possuída, as de fábrica inclusive, sobe da **versão V1 à V5 do original** (o nível da arma, 1 a `ARMA_NIVEL_MAX` = 5). Cada versão pede o **nível do piloto do original** (1, 5, 10, 15, 20) e custa a taxa de evolução do original × 0,06, **sem chance de falhar** (no original a evolução podia falhar). A versão muda tudo o que o original muda (dano, recarga, energia, projéteis, efeito). Pedido `{t:'comprar', item:'evoluir:o311001'}`; sem possuir a arma, `sem_item`; sem o nível, `nivel_insuficiente`; na V5, `limite`. O nível da arma é do piloto e vai na nave (`niveis` no `me`, que o `stepShip` lê, então a predição acompanha): volta a cada renascimento e zera na partida seguinte. Monstros, torretas e escolta atiram com os tiros próprios de antes.
 
 | Armadura | Preço | Efeito |
 |---|---|---|
@@ -184,21 +172,7 @@ Usar item vale em qualquer lugar; com a vida (ou a energia) cheia, o servidor re
 
 ### Evolução (plataforma violeta)
 
-**Nave** (do piloto): três marcos, em ordem, cada um exige o nível **e** o ouro; em cada marco escolhe-se 1 de 3 opções, e a mesma opção pode ser escolhida de novo no marco seguinte (os ganhos somam).
-
-| Marco | Nível | Preço |
-|---|---|---|
-| 1 | 5 | 150 |
-| 2 | 10 | 300 |
-| 3 | 15 | 450 |
-
-| Opção | Efeito |
-|---|---|
-| Casco reforçado | +25% de HP máximo (sobre o HP do nível) |
-| Reator ampliado | +25% de energia máxima |
-| Motor afinado | +10% de velocidade máxima (o boost multiplica por cima) |
-
-Os efeitos ficam no estado da nave e voltam a cada renascimento, junto com o nível.
+**Nave** (do piloto): a aba "Nave" mostra as cinco naves da linha da raça e da classe, cada uma com miniatura 3D, nível exigido, preço e os status comparados com a atual (ATUAL, COMPRAR, PEDE NV n, SEM OURO, JÁ PASSOU). `{t:'evoluir', opcao:'nave'}` compra a próxima (nível e ouro; na última, `limite`). A troca de modelo vale na hora, para todos (evento `nave`). Tabela de níveis e preços em "Raças, classes e naves". Substituiu os antigos marcos casco/reator/motor.
 
 **Mineradores do time**: qualquer piloto paga o próximo nível, que vale para o time inteiro; o time recebe a notícia de quem comprou.
 

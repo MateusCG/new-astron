@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import WebSocket from 'ws';
 import { iniciar } from '../server/index.js';
 import { World, ZONA_SEGURA } from '../server/game.js';
-import { createShip, createBullet, WEAPONS, DRENO_DPS, DRENO_DURACAO, CRIO_DURACAO, DT, SHIP_RADIUS } from '../shared/sim.js';
+import { createShip, createBullet, WEAPONS, DT, SHIP_RADIUS, ARMAS, IDX_ARMA, armasIniciais, versaoArma } from '../shared/sim.js';
 import { BASE, BASES, CORREDOR, heightAt, noMapaAberto } from '../shared/terrain.js';
 import { alturaSolida, pontoLivre } from '../shared/obstaculos.js';
 
@@ -60,7 +60,7 @@ test('servidor: fechar a conexão (ESC) tira a nave e dá para entrar de novo co
   try {
     const outro = conectar(srv.porta);
     await outro.aberto;
-    outro.ws.send(JSON.stringify({ t: 'entrar', nome: 'Fica', race: 'mechan' }));
+    outro.ws.send(JSON.stringify({ t: 'entrar', nome: 'Fica', race: 'acron', classe: 'mobile' }));
     await outro.esperar((m) => m.t === 'bemvindo');
 
     for (const race of ['bellico', 'acron', 'shrewdo']) {
@@ -162,7 +162,7 @@ test('servidor: não serve arquivo fora das pastas públicas', async () => {
 test('servidor: serve o modelo da nave e o GLTFLoader que o lê', async () => {
   const srv = await iniciar({ porta: 0, world: new World({ drones: 0, monstros: 0, elites: 0, torretas: false }) });
   try {
-    const modelo = await fetch(`http://localhost:${srv.porta}/modelos/ulysses.glb`);
+    const modelo = await fetch(`http://localhost:${srv.porta}/modelos/naves/acron/assault/ulysses.glb`);
     assert.equal(modelo.status, 200);
     assert.equal(modelo.headers.get('content-type'), 'model/gltf-binary');
     // Cabeçalho do glTF binário: "glTF" e versão 2.
@@ -184,75 +184,81 @@ test('servidor: serve o modelo da nave e o GLTFLoader que o lê', async () => {
 test('servidor: aplica a arma escolhida no comando (e limpa valor inválido)', () => {
   const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
   const j = w.addPlayer('A', 'acron');
-  // Sem comprar na Loja, o laser duplo não está na posse: cai no simples.
-  w.pushInput(j.id, { s: 1, f1: true, a: 1 });
+  const [z, x] = armasIniciais('acron');
+  const circular = IDX_ARMA.o111009; // Feixe Circular, Acron Assault
+  // Sem comprar na Loja, o Feixe Circular não está na posse: fica no de fábrica.
+  w.pushInput(j.id, { s: 1, f1: true, a: circular });
   w.step();
-  assert.equal(j.ship.encaixes[0], 0);
-  // Com o duplo na posse (é o que a compra faz), sai o duplo.
-  j.ship.armas = [...j.ship.armas, 1];
-  for (let s = 2; s < 12; s++) {
+  assert.equal(j.ship.encaixes[0], z);
+  // Com ele na posse (é o que a compra faz), sai o circular (oito feixes).
+  j.ship.armas = [...j.ship.armas, circular];
+  for (let s = 2; s < 32; s++) {
     w.pushInput(j.id, { s });
     w.step();
   }
   w.bullets.length = 0;
   w.tirarEventos();
-  w.pushInput(j.id, { s: 12, f1: true, a: 1 });
+  w.pushInput(j.id, { s: 32, f1: true, a: circular });
   w.step();
-  assert.equal(j.ship.encaixes[0], 1);
-  assert.deepEqual(w.bullets.map((b) => b.kind), ['laserDuplo', 'laserDuplo']);
+  assert.equal(j.ship.encaixes[0], circular);
+  assert.deepEqual(w.bullets.map((b) => b.kind), Array(8).fill('o111009'));
   const tiros = w.tirarEventos().filter((e) => e.e === 'tiro');
-  assert.equal(tiros.length, 2, 'os dois tiros vão para os outros clientes');
+  assert.equal(tiros.length, 8, 'os tiros vão para os outros clientes');
 
   const k = w.addPlayer('B', 'acron');
-  // Os dois nascem em ponto sorteado da base: afasta B de A para o tiro não acertar A.
   k.ship = createShip('acron', j.ship.x + 40, j.ship.z, 0);
   w.bullets.length = 0;
-  w.mineradores.limpar(); // o minerador saindo da base poderia estar na frente do tiro
-  w.pushInput(k.id, { s: 1, f1: true, a: 99, a2: -3 });
+  w.mineradores.limpar();
+  w.pushInput(k.id, { s: 1, f1: true, a: 9999, a2: -3 });
   w.step();
-  assert.equal(k.ship.encaixes[0], 0);
-  assert.deepEqual(w.bullets.map((b) => b.kind), ['laser']);
-  assert.equal(k.ship.encaixes[1], 5, 'X inválido cai no plasma');
+  assert.equal(k.ship.encaixes[0], z);
+  assert.ok(w.bullets.length && w.bullets.every((b) => b.kind === ARMAS[z]));
+  assert.equal(k.ship.encaixes[1], x, 'X inválido cai na de fábrica');
 });
 
-test('servidor: cada projétil do laser duplo tira o dano dele', () => {
+test('servidor: cada projétil do Feixe Duplo tira o dano dele', () => {
   const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
-  const a = w.addPlayer('A', 'acron');
-  const b = w.addPlayer('B', 'bellico');
-  a.ship = createShip('acron', BASE.x, BASE.z - ZONA_SEGURA - 100, 0);
-  b.ship = createShip('bellico', BASE.x, BASE.z - ZONA_SEGURA - 130, 0);
+  const a = w.addPlayer('A', 'shrewdo');
+  const b = w.addPlayer('B', 'acron');
+  a.ship = createShip('shrewdo', BASE.x, BASE.z - ZONA_SEGURA - 100, 0);
+  b.ship = createShip('acron', BASE.x, BASE.z - ZONA_SEGURA - 130, 0);
   a.protegidoAte = b.protegidoAte = 0;
   const hp = b.ship.hp;
-  w.pushInput(a.id, { s: 1, f1: true, a: 1 });
+  w.pushInput(a.id, { s: 1, f1: true });
   for (let i = 0; i < 10; i++) w.step();
-  assert.equal(hp - b.ship.hp, 2 * WEAPONS.laserDuplo.dano, 'os dois acertaram');
+  assert.equal(hp - b.ship.hp, 2 * versaoArma(IDX_ARMA.o311001, 1).golpe.dano, 'os dois acertaram');
 });
 
-/** Mundo com dois jogadores fora da zona segura: A atira em B, 20 m à frente. */
+/** Mundo com dois jogadores fora da zona segura: A atira em B, 20 m à frente (B Acron, sem regenerar voando). */
 function duelo() {
   const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
-  const a = w.addPlayer('A', 'acron');
-  const b = w.addPlayer('B', 'bellico');
-  a.ship = createShip('acron', BASE.x, BASE.z - ZONA_SEGURA - 100, 0);
-  b.ship = createShip('bellico', BASE.x, BASE.z - ZONA_SEGURA - 120, 0);
+  const a = w.addPlayer('A', 'shrewdo');
+  const b = w.addPlayer('B', 'acron');
+  a.ship = createShip('shrewdo', BASE.x, BASE.z - ZONA_SEGURA - 100, 0);
+  b.ship = createShip('acron', BASE.x, BASE.z - ZONA_SEGURA - 120, 0);
   a.protegidoAte = b.protegidoAte = 0;
   /** Põe um projétil da arma `kind` saindo de A, como se A tivesse atirado. */
   const tiro = (kind) => w.bullets.push(createBullet(a.ship, kind, 1000 + w.tick, a.id));
   return { w, a, b, tiro };
 }
 
+// Feixe de Magma (Shrewdo): pouco dano no impacto e dreno de HP por 5 s.
+const MAGMA = 'o311007';
+const golpeMagma = versaoArma(MAGMA, 1).golpe;
+const DRENO = golpeMagma.efeitos[0];
+
 test('servidor: dreno tira vida aos poucos e para no fim da duração', () => {
   const { w, b, tiro } = duelo();
   const hp0 = b.ship.hp;
-  tiro('dreno');
+  tiro(MAGMA);
   w.step(); // acerta já no primeiro passo
-  assert.equal(b.drenoTicks, 30 * DRENO_DURACAO, 'ficou drenando');
+  assert.equal(b.drenoTicks, Math.round(30 * DRENO.dur), 'ficou drenando');
   assert.equal(w.entidades().find((e) => e.id === b.id).dreno, true, 'todos veem o dreno');
-  assert.equal(b.ship.hp, hp0 - WEAPONS.dreno.dano, 'no impacto, só o dano do impacto');
+  assert.ok(Math.abs(b.ship.hp - (hp0 - golpeMagma.dano)) < 1e-9, 'no impacto, só o dano do impacto');
   w.step();
-  assert.ok(Math.abs(b.ship.hp - (hp0 - WEAPONS.dreno.dano - DRENO_DPS * DT)) < 1e-9, `um tick de dreno: ${b.ship.hp}`);
-  for (let i = 0; i < 30 * DRENO_DURACAO + 30; i++) w.step();
-  const total = WEAPONS.dreno.dano + DRENO_DPS * DRENO_DURACAO;
+  assert.ok(Math.abs(b.ship.hp - (hp0 - golpeMagma.dano - DRENO.dps * DT)) < 1e-9, `um tick de dreno: ${b.ship.hp}`);
+  for (let i = 0; i < 30 * DRENO.dur + 30; i++) w.step();
+  const total = golpeMagma.dano + DRENO.dps * DRENO.dur;
   assert.ok(Math.abs(hp0 - b.ship.hp - total) < 1e-6, `perdeu ${hp0 - b.ship.hp}, esperado ${total}`);
   assert.equal(b.drenoTicks, 0);
   assert.equal(w.entidades().find((e) => e.id === b.id).dreno, false);
@@ -260,41 +266,42 @@ test('servidor: dreno tira vida aos poucos e para no fim da duração', () => {
 
 test('servidor: acertar o dreno de novo renova a duração, sem empilhar', () => {
   const { w, b, tiro } = duelo();
-  tiro('dreno');
+  tiro(MAGMA);
   w.step();
   for (let i = 0; i < 60; i++) w.step(); // 2 s drenando
-  tiro('dreno');
+  tiro(MAGMA);
   w.step();
-  assert.equal(b.drenoTicks, 30 * DRENO_DURACAO, 'voltou para a duração cheia');
+  assert.equal(b.drenoTicks, Math.round(30 * DRENO.dur), 'voltou para a duração cheia');
   const hp = b.ship.hp;
   for (let i = 0; i < 30; i++) w.step();
-  assert.ok(Math.abs(hp - b.ship.hp - DRENO_DPS) < 1e-6, `1 s com dois acertos tira ${hp - b.ship.hp}, não o dobro`);
+  assert.ok(Math.abs(hp - b.ship.hp - DRENO.dps) < 1e-6, `1 s com dois acertos tira ${hp - b.ship.hp}, não o dobro`);
 });
 
 test('servidor: dreno não age na zona segura (nem na proteção de nascimento)', () => {
   const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
   const j = w.addPlayer('A', 'acron');
   j.protegidoAte = 0;
-  j.drenoTicks = 30 * DRENO_DURACAO;
+  j.drenoTicks = 30 * 4;
   j.drenoDono = -1;
+  j.drenoDps = 5;
   const hp = j.ship.hp;
   for (let i = 0; i < 30 * 2; i++) w.step();
   assert.equal(j.ship.hp, hp, 'na base não perde vida');
-  assert.ok(j.drenoTicks < 30 * DRENO_DURACAO, 'mas o tempo do dreno corre');
+  assert.ok(j.drenoTicks < 30 * 4, 'mas o tempo do dreno corre');
 
   const { w: w2, b, tiro } = duelo();
   b.protegidoAte = w2.tick + 1000; // acabou de nascer
   const hp2 = b.ship.hp;
-  tiro('dreno');
+  tiro(MAGMA);
   for (let i = 0; i < 60; i++) w2.step();
   assert.equal(b.ship.hp, hp2);
 });
 
 test('servidor: se o dreno matar, o abate e o ouro vão para quem atirou', () => {
   const { w, a, b, tiro } = duelo();
-  tiro('dreno');
+  tiro(MAGMA);
   w.step();
-  b.ship.hp = 3; // morre pelo dreno, não pelo impacto
+  b.ship.hp = 0.5; // morre pelo dreno, não pelo impacto
   for (let i = 0; i < 30 && b.vivo; i++) w.step();
   assert.equal(b.vivo, false);
   assert.equal(a.abates, 1);
@@ -305,15 +312,17 @@ test('servidor: se o dreno matar, o abate e o ouro vão para quem atirou', () =>
   assert.equal(b.drenoTicks, 0, 'morto não segue drenando');
 });
 
-test('servidor: criogênico deixa o alvo lento, e o snapshot leva isso', () => {
+test('servidor: Canhão Freio deixa o alvo lento, e o snapshot leva isso', () => {
   const { w, b, tiro } = duelo();
-  tiro('crio');
-  w.step();
-  assert.equal(b.ship.lento, CRIO_DURACAO);
+  const freio = versaoArma('o312009', 1).golpe.efeitos[0];
+  tiro('o312009');
+  for (let i = 0; i < 10 && !(b.ship.lento > 0); i++) w.step(); // o canhão é lento: 2 passos
+  assert.equal(b.ship.lento, freio.dur);
+  assert.equal(b.ship.lentoMult, freio.mult);
   assert.equal(w.entidades().find((e) => e.id === b.id).lento, true);
-  assert.equal(w.snapshotPara(b, [], []).me.lento, CRIO_DURACAO, 'me leva o lento para a predição');
+  assert.equal(w.snapshotPara(b, [], []).me.lento, freio.dur, 'me leva o lento para a predição');
   // O lento corre nos passos da própria nave (comandos), como na predição.
-  for (let s = 1; s <= 30 * CRIO_DURACAO + 5; s++) {
+  for (let s = 1; s <= 30 * freio.dur + 5; s++) {
     w.pushInput(b.id, { s, th: 1 });
     w.step();
   }

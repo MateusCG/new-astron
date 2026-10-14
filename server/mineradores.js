@@ -30,7 +30,7 @@
 // mesmas faixas (pontoRota), mas é outro módulo: não minera, não entra no placar e
 // não lê as melhorias nem os bônus dos mineradores.
 
-import { createShip, stepShip, RACES, VEL_FATOR, DT } from '../shared/sim.js';
+import { createShip, stepShip, velocidadeBase, DT } from '../shared/sim.js';
 import { BASES, ROTAS, ENTREGAS } from '../shared/terrain.js';
 import { BONUS } from './bonus.js';
 
@@ -183,7 +183,7 @@ export class Mineradores {
     }
     const rota = ROTAS[m.time];
     const ultimo = rota.length - 1;
-    const thMax = Math.min(1, a.velocidade / (RACES[s.race].velocidade * VEL_FATOR));
+    const thMax = Math.min(1, a.velocidade / velocidadeBase(s));
     let alvo = null;
     let th = thMax;
 

@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import { paredeAt, MAP_HALF_X, MAP_HALF_Z, BASES, CORREDOR, MINERIO, ENTREGAS, SERVICOS, OBJETIVOS, TORRETAS } from '/shared/terrain.js';
-import { WEAPONS, ARMAS, ENCAIXE_PADRAO, TROCA_ARMA_S } from '/shared/sim.js';
+import { WEAPONS, ARMAS, TROCA_ARMA_S, armasIniciais, versaoArma } from '/shared/sim.js';
 import { iconeArma } from './armas.js';
 import { iconeItem } from './servicos.js';
 import { ITENS, ORDEM_ITENS } from '/shared/loja.js';
@@ -28,6 +28,19 @@ const COR_APAGADA = '#8a7f6a'; // letra de objetivo em recarga
 const PONTO_INIMIGO = { vorax: 4.5, krakor: 6, guardiao: 7 };
 /** O que cada bônus faz, para o HUD (nomes de server/bonus.js). */
 export const NOME_BONUS = { mineracao: 'Mineração +1', velocidade: 'Velocidade', durabilidade: 'Durabilidade', furia: 'Fúria' };
+
+/** Aviso de cada efeito de arma na própria nave: [texto, tipo da notícia]. */
+const AVISOS_EFEITO = {
+  dreno: ['Dreno: você está perdendo vida', 'ruim'],
+  lento: ['Sua nave está lenta', 'ruim'],
+  emp: ['Sem energia: sem tiro e sem boost por instantes', 'ruim'],
+  semTiro: ['Paralisia: sem tiro por instantes', 'ruim'],
+  desg: ['Desgoverno: a curva está invertida', 'ruim'],
+  semRegen: ['A energia parou de recuperar', 'ruim'],
+  cego: ['Radar desligado: inimigos fora do mapa', 'ruim'],
+  inv: ['Camuflada: o inimigo não te vê de longe', 'bom'],
+  invul: ['Invulnerável', 'bom'],
+};
 
 export class Hud {
   /** @param {{ meuTime?: number }} [opcoes] time de quem joga (cor das bases no minimapa) */
@@ -313,23 +326,28 @@ export class Hud {
     // Com a recarga de troca contando (troca1/troca2), a linha mostra a troca e o
     // encaixe ganha a contagem em segundos.
     this.slots.forEach((slot, enc) => {
-      const kind = ARMAS[me.encaixes?.[enc] ?? ENCAIXE_PADRAO[enc]] ?? ARMAS[ENCAIXE_PADRAO[enc]];
+      const idx = me.encaixes?.[enc] ?? armasIniciais(me.race)[enc];
+      const kind = ARMAS[idx];
       const w = WEAPONS[kind];
-      if (kind !== slot.kind) {
+      const nivel = me.niveis?.[idx] ?? 1;
+      const v = versaoArma(idx, nivel);
+      if (kind !== slot.kind || nivel !== slot.nivel) {
         slot.kind = kind;
-        slot.icone.innerHTML = iconeArma(kind);
-        slot.nome.textContent = w.nome;
+        slot.nivel = nivel;
+        slot.icone.innerHTML = iconeArma(kind, nivel);
+        slot.nome.textContent = nivel > 1 ? `${w.nome} ${nivel}` : w.nome;
       }
       const cd = (enc === 0 ? me.cd1 : me.cd2) ?? 0;
       const troca = (enc === 0 ? me.troca1 : me.troca2) ?? 0;
-      const fracao = troca > 0 ? troca / TROCA_ARMA_S : cd / w.cd;
+      const fracao = troca > 0 ? troca / TROCA_ARMA_S : v.cd > 0 ? cd / v.cd : 0;
+      slot.el.classList.toggle('segurando', (enc === 0 ? me.seg1 : me.seg2) === idx);
       slot.recarga.style.width = `${(1 - Math.min(1, fracao)) * 100}%`;
       const txt = troca > 0 ? `${(Math.ceil(troca * 10) / 10).toLocaleString('pt-BR', { minimumFractionDigits: 1 })} s` : '';
       if (txt !== slot.txtEspera) slot.espera.textContent = slot.txtEspera = txt;
       slot.el.classList.toggle('trocando', troca > 0);
       slot.el.classList.toggle('carregando', cd > 0 || troca > 0);
-      slot.el.classList.toggle('sem-energia', cd <= 0 && me.en < w.energia);
-      slot.el.classList.toggle('emp', me.emp > 0);
+      slot.el.classList.toggle('sem-energia', cd <= 0 && me.en < v.energia * (v.segurar ? 0.1 : 1));
+      slot.el.classList.toggle('emp', me.emp > 0 || me.semTiro > 0);
     });
     // Itens: quantidade (apagado sem nenhum) e a recarga (s, do `me`) enchendo.
     for (const it of this.itens) {
@@ -421,14 +439,17 @@ export class Hud {
     el.querySelector('i').style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
   }
 
-  /** Avisa quando a própria nave começa a drenar, fica lenta ou leva EMP (só na mudança). */
-  efeitosProprios({ dreno, lento, emp }) {
-    if (dreno && !this.drenando) this.noticia('Dreno: você está perdendo vida', 'ruim');
-    if (lento && !this.lenta) this.noticia('Criogênico: sua nave está lenta', 'ruim');
-    if (emp && !this.semSistemas) this.noticia('EMP: sem energia, sem tiro e sem boost por instantes', 'ruim');
-    this.drenando = dreno;
-    this.lenta = lento;
-    this.semSistemas = emp;
+  /**
+   * Avisa quando um efeito de arma começa na própria nave (só na mudança): os do
+   * inimigo (dreno, lento, paralisia, desgoverno, energia, radar) como ruins e os
+   * próprios (camuflagem, invulnerável) como bons.
+   */
+  efeitosProprios(estados) {
+    this.efeitosAtivos ??= {};
+    for (const [k, [texto, tipo]] of Object.entries(AVISOS_EFEITO)) {
+      if (estados[k] && !this.efeitosAtivos[k]) this.noticia(texto, tipo);
+      this.efeitosAtivos[k] = !!estados[k];
+    }
   }
 
   mostrarAviso(texto) {

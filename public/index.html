@@ -17,16 +17,34 @@
         <h1>NEW <span>ASTRO</span>-N</h1>
         <p class="sub">Setor M1 · Cânion de Traticera</p>
         <label>Nome do piloto <input id="nome" maxlength="16" autocomplete="off" placeholder="Piloto" /></label>
-        <p class="rotulo-racas">Escolha sua raça</p>
-        <div id="racas"></div>
+        <section id="passo-raca" class="passo">
+          <p class="rotulo-racas"><b>1</b> Escolha sua raça</p>
+          <div id="racas"></div>
+        </section>
+        <section id="passo-classe" class="passo" hidden>
+          <p class="rotulo-racas">
+            <button type="button" class="voltar-raca" title="Trocar de raça">‹ <span></span></button>
+            <b>2</b> Escolha sua classe
+          </p>
+          <div id="classes"></div>
+          <div id="previa-nave">
+            <div class="palco"></div>
+            <div class="ficha">
+              <small>Sua primeira nave</small>
+              <strong class="nome-nave"></strong>
+              <p class="linha-nave"></p>
+            </div>
+          </div>
+        </section>
         <button type="submit" class="decolar">Decolar</button>
         <p id="erro-entrada" role="alert"></p>
+        <button type="button" id="botao-som" class="botao-som" title="Liga e desliga o som (M)"><span class="estado-som">Som ligado</span> · <kbd>M</kbd></button>
         <p class="ajuda">
           <kbd>W</kbd><kbd>S</kbd> acelera/ré · <kbd>A</kbd><kbd>D</kbd> gira · <kbd>Shift</kbd> boost ·
           <kbd>Z</kbd> e <kbd>X</kbd> atiram (uma arma em cada) · <kbd>Q</kbd> troca a arma do Z · <kbd>E</kbd> a do X ·
           <kbd>L</kbd> pousar (na Loja e na Evolução da base, abre o painel) · <kbd>R</kbd> kit de reparo ·
           <kbd>F</kbd> célula de energia · <kbd>B</kbd> volta à base (6 s quase parado) · <kbd>V</kbd> câmera ·
-          <kbd>Esc</kbd> sair
+          <kbd>M</kbd> som · <kbd>Esc</kbd> sair
         </p>
       </form>
     </section>
@@ -53,6 +71,7 @@
         <p class="nova"></p>
       </section>
       <span id="ping"></span>
+      <span id="som-hud" class="estado-som" title="M liga e desliga o som"></span>
 
       <footer id="painel">
         <div class="barras">
@@ -87,7 +106,7 @@
         <h2>Arma do <kbd>Z</kbd></h2>
         <div class="opcoes"></div>
         <p class="dica">
-          <span class="so-teclado"><kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> escolhe · <span class="dica-encaixe"></span></span><span class="so-toque">Toque para escolher · ARMA Z/X troca ou fecha</span>
+          <span class="so-teclado"><kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> escolhe entre as suas · <span class="dica-encaixe"></span></span><span class="so-toque">Toque para escolher · ARMA Z/X troca ou fecha</span>
           · a mesma arma pode ir nos dois · sem tiro com o menu aberto
         </p>
       </section>

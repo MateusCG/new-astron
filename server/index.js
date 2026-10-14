@@ -7,26 +7,40 @@
 // modelo da nave em public/modelos/) em /vendor/addons/.
 //
 // Protocolo (JSON):
-//   cliente → servidor  {t:'entrar', nome, race}
+//   cliente → servidor  {t:'entrar', nome, race, classe}
+//                       (race = 'acron' | 'bellico' | 'shrewdo'; 'mechan' ainda sem
+//                        naves é recusada com 'raca_bloqueada', outra coisa com
+//                        'raca_invalida'; classe = 'assault' | 'mobile' |
+//                        'functional', inválida ou ausente vira 'assault'; o piloto
+//                        começa na primeira nave da linha, shared/naves.js)
 //                       {t:'in', s:seq, th, tu, b, f1, f2, p, r, a, a2}   um por passo de 1/30 s
 //                       (p = botão de pouso, alterna pousar/decolar na borda;
 //                        r = botão do recall (B), pulso: na borda começa a
 //                        canalizar a volta à base ou cancela (shared/recall.js);
-//                        f1/f2 = gatilho do Z/X; a/a2 = arma do encaixe do Z/X,
-//                        índice em ARMAS: 0 laser simples, 1 duplo, 2 triplo,
-//                        3 dreno, 4 criogênico, 5 plasma, 6 míssil, 7 mina,
-//                        8 onda de choque, 9 pulso EMP; fora da lista, ou arma
-//                        que a nave não possui (s.armas), vira a padrão do
-//                        encaixe: 0 no Z, 5 no X; fora da própria base, trocar a
-//                        arma de um encaixe o põe em recarga de troca de
+//                        f1/f2 = gatilho do Z/X (segurado: as armas de segurar a
+//                        tecla ficam ligadas enquanto vale); a/a2 = arma do
+//                        encaixe do Z/X, índice em ARMAS (shared/armas.js): 0 e 1
+//                        são os tiros dos NPCs (laser, plasma; o jogador nunca
+//                        usa), 2 a 141 as armas do Astro-N original na ordem das
+//                        lojas (Acron 2–49, Bellico 50–92, Shrewdo 93–141; chave
+//                        'o<id do original>'); fora da lista vira -1; arma de outra
+//                        raça ou classe, ou que a nave não possui (s.armas), cai
+//                        na de fábrica da raça no encaixe (armasIniciais: um feixe
+//                        no Z, uma metralhadora no X); fora da própria base, trocar
+//                        a arma de um encaixe o põe em recarga de troca de
 //                        TROCA_ARMA_S, e outra troca nele enquanto conta é
 //                        ignorada: o stepShip fica com a arma que tem)
 //                       {t:'comprar', item}      Loja: item = id de shared/loja.js (arma
-//                        pelo nome em ARMAS, 'armaduraLeve' | 'armaduraMedia' |
+//                        pela chave, ex. 'o312010', só da raça e da classe do
+//                        piloto, senão 'invalido'; 'armaduraLeve' | 'armaduraMedia' |
 //                        'armaduraPesada', 'reparo' | 'energia', ou
-//                        'evoluir:<arma>' para subir um nível de uma arma possuída,
-//                        ex. 'evoluir:crio'; sem possuir: 'sem_item'; no máximo: 'limite')
-//                       {t:'evoluir', opcao}     Evolução da nave: 'casco' | 'reator' | 'motor'
+//                        'evoluir:<arma>' para subir a arma possuída para a próxima
+//                        versão do original (V2 a V5), ex. 'evoluir:o311001'; sem
+//                        possuir: 'sem_item'; sem o nível do piloto da versão (5,
+//                        10, 15, 20): 'nivel_insuficiente'; na V5: 'limite')
+//                       {t:'evoluir', opcao:'nave'}  Evolução da nave: compra a próxima
+//                        nave da linha da raça e classe (nível e ouro dela; na
+//                        última, 'limite'; outra opcao, 'invalido')
 //                       {t:'melhorar', melhoria} mineradores do time: 'quantidade' |
 //                        'durabilidade' | 'defesa' | 'velocidade'; ou 'torretas' (sobe
 //                        o nível das quatro torretas do time)
@@ -38,17 +52,33 @@
 //                        lugar; tudo validado em server/servicos.js)
 //                       {t:'ping', c}
 //   servidor → cliente  {t:'bemvindo', id, tickHz, time}   time = 0 (base de baixo) ou 1
-//                       {t:'erro', codigo}   codigo 'partida_cheia' (3 em cada time); fecha
+//                       {t:'erro', codigo}   codigo 'partida_cheia' (3 em cada time),
+//                        'raca_bloqueada' ou 'raca_invalida'; fecha
 //                       {t:'snap', tick, ack, vivo, renasceEm, time, me, ouro, abates, mortes,
 //                        nivel, xp, xpProx, partida, bonus, obj, torretas, melhorias, minas,
-//                        guiados, ents, ev}
+//                        guiados, st, ents, ev}
 //                       (me.encaixes = [arma do Z, arma do X], me.cd1/cd2 = recarga
 //                        de cada encaixe, me.troca1/troca2 = s de recarga de troca
 //                        de arma de cada encaixe (sem tiro e sem troca nele),
-//                        me.armas = armas que possui, me.lento = s de lentidão,
-//                        me.lentoMult = fração da velocidade enquanto lento (a
-//                        predição usa), me.emp = s sem tiro e sem boost (pulso EMP),
+//                        me.armas = armas que possui (as de fábrica da raça e as
+//                        compradas), me.niveis = nível (versão V1–V5) de cada arma
+//                        evoluída {índice: nível} (o stepShip lê a versão daqui),
+//                        me.raj1/raj2 (+ rajT, rajK) = rajada em andamento de cada
+//                        encaixe, me.seg1/seg2 = arma de segurar ligada (-1 nenhuma),
+//                        efeitos de arma recebidos (s restantes, todos lidos no
+//                        stepShip): me.lento + me.lentoMult (fração da velocidade; 0
+//                        é paralisia do movimento), me.emp (sem tiro e sem boost),
+//                        me.semTiro (paralisia do ataque), me.trava (sem acelerar
+//                        nem frear), me.desgov (curva invertida), me.semRegen (energia
+//                        não recupera), me.cadencia + me.cadMult (recarga maior),
+//                        me.enCara + me.enCaraMult (tiro mais caro), me.drenoEn +
+//                        me.drenoEnPs (perde energia por s),
 //                        me.time = time da nave, para a predição do pouso;
+//                        me.classe e me.tier = a nave da linha (shared/naves.js),
+//                        me.velocidade (m/s) e me.regenEn (energia por s) = da
+//                        nave, lidos no stepShip da predição; me.regenHpVoo e
+//                        me.regenHpPousada (HP/s voando e pousada) = da nave, só
+//                        informação (quem regenera é o servidor);
 //                        cada ent traz dreno/lento/emp booleanos para desenhar o efeito;
 //                        ev 'tiro' traz kind, que diz a arma e o efeito do projétil;
 //                        nivel = nível do jogador (1 a NIVEL_MAX), xp = XP dentro do
@@ -61,11 +91,12 @@
 //                       'limite' | 'invalido' | 'sem_item' | 'recarga' | 'cheio'
 //                       {t:'pong', c}
 //   me (Loja e Evolução): armas = posse (de fábrica + compradas; zera a cada
-//         partida), niveisArmas = nível de cada arma (índice em ARMAS, 1 a
-//         ARMA_NIVEL_MAX; evoluído na Loja, zera a cada partida), armadura (-1 ou 0 a 2), itens {reparo, energia} (carga),
-//         cdItens {reparo, energia} (s de recarga), evolucoes (ids das opções da
-//         nave, uma por marco), velMult (multiplicador de velocidade, lido no
-//         stepShip da predição); maxHp e maxEn já com nível, evoluções e armadura
+//         partida), niveis = {índice em ARMAS: nível 2 a 5} das armas evoluídas na
+//         Loja (zera a cada partida), armadura (-1 ou 0 a 2), itens {reparo, energia} (carga),
+//         cdItens {reparo, energia} (s de recarga), tier (nave da linha comprada,
+//         0 a 4; zera a cada partida), velMult (multiplicador de velocidade da
+//         armadura pesada, lido no stepShip da predição); maxHp e maxEn já com a
+//         nave, o nível e a armadura
 //   melhorias: {quantidade, durabilidade, defesa, velocidade}   níveis comprados
 //         das melhorias dos mineradores do time de quem recebe (zeram a cada partida)
 //   partida: {n, estado, fase, restante, placar:[t0, t1], vencedor, novaEm}
@@ -86,17 +117,34 @@
 //         sólida (false: o cliente a tira da física com definirObstaculoAtivo);
 //         alvo = id na mira (só se mira alguém); obra = reconstrução paga
 //         esperando o lugar ficar livre
-//   minas: [{id, dono, time, x, y, z, armada}]   minas no chão (time de quem soltou;
-//         armada = já explode com inimigo perto)
-//   guiados: [{id, x, y, z, vx, vy, vz}]   mísseis teleguiados em voo: o cliente não
-//         prevê a curva e corrige o desenho por aqui
+//   minas: [{id, dono, time, kind, nv, p, campo?, raio, x, y, z, armada}]   minas e
+//         campos no chão (time de quem soltou; kind/nv/p = a arma, a versão e a
+//         profundidade do golpe, para o desenho; campo = área que fere a cada
+//         intervalo; raio = gatilho da mina ou área do campo; armada = já age)
+//   guiados: [{id, kind, nv, p, x, y, z, vx, vy, vz}]   teleguiados em voo: o
+//         cliente não prevê a curva e corrige o desenho por aqui
+//   st: {cego?, invisivel?, revelado?, invulneravel?, escudo?, converte?, regen?,
+//         fraco?, vulneravel?, recuo?, curaTempo?, resiste_<tipo>?}   estados das
+//         armas no próprio jogador que só o servidor conta (s restantes; invisivel
+//         -1 = segurando a camuflagem): o HUD avisa, e cego esconde os inimigos do
+//         minimapa e dos rótulos
 //   ents: [{id, nome, tipo, drone, vivo, race, x, y, z, yaw, roll, hp, maxHp, boost, pousado,
-//           dreno, lento, emp, time?, carga?, minerando?, nivel?, recall?}]
+//           dreno, lento, emp, fx?, time?, carga?, minerando?, nivel?, classe?, tier?, arm?, recall?}]
+//         fx = efeitos de arma visíveis ('para', 'desg', 'energia', 'invul',
+//         'escudo', 'fraco', 'regen', 'acel', 'inv'); arm = [arma do Z, arma do X]
+//         dos jogadores (o modelo pendurado em cada asa). Jogador camuflado do outro
+//         time não vem na lista (salvo a INVISIVEL_VISTO_M da sua nave ou logo
+//         depois de atirar);
 //         tipo = 'jogador' | 'arnosh' | 'vorax' | 'krakor' | 'guardiao' | 'minerador' |
 //         'escolta' (o que desenhar); drone = inimigo do PvE; time em jogadores,
-//         mineradores e escoltas; carga e minerando só nos mineradores; nivel só nos
-//         jogadores; recall (0 a 1) só em quem está canalizando a volta à base
+//         mineradores e escoltas; carga e minerando só nos mineradores; nivel, classe
+//         e tier só nos jogadores (raça + classe + tier = o modelo da nave); recall
+//         (0 a 1) só em quem está canalizando a volta à base
 //   ev:   {e:'tiro'|'acerto'|'fim'|'renasceu'|'saiu', ...}
+//         {e:'tiro', id, dono, kind, nv, p, x, y, z, vx, vy, vz, vida, enc?}   projétil
+//                                    de arma (nv = versão, p = profundidade do golpe:
+//                                    0 o disparo, 1+ subprojétil; enc = encaixe de
+//                                    onde saiu, para o desenho sair da boca da arma)
 //         {e:'entrou', id, nome, time}
 //         {e:'morte', id, por, tipo, time?, x, y, z, ouro?, renasce?, assist?, ouroAssist?,
 //          seq?, encerrou?, seqPor?}
@@ -116,11 +164,21 @@
 //         {e:'torreta', id, time, estado, por, nome, x, y, z}   estado 'destruida' (por =
 //                                    quem deu o último tiro) ou 'reconstruida' (por =
 //                                    quem pagou)
-//         {e:'acerto', arma, alvo, dano, x, y, z}   dano em área (arma 'mina' ou
-//                                    'choque'), um por alvo, sem bala
-//         {e:'choque', id, time, x, y, z, raio}   onda de choque da nave id
-//         {e:'explosao', arma:'mina', id, dono, time, x, y, z, raio}   mina explodiu
+//         {e:'acerto', kind, alvo, dano, x, y, z, bala?}   golpe de arma num alvo (um
+//                                    por alvo; bala = o tiro que bateu direto)
+//         {e:'explosao', arma, nv, p, dono, time, x, y, z, raio, mina?}   área de um
+//                                    golpe (impacto com área, fim da vida, mina; raio
+//                                    0 = mina que atirou e sumiu)
+//         {e:'nova', id, dono, time, kind, nv, p, x, y, z, raio, vel}   esfera que
+//                                    cresce parada no ponto a vel m/s até raio
+//         {e:'efeito', id, kind, nv, time, x, y, z}   dispositivo ligado na nave id
+//                                    (camuflagem, escudo, teleporte...)
+//         {e:'cura', id, por, hp, x, y, z}   aliado curado por arma de suporte
+//         {e:'desarmou', id, x, y, z}   mina destruída pela Nova Desarmadora
 //         {e:'nivel', id, nivel}     jogador subiu de nível
+//         {e:'nave', id, nome, time, tier, nave}   jogador comprou a próxima nave da
+//                                    linha na Evolução (nave = nome dela): todos trocam
+//                                    o modelo (o snapshot também traz o tier)
 //         {e:'melhoria', id, nome, time, melhoria, nivel}   alguém do time `time` comprou
 //                                    um nível de melhoria dos mineradores (ou das
 //                                    torretas: melhoria 'torretas')
@@ -145,6 +203,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { WebSocketServer } from 'ws';
 import { World, TICK_HZ } from './game.js';
+import { motivoRacaRecusada } from '../shared/naves.js';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PASTAS = {
@@ -162,6 +221,9 @@ const TIPOS = {
   '.svg': 'image/svg+xml',
   '.json': 'application/json',
   '.glb': 'model/gltf-binary',
+  '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
+  '.mp3': 'audio/mpeg',
 };
 const MAX_MSG = 2048;
 const PEDIDOS = new Set(['comprar', 'evoluir', 'melhorar', 'reconstruir', 'usar']); // server/servicos.js
@@ -221,7 +283,14 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
         return;
       }
       if (msg?.t === 'entrar' && !jogador) {
-        jogador = world.addPlayer(msg.nome, msg.race);
+        // Raça sem naves (Mechan, "em breve") ou que não existe: recusa com código.
+        const recusa = motivoRacaRecusada(msg.race);
+        if (recusa) {
+          ws.send(JSON.stringify({ t: 'erro', codigo: recusa }));
+          ws.close();
+          return;
+        }
+        jogador = world.addPlayer(msg.nome, msg.race, msg.classe);
         if (!jogador) {
           // Os dois times cheios: código estável que o cliente traduz na tela de entrada.
           ws.send(JSON.stringify({ t: 'erro', codigo: 'partida_cheia' }));

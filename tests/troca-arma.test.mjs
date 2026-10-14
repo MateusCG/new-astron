@@ -6,11 +6,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World } from '../server/game.js';
-import { createShip, stepShip, IDX_ARMA, ARMAS, WEAPONS, TROCA_ARMA_S, DT, TIPOS_DANO, FUNCOES_ARMA, trocaLivre } from '../shared/sim.js';
+import { createShip, stepShip, IDX_ARMA, ARMAS, WEAPONS, TROCA_ARMA_S, DT, TIPOS_DANO, FUNCOES_ARMA, trocaLivre, armasIniciais } from '../shared/sim.js';
 import { BASES } from '../shared/terrain.js';
 
 const PARADO = { th: 0, tu: 0, b: false, f1: false, f2: false, p: false };
-const { laser, plasma, crio, emp } = IDX_ARMA;
+// As de fábrica da Acron no Z e no X, e duas compráveis da Acron Assault.
+const [laser, plasma] = armasIniciais('acron');
+const crio = IDX_ARMA.o111009; // Feixe Circular
+const emp = IDX_ARMA.o111015; // Metralha Teleguiada
+const KIND = { [laser]: ARMAS[laser], [plasma]: ARMAS[plasma], [crio]: ARMAS[crio], [emp]: ARMAS[emp] };
+/** As armas (chaves) que saíram num passo, sem repetir os canos. */
+const kinds = (d) => [...new Set(d.map((x) => x.kind))];
 const PASSOS_TROCA = Math.round(TROCA_ARMA_S / DT);
 
 /** Nave do time `time` parada `fora` m além da borda da base dele (no corredor). */
@@ -29,21 +35,21 @@ test('troca: fora da base, trocar trava o encaixe (tiro e nova troca) por TROCA_
   // Troca o Z de laser para criogênico e já tenta atirar com os dois.
   const d = stepShip(s, { ...PARADO, f1: true, f2: true, a: crio, a2: plasma });
   assert.deepEqual(s.encaixes, [crio, plasma], 'a troca vale na hora');
-  assert.deepEqual(d.map((x) => x.kind), ['plasma'], 'o Z, recém-trocado, não atira; o X sim');
+  assert.deepEqual(kinds(d), [KIND[plasma]], 'o Z, recém-trocado, não atira; o X sim');
   assert.ok(Math.abs(s.troca1 - (TROCA_ARMA_S - DT)) < 1e-9, `troca1 ${s.troca1}`);
   assert.equal(s.troca2, 0, 'o X não trocou: não trava');
 
   // Enquanto conta: pedir outra arma no Z é ignorado, e o Z não atira.
   let tiros = 0;
   for (let i = 1; i < PASSOS_TROCA - 1; i++) {
-    tiros += stepShip(s, { ...PARADO, f1: true, a: emp, a2: plasma }).filter((x) => x.kind !== 'plasma').length;
+    tiros += stepShip(s, { ...PARADO, f1: true, a: emp, a2: plasma }).filter((x) => x.enc === 0).length;
     assert.equal(s.encaixes[0], crio, 'continua com a arma que tem');
   }
   assert.equal(tiros, 0, 'sem tiro no Z durante a recarga de troca');
   stepShip(s, { ...PARADO, a: crio, a2: plasma });
   stepShip(s, { ...PARADO, a: crio, a2: plasma });
   assert.equal(s.troca1, 0, 'acabou a recarga');
-  assert.deepEqual(stepShip(s, { ...PARADO, f1: true, a: crio, a2: plasma }).map((x) => x.kind), ['crio'], 'o Z atira de novo');
+  assert.deepEqual(kinds(stepShip(s, { ...PARADO, f1: true, a: crio, a2: plasma })), [KIND[crio]], 'o Z atira de novo');
 
   // O X trocando agora trava só o X.
   stepShip(s, { ...PARADO, a: crio, a2: laser });
@@ -56,7 +62,7 @@ test('troca: dentro da própria base é livre; na base do outro time, não', () 
   s.time = 0;
   assert.equal(trocaLivre(s), true);
   const d = stepShip(s, { ...PARADO, f1: true, a: crio, a2: plasma });
-  assert.deepEqual(d.map((x) => x.kind), ['crio'], 'troca e atira no mesmo passo');
+  assert.deepEqual(kinds(d), [KIND[crio]], 'troca e atira no mesmo passo');
   assert.equal(s.troca1, 0);
   stepShip(s, { ...PARADO, a: emp, a2: laser });
   assert.deepEqual(s.encaixes, [emp, laser], 'troca de novo à vontade');
@@ -121,10 +127,11 @@ test('armas: cada uma tem tipo de dano e função', () => {
     const w = WEAPONS[kind];
     assert.ok(Object.hasOwn(TIPOS_DANO, w.tipoDano), `${kind}: tipoDano ${w.tipoDano}`);
     assert.ok(Object.hasOwn(FUNCOES_ARMA, w.funcao), `${kind}: funcao ${w.funcao}`);
+    // Do papel no original: ataque é dano; bloqueio, reforço e suporte são controle.
+    assert.equal(w.funcao, w.papel === 'ataque' ? 'dano' : 'controle', kind);
   }
-  // As de debuff são de controle.
-  for (const kind of ['dreno', 'crio', 'emp']) assert.equal(WEAPONS[kind].funcao, 'controle', kind);
-  for (const kind of ['laser', 'plasma', 'missil']) assert.equal(WEAPONS[kind].funcao, 'dano', kind);
+  for (const kind of ['o312009', 'o312010', 'o112018']) assert.equal(WEAPONS[kind].funcao, 'controle', kind);
+  for (const kind of ['laser', 'plasma', 'o311001']) assert.equal(WEAPONS[kind].funcao, 'dano', kind);
   // Os três tipos aparecem no catálogo.
   assert.deepEqual(new Set(ARMAS.map((k) => WEAPONS[k].tipoDano)), new Set(Object.keys(TIPOS_DANO)));
 });
