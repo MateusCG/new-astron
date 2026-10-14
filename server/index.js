@@ -56,13 +56,20 @@
 //                       (comprar/evoluir/melhorar/reconstruir só vivo, pousado e parado na
 //                        plataforma do serviço da própria base; usar vale em qualquer
 //                        lugar; tudo validado em server/servicos.js)
+//                       {t:'ia', acao, lado?, id?}   computador: acao 'adicionar' com
+//                        lado 'meu' | 'inimigo' (relativo a quem pede) põe um jogador do
+//                        computador naquele time ('cheio' com 3); acao 'remover' com o id
+//                        de um computador o tira (de humano, 'invalido'); resposta
+//                        {t:'resultado', acao:'ia', item: acao, ok, codigo?}. O nick dele
+//                        é sempre "NOME (IA)" (server/bots.js). Humano que entra com a
+//                        partida cheia fica com a vaga de um computador.
 //                       {t:'ping', c}
 //   servidor → cliente  {t:'bemvindo', id, tickHz, time, teste}   time = 0 (base de baixo) ou 1
 //                       {t:'erro', codigo}   codigo 'partida_cheia' (3 em cada time),
 //                        'raca_bloqueada' ou 'raca_invalida'; fecha
 //                       {t:'snap', tick, ack, vivo, renasceEm, time, me, ouro, abates, mortes,
 //                        nivel, xp, xpProx, partida, bonus, obj, torretas, melhorias, minas,
-//                        guiados, st, ents, ev}
+//                        guiados, jogadores, st, ents, ev}
 //                       (me.encaixes = [arma do Z, arma do X], me.cd1/cd2 = recarga
 //                        de cada encaixe, me.troca1/troca2 = s de recarga de troca
 //                        de arma de cada encaixe (sem tiro e sem troca nele),
@@ -105,6 +112,9 @@
 //         nave, o nível e a armadura
 //   melhorias: {quantidade, durabilidade, defesa, velocidade}   níveis comprados
 //         das melhorias dos mineradores do time de quem recebe (zeram a cada partida)
+//   jogadores: [{id, nome, time, nivel, ia?, abates, mortes, vivo}]   todos os
+//         jogadores da partida, humanos e computadores (ia: true), para a janela de
+//         times
 //   partida: {n, estado, fase, restante, semTempo, placar:[t0, t1], vencedor, novaEm}
 //            (semTempo: modo de teste, a partida não acaba e restante vem 0)
 //         estado = 'esperando' | 'andamento' | 'fim'; fase = 'normal' | 'final'
@@ -329,6 +339,9 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
       } else if (PEDIDOS.has(msg?.t) && jogador) {
         // Loja e Evolução: o servidor valida tudo e responde só a quem pediu.
         ws.send(JSON.stringify(mundo.pedido(jogador.id, msg)));
+      } else if (msg?.t === 'ia' && jogador) {
+        // Computador no seu time ou no outro (ou tirar um): o servidor decide e responde.
+        ws.send(JSON.stringify(mundo.pedidoIa(jogador.id, msg)));
       } else if (msg?.t === 'teste' && jogador) {
         // Modo de teste (ouro, XP, nível): só o mundo de teste aceita.
         ws.send(JSON.stringify(mundo.pedidoTeste(jogador.id, msg)));

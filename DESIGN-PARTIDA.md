@@ -194,6 +194,20 @@ Usar item vale em qualquer lugar; com a vida (ou a energia) cheia, o servidor re
 
 Reconstruir só vale para torreta destruída do próprio time (a do outro time é `invalido`; de pé ou já em obra, `ja_possui`); nível no máximo é `limite`.
 
+## Jogadores do computador
+
+**[feito]** Pedido do Mateus: dá para pôr o computador no seu time e no time inimigo, para jogar junto ou contra (`server/bots.js`).
+
+- **Como pôr e tirar:** a janela **Times** (tecla **P** ou o botão "Times" do HUD) mostra as três vagas de cada time; vaga livre tem "+ Computador", e cada computador tem o ✕ para tirar. Qualquer piloto da partida pode pedir (`{t:'ia'}`); o servidor decide. O limite continua **3 por time**, contando pessoas e computadores. **Gente tem prioridade:** quem entra com os dois times cheios fica com a vaga de um computador (o do time com menos pessoas). Quando sai a última pessoa, os computadores saem junto e a partida volta a esperar. Vale também no modo de teste.
+- **Nick:** sempre **"NOME (IA)"**, com um nome próprio brasileiro em maiúsculas (JOAO, LAIS, MARIO...), sem repetir na partida. Pessoa não consegue usar "(IA)" no nick (os parênteses saem).
+- **Joga como uma pessoa:** é uma nave de jogador de verdade (raça e classe sorteadas), com a mesma física, o mesmo dano, XP, ouro, Loja e Evolução; o comando dele passa pelo mesmo caminho do comando que vem da rede. Não atravessa rocha, não vê camuflado de longe, não compra fora da plataforma e não briga dentro da base do outro time.
+  - **Começo:** caça os monstros da jungle (Arnosh e Vorax; Krakor só a partir do nível 7 e com vida) para ficar mais forte. Foge do alcance do guardião do C e das torretas inimigas.
+  - **Com nível 4 (± o jeito de cada um) ou com 2:30 de partida:** vai atrapalhar a mineração do outro time. Espera perto do minério, do lado de lá, fora do alcance das torretas deles, e derruba os mineradores (os carregados primeiro) e a escolta. Sem minerador à vista, caça monstro ali perto.
+  - **Jogador inimigo à vista** (até 320 m) ou atacando os mineradores do time dele: briga se tem vida (45% ou mais), senão foge.
+  - **Vida baixa:** usa o kit de reparo; volta para a base (recall se está longe e ninguém o ataca, senão voando), pousa e conserta.
+  - **Ouro:** pousa na Evolução para a próxima nave da linha (guarda ouro para ela quando já tem o nível) e na Loja para as versões das duas armas de fábrica, armadura (leve e média) e kits de reparo.
+  - **Não é perfeito de propósito:** demora um pouco para reagir a um alvo novo e erra um pouco a mira (menos com o nível); cada um tem a sua agressividade.
+
 ## Modo de teste
 
 **[feito]** Para testar a progressão sem jogar uma partida inteira (pedido do Mateus). Na tela inicial, a opção **"Modo de teste"** entra num **mundo só seu** (`World` com `teste: true`, criado por `server/index.js` para aquele piloto e apagado quando ele sai; até `MAX_MUNDOS_TESTE` = 4 ao mesmo tempo): a partida **não tem relógio** (não acaba nem entra na fase final; o placar mostra "TESTE") e um painel no HUD dá **+1000 ouro**, **+100 XP**, **+1 nível** e **nível 20** (pedido `{t:'teste', acao}`, que só o mundo de teste aceita). Monstros, mineradores, torretas e objetivos rodam como na partida normal.

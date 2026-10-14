@@ -11,7 +11,7 @@ npm run dev        # o mesmo, reiniciando ao salvar
 npm test
 ```
 
-Abra duas abas para ver o multijogador.
+Abra duas abas para ver o multijogador, ou aperte `P` na partida e ponha jogadores do computador nos dois times.
 
 ## Controles
 
@@ -30,6 +30,7 @@ Abra duas abas para ver o multijogador.
 | `B` | BASE | volta à base: canaliza 6 s quase parado (dano, tiro, boost, acelerar ou B de novo cancelam) e a nave aparece na sua base com a vida e o equipamento que tinha |
 | `Enter` | toque na dica de pouso | reabre o painel da Loja/Evolução fechado com `Esc` |
 | `V` | | distância da câmera |
+| `P` | botão Times no HUD | janela dos times: põe ou tira jogadores do computador ("NOME (IA)") no seu time ou no inimigo, até 3 por time |
 | `Esc` | | sair da partida e voltar para a tela inicial (troca de nome e raça); com o menu de armas ou o painel da Loja/Evolução aberto, só fecha o menu ou o painel |
 
 A nave tem **duas armas**, uma no Z e outra no X, e as duas escolhem do mesmo catálogo: laser simples, laser duplo (2 tiros paralelos), laser triplo (3 em leque), dreno (o alvo perde vida por alguns segundos), criogênico (o alvo fica lento), plasma (lento e pesado), míssil teleguiado (persegue o inimigo à frente), mina (fica no chão atrás da nave e explode quando um inimigo passa), onda de choque (fere e empurra quem está em volta) e pulso EMP (zera a energia do alvo: sem tiro e sem boost por instantes). Pode usar duas diferentes ou a mesma nas duas; cada encaixe tem a sua recarga, mas a energia é uma só. No menu, `1` a `9` e `0` (ou clique/toque) escolhem; com o menu aberto o jogo segue, mas não sai tiro.

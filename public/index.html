@@ -48,7 +48,7 @@
           <kbd>Z</kbd> e <kbd>X</kbd> atiram (uma arma em cada) · <kbd>Q</kbd> troca a arma do Z · <kbd>E</kbd> a do X ·
           <kbd>L</kbd> pousar (na Loja e na Evolução da base, abre o painel) · <kbd>R</kbd> kit de reparo ·
           <kbd>F</kbd> célula de energia · <kbd>B</kbd> volta à base (6 s quase parado) · <kbd>V</kbd> câmera · <kbd>T</kbd><kbd>G</kbd> ou a roda do mouse: câmera mais de cima ou de baixo ·
-          <kbd>M</kbd> som · <kbd>Esc</kbd> sair
+          <kbd>P</kbd> times e computador · <kbd>M</kbd> som · <kbd>Esc</kbd> sair
         </p>
       </form>
     </section>
@@ -82,7 +82,10 @@
         <button type="button" data-acao="nivel">+1 nível</button>
         <button type="button" data-acao="nivelMax">Nível 20</button>
       </section>
-      <button type="button" id="som-hud" class="botao-volume" title="Volume (M liga e desliga o som)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som"></span></button>
+      <div id="atalhos-hud">
+        <button type="button" id="som-hud" class="botao-volume" title="Volume (M liga e desliga o som)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som"></span></button>
+        <button type="button" id="times-hud" class="botao-hud" title="Times e computadores (P)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3" /><path d="M2.5 19c.6-3.4 2.6-5 5.5-5s4.9 1.6 5.5 5" /><circle cx="16.5" cy="9" r="2.4" /><path d="M15 14.2c.5-.1 1-.2 1.5-.2 2.4 0 4 1.3 4.6 4.4" /></svg><span>Times</span><kbd>P</kbd></button>
+      </div>
 
       <footer id="painel">
         <div class="barras">
@@ -121,6 +124,26 @@
           · a mesma arma pode ir nos dois · sem tiro com o menu aberto
         </p>
       </section>
+
+      <div id="times" hidden>
+        <section class="janela" role="dialog" aria-modal="true" aria-labelledby="times-titulo">
+          <header>
+            <h2 id="times-titulo">Times</h2>
+            <button class="fechar" type="button" title="Fechar (Esc)" aria-label="Fechar">✕</button>
+          </header>
+          <div class="colunas">
+            <section class="time-col meu">
+              <h3>Seu time <span class="conta">0/3</span></h3>
+              <ul></ul>
+            </section>
+            <section class="time-col inimigo">
+              <h3>Inimigo <span class="conta">0/3</span></h3>
+              <ul></ul>
+            </section>
+          </div>
+          <p class="dica">O computador caça monstros para ficar mais forte e depois ataca os mineradores do outro time<span class="so-teclado"> · <kbd>P</kbd> abre e fecha</span></p>
+        </section>
+      </div>
 
       <section id="servico" hidden aria-label="Loja e Evolução">
         <header>

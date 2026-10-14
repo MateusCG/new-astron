@@ -60,6 +60,13 @@
 // copiado de j.niveisArmas por prepararNave): o stepShip e os golpes leem a versão
 // dali. Monstro e minerador atiram sempre no nível 1.
 //
+// Computador (server/bots.js): jogador sem socket, marcado com `ia` (o cérebro).
+// Entra pelo pedido {t:'ia'} de quem está na partida (pedidoIa), no time pedido,
+// respeitando MAX_POR_TIME; a cada tick a IA põe um comando na fila dele (Bots.passo)
+// e daí em diante ele é um jogador como outro qualquer. Humano que chega com os dois
+// times cheios fica com a vaga de um computador; quando sai o último humano, os
+// computadores saem junto (e a partida volta a esperar).
+//
 // Recall (shared/recall.js): o campo r do comando é um pulso; a borda de subida
 // (j.rAnt) começa ou cancela a canalização no passo daquele comando, e os mesmos
 // comandos cancelam com gatilho, boost ou velocidade (#comandoRecall). Dano cancela
@@ -72,7 +79,7 @@ import { BASE, BASES, CORREDOR } from '../shared/terrain.js';
 import { pontoAberto } from '../shared/obstaculos.js';
 import { racaJogavel, RACAS_JOGAVEIS, classeOuPadrao } from '../shared/naves.js';
 import { MapaNavegacao } from './navegacao.js';
-import { Partida, N_TIMES, MULT_FASE_FINAL } from './partida.js';
+import { Partida, N_TIMES, MULT_FASE_FINAL, MAX_POR_TIME } from './partida.js';
 import { Mineradores } from './mineradores.js';
 import { Escoltas } from './escoltas.js';
 import { Torretas } from './torretas.js';
@@ -94,6 +101,7 @@ import { Servicos, novoEquipamento, prepararNave, reducaoArmadura } from './serv
 import { KRAKOR, N_KRAKOR, novaElite, renascerElite, iaElite } from './elites.js';
 import { Golpes, INVISIVEL_VISTO_M } from './golpes.js';
 import { RECALL_S, motivoRecall } from '../shared/recall.js';
+import { Bots, nomeDeBot } from './bots.js';
 
 export const TICK_HZ = 30;
 const SNAP_CADA = 2; // ticks entre snapshots (15 Hz)
@@ -253,6 +261,7 @@ export class World {
     this.objetivos = new Objetivos(this);
     this.torretas = new Torretas(this);
     this.servicos = new Servicos(this);
+    this.bots = new Bots(this, { zonaSegura: ZONA_SEGURA });
     this.danoMultDrone = DRONE.danoMult; // tiro de drone tira menos (server/golpes.js lê)
     this.golpes = new Golpes(this, {
       ferir: (alvo, dano, autor, ev, opcoes) => this.#ferir(alvo, dano, autor, ev, opcoes),
@@ -363,17 +372,59 @@ export class World {
    * classe inválida vira CLASSE_PADRAO.
    */
   addPlayer(nome, race, classe) {
+    let time = this.partida.escolherTime(this.#tamanhos());
+    if (time === null) time = this.#cederVagaDeBot();
+    if (time === null) return null;
+    return this.#novoJogador(limpaNome(nome), race, classe, time);
+  }
+
+  /** Jogadores (humanos e computadores) em cada time. */
+  #tamanhos() {
     const tamanhos = Array.from({ length: N_TIMES }, () => 0);
     for (const j of this.players.values()) tamanhos[j.time]++;
-    const time = this.partida.escolherTime(tamanhos);
-    if (time === null) return null;
+    return tamanhos;
+  }
+
+  /**
+   * Partida cheia, mas com computador: tira um do time com menos humanos (empate:
+   * o time 0) e devolve esse time para o humano que chega. Null se só há humanos.
+   */
+  #cederVagaDeBot() {
+    const humanos = Array.from({ length: N_TIMES }, () => 0);
+    for (const j of this.players.values()) if (!j.ia) humanos[j.time]++;
+    let escolhido = null;
+    for (const j of this.players.values()) {
+      if (!j.ia) continue;
+      if (!escolhido || humanos[j.time] < humanos[escolhido.time]) escolhido = j;
+    }
+    if (!escolhido) return null;
+    this.removePlayer(escolhido.id);
+    return escolhido.time;
+  }
+
+  /**
+   * Põe um computador no `time` (raça e classe sorteadas entre as jogáveis), com
+   * nick "NOME (IA)". Null se o time já tem MAX_POR_TIME.
+   */
+  adicionarBot(time) {
+    if (!(time >= 0 && time < N_TIMES) || this.#tamanhos()[time] >= MAX_POR_TIME) return null;
+    const usados = new Set([...this.players.values()].map((j) => j.nome));
+    const race = RACAS_JOGAVEIS[Math.floor(this.rng() * RACAS_JOGAVEIS.length) % RACAS_JOGAVEIS.length];
+    const classes = ['assault', 'mobile', 'functional'];
+    const classe = classes[Math.floor(this.rng() * classes.length) % classes.length];
+    const j = this.#novoJogador(nomeDeBot(this.rng, usados), race, classe, time);
+    j.ia = this.bots.novoCerebro();
+    return j;
+  }
+
+  #novoJogador(nome, race, classe, time) {
     const id = this.#id();
     const raca = racaJogavel(race) ? race : RACAS_JOGAVEIS[0];
     const cls = classeOuPadrao(classe);
     const jogador = {
       id,
       tipo: 'jogador',
-      nome: limpaNome(nome),
+      nome,
       time,
       classe: cls, // escolhida na entrada; o tier (nave da linha) é da partida, em novoEquipamento
       ship: this.#naveNaBase(raca, time, cls),
@@ -404,6 +455,52 @@ export class World {
     this.players.delete(id);
     this.minas = this.minas.filter((m) => m.dono !== id); // as minas de quem saiu somem
     this.eventos.push({ e: 'saiu', id, nome: j.nome });
+    // Saiu o último humano: os computadores saem junto (ninguém para jogar com eles).
+    if (!j.ia && ![...this.players.values()].some((o) => !o.ia)) {
+      for (const o of [...this.players.values()]) this.removePlayer(o.id);
+    }
+  }
+
+  /**
+   * Pedido de computador ({t:'ia'}) do jogador `id`: acao 'adicionar' com lado
+   * 'meu' ou 'inimigo' (relativo a quem pede) põe um no time ('cheio' com
+   * MAX_POR_TIME); acao 'remover' com o id de um computador o tira. Responde como a
+   * Loja: {t:'resultado', acao:'ia', item: acao, ok, codigo?}.
+   */
+  pedidoIa(id, msg) {
+    const j = this.players.get(id);
+    const acao = typeof msg?.acao === 'string' ? msg.acao.slice(0, 16) : '';
+    const resposta = (ok, codigo) => ({ t: 'resultado', acao: 'ia', item: acao, ok, ...(codigo ? { codigo } : {}) });
+    if (!j) return resposta(false, 'invalido');
+    if (acao === 'adicionar') {
+      if (msg.lado !== 'meu' && msg.lado !== 'inimigo') return resposta(false, 'invalido');
+      const time = msg.lado === 'meu' ? j.time : (j.time + 1) % N_TIMES;
+      return this.adicionarBot(time) ? resposta(true) : resposta(false, 'cheio');
+    }
+    if (acao === 'remover') {
+      const alvo = this.players.get(Number(msg.id));
+      if (!alvo?.ia) return resposta(false, 'invalido');
+      this.removePlayer(alvo.id);
+      return resposta(true);
+    }
+    return resposta(false, 'invalido');
+  }
+
+  /**
+   * Jogadores da partida para a janela de times: [{id, nome, time, nivel, ia?,
+   * abates, mortes, vivo}] (camuflado entra também: não diz onde ele está).
+   */
+  #jogadoresSnap() {
+    return [...this.players.values()].map((j) => ({
+      id: j.id,
+      nome: j.nome,
+      time: j.time,
+      nivel: j.nivel,
+      ...(j.ia ? { ia: true } : {}),
+      abates: j.abates,
+      mortes: j.mortes,
+      vivo: j.vivo,
+    }));
   }
 
   /**
@@ -704,6 +801,11 @@ export class World {
     return !ent.drone && (this.tick < ent.protegidoAte || this.#naPropriaBase(ent));
   }
 
+  /** O alvo não leva dano agora (proteção de nascimento ou na própria base)? A IA lê. */
+  estaProtegido(ent) {
+    return this.#protegido(ent);
+  }
+
   /** O tiro `b` pode acertar `alvo`? Não acerta o dono, aliado nem (se de drone) drone, minerador ou escolta. */
   #podeAcertar(b, alvo) {
     if (alvo.id === b.owner || !alvo.vivo) return false;
@@ -989,6 +1091,7 @@ export class World {
   step() {
     this.tick++;
     this.#passoPartida();
+    this.bots.passo(); // o comando de cada computador entra na fila dele
 
     for (const j of this.players.values()) {
       if (!j.vivo) {
@@ -1137,6 +1240,7 @@ export class World {
         torretas: this.torretas.estado(),
         minas: this.#minasSnap(),
         guiados: this.#guiadosSnap(),
+        jogadores: this.#jogadoresSnap(),
       };
     }
     // Invisível (Camuflagem) sai da lista de quem é do outro time, salvo de perto.
@@ -1164,6 +1268,7 @@ export class World {
       melhorias: this.servicos.niveis[j.time], // níveis das melhorias dos mineradores do time
       minas: this.cacheObj.minas,
       guiados: this.cacheObj.guiados,
+      jogadores: this.cacheObj.jogadores,
       ents,
       ev: eventos,
     };
