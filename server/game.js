@@ -67,7 +67,7 @@
 // renascimento, mas é a mesma nave (vida, energia, nível e equipamento ficam); a
 // fila de comandos segue, e o cliente reconcilia o salto pelo `me`.
 
-import { DT, WEAPONS, createShip, sanitizeInput, stepShip, VEL_TOQUE, velocidadeBase } from '../shared/sim.js';
+import { DT, WEAPONS, createShip, sanitizeInput, stepShip, VEL_TOQUE, velocidadeBase, pousadaNaBase, BASE_CURA_FRAC } from '../shared/sim.js';
 import { BASE, BASES, CORREDOR } from '../shared/terrain.js';
 import { pontoAberto } from '../shared/obstaculos.js';
 import { racaJogavel, RACAS_JOGAVEIS, classeOuPadrao } from '../shared/naves.js';
@@ -829,7 +829,9 @@ export class World {
     // das naves do AstroN; mas levar tiro interrompe por um instante.
     const noChao = s.pousado && Math.hypot(s.vx, s.vz) < VEL_TOQUE;
     if (ent.tipo === 'jogador') {
-      const porS = noChao ? (semDano > POUSO_REGEN_ESPERA_TICKS ? s.regenHpPousada : 0) : s.regenHpVoo;
+      let porS = noChao ? (semDano > POUSO_REGEN_ESPERA_TICKS ? s.regenHpPousada : 0) : s.regenHpVoo;
+      // Pousada e parada na própria base: conserta rápido (BASE_CURA_FRAC em shared/sim.js).
+      if (pousadaNaBase(s)) porS += s.maxHp * BASE_CURA_FRAC;
       if (porS > 0) s.hp = Math.min(s.maxHp, s.hp + porS * DT);
     } else if (noChao && semDano > POUSO_REGEN_ESPERA_TICKS) {
       s.hp = Math.min(s.maxHp, s.hp + s.maxHp * POUSO_REGEN_HP * DT);

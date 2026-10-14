@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import WebSocket from 'ws';
 import { iniciar } from '../server/index.js';
 import { World, ZONA_SEGURA } from '../server/game.js';
-import { createShip, createBullet, WEAPONS, DT, SHIP_RADIUS, ARMAS, IDX_ARMA, armasIniciais, versaoArma } from '../shared/sim.js';
+import { createShip, createBullet, WEAPONS, DT, SHIP_RADIUS, ARMAS, IDX_ARMA, armasIniciais, versaoArma, pousadaNaBase } from '../shared/sim.js';
 import { BASE, BASES, CORREDOR, heightAt, noMapaAberto } from '../shared/terrain.js';
 import { alturaSolida, pontoLivre } from '../shared/obstaculos.js';
 
@@ -142,6 +142,29 @@ test('servidor: nave pousada conserta mais rápido que voando', () => {
   const voando = regenEm(false);
   const pousada = regenEm(true);
   assert.ok(pousada > voando * 2, `pousada ${pousada} vs voando ${voando}`);
+});
+
+test('servidor: pousada e parada na própria base, vida e energia enchem em poucos segundos', () => {
+  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
+  const j = w.addPlayer('A', 'acron', 'assault');
+  let seq = 0;
+  w.pushInput(j.id, { s: ++seq, p: true });
+  // Espera tocar o chão parada, depois esvazia vida e energia.
+  for (let i = 0; i < 30 * 2; i++) {
+    w.pushInput(j.id, { s: ++seq });
+    w.step();
+  }
+  assert.ok(pousadaNaBase(j.ship), 'pousada na base');
+  j.ship.hp = 1;
+  j.ship.en = 0;
+  for (let i = 0; i < 30 * 3.5; i++) {
+    w.pushInput(j.id, { s: ++seq });
+    w.step();
+  }
+  assert.equal(j.ship.hp, j.ship.maxHp, 'vida cheia');
+  assert.equal(j.ship.en, j.ship.maxEn, 'energia cheia');
+  // Voando não vale.
+  assert.equal(pousadaNaBase({ ...j.ship, pousado: false }), false);
 });
 
 test('servidor: não serve arquivo fora das pastas públicas', async () => {

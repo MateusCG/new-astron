@@ -13,7 +13,7 @@ import { World, ZONA_SEGURA } from '../server/game.js';
 import { iniciar } from '../server/index.js';
 import { hpMaxDoNivel } from '../server/progressao.js';
 import { createShip, stepShip, velocidadeBase, DT } from '../shared/sim.js';
-import { BASE, SERVICOS } from '../shared/terrain.js';
+import { BASE, SERVICOS, OBJETIVOS } from '../shared/terrain.js';
 import {
   NAVES,
   CLASSES,
@@ -308,10 +308,13 @@ test('naves: Bellico regenera voando, mesmo levando dano; as outras não', () =>
   assert.equal(a.ship.hp, 100, 'a Acron não regenera voando');
 });
 
-test('naves: pousada e parada, a nave conserta o regenHpPousada dela', () => {
+test('naves: pousada e parada fora da base, a nave conserta o regenHpPousada dela', () => {
   const w = mundo();
   const j = w.addPlayer('A', 'acron', 'mobile');
-  pousar(j, 'evolucao');
+  // Na marcação do objetivo A (fora da base: sem a cura rápida da base).
+  const a = OBJETIVOS.find((o) => o.tipo === 'A');
+  Object.assign(j.ship, { x: a.x, z: a.z, vx: 0, vz: 0, pousado: true });
+  j.protegidoAte = Infinity;
   j.ship.hp = 50;
   j.ultimoDano = -1e6;
   for (let i = 0; i < SEGUNDO; i++) w.step();

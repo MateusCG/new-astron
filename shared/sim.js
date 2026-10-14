@@ -47,6 +47,10 @@ export const ALTURA_POUSADO = 1.4; // trem de pouso
 export const VEL_TOQUE = 6; // m/s: acima disso a nave ainda está freando para pousar
 export const POUSO_GIRO = 0.4; // fração do giro normal com a nave no chão
 export const POUSO_REGEN_MULT = 2.5; // energia recupera mais rápido pousada
+// Pousada e parada na PRÓPRIA base (pedido do Mateus), a nave conserta e recarrega
+// bem rápido: esta fração do HP e da energia máximos por segundo (enche em ~3 s),
+// além da regeneração da nave. A energia corre aqui (predição); a vida, no servidor.
+export const BASE_CURA_FRAC = 0.35;
 export const MAX_SLOPE = 0.75;
 export const TURN_RATE = 2.3;
 // Inclinação na curva, em radianos: positiva abaixa a asa esquerda (rotation.z do
@@ -168,6 +172,16 @@ export function nivelDaArma(s, a) {
 export function trocaLivre(s) {
   const b = BASES[s.time];
   if (s.time === undefined || !b) return true;
+  return Math.hypot(s.x - b.x, s.z - b.z) <= b.raio;
+}
+
+/**
+ * Pousada e parada (abaixo de VEL_TOQUE) dentro da própria base: é onde a nave
+ * conserta e recarrega rápido (BASE_CURA_FRAC). Nave sem time não tem base.
+ */
+export function pousadaNaBase(s) {
+  const b = BASES[s.time];
+  if (s.time === undefined || !b || !s.pousado || Math.hypot(s.vx, s.vz) >= VEL_TOQUE) return false;
   return Math.hypot(s.x - b.x, s.z - b.z) <= b.raio;
 }
 
@@ -455,6 +469,8 @@ export function stepShip(s, inp, dt = DT) {
     s.en = Math.max(0, s.en - BOOST_GASTO * dt);
     if (s.en === 0) s.boostTravado = true;
   } else if (!(s.semRegen > 0)) s.en = Math.min(s.maxEn, s.en + (s.regenEn ?? ENERGIA_REGEN) * (pousado ? POUSO_REGEN_MULT : 1) * dt);
+  // Pousada na própria base: recarga rápida (vale mesmo com a regeneração cortada).
+  if (pousadaNaBase(s)) s.en = Math.min(s.maxEn, s.en + s.maxEn * BASE_CURA_FRAC * dt);
   contar(s, 'semRegen', dt);
   if (s.drenoEn > 0) s.en = Math.max(0, s.en - (s.drenoEnPs ?? 0) * dt);
   contar(s, 'drenoEn', dt);
