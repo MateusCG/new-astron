@@ -1078,47 +1078,26 @@ dd {
   opacity: 0.4;
 }
 
+/* Ícone de arma: traço na cor da arma (a do projétil do original, clareada; vem no
+   --cor-arma do próprio SVG, armas.js corDaArma). */
 .icone-arma {
-  stroke: var(--laser);
-  stroke-width: 3;
+  stroke: var(--cor-arma, var(--laser));
+  stroke-width: 2.6;
   stroke-linecap: round;
   stroke-linejoin: round;
   fill: none;
-  filter: drop-shadow(0 0 3px var(--laser));
+  filter: drop-shadow(0 0 3px var(--cor-arma, var(--laser)));
 }
 
-.icone-arma.dreno {
-  stroke: var(--dreno);
-  filter: drop-shadow(0 0 3px var(--dreno));
+.icone-arma.gun,
+.icone-arma.beam {
+  stroke-width: 3;
 }
 
-.icone-arma.lento {
-  stroke: var(--gelo);
-  filter: drop-shadow(0 0 3px var(--gelo));
-}
-
-.icone-arma.plasma {
-  stroke: var(--plasma);
-  filter: drop-shadow(0 0 3px var(--plasma));
-}
-
-.icone-arma.missil {
-  stroke: var(--missil);
-  stroke-width: 2.4;
-  filter: drop-shadow(0 0 3px var(--missil));
-}
-
-.icone-arma.mina,
-.icone-arma.choque {
-  stroke: var(--neon);
-  stroke-width: 2.4;
-  filter: drop-shadow(0 0 3px var(--neon));
-}
-
-.icone-arma.emp {
-  stroke: var(--emp);
-  stroke-width: 2.4;
-  filter: drop-shadow(0 0 3px var(--emp));
+/* Arma de segurar a tecla ligada (dispositivo): o encaixe acende. */
+.arma-encaixe.segurando {
+  border-color: var(--neon);
+  box-shadow: 0 0 10px rgba(0, 239, 192, 0.4);
 }
 
 /* ---------- Menu de armas (Q edita o Z, E edita o X) ---------- */
@@ -1160,8 +1139,38 @@ dd {
 
 #menu-armas .opcoes {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
   gap: 6px;
+  max-height: min(56vh, 520px);
+  overflow-y: auto;
+  touch-action: pan-y;
+  padding-right: 2px;
+}
+
+/* Grupo do menu: "Suas armas" (com as teclas) e as categorias da Loja, apagadas. */
+#menu-armas .grupo-armas {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  font: 700 10px system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--neon);
+}
+
+#menu-armas .grupo-armas.loja {
+  color: var(--texto);
+  opacity: 0.55;
+}
+
+.opcao-arma.sem-tecla .cab {
+  padding-left: 0;
+}
+
+/* Nome do original (inglês), pequeno, como referência. */
+small.original {
+  display: block;
+  font: 400 9px system-ui, sans-serif;
+  opacity: 0.55;
 }
 
 /* Carta compacta (dez armas em duas fileiras): ícone e nome numa linha, os três
@@ -1585,6 +1594,59 @@ dd {
   margin: 0 0 6px;
   font-size: 11px;
   opacity: 0.75;
+}
+
+/* Filtro por categoria das abas de armas da Loja (com a contagem de cada uma). */
+.filtro-armas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 6px;
+}
+
+.filtro-armas button {
+  padding: 2px 8px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 10px;
+  background: #0f1e1d;
+  color: var(--texto);
+  font: 600 10.5px system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.filtro-armas button i {
+  font: 9px ui-monospace, monospace;
+  font-style: normal;
+  opacity: 0.6;
+}
+
+.filtro-armas button.sel {
+  border-color: var(--cor-servico);
+  color: var(--cor-servico);
+}
+
+/* Dano, recarga e energia da arma no cartão da Loja. */
+.stats-arma {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  grid-template-rows: auto auto;
+  grid-auto-flow: column;
+  justify-content: space-between;
+  gap: 0 4px;
+  margin: 0;
+  font-size: 10.5px;
+}
+
+.stats-arma dt {
+  font-size: 8.5px;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.stats-arma dd {
+  margin: 0;
+  font-family: ui-monospace, monospace;
+  white-space: nowrap;
 }
 
 #servico .msg {
@@ -2087,4 +2149,42 @@ body.dano::after {
 /* No cartão de evoluir arma, os tracinhos dividem a linha com as etiquetas. */
 .carta-servico .linha-nivel .pips i {
   width: 8px;
+}
+
+/* ---------- Som (M liga e desliga) ---------- */
+
+#som-hud {
+  position: absolute;
+  top: 140px;
+  left: 70px;
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+#som-hud.mudo,
+.botao-som .estado-som.mudo {
+  color: #ff8a70;
+  opacity: 1;
+}
+
+.botao-som {
+  display: block;
+  margin: 6px auto 0;
+  padding: 3px 10px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--texto);
+  font: 11px system-ui, sans-serif;
+  cursor: pointer;
+}
+
+@media (max-height: 520px) {
+  #som-hud {
+    top: 98px;
+  }
+
+  #menu-armas .opcoes {
+    max-height: 62vh;
+  }
 }

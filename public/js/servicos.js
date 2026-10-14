@@ -23,10 +23,16 @@
 // da linha se compra ({t:'evoluir', opcao:'nave'}); a resposta e o evento 'nave'
 // trocam o modelo (main.js).
 //
-// Na Loja, a aba "Evoluir" mostra as armas que o piloto tem (as de fábrica e as
-// compradas), cada uma com os tracinhos do nível, o que muda no próximo e o preço,
-// que cresce por nível e é por arma (evoluir duas custa o dobro). O pedido é
-// {t:'comprar', item:'evoluir:<arma>'}; o nível vem do snapshot (me.niveisArmas).
+// Na Loja, a aba "Armas" mostra as armas do Astro-N original da RAÇA e da CLASSE do
+// piloto (armasAVenda em shared/loja.js; 16 a 26), com um filtro por categoria
+// (feixe, metralhadora, canhão, míssil, mina, nova, dispositivo...) para não virar
+// uma parede de cartões; cada cartão traz o ícone, o nome (e o do original em
+// inglês, pequeno), dano, recarga e energia, a forma e o efeito, as etiquetas de tipo
+// de dano e papel, e o preço. A aba "Evoluir" mostra as que o piloto tem (as de
+// fábrica e as compradas), cada uma com os tracinhos do nível (a versão V1 a V5 do
+// original), o que muda na próxima versão, o nível do piloto que ela pede e o preço
+// (a taxa de tuning do original). O pedido é {t:'comprar', item:'evoluir:<arma>'}; a
+// posse e os níveis vêm do snapshot (me.armas, me.niveis).
 //
 // Evolução › Torretas: o nível das quatro torretas do time ({t:'melhorar',
 // melhoria:'torretas'}) e um cartão por torreta do time, com a vida (de pé), a obra
@@ -35,8 +41,9 @@
 //
 // Listeners no `signal` dos controles: sair da partida e entrar de novo não duplica.
 
-import { ARMAS, WEAPONS, ARMAS_INICIAIS } from '/shared/sim.js';
-import { ARMAS_A_VENDA, PRECO_ARMA, ARMADURAS, ITENS, ORDEM_ITENS, ARMA_NIVEL_MAX, PREFIXO_EVOLUIR, precoEvoluirArma } from '/shared/loja.js';
+import { ARMAS, WEAPONS, armasDisponiveis } from '/shared/sim.js';
+import { ARMADURAS, ITENS, ORDEM_ITENS, ARMA_NIVEL_MAX, PREFIXO_EVOLUIR, precoEvoluirArma, nivelPilotoDaVersao, armasAVenda } from '/shared/loja.js';
+import { CATEGORIAS, versaoArma, resumoVersao } from '/shared/armas.js';
 import { linhaDe, CLASSES } from '/shared/naves.js';
 import {
   MELHORIAS_MINERADOR,
@@ -47,7 +54,7 @@ import {
   precoNivelTorretas,
 } from '/shared/evolucao.js';
 import { TORRETAS } from '/shared/terrain.js';
-import { iconeArma, descreverArma, etiquetasArma, proximoNivelArma, pipsNivel } from './armas.js';
+import { iconeArma, descreverArma, etiquetasArma, proximoNivelArma, pipsNivel, textoDano, nomeArma, classeArma, ordenarPorCategoria } from './armas.js';
 import { miniatura } from './vitrine.js';
 
 /** Mensagem curta para cada código de erro estável do servidor. */
@@ -140,7 +147,8 @@ export class PainelServicos {
     this.servico = null; // serviço do painel aberto (ou do último aberto)
     this.onde = null; // serviço da plataforma onde a nave está pousada (ou null)
     this.aba = { loja: 'armas', evolucao: 'nave' };
-    this.estado = { ouro: 0, nivel: 1, armas: [], niveisArmas: [], armadura: -1, itens: {}, race: null, classe: null, tier: 0, melhorias: {}, torretas: [] };
+    this.filtro = 'todas'; // categoria do filtro das abas de armas da Loja
+    this.estado = { ouro: 0, nivel: 1, armas: [], niveis: {}, armadura: -1, itens: {}, race: null, classe: null, tier: 0, melhorias: {}, torretas: [] };
     this.minis = new Map(); // 'race/classe/tier' -> data URL da miniatura já feita
     this.chave = '';
 
@@ -158,6 +166,12 @@ export class PainelServicos {
     aoClicar(
       this.cartas,
       (e) => {
+        const f = e.target.closest('button[data-filtro]');
+        if (f) {
+          this.filtro = f.dataset.filtro;
+          this.#desenhar(true);
+          return;
+        }
         const b = e.target.closest('button[data-pedido]');
         if (!b || b.disabled) return;
         this.enviar(JSON.parse(b.dataset.pedido));
@@ -232,7 +246,7 @@ export class PainelServicos {
       ouro: ouro ?? 0,
       nivel: nivel ?? 1,
       armas: me?.armas ?? [],
-      niveisArmas: me?.niveisArmas ?? [],
+      niveis: me?.niveis ?? {},
       armadura: me?.armadura ?? -1,
       itens: me?.itens ?? {},
       race: me?.race ?? null,
@@ -269,7 +283,7 @@ export class PainelServicos {
     const evoluida = this.#armaEvoluida(m.item);
     if (m.acao === 'comprar' && evoluida) {
       // O snapshot com o nível novo pode ainda não ter chegado: conta mais um.
-      const nivel = Math.min(ARMA_NIVEL_MAX, (this.estado.niveisArmas[ARMAS.indexOf(evoluida)] ?? 1) + 1);
+      const nivel = Math.min(ARMA_NIVEL_MAX, (this.estado.niveis[WEAPONS[evoluida].idx] ?? 1) + 1);
       return `${WEAPONS[evoluida].nome} evoluída: nível ${nivel}`;
     }
     if (m.acao === 'comprar') {
@@ -298,7 +312,7 @@ export class PainelServicos {
     const s = this.estado;
     const servico = this.servico;
     const aba = this.aba[servico];
-    const chave = JSON.stringify([servico, aba, s]);
+    const chave = JSON.stringify([servico, aba, this.filtro, s]);
     if (!forcar && chave === this.chave) return;
     this.chave = chave;
     this.titulo.textContent = NOME_SERVICO[servico];
@@ -309,7 +323,7 @@ export class PainelServicos {
     const grade = (html) => `<div class="grade">${html}</div>`;
     this.cartas.innerHTML =
       aba === 'armas'
-        ? grade(this.#armas())
+        ? this.#armas()
         : aba === 'evoluir'
           ? this.#evoluirArmas()
           : aba === 'armaduras'
@@ -344,54 +358,84 @@ export class PainelServicos {
     return this.estado.ouro >= preco ? ['livre', 'COMPRAR'] : ['sem-ouro', 'SEM OURO'];
   }
 
+  /**
+   * Filtro por categoria das abas de armas: "Todas" e uma por categoria que aparece
+   * na lista, com a contagem. Categoria sem arma na lista volta para "Todas".
+   */
+  #filtroCategorias(lista) {
+    const cats = [...new Set(lista.map((i) => classeArma(ARMAS[i])))];
+    if (!cats.includes(this.filtro)) this.filtro = 'todas';
+    const botao = (id, nome, n) => `<button type="button" data-filtro="${id}" class="${id === this.filtro ? 'sel' : ''}">${nome} <i>${n}</i></button>`;
+    const html = `<div class="filtro-armas">${botao('todas', 'Todas', lista.length)}${cats
+      .map((c) => botao(c, CATEGORIAS[c], lista.filter((i) => classeArma(ARMAS[i]) === c).length))
+      .join('')}</div>`;
+    const filtrada = this.filtro === 'todas' ? lista : lista.filter((i) => classeArma(ARMAS[i]) === this.filtro);
+    return { html, filtrada };
+  }
+
+  /** Dano, recarga e energia da arma no nível (linha de números do cartão). */
+  #numerosArma(i, nivel) {
+    const r = resumoVersao(versaoArma(i, nivel));
+    const um = (v) => v.toLocaleString('pt-BR', { maximumFractionDigits: v < 1 ? 2 : 1 });
+    return `<dl class="stats-arma"><dt>Dano</dt><dd>${textoDano(ARMAS[i], nivel)}</dd><dt>Recarga</dt><dd>${r.segurar ? 'segure' : `${um(r.cd)} s`}</dd><dt>Energia</dt><dd>${um(r.energia)}${r.segurar ? '/s' : ''}</dd></dl>`;
+  }
+
+  /** Armas à venda da raça e da classe do piloto, por categoria. */
   #armas() {
-    return ARMAS_A_VENDA.map((i) => {
+    const { race, classe, armas } = this.estado;
+    const venda = ordenarPorCategoria(armasAVenda(race, classe));
+    if (!venda.length) return '<p class="nota">Sem armas à venda para esta nave.</p>';
+    const { html, filtrada } = this.#filtroCategorias(venda);
+    const cartoes = filtrada.map((i) => {
       const kind = ARMAS[i];
-      const w = WEAPONS[kind];
-      const preco = PRECO_ARMA[kind];
-      const tem = this.estado.armas.includes(i);
+      const preco = WEAPONS[kind].preco;
+      const tem = armas.includes(i);
       const [estado, selo] = tem ? ['comprado', 'COMPRADA · Q/E equipa'] : this.#pelaCarteira(preco);
       return this.#cartao({
         icone: iconeArma(kind),
-        nome: w.nome,
+        nome: nomeArma(kind, true),
         efeito: descreverArma(kind),
         preco: tem ? null : preco,
         selo,
         estado,
         pedido: { t: 'comprar', item: kind },
-        extra: etiquetasArma(kind),
+        extra: `${this.#numerosArma(i, 1)}${etiquetasArma(kind)}`,
       });
-    }).join('');
+    });
+    const nota = `<p class="nota">Armas da ${CLASSES[classe]?.nome ?? ''} ${race ? race[0].toUpperCase() + race.slice(1) : ''}: compradas valem nos dois encaixes (Q e E) até o fim da partida. As de fábrica não se vendem.</p>`;
+    return `${nota}${html}<div class="grade">${cartoes.join('')}</div>`;
   }
 
   /**
-   * Evoluir as armas possuídas: nível atual (tracinhos), o que muda no próximo e o
-   * preço; no máximo, o cartão apaga com "MÁX.".
+   * Evoluir as armas possuídas: versão atual (tracinhos), o que muda na próxima, o
+   * nível do piloto que ela pede e o preço; no máximo, o cartão apaga com "MÁX.".
    */
   #evoluirArmas() {
-    const { armas, niveisArmas, ouro } = this.estado;
-    const minhas = ARMAS.map((_, i) => i).filter((i) => armas.includes(i) || ARMAS_INICIAIS.includes(i));
-    const cartoes = minhas.map((i) => {
+    const { armas, niveis, ouro, nivel: nivelPiloto, race, classe } = this.estado;
+    const minhas = ordenarPorCategoria(armasDisponiveis(race, classe).filter((i) => armas.includes(i)));
+    const { html, filtrada } = this.#filtroCategorias(minhas);
+    const cartoes = filtrada.map((i) => {
       const kind = ARMAS[i];
-      const nivel = niveisArmas[i] ?? 1;
+      const nivel = niveis[i] ?? 1;
       const preco = precoEvoluirArma(kind, nivel);
       let estado;
       let selo;
       if (preco === null) [estado, selo] = ['max', 'MÁX.'];
+      else if (nivelPiloto < nivelPilotoDaVersao(kind, nivel + 1)) [estado, selo] = ['bloqueado', `PEDE NV ${nivelPilotoDaVersao(kind, nivel + 1)}`];
       else [estado, selo] = ouro >= preco ? ['livre', 'EVOLUIR'] : ['sem-ouro', 'SEM OURO'];
       return this.#cartao({
-        icone: iconeArma(kind),
-        nome: `${WEAPONS[kind].nome} <em class="nv">NV ${nivel}</em>`,
+        icone: iconeArma(kind, nivel),
+        nome: `${nomeArma(kind)} <em class="nv">NV ${nivel}</em>`,
         efeito: preco === null ? descreverArma(kind, nivel) : proximoNivelArma(kind, nivel),
         preco,
         selo,
         estado,
         pedido: { t: 'comprar', item: PREFIXO_EVOLUIR + kind },
-        extra: `<span class="linha-nivel">${etiquetasArma(kind)}${pipsNivel(nivel)}</span>`,
+        extra: `${this.#numerosArma(i, nivel)}<span class="linha-nivel">${etiquetasArma(kind)}${pipsNivel(nivel)}</span>`,
       });
-    }).join('');
-    const nota = `<p class="nota">Até o nível ${ARMA_NIVEL_MAX}: mais dano, e nas de controle o efeito cresce junto. O preço é por arma: quem foca numa chega ao máximo; duas custam o dobro. Recarga e energia não mudam.</p>`;
-    return nota + `<div class="grade">${cartoes}</div>`;
+    });
+    const nota = `<p class="nota">Cada nível é uma versão da arma no original (V1 a V${ARMA_NIVEL_MAX}): mais dano, às vezes mais projéteis e efeito mais forte, e também mais energia. A versão pede o nível do piloto (5, 10, 15, 20) e o preço é por arma.</p>`;
+    return `${nota}${html}<div class="grade">${cartoes.join('')}</div>`;
   }
 
   #armaduras() {
