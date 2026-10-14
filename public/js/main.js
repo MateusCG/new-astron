@@ -467,6 +467,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
   let pendentes = [];
   const erro = new THREE.Vector3();
   let extra = { ouro: 0, abates: 0, mortes: 0, nivel: 1, xp: 0, xpProx: 0 };
+  let meuNome = ''; // nick que o servidor guardou (vem na sua entidade do snapshot)
   let ganhoOuro = 0; // ouro ganho no último snapshot (para a notícia de abate)
   let bonusAtivos = {}; // bônus por time do último snapshot (aura da fúria nas naves)
   const minhaNave = criarNave(race, { aliado: true, classe, tier: 0 });
@@ -872,7 +873,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
     const presentes = new Set();
     const rotulos = [];
     for (const e of poses) {
-      if (e.id === meuId) continue;
+      if (e.id === meuId) {
+        meuNome = e.nome ?? meuNome;
+        continue;
+      }
       presentes.add(e.id);
       let o = outras.get(e.id);
       // Aliado: do seu time (jogador ou minerador). Monstro nunca é aliado.
@@ -914,11 +918,15 @@ function montarJogo(rede, boas, renderer, race, classe) {
       efeitos.estadoNave(o.obj, { dreno: !!e.dreno, lento: !!e.lento, emp: !!e.emp, fx: e.fx, furia }, dt, tempo);
       efeitos.recall(o.obj, e.recall ?? null, aliado ? COR_TIME.meu : COR_TIME.outro, dt, tempo);
       // Radar desligado (Canhão Antirradar): sem rótulo de quem não é do seu time.
-      if (aliado || !(estadosArmas.cego > 0)) rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position, nivel: e.nivel });
+      if (aliado || !(estadosArmas.cego > 0)) {
+        rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position, nivel: e.nivel, piloto: e.tipo === 'jogador' });
+      }
     }
     // Torretas: queda, subida e a cabeça atrás do alvo (posição desenhada dele).
     torretas.quadro(dt, tempo, (id) => (id === meuId ? (vivo ? foco : null) : outras.get(id)?.obj.position ?? null));
     rotulos.push(...torretas.rotulos());
+    // A sua nave também leva a etiqueta com o nick e o nível embaixo.
+    if (vivo && meuNome) rotulos.push({ id: meuId, nome: meuNome, aliado: true, pos: minhaNave.position, nivel: extra.nivel, piloto: true, proprio: true });
     for (const [id, o] of outras) {
       if (!presentes.has(id)) {
         scene.remove(o.obj);

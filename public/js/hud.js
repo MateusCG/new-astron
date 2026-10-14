@@ -467,39 +467,74 @@ export class Hud {
   }
 
   /**
-   * Nome e barra de vida sobre cada nave visível. `aliado` (do seu time) pinta de
-   * turquesa; inimigo (outro time ou monstro) de vermelho.
+   * Rótulos das naves visíveis. Sobre a nave, o nome e a barra de vida (monstros,
+   * mineradores, torretas) ou só a barra (naves de jogador). Embaixo da nave de
+   * jogador (`piloto`, a sua inclusive), a etiqueta com o nick e o nível. `aliado`
+   * (do seu time) pinta de turquesa; inimigo (outro time ou monstro) de vermelho.
+   * Entrada: { id, nome, aliado, hp, maxHp, pos, nivel, piloto, proprio }.
    */
   rotulosNaves(lista, camera, largura, altura) {
     const vistos = new Set();
-    for (const { id, nome, aliado, hp, maxHp, pos, nivel } of lista) {
-      this.v.copy(pos);
-      this.v.y += 6;
+    const pos = (chave, p, dy, ancoraY, criar) => {
+      this.v.copy(p);
+      this.v.y += dy;
       this.v.project(camera);
-      if (this.v.z > 1 || Math.abs(this.v.x) > 1.1 || Math.abs(this.v.y) > 1.1) continue;
-      const dist = camera.position.distanceTo(pos);
-      if (dist > 450) continue;
-      vistos.add(id);
-      let tag = this.tags.get(id);
+      if (this.v.z > 1 || Math.abs(this.v.x) > 1.1 || Math.abs(this.v.y) > 1.1) return null;
+      vistos.add(chave);
+      let tag = this.tags.get(chave);
       if (!tag) {
-        tag = document.createElement('div');
-        tag.className = 'rotulo' + (aliado ? ' aliado' : ' inimigo');
-        tag.innerHTML = '<span class="nome"></span><span class="barra"><i></i></span>';
-        tag.querySelector('.nome').textContent = nome;
-        tag.querySelector('.nome').insertAdjacentHTML('beforeend', ' <small class="nv"></small>');
+        tag = criar();
         this.rotulos.append(tag);
-        this.tags.set(id, tag);
+        this.tags.set(chave, tag);
       }
-      tag.style.transform = `translate(${((this.v.x + 1) / 2) * largura}px, ${((1 - this.v.y) / 2) * altura}px) translate(-50%, -100%)`;
-      tag.style.opacity = dist > 300 ? String(1 - (dist - 300) / 150) : '1';
-      tag.querySelector('i').style.width = `${Math.max(0, hp / maxHp) * 100}%`;
-      const nv = tag.querySelector('.nv');
-      if (nv && nivel) nv.textContent = `NV ${nivel}`;
+      tag.style.transform = `translate(${((this.v.x + 1) / 2) * largura}px, ${((1 - this.v.y) / 2) * altura}px) translate(-50%, ${ancoraY})`;
+      return tag;
+    };
+    for (const { id, nome, aliado, hp, maxHp, pos: p, nivel, piloto, proprio } of lista) {
+      const dist = camera.position.distanceTo(p);
+      if (dist > 450) continue;
+      const opacidade = dist > 300 ? String(1 - (dist - 300) / 150) : '1';
+      const cor = aliado ? ' aliado' : ' inimigo';
+      // Em cima: nome e barra (só a barra nas naves de jogador; nada na sua, que tem o painel).
+      if (!proprio) {
+        const cima = pos(`c${id}`, p, 6, '-100%', () => {
+          const tag = document.createElement('div');
+          tag.className = 'rotulo' + cor;
+          tag.innerHTML = piloto ? '<span class="barra"><i></i></span>' : '<span class="nome"></span><span class="barra"><i></i></span>';
+          if (!piloto) {
+            tag.querySelector('.nome').textContent = nome;
+            tag.querySelector('.nome').insertAdjacentHTML('beforeend', ' <small class="nv"></small>');
+          }
+          return tag;
+        });
+        if (cima) {
+          cima.style.opacity = opacidade;
+          cima.querySelector('i').style.width = `${Math.max(0, hp / maxHp) * 100}%`;
+          const nv = cima.querySelector('.nv');
+          if (nv && nivel) nv.textContent = `NV ${nivel}`;
+        }
+      }
+      // Embaixo da nave de jogador: a etiqueta com o nick e o nível.
+      if (piloto) {
+        const baixo = pos(`b${id}`, p, -3.5, '0', () => {
+          const tag = document.createElement('div');
+          tag.className = 'rotulo piloto' + cor + (proprio ? ' proprio' : '');
+          tag.innerHTML = '<span class="nome"></span><b class="nv"></b>';
+          tag.querySelector('.nome').textContent = nome;
+          return tag;
+        });
+        if (baixo) {
+          baixo.style.opacity = opacidade;
+          const nv = baixo.querySelector('.nv');
+          const txt = `NV ${nivel ?? 1}`;
+          if (nv.textContent !== txt) nv.textContent = txt;
+        }
+      }
     }
-    for (const [id, tag] of this.tags) {
-      if (!vistos.has(id)) {
+    for (const [chave, tag] of this.tags) {
+      if (!vistos.has(chave)) {
         tag.remove();
-        this.tags.delete(id);
+        this.tags.delete(chave);
       }
     }
   }

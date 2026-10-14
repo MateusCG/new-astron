@@ -946,6 +946,33 @@ kbd {
   font: 9px ui-monospace, monospace;
 }
 
+/* Etiqueta do piloto embaixo da nave de jogador (a sua inclusive): nick na cor do
+   time e o nível em --xp, numa plaquinha de chapa escura. */
+.rotulo.piloto {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 1px 6px 2px;
+  border: 1px solid var(--neon-escuro);
+  border-radius: 8px;
+  background: rgba(8, 20, 19, 0.72);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.rotulo.piloto.inimigo {
+  border-color: rgba(255, 74, 42, 0.45);
+}
+
+.rotulo.piloto .nv {
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.rotulo.piloto.proprio {
+  border-color: var(--neon);
+}
+
 .barra .txt {
   position: absolute;
   right: 6px;
