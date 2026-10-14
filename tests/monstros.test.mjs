@@ -90,12 +90,12 @@ test('monstros: abate dá ouro e o Vorax renasce longe dos jogadores', () => {
   m.ship = createShip('mechan', CORREDOR.x, CORREDOR.z - 40, 0);
   let seq = 0;
   for (let t = 0; t < 30 * 10 && m.vivo; t++) {
-    // O jogador mira sempre no monstro (gira para ele) e atira laser.
+    // O jogador mira sempre no monstro (gira para ele) e atira com as duas armas de fábrica.
     const yawAlvo = Math.atan2(-(m.ship.x - j.ship.x), -(m.ship.z - j.ship.z));
     let d = yawAlvo - j.ship.yaw;
     while (d > Math.PI) d -= 2 * Math.PI;
     while (d < -Math.PI) d += 2 * Math.PI;
-    w.pushInput(j.id, { s: ++seq, f1: true, tu: Math.max(-1, Math.min(1, d * 3)) });
+    w.pushInput(j.id, { s: ++seq, f1: true, f2: true, tu: Math.max(-1, Math.min(1, d * 3)) });
     w.step();
   }
   assert.equal(m.vivo, false, 'morreu');

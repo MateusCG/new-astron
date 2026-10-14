@@ -2,14 +2,15 @@
 // e parado na plataforma da Loja da própria base. Só dados e contas puras: quem
 // valida e cobra é o servidor (server/servicos.js); o cliente lê daqui os preços e
 // os efeitos para desenhar o painel. Tudo é da partida: na seguinte, cada piloto
-// volta a ter só as armas de fábrica, sem armadura e sem itens.
+// volta a ter só as armas de fábrica da raça, sem armadura e sem itens.
 //
 // Três prateleiras, cada item com um id único (é o `item` da mensagem
 // {t:'comprar', item}):
-// - Armas: as 8 do catálogo (ARMAS em shared/sim.js) que não são de fábrica. Mais
-//   caras as mais fortes ou raras (o míssil, que acerta sozinho, é a mais cara).
-//   Comprada, a arma vai para a posse do piloto e pode ir em qualquer um dos dois
-//   encaixes (Q e E).
+// - Armas: as do Astro-N original (shared/armas.js) da RAÇA e da CLASSE do piloto
+//   (armasDisponiveis), menos as duas de fábrica. O id é a chave da arma
+//   ('o312010'); o preço é o do original × FATOR_OURO (a V1). Comprada, a arma vai
+//   para a posse do piloto e pode ir em qualquer um dos dois encaixes (Q e E). Arma
+//   de outra raça ou classe é 'invalido'.
 // - Armaduras: três níveis. Reduzem o dano recebido (tiro, garra, dreno, área) e
 //   dão HP máximo a mais; a pesada custa um pouco de velocidade. Uma equipada por
 //   vez: comprar uma melhor substitui a anterior (paga o preço cheio); uma igual ou
@@ -17,34 +18,39 @@
 // - Itens: consumíveis com tecla própria, carga máxima e recarga entre um uso e
 //   outro. R = Kit de reparo (cura uma fração do HP máximo na hora), F = Célula de
 //   energia (enche a energia). Usar vale em qualquer lugar (só comprar exige a Loja).
-// - Evoluir arma: cada arma possuída (as de fábrica inclusive) sobe do nível 1 até
-//   ARMA_NIVEL_MAX, pagando ouro crescente por nível (precoEvoluirArma). O preço é
-//   por arma, então evoluir duas armas custa o dobro: quem foca numa chega ao
-//   máximo, quem divide fica com duas medianas mas de tipos diferentes (laser,
-//   físico, elétrico; dano e controle) para segurar mais gente nos objetivos. Cada
-//   nível dá +DANO_POR_NIVEL do dano base e, nas armas de controle, o efeito cresce
-//   junto (efeitoDaArma: duração do lento, do EMP e do dreno, força do lento, dano
-//   por segundo do dreno, empurrão do choque). Recarga e energia NÃO mudam com o
-//   nível: elas entram na predição (stepShip), e o nível fica só no servidor. O
-//   id do pedido é 'evoluir:<arma>' (ex.: {t:'comprar', item:'evoluir:crio'}).
+// - Evoluir arma: cada arma possuída (as de fábrica inclusive) sobe da versão V1 à
+//   V5 do original (o NÍVEL da arma, 1 a ARMA_NIVEL_MAX), pagando a taxa de tuning
+//   do original × FATOR_OURO (precoEvoluirArma, sem chance de falhar) e com o nível
+//   do piloto que a versão pede (1, 5, 10, 15, 20: nivelPilotoDaVersao). A versão
+//   muda tudo (dano, recarga, energia, projéteis, efeito) e vai na nave (s.niveis),
+//   que o stepShip lê: a predição acompanha. O id do pedido é 'evoluir:<arma>'
+//   (ex.: {t:'comprar', item:'evoluir:o311001'}).
 
-import { ARMAS, ARMAS_INICIAIS, WEAPONS } from './sim.js';
+import {
+  ARMAS,
+  WEAPONS,
+  NIVEL_ARMA_MAX,
+  armasDisponiveis,
+  armasIniciais,
+  precoEvoluirArma,
+  nivelPilotoDaVersao,
+} from './armas.js';
 
-/** Preço (ouro) de cada arma que não é de fábrica. */
-export const PRECO_ARMA = {
-  laserDuplo: 120,
-  laserTriplo: 150,
-  crio: 180,
-  dreno: 200,
-  mina: 240,
-  choque: 260,
-  emp: 300,
-  missil: 340,
-};
+export { precoEvoluirArma, nivelPilotoDaVersao };
 
-/** Armas à venda, na ordem do catálogo (índices de ARMAS). */
-export const ARMAS_A_VENDA = ARMAS.map((_, i) => i).filter((i) => !ARMAS_INICIAIS.includes(i));
+export const ARMA_NIVEL_MAX = NIVEL_ARMA_MAX;
 
+/** Preço (ouro) de compra da arma (chave ou índice). */
+export function precoArma(arma) {
+  const w = typeof arma === 'number' ? WEAPONS[ARMAS[arma]] : WEAPONS[arma];
+  return w && !w.npc ? w.preco : null;
+}
+
+/** Armas à venda para a raça e a classe (índices): as dela menos as de fábrica. */
+export function armasAVenda(race, classe) {
+  const fabrica = armasIniciais(race);
+  return armasDisponiveis(race, classe).filter((i) => !fabrica.includes(i));
+}
 export const ARMADURA_LEVE_REDUCAO = 0.1; // fração do dano que a armadura segura
 export const ARMADURA_LEVE_HP = 0; // HP máximo a mais
 export const ARMADURA_MEDIA_REDUCAO = 0.15;
@@ -80,81 +86,30 @@ export const ITENS = {
 /** Ordem dos itens no painel e na Loja. */
 export const ORDEM_ITENS = ['reparo', 'energia'];
 
-// Evolução de armas. Para subir o máximo para 10, basta ARMA_NIVEL_MAX (os preços
-// e os efeitos crescem pela fórmula; talvez queira baixar DANO_POR_NIVEL junto).
-export const ARMA_NIVEL_MAX = 5;
-/** Preço para sair do nível n: fração do preço de referência da arma × n. */
-export const EVOLUIR_ARMA_FRACAO = 0.4;
-/** Preço de referência das armas de fábrica (laser simples e plasma não se vendem). */
-export const PRECO_REFERENCIA_FABRICA = 150;
-export const DANO_POR_NIVEL = 0.1; // +10% do dano base por nível acima do 1 (todas)
-export const EFEITO_POR_NIVEL = 0.125; // +12,5% de duração, dano/s do dreno e empurrão por nível (controle)
-export const LENTIDAO_POR_NIVEL = 0.05; // o lento deixa 5 pontos a menos da velocidade por nível
-export const LENTIDAO_MIN = 0.25; // fração mínima da velocidade sob lento, em qualquer nível
-
-/** Prefixo do id de evolução de arma na Loja ('evoluir:laser', 'evoluir:crio'...). */
+/** Prefixo do id de evolução de arma na Loja ('evoluir:o311001'). */
 export const PREFIXO_EVOLUIR = 'evoluir:';
 
 /**
- * Preço (ouro) para levar a arma `kind` do nível `nivel` ao seguinte, ou null se
- * ela já está no máximo (ou o nível é inválido). Arredondado para dezena.
+ * Níveis das armas de um piloto no começo da partida: nenhuma entrada (todas no 1).
+ * É um objeto índice → nível (só as evoluídas), copiado para a nave (s.niveis).
  */
-export function precoEvoluirArma(kind, nivel) {
-  if (!WEAPONS[kind] || !Number.isInteger(nivel) || nivel < 1 || nivel >= ARMA_NIVEL_MAX) return null;
-  const ref = PRECO_ARMA[kind] ?? PRECO_REFERENCIA_FABRICA;
-  return Math.round((ref * EVOLUIR_ARMA_FRACAO * nivel) / 10) * 10;
-}
-
-/** Nível válido (1 a ARMA_NIVEL_MAX); qualquer outra coisa vira 1. */
-function nivelValido(nivel) {
-  return Number.isInteger(nivel) && nivel >= 1 ? Math.min(nivel, ARMA_NIVEL_MAX) : 1;
-}
-
-/** Multiplicador do dano base da arma no nível (1 no nível 1). */
-export function danoMultNivel(nivel) {
-  return 1 + DANO_POR_NIVEL * (nivelValido(nivel) - 1);
-}
-
-/** Multiplicador do efeito das armas de controle no nível (1 no nível 1). */
-export function efeitoMultNivel(nivel) {
-  return 1 + EFEITO_POR_NIVEL * (nivelValido(nivel) - 1);
-}
-
-/**
- * O efeito da arma `kind` no nível: o `efeito` de WEAPONS com os números do nível
- * (dreno: dps e duração; lento: mult e duração; emp: duração), e na onda de
- * choque { tipo: 'empurrao', empurrao }. null para arma sem efeito.
- */
-export function efeitoDaArma(kind, nivel) {
-  const w = WEAPONS[kind];
-  const k = efeitoMultNivel(nivel);
-  if (w?.tipo === 'choque') return { tipo: 'empurrao', empurrao: w.empurrao * k };
-  const e = w?.efeito;
-  if (!e) return null;
-  if (e.tipo === 'dreno') return { ...e, dps: e.dps * k, duracao: e.duracao * k };
-  if (e.tipo === 'lento') {
-    const mult = Math.max(LENTIDAO_MIN, e.mult - LENTIDAO_POR_NIVEL * (nivelValido(nivel) - 1));
-    return { ...e, mult, duracao: e.duracao * k };
-  }
-  return { ...e, duracao: e.duracao * k };
-}
-
-/** Níveis das armas de um piloto no começo da partida: todas no 1 (índice em ARMAS). */
 export function niveisArmasIniciais() {
-  return ARMAS.map(() => 1);
+  return {};
 }
 
 /**
  * Catálogo da Loja por id: { tipo: 'arma' | 'armadura' | 'item' | 'evoluirArma', ... }.
  * Arma traz `arma` (índice em ARMAS) e `preco`; armadura traz `nivel` (índice em
  * ARMADURAS) e `preco`; evoluirArma traz `arma` e não tem preço fixo (depende do
- * nível atual: precoEvoluirArma).
+ * nível atual: precoEvoluirArma). Tem as armas de todas as raças e classes: quem
+ * confere se o piloto pode comprar é o servidor (armasDisponiveis).
  */
+const ARMAS_DE_JOGADOR = ARMAS.map((_, i) => i).filter((i) => !WEAPONS[ARMAS[i]].npc);
 export const CATALOGO_LOJA = Object.freeze({
-  ...Object.fromEntries(ARMAS_A_VENDA.map((i) => [ARMAS[i], { tipo: 'arma', arma: i, preco: PRECO_ARMA[ARMAS[i]] }])),
+  ...Object.fromEntries(ARMAS_DE_JOGADOR.map((i) => [ARMAS[i], { tipo: 'arma', arma: i, preco: WEAPONS[ARMAS[i]].preco }])),
   ...Object.fromEntries(ARMADURAS.map((a, nivel) => [a.id, { tipo: 'armadura', nivel, preco: a.preco }])),
   ...Object.fromEntries(ORDEM_ITENS.map((id) => [id, { tipo: 'item', item: id, preco: ITENS[id].preco }])),
-  ...Object.fromEntries(ARMAS.map((kind, i) => [PREFIXO_EVOLUIR + kind, { tipo: 'evoluirArma', arma: i }])),
+  ...Object.fromEntries(ARMAS_DE_JOGADOR.map((i) => [PREFIXO_EVOLUIR + ARMAS[i], { tipo: 'evoluirArma', arma: i }])),
 });
 
 /** O item da Loja com este id, ou null (id que não é string ou não existe). */

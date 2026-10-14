@@ -9,13 +9,25 @@ import WebSocket from 'ws';
 import { World, ZONA_SEGURA } from '../server/game.js';
 import { iniciar } from '../server/index.js';
 import { hpMaxDoNivel } from '../server/progressao.js';
-import { createShip, IDX_ARMA, ARMAS_INICIAIS, WEAPONS, DT } from '../shared/sim.js';
+import { createShip, IDX_ARMA, DT, armasIniciais, versaoArma } from '../shared/sim.js';
 import { naveDe } from '../shared/naves.js';
 import { BASE, SERVICOS, CORREDOR } from '../shared/terrain.js';
-import { ARMADURAS, ITENS, PRECO_ARMA, ARMAS_A_VENDA, REPARO_CURA, ITEM_CARGA_MAX } from '../shared/loja.js';
+import { ARMADURAS, ITENS, REPARO_CURA, ITEM_CARGA_MAX, armasAVenda, precoArma } from '../shared/loja.js';
+import { armasDisponiveis } from '../shared/armas.js';
 
 const SEGUNDO = 30;
-const { laser, plasma, missil, emp } = IDX_ARMA;
+// O piloto dos testes é Bellico Assault: de fábrica o Feixe Bellico (Z) e a Vulcan
+// Bellico (X); à venda, entre outras, os Mísseis em Fila Acelerados ('missil') e a
+// Invulnerabilidade ('emp').
+const ARMAS_INICIAIS = armasIniciais('bellico');
+const [laser, plasma] = ARMAS_INICIAIS;
+const missil = IDX_ARMA.o212001;
+const emp = IDX_ARMA.o212019;
+const MISSIL = 'o212001';
+const EMP = 'o212019';
+const PRECO_ARMA = { missil: precoArma(MISSIL), emp: precoArma(EMP) };
+// Dano de um disparo do Feixe Rifle Triplo (Acron): três canos.
+const DANO_FEIXE_ACRON = 3 * versaoArma(armasIniciais('acron')[0], 1).golpe.dano;
 
 /** Põe a nave de `j` pousada e parada no centro da plataforma `servico` do time `time`. */
 function pousar(j, servico, time = j.time) {
@@ -32,11 +44,14 @@ function mundo() {
 const comprar = (w, j, item) => w.pedido(j.id, { t: 'comprar', item });
 const usar = (w, j, item) => w.pedido(j.id, { t: 'usar', item });
 
-test('loja: catálogo com as 8 armas que não são de fábrica, mais caras as mais fortes', () => {
-  assert.equal(ARMAS_A_VENDA.length, 8);
-  for (const i of ARMAS_INICIAIS) assert.ok(!ARMAS_A_VENDA.includes(i), 'arma de fábrica não se vende');
-  assert.ok(PRECO_ARMA.missil > PRECO_ARMA.laserDuplo);
-  assert.ok(PRECO_ARMA.emp > PRECO_ARMA.crio);
+test('loja: à venda as armas da raça e da classe que não são de fábrica, com o preço do original', () => {
+  const venda = armasAVenda('bellico', 'assault');
+  assert.equal(venda.length, armasDisponiveis('bellico', 'assault').length - 2);
+  for (const i of ARMAS_INICIAIS) assert.ok(!venda.includes(i), 'arma de fábrica não se vende');
+  assert.ok(venda.includes(missil) && venda.includes(emp));
+  assert.ok(!venda.includes(IDX_ARMA.o312010), 'arma de outra raça não');
+  assert.equal(PRECO_ARMA.missil, 230, '3800 do original × 0,06, arredondado à dezena');
+  assert.ok(PRECO_ARMA.emp > PRECO_ARMA.missil, 'Invulnerabilidade é das mais caras');
   assert.ok(ARMADURAS[0].preco < ARMADURAS[1].preco && ARMADURAS[1].preco < ARMADURAS[2].preco);
   assert.ok(ARMADURAS[2].velMult < 1, 'a pesada custa velocidade');
 });
@@ -45,40 +60,40 @@ test('loja: só compra pousado e parado na Loja da própria base, e com ouro', (
   const w = mundo();
   const j = w.addPlayer('A', 'bellico');
   j.ouro = 1000;
-  assert.deepEqual(comprar(w, j, 'missil'), { t: 'resultado', acao: 'comprar', item: 'missil', ok: false, codigo: 'nao_pousado' }, 'voando na base');
+  assert.deepEqual(comprar(w, j, MISSIL), { t: 'resultado', acao: 'comprar', item: MISSIL, ok: false, codigo: 'nao_pousado' }, 'voando na base');
 
   pousar(j, 'evolucao');
-  assert.equal(comprar(w, j, 'missil').codigo, 'nao_pousado', 'na Evolução não se compra');
+  assert.equal(comprar(w, j, MISSIL).codigo, 'nao_pousado', 'na Evolução não se compra');
   pousar(j, 'loja', 1 - j.time);
-  assert.equal(comprar(w, j, 'missil').codigo, 'nao_pousado', 'Loja do outro time');
+  assert.equal(comprar(w, j, MISSIL).codigo, 'nao_pousado', 'Loja do outro time');
   pousar(j, 'loja');
   j.ship.vx = 10;
-  assert.equal(comprar(w, j, 'missil').codigo, 'nao_pousado', 'ainda freando');
+  assert.equal(comprar(w, j, MISSIL).codigo, 'nao_pousado', 'ainda freando');
   j.ship.vx = 0;
   j.ship.pousado = false;
-  assert.equal(comprar(w, j, 'missil').codigo, 'nao_pousado', 'pairando sobre a plataforma');
+  assert.equal(comprar(w, j, MISSIL).codigo, 'nao_pousado', 'pairando sobre a plataforma');
   pousar(j, 'loja');
 
   j.ouro = PRECO_ARMA.missil - 1;
-  assert.equal(comprar(w, j, 'missil').codigo, 'ouro_insuficiente');
+  assert.equal(comprar(w, j, MISSIL).codigo, 'ouro_insuficiente');
   assert.ok(!j.armas.includes(missil));
   j.ouro = PRECO_ARMA.missil + 5;
-  assert.equal(comprar(w, j, 'missil').ok, true);
+  assert.equal(comprar(w, j, MISSIL).ok, true);
   assert.equal(j.ouro, 5, 'cobrou o preço');
   assert.ok(j.armas.includes(missil) && j.ship.armas.includes(missil));
   j.ouro = 1000;
-  assert.equal(comprar(w, j, 'missil').codigo, 'ja_possui');
+  assert.equal(comprar(w, j, MISSIL).codigo, 'ja_possui');
   assert.equal(j.ouro, 1000, 'recusa não cobra');
 
   j.vivo = false;
-  assert.equal(comprar(w, j, 'emp').codigo, 'nao_pousado', 'morto não compra');
+  assert.equal(comprar(w, j, EMP).codigo, 'nao_pousado', 'morto não compra');
 });
 
 test('loja: arma comprada vai nos dois encaixes; não comprada cai na padrão', () => {
   const w = mundo();
   const j = w.addPlayer('A', 'bellico');
-  assert.deepEqual(j.armas, ARMAS_INICIAIS, 'começa só com as de fábrica');
-  assert.deepEqual(j.ship.armas, ARMAS_INICIAIS);
+  assert.deepEqual(j.armas, [], 'começa sem nada comprado');
+  assert.deepEqual(j.ship.armas, ARMAS_INICIAIS, 'a nave tem as de fábrica');
   let seq = 0;
   const comando = (a, a2) => {
     w.pushInput(j.id, { s: ++seq, a, a2 });
@@ -88,7 +103,7 @@ test('loja: arma comprada vai nos dois encaixes; não comprada cai na padrão', 
   assert.deepEqual(comando(missil, emp), [laser, plasma], 'sem comprar, cai na padrão de cada encaixe');
   pousar(j, 'loja');
   j.ouro = 1000;
-  assert.equal(comprar(w, j, 'missil').ok, true);
+  assert.equal(comprar(w, j, MISSIL).ok, true);
   assert.deepEqual(comando(missil, missil), [missil, missil], 'a comprada vai no Z e no X');
   assert.deepEqual(comando(emp, missil), [laser, missil], 'a não comprada continua travada');
 });
@@ -99,7 +114,7 @@ test('loja: a posse sobrevive ao renascimento e zera na partida seguinte', () =>
   w.step();
   pousar(j, 'loja');
   j.ouro = 2000;
-  for (const item of ['missil', 'armaduraPesada', 'reparo', 'energia']) assert.equal(comprar(w, j, item).ok, true, item);
+  for (const item of [MISSIL, 'armaduraPesada', 'reparo', 'energia']) assert.equal(comprar(w, j, item).ok, true, item);
 
   // Morre e renasce: nave nova, mesma posse.
   j.ship.hp = 0;
@@ -115,7 +130,7 @@ test('loja: a posse sobrevive ao renascimento e zera na partida seguinte', () =>
   // Partida seguinte: tudo volta ao começo.
   for (let i = 0; i < SEGUNDO * 10 && w.partida.numero < 2; i++) w.step();
   assert.equal(w.partida.numero, 2);
-  assert.deepEqual(j.armas, ARMAS_INICIAIS);
+  assert.deepEqual(j.armas, []);
   assert.deepEqual(j.ship.armas, ARMAS_INICIAIS);
   assert.equal(j.armadura, -1);
   assert.deepEqual(j.itens, { reparo: 0, energia: 0 });
@@ -145,9 +160,9 @@ function danoDeUmLaser(armaduraDeB) {
 }
 
 test('loja: armadura reduz o dano, dá HP e a pesada custa velocidade; comprar melhor substitui', () => {
-  assert.equal(danoDeUmLaser([]), WEAPONS.laser.dano);
-  assert.ok(Math.abs(danoDeUmLaser(['armaduraLeve']) - WEAPONS.laser.dano * (1 - ARMADURAS[0].reducao)) < 1e-9);
-  assert.ok(Math.abs(danoDeUmLaser(['armaduraPesada']) - WEAPONS.laser.dano * (1 - ARMADURAS[2].reducao)) < 1e-9);
+  assert.equal(danoDeUmLaser([]), DANO_FEIXE_ACRON);
+  assert.ok(Math.abs(danoDeUmLaser(['armaduraLeve']) - DANO_FEIXE_ACRON * (1 - ARMADURAS[0].reducao)) < 1e-9);
+  assert.ok(Math.abs(danoDeUmLaser(['armaduraPesada']) - DANO_FEIXE_ACRON * (1 - ARMADURAS[2].reducao)) < 1e-9);
 
   const w = mundo();
   const j = w.addPlayer('A', 'shrewdo');
@@ -235,10 +250,11 @@ test('loja: pedidos malformados são recusados sem quebrar nada', () => {
     'toString',
     'hasOwnProperty',
     'x'.repeat(5000),
-    ['missil'],
-    { toString: () => 'missil' },
-    'laser', // de fábrica: não está à venda
+    [MISSIL],
+    { toString: () => MISSIL },
+    'laser', // tiro de NPC: não está à venda
     'plasma',
+    'o311001x',
   ];
   for (const item of lixo) {
     for (const t of ['comprar', 'usar']) assert.equal(w.pedido(j.id, { t, item }).codigo, 'invalido', `${t} ${String(item).slice(0, 20)}`);
@@ -246,10 +262,10 @@ test('loja: pedidos malformados são recusados sem quebrar nada', () => {
     assert.equal(w.pedido(j.id, { t: 'melhorar', melhoria: item }).codigo, 'invalido');
   }
   assert.equal(w.pedido(j.id, null).codigo, 'invalido');
-  assert.equal(w.pedido(j.id, { t: 'roubar', item: 'missil' }).codigo, 'invalido');
-  assert.equal(w.pedido(9999, { t: 'comprar', item: 'missil' }).codigo, 'invalido', 'jogador que não existe');
+  assert.equal(w.pedido(j.id, { t: 'roubar', item: MISSIL }).codigo, 'invalido');
+  assert.equal(w.pedido(9999, { t: 'comprar', item: MISSIL }).codigo, 'invalido', 'jogador que não existe');
   assert.equal(j.ouro, 5000, 'nada foi cobrado');
-  assert.deepEqual(j.armas, ARMAS_INICIAIS);
+  assert.deepEqual(j.armas, []);
   const r = w.pedido(j.id, { t: 'comprar', item: 'x'.repeat(5000) });
   assert.ok(r.item.length <= 32, 'a resposta não ecoa texto gigante');
 });
@@ -270,19 +286,19 @@ test('loja: pelo WebSocket, o pedido volta como resultado e lixo não derruba a 
       }
       throw new Error('tempo esgotado');
     };
-    ws.send(JSON.stringify({ t: 'comprar', item: 'missil' })); // antes de entrar: ignorado
-    ws.send(JSON.stringify({ t: 'entrar', nome: 'Loja', race: 'acron' }));
+    ws.send(JSON.stringify({ t: 'comprar', item: MISSIL })); // antes de entrar: ignorado
+    ws.send(JSON.stringify({ t: 'entrar', nome: 'Loja', race: 'bellico' }));
     const boas = await esperar((m) => m.t === 'bemvindo');
     for (const m of ['{"t":"comprar","item":{"a":1}}', '{"t":"usar"}', 'nao é json', '{"t":"evoluir","opcao":[1,2]}']) ws.send(m);
-    ws.send(JSON.stringify({ t: 'comprar', item: 'missil' }));
-    const r = await esperar((m) => m.t === 'resultado' && m.item === 'missil');
-    assert.deepEqual(r, { t: 'resultado', acao: 'comprar', item: 'missil', ok: false, codigo: 'nao_pousado' });
+    ws.send(JSON.stringify({ t: 'comprar', item: MISSIL }));
+    const r = await esperar((m) => m.t === 'resultado' && m.item === MISSIL);
+    assert.deepEqual(r, { t: 'resultado', acao: 'comprar', item: MISSIL, ok: false, codigo: 'nao_pousado' });
 
     const j = world.players.get(boas.id);
     pousar(j, 'loja');
     j.ouro = 500;
-    ws.send(JSON.stringify({ t: 'comprar', item: 'emp' }));
-    assert.equal((await esperar((m) => m.t === 'resultado' && m.item === 'emp')).ok, true);
+    ws.send(JSON.stringify({ t: 'comprar', item: EMP }));
+    assert.equal((await esperar((m) => m.t === 'resultado' && m.item === EMP)).ok, true);
     const snap = await esperar((m) => m.t === 'snap' && m.me.armas.includes(emp));
     assert.equal(snap.ouro, 500 - PRECO_ARMA.emp);
     assert.deepEqual(snap.me.itens, { reparo: 0, energia: 0 });
