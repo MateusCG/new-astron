@@ -49,7 +49,7 @@ export class Controles {
     addEventListener(
       'wheel',
       (e) => {
-        if (e.target.closest?.('#menu-armas, #servico, #entrada')) return;
+        if (e.target.closest?.('#menu-armas, #servico, #entrada, #volume')) return;
         this.roda += Math.sign(e.deltaY);
       },
       { signal, passive: true },

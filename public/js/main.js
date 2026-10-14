@@ -28,6 +28,8 @@
 // predição; o dos outros pelo evento), cada acerto e explosão o som de impacto da
 // arma, morte a explosão, e subir de nível, a Loja e os itens os sons de interface.
 // O ouvinte é a sua nave. M liga e desliga o som (fica salvo), com o aviso no HUD.
+// O botão de som (tela inicial e HUD) abre a janela de volume (volume.js), com uma
+// barra para a música e outra para os efeitos; aberta, não sai tiro.
 //
 // Loja e Evolução (servicos.js): pousado e parado na plataforma da própria base, o
 // painel abre sozinho; os pedidos vão direto pela rede e a resposta chega como
@@ -80,6 +82,7 @@ import {
   bocaDaArma,
 } from './nave.js';
 import { Sons, SONS_INTERFACE } from './sons.js';
+import { PainelVolume } from './volume.js';
 import { Efeitos, COR_TIME } from './efeitos.js';
 import { Controles } from './controles.js';
 import { Hud, NOME_BONUS } from './hud.js';
@@ -166,13 +169,13 @@ function alternarSom() {
   mostrarEstadoSom();
 }
 function mostrarEstadoSom() {
-  for (const el of document.querySelectorAll('.estado-som')) {
-    el.textContent = sons.mudo ? 'Som desligado' : 'Som ligado';
-    el.classList.toggle('mudo', sons.mudo);
-  }
+  for (const el of document.querySelectorAll('.estado-som')) el.textContent = sons.mudo ? 'Som desligado' : 'Som ligado';
+  for (const el of document.querySelectorAll('.estado-som, .botao-volume')) el.classList.toggle('mudo', sons.mudo);
 }
+const painelVolume = new PainelVolume({ sons, aoMudarSom: mostrarEstadoSom });
 addEventListener('keydown', (e) => {
-  if (e.code !== 'KeyM' || e.repeat || e.target instanceof HTMLInputElement) return;
+  // Só o campo de nome engole o M; na barra de volume ele continua valendo.
+  if (e.code !== 'KeyM' || e.repeat || (e.target instanceof HTMLInputElement && e.target.type === 'text')) return;
   alternarSom();
 });
 
@@ -286,7 +289,11 @@ function montarEntrada() {
   mostrarPasso(salva && racaJogavel(salva) ? 'classe' : 'raca');
 
   const botaoSom = document.querySelector('#botao-som');
-  botaoSom?.addEventListener('click', () => alternarSom());
+  botaoSom?.addEventListener('click', () => painelVolume.abrir());
+  document.querySelector('#som-hud')?.addEventListener('click', (e) => {
+    painelVolume.alternar();
+    e.currentTarget.blur(); // o foco no botão não pode prender as teclas do jogo
+  });
   mostrarEstadoSom();
 
   const nome = document.querySelector('#nome');
@@ -320,14 +327,20 @@ function montarEntrada() {
   });
 
   // Fase de captura na janela: este handler roda antes de qualquer outro keydown,
-  // então decide sozinho o que o ESC faz. Com o menu de armas (#menu-armas, o mesmo
+  // então decide sozinho o que o ESC faz. Com a janela de volume aberta (na partida
+  // ou na tela de entrada), ESC só fecha ela. Com o menu de armas (#menu-armas, o mesmo
   // elemento para o Z e o X) aberto, ESC só fecha o menu; com o painel da Loja ou
   // da Evolução (#servico) aberto, só fecha o painel; senão sai da partida. Na tela
   // de entrada (ou enquanto conecta) não há partida e o ESC não faz nada.
   addEventListener(
     'keydown',
     (e) => {
-      if (e.code !== 'Escape' || e.repeat || !jogoAtual) return;
+      if (e.code !== 'Escape' || e.repeat) return;
+      if (painelVolume.aberto) {
+        painelVolume.fechar();
+        return;
+      }
+      if (!jogoAtual) return;
       const menu = document.querySelector('#menu-armas');
       if (menu && !menu.hidden) {
         menu.hidden = true;
@@ -515,10 +528,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
   function passo() {
     if (!vivo || !pred) return;
     const inp = controles.ler();
-    // As armas dos dois encaixes vão em todo comando; com o menu ou o painel da
-    // Loja/Evolução aberto não sai tiro.
+    // As armas dos dois encaixes vão em todo comando; com o menu, o painel da
+    // Loja/Evolução ou a janela de volume aberta não sai tiro.
     [inp.a, inp.a2] = menuArmas.encaixes;
-    if (menuArmas.aberto || painel.aberto) inp.f1 = inp.f2 = false;
+    if (menuArmas.aberto || painel.aberto || painelVolume.aberto) inp.f1 = inp.f2 = false;
     seq++;
     rede.enviar({ t: 'in', s: seq, ...inp });
     ant = pose(pred);

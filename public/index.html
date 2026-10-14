@@ -42,7 +42,7 @@
         </label>
         <button type="submit" class="decolar">Decolar</button>
         <p id="erro-entrada" role="alert"></p>
-        <button type="button" id="botao-som" class="botao-som" title="Liga e desliga o som (M)"><span class="estado-som">Som ligado</span> · <kbd>M</kbd></button>
+        <button type="button" id="botao-som" class="botao-som botao-volume" title="Volume da música e dos efeitos"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg> Volume · <span class="estado-som">Som ligado</span></button>
         <p class="ajuda">
           <kbd>W</kbd><kbd>S</kbd> acelera/ré · <kbd>A</kbd><kbd>D</kbd> gira · <kbd>Shift</kbd> boost ·
           <kbd>Z</kbd> e <kbd>X</kbd> atiram (uma arma em cada) · <kbd>Q</kbd> troca a arma do Z · <kbd>E</kbd> a do X ·
@@ -82,7 +82,7 @@
         <button type="button" data-acao="nivel">+1 nível</button>
         <button type="button" data-acao="nivelMax">Nível 20</button>
       </section>
-      <span id="som-hud" class="estado-som" title="M liga e desliga o som"></span>
+      <button type="button" id="som-hud" class="botao-volume" title="Volume (M liga e desliga o som)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som"></span></button>
 
       <footer id="painel">
         <div class="barras">
@@ -146,6 +146,26 @@
         </div>
       </div>
     </section>
+
+    <div id="volume" hidden>
+      <section class="janela" role="dialog" aria-modal="true" aria-labelledby="volume-titulo">
+        <header>
+          <h2 id="volume-titulo">Volume</h2>
+          <button class="fechar" type="button" title="Fechar (Esc)" aria-label="Fechar">✕</button>
+        </header>
+        <label class="canal" data-canal="musica">
+          <span class="nome">Música</span><b class="pct">60%</b>
+          <input type="range" min="0" max="100" step="1" value="60" />
+          <small>Ainda sem música no jogo: o ajuste já fica guardado</small>
+        </label>
+        <label class="canal" data-canal="efeitos">
+          <span class="nome">Efeitos</span><b class="pct">80%</b>
+          <input type="range" min="0" max="100" step="1" value="80" />
+          <small>Tiros, explosões e sons do painel</small>
+        </label>
+        <button type="button" class="alternar-mudo botao-volume" title="Liga e desliga todo o som (M)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som">Som ligado</span><kbd>M</kbd></button>
+      </section>
+    </div>
 
     <script type="module" src="/js/main.js"></script>
   </body>

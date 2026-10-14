@@ -29,8 +29,11 @@
 // - `tom` muda a velocidade de reprodução (1 = original). `variacao` sorteia um tom em
 //   volta dele (ex. 0.05 = ±5%), para a mesma metralhadora não soar como máquina de
 //   repetir. Isto é cliente e só visual/sonoro: Math.random aqui não afeta a simulação.
-// - Volume geral e mudo ficam no localStorage (dentro de try/catch: navegação privada ou
-//   armazenamento bloqueado não podem impedir o jogo de abrir).
+// - Dois canais de volume, cada um com o seu ganho: efeitos (tudo o que `tocar` e
+//   `tocarInterface` tocam) e música (`saidaMusica`, onde a trilha vai se ligar quando
+//   existir). Os dois passam pelo mestre, que só cuida do mudo: o M desliga tudo sem
+//   mexer nos dois ajustes. Volumes e mudo ficam no localStorage (dentro de try/catch:
+//   navegação privada ou armazenamento bloqueado não podem impedir o jogo de abrir).
 //
 // Exemplo de uso (quem integrar no main.js):
 //
@@ -101,8 +104,13 @@ export const MAX_TOTAL = 24;
 export const INTERVALO_MIN_S = 0.025;
 /** Abaixo disto o som nem é tocado. */
 const GANHO_MIN = 0.01;
-const CHAVE_VOLUME = 'astron.som.volume';
+// A chave dos efeitos é a do antigo volume geral, para quem já tinha ajustado.
+const CHAVE_EFEITOS = 'astron.som.volume';
+const CHAVE_MUSICA = 'astron.som.musica';
 const CHAVE_MUDO = 'astron.som.mudo';
+/** Volume de cada canal na primeira vez (0 a 1). */
+export const VOLUME_EFEITOS_PADRAO = 0.8;
+export const VOLUME_MUSICA_PADRAO = 0.6;
 
 /**
  * Ganho pela distância: 1 até `ref`, curva inversa depois, zero em `alcance`
@@ -141,6 +149,13 @@ function lerArmazenado(chave) {
   }
 }
 
+/** Volume de 0 a 1 guardado em `chave`, ou `padrao` se não houver um válido. */
+function lerVolume(chave, padrao) {
+  const txt = lerArmazenado(chave);
+  const v = Number(txt);
+  return txt !== null && Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : padrao;
+}
+
 function gravarArmazenado(chave, valor) {
   try {
     globalThis.localStorage?.setItem(chave, String(valor));
@@ -174,13 +189,15 @@ export class Sons {
     this._buscar = buscar ?? ((url) => globalThis.fetch(url));
     this.ctx = null;
     this.mestre = null;
+    this.efeitos = null;
+    this.musica = null;
     /** nome → { bytes: Promise<ArrayBuffer|null>, buffer: AudioBuffer|null, falhou, decodificando } */
     this._cache = new Map();
     /** Vozes tocando: { nome, fonte, ganho, valor, inicio } */
     this._vozes = [];
     this._ouvinte = { x: 0, z: 0, yaw: 0 };
-    const vol = Number(lerArmazenado(CHAVE_VOLUME));
-    this._volume = lerArmazenado(CHAVE_VOLUME) !== null && Number.isFinite(vol) ? Math.max(0, Math.min(1, vol)) : 0.8;
+    this._volumeEfeitos = lerVolume(CHAVE_EFEITOS, VOLUME_EFEITOS_PADRAO);
+    this._volumeMusica = lerVolume(CHAVE_MUSICA, VOLUME_MUSICA_PADRAO);
     this._mudo = lerArmazenado(CHAVE_MUDO) === '1';
   }
 
@@ -194,8 +211,14 @@ export class Sons {
       }
       if (!this.ctx) return;
       this.mestre = this.ctx.createGain();
-      this.mestre.gain.value = this._mudo ? 0 : this._volume;
+      this.mestre.gain.value = this._mudo ? 0 : 1;
       this.mestre.connect(this.ctx.destination);
+      this.efeitos = this.ctx.createGain();
+      this.efeitos.gain.value = this._volumeEfeitos;
+      this.efeitos.connect(this.mestre);
+      this.musica = this.ctx.createGain();
+      this.musica.gain.value = this._volumeMusica;
+      this.musica.connect(this.mestre);
       for (const nome of this._cache.keys()) this._decodificar(nome);
     }
     if (this.ctx.state === 'suspended') this.ctx.resume?.().catch(() => {});
@@ -272,16 +295,38 @@ export class Sons {
     this._ouvinte.yaw = yaw;
   }
 
-  /** Volume geral de 0 a 1, guardado no navegador. */
-  get volumeGeral() {
-    return this._volume;
+  /** Volume dos efeitos (tiros, impactos, interface) de 0 a 1, guardado no navegador. */
+  get volumeEfeitos() {
+    return this._volumeEfeitos;
   }
 
-  set volumeGeral(v) {
+  set volumeEfeitos(v) {
     const n = Number(v);
-    this._volume = Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : this._volume;
-    gravarArmazenado(CHAVE_VOLUME, this._volume);
-    this._aplicarMestre();
+    if (!Number.isFinite(n)) return;
+    this._volumeEfeitos = Math.max(0, Math.min(1, n));
+    gravarArmazenado(CHAVE_EFEITOS, this._volumeEfeitos);
+    this._aplicarGanho(this.efeitos, this._volumeEfeitos);
+  }
+
+  /** Volume da música de 0 a 1, guardado no navegador. */
+  get volumeMusica() {
+    return this._volumeMusica;
+  }
+
+  set volumeMusica(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return;
+    this._volumeMusica = Math.max(0, Math.min(1, n));
+    gravarArmazenado(CHAVE_MUSICA, this._volumeMusica);
+    this._aplicarGanho(this.musica, this._volumeMusica);
+  }
+
+  /**
+   * Onde a música se liga (já com o volume da música e o mudo aplicados); null antes
+   * do desbloqueio.
+   */
+  get saidaMusica() {
+    return this.musica;
   }
 
   /** Mudo, guardado no navegador. */
@@ -292,13 +337,13 @@ export class Sons {
   set mudo(m) {
     this._mudo = !!m;
     gravarArmazenado(CHAVE_MUDO, this._mudo ? '1' : '0');
-    this._aplicarMestre();
+    this._aplicarGanho(this.mestre, this._mudo ? 0 : 1);
   }
 
-  _aplicarMestre() {
-    if (!this.mestre) return;
-    const alvo = this._mudo ? 0 : this._volume;
-    const g = this.mestre.gain;
+  _aplicarGanho(no, alvo) {
+    if (!no) return;
+    const g = no.gain;
+    // Rampa curta: arrastar a barra aos saltos não estala.
     if (g.setTargetAtTime) g.setTargetAtTime(alvo, this.ctx.currentTime, 0.02);
     else g.value = alvo;
   }
@@ -367,7 +412,7 @@ export class Sons {
       saida = p;
     }
     fonte.connect(g);
-    saida.connect(this.mestre);
+    saida.connect(this.efeitos);
     const voz = { nome, fonte, ganho: g, saida, valor: ganho, inicio: agora };
     fonte.onended = () => {
       this._soltar(voz);

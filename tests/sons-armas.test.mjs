@@ -11,6 +11,7 @@ import { iniciar } from '../server/index.js';
 import { World } from '../server/game.js';
 import {
   Sons,
+  VOLUME_MUSICA_PADRAO,
   SONS_INTERFACE,
   SONS_ARMA,
   ganhoPorDistancia,
@@ -198,11 +199,23 @@ test('sons.js: volume e mudo ficam guardados no navegador', () => {
   globalThis.localStorage = { getItem: (k) => guardado.get(k) ?? null, setItem: (k, v) => guardado.set(k, v) };
   try {
     const a = new Sons({ criarContexto: () => contextoFalso(), buscar: buscarFalso });
-    a.volumeGeral = 0.3;
+    a.volumeEfeitos = 0.3;
+    a.volumeMusica = 0.45;
     a.mudo = true;
     const b = new Sons({ criarContexto: () => contextoFalso(), buscar: buscarFalso });
-    assert.equal(b.volumeGeral, 0.3);
+    assert.equal(b.volumeEfeitos, 0.3);
+    assert.equal(b.volumeMusica, 0.45);
     assert.equal(b.mudo, true);
+    b.volumeMusica = 7;
+    assert.equal(b.volumeMusica, 1, 'volume fica entre 0 e 1');
+    b.volumeEfeitos = 'x';
+    assert.equal(b.volumeEfeitos, 0.3, 'valor inválido não muda o volume');
+    // Quem já tinha ajustado o antigo volume geral fica com ele nos efeitos.
+    guardado.clear();
+    guardado.set('astron.som.volume', '0.25');
+    const velho = new Sons({ criarContexto: () => contextoFalso(), buscar: buscarFalso });
+    assert.equal(velho.volumeEfeitos, 0.25);
+    assert.equal(velho.volumeMusica, VOLUME_MUSICA_PADRAO);
     globalThis.localStorage = {
       getItem() {
         throw new Error('bloqueado');
@@ -218,4 +231,38 @@ test('sons.js: volume e mudo ficam guardados no navegador', () => {
     if (antes === undefined) delete globalThis.localStorage;
     else globalThis.localStorage = antes;
   }
+});
+
+test('sons.js: efeitos e música têm volumes separados e o mudo cala os dois', async () => {
+  const ctx = contextoFalso();
+  // Grava em quem cada nó de ganho se liga, para conferir o caminho do som.
+  const ganhos = [];
+  ctx.createGain = () => {
+    const no = { gain: { value: 1, setTargetAtTime(v) { this.value = v; } }, ligadoEm: null, disconnect() {} };
+    no.connect = (alvo) => (no.ligadoEm = alvo);
+    ganhos.push(no);
+    return no;
+  };
+  const sons = new Sons({ criarContexto: () => ctx, buscar: buscarFalso });
+  sons.volumeEfeitos = 0.5;
+  sons.volumeMusica = 0.2;
+  sons.desbloquear();
+  assert.equal(sons.efeitos.gain.value, 0.5, 'volume ajustado antes do gesto vale ao desbloquear');
+  assert.equal(sons.saidaMusica.gain.value, 0.2);
+  assert.equal(sons.efeitos.ligadoEm, sons.mestre);
+  assert.equal(sons.saidaMusica.ligadoEm, sons.mestre);
+  assert.equal(sons.mestre.ligadoEm, ctx.destination);
+
+  await sons.carregar('shot_ray');
+  assert.equal(sons.tocarInterface('shot_ray'), true);
+  assert.equal(ganhos.at(-1).ligadoEm, sons.efeitos, 'efeito toca pelo canal de efeitos');
+
+  sons.volumeMusica = 0.9;
+  assert.equal(sons.saidaMusica.gain.value, 0.9);
+  assert.equal(sons.efeitos.gain.value, 0.5, 'mexer na música não mexe nos efeitos');
+  sons.mudo = true;
+  assert.equal(sons.mestre.gain.value, 0);
+  assert.equal(sons.efeitos.gain.value, 0.5, 'o mudo não apaga o ajuste');
+  sons.mudo = false;
+  assert.equal(sons.mestre.gain.value, 1);
 });
