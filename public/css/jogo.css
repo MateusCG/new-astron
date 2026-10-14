@@ -18,6 +18,8 @@
   --evolucao: #a58bff;
   --loja: #ff6fd8;
   --vida-aliado: #3f8cff;
+  /* Escudo do equipamento: o mesmo azul-gelo da aura de escudo das armas. */
+  --escudo: #8fd0ff;
   /* Tipos de dano (STATUS, INVENTÁRIO, ícones de escudo, armadura e potenciador): a
      leitura do original (Ph. verde, El. azul, Op. vermelho) nos tons dos tiros. */
   --dano-fisico: #6ee07a;
@@ -2744,6 +2746,41 @@ body.dano::after {
   #menu-armas .opcoes {
     max-height: 62vh;
   }
+}
+
+/* ---------- Escudo no painel e nos rótulos ---------- */
+
+/* Barra do escudo do equipamento, acima da do HP (o dano tira dele primeiro):
+   azul-gelo com listras, mais baixa, para não se confundir com a energia. Só aparece
+   com um escudo na nave. */
+#esc {
+  height: 12px;
+}
+
+#esc em,
+#esc .txt {
+  font-size: 9px;
+  line-height: 10px;
+  text-shadow: 0 1px 2px #000;
+}
+
+#esc .valor {
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0 4px, transparent 4px 8px),
+    linear-gradient(180deg, #d6f1ff, var(--escudo));
+}
+
+.rotulo .barra-esc {
+  width: 40px;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.rotulo .barra-esc i {
+  display: block;
+  height: 100%;
+  background: var(--escudo);
+  box-shadow: 0 0 4px var(--escudo);
 }
 
 /* ---------- Tipos de dano e ícones de equipamento ---------- */

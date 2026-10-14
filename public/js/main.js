@@ -988,7 +988,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
       efeitos.recall(o.obj, e.recall ?? null, aliado ? COR_TIME.meu : COR_TIME.outro, dt, tempo);
       // Radar desligado (Canhão Antirradar): sem rótulo de quem não é do seu time.
       if (aliado || !(estadosArmas.cego > 0)) {
-        rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position, nivel: e.nivel, piloto: e.tipo === 'jogador' });
+        rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position, nivel: e.nivel, piloto: e.tipo === 'jogador', esc: e.esc });
       }
     }
     // Torretas: queda, subida e a cabeça atrás do alvo (posição desenhada dele).

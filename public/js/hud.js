@@ -1,4 +1,4 @@
-// HUD: painel inferior (HP, energia, nível e XP, ouro, velocidade), minimapa,
+// HUD: painel inferior (escudo, HP, energia, nível e XP, ouro, velocidade), minimapa,
 // nomes sobre as naves, avisos de abate, a barra do pouso no objetivo A, a barra
 // do recall (volta à base) e a tela de "destruído". É DOM puro por cima do canvas.
 
@@ -46,6 +46,11 @@ export class Hud {
   /** @param {{ meuTime?: number }} [opcoes] time de quem joga (cor das bases no minimapa) */
   constructor({ meuTime = 0 } = {}) {
     this.meuTime = meuTime;
+    // Escudo do equipamento (me.escudo / me.maxEscudo): a barra só aparece com um
+    // escudo na nave, logo acima da do HP, porque o dano tira dele primeiro.
+    this.esc = $('#esc');
+    this.escVal = $('#esc .valor');
+    this.escTxt = $('#esc .txt');
     this.hp = $('#hp .valor');
     this.hpTxt = $('#hp .txt');
     this.en = $('#en .valor');
@@ -305,6 +310,13 @@ export class Hud {
   }
 
   painel(me, extra, ping) {
+    const maxEsc = me.maxEscudo ?? 0;
+    this.esc.hidden = !(maxEsc > 0);
+    if (maxEsc > 0) {
+      const e = Math.max(0, Math.min(maxEsc, me.escudo ?? 0));
+      this.escVal.style.width = `${(e / maxEsc) * 100}%`;
+      this.escTxt.textContent = `${Math.round(e)} / ${Math.round(maxEsc)}`;
+    }
     const php = Math.max(0, me.hp / me.maxHp);
     this.hp.style.width = `${php * 100}%`;
     this.hp.classList.toggle('critico', php < 0.3);
@@ -471,7 +483,9 @@ export class Hud {
    * mineradores, torretas) ou só a barra (naves de jogador). Embaixo da nave de
    * jogador (`piloto`, a sua inclusive), a etiqueta com o nick e o nível. `aliado`
    * (do seu time) pinta de turquesa; inimigo (outro time ou monstro) de vermelho.
-   * Entrada: { id, nome, aliado, hp, maxHp, pos, nivel, piloto, proprio }.
+   * Entrada: { id, nome, aliado, hp, maxHp, pos, nivel, piloto, proprio, esc }.
+   * `esc` (fração 0 a 1 do escudo, das naves de jogador com escudo) põe uma barra
+   * fina do escudo em cima da de vida.
    */
   rotulosNaves(lista, camera, largura, altura) {
     const vistos = new Set();
@@ -490,7 +504,7 @@ export class Hud {
       tag.style.transform = `translate(${((this.v.x + 1) / 2) * largura}px, ${((1 - this.v.y) / 2) * altura}px) translate(-50%, ${ancoraY})`;
       return tag;
     };
-    for (const { id, nome, aliado, hp, maxHp, pos: p, nivel, piloto, proprio } of lista) {
+    for (const { id, nome, aliado, hp, maxHp, pos: p, nivel, piloto, proprio, esc } of lista) {
       const dist = camera.position.distanceTo(p);
       if (dist > 450) continue;
       const opacidade = dist > 300 ? String(1 - (dist - 300) / 150) : '1';
@@ -500,7 +514,9 @@ export class Hud {
         const cima = pos(`c${id}`, p, 6, '-100%', () => {
           const tag = document.createElement('div');
           tag.className = 'rotulo' + cor;
-          tag.innerHTML = piloto ? '<span class="barra"><i></i></span>' : '<span class="nome"></span><span class="barra"><i></i></span>';
+          tag.innerHTML = piloto
+            ? '<span class="barra-esc" hidden><i></i></span><span class="barra"><i></i></span>'
+            : '<span class="nome"></span><span class="barra"><i></i></span>';
           if (!piloto) {
             tag.querySelector('.nome').textContent = nome;
             tag.querySelector('.nome').insertAdjacentHTML('beforeend', ' <small class="nv"></small>');
@@ -509,7 +525,12 @@ export class Hud {
         });
         if (cima) {
           cima.style.opacity = opacidade;
-          cima.querySelector('i').style.width = `${Math.max(0, hp / maxHp) * 100}%`;
+          cima.querySelector('.barra i').style.width = `${Math.max(0, hp / maxHp) * 100}%`;
+          const barraEsc = cima.querySelector('.barra-esc');
+          if (barraEsc) {
+            barraEsc.hidden = esc === undefined || esc === null;
+            if (!barraEsc.hidden) barraEsc.firstChild.style.width = `${Math.max(0, Math.min(1, esc)) * 100}%`;
+          }
           const nv = cima.querySelector('.nv');
           if (nv && nivel) nv.textContent = `NV ${nivel}`;
         }
