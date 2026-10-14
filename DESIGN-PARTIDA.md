@@ -54,9 +54,11 @@ Escala do desenho: 1 px ≈ 3 m. Retângulo aberto com muralha só na borda.
 
 **[feito]** XP e ouro de cada um em `RECOMPENSA` (`server/progressao.js`).
 
-- **Arnosh** (`N_DRONES` = 14): drones espalhados que patrulham e atiram de longe. Patrulhando, não entram nas bases nem na faixa do corredor (dão meia volta); caçando um jogador, entram no corredor atrás dele.
-- **Vorax** (6): caçadores que vêm de qualquer canto atrás de quem sai da base. Seguem o jogador também pelo corredor (escolha: o corredor é onde se briga pelos mineradores, e eles não atacam minerador), mas nunca entram nas bases.
-- **Krakor** (`N_KRAKOR` = 4, `server/elites.js`): elite raro, grande e lento (450 de HP, 24 m/s), com covil longe das bases e do corredor; patrulha o território (260 m), vai atrás de quem entra na visão até a borda dele e cospe plasma mirando adiantado. Nunca entra nas bases nem na faixa do corredor. Renasce em 30 s num covil novo, longe dos jogadores.
+**Passivos** (pedido do Mateus, out/2026): os monstros da jungle patrulham e **só seguem e atacam quem os atacou**. Cada um guarda quem o feriu (tiro, área, dreno...) e esquece `RAIVA_S` (**20 s**) depois do último golpe recebido, ou quando o jogador ou o próprio monstro morre (renasce passivo). Passar perto não provoca nada. O guardião do objetivo C não é da jungle e continua defendendo a arena.
+
+- **Arnosh** (`N_DRONES` = **28**): drones espalhados que patrulham devagar. Patrulhando, não entram nas bases nem na faixa do corredor (dão meia volta); provocados, perseguem quem os atacou (até 400 m) e atiram de longe, entrando no corredor atrás dele.
+- **Vorax** (**12**): provocados, vêm de qualquer canto atrás de quem os atacou, contornando as rochas. Seguem o jogador também pelo corredor (escolha: o corredor é onde se briga pelos mineradores, e eles não atacam minerador), mas nunca entram nas bases. Sem raiva, patrulham a jungle como os Arnosh.
+- **Krakor** (`N_KRAKOR` = **8**, `server/elites.js`): elite raro, grande e lento (450 de HP, 24 m/s), com covil longe das bases e do corredor; patrulha o território (260 m) e, provocado, vai atrás de quem o atacou até a borda dele e cospe plasma mirando adiantado. Nunca entra nas bases nem na faixa do corredor. Renasce em 30 s num covil novo, longe dos jogadores.
 - **Guardião** (um em cada objetivo C): ver abaixo.
 
 ## Objetivos (bônus por tempo para os mineradores do time que tomar)
@@ -112,7 +114,7 @@ Os bônus (`server/bonus.js`): dos mineradores, `'mineracao'` +1 por viagem, `'v
 | Shrewdo | Assault Wing, Power Wing, Plate Wing, Uranium Wing, Hellion Wing | Speed Wing, Rapier Wing, Thunder Wing, Lightning Wing, Alchemium Wing | Chaos Wing, Techron Wing, Magic Wing, Energy Wing, Cyclone Wing |
 
 - **Escala do original para o jogo** (constantes nomeadas em `shared/naves.js`; as armas usam as mesmas): HP ×0,2 (`FATOR_ESCALA_HP`), energia ×0,3 (`FATOR_ENERGIA`), velocidade do original em m/ms × 1000 × 0,5 (`FATOR_VELOCIDADE`, a Warrior faz ~55,6 m/s), regeneração de energia por s = original/ms × 1000 × 0,3 / 0,5. Ex.: Warrior 170 HP, 27 de energia; Ulysses 668 HP, 132 de energia, 60 m/s.
-- **Regeneração de vida da nave:** em voo, só as **Bellico** se recuperam (contínuo, como no original); pousada e parada, cada nave conserta no ritmo dela (`regenHpPousada`).
+- **Regeneração de vida da nave:** em voo, só as **Bellico** se recuperam (contínuo, como no original); pousada e parada, cada nave conserta no ritmo dela (`regenHpPousada`). **Pousada e parada na própria base** (anel ou serviços), vida e energia enchem rápido: +35% do máximo por segundo (`BASE_CURA_FRAC` em `shared/sim.js`), uns 3 s do vazio ao cheio.
 - **Números do original mantidos de propósito**, mesmo quando a nave seguinte perde em algum status: Ulysses tem menos HP que Kamasutra (mas mais energia e velocidade), o mesmo em Cheetahar × Elephantera e Hellion × Uranium; Sephiros, Phoenix e Alchemium são mais lentas que a anterior; Garuda, Chimera e Cyclone têm menos energia que a anterior.
 
 ## Armas
@@ -191,6 +193,10 @@ Usar item vale em qualquer lugar; com a vida (ou a energia) cheia, o servidor re
 | Reconstruir uma torreta (`{t:'reconstruir', torreta}`) | Volta inteira, com o nível atual do time; se houver nave no lugar, espera ela sair | 200 cada |
 
 Reconstruir só vale para torreta destruída do próprio time (a do outro time é `invalido`; de pé ou já em obra, `ja_possui`); nível no máximo é `limite`.
+
+## Modo de teste
+
+**[feito]** Para testar a progressão sem jogar uma partida inteira (pedido do Mateus). Na tela inicial, a opção **"Modo de teste"** entra num **mundo só seu** (`World` com `teste: true`, criado por `server/index.js` para aquele piloto e apagado quando ele sai; até `MAX_MUNDOS_TESTE` = 4 ao mesmo tempo): a partida **não tem relógio** (não acaba nem entra na fase final; o placar mostra "TESTE") e um painel no HUD dá **+1000 ouro**, **+100 XP**, **+1 nível** e **nível 20** (pedido `{t:'teste', acao}`, que só o mundo de teste aceita). Monstros, mineradores, torretas e objetivos rodam como na partida normal.
 
 ## HUD
 

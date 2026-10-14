@@ -59,7 +59,8 @@ Na partida 3 contra 3 a cor de time é sempre **relativa a quem olha**: o que é
 |---|---|
 | Nave de jogador | **Marca de luz do time**: uma luz de neon em cada ponta de asa, nos encaixes de arma da ponta do modelo (`l_fire01`/`r_fire01`), o que mais aparece na câmera de perseguição. A sua nave é sempre turquesa. A cor da raça continua no brilho dos motores. Enquanto o modelo de uma nave ainda está baixando, um **losango neon** na cor do time segura o lugar |
 | Minerador | Faixas de neon nos dois lados do casco e brilho dos motores na cor do time |
-| Rótulo sobre a nave | Nome e barra de vida turquesa (aliado) ou vermelhos (inimigo: outro time e monstros) |
+| Rótulo sobre a nave | Nome e barra de vida turquesa (aliado) ou vermelhos (inimigo: outro time e monstros). Nas naves de jogador, só a barra em cima |
+| Etiqueta do piloto | **Embaixo** de toda nave de jogador (a sua inclusive): plaquinha de chapa escura (`rgba(8,20,19,.72)`, cantos de 8 px) com o nick na cor do time e "NV n" em `--xp` mono; borda `--neon-escuro` no aliado, vermelha apagada no inimigo e `--neon` na sua |
 | Minimapa | Pontos do seu time em turquesa, do outro time e monstros em vermelho; minerador é uma bolinha menor que o quadrado das naves |
 | Placar | Seu time sempre à esquerda, em turquesa; o outro à direita, em vermelho |
 
@@ -201,6 +202,7 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 - **Perseguição em terceira pessoa**, como no AstroN: atrás e acima da nave, que fica no **terço de baixo da tela**, centralizada.
 - A câmera acompanha a curva com atraso suave e **nunca entra na parede**: aproxima até enxergar a nave.
 - O boost abre o campo de visão (65° para 74°).
+- **V** troca a distância (três modos) e **T/G**, PageUp/PageDown ou a **roda do mouse** sobem e descem a câmera, de ~20° por baixo da nave a ~72° quase de cima; o ângulo fica guardado no navegador. Quanto mais de cima, mais a câmera mira na própria nave, para ela não sumir embaixo do painel.
 
 ## Interface
 
@@ -216,6 +218,7 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 - **Armas no painel inferior:** as duas, uma em cima da outra, como "Z · ícone nome" e "X · ícone nome" (a letra em `--neon`), com uma linha fina de 2 px embaixo de cada uma que enche conforme a recarga daquele encaixe (`--neon` pronta, `--texto` apagado recarregando, `--hp` se falta energia para o próximo disparo). Sob EMP, as duas ficam apagadas com a borda `--emp`. Com a recarga de troca contando, o ícone do encaixe apaga (0,4), a linha mostra a troca enchendo em `--texto` e a contagem aparece ao lado ("2,1 s", mono, `--texto`), no celular também. Clicar abre o menu daquele encaixe. No celular o nome some (fica "Z · ícone").
 - **Tela inicial em dois passos** (na mesma chapa): "1 Escolha sua raça" com um cartão por raça (Mechan apagada, não clicável, com o selo "EM BREVE"); depois "2 Escolha sua classe", com um botão de voltar com o nome da raça na cor dela e três cartões (Assault, Mobile, Functional) com a especialidade, a primeira nave da linha e barras de HP (`--hp`), energia (`--en`), velocidade (`--neon`) e regeneração; embaixo, a **prévia 3D** da primeira nave girando e a linha das próximas ("Na Evolução: Falcon (NV 5) › Eagle (NV 10) › ..."). Botão de som (M) embaixo do Decolar.
 - **Som:** os efeitos do original (`public/sons/`, WAV) tocam pelo `public/js/sons.js`: disparo na posição do tiro, impacto, explosão e os de interface (subir de nível, compra, erro, painel). Volume pela distância (cheio até 60 m, some aos 900 m), pan estéreo pela direção, no máximo 6 vozes por som e 24 no total (metralhadora não estoura). **M** liga e desliga; o estado fica no navegador e aparece no HUD ("Som ligado" / "Sem som", texto pequeno ao lado do ping) e na tela inicial.
+- **Modo de teste:** painel `#painel-teste` à esquerda, embaixo do minimapa, na chapa do painel com **borda tracejada `--ouro`** (é ferramenta, não jogo): título "MODO DE TESTE" em `--ouro` e quatro botões (+1000 ouro, +100 XP, +1 nível, Nível 20). O relógio do placar mostra "TESTE". Na tela inicial, a caixa "Modo de teste" com a explicação embaixo, marcada em `--ouro`.
 - **Tipografia:** `system-ui` para texto e `ui-monospace` para números. Título com letras espaçadas e "ASTRO" em `--neon` com brilho.
 - **Celular:** joystick à esquerda; Z, X e SHIFT à direita (mesma disposição do AstroN), com ARMA Z e ARMA X em cima (cada uma sobre a coluna do botão de tiro do seu encaixe). No menu do celular, as cartas mostram só ícone, nome e selo. O painel da Loja/Evolução fica entre a borda esquerda e o placar (sem cobrir os botões), com cartões menores (efeito em 9,5 px), abas mais altas para o dedo e a lista rolando com o dedo. Área de toque com no mínimo 64 px.
 - **Idioma:** português do Brasil, frases curtas e diretas, sem jargão técnico para o jogador ("Nave destruída · renascendo na base em 3s").
