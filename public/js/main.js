@@ -616,6 +616,11 @@ function montarJogo(rede, boas, renderer, race, classe) {
       vivo = false;
       pendentes = [];
       pred = m.me;
+      // Morta, a predição não roda e `ant` ficaria na última pose viva: a câmera,
+      // que interpola ant → pred pela fração do tick, pularia entre as duas a cada
+      // quadro (a tela tremia). Parada no lugar da morte, as duas são a mesma pose.
+      ant = pose(pred);
+      erro.set(0, 0, 0);
       return;
     }
     if (!vivo) {
@@ -1011,8 +1016,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
     // Câmera de perseguição, como no AstroN: atrás e um pouco acima da nave.
     if (pred) {
       const cfg = CAMERAS[camModo];
+      // Morto, a câmera fica parada onde estava até renascer (pedido do Mateus: tela estática).
       if (vivo) camYaw = lerpAng(camYaw, minhaNave.rotation.y, 1 - Math.exp(-5 * dt));
-      else camYaw += dt * 0.4; // morto: gira devagar em volta dos destroços
       const f = forward(camYaw);
       // Mesma distância do modo, no ângulo do modo mais o ajuste do piloto.
       const raio = Math.hypot(cfg.dist, cfg.alt);
