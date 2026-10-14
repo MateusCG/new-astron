@@ -81,14 +81,15 @@ Os bônus (`server/bonus.js`): dos mineradores, `'mineracao'` +1 por viagem, `'v
 
 ## Progressão do jogador
 
-- **[feito]** **XP e nível** ao destruir monstros, mineradores e jogadores inimigos, e ao tomar objetivos A e B. Começa no nível 1, vai até o 20 (`NIVEL_MAX`); para passar do nível n são `60 + 20 × (n − 1)` XP (`xpParaNivel` em `server/progressao.js`). Cada nível dá +3% do HP máximo da nave. Subir de nível: notícia e anel de luz na nave.
+- **[feito]** **XP e nível** ao destruir monstros, mineradores e jogadores inimigos, e ao tomar objetivos A e B. Começa no nível 1, vai até o 25 (`NIVEL_MAX`); para passar do nível n são `60 + 20 × (n − 1)` XP (`xpParaNivel` em `server/progressao.js`). Cada nível dá +3% do HP máximo da nave. Subir de nível: notícia e anel de luz na nave.
+- **[feito]** **Pontos do piloto** (pedido do Mateus, out/2026, como a janela CHARACTER do original): **10 pontos por nível** (`10 × nível`, 250 no 25), distribuídos na janela STATUS (tecla C) entre **Energia, Ph. (físico), El. (elétrico) e Op. (laser)**, até **99 em cada**, em qualquer lugar e sem devolver. Os valores por ponto são os do original (`pilotparameter.txt`) por raça e classe: cada ponto de Ph./El./Op. dá ~2 a 3% de poder às armas daquele tipo de dano; cada ponto de Energia dá energia máxima (fixa + 3% da energia da nave) e regeneração. Zeram com o nível na partida nova (`shared/status.js`).
 - **[feito]** **Ouro** pelas mesmas fontes. XP e ouro por tipo em `RECOMPENSA`: Arnosh 20 XP / 25 ouro, Vorax 30 / 30, Krakor 120 / 90, guardião 250 / 150, minerador 40 / 40, escolta 50 / 45, torreta 80 / 70 (+25 de ouro para cada colega de time), jogador 100 / 50.
 - **[feito]** Ouro, XP e nível são **da partida** (como num MOBA): zeram quando começa a seguinte.
 - **[feito]** **Assistência e sequência de abates** em abate de jogador, e **renascimento** que demora mais com o nível e com o tempo de partida: ver "Combate".
 - **[feito]** **Evolução da nave**: a cada 5 níveis (5, 10, 15, 20) o piloto pode comprar a **próxima nave da linha** da raça e da classe, pagando ouro. Ver "Raças, classes e naves" e "Loja e Evolução".
 - **[feito]** **Duas armas na nave:** Q edita o Z, E edita o X; mesma arma pode ir nos dois. Não existe arma principal: os dois encaixes escolhem do mesmo catálogo, que são **as armas do Astro-N original da raça e da classe do piloto** (ver "Armas"), cada um com a sua recarga e a mesma energia. Cada partida começa com as **duas armas de fábrica da raça** (um feixe no Z e uma metralhadora no X, sempre possuídas).
 - **[feito]** **Recarga de troca de arma** (pedido do Mateus, para a build pesar): fora da própria base, trocar a arma de um encaixe põe **aquele encaixe** em recarga de troca por `TROCA_ARMA_S` (**3 s**): sem tiro nele e sem nova troca nele até acabar; o outro encaixe segue normal. **Dentro da própria base** (raio de `BASES[time]`) a troca é livre e a recarga de troca zera. Roda no `stepShip` (estado `troca1`/`troca2` na nave, no `me`), então a predição bate com o servidor. O menu de armas **trava** o encaixe enquanto conta: as outras cartas ficam apagadas com "TROCA EM 2,1 s", tocar numa delas só dá a notícia de quanto falta (o menu nunca manda uma troca que seria ignorada), e o painel inferior mostra a contagem no encaixe.
-- **[feito]** **Loja**: comprar armas (só as da raça e da classe), armaduras e itens. As armas compradas ficam na posse do piloto (no jogador, não na nave: voltam a cada renascimento). Arma não possuída fica apagada no menu ("NA LOJA") e cai na de fábrica do encaixe.
+- **[feito]** **Loja**: comprar armas (só as da raça e da classe), escudos, armaduras, potenciadores e itens. As armas compradas ficam na posse do piloto (no jogador, não na nave: voltam a cada renascimento). Arma não possuída fica apagada no menu ("NA LOJA") e cai na de fábrica do encaixe.
 - **[feito]** Evolução e Loja só abrem **com a nave pousada e parada** na plataforma do serviço da **própria base**.
 - **[feito]** **Recall (voltar à base, tecla B)**: ver abaixo.
 
@@ -155,15 +156,19 @@ Os bônus (`server/bonus.js`): dos mineradores, `'mineracao'` +1 por viagem, `'v
 
 **Armas:** só as da raça e da classe do piloto (menos as de fábrica), organizadas por categoria (feixe, metralhadora, canhão, míssil, lâmina, mina, nova, dispositivo...) com filtro. Preço = preço do original × 0,06 (`FATOR_OURO`; de 60 a ~360 de ouro). O pedido leva a chave da arma: `{t:'comprar', item:'o311001'}`. Comprada, a arma pode ir em qualquer um dos dois encaixes (Q e E).
 
-**[feito] Evoluir armas** (aba "Evoluir" da Loja). Cada arma possuída, as de fábrica inclusive, sobe da **versão V1 à V5 do original** (o nível da arma, 1 a `ARMA_NIVEL_MAX` = 5). Cada versão pede o **nível do piloto do original** (1, 5, 10, 15, 20) e custa a taxa de evolução do original × 0,06, **sem chance de falhar** (no original a evolução podia falhar). A versão muda tudo o que o original muda (dano, recarga, energia, projéteis, efeito). Pedido `{t:'comprar', item:'evoluir:o311001'}`; sem possuir a arma, `sem_item`; sem o nível, `nivel_insuficiente`; na V5, `limite`. O nível da arma é do piloto e vai na nave (`niveis` no `me`, que o `stepShip` lê, então a predição acompanha): volta a cada renascimento e zera na partida seguinte. Monstros, torretas e escolta atiram com os tiros próprios de antes.
+**[feito] Evoluir armas** (aba "Evoluir" da Loja). Cada arma possuída, as de fábrica inclusive, sobe da **versão V1 à V8 do original** (o nível da arma, 1 a `ARMA_NIVEL_MAX` = 8). **Nenhuma versão pede nível do piloto** (pedido do Mateus: qualquer piloto pode ter V1 a V8; o limite é o ouro) e cada uma custa a taxa de evolução do original × 0,06, **sem chance de falhar** (no original a evolução podia falhar). A versão muda tudo o que o original muda (dano, recarga, energia, projéteis, efeito). Pedido `{t:'comprar', item:'evoluir:o311001'}`; sem possuir a arma, `sem_item`; sem o nível, `nivel_insuficiente`; na V8, `limite`. O nível da arma é do piloto e vai na nave (`niveis` no `me`, que o `stepShip` lê, então a predição acompanha): volta a cada renascimento e zera na partida seguinte. Monstros, torretas e escolta atiram com os tiros próprios de antes.
 
-| Armadura | Preço | Efeito |
+**[feito] Escudos, armaduras e potenciadores** (pedido do Mateus, out/2026): os do Astro-N original (`shared/equipamentos.js`, dos `.cfg` do original), cada um da V1 à V8, com a classe que o original exige (alguns são de todas as classes, outros de uma só). Preço e evolução = os do original × 0,06, sem falha; nenhuma versão pede nível do piloto. Pedidos: `{t:'comprar', item:'e330010'}` e `{t:'comprar', item:'evoluir:e330010'}`.
+
+| Categoria | Quantos | O que faz |
 |---|---|---|
-| Leve | 150 | −10% de dano recebido |
-| Média | 300 | −15% de dano, +30 HP máx. |
-| Pesada | 480 | −25% de dano, +60 HP máx., −8% de velocidade |
+| Escudo | 12 (Maximum, Delta, Light, Neutron × Ph./Op./El.) | Energia de escudo própria: o dano sai **primeiro do escudo** e, acabado, do HP. Recupera sozinho depois de `ESCUDO_ESPERA_S` (3 s) sem levar dano e enche rápido pousado na base. Dá um pouco de resistência do seu tipo |
+| Armadura | 16 (Titanium, Amandium, Argon, Alchanium × geral/Ph./Op./El.) | **Soma HP máximo** e resistência Ph./Op./El. |
+| Potenciador | 34 | Até 3 efeitos: poder, recarga, resistência e penetração por tipo, crítico (×2), HP, escudo, energia, regenerações, velocidade e aceleração |
 
-Uma equipada por vez: comprar uma melhor substitui (preço cheio); igual ou pior que a equipada é recusada (`ja_possui`). A redução vale para todo dano (tiro, garra, dreno, mina, onda de choque).
+**Inventário** (janela INVENTÁRIO, tecla I): a nave equipa **2 armas, 1 escudo, 1 armadura e 2 potenciadores**. Os dois potenciadores **podem ser o mesmo** (pedido do Mateus, como no original): cada potenciador se compra até 2 vezes; a 2ª cópia sai na versão da 1ª e custa o que a 1ª custou até ali, e daí em diante as duas evoluem juntas, pagando por cópia. Os efeitos somam. Comprar com o encaixe vazio já equipa; trocar ou tirar (`{t:'equipar', slot, item}`) só **pousado e parado numa área de pouso da própria base** (`nao_pousado` fora). Trocar de escudo zera o escudo atual. Tudo é da partida: volta a cada renascimento e zera na seguinte.
+
+**Dano entre tipos:** o dano que sai de um piloto é multiplicado pelo poder do tipo da arma (pontos + potenciadores); no alvo, a resistência do tipo (armadura, escudo e potenciadores, em pontos × 0,005 e %; teto 75%) menos a penetração de quem bateu; crítico dobra; depois o escudo e então o HP.
 
 | Item | Tecla | Preço | Efeito | Recarga | Carga máx. |
 |---|---|---|---|---|---|
@@ -205,7 +210,7 @@ Reconstruir só vale para torreta destruída do próprio time (a do outro time �
   - **Com nível 4 (± o jeito de cada um) ou com 2:30 de partida:** vai atrapalhar a mineração do outro time. Espera perto do minério, do lado de lá, fora do alcance das torretas deles, e derruba os mineradores (os carregados primeiro) e a escolta. Sem minerador à vista, caça monstro ali perto.
   - **Jogador inimigo à vista** (até 320 m) ou atacando os mineradores do time dele: briga se tem vida (45% ou mais), senão foge.
   - **Vida baixa:** usa o kit de reparo; volta para a base (recall se está longe e ninguém o ataca, senão voando), pousa e conserta.
-  - **Ouro:** pousa na Evolução para a próxima nave da linha (guarda ouro para ela quando já tem o nível) e na Loja para as versões das duas armas de fábrica, armadura (leve e média) e kits de reparo.
+  - **Ouro:** pousa na Evolução para a próxima nave da linha (guarda ouro para ela quando já tem o nível) e na Loja para as versões das duas armas de fábrica, escudo, armadura, potenciadores (Reforço do tipo das armas e Durabilidade; comprar já equipa) e kits de reparo. Distribui os pontos a cada nível: 30% em Energia e o resto no tipo de dano das armas.
   - **Não é perfeito de propósito:** demora um pouco para reagir a um alvo novo e erra um pouco a mira (menos com o nível); cada um tem a sua agressividade.
 
 ## Modo de teste
@@ -216,4 +221,5 @@ Reconstruir só vale para torreta destruída do próprio time (a do outro time �
 
 - **[feito]** **Canto superior direito**: minério de cada time (placar, seu time em turquesa à esquerda) e o tempo restante da partida, com os bônus ativos de cada time embaixo (mineração, velocidade, durabilidade e fúria). Na fase final, a faixa "MINÉRIO ×2" embaixo do placar e a notícia "Fase final: minério entregue vale ×2 até o fim" quando ela começa.
 - **[feito]** Ouro, nível e XP do jogador (barra de XP com o nível no painel; nível também no nome sobre a nave).
+- **[feito]** **Escudo** na barra ESC acima do HP e nos rótulos das naves; janelas **STATUS** (C: ficha do piloto e pontos) e **INVENTÁRIO** (I: os seis encaixes e o compartimento), como as CHARACTER e INVENTORY do original.
 - **[feito]** Fim da partida: tela com o time vencedor, o placar e a contagem para a próxima.

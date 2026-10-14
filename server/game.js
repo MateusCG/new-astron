@@ -51,12 +51,26 @@
 // por adicionarTiro, com `fonte` e `time` no evento para o cliente pintar.
 //
 // Loja e Evolução (server/servicos.js): pedidos do cliente atendidos em pedido();
-// a posse de armas, a armadura, os itens e a nave comprada (tier da linha da raça e
+// a posse de armas e de equipamentos (escudo, armadura, potenciadores), o que está
+// equipado, os pontos do piloto, os itens e a nave comprada (tier da linha da raça e
 // classe, shared/naves.js) ficam no jogador e vão para cada nave nova em
-// prepararNave (nascimento e renascimento). A armadura da Loja e a defesa dos
-// mineradores reduzem o dano em #ferir.
+// prepararNave (nascimento e renascimento), com o status do piloto em j.status
+// (statusDoPiloto de shared/status.js).
 //
-// Nível das armas (Loja): é a versão do original (V1 a V5) e vai na nave (s.niveis,
+// Status no dano (o servidor é quem aplica; números em shared/status.js e
+// shared/equipamentos.js): o dano que sai de um jogador é × (1 + poder) do tipo de
+// dano da arma (multDanoDe, o ponto único dos multiplicadores do atacante: tiro,
+// área, nova, mina, campo, dreno, torre e torretas); em #ferir, o golpe direto pode
+// sair crítico (chance `critico` do atacante, × CRITICO_MULT, sorteio só aqui com o
+// rng do World), a resistência do alvo jogador àquele tipo, menos a penetração do
+// atacante, tira a sua parte, os estados das armas agem (server/golpes.js:
+// modificarDano, com o escudo de arma), a defesa dos mineradores do time conta, e o
+// ESCUDO do equipamento (s.escudo) segura o que sobrou antes do HP. O escudo
+// recupera regenEscudo por s depois de ESCUDO_ESPERA_S sem levar dano (no meio da
+// briga ele não volta; quem recua, sim), enche rápido pousado na própria base, como
+// o HP, e renasce cheio.
+//
+// Nível das armas (Loja): é a versão do original (V1 a V8) e vai na nave (s.niveis,
 // copiado de j.niveisArmas por prepararNave): o stepShip e os golpes leem a versão
 // dali. Monstro e minerador atiram sempre no nível 1.
 //
@@ -97,7 +111,7 @@ import {
   recompensaAssistencia,
   ASSISTENCIA_JANELA_S,
 } from './progressao.js';
-import { Servicos, novoEquipamento, prepararNave, reducaoArmadura } from './servicos.js';
+import { Servicos, novoEquipamento, prepararNave } from './servicos.js';
 import { KRAKOR, N_KRAKOR, novaElite, renascerElite, iaElite } from './elites.js';
 import { Golpes, INVISIVEL_VISTO_M } from './golpes.js';
 import { RECALL_S, motivoRecall } from '../shared/recall.js';
@@ -118,6 +132,13 @@ const REGEN_ESPERA_TICKS = 5 * TICK_HZ;
 const VOO_REGEN_HP = 0.03; // fração do HP máximo por segundo, voando (sem nave do catálogo)
 const POUSO_REGEN_HP = 0.08; // fração do HP máximo por segundo, pousada (sem nave do catálogo)
 const POUSO_REGEN_ESPERA_TICKS = 1 * TICK_HZ;
+// Escudo do equipamento (server/servicos.js põe s.maxEscudo e s.regenEscudo): volta
+// regenEscudo por s, mas só depois de ESCUDO_ESPERA_S sem levar dano, para não virar
+// uma segunda barra de vida que se refaz no meio da troca de tiros.
+export const ESCUDO_ESPERA_S = 3;
+const ESCUDO_ESPERA_TICKS = ESCUDO_ESPERA_S * TICK_HZ;
+// Golpe crítico (potenciador Golpe Fatal): o dano do golpe direto sai × isto.
+export const CRITICO_MULT = 2;
 // Monstros do mundo aberto (3000 × 2000 m): Arnosh, Vorax (N_MONSTROS) e os Krakor,
 // elites (N_KRAKOR em server/elites.js). XP e ouro de cada tipo ficam em RECOMPENSA
 // (server/progressao.js).
@@ -504,8 +525,8 @@ export class World {
   }
 
   /**
-   * Pedido de Loja ou Evolução ({t:'comprar'|'evoluir'|'melhorar'|'usar'}) do
-   * jogador `id`. Devolve a resposta para ele (server/servicos.js).
+   * Pedido de Loja, Evolução, pontos ou equipamento ({t:'comprar'|'evoluir'|
+   * 'melhorar'|'reconstruir'|'usar'|'pontos'|'equipar'}) do jogador `id`. Devolve a resposta para ele (server/servicos.js).
    */
   pedido(id, msg) {
     return this.servicos.pedido(this.players.get(id), msg);
@@ -833,22 +854,27 @@ export class World {
 
   /**
    * Multiplicador do dano causado pelo jogador `autorId` agora (1 para monstro,
-   * drone ou quem já saiu). Ponto único dos multiplicadores de time do atacante:
-   * hoje só o bônus 'furia' (objetivo C). Vale no impacto, então só enquanto o
-   * bônus dura. Tiro, área (mina e choque, em #area) e dreno passam por aqui.
+   * drone ou quem já saiu), para um golpe do tipo `tipoDano` ('fisico', 'laser',
+   * 'eletrico'). Ponto único dos multiplicadores do atacante: o bônus 'furia' do
+   * time (objetivo C; vale no impacto, então só enquanto o bônus dura) e o poder do
+   * piloto naquele tipo (pontos e potenciadores: × (1 + status.poder[tipo])). Tiro,
+   * área, nova, mina, campo, dreno, torre B e torretas passam por aqui, uma vez por
+   * golpe.
    */
-  multDanoDe(autorId) {
+  multDanoDe(autorId, tipoDano) {
     const j = this.players.get(autorId);
     if (!j) return 1;
-    return this.bonus.ativo(j.time, 'furia', this.tick) ? BONUS.furia.mult : 1;
+    const furia = this.bonus.ativo(j.time, 'furia', this.tick) ? BONUS.furia.mult : 1;
+    return furia * (1 + (j.status?.poder[tipoDano] ?? 0));
   }
 
   /**
    * Dano de um tiro no impacto, sem os estados do alvo (torre B e torretas usam):
-   * o do golpe × multiplicador do NPC × bônus do time de quem atirou.
+   * o do golpe × multiplicador do NPC × bônus do time e poder de quem atirou.
    */
   danoDoTiro(bala) {
-    return (bala.dano ?? WEAPONS[bala.kind]?.dano ?? 0) * (bala.mult ?? 1) * (bala.drone ? 1 : this.multDanoDe(bala.owner));
+    const tipoDano = WEAPONS[bala.kind]?.tipoDano;
+    return (bala.dano ?? WEAPONS[bala.kind]?.dano ?? 0) * (bala.mult ?? 1) * (bala.drone ? 1 : this.multDanoDe(bala.owner, tipoDano));
   }
 
   /**
@@ -856,7 +882,11 @@ export class World {
    * abate, o ouro e o XP a `autor` (RECOMPENSA pelo tipo do alvo). `ev` é o evento
    * do golpe, completado aqui com alvo e dano (0 se o alvo estava protegido); o
    * dreno, que fere a cada tick, não manda. `opcoes`: tipoDano (laser, físico,
-   * elétrico) e direto (false no dreno e no recuo: a invulnerabilidade não segura).
+   * elétrico) e direto (false no dreno e no recuo: a invulnerabilidade não segura
+   * e não há crítico). O poder do atacante já vem no `dano` (multDanoDe); aqui
+   * entram o crítico, a resistência e a penetração, os estados das armas e o escudo
+   * do equipamento (ver o topo do arquivo). O evento leva o dano todo (escudo + HP)
+   * e, se houve, `escudo` (a parte que o escudo segurou) e `crit`.
    */
   #ferir(alvo, dano, autor, ev, opcoes = {}) {
     if (!alvo.vivo) return; // já morreu neste tick (área e efeito no mesmo golpe)
@@ -866,18 +896,44 @@ export class World {
       if (ev) this.eventos.push({ ...ev, alvo: alvo.id, dano: 0 });
       return;
     }
-    // Estados das armas (invulnerável, escudo, resistência, vulnerável, fraco...).
+    const quem = this.players.get(autor);
+    const tipo = opcoes.tipoDano;
+    // Golpe crítico do atacante (só golpe direto de arma; o sorteio é só do servidor).
+    let crit = false;
+    if (quem?.status?.critico > 0 && tipo && opcoes.direto !== false && dano > 0 && this.rng() < quem.status.critico) {
+      dano *= CRITICO_MULT;
+      crit = true;
+    }
+    // Resistência do piloto atingido ao tipo do golpe, menos a penetração de quem bateu.
+    if (alvo.tipo === 'jogador' && tipo && alvo.status) {
+      const resist = Math.max(0, (alvo.status.resist[tipo] ?? 0) - (quem?.status?.penetra[tipo] ?? 0));
+      dano *= 1 - resist;
+    }
+    // Estados das armas (invulnerável, escudo de arma, resistência, vulnerável, fraco...).
     dano = this.golpes.modificarDano(alvo, dano, autor, opcoes);
-    // Armadura do piloto (Loja) e defesa dos mineradores do time (Evolução).
-    if (alvo.tipo === 'jogador') dano *= 1 - reducaoArmadura(alvo);
-    else if (alvo.tipo === 'minerador') dano *= 1 - this.mineradores.atributos(alvo.time, this.tick).defesa;
-    alvo.ship.hp -= dano;
+    // Defesa dos mineradores do time (Evolução).
+    if (alvo.tipo === 'minerador') dano *= 1 - this.mineradores.atributos(alvo.time, this.tick).defesa;
+    // Escudo do equipamento: segura o que sobrou antes do HP.
+    const total = dano;
+    let noEscudo = 0;
+    const s = alvo.ship;
+    if (s.escudo > 0 && dano > 0) {
+      noEscudo = Math.min(s.escudo, dano);
+      s.escudo -= noEscudo;
+      dano -= noEscudo;
+    }
+    s.hp -= dano;
     alvo.ultimoDano = this.tick;
-    // Dano de jogador inimigo: anota para a assistência.
-    const atacante = alvo.tipo === 'jogador' && dano > 0 ? this.players.get(autor) : undefined;
+    // Dano de jogador inimigo (no escudo também): anota para a assistência.
+    const atacante = alvo.tipo === 'jogador' && total > 0 ? quem : undefined;
     if (atacante && atacante.time !== alvo.time) alvo.danoPor.set(atacante.id, this.tick);
-    if (alvo.recall && dano > 0) this.#pararRecall(alvo, 'dano'); // vale também para a morte
-    if (ev) this.eventos.push({ ...ev, alvo: alvo.id, dano: +dano.toFixed(1) });
+    if (alvo.recall && total > 0) this.#pararRecall(alvo, 'dano'); // vale também para a morte
+    if (ev) {
+      const e = { ...ev, alvo: alvo.id, dano: +total.toFixed(1) };
+      if (noEscudo > 0) e.escudo = +noEscudo.toFixed(1);
+      if (crit) e.crit = true;
+      this.eventos.push(e);
+    }
     if (alvo.ship.hp > 0) return;
     alvo.ship.hp = 0;
     alvo.vivo = false;
@@ -950,11 +1006,22 @@ export class World {
   #drenar(ent) {
     if (!(ent.drenoTicks > 0)) return;
     ent.drenoTicks--;
-    this.#ferir(ent, (ent.drenoDps ?? 0) * DT * this.multDanoDe(ent.drenoDono), ent.drenoDono, null, { direto: false });
+    const tipoDano = ent.drenoTipo;
+    this.#ferir(ent, (ent.drenoDps ?? 0) * DT * this.multDanoDe(ent.drenoDono, tipoDano), ent.drenoDono, null, { direto: false, tipoDano });
+  }
+
+  /** Escudo do equipamento: recupera depois de ESCUDO_ESPERA_S sem dano; pousada na própria base, enche rápido. */
+  #regenEscudo(ent) {
+    const s = ent.ship;
+    if (!(s.maxEscudo > 0) || s.escudo >= s.maxEscudo) return;
+    let porS = this.tick - ent.ultimoDano > ESCUDO_ESPERA_TICKS ? s.regenEscudo : 0;
+    if (pousadaNaBase(s)) porS += s.maxEscudo * BASE_CURA_FRAC;
+    if (porS > 0) s.escudo = Math.min(s.maxEscudo, s.escudo + porS * DT);
   }
 
   #regen(ent) {
     const s = ent.ship;
+    if (ent.tipo === 'jogador') this.#regenEscudo(ent);
     if (s.hp >= s.maxHp) return;
     const semDano = this.tick - ent.ultimoDano;
     // Pousada (parada no chão), a nave conserta rápido, como o "Landed: recovers"
@@ -986,7 +1053,7 @@ export class World {
       ent.ship = novo.ship;
     } else {
       ent.ship = this.#naveNaBase(ent.ship.race, ent.time, ent.classe, ent.tier);
-      prepararNave(ent); // nave da linha, nível, armadura e a posse de armas
+      prepararNave(ent); // nave da linha, nível, pontos, equipamento e a posse de armas
       ent.fila.length = 0;
       ent.protegidoAte = this.tick + PROTECAO_TICKS;
       ent.recall = null; // partida nova: quem canalizava já está na base
@@ -1019,9 +1086,9 @@ export class World {
       if (vinhaDoFim) {
         for (const j of this.players.values()) {
           if (j.fila.length) j.ack = j.fila[j.fila.length - 1].seq; // descarta sem travar a predição
-          // Ouro, XP, nível, armas compradas, armadura, itens e a nave comprada
-          // (tier) são da partida (como num MOBA): zeram na seguinte. A raça e a
-          // classe ficam (são escolha da entrada).
+          // Ouro, XP, nível, pontos, armas compradas, equipamentos (posse e o que
+          // está na nave), itens e a nave comprada (tier) são da partida (como num
+          // MOBA): zeram na seguinte. A raça e a classe ficam (são escolha da entrada).
           Object.assign(j, novaProgressao(), novoCombate(), novoEquipamento(), { ouro: 0 });
           this.#respawn(j);
         }
@@ -1175,7 +1242,8 @@ export class World {
    * que desenhar ('jogador', 'arnosh', 'vorax', 'krakor', 'guardiao', 'minerador'
    * ou 'escolta'); `drone` continua true para todo inimigo do PvE. Jogadores,
    * mineradores e escoltas trazem `time`; os mineradores também `carga` (minério no contêiner)
-   * e `minerando`. Jogador traz `nivel`, `classe` e `tier` (a nave a desenhar).
+   * e `minerando`. Jogador traz `nivel`, `classe` e `tier` (a nave a desenhar) e,
+   * com escudo equipado, `esc` (fração 0 a 1 do escudo).
    */
   entidades() {
     const lista = [];
@@ -1209,6 +1277,8 @@ export class World {
         ent.classe = e.ship.classe;
         ent.tier = e.ship.tier;
         ent.arm = e.ship.encaixes; // armas do Z e do X (o modelo na asa de cada uma)
+        // Fração do escudo do equipamento, para a barra nos rótulos (sem escudo, não vem).
+        if (e.ship.maxEscudo > 0) ent.esc = +Math.max(0, Math.min(1, e.ship.escudo / e.ship.maxEscudo)).toFixed(2);
       }
       if (e.recall) ent.recall = +Math.min(1, (this.tick - e.recall.inicio) / (e.recall.fim - e.recall.inicio)).toFixed(2);
       if (e.tipo === 'minerador') {

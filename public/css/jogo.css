@@ -18,6 +18,13 @@
   --evolucao: #a58bff;
   --loja: #ff6fd8;
   --vida-aliado: #3f8cff;
+  /* Escudo do equipamento: o mesmo azul-gelo da aura de escudo das armas. */
+  --escudo: #8fd0ff;
+  /* Tipos de dano (STATUS, INVENTÁRIO, ícones de escudo, armadura e potenciador): a
+     leitura do original (Ph. verde, El. azul, Op. vermelho) nos tons dos tiros. */
+  --dano-fisico: #6ee07a;
+  --dano-eletrico: #8fa0ff;
+  --dano-laser: #ff6b8b;
 }
 
 * {
@@ -2738,5 +2745,800 @@ body.dano::after {
 
   #menu-armas .opcoes {
     max-height: 62vh;
+  }
+}
+
+/* ---------- Escudo no painel e nos rótulos ---------- */
+
+/* Barra do escudo do equipamento, acima da do HP (o dano tira dele primeiro):
+   azul-gelo com listras, mais baixa, para não se confundir com a energia. Só aparece
+   com um escudo na nave. */
+#esc {
+  height: 12px;
+}
+
+#esc em,
+#esc .txt {
+  font-size: 9px;
+  line-height: 10px;
+  text-shadow: 0 1px 2px #000;
+}
+
+#esc .valor {
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0 4px, transparent 4px 8px),
+    linear-gradient(180deg, #d6f1ff, var(--escudo));
+}
+
+.rotulo .barra-esc {
+  width: 40px;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.rotulo .barra-esc i {
+  display: block;
+  height: 100%;
+  background: var(--escudo);
+  box-shadow: 0 0 4px var(--escudo);
+}
+
+/* ---------- Tipos de dano e ícones de equipamento ---------- */
+
+.tipo-fisico {
+  --cor-tipo: var(--dano-fisico);
+}
+
+.tipo-eletrico {
+  --cor-tipo: var(--dano-eletrico);
+}
+
+.tipo-laser {
+  --cor-tipo: var(--dano-laser);
+}
+
+.tipo-geral {
+  --cor-tipo: var(--neon);
+}
+
+/* Escudo, armadura e potenciador: SVG de traço como os de arma, na cor do tipo. */
+.icone-equip {
+  stroke: var(--cor-tipo, var(--neon));
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  filter: drop-shadow(0 0 3px var(--cor-tipo, var(--neon)));
+}
+
+.icone-equip.vazio {
+  stroke: var(--chapa-clara);
+  filter: none;
+}
+
+.carta-servico .icone-equip {
+  flex: none;
+  width: 22px;
+  height: 22px;
+}
+
+/* Loja › Escudos, Armaduras, Potenciadores: classe exigida, onde está o item e a
+   próxima versão. */
+.carta-servico.possuido {
+  border-color: var(--neon-escuro);
+}
+
+.carta-servico .so-classe,
+.carta-servico .selo-nave {
+  padding: 0 4px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 3px;
+  font: 600 8.5px system-ui, sans-serif;
+  font-style: normal;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 12px;
+  white-space: nowrap;
+}
+
+.carta-servico .selo-nave {
+  border-color: var(--neon-escuro);
+  color: var(--neon);
+}
+
+.carta-servico .selo-nave.guardado {
+  border-color: var(--chapa-clara);
+  color: var(--texto);
+  opacity: 0.7;
+}
+
+.carta-servico .proxima {
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--cor-servico);
+}
+
+/* ---------- Janelas laterais: STATUS (C) e INVENTÁRIO (I) ---------- */
+
+/* Na direita, por cima do placar, como as janelas CHARACTER e INVENTORY do
+   original: a nave (no meio, no terço de baixo) continua à vista e o jogo não
+   pausa. Mesma chapa das outras janelas, borda de cima em neon. */
+.janela-lateral {
+  position: absolute;
+  z-index: 11;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  width: min(370px, calc(100% - 24px));
+  max-height: calc(100% - 104px); /* para em cima do painel inferior */
+  padding: 8px 12px 6px;
+  border: 2px solid var(--chapa-clara);
+  border-top-color: var(--neon);
+  border-radius: 14px 14px 8px 8px;
+  background: linear-gradient(180deg, var(--chapa-clara), var(--chapa) 18%, #0c1a19);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 0 0 1px var(--neon-escuro),
+    0 4px 20px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+  animation: surge 0.15s ease-out;
+}
+
+#inventario {
+  width: min(400px, calc(100% - 24px));
+}
+
+.janela-lateral header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.janela-lateral h2 {
+  margin: 0;
+  font: 700 13px system-ui, sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--neon);
+  text-shadow: 0 0 10px var(--neon);
+}
+
+.janela-lateral header kbd {
+  font-size: 9px;
+  opacity: 0.7;
+}
+
+.janela-lateral .fechar {
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 6px;
+  background: #0f1e1d;
+  color: var(--texto);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.janela-lateral .corpo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  min-height: 0;
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+
+.janela-lateral .msg {
+  min-height: 1.4em;
+  margin: 4px 0 0;
+  font-size: 11.5px;
+  text-align: center;
+}
+
+.janela-lateral .msg.bom {
+  color: var(--neon);
+}
+
+.janela-lateral .msg.ruim {
+  color: #ff8a70;
+}
+
+/* Detalhe da linha ou do item sob o mouse, à esquerda da janela (como o cartão do
+   original), na altura do que está sob o mouse. No celular e em tela estreita fica
+   dentro da janela, embaixo. */
+.janela-lateral .detalhe {
+  position: absolute;
+  top: clamp(0px, var(--topo, 0px), calc(100% - 120px));
+  right: calc(100% + 8px);
+  width: 270px;
+  padding: 9px 12px 10px;
+  border: 1px solid var(--neon-escuro);
+  border-radius: 8px;
+  background: rgba(8, 20, 19, 0.94);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: center;
+  pointer-events: none;
+}
+
+.janela-lateral .detalhe p {
+  margin: 0;
+}
+
+.janela-lateral .detalhe strong {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 12.5px;
+}
+
+.janela-lateral .detalhe .mais-um {
+  margin-top: 4px;
+  color: var(--xp);
+}
+
+.detalhe-cab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.detalhe-cab svg {
+  flex: none;
+  width: 26px;
+  height: 26px;
+}
+
+.detalhe-cab strong {
+  margin: 0 !important;
+}
+
+.detalhe .tipo-item {
+  opacity: 0.75;
+}
+
+.detalhe .tipo-item small.original {
+  display: inline;
+}
+
+.efeitos-item {
+  margin: 5px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.efeitos-item li[class*='tipo-'] {
+  color: var(--cor-tipo);
+}
+
+.detalhe .exige {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.detalhe .exige b {
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+}
+
+.detalhe .acao-item {
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--neon);
+}
+
+.detalhe .acao-item.aviso {
+  color: #ff8a70;
+}
+
+/* Tabela Ph. / El. / Op. × Arma Z / Arma X / Resistência: uma faixa por tipo, na cor
+   dele; célula de arma que não é daquele tipo fica vazia e escura. */
+.tabela-tipos,
+.mini-tipos {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 2px;
+}
+
+.tabela-tipos {
+  padding: 2px 4px 4px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 6px;
+  background: #081110;
+}
+
+.tabela-tipos thead th,
+.mini-tipos tr:first-child th:not(.nome-at) {
+  font: 600 9px system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+
+.tabela-tipos thead kbd,
+.mini-tipos kbd {
+  padding: 0 3px;
+  font-size: 8.5px;
+}
+
+.tabela-tipos tbody th {
+  width: 34px;
+  font: 700 12px system-ui, sans-serif;
+  color: var(--cor-tipo);
+  text-align: left;
+}
+
+.tabela-tipos td,
+.mini-tipos td {
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--cor-tipo) 14%, #081110);
+  font: 600 12px ui-monospace, monospace;
+  color: var(--texto);
+  text-align: center;
+}
+
+.tabela-tipos td.vazia,
+.mini-tipos td.vazia {
+  background: color-mix(in srgb, var(--cor-tipo) 5%, #081110);
+}
+
+.tabela-tipos td.resist,
+.mini-tipos td.resist {
+  color: var(--cor-tipo);
+}
+
+/* STATUS: ficha do piloto, linhas de ouro/XP/escudo/HP/energia e os pontos. */
+#status .ficha {
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 6px;
+  background: #081110;
+}
+
+#status .ficha dd {
+  font: 600 12.5px system-ui, sans-serif;
+}
+
+#status .ficha em {
+  font: 700 11px ui-monospace, monospace;
+  font-style: normal;
+  color: var(--xp);
+}
+
+.linhas-st {
+  display: grid;
+  gap: 3px;
+}
+
+.linha-st {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  row-gap: 2px;
+  padding: 3px 8px 4px;
+  border-radius: 4px;
+  background: #0f1e1d;
+}
+
+.linha-st span {
+  font-size: 11.5px;
+  opacity: 0.8;
+}
+
+.linha-st b {
+  font: 600 13px ui-monospace, monospace;
+}
+
+.linha-st.ouro b {
+  color: var(--ouro);
+}
+
+.linha-st.apagada {
+  opacity: 0.5;
+}
+
+.linha-st .barrinha {
+  grid-column: 1 / -1;
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.linha-st .barrinha i {
+  display: block;
+  height: 100%;
+}
+
+.b-xp {
+  background: var(--xp);
+}
+
+.b-esc {
+  background: var(--escudo);
+}
+
+.b-hp {
+  background: var(--hp);
+}
+
+.b-en {
+  background: var(--en);
+}
+
+.pontos-st {
+  display: grid;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--chapa-clara);
+}
+
+.pontos-st .livres {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+
+.pontos-st .livres b {
+  font: 700 20px ui-monospace, monospace;
+  color: var(--texto);
+  opacity: 0.6;
+}
+
+.pontos-st .livres.tem b {
+  color: var(--xp);
+  opacity: 1;
+  text-shadow: 0 0 10px rgba(182, 240, 90, 0.5);
+}
+
+.pontos-st .livres > span {
+  font: 700 11px system-ui, sans-serif;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.pontos-st .livres small {
+  flex-basis: 100%;
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+/* Um atributo: pontos à esquerda (grande, na cor do tipo), o meio (energia ou a
+   tabela do tipo, e a barra x/99) e o "+". */
+.atributo[data-atributo='energia'] {
+  --cor-tipo: var(--en);
+}
+
+.atributo {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px 5px 4px;
+  border: 1px solid transparent;
+  border-left: 3px solid var(--cor-tipo);
+  border-radius: 4px;
+  background: #0f1e1d;
+}
+
+.atributo.focada {
+  border-color: var(--neon-escuro);
+  border-left-color: var(--cor-tipo);
+}
+
+.atributo .qtd {
+  font: 700 16px ui-monospace, monospace;
+  color: var(--cor-tipo);
+  text-align: center;
+}
+
+.atributo .meio {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.atributo .nome-at {
+  font: 700 12px system-ui, sans-serif;
+  color: var(--cor-tipo);
+  text-align: left;
+}
+
+.atributo .efeito-at {
+  font: 11.5px ui-monospace, monospace;
+}
+
+.atributo .mini-tipos td {
+  font-size: 11px;
+}
+
+.atributo .mini-tipos td.poder-at {
+  background: none;
+  color: var(--cor-tipo);
+  text-align: left;
+}
+
+.linha-pontos {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.barra-pontos {
+  flex: 1;
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.barra-pontos i {
+  display: block;
+  height: 100%;
+  background: var(--cor-tipo);
+  box-shadow: 0 0 6px var(--cor-tipo);
+}
+
+.linha-pontos small {
+  font: 9.5px ui-monospace, monospace;
+  opacity: 0.6;
+}
+
+.botoes-at {
+  display: flex;
+  gap: 4px;
+}
+
+.atributo .mais {
+  min-width: 30px;
+  height: 30px;
+  border: 1px solid var(--neon-escuro);
+  border-radius: 6px;
+  background: #0b1716;
+  color: var(--neon);
+  font: 700 18px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.atributo .mais.dez {
+  font-size: 12px;
+}
+
+.atributo .mais:not(:disabled):hover {
+  border-color: var(--neon);
+  box-shadow: 0 0 10px rgba(0, 239, 192, 0.35);
+}
+
+.atributo .mais:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.extras-st {
+  margin: 0;
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* INVENTÁRIO: miniatura da nave, os seis encaixes e o compartimento. */
+.nave-inv {
+  position: relative;
+  height: 84px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 6px;
+  background: radial-gradient(ellipse at 50% 65%, rgba(245, 154, 69, 0.16), transparent 70%), #0b1716;
+}
+
+.nave-inv .mini {
+  position: absolute;
+  inset: 0;
+}
+
+.nave-inv img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.nave-inv .nome-nave {
+  position: absolute;
+  left: 8px;
+  bottom: 4px;
+  font: 600 10.5px system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.slots {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.slot,
+.item-inv {
+  min-width: 0;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 6px;
+  background: #0f1e1d;
+  color: var(--texto);
+  font: inherit;
+  cursor: pointer;
+}
+
+.slot {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 2px 6px;
+  padding: 0 6px 5px;
+  text-align: left;
+}
+
+/* Faixa do nome do encaixe no alto, como o "WEAPON 1" do original. */
+.slot .rot {
+  grid-column: 1 / -1;
+  margin: 0 -6px;
+  padding: 1px 6px;
+  border-radius: 5px 5px 0 0;
+  background: #0b1716;
+  font: 700 9px system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--neon);
+}
+
+.slot .rot i {
+  font-style: normal;
+  color: var(--texto);
+  opacity: 0.7;
+}
+
+.slot .ic svg,
+.item-inv .ic svg {
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+
+.slot .nm {
+  min-width: 0;
+  font-size: 11.5px;
+  line-height: 1.2;
+}
+
+.slot .v,
+.item-inv .v {
+  font: 700 10px ui-monospace, monospace;
+  color: var(--neon);
+}
+
+.slot.vazio {
+  border-style: dashed;
+}
+
+.slot.vazio .nm {
+  opacity: 0.45;
+}
+
+.slot.alvo {
+  border-color: var(--neon);
+  box-shadow: 0 0 10px rgba(0, 239, 192, 0.25);
+}
+
+.slot:hover,
+.item-inv:hover {
+  border-color: var(--neon);
+}
+
+.aviso-base {
+  margin: 0;
+  font-size: 10.5px;
+  opacity: 0.75;
+}
+
+.aviso-base.livre {
+  color: var(--neon);
+  opacity: 1;
+}
+
+#inventario h3 {
+  margin: 2px 0 0;
+  font: 700 10.5px system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+#inventario h3 .conta-inv {
+  font: 10px ui-monospace, monospace;
+  opacity: 0.6;
+}
+
+.grade-inv {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+  gap: 5px;
+}
+
+.item-inv {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 2px;
+  padding: 6px 4px 4px;
+}
+
+.item-inv .nm {
+  display: -webkit-box;
+  font-size: 9.5px;
+  line-height: 1.2;
+  text-align: center;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.nota-inv {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+/* Tela estreita e celular: a janela fica à esquerda dos botões da direita, e o
+   detalhe vai para dentro dela, embaixo. */
+@media (max-width: 760px) {
+  .janela-lateral .detalhe {
+    position: static;
+    width: auto;
+    margin-top: 6px;
+    order: 3;
+  }
+}
+
+.toque .janela-lateral,
+.toque #inventario {
+  left: 12px;
+  right: 210px;
+  width: auto;
+  max-height: calc(100% - 24px);
+  animation: none;
+}
+
+.toque .janela-lateral .detalhe {
+  position: static;
+  flex: none;
+  width: auto;
+  max-height: 34%;
+  margin-top: 4px;
+  padding: 5px 8px;
+  font-size: 10.5px;
+  line-height: 1.35;
+  overflow-y: auto;
+}
+
+@media (pointer: coarse) {
+  .janela-lateral .fechar {
+    width: 44px;
+    height: 44px;
+  }
+
+  .atributo .mais {
+    min-width: 44px;
+    height: 44px;
   }
 }

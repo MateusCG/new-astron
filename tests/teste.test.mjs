@@ -38,6 +38,8 @@ test('teste: ouro, XP, nível e nível máximo pelos pedidos do modo de teste', 
   assert.ok(j.ship.maxHp > hp1, 'o HP do nível acompanha');
   assert.equal(w.pedidoTeste(j.id, { acao: 'nivelMax' }).ok, true);
   assert.equal(j.nivel, NIVEL_MAX);
+  assert.equal(j.nivel, 25, 'o nível máximo é o 25');
+  assert.equal(w.snapshotPara(j, [], []).me.pontosLivres, 250, '10 pontos por nível');
   assert.deepEqual(w.pedidoTeste(j.id, { acao: 'nivel' }), { t: 'resultado', acao: 'teste', item: 'nivel', ok: false, codigo: 'limite' });
   assert.equal(w.pedidoTeste(j.id, { acao: 'bobagem' }).codigo, 'invalido');
   assert.ok(w.tirarEventos().some((e) => e.e === 'nivel' && e.nivel === NIVEL_MAX), 'avisa a subida');

@@ -10,17 +10,23 @@
 // Curva: para passar do nível n para o n + 1 são xpParaNivel(n) pontos (60 no
 // primeiro, +20 a cada nível). Numa partida de 10 minutos, caçando sem parar, dá
 // para chegar perto do 15: o nível 5 sai com uns 12 Vorax, o 10 com uns 1300 XP e o
-// 15 com uns 2700. NIVEL_MAX fecha a conta; lá a barra fica cheia.
+// 15 com uns 2700. NIVEL_MAX (25, como pediu o Mateus) fecha a conta; lá a barra
+// fica cheia.
 //
-// XP, nível e ouro são da partida: zeram quando começa a seguinte (World,
+// XP, nível, pontos e ouro são da partida: zeram quando começa a seguinte (World,
 // #passoPartida).
 //
 // Subir de nível dá um ganho pequeno e automático: +HP_POR_NIVEL (3%) do HP máximo
 // da NAVE por nível acima do 1 (nível 10 = +27%). O HP sobe junto com o máximo
-// (não cura o resto). A cada 5 níveis (5, 10, 15, 20) a Evolução paga libera a
-// próxima nave da linha (shared/naves.js, server/servicos.js), que lê `j.nivel`; o
-// HP máximo do jogador junta a nave (raça, classe e tier), o nível e a armadura da
-// Loja em hpMaxDoJogador.
+// (não cura o resto). Cada nível também dá PONTOS_POR_NIVEL pontos para o piloto
+// distribuir (shared/status.js; o pedido {t:'pontos'} em server/servicos.js). A cada
+// 5 níveis (5, 10, 15, 20) a Evolução paga libera a próxima nave da linha
+// (shared/naves.js, server/servicos.js), que lê `j.nivel`.
+//
+// Status do piloto (statusDoJogador): os pontos, o escudo, a armadura e os dois
+// potenciadores equipados somados por statusDoPiloto (shared/status.js). O HP
+// máximo do jogador junta a nave (raça, classe e tier), o nível e o hpExtra do
+// status (armadura e potenciadores) em hpMaxDoJogador.
 //
 // Combate entre jogadores (DESIGN-PARTIDA.md, "Combate"): morrer custa mais tempo
 // conforme o nível e a partida avançam (tempoRenascer), para a briga do fim da
@@ -35,10 +41,10 @@
 
 import { NAVE_SEM_CLASSE } from '../shared/sim.js';
 import { naveDe, CLASSE_PADRAO } from '../shared/naves.js';
-import { armadura } from '../shared/loja.js';
+import { pontosVazios, statusDoPiloto } from '../shared/status.js';
 import { MINERADOR } from './mineradores.js';
 
-export const NIVEL_MAX = 20;
+export const NIVEL_MAX = 25;
 export const HP_POR_NIVEL = 0.03; // fração do HP da nave por nível acima do 1
 export const XP_OBJETIVO = 60; // a quem toma um objetivo A ou B
 /** XP e ouro por abate, pelo tipo do que morreu. */
@@ -97,9 +103,9 @@ export function novoCombate() {
   return { sequencia: 0, danoPor: new Map() };
 }
 
-/** Campos de progressão de um jogador que acabou de entrar. */
+/** Campos de progressão de um jogador que acabou de entrar (ou da partida nova): nível, XP e pontos. */
 export function novaProgressao() {
-  return { nivel: 1, xp: 0 };
+  return { nivel: 1, xp: 0, pontos: pontosVazios() };
 }
 
 /** XP para passar do nível n para o n + 1 (0 no nível máximo). */
@@ -120,10 +126,26 @@ export function hpMaxDoNivel(hpBase, nivel) {
   return Math.round(hpBase * (1 + HP_POR_NIVEL * (nivel - 1)));
 }
 
-/** HP máximo da nave do jogador: o da nave no nível, mais o HP da armadura (shared/loja.js). */
-export function hpMaxDoJogador(j) {
+/**
+ * O status do piloto (statusDoPiloto em shared/status.js): os pontos distribuídos
+ * (j.pontos), o escudo, a armadura e os potenciadores equipados (j.equipado), nos
+ * níveis da posse (j.equip), com a energia base da nave em uso.
+ */
+export function statusDoJogador(j) {
+  return statusDoPiloto({
+    race: j.ship.race,
+    classe: j.classe ?? CLASSE_PADRAO,
+    pontos: j.pontos,
+    equipado: j.equipado,
+    niveis: j.equip,
+    energiaBase: naveDoJogador(j)?.energia ?? NAVE_SEM_CLASSE.energia,
+  });
+}
+
+/** HP máximo da nave do jogador: o da nave no nível, mais o HP a mais do status (armadura e potenciadores). */
+export function hpMaxDoJogador(j, status = statusDoJogador(j)) {
   const hp = hpMaxDoNivel(naveDoJogador(j)?.hp ?? NAVE_SEM_CLASSE.hp, j.nivel);
-  return hp + (armadura(j.armadura)?.hp ?? 0);
+  return Math.round(hp + status.hpExtra);
 }
 
 /**
@@ -138,7 +160,7 @@ export function ganharXp(j, xp, eventos) {
     j.nivel++;
     subiu++;
     const s = j.ship;
-    const novo = hpMaxDoJogador(j); // com a nave e a armadura
+    const novo = hpMaxDoJogador(j, j.status ?? statusDoJogador(j)); // com a nave e o equipamento
     if (s.hp > 0) s.hp += novo - s.maxHp;
     s.maxHp = novo;
     eventos?.push({ e: 'nivel', id: j.id, nivel: j.nivel });

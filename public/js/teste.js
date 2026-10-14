@@ -10,7 +10,7 @@ const TEXTO_OK = {
   ouro: '+1000 ouro (teste)',
   xp: '+100 XP (teste)',
   nivel: 'Subiu um nível (teste)',
-  nivelMax: 'Nível 20 (teste)',
+  nivelMax: 'Nível máximo (teste)',
 };
 
 export class PainelTeste {

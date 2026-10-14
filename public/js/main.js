@@ -39,6 +39,11 @@
 // painel abre sozinho; os pedidos vão direto pela rede e a resposta chega como
 // {t:'resultado'}. Com o painel aberto, como com o menu de armas, não sai tiro.
 //
+// STATUS (status.js, tecla C) e INVENTÁRIO (inventario.js, tecla I): janelas laterais,
+// uma de cada vez, que leem o `me` do snapshot (pontos, equipamento, status somado).
+// Os pedidos {t:'pontos'} e {t:'equipar'} vão direto pela rede; as armas Z/X do
+// inventário mudam os encaixes do menu de armas, como o Q/E. Abertas, não sai tiro.
+//
 // Recall (B, shared/recall.js): o pedido vai no campo r do comando e só o servidor
 // decide; o cliente não prevê a canalização. Na chegada a nave salta para a base:
 // a reconciliação vê o salto (mais de SALTO_M), descarta a suavização e a câmera
@@ -99,6 +104,8 @@ import { Placar } from './placar.js';
 import { PainelTeste } from './teste.js';
 import { PainelTimes } from './times.js';
 import { PainelServicos } from './servicos.js';
+import { PainelStatus } from './status.js';
+import { PainelInventario } from './inventario.js';
 import { MELHORIAS_MINERADOR, MELHORIA_TORRETAS } from '/shared/evolucao.js';
 import { RECALL_S } from '/shared/recall.js';
 import { TORRETAS } from '/shared/terrain.js';
@@ -463,6 +470,19 @@ function montarJogo(rede, boas, renderer, race, classe) {
     noticia: (texto, tipo) => hud.noticia(texto, tipo),
     signal: controles.parar.signal,
   });
+  // STATUS e INVENTÁRIO: janelas laterais, uma de cada vez (abrir uma fecha a outra).
+  const status = new PainelStatus({
+    enviar: (m) => rede.enviar(m),
+    signal: controles.parar.signal,
+    aoAbrir: () => inventario.fechar(),
+  });
+  const inventario = new PainelInventario({
+    enviar: (m) => rede.enviar(m),
+    menuArmas,
+    noticia: (texto, tipo) => hud.noticia(texto, tipo),
+    signal: controles.parar.signal,
+    aoAbrir: () => status.fechar(),
+  });
   const times = new PainelTimes({
     meuId,
     meuTime,
@@ -541,9 +561,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
     if (!vivo || !pred) return;
     const inp = controles.ler();
     // As armas dos dois encaixes vão em todo comando; com o menu, o painel da
-    // Loja/Evolução ou a janela de volume ou dos times aberta não sai tiro.
+    // Loja/Evolução ou a janela de volume, dos times, do STATUS ou do INVENTÁRIO
+    // aberta não sai tiro.
     [inp.a, inp.a2] = menuArmas.encaixes;
-    if (menuArmas.aberto || painel.aberto || painelVolume.aberto || times.aberto) inp.f1 = inp.f2 = false;
+    if (menuArmas.aberto || painel.aberto || painelVolume.aberto || times.aberto || status.aberto || inventario.aberto) inp.f1 = inp.f2 = false;
     seq++;
     rede.enviar({ t: 'in', s: seq, ...inp });
     ant = pose(pred);
@@ -607,6 +628,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
     menuArmas.definirNiveis(m.me?.niveis);
     estadosArmas = m.st ?? {};
     painel.atualizar({ ouro: m.ouro, nivel: m.nivel, me: m.me, melhorias: m.melhorias, torretas: m.torretas });
+    status.atualizar({ me: m.me, nivel: m.nivel, xp: m.xp, xpProx: m.xpProx, ouro: m.ouro, nome: euNoSnap?.nome ?? meuNome });
+    inventario.atualizar({ me: m.me, nivel: m.nivel });
     // A nave da linha que você pilota (muda ao evoluir na Evolução).
     if (m.me) definirNave(minhaNave, race, m.me.classe ?? classe, m.me.tier ?? 0);
 
@@ -818,7 +841,11 @@ function montarJogo(rede, boas, renderer, race, classe) {
   rede.aoReceber = (m) => {
     if (m.t === 'snap') aoSnapshot(m);
     else if (m.t === 'resultado' && m.acao === 'teste') painelTeste?.resultado(m);
-    else if (m.t === 'resultado' && m.acao === 'ia') {
+    else if (m.t === 'resultado' && (m.acao === 'pontos' || m.acao === 'equipar')) {
+      if (m.acao === 'pontos') status.resultado(m);
+      else inventario.resultado(m);
+      sons.tocarInterface(m.ok ? SONS_INTERFACE.clique : SONS_INTERFACE.erro);
+    } else if (m.t === 'resultado' && m.acao === 'ia') {
       times.resultado(m);
       sons.tocarInterface(m.ok ? SONS_INTERFACE.clique : SONS_INTERFACE.erro);
     }
@@ -988,7 +1015,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
       efeitos.recall(o.obj, e.recall ?? null, aliado ? COR_TIME.meu : COR_TIME.outro, dt, tempo);
       // Radar desligado (Canhão Antirradar): sem rótulo de quem não é do seu time.
       if (aliado || !(estadosArmas.cego > 0)) {
-        rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position, nivel: e.nivel, piloto: e.tipo === 'jogador' });
+        rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position, nivel: e.nivel, piloto: e.tipo === 'jogador', esc: e.esc });
       }
     }
     // Torretas: queda, subida e a cabeça atrás do alvo (posição desenhada dele).
@@ -1061,6 +1088,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
       // Pousada e parada na Loja ou na Evolução da própria base: o painel abre.
       const parada = vivo && pred.pousado && Math.hypot(pred.vx, pred.vz) < VEL_TOQUE;
       painel.lugar(parada && area?.servico && area.time === meuTime ? area.servico : null);
+      // Pousada em qualquer área da própria base (anel ou plataformas): o inventário troca equipamento.
+      inventario.lugar(!!(vivo && pred.pousado && area && (area.base === meuTime || (area.servico && area.time === meuTime))));
       // Plataforma do outro time não oferece pouso.
       hud.pouso(vivo && pousoPermitido(pred) ? area : null, vivo && pred.pousado, painel.aberto);
       // Pousada na marcação de um objetivo A: barra do progresso.
@@ -1105,6 +1134,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
     camera,
     menuArmas,
     painel,
+    status,
+    inventario,
     sons,
     objetivos,
     torretas,
@@ -1125,6 +1156,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
     controles.destruir();
     menuArmas.el.hidden = true;
     times.fechar();
+    status.fechar();
+    inventario.fechar();
     painelTeste?.fechar();
     painel.lugar(null);
     removeEventListener('resize', redimensionar);
@@ -1139,11 +1172,16 @@ function montarJogo(rede, boas, renderer, race, classe) {
     if (window.__astron?.scene === scene) window.__astron = null;
   }
 
-  /** ESC com a janela dos times ou o painel da Loja/Evolução aberto: fecha só ele. Devolve se fechou. */
+  /**
+   * ESC com a janela dos times, o STATUS, o INVENTÁRIO ou o painel da Loja/Evolução
+   * aberto: fecha só ele. Devolve se fechou.
+   */
   function fecharPainel() {
-    if (times.aberto) {
-      times.fechar();
-      return true;
+    for (const janela of [times, status, inventario]) {
+      if (janela.aberto) {
+        janela.fechar();
+        return true;
+      }
     }
     if (!painel.aberto) return false;
     painel.fechar();

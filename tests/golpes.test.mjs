@@ -296,6 +296,21 @@ test('efeitos no alvo: dreno, lento, desgoverno, anticadência, redutor de energ
   }
 });
 
+test('efeitos no alvo: quebra-escudo descarrega o escudo do equipamento; sem escudo, tira do HP', () => {
+  for (const comEscudo of [true, false]) {
+    const { w, js } = arena(['bellico', 'mobile', 0, 0], ['shrewdo', 'assault', 0, -80]);
+    const [a, b] = js;
+    if (comEscudo) Object.assign(b.ship, { maxEscudo: 1000, escudo: 1000 });
+    const hp = b.ship.hp;
+    disparar(w, a, '212010'); // Míssil Quebra-Escudo: 30% do escudo
+    for (let i = 0; i < 4 * SEGUNDO && b.ship.hp === hp && b.ship.escudo === (comEscudo ? 1000 : 0); i++) w.step();
+    if (comEscudo) {
+      assert.ok(b.ship.escudo <= 700 + 1e-9, `descarregou 30% (${b.ship.escudo})`);
+      assert.equal(b.ship.hp, hp, 'o HP não mexe');
+    } else assert.ok(b.ship.hp < hp - b.ship.maxHp * 0.04, `sem escudo, a fração do HP (${hp} → ${b.ship.hp} de ${b.ship.maxHp})`);
+  }
+});
+
 test('efeitos no alvo: vulnerável aumenta e fraco diminui o dano; cego vai no snapshot da vítima', () => {
   const { w, js } = arena(['shrewdo', 'assault', 0, 0], ['bellico', 'assault', 0, -80]);
   const [a, b] = js;

@@ -1,7 +1,8 @@
 // Loja da base (shared/loja.js + server/servicos.js): só compra pousado e parado na
 // Loja da própria base e com ouro; armas compradas nos dois encaixes; posse no
-// jogador (sobrevive ao renascimento, zera na partida nova); armadura; itens com
-// recarga e limite; pedido malformado não quebra nada.
+// jogador (sobrevive ao renascimento, zera na partida nova); equipamentos do
+// original (escudo, armadura, potenciadores: tests/inventario.test.mjs tem o resto);
+// itens com recarga e limite; pedido malformado não quebra nada.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,8 +13,9 @@ import { hpMaxDoNivel } from '../server/progressao.js';
 import { createShip, IDX_ARMA, DT, armasIniciais, versaoArma } from '../shared/sim.js';
 import { naveDe } from '../shared/naves.js';
 import { BASE, SERVICOS, CORREDOR } from '../shared/terrain.js';
-import { ARMADURAS, ITENS, REPARO_CURA, ITEM_CARGA_MAX, armasAVenda, precoArma } from '../shared/loja.js';
-import { armasDisponiveis } from '../shared/armas.js';
+import { ITENS, REPARO_CURA, ITEM_CARGA_MAX, armasAVenda, precoArma, itemDaLoja } from '../shared/loja.js';
+import { armasDisponiveis, WEAPONS, ARMAS } from '../shared/armas.js';
+import { versaoEquip, EQUIPAMENTOS, ORDEM_EQUIP } from '../shared/equipamentos.js';
 
 const SEGUNDO = 30;
 // O piloto dos testes é Bellico Assault: de fábrica o Feixe Bellico (Z) e a Vulcan
@@ -28,6 +30,10 @@ const EMP = 'o212019';
 const PRECO_ARMA = { missil: precoArma(MISSIL), emp: precoArma(EMP) };
 // Dano de um disparo do Feixe Rifle Triplo (Acron): três canos.
 const DANO_FEIXE_ACRON = 3 * versaoArma(armasIniciais('acron')[0], 1).golpe.dano;
+const TIPO_FEIXE_ACRON = WEAPONS[ARMAS[armasIniciais('acron')[0]]].tipoDano;
+// Armadura de Titânio (geral, só Assault): HP a mais e resistência igual nos três tipos.
+const TITANIO = 'e320001';
+const VELOCIDADE = 'e340015'; // Potenciador de Velocidade
 
 /** Põe a nave de `j` pousada e parada no centro da plataforma `servico` do time `time`. */
 function pousar(j, servico, time = j.time) {
@@ -52,8 +58,12 @@ test('loja: à venda as armas da raça e da classe que não são de fábrica, co
   assert.ok(!venda.includes(IDX_ARMA.o312010), 'arma de outra raça não');
   assert.equal(PRECO_ARMA.missil, 230, '3800 do original × 0,06, arredondado à dezena');
   assert.ok(PRECO_ARMA.emp > PRECO_ARMA.missil, 'Invulnerabilidade é das mais caras');
-  assert.ok(ARMADURAS[0].preco < ARMADURAS[1].preco && ARMADURAS[1].preco < ARMADURAS[2].preco);
-  assert.ok(ARMADURAS[2].velMult < 1, 'a pesada custa velocidade');
+  // Equipamentos do original: compra pela chave, evolução por 'evoluir:<chave>'.
+  for (const k of ORDEM_EQUIP) {
+    assert.deepEqual(itemDaLoja(k), { tipo: 'equip', chave: k, categoria: EQUIPAMENTOS[k].categoria, preco: EQUIPAMENTOS[k].preco });
+    assert.deepEqual(itemDaLoja('evoluir:' + k), { tipo: 'evoluirEquip', chave: k });
+  }
+  for (const velha of ['armaduraLeve', 'armaduraMedia', 'armaduraPesada']) assert.equal(itemDaLoja(velha), null, 'as armaduras genéricas saíram');
 });
 
 test('loja: só compra pousado e parado na Loja da própria base, e com ouro', () => {
@@ -114,7 +124,7 @@ test('loja: a posse sobrevive ao renascimento e zera na partida seguinte', () =>
   w.step();
   pousar(j, 'loja');
   j.ouro = 2000;
-  for (const item of [MISSIL, 'armaduraPesada', 'reparo', 'energia']) assert.equal(comprar(w, j, item).ok, true, item);
+  for (const item of [MISSIL, TITANIO, VELOCIDADE, 'reparo', 'energia']) assert.equal(comprar(w, j, item).ok, true, item);
 
   // Morre e renasce: nave nova, mesma posse.
   j.ship.hp = 0;
@@ -123,8 +133,9 @@ test('loja: a posse sobrevive ao renascimento e zera na partida seguinte', () =>
   w.step();
   assert.ok(j.vivo);
   assert.ok(j.ship.armas.includes(missil), 'a arma comprada volta na nave nova');
-  assert.equal(j.ship.maxHp, hpMaxDoNivel(naveDe('bellico', 'assault', 0).hp, 1) + ARMADURAS[2].hp, 'a armadura volta');
-  assert.equal(j.ship.velMult, ARMADURAS[2].velMult);
+  assert.equal(j.ship.maxHp, Math.round(hpMaxDoNivel(naveDe('bellico', 'assault', 0).hp, 1) + versaoEquip(TITANIO, 1).hp), 'a armadura volta');
+  assert.ok(j.ship.velMult > 1, 'o potenciador de velocidade volta');
+  assert.equal(j.equipado.armadura, TITANIO);
   assert.equal(j.itens.reparo, 1);
 
   // Partida seguinte: tudo volta ao começo.
@@ -132,23 +143,25 @@ test('loja: a posse sobrevive ao renascimento e zera na partida seguinte', () =>
   assert.equal(w.partida.numero, 2);
   assert.deepEqual(j.armas, []);
   assert.deepEqual(j.ship.armas, ARMAS_INICIAIS);
-  assert.equal(j.armadura, -1);
+  assert.deepEqual(j.equip, {});
+  assert.deepEqual(j.equipado, { escudo: null, armadura: null, pot: [null, null] });
   assert.deepEqual(j.itens, { reparo: 0, energia: 0 });
   assert.equal(j.ship.maxHp, hpMaxDoNivel(naveDe('bellico', 'assault', 0).hp, 1));
   assert.equal(j.ship.velMult, 1);
   const me = w.snapshotPara(j, [], []).me;
   assert.deepEqual(me.armas, ARMAS_INICIAIS);
-  assert.equal(me.armadura, -1);
+  assert.deepEqual(me.equip, {});
+  assert.equal(me.armadura, undefined, 'o número da armadura genérica saiu do me');
 });
 
-/** A atira laser em B, 20 m à frente, fora da zona segura. Devolve o dano em B. */
-function danoDeUmLaser(armaduraDeB) {
+/** A atira o feixe da Acron em B, 20 m à frente, fora da zona segura. Devolve o dano no HP de B. */
+function danoDeUmLaser(equipDeB) {
   const w = mundo();
   const a = w.addPlayer('A', 'acron');
-  const b = w.addPlayer('B', 'shrewdo'); // sem blindagem de nave: só a da Loja conta
+  const b = w.addPlayer('B', 'shrewdo');
   b.ouro = 1000;
   pousar(b, 'loja');
-  for (const item of armaduraDeB) assert.equal(comprar(w, b, item).ok, true, item);
+  for (const item of equipDeB) assert.equal(comprar(w, b, item).ok, true, item);
   const z = BASE.z - ZONA_SEGURA - 120;
   Object.assign(a.ship, createShip('acron', BASE.x, z, 0), { time: a.time, armas: a.ship.armas });
   Object.assign(b.ship, { x: BASE.x, z: z - 20, y: a.ship.y, vx: 0, vz: 0, pousado: false });
@@ -159,29 +172,29 @@ function danoDeUmLaser(armaduraDeB) {
   return hp - b.ship.hp;
 }
 
-test('loja: armadura reduz o dano, dá HP e a pesada custa velocidade; comprar melhor substitui', () => {
+test('loja: a armadura do original dá HP e resistência; o potenciador de velocidade acelera a nave', () => {
+  const ALCANIO = 'e320012'; // geral, todas as classes
   assert.equal(danoDeUmLaser([]), DANO_FEIXE_ACRON);
-  assert.ok(Math.abs(danoDeUmLaser(['armaduraLeve']) - DANO_FEIXE_ACRON * (1 - ARMADURAS[0].reducao)) < 1e-9);
-  assert.ok(Math.abs(danoDeUmLaser(['armaduraPesada']) - DANO_FEIXE_ACRON * (1 - ARMADURAS[2].reducao)) < 1e-9);
+  const resist = versaoEquip(ALCANIO, 1).efeitos.find((e) => e.tipo === 'resist' && e.tipoDano === TIPO_FEIXE_ACRON).valor;
+  assert.ok(Math.abs(danoDeUmLaser([ALCANIO]) - DANO_FEIXE_ACRON * (1 - resist)) < 1e-9);
 
   const w = mundo();
-  const j = w.addPlayer('A', 'shrewdo');
+  const j = w.addPlayer('A', 'shrewdo', 'mobile');
   pousar(j, 'loja');
   j.ouro = 2000;
   const hp0 = j.ship.maxHp;
-  assert.equal(comprar(w, j, 'armaduraMedia').ok, true);
-  assert.equal(j.ship.maxHp, hp0 + ARMADURAS[1].hp);
-  assert.equal(j.ship.hp, hp0 + ARMADURAS[1].hp, 'a vida sobe junto com o máximo');
-  assert.equal(comprar(w, j, 'armaduraLeve').codigo, 'ja_possui', 'pior que a equipada');
-  assert.equal(comprar(w, j, 'armaduraMedia').codigo, 'ja_possui');
-  assert.equal(comprar(w, j, 'armaduraPesada').ok, true, 'melhor substitui');
-  assert.equal(j.armadura, 2);
-  assert.equal(j.ship.maxHp, hp0 + ARMADURAS[2].hp, 'só a armadura equipada conta');
-  assert.equal(j.ship.velMult, ARMADURAS[2].velMult);
-  assert.equal(j.ouro, 2000 - ARMADURAS[1].preco - ARMADURAS[2].preco);
+  assert.equal(comprar(w, j, ALCANIO).ok, true);
+  assert.equal(j.ship.maxHp, Math.round(hp0 + versaoEquip(ALCANIO, 1).hp));
+  assert.equal(j.ship.hp, j.ship.maxHp, 'a vida sobe junto com o máximo');
+  assert.equal(comprar(w, j, ALCANIO).codigo, 'ja_possui');
+  assert.equal(comprar(w, j, TITANIO).codigo, 'invalido', 'Titânio é só da Assault');
+  assert.equal(comprar(w, j, VELOCIDADE).ok, true);
+  const vel = versaoEquip(VELOCIDADE, 1).efeitos[0].valor;
+  assert.equal(j.ship.velMult, 1 + vel);
+  assert.equal(j.ouro, 2000 - EQUIPAMENTOS[ALCANIO].preco - EQUIPAMENTOS[VELOCIDADE].preco);
 
-  // A velocidade máxima cai de verdade no stepShip (e na predição, que usa o mesmo me).
-  const k = w.addPlayer('B', 'shrewdo');
+  // A velocidade máxima sobe de verdade no stepShip (e na predição, que usa o mesmo me).
+  const k = w.addPlayer('B', 'shrewdo', 'mobile');
   // Lado a lado no corredor, rumo ao minério (sem nada no caminho por 3 s).
   for (const [n, x] of [[j, CORREDOR.x - 20], [k, CORREDOR.x + 20]]) Object.assign(n.ship, { x, z: 420, vx: 0, vz: 0, yaw: 0, pousado: false });
   for (let s = 1; s <= 3 * SEGUNDO; s++) {
@@ -191,7 +204,7 @@ test('loja: armadura reduz o dano, dá HP e a pesada custa velocidade; comprar m
   }
   const vj = Math.hypot(j.ship.vx, j.ship.vz);
   const vk = Math.hypot(k.ship.vx, k.ship.vz);
-  assert.ok(Math.abs(vj / vk - ARMADURAS[2].velMult) < 0.01, `${vj} / ${vk}`);
+  assert.ok(Math.abs(vj / vk - (1 + vel)) < 0.003, `${vj} / ${vk}`);
 });
 
 test('loja: kit de reparo cura e célula de energia enche, com recarga e limite', () => {
@@ -302,7 +315,8 @@ test('loja: pelo WebSocket, o pedido volta como resultado e lixo não derruba a 
     const snap = await esperar((m) => m.t === 'snap' && m.me.armas.includes(emp));
     assert.equal(snap.ouro, 500 - PRECO_ARMA.emp);
     assert.deepEqual(snap.me.itens, { reparo: 0, energia: 0 });
-    assert.equal(snap.me.armadura, -1);
+    assert.deepEqual(snap.me.equipado, { escudo: null, armadura: null, pot: [null, null] });
+    assert.equal(snap.me.pontosLivres, 10, 'nível 1: 10 pontos para distribuir');
     assert.equal(snap.me.classe, 'assault', 'sem classe no pedido de entrada: a padrão');
     assert.equal(snap.me.tier, 0, 'a primeira nave da linha');
     assert.deepEqual(snap.melhorias, { quantidade: 0, durabilidade: 0, defesa: 0, velocidade: 0 });

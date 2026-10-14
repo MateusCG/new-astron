@@ -104,12 +104,13 @@ test('catálogo: armas iniciais de cada raça (um feixe no Z, uma metralhadora n
   assert.deepEqual(armasIniciais('mechan'), [IDX_ARMA.laser, IDX_ARMA.plasma]);
 });
 
-test('catálogo: cinco versões por arma, nos níveis 1/5/10/15/20, com preço em ouro e categoria', () => {
+test('catálogo: oito versões por arma (V1 a V8), sem nível de piloto, com preço em ouro e categoria', () => {
+  assert.equal(NIVEL_ARMA_MAX, 8);
   for (const k of ARMAS) {
     const w = WEAPONS[k];
     if (w.npc) continue;
     assert.equal(w.versoes.length, NIVEL_ARMA_MAX, k);
-    assert.deepEqual(w.versoes.map((v) => v.nivelPiloto), [1, 5, 10, 15, 20], k);
+    assert.ok(w.versoes.every((v) => v.nivelPiloto === undefined), `${k}: versão não pede nível`);
     assert.ok(w.preco >= 60 && w.preco % 10 === 0, `${k}: preço ${w.preco}`);
     for (const v of w.versoes) {
       assert.ok(v.preco > 0 && v.preco % 10 === 0, `${k} V${v.nivel}: ${v.preco}`);

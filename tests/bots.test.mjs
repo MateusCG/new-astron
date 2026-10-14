@@ -125,7 +125,7 @@ test('computador: joga pelos comandos de jogador e caça os monstros da jungle',
   assert.ok(bot.ack > 0, 'os comandos dele passam pela fila, como os da rede');
   const abates = eventos.filter((e) => e.e === 'morte' && e.por === bot.id && ['arnosh', 'vorax', 'krakor'].includes(e.tipo));
   assert.ok(abates.length >= 2, `caçou ${abates.length} monstros em 60 s`);
-  assert.ok(bot.ouro > 0 || bot.armadura >= 0, 'ganhou ouro');
+  assert.ok(bot.ouro > 0 || Object.keys(bot.equip).length > 0, 'ganhou ouro');
   assert.ok(bot.nivel >= 2, `subiu de nível (está no ${bot.nivel})`);
 });
 
@@ -139,7 +139,8 @@ test('computador: com nível e ouro, pousa na Evolução e compra a próxima nav
   assert.ok(eventos.some((e) => e.e === 'nave' && e.id === bot.id), 'comprou a nave');
   assert.equal(bot.tier, 1);
   assert.ok(bot.niveisArmas && Object.keys(bot.niveisArmas).length >= 1, 'evoluiu as armas na Loja');
-  assert.ok(bot.armadura >= 0, 'comprou armadura');
+  assert.ok(bot.equipado.escudo && bot.equip[bot.equipado.escudo] >= 1, 'comprou um escudo, e já está na nave');
+  assert.ok(bot.ship.maxEscudo > 0, 'a nave tem escudo');
   assert.ok(bot.ouro < 2000);
 });
 
@@ -171,4 +172,20 @@ test('computador: com a vida baixa, volta para a base e conserta', () => {
     consertou = bot.vivo && naBase && bot.ship.hp / bot.ship.maxHp > 0.9;
   }
   assert.ok(consertou, 'chegou na base e consertou');
+});
+
+test('computador: distribui os pontos ao subir de nível e monta escudo, armadura e potenciadores', () => {
+  const { w, h } = mundoComHumano({ drones: 0, monstros: 0, elites: 0 });
+  w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'meu' });
+  const bot = [...w.players.values()].find((j) => j.ia);
+  bot.nivel = 4; // sem nave nova para comprar: o ouro vai para a Loja
+  bot.ouro = 4000;
+  rodar(w, h, 40);
+  const p = bot.pontos;
+  assert.equal(p.energia + p.fisico + p.eletrico + p.laser, 40, 'gastou os 10 por nível');
+  assert.equal(p.energia, 12, '30% na Energia');
+  assert.ok(p.laser + p.fisico === 28, 'o resto no poder das armas dele');
+  assert.ok(bot.equipado.escudo && bot.equipado.armadura, 'escudo e armadura na nave');
+  assert.ok(bot.equipado.pot.every((k) => k), 'dois potenciadores na nave');
+  assert.ok(bot.ship.maxEscudo > 0);
 });
