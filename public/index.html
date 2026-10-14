@@ -17,8 +17,25 @@
         <h1>NEW <span>ASTRO</span>-N</h1>
         <p class="sub">Setor M1 · Cânion de Traticera</p>
         <label>Nome do piloto <input id="nome" maxlength="16" autocomplete="off" placeholder="Piloto" /></label>
-        <p class="rotulo-racas">Escolha sua raça</p>
-        <div id="racas"></div>
+        <section id="passo-raca" class="passo">
+          <p class="rotulo-racas"><b>1</b> Escolha sua raça</p>
+          <div id="racas"></div>
+        </section>
+        <section id="passo-classe" class="passo" hidden>
+          <p class="rotulo-racas">
+            <button type="button" class="voltar-raca" title="Trocar de raça">‹ <span></span></button>
+            <b>2</b> Escolha sua classe
+          </p>
+          <div id="classes"></div>
+          <div id="previa-nave">
+            <div class="palco"></div>
+            <div class="ficha">
+              <small>Sua primeira nave</small>
+              <strong class="nome-nave"></strong>
+              <p class="linha-nave"></p>
+            </div>
+          </div>
+        </section>
         <button type="submit" class="decolar">Decolar</button>
         <p id="erro-entrada" role="alert"></p>
         <p class="ajuda">

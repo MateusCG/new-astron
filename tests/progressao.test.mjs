@@ -4,7 +4,8 @@ import { World } from '../server/game.js';
 import { xpParaNivel, ganharXp, hpMaxDoNivel, RECOMPENSA, NIVEL_MAX, HP_POR_NIVEL, XP_OBJETIVO } from '../server/progressao.js';
 import { KRAKOR, GUARDIAO, proibidoParaElite } from '../server/elites.js';
 import { ZONA_SEGURA } from '../server/game.js';
-import { createShip, RACES } from '../shared/sim.js';
+import { createShip } from '../shared/sim.js';
+import { naveDe } from '../shared/naves.js';
 import { BASE } from '../shared/terrain.js';
 
 function rngFixo(semente = 1) {
@@ -49,13 +50,13 @@ test('progressão: ganhar XP sobe de nível, avisa e dá +3% de HP máximo por n
   assert.equal(j.nivel, 3);
   assert.equal(j.xp, 5, 'sobra fica no nível novo');
   assert.deepEqual(ev, [{ e: 'nivel', id: 7, nivel: 2 }, { e: 'nivel', id: 7, nivel: 3 }]);
-  const max = Math.round(RACES.bellico.hp * (1 + 2 * HP_POR_NIVEL));
+  const max = Math.round(naveDe('bellico', 'assault', 0).hp * (1 + 2 * HP_POR_NIVEL));
   assert.equal(j.ship.maxHp, max);
-  assert.equal(j.ship.hp, 200 + (max - RACES.bellico.hp), 'HP sobe junto com o máximo');
+  assert.equal(j.ship.hp, 200 + (max - naveDe('bellico', 'assault', 0).hp), 'HP sobe junto com o máximo');
   ganharXp(j, 1e6, ev);
   assert.equal(j.nivel, NIVEL_MAX);
   assert.equal(j.xp, 0);
-  assert.equal(j.ship.maxHp, hpMaxDoNivel('bellico', NIVEL_MAX));
+  assert.equal(j.ship.maxHp, hpMaxDoNivel(naveDe('bellico', 'assault', 0).hp, NIVEL_MAX));
 });
 
 test('progressão: abater um Vorax dá XP e ouro, e o snapshot leva nível e XP', () => {
@@ -86,7 +87,7 @@ test('progressão: abates sobem o nível e a nave renasce com o HP do nível', (
   abater(w, a, b, 30);
   assert.equal(b.vivo, false);
   assert.equal(a.nivel, 2, `${RECOMPENSA.jogador.xp} XP do abate passam do nível 1`);
-  assert.equal(a.ship.maxHp, hpMaxDoNivel('acron', 2));
+  assert.equal(a.ship.maxHp, hpMaxDoNivel(naveDe('acron', 'assault', 0).hp, 2));
   assert.ok(w.tirarEventos().some((e) => e.e === 'nivel' && e.id === a.id && e.nivel === 2));
   // Morre e renasce: continua no nível 2, com o HP máximo dele.
   a.ship.hp = 0;
@@ -95,7 +96,7 @@ test('progressão: abates sobem o nível e a nave renasce com o HP do nível', (
   w.step();
   w.step();
   assert.equal(a.vivo, true);
-  assert.equal(a.ship.maxHp, hpMaxDoNivel('acron', 2));
+  assert.equal(a.ship.maxHp, hpMaxDoNivel(naveDe('acron', 'assault', 0).hp, 2));
   assert.equal(a.ship.hp, a.ship.maxHp);
 });
 
@@ -115,7 +116,7 @@ test('progressão: ouro, XP e nível zeram quando começa a partida seguinte', (
   assert.equal(j.nivel, 1);
   assert.equal(j.xp, 0);
   assert.equal(j.ouro, 0);
-  assert.equal(j.ship.maxHp, hpMaxDoNivel('bellico', 1), 'renasce com o HP do nível 1');
+  assert.equal(j.ship.maxHp, hpMaxDoNivel(naveDe('bellico', 'assault', 0).hp, 1), 'renasce com o HP do nível 1');
 });
 
 test('monstros: o Krakor é mais forte, mais raro e dá mais XP que o Vorax', () => {

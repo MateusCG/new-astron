@@ -35,19 +35,25 @@
 // torreta e de escolta vem pelo evento 'tiro' com `fonte` e `time` e sai na cor do
 // time de quem atirou.
 //
-// ESC sai da partida e volta para a tela de entrada (nome e raça como estavam),
+// Naves (nave.js): a sua carrega antes de conectar; as dos outros, quando aparecem.
+// Cada jogador traz raça, classe e tier no snapshot, e definirNave troca o modelo
+// quando o tier muda (Evolução), para você e para os outros.
+//
+// ESC sai da partida e volta para a tela de entrada (nome, raça e classe como estavam),
 // para trocar de piloto sem recarregar a página. Sair desmonta tudo o que a
 // partida criou (conexão, laço de quadros, listeners, cena na GPU); só o renderer
 // WebGL fica, porque é reaproveitado na próxima entrada.
 
 import * as THREE from 'three';
 import { DT, RACES, WEAPONS, VEL_TOQUE, createBullet, stepShip, bulletHits, forward, pousoPermitido } from '/shared/sim.js';
+import { CLASSES, ORDEM_CLASSES, RACAS_BLOQUEADAS, naveDe, linhaDe, classeValida, racaJogavel } from '/shared/naves.js';
 import { areaPouso } from '/shared/terrain.js';
 import { alturaSolida } from '/shared/obstaculos.js';
 import { criarCena, liberarCena } from './cena.js';
 import {
   carregarModelos,
   criarNave,
+  definirNave,
   criarDrone,
   criarVorax,
   animarVorax,
@@ -67,6 +73,7 @@ import { Hud, NOME_BONUS } from './hud.js';
 import { ObjetivosNaTela } from './objetivos.js';
 import { TorretasNaTela } from './torretas.js';
 import { Rede } from './rede.js';
+import { mostrarPrevia, pararPrevia } from './vitrine.js';
 import { MenuArmas } from './armas.js';
 import { Placar } from './placar.js';
 import { PainelServicos } from './servicos.js';
@@ -109,45 +116,141 @@ const CAMERAS = [
 ];
 
 // ---------- Tela de entrada ----------
+//
+// Dois passos, como no Astro-N: primeiro a raça (Acron, Bellico, Shrewdo; Mechan
+// aparece apagada, "EM BREVE"), depois a classe (Assault, Mobile, Functional), cada
+// uma com a especialidade e a primeira nave daquela raça e classe (nome, status e a
+// prévia 3D girando, que baixa só aquele modelo). A escolha fica no localStorage
+// (com try/catch: navegador sem armazenamento entra igual) e, na volta, a tela
+// abre direto no passo da classe.
 
-let racaEscolhida = 'shrewdo';
+let racaEscolhida = 'acron';
+let classeEscolhida = 'assault';
 let jogoAtual = null; // { sair } da partida em andamento; null na tela de entrada
+
+const lerLocal = (k) => {
+  try {
+    return localStorage.getItem(k);
+  } catch {
+    return null;
+  }
+};
+const gravarLocal = (k, v) => {
+  try {
+    localStorage.setItem(k, v);
+  } catch {}
+};
+const corCss = (cor) => '#' + new THREE.Color(cor).getHexString();
+
+/** Barras de status da primeira nave de cada classe, na escala da maior da raça. */
+function barrasNave(n, max) {
+  // Cada status na cor dele no HUD: vida, energia, velocidade (neon) e, nas Bellico,
+  // a regeneração de vida em voo (o traço da raça no original).
+  const linhas = [
+    ['HP', n.hp, max.hp, n.hp, 'hp'],
+    ['Energia', n.energia, max.energia, n.energia, 'en'],
+    ['Veloc.', n.velocidade, max.velocidade, `${Math.round(n.velocidade)} m/s`, 'vel'],
+  ];
+  if (n.regenHpVoo > 0) linhas.push(['Regen.', n.regenHpVoo, 3, `${n.regenHpVoo.toLocaleString('pt-BR')}/s`, 'regen']);
+  return linhas
+    .map(([nome, v, m, txt, k]) => `<span class="stat ${k}"><em>${nome}</em><b style="width:${Math.min(100, (v / m) * 100)}%"></b><i>${txt}</i></span>`)
+    .join('');
+}
 
 function montarEntrada() {
   const lista = document.querySelector('#racas');
-  const max = { velocidade: 120, hp: 300, energia: 80 };
+  const classes = document.querySelector('#classes');
+  const passoRaca = document.querySelector('#passo-raca');
+  const passoClasse = document.querySelector('#passo-classe');
+  const decolar = document.querySelector('#form-entrada .decolar');
+  const previa = document.querySelector('#previa-nave');
+  const salva = lerLocal('astron.raca');
+  if (racaJogavel(salva)) racaEscolhida = salva;
+  if (classeValida(lerLocal('astron.classe'))) classeEscolhida = lerLocal('astron.classe');
+
   for (const [id, r] of Object.entries(RACES)) {
+    const bloqueada = RACAS_BLOQUEADAS.includes(id);
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'raca';
+    b.className = 'raca' + (bloqueada ? ' bloqueada' : '');
     b.dataset.race = id;
-    b.style.setProperty('--cor', '#' + new THREE.Color(r.cor).getHexString());
-    b.innerHTML = `<strong>${r.nome}</strong><small>${r.bioma}</small>
-      ${['velocidade', 'hp', 'energia']
-        .map((k) => `<span class="stat"><em>${k === 'hp' ? 'HP' : k[0].toUpperCase() + k.slice(1)}</em><b style="width:${(r[k] / max[k]) * 100}%"></b><i>${r[k]}</i></span>`)
-        .join('')}`;
-    b.addEventListener('click', () => escolher(id));
+    b.disabled = bloqueada;
+    b.style.setProperty('--cor', corCss(r.cor));
+    b.innerHTML = `<strong>${r.nome}</strong><small>${r.bioma}</small>${
+      bloqueada ? '<span class="selo-breve">EM BREVE</span>' : `<span class="resumo">${ORDEM_CLASSES.map((c) => CLASSES[c].nome).join(' · ')}</span>`
+    }`;
+    if (!bloqueada) {
+      b.addEventListener('click', () => {
+        escolherRaca(id);
+        mostrarPasso('classe');
+      });
+    }
     lista.append(b);
   }
-  const escolher = (id) => {
+
+  const escolherRaca = (id) => {
     racaEscolhida = id;
+    gravarLocal('astron.raca', id);
     for (const el of lista.children) el.classList.toggle('sel', el.dataset.race === id);
+    passoClasse.style.setProperty('--cor', corCss(RACES[id].cor));
+    passoClasse.querySelector('.voltar-raca span').textContent = RACES[id].nome;
+    // Cartões das classes: especialidade e a primeira nave da linha.
+    const primeiras = ORDEM_CLASSES.map((c) => naveDe(id, c, 0));
+    const max = { hp: 0, energia: 0, velocidade: 0 };
+    for (const n of primeiras) for (const k of Object.keys(max)) max[k] = Math.max(max[k], n[k]);
+    classes.innerHTML = ORDEM_CLASSES.map((c, i) => {
+      const n = primeiras[i];
+      return `<button type="button" class="classe" data-classe="${c}">
+        <strong>${CLASSES[c].nome}</strong><small>${CLASSES[c].especialidade}</small>
+        <span class="nave-classe">${n.nome}</span>${barrasNave(n, max)}
+      </button>`;
+    }).join('');
+    escolherClasse(classeEscolhida);
   };
-  escolher(racaEscolhida);
+  const escolherClasse = (c) => {
+    classeEscolhida = c;
+    gravarLocal('astron.classe', c);
+    for (const el of classes.children) el.classList.toggle('sel', el.dataset.classe === c);
+    const linha = linhaDe(racaEscolhida, c);
+    previa.querySelector('.nome-nave').textContent = linha[0].nome;
+    previa.querySelector('.linha-nave').textContent = `Na Evolução: ${linha.slice(1).map((n) => `${n.nome} (NV ${n.nivel})`).join(' › ')}`;
+    if (!passoClasse.hidden) mostrarPrevia(previa.querySelector('.palco'), racaEscolhida, c, 0);
+  };
+  classes.addEventListener('click', (e) => {
+    const c = e.target.closest('[data-classe]')?.dataset.classe;
+    if (c) escolherClasse(c);
+  });
+  const mostrarPasso = (passo) => {
+    passoRaca.hidden = passo !== 'raca';
+    passoClasse.hidden = passo !== 'classe';
+    decolar.textContent = passo === 'raca' ? 'Escolher a classe ›' : 'Decolar';
+    if (passo === 'classe') mostrarPrevia(previa.querySelector('.palco'), racaEscolhida, classeEscolhida, 0);
+    else pararPrevia();
+  };
+  passoClasse.querySelector('.voltar-raca').addEventListener('click', () => mostrarPasso('raca'));
+  entrada.mostrarPasso = mostrarPasso;
+  escolherRaca(racaEscolhida);
+  // Quem já escolheu antes cai direto na classe (trocar de raça é um clique).
+  mostrarPasso(salva && racaJogavel(salva) ? 'classe' : 'raca');
+
   const nome = document.querySelector('#nome');
-  nome.value = localStorage.getItem('astron.nome') ?? '';
+  nome.value = lerLocal('astron.nome') ?? '';
   document.querySelector('#form-entrada').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const botao = e.submitter;
+    if (!passoRaca.hidden) {
+      escolherRaca(racaEscolhida);
+      mostrarPasso('classe');
+      return;
+    }
+    const botao = decolar;
     botao.disabled = true;
     botao.textContent = 'Conectando…';
-    try {
-      localStorage.setItem('astron.nome', nome.value);
-    } catch {}
+    gravarLocal('astron.nome', nome.value);
     const erro = document.querySelector('#erro-entrada');
     erro.textContent = '';
     try {
-      jogoAtual = await iniciar(nome.value, racaEscolhida);
+      jogoAtual = await iniciar(nome.value, racaEscolhida, classeEscolhida);
+      pararPrevia();
       document.querySelector('#entrada').hidden = true;
       // Quem decola com Enter no campo de nome deixaria o foco no <input>, e os
       // controles ignoram teclas digitadas em campo de texto.
@@ -181,7 +284,9 @@ function montarEntrada() {
   );
 }
 
-/** Sai da partida e mostra a tela de entrada com o nome e a raça de antes. */
+const entrada = { mostrarPasso: () => {} };
+
+/** Sai da partida e mostra a tela de entrada com o nome, a raça e a classe de antes. */
 function voltarParaEntrada() {
   // A tela de entrada volta mesmo se o desmonte falhar: preso numa tela vazia, o
   // jogador não teria como continuar sem recarregar a página.
@@ -196,6 +301,7 @@ function voltarParaEntrada() {
   botao.textContent = 'Decolar';
   document.querySelector('#erro-entrada').textContent = '';
   document.querySelector('#entrada').hidden = false;
+  entrada.mostrarPasso('classe');
   document.querySelector('#nome').focus();
 }
 
@@ -208,6 +314,8 @@ const MENSAGENS_ERRO = {
   tempo_esgotado: 'O servidor demorou demais para responder. Tente de novo em instantes.',
   conexao_fechada: 'O servidor fechou a conexão antes de você entrar. Tente de novo.',
   partida_cheia: 'A partida está cheia (3 contra 3). Tente de novo em instantes.',
+  raca_bloqueada: 'Essa raça ainda não está liberada. Escolha Acron, Bellico ou Shrewdo.',
+  raca_invalida: 'Raça desconhecida. Escolha Acron, Bellico ou Shrewdo.',
 };
 
 let rendererUnico = null;
@@ -231,21 +339,21 @@ function criarRenderer() {
  * depois de conectado, fecha a conexão para a nave não ficar parada no mundo.
  * Devolve { sair } para desmontar a partida.
  */
-async function iniciar(nome, race) {
+async function iniciar(nome, race, classe) {
   const renderer = criarRenderer();
-  // O modelo da nave carrega antes de conectar: sem ele não há o que desenhar.
-  await carregarModelos();
+  // Só o modelo da SUA nave carrega antes de conectar; os outros, quando aparecerem.
+  await carregarModelos(race, classe, 0);
   const rede = new Rede();
-  const boas = await rede.entrar(nome, race);
+  const boas = await rede.entrar(nome, race, classe);
   try {
-    return montarJogo(rede, boas, renderer, race);
+    return montarJogo(rede, boas, renderer, race, classe);
   } catch (err) {
     rede.fechar();
     throw err;
   }
 }
 
-function montarJogo(rede, boas, renderer, race) {
+function montarJogo(rede, boas, renderer, race, classe) {
   const meuId = boas.id;
   // Time de quem joga: decide as cores relativas (seu time turquesa, o outro vermelho).
   const meuTime = boas.time ?? 0;
@@ -296,7 +404,7 @@ function montarJogo(rede, boas, renderer, race) {
   let extra = { ouro: 0, abates: 0, mortes: 0, nivel: 1, xp: 0, xpProx: 0 };
   let ganhoOuro = 0; // ouro ganho no último snapshot (para a notícia de abate)
   let bonusAtivos = {}; // bônus por time do último snapshot (aura da fúria nas naves)
-  const minhaNave = criarNave(race, { aliado: true });
+  const minhaNave = criarNave(race, { aliado: true, classe, tier: 0 });
   scene.add(minhaNave);
 
   // Outras naves.
@@ -369,6 +477,8 @@ function montarJogo(rede, boas, renderer, race) {
     menuArmas.definirPosse(m.me?.armas);
     menuArmas.definirNiveis(m.me?.niveisArmas);
     painel.atualizar({ ouro: m.ouro, nivel: m.nivel, me: m.me, melhorias: m.melhorias, torretas: m.torretas });
+    // A nave da linha que você pilota (muda ao evoluir na Evolução).
+    if (m.me) definirNave(minhaNave, race, m.me.classe ?? classe, m.me.tier ?? 0);
 
     if (!m.vivo) {
       // O tempo de renascer é do servidor (cresce com o nível e com a partida).
@@ -509,6 +619,12 @@ function montarJogo(rede, boas, renderer, race) {
         const nave = e.id === meuId ? minhaNave : outras.get(e.id)?.obj;
         if (nave?.visible) efeitos.anelNivel(nave);
         if (e.id === meuId) hud.noticia(`Nível ${e.nivel}! HP máximo maior`, 'bom');
+      } else if (e.e === 'nave') {
+        // Nave nova na Evolução: anel de luz e notícia (o modelo troca pelo snapshot).
+        const nave = e.id === meuId ? minhaNave : outras.get(e.id)?.obj;
+        if (nave?.visible) efeitos.anelNivel(nave);
+        if (e.id === meuId) hud.noticia(`Nave nova: ${e.nave}`, 'bom');
+        else hud.noticia(`${e.nome} trocou de nave: ${e.nave}`, e.time === meuTime ? 'bom' : 'ruim');
       } else if (e.e === 'objetivo') {
         const meu = e.time === meuTime;
         const como = { A: 'pousou no', B: 'derrubou a torre do', C: 'derrotou o guardião do' }[e.tipo];
@@ -637,11 +753,13 @@ function montarJogo(rede, boas, renderer, race) {
               ? criarEscolta({ aliado })
               : e.drone
                 ? criarDrone()
-                : criarNave(e.race, { aliado }));
+                : criarNave(e.race, { aliado, classe: e.classe, tier: e.tier }));
         o = { obj, drone: e.drone, tipo: e.tipo, aliado };
         scene.add(o.obj);
         outras.set(e.id, o);
       }
+      // Comprou a próxima nave na Evolução: o modelo troca (carrega se for novo).
+      if (e.tipo === 'jogador') definirNave(o.obj, e.race, e.classe, e.tier);
       o.obj.visible = e.vivo;
       o.pos = o.obj.position;
       if (!e.vivo) continue;

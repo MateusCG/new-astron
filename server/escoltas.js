@@ -25,7 +25,7 @@
 // Para quem vem depois (névoa de guerra): `lista` tem cada escolta viva com `ship`
 // (x, z) e `time`, e ela vai nas entidades do snapshot com `tipo: 'escolta'`.
 
-import { createShip, stepShip, createBullet, forward, RACES, VEL_FATOR, DT, WEAPONS } from '../shared/sim.js';
+import { createShip, stepShip, createBullet, forward, velocidadeBase, DT, WEAPONS } from '../shared/sim.js';
 import { BASES, CORREDOR, ROTAS } from '../shared/terrain.js';
 import { pontoRota, anguloEntre, yawPara } from './mineradores.js';
 import { linhaDeTiro, alvosDoTime } from './torretas.js';
@@ -135,7 +135,7 @@ export class Escoltas {
       stepShip(s, PARADO); // pulso EMP: motor desligado, para aos poucos
       return;
     }
-    const vMax = RACES[s.race].velocidade * VEL_FATOR * (s.velMult ?? 1);
+    const vMax = velocidadeBase(s) * (s.velMult ?? 1);
     const m = this.#protegido(e.time);
     let vx;
     let vz;

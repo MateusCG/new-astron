@@ -23,7 +23,7 @@
 // corredor ainda pode levar tiro de um Krakor na beira dele (a faixa é dos
 // mineradores, não um esconderijo).
 
-import { RACES, VEL_FATOR, createShip, DT } from '../shared/sim.js';
+import { velocidadeBase, createShip, DT } from '../shared/sim.js';
 import { BASES, CORREDOR, ARENA_C, noMapaAberto } from '../shared/terrain.js';
 
 /** Elite do mundo aberto. */
@@ -148,7 +148,7 @@ export function iaElite(e, ctx) {
   const { tick, rng, jogadores, naZonaSegura, zonaSegura } = ctx;
   const s = e.ship;
   const cfg = e.cfg;
-  const thMax = Math.min(1, cfg.velocidade / (RACES[s.race].velocidade * VEL_FATOR));
+  const thMax = Math.min(1, cfg.velocidade / velocidadeBase(s));
   const disparos = [];
   const parado = { th: 0, tu: 0, b: false, f1: false, f2: false };
   if (e.re > 0) {

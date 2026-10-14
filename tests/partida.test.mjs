@@ -110,7 +110,7 @@ test('partida: cada um nasce e renasce na base do próprio time, voltado para o 
 test('partida: sem fogo amigo, o tiro atravessa o aliado e acerta o inimigo atrás', () => {
   const w = new World({ drones: 0, monstros: 0, elites: 0 });
   const a = w.addPlayer('A', 'acron'); // time 0
-  const inimigo = w.addPlayer('B', 'bellico'); // time 1
+  const inimigo = w.addPlayer('B', 'acron'); // time 1 (sem blindagem de nave: leva o dano cheio)
   const aliado = w.addPlayer('C', 'shrewdo'); // time 0
   assert.equal(aliado.time, a.time);
   colocar(a, 600, 0);

@@ -16,10 +16,11 @@
 // #passoPartida).
 //
 // Subir de nível dá um ganho pequeno e automático: +HP_POR_NIVEL (3%) do HP máximo
-// da raça por nível acima do 1 (nível 10 = +27%). O HP sobe junto com o máximo
-// (não cura o resto). Os níveis 5, 10 e 15 são os marcos da Evolução paga
-// (shared/evolucao.js, server/servicos.js), que lê `j.nivel`; o HP máximo do
-// jogador junta nível, evoluções e armadura em hpMaxDoJogador.
+// da NAVE por nível acima do 1 (nível 10 = +27%). O HP sobe junto com o máximo
+// (não cura o resto). A cada 5 níveis (5, 10, 15, 20) a Evolução paga libera a
+// próxima nave da linha (shared/naves.js, server/servicos.js), que lê `j.nivel`; o
+// HP máximo do jogador junta a nave (raça, classe e tier), o nível e a armadura da
+// Loja em hpMaxDoJogador.
 //
 // Combate entre jogadores (DESIGN-PARTIDA.md, "Combate"): morrer custa mais tempo
 // conforme o nível e a partida avançam (tempoRenascer), para a briga do fim da
@@ -32,13 +33,13 @@
 // encerrá-la (ouroEncerrar). Sequência e o registro de dano zeram ao morrer e na
 // partida nova (novoCombate).
 
-import { RACES } from '../shared/sim.js';
-import { efeitosNave } from '../shared/evolucao.js';
+import { NAVE_SEM_CLASSE } from '../shared/sim.js';
+import { naveDe, CLASSE_PADRAO } from '../shared/naves.js';
 import { armadura } from '../shared/loja.js';
 import { MINERADOR } from './mineradores.js';
 
 export const NIVEL_MAX = 20;
-export const HP_POR_NIVEL = 0.03; // fração do HP da raça por nível acima do 1
+export const HP_POR_NIVEL = 0.03; // fração do HP da nave por nível acima do 1
 export const XP_OBJETIVO = 60; // a quem toma um objetivo A ou B
 /** XP e ouro por abate, pelo tipo do que morreu. */
 export const RECOMPENSA = {
@@ -106,25 +107,23 @@ export function xpParaNivel(n) {
   return n >= NIVEL_MAX ? 0 : 60 + 20 * (n - 1);
 }
 
-/** HP máximo da nave da raça no nível. */
-export function hpMaxDoNivel(race, nivel) {
-  const base = RACES[race]?.hp ?? RACES.shrewdo.hp;
-  return Math.round(base * (1 + HP_POR_NIVEL * (nivel - 1)));
-}
-
 /**
- * HP máximo da nave do jogador: o do nível, vezes as evoluções de casco
- * (shared/evolucao.js), mais o HP da armadura (shared/loja.js).
+ * A nave do catálogo (shared/naves.js) que o piloto voa: a raça da nave, a classe
+ * escolhida na entrada (j.classe) e o tier comprado na Evolução (j.tier, da partida).
  */
-export function hpMaxDoJogador(j) {
-  const hp = Math.round(hpMaxDoNivel(j.ship.race, j.nivel) * efeitosNave(j.evolucoes).hp);
-  return hp + (armadura(j.armadura)?.hp ?? 0);
+export function naveDoJogador(j) {
+  return naveDe(j.ship.race, j.classe ?? CLASSE_PADRAO, j.tier ?? 0);
 }
 
-/** Põe na nave (recém-criada) o HP máximo do nível, cheia. */
-export function aplicarNivel(ship, nivel) {
-  ship.maxHp = hpMaxDoNivel(ship.race, nivel);
-  ship.hp = ship.maxHp;
+/** HP máximo de uma nave de `hpBase` no nível. */
+export function hpMaxDoNivel(hpBase, nivel) {
+  return Math.round(hpBase * (1 + HP_POR_NIVEL * (nivel - 1)));
+}
+
+/** HP máximo da nave do jogador: o da nave no nível, mais o HP da armadura (shared/loja.js). */
+export function hpMaxDoJogador(j) {
+  const hp = hpMaxDoNivel(naveDoJogador(j)?.hp ?? NAVE_SEM_CLASSE.hp, j.nivel);
+  return hp + (armadura(j.armadura)?.hp ?? 0);
 }
 
 /**
@@ -139,7 +138,7 @@ export function ganharXp(j, xp, eventos) {
     j.nivel++;
     subiu++;
     const s = j.ship;
-    const novo = hpMaxDoJogador(j); // com evoluções e armadura
+    const novo = hpMaxDoJogador(j); // com a nave e a armadura
     if (s.hp > 0) s.hp += novo - s.maxHp;
     s.maxHp = novo;
     eventos?.push({ e: 'nivel', id: j.id, nivel: j.nivel });
