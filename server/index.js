@@ -7,7 +7,12 @@
 // modelo da nave em public/modelos/) em /vendor/addons/.
 //
 // Protocolo (JSON):
-//   cliente → servidor  {t:'entrar', nome, race}
+//   cliente → servidor  {t:'entrar', nome, race, classe}
+//                       (race = 'acron' | 'bellico' | 'shrewdo'; 'mechan' ainda sem
+//                        naves é recusada com 'raca_bloqueada', outra coisa com
+//                        'raca_invalida'; classe = 'assault' | 'mobile' |
+//                        'functional', inválida ou ausente vira 'assault'; o piloto
+//                        começa na primeira nave da linha, shared/naves.js)
 //                       {t:'in', s:seq, th, tu, b, f1, f2, p, r, a, a2}   um por passo de 1/30 s
 //                       (p = botão de pouso, alterna pousar/decolar na borda;
 //                        r = botão do recall (B), pulso: na borda começa a
@@ -26,7 +31,9 @@
 //                        'armaduraPesada', 'reparo' | 'energia', ou
 //                        'evoluir:<arma>' para subir um nível de uma arma possuída,
 //                        ex. 'evoluir:crio'; sem possuir: 'sem_item'; no máximo: 'limite')
-//                       {t:'evoluir', opcao}     Evolução da nave: 'casco' | 'reator' | 'motor'
+//                       {t:'evoluir', opcao:'nave'}  Evolução da nave: compra a próxima
+//                        nave da linha da raça e classe (nível e ouro dela; na
+//                        última, 'limite'; outra opcao, 'invalido')
 //                       {t:'melhorar', melhoria} mineradores do time: 'quantidade' |
 //                        'durabilidade' | 'defesa' | 'velocidade'; ou 'torretas' (sobe
 //                        o nível das quatro torretas do time)
@@ -38,7 +45,8 @@
 //                        lugar; tudo validado em server/servicos.js)
 //                       {t:'ping', c}
 //   servidor → cliente  {t:'bemvindo', id, tickHz, time}   time = 0 (base de baixo) ou 1
-//                       {t:'erro', codigo}   codigo 'partida_cheia' (3 em cada time); fecha
+//                       {t:'erro', codigo}   codigo 'partida_cheia' (3 em cada time),
+//                        'raca_bloqueada' ou 'raca_invalida'; fecha
 //                       {t:'snap', tick, ack, vivo, renasceEm, time, me, ouro, abates, mortes,
 //                        nivel, xp, xpProx, partida, bonus, obj, torretas, melhorias, minas,
 //                        guiados, ents, ev}
@@ -49,6 +57,11 @@
 //                        me.lentoMult = fração da velocidade enquanto lento (a
 //                        predição usa), me.emp = s sem tiro e sem boost (pulso EMP),
 //                        me.time = time da nave, para a predição do pouso;
+//                        me.classe e me.tier = a nave da linha (shared/naves.js),
+//                        me.velocidade (pontos, × VEL_FATOR = m/s) e me.regenEn
+//                        (energia por s) = da nave, lidos no stepShip da predição;
+//                        me.regenHp (HP/s voando) e me.armadura (fração do dano
+//                        segurada) = da nave, só informação;
 //                        cada ent traz dreno/lento/emp booleanos para desenhar o efeito;
 //                        ev 'tiro' traz kind, que diz a arma e o efeito do projétil;
 //                        nivel = nível do jogador (1 a NIVEL_MAX), xp = XP dentro do
@@ -63,9 +76,10 @@
 //   me (Loja e Evolução): armas = posse (de fábrica + compradas; zera a cada
 //         partida), niveisArmas = nível de cada arma (índice em ARMAS, 1 a
 //         ARMA_NIVEL_MAX; evoluído na Loja, zera a cada partida), armadura (-1 ou 0 a 2), itens {reparo, energia} (carga),
-//         cdItens {reparo, energia} (s de recarga), evolucoes (ids das opções da
-//         nave, uma por marco), velMult (multiplicador de velocidade, lido no
-//         stepShip da predição); maxHp e maxEn já com nível, evoluções e armadura
+//         cdItens {reparo, energia} (s de recarga), tier (nave da linha comprada,
+//         0 a 4; zera a cada partida), velMult (multiplicador de velocidade da
+//         armadura pesada, lido no stepShip da predição); maxHp e maxEn já com a
+//         nave, o nível e a armadura
 //   melhorias: {quantidade, durabilidade, defesa, velocidade}   níveis comprados
 //         das melhorias dos mineradores do time de quem recebe (zeram a cada partida)
 //   partida: {n, estado, fase, restante, placar:[t0, t1], vencedor, novaEm}
@@ -91,11 +105,12 @@
 //   guiados: [{id, x, y, z, vx, vy, vz}]   mísseis teleguiados em voo: o cliente não
 //         prevê a curva e corrige o desenho por aqui
 //   ents: [{id, nome, tipo, drone, vivo, race, x, y, z, yaw, roll, hp, maxHp, boost, pousado,
-//           dreno, lento, emp, time?, carga?, minerando?, nivel?, recall?}]
+//           dreno, lento, emp, time?, carga?, minerando?, nivel?, classe?, tier?, recall?}]
 //         tipo = 'jogador' | 'arnosh' | 'vorax' | 'krakor' | 'guardiao' | 'minerador' |
 //         'escolta' (o que desenhar); drone = inimigo do PvE; time em jogadores,
-//         mineradores e escoltas; carga e minerando só nos mineradores; nivel só nos
-//         jogadores; recall (0 a 1) só em quem está canalizando a volta à base
+//         mineradores e escoltas; carga e minerando só nos mineradores; nivel, classe
+//         e tier só nos jogadores (raça + classe + tier = o modelo da nave); recall
+//         (0 a 1) só em quem está canalizando a volta à base
 //   ev:   {e:'tiro'|'acerto'|'fim'|'renasceu'|'saiu', ...}
 //         {e:'entrou', id, nome, time}
 //         {e:'morte', id, por, tipo, time?, x, y, z, ouro?, renasce?, assist?, ouroAssist?,
@@ -121,6 +136,9 @@
 //         {e:'choque', id, time, x, y, z, raio}   onda de choque da nave id
 //         {e:'explosao', arma:'mina', id, dono, time, x, y, z, raio}   mina explodiu
 //         {e:'nivel', id, nivel}     jogador subiu de nível
+//         {e:'nave', id, nome, time, tier, nave}   jogador comprou a próxima nave da
+//                                    linha na Evolução (nave = nome dela): todos trocam
+//                                    o modelo (o snapshot também traz o tier)
 //         {e:'melhoria', id, nome, time, melhoria, nivel}   alguém do time `time` comprou
 //                                    um nível de melhoria dos mineradores (ou das
 //                                    torretas: melhoria 'torretas')
@@ -145,6 +163,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { WebSocketServer } from 'ws';
 import { World, TICK_HZ } from './game.js';
+import { motivoRacaRecusada } from '../shared/naves.js';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PASTAS = {
@@ -221,7 +240,14 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
         return;
       }
       if (msg?.t === 'entrar' && !jogador) {
-        jogador = world.addPlayer(msg.nome, msg.race);
+        // Raça sem naves (Mechan, "em breve") ou que não existe: recusa com código.
+        const recusa = motivoRacaRecusada(msg.race);
+        if (recusa) {
+          ws.send(JSON.stringify({ t: 'erro', codigo: recusa }));
+          ws.close();
+          return;
+        }
+        jogador = world.addPlayer(msg.nome, msg.race, msg.classe);
         if (!jogador) {
           // Os dois times cheios: código estável que o cliente traduz na tela de entrada.
           ws.send(JSON.stringify({ t: 'erro', codigo: 'partida_cheia' }));

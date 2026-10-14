@@ -9,7 +9,8 @@ import WebSocket from 'ws';
 import { World, ZONA_SEGURA } from '../server/game.js';
 import { iniciar } from '../server/index.js';
 import { hpMaxDoNivel } from '../server/progressao.js';
-import { createShip, IDX_ARMA, ARMAS_INICIAIS, WEAPONS, RACES, DT } from '../shared/sim.js';
+import { createShip, IDX_ARMA, ARMAS_INICIAIS, WEAPONS, DT } from '../shared/sim.js';
+import { naveDe } from '../shared/naves.js';
 import { BASE, SERVICOS, CORREDOR } from '../shared/terrain.js';
 import { ARMADURAS, ITENS, PRECO_ARMA, ARMAS_A_VENDA, REPARO_CURA, ITEM_CARGA_MAX } from '../shared/loja.js';
 
@@ -107,7 +108,7 @@ test('loja: a posse sobrevive ao renascimento e zera na partida seguinte', () =>
   w.step();
   assert.ok(j.vivo);
   assert.ok(j.ship.armas.includes(missil), 'a arma comprada volta na nave nova');
-  assert.equal(j.ship.maxHp, hpMaxDoNivel('bellico', 1) + ARMADURAS[2].hp, 'a armadura volta');
+  assert.equal(j.ship.maxHp, hpMaxDoNivel(naveDe('bellico', 'assault', 0).hp, 1) + ARMADURAS[2].hp, 'a armadura volta');
   assert.equal(j.ship.velMult, ARMADURAS[2].velMult);
   assert.equal(j.itens.reparo, 1);
 
@@ -118,7 +119,7 @@ test('loja: a posse sobrevive ao renascimento e zera na partida seguinte', () =>
   assert.deepEqual(j.ship.armas, ARMAS_INICIAIS);
   assert.equal(j.armadura, -1);
   assert.deepEqual(j.itens, { reparo: 0, energia: 0 });
-  assert.equal(j.ship.maxHp, hpMaxDoNivel('bellico', 1));
+  assert.equal(j.ship.maxHp, hpMaxDoNivel(naveDe('bellico', 'assault', 0).hp, 1));
   assert.equal(j.ship.velMult, 1);
   const me = w.snapshotPara(j, [], []).me;
   assert.deepEqual(me.armas, ARMAS_INICIAIS);
@@ -129,7 +130,7 @@ test('loja: a posse sobrevive ao renascimento e zera na partida seguinte', () =>
 function danoDeUmLaser(armaduraDeB) {
   const w = mundo();
   const a = w.addPlayer('A', 'acron');
-  const b = w.addPlayer('B', 'bellico');
+  const b = w.addPlayer('B', 'shrewdo'); // sem blindagem de nave: só a da Loja conta
   b.ouro = 1000;
   pousar(b, 'loja');
   for (const item of armaduraDeB) assert.equal(comprar(w, b, item).ok, true, item);
@@ -286,7 +287,8 @@ test('loja: pelo WebSocket, o pedido volta como resultado e lixo não derruba a 
     assert.equal(snap.ouro, 500 - PRECO_ARMA.emp);
     assert.deepEqual(snap.me.itens, { reparo: 0, energia: 0 });
     assert.equal(snap.me.armadura, -1);
-    assert.deepEqual(snap.me.evolucoes, []);
+    assert.equal(snap.me.classe, 'assault', 'sem classe no pedido de entrada: a padrão');
+    assert.equal(snap.me.tier, 0, 'a primeira nave da linha');
     assert.deepEqual(snap.melhorias, { quantidade: 0, durabilidade: 0, defesa: 0, velocidade: 0 });
     ws.close();
   } finally {
@@ -294,8 +296,8 @@ test('loja: pelo WebSocket, o pedido volta como resultado e lixo não derruba a 
   }
 });
 
-test('loja: energia máxima da raça sem evolução', () => {
+test('loja: energia máxima da primeira nave da linha', () => {
   const w = mundo();
   const j = w.addPlayer('A', 'acron');
-  assert.equal(j.ship.maxEn, RACES.acron.energia);
+  assert.equal(j.ship.maxEn, naveDe('acron', 'assault', 0).energia);
 });

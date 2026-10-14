@@ -46,11 +46,11 @@ function arena(...pos) {
   const x0 = BASE.x;
   const z0 = BASE.z - ZONA_SEGURA - 120;
   const js = [[0, 0], ...pos].map(([dx, dz], i) => {
-    const j = w.addPlayer('P' + i, 'bellico');
+    const j = w.addPlayer('P' + i, 'acron');
     // Nave sem `time` na física: troca de arma livre, como se tivesse equipado na
     // base antes de sair (a recarga de troca tem testes próprios). O time do
     // jogador (j.time, fogo amigo) continua valendo.
-    j.ship = createShip('bellico', x0 + dx, z0 + dz, 0);
+    j.ship = createShip('acron', x0 + dx, z0 + dz, 0);
     j.protegidoAte = 0;
     return j;
   });

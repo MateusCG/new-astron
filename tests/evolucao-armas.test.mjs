@@ -102,11 +102,11 @@ test('evoluir arma: cobra o preço, exige pousado na Loja, possuir a arma, ouro,
 function duelo() {
   const w = mundo({ torretas: false });
   const a = w.addPlayer('A', 'acron');
-  const b = w.addPlayer('B', 'bellico');
+  const b = w.addPlayer('B', 'shrewdo'); // sem blindagem de nave: leva o dano cheio
   const z = BASE.z - ZONA_SEGURA - 120;
   a.ship = createShip('acron', BASE.x, z, 0);
   a.ship.armas = [...ARMAS.keys()];
-  b.ship = createShip('bellico', BASE.x, z - 20, 0);
+  b.ship = createShip('shrewdo', BASE.x, z - 20, 0);
   b.ship.y = a.ship.y;
   a.protegidoAte = b.protegidoAte = 0;
   let seq = 0;

@@ -23,6 +23,7 @@
 
 import { heightAt, areaPouso, topoPouso, BASES } from './terrain.js';
 import { alturaSolida } from './obstaculos.js';
+import { naveDe, classeOuPadrao, CLASSE_PADRAO } from './naves.js';
 
 export const DT = 1 / 30;
 export const HOVER = 10;
@@ -39,19 +40,29 @@ export const INCLINACAO_CURVA = 0.55;
 export const SHIP_RADIUS = 4.5;
 
 /**
- * Raças e status iniciais (slide "Status Inicial" do documento de design).
- * velocidade vira m/s pelo fator VEL_FATOR.
+ * Raças. A cor vai no brilho dos motores; os status (HP, energia, velocidade) vêm
+ * da NAVE (shared/naves.js: raça, classe e tier), não da raça. Mechan aparece na
+ * entrada apagada ("EM BREVE"): ainda não tem naves (RACAS_BLOQUEADAS).
  */
 export const RACES = {
-  acron: { nome: 'Acron', velocidade: 100, hp: 180, energia: 80, cor: 0x3fa9ff, bioma: 'Aquático' },
-  bellico: { nome: 'Bellico', velocidade: 90, hp: 300, energia: 40, cor: 0xff5a3c, bioma: 'Deserto' },
-  shrewdo: { nome: 'Shrewdo', velocidade: 120, hp: 150, energia: 45, cor: 0x34e08a, bioma: 'Terreno' },
-  mechan: { nome: 'Mechan', velocidade: 95, hp: 250, energia: 60, cor: 0xb15cff, bioma: 'Tóxico' },
+  acron: { nome: 'Acron', cor: 0x3fa9ff, bioma: 'Aquático' },
+  bellico: { nome: 'Bellico', cor: 0xff5a3c, bioma: 'Deserto' },
+  shrewdo: { nome: 'Shrewdo', cor: 0x34e08a, bioma: 'Terreno' },
+  mechan: { nome: 'Mechan', cor: 0xb15cff, bioma: 'Tóxico', bloqueada: true },
 };
+/** Velocidade da nave (pontos, 100 = Warrior) vezes isto dá m/s. */
 export const VEL_FATOR = 0.55;
 export const BOOST_MULT = 1.6;
 export const BOOST_GASTO = 14; // energia por segundo
-export const ENERGIA_REGEN = 9; // por segundo, sem boost
+export const ENERGIA_REGEN = 9; // por segundo, sem boost (nave sem regenEn própria)
+
+/**
+ * Física de quem não é nave de jogador com classe (drones, Vorax, Krakor, guardião,
+ * mineradores, escoltas, e a raça sem naves): só a velocidade máxima conta para a
+ * IA deles (o HP cada um põe o seu). Os números são os da raça Mechan de antes,
+ * para drones e Vorax andarem como andavam.
+ */
+export const NAVE_SEM_CLASSE = { hp: 250, energia: 60, velocidade: 95 };
 
 // Armas: a nave tem DUAS, cada uma num encaixe (Z e X). Não existe arma principal
 // nem secundária: os dois encaixes são iguais e aceitam qualquer arma do catálogo
@@ -341,11 +352,36 @@ export function forward(yaw) {
   return { x: -Math.sin(yaw), z: -Math.cos(yaw) };
 }
 
-/** Estado novo de uma nave da raça dada, parada no ponto (x, z). */
-export function createShip(race, x, z, yaw = 0) {
-  const r = RACES[race] ?? RACES.shrewdo;
-  return {
-    race: RACES[race] ? race : 'shrewdo',
+/**
+ * Põe na nave os status da nave do catálogo (shared/naves.js) ou, sem ela,
+ * NAVE_SEM_CLASSE: classe, tier, HP e energia máximos, velocidade (pontos),
+ * regeneração de energia (s.regenEn) e de vida (s.regenHp, por segundo; quem
+ * regenera é o servidor) e armadura (fração do dano segurada). Não mexe em HP e
+ * energia atuais. A velocidade e a regeneração de energia vão no `me`: o stepShip
+ * da predição lê os mesmos números.
+ */
+export function aplicarNave(s, nave) {
+  const n = nave ?? NAVE_SEM_CLASSE;
+  s.classe = nave?.classe;
+  s.tier = nave?.tier ?? 0;
+  s.maxHp = n.hp;
+  s.maxEn = n.energia;
+  s.velocidade = n.velocidade;
+  s.regenEn = n.regenEnergia ?? ENERGIA_REGEN;
+  s.regenHp = n.regenHp ?? 0;
+  s.armadura = n.armadura ?? 0;
+  return s;
+}
+
+/**
+ * Estado novo de uma nave da raça dada, parada no ponto (x, z). Raça com naves
+ * (acron, bellico, shrewdo) usa a nave de `classe` e `tier` (classe inválida vira
+ * CLASSE_PADRAO); raça sem naves (mechan, a física dos monstros) usa NAVE_SEM_CLASSE.
+ */
+export function createShip(race, x, z, yaw = 0, classe = CLASSE_PADRAO, tier = 0) {
+  const raca = RACES[race] ? race : 'shrewdo';
+  const s = {
+    race: raca,
     x,
     z,
     y: heightAt(x, z) + HOVER,
@@ -353,10 +389,6 @@ export function createShip(race, x, z, yaw = 0) {
     vx: 0,
     vz: 0,
     roll: 0,
-    hp: r.hp,
-    maxHp: r.hp,
-    en: r.energia,
-    maxEn: r.energia,
     cd1: 0,
     cd2: 0,
     troca1: 0, // s de recarga de troca do Z (TROCA_ARMA_S): sem tiro e sem troca nele
@@ -366,7 +398,7 @@ export function createShip(race, x, z, yaw = 0) {
     // mineradores, testes); a nave de jogador recebe a posse do piloto no World
     // (só as de fábrica e as compradas na Loja: server/servicos.js).
     armas: [...TODAS_AS_ARMAS],
-    velMult: 1, // multiplicador da velocidade máxima (evolução do motor, armadura pesada)
+    velMult: 1, // multiplicador da velocidade máxima (armadura pesada da Loja)
     lento: 0, // segundos restantes de lentidão (tiro criogênico); o servidor põe no acerto
     lentoMult: CRIO_LENTIDAO, // fração da velocidade enquanto lento (o nível do criogênico de quem acertou a abaixa)
     emp: 0, // segundos restantes sem tiro e sem boost (pulso EMP); o servidor põe no acerto
@@ -375,6 +407,15 @@ export function createShip(race, x, z, yaw = 0) {
     pousado: false,
     pAnt: false,
   };
+  aplicarNave(s, naveDe(raca, classeOuPadrao(classe), tier));
+  s.hp = s.maxHp;
+  s.en = s.maxEn;
+  return s;
+}
+
+/** Velocidade máxima da nave em m/s, sem boost nem multiplicadores (para as IAs). */
+export function velocidadeBase(s) {
+  return (s.velocidade ?? NAVE_SEM_CLASSE.velocidade) * VEL_FATOR;
 }
 
 /** Comando vazio (nave solta). */
@@ -408,7 +449,6 @@ function bloqueado(gAtual, x, z, passo) {
  * mina ou a onda de choque).
  */
 export function stepShip(s, inp, dt = DT) {
-  const raca = RACES[s.race];
   // As armas dos dois encaixes vêm no comando (a = Z, a2 = X) a cada passo, para
   // predição e servidor trocarem no mesmo passo. A recarga do tiro é do encaixe,
   // não da arma: trocar de arma não zera a espera do tiro. Arma que a nave não
@@ -445,10 +485,11 @@ export function stepShip(s, inp, dt = DT) {
   if (!inp.b) s.boostTravado = false;
   const querBoost = !pousado && !semSistemas && inp.b && inp.th > 0 && s.en > 0 && !s.boostTravado;
   s.boost = querBoost;
-  // s.velMult: evolução de motor e armadura pesada (o servidor põe; vai no `me`).
-  // s.lentoMult: força do lento de quem acertou (o servidor põe no acerto; vai no `me`).
+  // s.velocidade: a da nave (shared/naves.js); s.velMult: armadura pesada (o
+  // servidor põe; os dois vão no `me`). s.lentoMult: força do lento de quem acertou
+  // (o servidor põe no acerto; vai no `me`).
   const lento = s.lento > 0 ? (s.lentoMult ?? CRIO_LENTIDAO) : 1;
-  const maxV = raca.velocidade * VEL_FATOR * (s.velMult ?? 1) * (querBoost ? BOOST_MULT : 1) * lento;
+  const maxV = velocidadeBase(s) * (s.velMult ?? 1) * (querBoost ? BOOST_MULT : 1) * lento;
   s.lento = Math.max(0, (s.lento || 0) - dt);
 
   s.yaw += inp.tu * TURN_RATE * (pousado ? POUSO_GIRO : 1) * dt;
@@ -496,7 +537,7 @@ export function stepShip(s, inp, dt = DT) {
     s.en = Math.max(0, s.en - BOOST_GASTO * dt);
     if (s.en === 0) s.boostTravado = true;
   }
-  else s.en = Math.min(s.maxEn, s.en + ENERGIA_REGEN * (pousado ? POUSO_REGEN_MULT : 1) * dt);
+  else s.en = Math.min(s.maxEn, s.en + (s.regenEn ?? ENERGIA_REGEN) * (pousado ? POUSO_REGEN_MULT : 1) * dt);
 
   s.cd1 = Math.max(0, s.cd1 - dt);
   s.cd2 = Math.max(0, s.cd2 - dt);

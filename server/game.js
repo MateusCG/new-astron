@@ -52,9 +52,10 @@
 // por adicionarTiro, com `fonte` e `time` no evento para o cliente pintar.
 //
 // Loja e Evolução (server/servicos.js): pedidos do cliente atendidos em pedido();
-// a posse de armas, a armadura, os itens e as evoluções ficam no jogador e vão
-// para cada nave nova em prepararNave (nascimento e renascimento). A armadura e a
-// defesa dos mineradores reduzem o dano em #ferir.
+// a posse de armas, a armadura, os itens e a nave comprada (tier da linha da raça e
+// classe, shared/naves.js) ficam no jogador e vão para cada nave nova em
+// prepararNave (nascimento e renascimento). A armadura (a da Loja e a blindagem da
+// nave) e a defesa dos mineradores reduzem o dano em #ferir.
 //
 // Nível das armas (Loja, shared/loja.js): o tiro, a mina e a onda de choque levam o
 // nível da arma de quem atirou (`nivel`, lido de j.niveisArmas na hora do disparo);
@@ -80,13 +81,13 @@ import {
   stepBullet,
   bulletHits,
   VEL_TOQUE,
-  VEL_FATOR,
-  RACES,
+  velocidadeBase,
   IDX_ARMA,
 } from '../shared/sim.js';
 import { danoMultNivel, efeitoDaArma } from '../shared/loja.js';
 import { BASE, BASES, CORREDOR } from '../shared/terrain.js';
 import { pontoAberto } from '../shared/obstaculos.js';
+import { racaJogavel, RACAS_JOGAVEIS, classeOuPadrao } from '../shared/naves.js';
 import { MapaNavegacao } from './navegacao.js';
 import { Partida, N_TIMES, MULT_FASE_FINAL } from './partida.js';
 import { Mineradores } from './mineradores.js';
@@ -117,7 +118,10 @@ const MAX_FILA = 30;
 const RESPAWN_TICKS = 3 * TICK_HZ; // drones; o do jogador cresce (tempoRenascer em server/progressao.js)
 const ASSISTENCIA_TICKS = ASSISTENCIA_JANELA_S * TICK_HZ;
 const REGEN_ESPERA_TICKS = 5 * TICK_HZ;
-const VOO_REGEN_HP = 0.03; // fração do HP máximo por segundo, voando
+// Voando (sem levar dano há REGEN_ESPERA_TICKS), a nave de jogador regenera o
+// regenHp da nave dela (HP/s, shared/naves.js: o regenHP do original); monstro e
+// minerador, VOO_REGEN_HP do máximo. Pousada, qualquer uma conserta POUSO_REGEN_HP.
+const VOO_REGEN_HP = 0.03; // fração do HP máximo por segundo, voando (sem regenHp)
 const POUSO_REGEN_HP = 0.08; // fração do HP máximo por segundo, pousada
 const POUSO_REGEN_ESPERA_TICKS = 1 * TICK_HZ;
 // Monstros do mundo aberto (3000 × 2000 m): Arnosh espalhados patrulhando, Vorax
@@ -274,10 +278,10 @@ export class World {
     return { x: b.x + Math.cos(a) * r, z: b.z + Math.sin(a) * r, yaw };
   }
 
-  /** Nave nova do jogador na base do time dele, voltada para o corredor. */
-  #naveNaBase(race, time) {
+  /** Nave nova do jogador na base do time dele, voltada para o corredor (a nave da classe e do tier dele). */
+  #naveNaBase(race, time, classe, tier = 0) {
     const p = this.#pontoNaBase(time);
-    const ship = createShip(race, p.x, p.z, p.yaw);
+    const ship = createShip(race, p.x, p.z, p.yaw, classe, tier);
     ship.time = time; // vai no `me`: a predição precisa para o pouso (pousoPermitido)
     return ship;
   }
@@ -342,22 +346,28 @@ export class World {
   }
 
   /**
-   * Entra um jogador, no time com menos gente. Retorna o objeto do jogador (o
-   * servidor guarda o socket nele), ou null se os dois times estão cheios
-   * (o servidor responde 'partida_cheia').
+   * Entra um jogador, no time com menos gente, na primeira nave da linha da raça e
+   * classe (shared/naves.js). Retorna o objeto do jogador (o servidor guarda o
+   * socket nele), ou null se os dois times estão cheios (o servidor responde
+   * 'partida_cheia'). Quem valida a raça é o servidor (server/index.js recusa raça
+   * bloqueada ou inválida antes); aqui, raça sem naves vira a primeira jogável e
+   * classe inválida vira CLASSE_PADRAO.
    */
-  addPlayer(nome, race) {
+  addPlayer(nome, race, classe) {
     const tamanhos = Array.from({ length: N_TIMES }, () => 0);
     for (const j of this.players.values()) tamanhos[j.time]++;
     const time = this.partida.escolherTime(tamanhos);
     if (time === null) return null;
     const id = this.#id();
+    const raca = racaJogavel(race) ? race : RACAS_JOGAVEIS[0];
+    const cls = classeOuPadrao(classe);
     const jogador = {
       id,
       tipo: 'jogador',
       nome: limpaNome(nome),
       time,
-      ship: this.#naveNaBase(race, time),
+      classe: cls, // escolhida na entrada; o tier (nave da linha) é da partida, em novoEquipamento
+      ship: this.#naveNaBase(raca, time, cls),
       fila: [],
       ack: 0,
       vivo: true,
@@ -371,9 +381,9 @@ export class World {
       mortes: 0,
       ...novaProgressao(), // nivel, xp
       ...novoCombate(), // sequencia, danoPor
-      ...novoEquipamento(), // armas, armadura, itens, evoluções (Loja e Evolução)
+      ...novoEquipamento(), // armas, armadura, itens, tier da nave (Loja e Evolução)
     };
-    prepararNave(jogador); // só as armas de fábrica
+    prepararNave(jogador); // a primeira nave da linha, só com as armas de fábrica
     this.players.set(id, jogador);
     this.eventos.push({ e: 'entrou', id, nome: jogador.nome, time });
     return jogador;
@@ -509,7 +519,7 @@ export class World {
 
   #iaVorax(m) {
     const s = m.ship;
-    const thMax = Math.min(1, VORAX.velocidade / (RACES[s.race].velocidade * VEL_FATOR));
+    const thMax = Math.min(1, VORAX.velocidade / velocidadeBase(s));
     if (m.re > 0) {
       // Preso numa quina: dá ré virando, e depois tenta de novo.
       m.re--;
@@ -888,7 +898,8 @@ export class World {
     if (noChao && semDano > POUSO_REGEN_ESPERA_TICKS) {
       s.hp = Math.min(s.maxHp, s.hp + s.maxHp * POUSO_REGEN_HP * DT);
     } else if (semDano > REGEN_ESPERA_TICKS) {
-      s.hp = Math.min(s.maxHp, s.hp + s.maxHp * VOO_REGEN_HP * DT);
+      const porS = ent.tipo === 'jogador' ? s.regenHp : s.maxHp * VOO_REGEN_HP;
+      s.hp = Math.min(s.maxHp, s.hp + porS * DT);
     }
   }
 
@@ -905,8 +916,8 @@ export class World {
       const novo = this.#novoDrone();
       ent.ship = novo.ship;
     } else {
-      ent.ship = this.#naveNaBase(ent.ship.race, ent.time);
-      prepararNave(ent); // nível, evoluções, armadura e a posse de armas
+      ent.ship = this.#naveNaBase(ent.ship.race, ent.time, ent.classe, ent.tier);
+      prepararNave(ent); // nave da linha, nível, armadura e a posse de armas
       ent.fila.length = 0;
       ent.protegidoAte = this.tick + PROTECAO_TICKS;
       ent.recall = null; // partida nova: quem canalizava já está na base
@@ -937,8 +948,9 @@ export class World {
       if (vinhaDoFim) {
         for (const j of this.players.values()) {
           if (j.fila.length) j.ack = j.fila[j.fila.length - 1].seq; // descarta sem travar a predição
-          // Ouro, XP, nível, armas compradas, armadura, itens e evoluções são da
-          // partida (como num MOBA): zeram na seguinte.
+          // Ouro, XP, nível, armas compradas, armadura, itens e a nave comprada
+          // (tier) são da partida (como num MOBA): zeram na seguinte. A raça e a
+          // classe ficam (são escolha da entrada).
           Object.assign(j, novaProgressao(), novoCombate(), novoEquipamento(), { ouro: 0 });
           this.#respawn(j);
         }
@@ -1109,7 +1121,7 @@ export class World {
    * que desenhar ('jogador', 'arnosh', 'vorax', 'krakor', 'guardiao', 'minerador'
    * ou 'escolta'); `drone` continua true para todo inimigo do PvE. Jogadores,
    * mineradores e escoltas trazem `time`; os mineradores também `carga` (minério no contêiner)
-   * e `minerando`. Jogador traz `nivel`.
+   * e `minerando`. Jogador traz `nivel`, `classe` e `tier` (a nave a desenhar).
    */
   entidades() {
     const lista = [];
@@ -1136,6 +1148,11 @@ export class World {
       };
       if (e.time !== undefined) ent.time = e.time;
       if (e.nivel !== undefined) ent.nivel = e.nivel;
+      if (e.tipo === 'jogador') {
+        // Qual nave desenhar: raça (acima), classe e tier (muda ao evoluir).
+        ent.classe = e.ship.classe;
+        ent.tier = e.ship.tier;
+      }
       if (e.recall) ent.recall = +Math.min(1, (this.tick - e.recall.inicio) / (e.recall.fim - e.recall.inicio)).toFixed(2);
       if (e.tipo === 'minerador') {
         ent.carga = e.carga;

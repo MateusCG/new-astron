@@ -60,7 +60,7 @@ test('servidor: fechar a conexão (ESC) tira a nave e dá para entrar de novo co
   try {
     const outro = conectar(srv.porta);
     await outro.aberto;
-    outro.ws.send(JSON.stringify({ t: 'entrar', nome: 'Fica', race: 'mechan' }));
+    outro.ws.send(JSON.stringify({ t: 'entrar', nome: 'Fica', race: 'acron', classe: 'mobile' }));
     await outro.esperar((m) => m.t === 'bemvindo');
 
     for (const race of ['bellico', 'acron', 'shrewdo']) {
@@ -218,9 +218,9 @@ test('servidor: aplica a arma escolhida no comando (e limpa valor inválido)', (
 test('servidor: cada projétil do laser duplo tira o dano dele', () => {
   const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
   const a = w.addPlayer('A', 'acron');
-  const b = w.addPlayer('B', 'bellico');
+  const b = w.addPlayer('B', 'shrewdo');
   a.ship = createShip('acron', BASE.x, BASE.z - ZONA_SEGURA - 100, 0);
-  b.ship = createShip('bellico', BASE.x, BASE.z - ZONA_SEGURA - 130, 0);
+  b.ship = createShip('shrewdo', BASE.x, BASE.z - ZONA_SEGURA - 130, 0);
   a.protegidoAte = b.protegidoAte = 0;
   const hp = b.ship.hp;
   w.pushInput(a.id, { s: 1, f1: true, a: 1 });
@@ -228,13 +228,13 @@ test('servidor: cada projétil do laser duplo tira o dano dele', () => {
   assert.equal(hp - b.ship.hp, 2 * WEAPONS.laserDuplo.dano, 'os dois acertaram');
 });
 
-/** Mundo com dois jogadores fora da zona segura: A atira em B, 20 m à frente. */
+/** Mundo com dois jogadores fora da zona segura: A atira em B, 20 m à frente (B sem blindagem de nave). */
 function duelo() {
   const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
   const a = w.addPlayer('A', 'acron');
-  const b = w.addPlayer('B', 'bellico');
+  const b = w.addPlayer('B', 'shrewdo');
   a.ship = createShip('acron', BASE.x, BASE.z - ZONA_SEGURA - 100, 0);
-  b.ship = createShip('bellico', BASE.x, BASE.z - ZONA_SEGURA - 120, 0);
+  b.ship = createShip('shrewdo', BASE.x, BASE.z - ZONA_SEGURA - 120, 0);
   a.protegidoAte = b.protegidoAte = 0;
   /** Põe um projétil da arma `kind` saindo de A, como se A tivesse atirado. */
   const tiro = (kind) => w.bullets.push(createBullet(a.ship, kind, 1000 + w.tick, a.id));

@@ -4,8 +4,9 @@ import { heightAt, paredeAt, BASE, MAP_HALF_X } from '../shared/terrain.js';
 import {
   DT,
   HOVER,
-  RACES,
   VEL_FATOR,
+  NAVE_SEM_CLASSE,
+  velocidadeBase,
   WEAPONS,
   createShip,
   stepShip,
@@ -25,6 +26,7 @@ import {
   CRIO_DURACAO,
 } from '../shared/sim.js';
 import { podePousar, topoPouso, AREAS_POUSO } from '../shared/terrain.js';
+import { NAVES, ORDEM_CLASSES } from '../shared/naves.js';
 
 const FRENTE = { th: 1, tu: 0, b: false, f1: false, f2: false };
 
@@ -37,13 +39,18 @@ test('terreno é determinístico e a base é plana', () => {
 
 // Conectividade do mapa, rochas e muralha: tests/mapa.test.mjs.
 
-test('nave acelera até a velocidade da raça e flutua acima do chão', () => {
-  for (const race of Object.keys(RACES)) {
-    const s = createShip(race, BASE.x, BASE.z, 0);
+test('nave acelera até a velocidade da nave (raça, classe e tier) e flutua acima do chão', () => {
+  const casos = [['mechan', undefined, 0, NAVE_SEM_CLASSE.velocidade]];
+  for (const race of Object.keys(NAVES)) {
+    for (const classe of ORDEM_CLASSES) for (const n of NAVES[race][classe]) casos.push([race, classe, n.tier, n.velocidade]);
+  }
+  for (const [race, classe, tier, pontos] of casos) {
+    const s = createShip(race, BASE.x, BASE.z, 0, classe, tier);
     for (let i = 0; i < 90; i++) stepShip(s, FRENTE);
     const v = Math.hypot(s.vx, s.vz);
-    const max = RACES[race].velocidade * VEL_FATOR;
-    assert.ok(v > max * 0.9 && v <= max + 1e-6, `${race}: ${v} vs ${max}`);
+    const max = pontos * VEL_FATOR;
+    assert.equal(velocidadeBase(s), max);
+    assert.ok(v > max * 0.9 && v <= max + 1e-6, `${race} ${classe} ${tier}: ${v} vs ${max}`);
     assert.ok(Math.abs(s.y - (heightAt(s.x, s.z) + HOVER)) < 3, `${race} na altura de voo`);
   }
 });
@@ -178,8 +185,8 @@ test('armas: dreno e criogênico saem 1 projétil com o efeito no tipo', () => {
 });
 
 test('criogênico: nave lenta voa a uma fração da velocidade máxima e depois volta', () => {
-  const max = RACES.shrewdo.velocidade * VEL_FATOR;
   const s = createShip('shrewdo', BASE.x, BASE.z, 0);
+  const max = velocidadeBase(s);
   s.lento = CRIO_DURACAO;
   let maior = 0;
   for (let i = 0; i < Math.floor(CRIO_DURACAO / DT) - 1; i++) {
