@@ -12,9 +12,8 @@ import WebSocket from 'ws';
 import { World, ZONA_SEGURA } from '../server/game.js';
 import { iniciar } from '../server/index.js';
 import { hpMaxDoNivel } from '../server/progressao.js';
-import { createShip, stepShip, velocidadeBase, VEL_FATOR, WEAPONS, DT } from '../shared/sim.js';
+import { createShip, stepShip, velocidadeBase, DT } from '../shared/sim.js';
 import { BASE, SERVICOS } from '../shared/terrain.js';
-import { ARMADURAS } from '../shared/loja.js';
 import {
   NAVES,
   CLASSES,
@@ -24,7 +23,6 @@ import {
   NIVEL_POR_TIER,
   PRECO_POR_TIER,
   TIER_MAX,
-  REF_JOGO,
   naveDe,
   linhaDe,
   classeValida,
@@ -68,9 +66,9 @@ test('naves: 45 naves, cinco por raça e classe, níveis 1/5/10/15/20 e modelo n
         assert.equal(n.nivel, NIVEL_POR_TIER[tier]);
         assert.equal(n.preco, PRECO_POR_TIER[tier]);
         assert.equal(naveDe(race, classe, tier), n);
-        for (const k of ['hp', 'energia', 'regenEnergia', 'velocidade', 'regenHp']) assert.ok(n[k] > 0, `${n.nome}.${k}`);
-        assert.ok(n.armadura >= 0 && n.armadura < 0.5, `${n.nome}.armadura`);
-        assert.ok(race === 'bellico' || n.armadura === 0, 'só as Bellico têm blindagem');
+        for (const k of ['hp', 'energia', 'regenEnergia', 'velocidade', 'regenHpPousada']) assert.ok(n[k] > 0, `${n.nome}.${k}`);
+        assert.equal(n.regenHpVoo > 0, race === 'bellico', 'só as Bellico regeneram voando');
+        assert.equal(n.armadura, undefined, 'não existe armadura por nave');
         assert.ok(fs.existsSync(path.join(PUBLICO, n.modelo)), `modelo de ${n.nome}: ${n.modelo}`);
       });
     }
@@ -82,19 +80,22 @@ test('naves: 45 naves, cinco por raça e classe, níveis 1/5/10/15/20 e modelo n
   assert.equal(PRECO_POR_TIER[0], 0, 'a primeira é de fábrica');
 });
 
-test('naves: conversão do original (HP/5, energia e velocidade pela Warrior, blindagem Bellico)', () => {
+test('naves: conversão do original (HP/5, energia ×0,3, regen ×0,6, velocidade ×0,5 em m/s)', () => {
   const warrior = naveDe('acron', 'assault', 0);
   assert.equal(warrior.nome, 'Warrior');
   assert.equal(warrior.hp, 170); // 850 / 5
-  assert.equal(warrior.energia, REF_JOGO.energia);
-  assert.equal(warrior.regenEnergia, REF_JOGO.regenEnergia);
-  assert.equal(warrior.velocidade, REF_JOGO.velocidade);
-  assert.equal(warrior.regenHp, 4); // 0,02 HP/ms do original = 20 HP/s, /5
+  assert.equal(warrior.energia, 27); // 90 × 0,3
+  assert.equal(warrior.regenEnergia, 9.4); // 0,0156/ms × 1000 × 0,3 / 0,5
+  assert.equal(warrior.velocidade, 55.6); // 0,1111 m/ms = 111 m/s, × 0,5
+  assert.equal(warrior.regenHpPousada, 4); // 0,02 HP/ms = 20 HP/s, /5
+  assert.equal(warrior.regenHpVoo, 0);
+  assert.equal(naveDe('acron', 'functional', 0).energia, 54);
+  assert.equal(naveDe('acron', 'assault', 4).energia, 132);
   assert.equal(naveDe('acron', 'functional', 0).nome, 'Esper');
   assert.equal(naveDe('acron', 'assault', 4).nome, 'Ulysses');
   assert.equal(naveDe('shrewdo', 'mobile', 0).id, 'speed-wing');
-  assert.equal(naveDe('bellico', 'assault', 0).armadura, 0.04);
-  assert.equal(naveDe('bellico', 'assault', 3).armadura, 0.1, 'a Elephantera é a mais blindada');
+  assert.equal(naveDe('bellico', 'assault', 0).regenHpVoo, 2.7); // 0,0133/ms = 13,3 HP/s, /5
+  assert.equal(naveDe('bellico', 'assault', 3).regenHpVoo, 6.7, 'a Elephantera regenera mais');
   // Números do original mantidos: a Ulysses tem menos HP que a Kamasutra, mas mais energia e velocidade.
   const [k, u] = [naveDe('acron', 'assault', 3), naveDe('acron', 'assault', 4)];
   assert.ok(u.hp < k.hp && u.energia > k.energia && u.velocidade > k.velocidade);
@@ -277,9 +278,9 @@ test('naves: a velocidade da nave nova vale no stepShip (servidor e predição)'
     for (const s of [ranger, eurus, predicao]) stepShip(s, { th: 1, tu: 0 });
   }
   const v = (s) => Math.hypot(s.vx, s.vz);
-  assert.ok(Math.abs(v(ranger) - naveDe('acron', 'mobile', 0).velocidade * VEL_FATOR) < 1);
-  assert.ok(Math.abs(v(eurus) - naveDe('acron', 'mobile', 3).velocidade * VEL_FATOR) < 1);
-  assert.equal(velocidadeBase(eurus), naveDe('acron', 'mobile', 3).velocidade * VEL_FATOR);
+  assert.ok(Math.abs(v(ranger) - naveDe('acron', 'mobile', 0).velocidade) < 1);
+  assert.ok(Math.abs(v(eurus) - naveDe('acron', 'mobile', 3).velocidade) < 1);
+  assert.equal(velocidadeBase(eurus), naveDe('acron', 'mobile', 3).velocidade);
   assert.deepEqual(predicao, eurus, 'a predição bate com o servidor');
 });
 
@@ -292,38 +293,29 @@ test('naves: a regeneração de energia vem da nave', () => {
   assert.ok(Math.abs(esper.en - naveDe('acron', 'functional', 0).regenEnergia) < 1e-6, String(esper.en));
 });
 
-test('naves: a blindagem da Bellico reduz o dano e se multiplica com a armadura da Loja', () => {
-  const dano = (race, armadura = []) => {
-    const w = mundo();
-    const a = w.addPlayer('A', 'acron');
-    const b = w.addPlayer('B', race);
-    pousar(b, 'loja');
-    b.ouro = 1000;
-    for (const item of armadura) assert.equal(w.pedido(b.id, { t: 'comprar', item }).ok, true);
-    const z = BASE.z - ZONA_SEGURA - 120;
-    Object.assign(a.ship, { x: BASE.x, z, vx: 0, vz: 0, yaw: 0, pousado: false, time: undefined });
-    Object.assign(b.ship, { x: BASE.x, z: z - 20, y: a.ship.y, vx: 0, vz: 0, pousado: false });
-    a.protegidoAte = b.protegidoAte = 0;
-    const hp = b.ship.hp;
-    w.pushInput(a.id, { s: 1, f1: true });
-    for (let i = 0; i < 5; i++) w.step();
-    return hp - b.ship.hp;
-  };
-  const lioner = naveDe('bellico', 'assault', 0).armadura;
-  assert.equal(dano('acron'), WEAPONS.laser.dano, 'Acron sem blindagem');
-  assert.ok(Math.abs(dano('bellico') - WEAPONS.laser.dano * (1 - lioner)) < 1e-9);
-  const comLoja = WEAPONS.laser.dano * (1 - lioner) * (1 - ARMADURAS[0].reducao);
-  assert.ok(Math.abs(dano('bellico', ['armaduraLeve']) - comLoja) < 1e-9);
+test('naves: Bellico regenera voando, mesmo levando dano; as outras não', () => {
+  const w = mundo();
+  const b = w.addPlayer('B', 'bellico', 'assault');
+  const a = w.addPlayer('A', 'acron', 'assault');
+  for (const [j, dx] of [[b, 0], [a, 60]]) {
+    Object.assign(j.ship, { x: BASE.x + dx, z: BASE.z - ZONA_SEGURA - 150 });
+    j.ship.hp = 100;
+    j.ultimoDano = w.tick; // acabou de levar dano
+  }
+  for (let i = 0; i < SEGUNDO; i++) w.step();
+  const esperado = 100 + naveDe('bellico', 'assault', 0).regenHpVoo * SEGUNDO * DT;
+  assert.ok(Math.abs(b.ship.hp - esperado) < 1e-6, `${b.ship.hp} vs ${esperado}`);
+  assert.equal(a.ship.hp, 100, 'a Acron não regenera voando');
 });
 
-test('naves: voando sem levar dano, a nave de jogador regenera o regenHp dela', () => {
+test('naves: pousada e parada, a nave conserta o regenHpPousada dela', () => {
   const w = mundo();
-  const j = w.addPlayer('A', 'bellico', 'assault');
-  Object.assign(j.ship, { x: BASE.x, z: BASE.z - ZONA_SEGURA - 150 });
-  j.ship.hp = 100;
+  const j = w.addPlayer('A', 'acron', 'mobile');
+  pousar(j, 'evolucao');
+  j.ship.hp = 50;
   j.ultimoDano = -1e6;
   for (let i = 0; i < SEGUNDO; i++) w.step();
-  const esperado = 100 + naveDe('bellico', 'assault', 0).regenHp * SEGUNDO * DT;
+  const esperado = 50 + naveDe('acron', 'mobile', 0).regenHpPousada * SEGUNDO * DT;
   assert.ok(Math.abs(j.ship.hp - esperado) < 1e-6, `${j.ship.hp} vs ${esperado}`);
 });
 

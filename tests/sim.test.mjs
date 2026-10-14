@@ -4,7 +4,6 @@ import { heightAt, paredeAt, BASE, MAP_HALF_X } from '../shared/terrain.js';
 import {
   DT,
   HOVER,
-  VEL_FATOR,
   NAVE_SEM_CLASSE,
   velocidadeBase,
   WEAPONS,
@@ -44,11 +43,11 @@ test('nave acelera até a velocidade da nave (raça, classe e tier) e flutua aci
   for (const race of Object.keys(NAVES)) {
     for (const classe of ORDEM_CLASSES) for (const n of NAVES[race][classe]) casos.push([race, classe, n.tier, n.velocidade]);
   }
-  for (const [race, classe, tier, pontos] of casos) {
+  for (const [race, classe, tier, mps] of casos) {
     const s = createShip(race, BASE.x, BASE.z, 0, classe, tier);
     for (let i = 0; i < 90; i++) stepShip(s, FRENTE);
     const v = Math.hypot(s.vx, s.vz);
-    const max = pontos * VEL_FATOR;
+    const max = mps;
     assert.equal(velocidadeBase(s), max);
     assert.ok(v > max * 0.9 && v <= max + 1e-6, `${race} ${classe} ${tier}: ${v} vs ${max}`);
     assert.ok(Math.abs(s.y - (heightAt(s.x, s.z) + HOVER)) < 3, `${race} na altura de voo`);

@@ -1,7 +1,7 @@
 // Naves de jogador por raça e classe (contrato entre servidor e cliente).
 //
 // Como no Astro-N original, cada raça jogável tem três classes de nave, cada uma
-// com uma especialidade: Assault (mais HP e blindagem), Mobile (mais velocidade) e
+// com uma especialidade: Assault (mais HP), Mobile (mais velocidade) e
 // Functional (mais energia). Cada classe é uma LINHA de cinco naves (tier 0 a 4): o
 // piloto começa a partida na primeira nave da linha da raça e classe que escolheu e
 // compra a seguinte na Evolução da base (server/servicos.js), com o nível exigido
@@ -9,34 +9,40 @@
 // de entrada, mas ainda sem naves (RACAS_BLOQUEADAS).
 //
 // Os números saem do initunit.cfg do jogo original (colunas no fim de cada linha:
-// classe, HP, armadura, regenHP, energia, regenEnergia, velocidade, aceleração,
-// nível exigido e preço), guardados crus em ORIGINAL e convertidos para a escala do
-// jogo novo pelas constantes abaixo. Os números do original ficam como estão, mesmo
-// quando uma nave de tier mais alto perde num status para a anterior (a Ulysses tem
-// menos HP que a Kamasutra, mas mais energia e velocidade): é a personalidade de
-// cada nave. Aceleração, nível e preço do original não entram (a física do jogo novo
-// tem uma resposta só, e nível e preço seguem a economia da partida de 10 minutos).
+// classe, HP, regeneração de HP em voo, regeneração de HP pousada, energia,
+// regeneração de energia, velocidade, aceleração, nível exigido e preço), guardados
+// crus em ORIGINAL e convertidos para a escala do jogo novo pelas constantes abaixo.
+// As unidades do original saíram do carregador do jogo (Ghidra): tempo em ms,
+// distância em m, velocidade em m/ms. Os números do original ficam como estão,
+// mesmo quando uma nave de tier mais alto perde num status para a anterior (a
+// Ulysses tem menos HP que a Kamasutra, mas mais energia e velocidade): é a
+// personalidade de cada nave. Aceleração, nível e preço do original não entram (a
+// física do jogo novo tem uma resposta só, e nível e preço seguem a economia da
+// partida de 10 minutos).
 //
-// Conversão (constantes nomeadas para balancear sem mexer nos dados):
+// Conversão (constantes nomeadas, as mesmas da frente das armas, para dano, custo e
+// recarga baterem com HP e energia):
 // - HP: o do original vezes FATOR_ESCALA_HP (HP/5, a mesma escala do dano das armas).
-// - Regeneração de vida: o original está em HP por milissegundo (MS_POR_S converte);
-//   vira HP por segundo na mesma escala do HP. Quem regenera é o servidor (#regen em
-//   server/game.js), voando e sem levar dano há um tempo; pousada a nave conserta
-//   mais rápido, pela regra do servidor.
-// - Armadura (só as naves Bellico têm): fração do dano que a nave deixa de levar,
-//   FATOR_ARMADURA vezes o número do original (a Elephantera, a mais blindada, segura
-//   10%). Soma com a armadura da Loja (as duas reduções se multiplicam).
-// - Energia, regeneração de energia e velocidade: razão com a nave de referência
-//   (REF_ORIGINAL, a Warrior, primeira Acron Assault) e o número que ela tem no jogo
-//   novo (REF_JOGO), para o jogo continuar na faixa de antes (energia 40 a 80,
-//   regen 9/s, ~55 m/s). A velocidade fica em "pontos" (100 = Warrior), como era em
-//   RACES: m/s = pontos × VEL_FATOR (shared/sim.js).
+// - Regeneração de HP em voo (regenHpVoo, a coluna 0x20c; só as Bellico têm): HP/ms
+//   do original vezes 1000 (MS_POR_S) e FATOR_ESCALA_HP, em HP por segundo. É
+//   contínua: vale até no meio da briga.
+// - Regeneração de HP pousada (regenHpPousada, a coluna 0x210, que no original só
+//   vale com a unidade parada): idem, em HP por segundo. É o conserto de quem pousa
+//   (server/game.js, #regen), no lugar de uma fração fixa do HP.
+// - Energia máxima: o original vezes FATOR_ENERGIA (o custo das armas usa o mesmo
+//   fator). Regeneração de energia por segundo: o original por ms × 1000 ×
+//   FATOR_ENERGIA / FATOR_RECARGA (as recargas das armas são ×0,5, então a nave
+//   regenera em proporção ao que as armas gastam no tempo delas).
+// - Velocidade: m/ms do original × 1000 = m/s, vezes FATOR_VELOCIDADE (o alcance das
+//   armas usa o mesmo fator). A Warrior faz 0,1111 m/ms = 111 m/s no original e
+//   ~55,6 m/s aqui, a faixa de antes. Fica em m/s na nave (s.velocidade).
+// Não existe armadura por nave no original: a redução de dano é só a da Loja.
 //
 // Tudo aqui é dado puro e determinístico (servidor e cliente leem o mesmo arquivo).
 
 /** Classes de nave, com a especialidade do original. */
 export const CLASSES = {
-  assault: { id: 'assault', nome: 'Assault', especialidade: 'Mais HP e blindagem' },
+  assault: { id: 'assault', nome: 'Assault', especialidade: 'Mais HP' },
   mobile: { id: 'mobile', nome: 'Mobile', especialidade: 'Mais velocidade' },
   functional: { id: 'functional', nome: 'Functional', especialidade: 'Mais energia' },
 };
@@ -60,16 +66,16 @@ export const NIVEL_POR_TIER = [1, 5, 10, 15, 20];
 export const PRECO_POR_TIER = [0, 200, 400, 650, 900];
 
 export const FATOR_ESCALA_HP = 0.2; // HP e dano do original divididos por 5
-export const MS_POR_S = 1000; // regenerações do original são por milissegundo
-export const FATOR_ARMADURA = 3; // armadura do original → fração do dano segurada
-/** Nave de referência (Warrior) no original e no jogo novo. */
-export const REF_ORIGINAL = { energia: 90, regenEnergia: 0.0156, velocidade: 0.1111 };
-export const REF_JOGO = { energia: 60, regenEnergia: 9, velocidade: 100 };
+export const MS_POR_S = 1000; // tempos do original são em ms (regenerações por ms, velocidade em m/ms)
+export const FATOR_ENERGIA = 0.3; // energia máxima (e custo das armas) do original
+export const FATOR_RECARGA = 0.5; // recarga das armas do original (entra na regeneração de energia)
+export const FATOR_VELOCIDADE = 0.5; // velocidade (e alcance das armas) do original, em m/s
 
 /**
  * Colunas do initunit.cfg, em ordem de tier dentro de cada linha (número do modelo:
  * 02/05/08/11/14 Assault, 03/06/09/12/15 Mobile, 04/07/10/13/16 Functional):
- * [id, nome, HP, armadura, regenHP, energia, regenEnergia, velocidade].
+ * [id, nome, HP, regenHP em voo (0x20c), regenHP pousada (0x210), energia,
+ * regenEnergia, velocidade]. Regenerações por ms, velocidade em m/ms.
  */
 const ORIGINAL = {
   acron: {
@@ -146,7 +152,7 @@ const ORIGINAL = {
 const umaCasa = (v) => Math.round(v * 10) / 10;
 
 /** Converte uma linha do original para a nave do jogo novo. */
-function converter(race, classe, tier, [id, nome, hp, armadura, regenHp, energia, regenEnergia, velocidade]) {
+function converter(race, classe, tier, [id, nome, hp, regenVoo, regenPousada, energia, regenEnergia, velocidade]) {
   return {
     id,
     nome,
@@ -157,11 +163,11 @@ function converter(race, classe, tier, [id, nome, hp, armadura, regenHp, energia
     nivel: NIVEL_POR_TIER[tier],
     preco: PRECO_POR_TIER[tier],
     hp: Math.round(hp * FATOR_ESCALA_HP),
-    energia: Math.round((energia * REF_JOGO.energia) / REF_ORIGINAL.energia),
-    regenEnergia: umaCasa((regenEnergia * REF_JOGO.regenEnergia) / REF_ORIGINAL.regenEnergia), // por segundo
-    velocidade: Math.round((velocidade * REF_JOGO.velocidade) / REF_ORIGINAL.velocidade), // pontos (× VEL_FATOR = m/s)
-    armadura: Math.round(armadura * FATOR_ARMADURA * 1000) / 1000, // fração do dano segurada
-    regenHp: umaCasa(regenHp * MS_POR_S * FATOR_ESCALA_HP), // HP por segundo
+    energia: Math.round(energia * FATOR_ENERGIA),
+    regenEnergia: umaCasa((regenEnergia * MS_POR_S * FATOR_ENERGIA) / FATOR_RECARGA), // por segundo
+    velocidade: umaCasa(velocidade * MS_POR_S * FATOR_VELOCIDADE), // m/s
+    regenHpVoo: umaCasa(regenVoo * MS_POR_S * FATOR_ESCALA_HP), // HP por segundo, voando (só Bellico)
+    regenHpPousada: umaCasa(regenPousada * MS_POR_S * FATOR_ESCALA_HP), // HP por segundo, pousada
   };
 }
 

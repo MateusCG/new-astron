@@ -54,8 +54,8 @@
 // Loja e Evolução (server/servicos.js): pedidos do cliente atendidos em pedido();
 // a posse de armas, a armadura, os itens e a nave comprada (tier da linha da raça e
 // classe, shared/naves.js) ficam no jogador e vão para cada nave nova em
-// prepararNave (nascimento e renascimento). A armadura (a da Loja e a blindagem da
-// nave) e a defesa dos mineradores reduzem o dano em #ferir.
+// prepararNave (nascimento e renascimento). A armadura da Loja e a defesa dos
+// mineradores reduzem o dano em #ferir.
 //
 // Nível das armas (Loja, shared/loja.js): o tiro, a mina e a onda de choque levam o
 // nível da arma de quem atirou (`nivel`, lido de j.niveisArmas na hora do disparo);
@@ -118,11 +118,13 @@ const MAX_FILA = 30;
 const RESPAWN_TICKS = 3 * TICK_HZ; // drones; o do jogador cresce (tempoRenascer em server/progressao.js)
 const ASSISTENCIA_TICKS = ASSISTENCIA_JANELA_S * TICK_HZ;
 const REGEN_ESPERA_TICKS = 5 * TICK_HZ;
-// Voando (sem levar dano há REGEN_ESPERA_TICKS), a nave de jogador regenera o
-// regenHp da nave dela (HP/s, shared/naves.js: o regenHP do original); monstro e
-// minerador, VOO_REGEN_HP do máximo. Pousada, qualquer uma conserta POUSO_REGEN_HP.
-const VOO_REGEN_HP = 0.03; // fração do HP máximo por segundo, voando (sem regenHp)
-const POUSO_REGEN_HP = 0.08; // fração do HP máximo por segundo, pousada
+// Nave de jogador: a regeneração é a da nave (shared/naves.js, do original). Voando,
+// regenHpVoo (HP/s, só as Bellico têm), contínua, mesmo levando dano; pousada e
+// parada, regenHpPousada (HP/s), depois de POUSO_REGEN_ESPERA_TICKS sem dano (levar
+// tiro interrompe por um instante). Monstros, mineradores e escoltas seguem as
+// frações do HP máximo: VOO_REGEN_HP sem levar dano há REGEN_ESPERA_TICKS.
+const VOO_REGEN_HP = 0.03; // fração do HP máximo por segundo, voando (sem nave do catálogo)
+const POUSO_REGEN_HP = 0.08; // fração do HP máximo por segundo, pousada (sem nave do catálogo)
 const POUSO_REGEN_ESPERA_TICKS = 1 * TICK_HZ;
 // Monstros do mundo aberto (3000 × 2000 m): Arnosh espalhados patrulhando, Vorax
 // caçando (N_MONSTROS) e os Krakor, elites raros (N_KRAKOR em server/elites.js).
@@ -895,11 +897,13 @@ export class World {
     // Pousada (parada no chão), a nave conserta rápido, como o "Landed: recovers"
     // das naves do AstroN; mas levar tiro interrompe por um instante.
     const noChao = s.pousado && Math.hypot(s.vx, s.vz) < VEL_TOQUE;
-    if (noChao && semDano > POUSO_REGEN_ESPERA_TICKS) {
+    if (ent.tipo === 'jogador') {
+      const porS = noChao ? (semDano > POUSO_REGEN_ESPERA_TICKS ? s.regenHpPousada : 0) : s.regenHpVoo;
+      if (porS > 0) s.hp = Math.min(s.maxHp, s.hp + porS * DT);
+    } else if (noChao && semDano > POUSO_REGEN_ESPERA_TICKS) {
       s.hp = Math.min(s.maxHp, s.hp + s.maxHp * POUSO_REGEN_HP * DT);
     } else if (semDano > REGEN_ESPERA_TICKS) {
-      const porS = ent.tipo === 'jogador' ? s.regenHp : s.maxHp * VOO_REGEN_HP;
-      s.hp = Math.min(s.maxHp, s.hp + porS * DT);
+      s.hp = Math.min(s.maxHp, s.hp + s.maxHp * VOO_REGEN_HP * DT);
     }
   }
 

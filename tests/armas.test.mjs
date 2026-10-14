@@ -71,11 +71,12 @@ test('encaixes: a mesma arma nos dois dispara pelos dois, cada um com a sua reca
   const en = s.en;
   const dois = stepShip(s, { ...PARADO, f1: true, f2: true, a: laser, a2: laser });
   assert.deepEqual(dois.map((d) => d.kind), ['laser', 'laser'], 'Z e X saem no mesmo passo');
-  assert.ok(Math.abs(s.en - (Math.min(s.maxEn, en + 9 * DT) - 2 * WEAPONS.laser.energia)) < 1e-9, 'a energia é uma só: gastou os dois');
+  assert.ok(Math.abs(s.en - (Math.min(s.maxEn, en + s.regenEn * DT) - 2 * WEAPONS.laser.energia)) < 1e-9, 'a energia é uma só: gastou os dois');
   assert.ok(s.cd1 > 0 && s.cd2 > 0);
 
   // Recargas independentes: o Z dispara, e o X, solto agora, dispara logo depois.
   const t = createShip('acron', 0, 0, 0);
+  t.en = t.maxEn = 100; // energia de sobra: aqui só a recarga importa
   stepShip(t, { ...PARADO, f1: true, a: plasma, a2: plasma });
   assert.ok(t.cd1 > 0);
   assert.equal(t.cd2, 0, 'o X não esperou pelo Z');
@@ -85,7 +86,7 @@ test('encaixes: a mesma arma nos dois dispara pelos dois, cada um com a sua reca
 
 test('encaixes: com pouca energia, só o que couber sai (Z primeiro)', () => {
   const s = createShip('acron', 0, 0, 0);
-  s.en = WEAPONS.laser.energia + 1 - 9 * DT; // depois da regeneração do passo: 3
+  s.en = WEAPONS.laser.energia + 1 - s.regenEn * DT; // depois da regeneração do passo: 3
   const d = stepShip(s, { ...PARADO, f1: true, f2: true, a: laser, a2: laser });
   assert.equal(d.length, 1, 'a energia só deu para um');
   assert.ok(s.cd1 > 0 && s.cd2 === 0, 'foi o Z');

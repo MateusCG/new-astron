@@ -50,8 +50,6 @@ export const RACES = {
   shrewdo: { nome: 'Shrewdo', cor: 0x34e08a, bioma: 'Terreno' },
   mechan: { nome: 'Mechan', cor: 0xb15cff, bioma: 'Tóxico', bloqueada: true },
 };
-/** Velocidade da nave (pontos, 100 = Warrior) vezes isto dá m/s. */
-export const VEL_FATOR = 0.55;
 export const BOOST_MULT = 1.6;
 export const BOOST_GASTO = 14; // energia por segundo
 export const ENERGIA_REGEN = 9; // por segundo, sem boost (nave sem regenEn própria)
@@ -62,7 +60,7 @@ export const ENERGIA_REGEN = 9; // por segundo, sem boost (nave sem regenEn pró
  * IA deles (o HP cada um põe o seu). Os números são os da raça Mechan de antes,
  * para drones e Vorax andarem como andavam.
  */
-export const NAVE_SEM_CLASSE = { hp: 250, energia: 60, velocidade: 95 };
+export const NAVE_SEM_CLASSE = { hp: 250, energia: 60, velocidade: 52.25 }; // velocidade em m/s
 
 // Armas: a nave tem DUAS, cada uma num encaixe (Z e X). Não existe arma principal
 // nem secundária: os dois encaixes são iguais e aceitam qualquer arma do catálogo
@@ -354,11 +352,11 @@ export function forward(yaw) {
 
 /**
  * Põe na nave os status da nave do catálogo (shared/naves.js) ou, sem ela,
- * NAVE_SEM_CLASSE: classe, tier, HP e energia máximos, velocidade (pontos),
- * regeneração de energia (s.regenEn) e de vida (s.regenHp, por segundo; quem
- * regenera é o servidor) e armadura (fração do dano segurada). Não mexe em HP e
- * energia atuais. A velocidade e a regeneração de energia vão no `me`: o stepShip
- * da predição lê os mesmos números.
+ * NAVE_SEM_CLASSE: classe, tier, HP e energia máximos, velocidade (m/s),
+ * regeneração de energia (s.regenEn, por segundo) e de vida voando e pousada
+ * (s.regenHpVoo e s.regenHpPousada, HP por segundo; quem regenera vida é o
+ * servidor). Não mexe em HP e energia atuais. A velocidade e a regeneração de
+ * energia vão no `me`: o stepShip da predição lê os mesmos números.
  */
 export function aplicarNave(s, nave) {
   const n = nave ?? NAVE_SEM_CLASSE;
@@ -368,8 +366,8 @@ export function aplicarNave(s, nave) {
   s.maxEn = n.energia;
   s.velocidade = n.velocidade;
   s.regenEn = n.regenEnergia ?? ENERGIA_REGEN;
-  s.regenHp = n.regenHp ?? 0;
-  s.armadura = n.armadura ?? 0;
+  s.regenHpVoo = n.regenHpVoo ?? 0;
+  s.regenHpPousada = n.regenHpPousada ?? 0;
   return s;
 }
 
@@ -415,7 +413,7 @@ export function createShip(race, x, z, yaw = 0, classe = CLASSE_PADRAO, tier = 0
 
 /** Velocidade máxima da nave em m/s, sem boost nem multiplicadores (para as IAs). */
 export function velocidadeBase(s) {
-  return (s.velocidade ?? NAVE_SEM_CLASSE.velocidade) * VEL_FATOR;
+  return s.velocidade ?? NAVE_SEM_CLASSE.velocidade;
 }
 
 /** Comando vazio (nave solta). */

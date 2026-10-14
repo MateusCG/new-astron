@@ -58,10 +58,10 @@
 //                        predição usa), me.emp = s sem tiro e sem boost (pulso EMP),
 //                        me.time = time da nave, para a predição do pouso;
 //                        me.classe e me.tier = a nave da linha (shared/naves.js),
-//                        me.velocidade (pontos, × VEL_FATOR = m/s) e me.regenEn
-//                        (energia por s) = da nave, lidos no stepShip da predição;
-//                        me.regenHp (HP/s voando) e me.armadura (fração do dano
-//                        segurada) = da nave, só informação;
+//                        me.velocidade (m/s) e me.regenEn (energia por s) = da
+//                        nave, lidos no stepShip da predição; me.regenHpVoo e
+//                        me.regenHpPousada (HP/s voando e pousada) = da nave, só
+//                        informação (quem regenera é o servidor);
 //                        cada ent traz dreno/lento/emp booleanos para desenhar o efeito;
 //                        ev 'tiro' traz kind, que diz a arma e o efeito do projétil;
 //                        nivel = nível do jogador (1 a NIVEL_MAX), xp = XP dentro do

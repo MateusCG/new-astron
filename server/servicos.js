@@ -65,14 +65,9 @@ export function novoEquipamento() {
   };
 }
 
-/**
- * Fração do dano que o piloto deixa de levar: a armadura da Loja e a blindagem da
- * nave (shared/naves.js, só as Bellico têm) se multiplicam. 0 sem nenhuma.
- */
+/** Fração do dano que a armadura da Loja do piloto segura (0 sem armadura). */
 export function reducaoArmadura(j) {
-  const loja = armadura(j.armadura)?.reducao ?? 0;
-  const nave = naveDoJogador(j)?.armadura ?? 0;
-  return 1 - (1 - loja) * (1 - nave);
+  return armadura(j.armadura)?.reducao ?? 0;
 }
 
 /** Energia máxima da nave do piloto (a da nave da linha). */
@@ -283,7 +278,7 @@ export class Servicos {
 
   /**
    * O que vai no `me` do snapshot além da nave (que já traz classe, tier,
-   * velocidade e regenEn): armadura, itens (carga), recarga dos itens em s e o
+   * velocidade, regenEn, regenHpVoo e regenHpPousada): armadura, itens (carga), recarga dos itens em s e o
    * nível de cada arma (índice em ARMAS).
    */
   paraMe(j) {
