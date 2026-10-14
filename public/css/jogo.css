@@ -3351,6 +3351,7 @@ body.dano::after {
   gap: 4px;
 }
 
+/* "+1" e "+10": dois botões iguais, lado a lado (sem tecla escondida). */
 .atributo .mais {
   min-width: 54px;
   height: 32px;
@@ -3361,10 +3362,6 @@ body.dano::after {
   color: var(--neon);
   font: 700 17px/1 ui-monospace, monospace;
   cursor: pointer;
-}
-
-.atributo .mais.dez {
-  font-size: 12px;
 }
 
 .atributo .mais:not(:disabled):hover {

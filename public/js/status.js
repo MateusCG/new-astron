@@ -4,12 +4,13 @@
 // Em cima, o piloto (nick e nível, raça, classe e nave) e as linhas de ouro,
 // experiência, escudo, durabilidade (HP) e energia, cada uma com o atual / máximo.
 // Embaixo, a distribuição de pontos: PONTOS_POR_NIVEL a cada nível, para Energia,
-// Ph. (físico), El. (elétrico) e Op. (o laser do jogo novo), no máximo PONTO_MAX em
-// cada. As linhas Ph., El. e Op. trazem, como no original, o poder (%) das armas dos
-// encaixes Z e X que são daquele tipo e a resistência da nave a ele.
+// Físico, Elétrico e Operacional (o laser do jogo novo; Ph., El. e Op. no original),
+// no máximo PONTO_MAX em cada: aqui os nomes vão por extenso, que a janela é larga e
+// a sigla confundia. As linhas dos três tipos trazem, como no original, o poder (%)
+// das armas dos encaixes Z e X que são daquele tipo e a resistência da nave a ele.
 //
-// O "+" só PEDE ({t:'pontos', atributo, qtd}: clique = 1, Shift+clique = 10; no
-// celular há o "+10"); o servidor valida e o snapshot traz os pontos novos (me.pontos,
+// Os botões "+1" e "+10" de cada atributo só PEDEM ({t:'pontos', atributo, qtd}); o
+// servidor põe o que couber, valida e o snapshot traz os pontos novos (me.pontos,
 // me.pontosLivres) e o status somado (me.status). Não há devolver ponto. Passar o
 // mouse (ou tocar) numa linha mostra o detalhe dela, como o original: o que os pontos
 // dão agora e com +1 ponto, calculado por shared/status.js (porPonto,
@@ -20,7 +21,6 @@
 // só os textos e as barras são trocados no lugar: o "+" não some debaixo do clique.
 
 import {
-  ATRIBUTOS,
   ORDEM_ATRIBUTOS,
   PONTO_MAX,
   PONTOS_POR_NIVEL,
@@ -30,12 +30,16 @@ import {
   efeitoDosPontos,
   statusDoPiloto,
 } from '/shared/status.js';
-import { SIGLA_TIPO } from '/shared/equipamentos.js';
 import { RACES } from '/shared/sim.js';
+import { equipadosDoInv } from '/shared/loja.js';
 import { CLASSES, naveDe } from '/shared/naves.js';
 import { classeTipo, celulaArma } from './equipamento.js';
 
-const QTD_SHIFT = 10; // Shift+clique (e o "+10" do celular)
+/** Quantos pontos cada botão do atributo põe ("+1" e "+10"). */
+const QTDS = [1, 10];
+
+/** Nome por extenso de cada atributo na janela (o original usa Ph., El. e Op.). */
+export const NOME_ATRIBUTO = { energia: 'Energia', fisico: 'Físico', eletrico: 'Elétrico', laser: 'Operacional' };
 
 /** Mensagem de cada código de recusa do pedido {t:'pontos'}. */
 const MENSAGEM = {
@@ -56,10 +60,8 @@ function lerEstado({ me, nivel, xp, xpProx, ouro, nome }) {
   const energiaBase = naveDe(race, classe, tier)?.energia ?? 0;
   const pontos = normalizarPontos(me?.pontos ?? pontosVazios());
   const niv = nivel ?? 1;
-  // O servidor manda o status já somado; sem ele (servidor antigo), a mesma conta daqui.
-  const status =
-    me?.status ??
-    statusDoPiloto({ race, classe, pontos, equipado: me?.equipado, niveis: me?.equip, energiaBase });
+  // O servidor manda o status já somado (pontos e equipamento); sem ele, a mesma conta daqui.
+  const status = me?.status ?? statusDoPiloto({ race, classe, pontos, equipados: equipadosDoInv(me?.inv, me?.equipado), energiaBase });
   return {
     nome: nome ?? '',
     race,
@@ -107,7 +109,7 @@ export class PainelStatus {
         const b = e.target.closest('button');
         if (!b) return;
         if (b.classList.contains('fechar')) this.fechar();
-        else if (b.dataset.mais) this.#pedir(b.dataset.mais, e.shiftKey || b.dataset.qtd ? QTD_SHIFT : 1);
+        else if (b.dataset.mais) this.#pedir(b.dataset.mais, Number(b.dataset.qtd) || 1);
         b.blur(); // o foco no botão não pode prender as teclas do jogo
       },
       { signal },
@@ -176,7 +178,7 @@ export class PainelStatus {
 
   /** Resposta do servidor a um pedido {t:'pontos'}. */
   resultado(m) {
-    const nome = ATRIBUTOS[m.item]?.nome ?? '';
+    const nome = NOME_ATRIBUTO[m.item] ?? '';
     this.msg.textContent = m.ok ? `Pontos em ${nome}` : (MENSAGEM[m.codigo] ?? 'Não deu certo');
     this.msg.className = 'msg ' + (m.ok ? 'bom' : 'ruim');
   }
@@ -195,11 +197,11 @@ export class PainelStatus {
       const meio =
         a === 'energia'
           ? `<span class="nome-at">Energia</span><span class="efeito-at"></span>`
-          : `<table class="mini-tipos"><tr><th class="nome-at">${SIGLA_TIPO[a]}</th><th>Arma <kbd>Z</kbd></th><th>Arma <kbd>X</kbd></th><th>Resist.</th></tr><tr class="valores"></tr></table>`;
+          : `<table class="mini-tipos"><tr><th class="nome-at">${NOME_ATRIBUTO[a]}</th><th>Arma <kbd>Z</kbd></th><th>Arma <kbd>X</kbd></th><th>Resist.</th></tr><tr class="valores"></tr></table>`;
       return `<div class="atributo ${tipo}" data-atributo="${a}">
         <b class="qtd"></b>
         <div class="meio">${meio}<span class="linha-pontos"><i class="barra-pontos"><i></i></i><small></small></span></div>
-        <span class="botoes-at"><button type="button" class="mais" data-mais="${a}" title="+1 ponto (Shift: +${QTD_SHIFT})" aria-label="Pôr ponto em ${ATRIBUTOS[a].nome}">+</button><button type="button" class="mais dez so-toque" data-mais="${a}" data-qtd="${QTD_SHIFT}" aria-label="Pôr ${QTD_SHIFT} pontos em ${ATRIBUTOS[a].nome}">+${QTD_SHIFT}</button></span>
+        <span class="botoes-at">${QTDS.map((q) => `<button type="button" class="mais" data-mais="${a}" data-qtd="${q}" title="+${q} ponto${q > 1 ? 's' : ''} em ${NOME_ATRIBUTO[a]}">+${q}</button>`).join('')}</span>
       </div>`;
     };
     this.corpo.innerHTML = `
@@ -215,7 +217,7 @@ export class PainelStatus {
         ${linha('en', 'Energia')}
       </div>
       <div class="pontos-st">
-        <div class="livres"><b class="v-livres"></b><span>Pontos livres</span><small><span class="so-teclado">Shift+clique põe ${QTD_SHIFT} · </span>${PONTOS_POR_NIVEL} por nível · máx. ${PONTO_MAX} em cada · sem devolver</small></div>
+        <div class="livres"><b class="v-livres"></b><span>Pontos livres</span><small>${PONTOS_POR_NIVEL} por nível · máx. ${PONTO_MAX} em cada · sem devolver</small></div>
         ${ORDEM_ATRIBUTOS.map(atributo).join('')}
       </div>
       <p class="extras-st"></p>`;
@@ -324,16 +326,16 @@ export class PainelStatus {
         <p>Recuperação +${num(agora.regenEn, 1)}/s</p>
         ${mais ? `<p class="mais-um">Com +1 ponto: energia +${num(mais.energia, 1)}, recuperação +${num(mais.regenEn, 1)}/s</p>` : '<p class="mais-um">No máximo</p>'}`;
     }
-    const sig = SIGLA_TIPO[a];
+    const sig = NOME_ATRIBUTO[a].toLowerCase();
     const linhas = [
       `Poder ${sig} dos pontos: +${pct(agora.poder[a])}`,
       `Poder ${sig} total: +${pct(st.poder?.[a] ?? 0)}`,
-      `Resistência ${sig}: ${pct(st.resist?.[a] ?? 0)}`,
-      `Recarga ${sig}: ${pct(st.recarga?.[a] ?? 0)} mais rápida`,
+      `Resistência ao ${sig}: ${pct(st.resist?.[a] ?? 0)}`,
+      `Recarga das armas de dano ${sig}: ${pct(st.recarga?.[a] ?? 0)} mais rápida`,
       st.penetra?.[a] > 0 ? `Penetração ${sig}: ignora ${pct(st.penetra[a])}` : '',
       st.critico > 0 ? `Golpe crítico: ${pct(st.critico)}` : '',
     ].filter(Boolean);
-    return `<strong class="${classeTipo(a)}">${ATRIBUTOS[a].descricao.split(':')[0]} (${sig}) · ${n} ponto${n === 1 ? '' : 's'}</strong>
+    return `<strong class="${classeTipo(a)}">Poder ${sig} · ${n} ponto${n === 1 ? '' : 's'}</strong>
       ${linhas.map((l) => `<p>${l}</p>`).join('')}
       ${mais ? `<p class="mais-um">Com +1 ponto: poder ${sig} +${pct(mais.poder[a])}</p>` : '<p class="mais-um">No máximo</p>'}`;
   }
