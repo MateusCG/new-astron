@@ -23,7 +23,7 @@
 // das lojas do original, raça por raça: é ela que dá o índice de cada arma no
 // protocolo, então nunca reordene; arma nova entra no fim.
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -229,7 +229,14 @@ function modelo(m) {
 }
 
 function gerar() {
-  const { armas, efeitos } = JSON.parse(readFileSync(DADOS, 'utf8'));
+  const { armas, efeitos: todos } = JSON.parse(readFileSync(DADOS, 'utf8'));
+  // Textura que não está em public/texturas/efeitos (o original cita algumas por
+  // engano, como as shrewdo_* no clarão dos canhões elétricos, e o 1343007_01 do
+  // rastro dos mísseis) fica sem arquivo (null), mas com a cor: o cliente usa a cor.
+  const TEX = path.join(RAIZ, 'public', 'texturas', 'efeitos');
+  const efeitos = Object.fromEntries(
+    Object.entries(todos).map(([id, e]) => [id, { ...e, tex: e.tex.map(([png, cor]) => [existsSync(path.join(TEX, png + '.png')) ? png : null, cor]) }]),
+  );
   const saida = armas.map((a) => {
     const versoes = a.versoes.map((v) => {
       const g = golpe(v.numeros, v.efeitos, v.subprojeteis, a.categoria, true);
