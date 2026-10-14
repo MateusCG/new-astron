@@ -31,7 +31,7 @@
 // Sem sorte em nada: o "aleatório" da mira e a chance de desarmar viram regra fixa.
 
 import { DT, HOVER, createBullet, stepBullet, bulletHits, forward } from '../shared/sim.js';
-import { WEAPONS, MINA_MAX, CONVERTE_ENERGIA_POR_HP, golpeDaArma, versaoArma, tirosDoGolpe } from '../shared/armas.js';
+import { WEAPONS, MINA_MAX, CONVERTE_ENERGIA_POR_HP, ESCUDO_EQUIV_HP, golpeDaArma, versaoArma, tirosDoGolpe } from '../shared/armas.js';
 import { alvoDoMissil, guiarMissil, escolherAlvo, tiroFilho, alturaNoChao, naArea, yawPara } from './armas.js';
 
 export const INVISIVEL_VISTO_M = 25; // m: invisível a esta distância de um inimigo aparece para ele
@@ -374,8 +374,11 @@ export class Golpes {
         this.#por(alvo, 'revelado', ef.dur);
         break;
       case 'quebraEscudo':
-        // Na hora, uma fração do HP máximo (o escudo do original não existe aqui).
-        this.ctx.ferir(alvo, s.maxHp * ef.frac, autor, null, { direto: false });
+        // Descarrega na hora a fração do original do escudo do equipamento (sem
+        // passar pelo HP). Sem escudo equipado (monstros, minerador, piloto sem
+        // escudo), tira a fração equivalente do HP máximo, como antes.
+        if (s.maxEscudo > 0) s.escudo = Math.max(0, (s.escudo ?? 0) - (s.maxEscudo * ef.frac) / ESCUDO_EQUIV_HP);
+        else this.ctx.ferir(alvo, s.maxHp * ef.frac, autor, null, { direto: false });
         break;
     }
   }
