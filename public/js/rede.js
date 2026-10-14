@@ -3,7 +3,7 @@
 //
 // entrar() sempre termina: resolve no 'bemvindo' ou falha com um código
 // (sem_conexao, conexao_fechada, tempo_esgotado, ou o que o servidor mandar num
-// {t:'erro', codigo}, como partida_cheia). Antes, uma conexão que fechava
+// {t:'erro', codigo}, como partida_cheia ou raca_bloqueada). Antes, uma conexão que fechava
 // sem erro deixava o botão em "Conectando…" para sempre.
 
 const TEMPO_ENTRADA_MS = 10000;
@@ -19,7 +19,7 @@ export class Rede {
   }
 
   /** Conecta e entra no jogo. Resolve quando chega o 'bemvindo'. */
-  entrar(nome, race) {
+  entrar(nome, race, classe) {
     return new Promise((ok, falha) => {
       let decidido = false; // a promessa só resolve ou falha uma vez
       const desistir = (codigo) => {
@@ -36,7 +36,7 @@ export class Rede {
         desistir('sem_conexao');
         return;
       }
-      this.ws.onopen = () => this.enviar({ t: 'entrar', nome, race });
+      this.ws.onopen = () => this.enviar({ t: 'entrar', nome, race, classe });
       this.ws.onerror = () => desistir('sem_conexao');
       this.ws.onclose = () => (decidido ? this.aoFechar() : desistir('conexao_fechada'));
       this.ws.onmessage = (e) => {
