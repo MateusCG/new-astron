@@ -162,7 +162,7 @@ test('servidor: não serve arquivo fora das pastas públicas', async () => {
 test('servidor: serve o modelo da nave e o GLTFLoader que o lê', async () => {
   const srv = await iniciar({ porta: 0, world: new World({ drones: 0, monstros: 0, elites: 0, torretas: false }) });
   try {
-    const modelo = await fetch(`http://localhost:${srv.porta}/modelos/ulysses.glb`);
+    const modelo = await fetch(`http://localhost:${srv.porta}/modelos/naves/acron/assault/ulysses.glb`);
     assert.equal(modelo.status, 200);
     assert.equal(modelo.headers.get('content-type'), 'model/gltf-binary');
     // Cabeçalho do glTF binário: "glTF" e versão 2.

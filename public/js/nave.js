@@ -46,14 +46,14 @@ function matNeon(cor) {
   return new THREE.MeshStandardMaterial({ color: cor, emissive: cor, emissiveIntensity: 1, flatShading: true });
 }
 
-// Nave de jogador: o modelo da Ulysses (public/modelos/ulysses.glb), carregado uma
+// Nave de jogador: o modelo da Ulysses (public/modelos/naves/acron/assault/ulysses.glb), carregado uma
 // vez antes de entrar no jogo (carregarModelos) e compartilhado por todas as naves
 // (mesma geometria e material; cada nave é só um Mesh novo). O arquivo vem com o
 // nariz para +x e escala própria: aqui ele gira para -z, encolhe para
 // COMPRIMENTO_NAVE e fica centrado na origem, como as naves de primitivas eram.
 // Os pontos de encaixe do arquivo (nós l_/r_/c_) passam pela mesma conta e dizem
 // onde ficam os motores e as pontas das asas.
-const URL_NAVE = '/modelos/ulysses.glb';
+const URL_NAVE = '/modelos/naves/acron/assault/ulysses.glb';
 const COMPRIMENTO_NAVE = 13; // m, do nariz à cauda (fica com ~10 m de envergadura)
 let modeloNave = null; // { geometria, material, encaixes: Map<nome, Vector3>, caixa: Box3 }
 
