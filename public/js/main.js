@@ -39,6 +39,10 @@
 // painel abre sozinho; os pedidos vão direto pela rede e a resposta chega como
 // {t:'resultado'}. Com o painel aberto, como com o menu de armas, não sai tiro.
 //
+// STATUS (status.js, tecla C): janela lateral que lê o `me` do snapshot (pontos,
+// equipamento, status somado). O pedido {t:'pontos'} vai direto pela rede. Aberta,
+// não sai tiro.
+//
 // Recall (B, shared/recall.js): o pedido vai no campo r do comando e só o servidor
 // decide; o cliente não prevê a canalização. Na chegada a nave salta para a base:
 // a reconciliação vê o salto (mais de SALTO_M), descarta a suavização e a câmera
@@ -99,6 +103,7 @@ import { Placar } from './placar.js';
 import { PainelTeste } from './teste.js';
 import { PainelTimes } from './times.js';
 import { PainelServicos } from './servicos.js';
+import { PainelStatus } from './status.js';
 import { MELHORIAS_MINERADOR, MELHORIA_TORRETAS } from '/shared/evolucao.js';
 import { RECALL_S } from '/shared/recall.js';
 import { TORRETAS } from '/shared/terrain.js';
@@ -463,6 +468,11 @@ function montarJogo(rede, boas, renderer, race, classe) {
     noticia: (texto, tipo) => hud.noticia(texto, tipo),
     signal: controles.parar.signal,
   });
+  // STATUS: janela lateral com a ficha do piloto e os pontos.
+  const status = new PainelStatus({
+    enviar: (m) => rede.enviar(m),
+    signal: controles.parar.signal,
+  });
   const times = new PainelTimes({
     meuId,
     meuTime,
@@ -541,9 +551,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
     if (!vivo || !pred) return;
     const inp = controles.ler();
     // As armas dos dois encaixes vão em todo comando; com o menu, o painel da
-    // Loja/Evolução ou a janela de volume ou dos times aberta não sai tiro.
+    // Loja/Evolução ou a janela de volume, dos times ou do STATUS aberta não sai tiro.
     [inp.a, inp.a2] = menuArmas.encaixes;
-    if (menuArmas.aberto || painel.aberto || painelVolume.aberto || times.aberto) inp.f1 = inp.f2 = false;
+    if (menuArmas.aberto || painel.aberto || painelVolume.aberto || times.aberto || status.aberto) inp.f1 = inp.f2 = false;
     seq++;
     rede.enviar({ t: 'in', s: seq, ...inp });
     ant = pose(pred);
@@ -607,6 +617,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     menuArmas.definirNiveis(m.me?.niveis);
     estadosArmas = m.st ?? {};
     painel.atualizar({ ouro: m.ouro, nivel: m.nivel, me: m.me, melhorias: m.melhorias, torretas: m.torretas });
+    status.atualizar({ me: m.me, nivel: m.nivel, xp: m.xp, xpProx: m.xpProx, ouro: m.ouro, nome: euNoSnap?.nome ?? meuNome });
     // A nave da linha que você pilota (muda ao evoluir na Evolução).
     if (m.me) definirNave(minhaNave, race, m.me.classe ?? classe, m.me.tier ?? 0);
 
@@ -818,7 +829,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
   rede.aoReceber = (m) => {
     if (m.t === 'snap') aoSnapshot(m);
     else if (m.t === 'resultado' && m.acao === 'teste') painelTeste?.resultado(m);
-    else if (m.t === 'resultado' && m.acao === 'ia') {
+    else if (m.t === 'resultado' && m.acao === 'pontos') {
+      status.resultado(m);
+      sons.tocarInterface(m.ok ? SONS_INTERFACE.clique : SONS_INTERFACE.erro);
+    } else if (m.t === 'resultado' && m.acao === 'ia') {
       times.resultado(m);
       sons.tocarInterface(m.ok ? SONS_INTERFACE.clique : SONS_INTERFACE.erro);
     }
@@ -1105,6 +1119,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     camera,
     menuArmas,
     painel,
+    status,
     sons,
     objetivos,
     torretas,
@@ -1125,6 +1140,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     controles.destruir();
     menuArmas.el.hidden = true;
     times.fechar();
+    status.fechar();
     painelTeste?.fechar();
     painel.lugar(null);
     removeEventListener('resize', redimensionar);
@@ -1139,11 +1155,16 @@ function montarJogo(rede, boas, renderer, race, classe) {
     if (window.__astron?.scene === scene) window.__astron = null;
   }
 
-  /** ESC com a janela dos times ou o painel da Loja/Evolução aberto: fecha só ele. Devolve se fechou. */
+  /**
+   * ESC com a janela dos times, o STATUS ou o painel da Loja/Evolução
+   * aberto: fecha só ele. Devolve se fechou.
+   */
   function fecharPainel() {
-    if (times.aberto) {
-      times.fechar();
-      return true;
+    for (const janela of [times, status]) {
+      if (janela.aberto) {
+        janela.fechar();
+        return true;
+      }
     }
     if (!painel.aberto) return false;
     painel.fechar();
