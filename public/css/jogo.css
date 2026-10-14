@@ -2885,6 +2885,10 @@ body.dano::after {
   animation: surge 0.15s ease-out;
 }
 
+#inventario {
+  width: min(400px, calc(100% - 24px));
+}
+
 .janela-lateral header {
   display: flex;
   align-items: center;
@@ -3326,6 +3330,175 @@ body.dano::after {
   opacity: 0.8;
 }
 
+/* INVENTÁRIO: miniatura da nave, os seis encaixes e o compartimento. */
+.nave-inv {
+  position: relative;
+  height: 84px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 6px;
+  background: radial-gradient(ellipse at 50% 65%, rgba(245, 154, 69, 0.16), transparent 70%), #0b1716;
+}
+
+.nave-inv .mini {
+  position: absolute;
+  inset: 0;
+}
+
+.nave-inv img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.nave-inv .nome-nave {
+  position: absolute;
+  left: 8px;
+  bottom: 4px;
+  font: 600 10.5px system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.slots {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.slot,
+.item-inv {
+  min-width: 0;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 6px;
+  background: #0f1e1d;
+  color: var(--texto);
+  font: inherit;
+  cursor: pointer;
+}
+
+.slot {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 2px 6px;
+  padding: 0 6px 5px;
+  text-align: left;
+}
+
+/* Faixa do nome do encaixe no alto, como o "WEAPON 1" do original. */
+.slot .rot {
+  grid-column: 1 / -1;
+  margin: 0 -6px;
+  padding: 1px 6px;
+  border-radius: 5px 5px 0 0;
+  background: #0b1716;
+  font: 700 9px system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--neon);
+}
+
+.slot .rot i {
+  font-style: normal;
+  color: var(--texto);
+  opacity: 0.7;
+}
+
+.slot .ic svg,
+.item-inv .ic svg {
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+
+.slot .nm {
+  min-width: 0;
+  font-size: 11.5px;
+  line-height: 1.2;
+}
+
+.slot .v,
+.item-inv .v {
+  font: 700 10px ui-monospace, monospace;
+  color: var(--neon);
+}
+
+.slot.vazio {
+  border-style: dashed;
+}
+
+.slot.vazio .nm {
+  opacity: 0.45;
+}
+
+.slot.alvo {
+  border-color: var(--neon);
+  box-shadow: 0 0 10px rgba(0, 239, 192, 0.25);
+}
+
+.slot:hover,
+.item-inv:hover {
+  border-color: var(--neon);
+}
+
+.aviso-base {
+  margin: 0;
+  font-size: 10.5px;
+  opacity: 0.75;
+}
+
+.aviso-base.livre {
+  color: var(--neon);
+  opacity: 1;
+}
+
+#inventario h3 {
+  margin: 2px 0 0;
+  font: 700 10.5px system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+#inventario h3 .conta-inv {
+  font: 10px ui-monospace, monospace;
+  opacity: 0.6;
+}
+
+.grade-inv {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+  gap: 5px;
+}
+
+.item-inv {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 2px;
+  padding: 6px 4px 4px;
+}
+
+.item-inv .nm {
+  display: -webkit-box;
+  font-size: 9.5px;
+  line-height: 1.2;
+  text-align: center;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.nota-inv {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 11px;
+  opacity: 0.6;
+}
+
 /* Tela estreita e celular: a janela fica à esquerda dos botões da direita, e o
    detalhe vai para dentro dela, embaixo. */
 @media (max-width: 760px) {
@@ -3337,7 +3510,8 @@ body.dano::after {
   }
 }
 
-.toque .janela-lateral {
+.toque .janela-lateral,
+.toque #inventario {
   left: 12px;
   right: 210px;
   width: auto;

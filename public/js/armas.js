@@ -444,18 +444,27 @@ export class MenuArmas {
 
   /** Escolhe a arma de índice i para o encaixe em edição e fecha o menu. */
   escolher(i) {
-    if (!this.possui(i)) return; // travada: a Loja libera
-    const espera = this.esperaTroca(this.encaixe);
-    if (espera > 0 && i !== this.encaixes[this.encaixe]) {
+    if (this.equipar(this.encaixe, i)) this.el.hidden = true;
+  }
+
+  /**
+   * Põe a arma de índice i no encaixe (0 = Z, 1 = X): o mesmo caminho do menu, usado
+   * também pelo INVENTÁRIO (inventario.js). Devolve se ficou (false: não possui, ou
+   * o encaixe está em recarga de troca, com o aviso em aoRecusar).
+   */
+  equipar(encaixe, i) {
+    if (!this.possui(i) || !ENCAIXES[encaixe]) return false; // travada: a Loja libera
+    const espera = this.esperaTroca(encaixe);
+    if (espera > 0 && i !== this.encaixes[encaixe]) {
       // O stepShip ignoraria a troca: avisa e não muda nada (o menu continua aberto).
-      this.aoRecusar?.(`Arma do ${ENCAIXES[this.encaixe].tecla} em troca: ${um(espera)} s`);
-      return;
+      this.aoRecusar?.(`Arma do ${ENCAIXES[encaixe].tecla} em troca: ${um(espera)} s`);
+      return false;
     }
-    const mudou = i !== this.encaixes[this.encaixe];
-    this.encaixes[this.encaixe] = i;
+    const mudou = i !== this.encaixes[encaixe];
+    this.encaixes[encaixe] = i;
     this.#marcar();
-    this.el.hidden = true;
-    if (mudou) this.aoTrocar?.(this.encaixe, i, ARMAS[i]);
+    if (mudou) this.aoTrocar?.(encaixe, i, ARMAS[i]);
+    return true;
   }
 
   /**
