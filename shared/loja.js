@@ -14,16 +14,21 @@
 //   (shared/equipamentos.js) que a CLASSE do piloto usa (equipamentosAVenda; de
 //   outra classe, 'invalido'). O id é a chave do item ('e330010'); comprar dá a V1 e,
 //   se o encaixe da categoria estiver vazio (potenciador: o primeiro dos dois vazio),
-//   já equipa. Um de cada: o mesmo de novo é 'ja_possui'. Trocar o que está na nave
-//   é o pedido {t:'equipar'} (pousado em qualquer área de pouso da própria base).
+//   já equipa. Escudo e armadura, um de cada: o mesmo de novo é 'ja_possui'. O
+//   POTENCIADOR pode ter COPIAS_MAX_POTENCIADOR (2) cópias, para ir o mesmo nos dois
+//   encaixes (como no original, que tinha dois itens iguais no inventário): a segunda
+//   cópia sai na versão em que a primeira está e custa o que a primeira custou até
+//   ali (precoCopiaEquip); daí em diante as duas evoluem juntas e a evolução custa
+//   por cópia (precoEvoluirComCopias). Com as duas, comprar de novo é 'ja_possui'.
+//   Trocar o que está na nave é o pedido {t:'equipar'} (pousado em qualquer área de
+//   pouso da própria base).
 // - Itens: consumíveis com tecla própria, carga máxima e recarga entre um uso e
 //   outro. R = Kit de reparo (cura uma fração do HP máximo na hora), F = Célula de
 //   energia (enche a energia). Usar vale em qualquer lugar (só comprar exige a Loja).
 // - Evoluir: cada arma possuída (as de fábrica inclusive) e cada equipamento possuído
 //   sobe da V1 à V8 do original (o NÍVEL do item, 1 a 8), pagando a taxa de tuning do
-//   original × FATOR_OURO (sem chance de falhar) e com o nível do piloto que a versão
-//   pede, o mesmo para todo item (NIVEL_POR_VERSAO em shared/versoes.js: 1, 4, 7, 10,
-//   13, 16, 19, 22). A versão da arma muda tudo (dano, recarga, energia, projéteis,
+//   original × FATOR_OURO (sem chance de falhar), em qualquer nível do piloto (pedido
+//   do Mateus: o limite é o ouro). A versão da arma muda tudo (dano, recarga, energia, projéteis,
 //   efeito) e vai na nave (s.niveis), que o stepShip lê: a predição acompanha. O id do
 //   pedido é 'evoluir:<chave>' (ex.: {t:'comprar', item:'evoluir:o311001'} ou
 //   'evoluir:e330010').
@@ -35,11 +40,31 @@ import {
   armasDisponiveis,
   armasIniciais,
   precoEvoluirArma,
-  nivelPilotoDaVersao,
 } from './armas.js';
-import { EQUIPAMENTOS, ORDEM_EQUIP, equipamentosAVenda, precoEquip, precoEvoluirEquip, nivelPilotoDaVersaoItem } from './equipamentos.js';
+import { EQUIPAMENTOS, ORDEM_EQUIP, equipamentosAVenda, equipamento, versaoEquip, precoEquip, precoEvoluirEquip } from './equipamentos.js';
 
-export { precoEvoluirArma, nivelPilotoDaVersao, equipamentosAVenda, precoEquip, precoEvoluirEquip, nivelPilotoDaVersaoItem };
+export { precoEvoluirArma, equipamentosAVenda, precoEquip, precoEvoluirEquip };
+
+/** Cópias que o piloto pode ter de um equipamento: 2 do potenciador (os dois encaixes), 1 do resto. */
+export const COPIAS_MAX_POTENCIADOR = 2;
+export function copiasMax(chave) {
+  return equipamento(chave)?.categoria === 'potenciador' ? COPIAS_MAX_POTENCIADOR : 1;
+}
+
+/**
+ * Preço de mais uma cópia de um equipamento que o piloto já tem na versão `nivel`:
+ * o que a primeira custou até ali (compra + evoluções), para a segunda não sair mais
+ * barata que evoluir. null se a chave não existe.
+ */
+export function precoCopiaEquip(chave, nivel) {
+  return versaoEquip(chave, nivel)?.custoTotal ?? null;
+}
+
+/** Preço de evoluir `copias` cópias juntas da versão `nivel` para a próxima (null na V8). */
+export function precoEvoluirComCopias(chave, nivel, copias = 1) {
+  const p = precoEvoluirEquip(chave, nivel);
+  return p === null ? null : p * Math.max(1, copias);
+}
 
 export const ARMA_NIVEL_MAX = NIVEL_ARMA_MAX;
 

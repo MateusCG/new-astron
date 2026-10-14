@@ -46,7 +46,6 @@ import {
 import { NAVES, RACAS_JOGAVEIS, ORDEM_CLASSES, naveDe } from '../shared/naves.js';
 import { BASE } from '../shared/terrain.js';
 import { pontoLivre } from '../shared/obstaculos.js';
-import { NIVEL_POR_VERSAO } from '../shared/versoes.js';
 
 const PARADO = { ...INPUT_VAZIO };
 const idx = (id) => IDX_ARMA['o' + id];
@@ -105,14 +104,13 @@ test('catálogo: armas iniciais de cada raça (um feixe no Z, uma metralhadora n
   assert.deepEqual(armasIniciais('mechan'), [IDX_ARMA.laser, IDX_ARMA.plasma]);
 });
 
-test('catálogo: oito versões por arma (V1 a V8), nos níveis de piloto de todo item, com preço em ouro e categoria', () => {
+test('catálogo: oito versões por arma (V1 a V8), sem nível de piloto, com preço em ouro e categoria', () => {
   assert.equal(NIVEL_ARMA_MAX, 8);
   for (const k of ARMAS) {
     const w = WEAPONS[k];
     if (w.npc) continue;
     assert.equal(w.versoes.length, NIVEL_ARMA_MAX, k);
-    assert.deepEqual(w.versoes.map((v) => v.nivelPiloto), [1, 4, 7, 10, 13, 16, 19, 22], k);
-    assert.deepEqual(w.versoes.map((v) => v.nivelPiloto), [...NIVEL_POR_VERSAO], k);
+    assert.ok(w.versoes.every((v) => v.nivelPiloto === undefined), `${k}: versão não pede nível`);
     assert.ok(w.preco >= 60 && w.preco % 10 === 0, `${k}: preço ${w.preco}`);
     for (const v of w.versoes) {
       assert.ok(v.preco > 0 && v.preco % 10 === 0, `${k} V${v.nivel}: ${v.preco}`);

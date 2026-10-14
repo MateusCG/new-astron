@@ -15,8 +15,6 @@ import {
   CATEGORIA_DO_SLOT,
   SLOTS_EQUIP,
   NIVEL_ITEM_MAX,
-  NIVEL_POR_VERSAO,
-  nivelPilotoDaVersaoItem,
   equipamentosAVenda,
   equipamento,
   versaoEquip,
@@ -45,7 +43,6 @@ test('equipamentos: 12 escudos, 16 armaduras e 34 potenciadores, nessa ordem, co
   assert.equal(ORDEM_EQUIP[9], 'e330010');
   assert.equal(ORDEM_EQUIP.at(-1), 'e340034');
   assert.equal(NIVEL_ITEM_MAX, 8);
-  assert.deepEqual([...NIVEL_POR_VERSAO], [1, 4, 7, 10, 13, 16, 19, 22]);
   for (const k of ORDEM_EQUIP) {
     const e = EQUIPAMENTOS[k];
     assert.equal(e.chave, k);
@@ -55,7 +52,7 @@ test('equipamentos: 12 escudos, 16 armaduras e 34 potenciadores, nessa ordem, co
     assert.ok(e.classes.length >= 1, k);
     assert.equal(e.versoes.length, NIVEL_ITEM_MAX, k);
     assert.deepEqual(e.versoes.map((v) => v.v), [1, 2, 3, 4, 5, 6, 7, 8], k);
-    assert.deepEqual(e.versoes.map((v) => v.nivelPiloto), [...NIVEL_POR_VERSAO], k);
+    assert.ok(e.versoes.every((v) => v.nivelPiloto === undefined), `${k}: versão não pede nível`);
     assert.ok(e.preco > 0 && e.preco % 10 === 0, `${k}: ${e.preco}`);
     for (const v of e.versoes) {
       assert.ok(v.preco > 0 && v.preco % 10 === 0, `${k} V${v.v}: ${v.preco}`);
@@ -152,11 +149,6 @@ test('equipamentos: preço da V1 é a compra, evoluir é a taxa de tuning da ant
   const e = EQUIPAMENTOS.e330010;
   assert.equal(e.versoes.at(-1).custoTotal, e.versoes.reduce((s, v) => s + v.preco, 0));
   assert.equal(e.versoes[0].taxaTuning, e.versoes[1].preco);
-  assert.equal(nivelPilotoDaVersaoItem(1), 1);
-  assert.equal(nivelPilotoDaVersaoItem(8), 22);
-  assert.equal(nivelPilotoDaVersaoItem(9), 22);
-  assert.equal(nivelPilotoDaVersaoItem(0), 1);
-  assert.equal(nivelPilotoDaVersaoItem('3'), 1);
   // Versão fora da faixa: a V1 (ou a V8 acima dela); item que não existe: null.
   assert.equal(versaoEquip('e330010', 0).v, 1);
   assert.equal(versaoEquip('e330010', 99).v, 8);

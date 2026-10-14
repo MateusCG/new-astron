@@ -26,10 +26,9 @@
 //   nada acertaria (o laser de antes já usava 5).
 //
 // Versões: cada arma tem as versões V1 a V8 do original, que são os NÍVEIS 1 a 8 da
-// arma (versaoArma). Evoluir na Loja pede o nível do piloto da versão (o mesmo de
-// todo item: NIVEL_POR_VERSAO em shared/versoes.js, 1, 4, 7 ... 22) e o preço da taxa
-// de tuning do original (sem chance de falhar). A versão muda tudo: dano, recarga,
-// energia, número de projéteis, efeito.
+// arma (versaoArma). Evoluir na Loja paga a taxa de tuning do original (sem chance de
+// falhar) e não pede nível do piloto (shared/versoes.js). A versão muda tudo: dano,
+// recarga, energia, número de projéteis, efeito.
 //
 // O golpe (o que a arma cria) tem uma FORMA, e cada forma o servidor implementa uma
 // vez (server/golpes.js): 'projetil' (canos, leque, rajada, atravessar, área no
@@ -43,7 +42,7 @@
 
 import { ARMAS_ORIGINAL, EFEITOS_VISUAIS } from './armas-original.js';
 import { FATOR_ESCALA_HP, FATOR_ENERGIA, FATOR_RECARGA, FATOR_VELOCIDADE } from './naves.js';
-import { NIVEL_ITEM_MAX, NIVEL_POR_VERSAO } from './versoes.js';
+import { NIVEL_ITEM_MAX } from './versoes.js';
 
 export { EFEITOS_VISUAIS };
 
@@ -440,9 +439,6 @@ function converterArma(a) {
     const versao = {
       nivel: i + 1,
       id: v.id,
-      // Nível do piloto exigido: o do jogo novo, igual para todo item (o do original,
-      // 1 a 40, não cabe no nível máximo 25).
-      nivelPiloto: NIVEL_POR_VERSAO[i],
       // Ouro para chegar a esta versão: a V1 é a compra; as seguintes, a taxa de tuning da anterior.
       preco: i === 0 ? Math.max(PRECO_MIN, Math.round((v.preco * FATOR_OURO) / 10) * 10) : Math.round((anterior.taxa * FATOR_OURO) / 10) * 10,
       cd: ((v.recargaMs ?? 0) / MS) * FATOR_RECARGA_ARMA,
@@ -510,7 +506,7 @@ function armaNpc(chave, nome, n, tipoDano) {
     alcance: n.vel * n.vida,
     vis: {},
   };
-  const versao = { nivel: 1, nivelPiloto: 1, preco: 0, custoTotal: 0, cd: n.cd, energia: n.energia, segurar: false, hpPorS: 0, golpe, som: null };
+  const versao = { nivel: 1, preco: 0, custoTotal: 0, cd: n.cd, energia: n.energia, segurar: false, hpPorS: 0, golpe, som: null };
   return {
     chave,
     nome,
@@ -610,11 +606,6 @@ export function precoEvoluirArma(arma, nivel) {
   const w = typeof arma === 'number' ? WEAPONS[ARMAS[arma]] : WEAPONS[arma];
   if (!w || w.npc || !Number.isInteger(nivel) || nivel < 1 || nivel >= w.versoes.length) return null;
   return w.versoes[nivel].preco;
-}
-
-/** Nível do piloto exigido para a arma no nível `nivel` (NIVEL_POR_VERSAO: 1, 4, 7 ... 22). */
-export function nivelPilotoDaVersao(arma, nivel) {
-  return versaoArma(arma, nivel)?.nivelPiloto ?? 1;
 }
 
 /**

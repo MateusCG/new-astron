@@ -262,7 +262,7 @@ export function etiquetasArma(kind) {
 
 /**
  * O que muda do nível `nivel` para o seguinte, em texto curto ("Dano 7×2 → 12×3 ·
- * energia 2,4 → 3 · pede NV 5"). '' no máximo.
+ * energia 2,4 → 3"). '' no máximo.
  */
 export function proximoNivelArma(kind, nivel) {
   const a = versaoArma(kind, nivel);
@@ -275,7 +275,6 @@ export function proximoNivelArma(kind, nivel) {
   if (ra.energia !== rb.energia) partes.push(`energia ${um(ra.energia)} → ${um(rb.energia)}`);
   if (ra.cd !== rb.cd) partes.push(`recarga ${um(ra.cd)} → ${um(rb.cd)} s`);
   if (rb.efeitos[0] && rb.efeitos[0] !== ra.efeitos[0]) partes.push(rb.efeitos[0]);
-  partes.push(`pede NV ${b.nivelPiloto}`);
   return partes.join(' · ');
 }
 

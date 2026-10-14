@@ -18,8 +18,9 @@
 //   duas armas, então o encaixe de arma não esvazia.
 //
 // Passar o mouse (ou tocar) num item mostra o detalhe como no original: nome e
-// versão (V1 a V8), tipo de equipamento, efeitos, nível exigido e classe. A posse e
-// o que está equipado vêm do snapshot (me.equip, me.equipado, me.armas, me.niveis).
+// versão (V1 a V8), tipo de equipamento, efeitos e classe. A posse e o que está
+// equipado vêm do snapshot (me.equip, me.copias, me.equipado, me.armas, me.niveis);
+// o potenciador com duas cópias aparece duas vezes (as duas podem ir na nave).
 
 import { EQUIPAMENTOS, ORDEM_EQUIP, CATEGORIA_DO_SLOT } from '/shared/equipamentos.js';
 import { ARMAS } from '/shared/sim.js';
@@ -43,9 +44,8 @@ const ENCAIXES_INV = [
 const MENSAGEM = {
   ...MENSAGEM_ERRO,
   nao_pousado: 'Para equipar, pouse na sua base (anel ou plataformas)',
-  sem_item: 'Você não tem esse item: compre na Loja',
   invalido: 'Esse item não vai nesse encaixe',
-  ja_possui: 'Esse potenciador já está no outro encaixe',
+  sem_item: 'Você não tem esse item: compre na Loja (o mesmo potenciador nos dois encaixes pede a 2ª cópia)',
 };
 
 const vazioEquipado = () => ({ escudo: null, armadura: null, pot: [null, null] });
@@ -80,7 +80,7 @@ export class PainelInventario {
     this.el.hidden = true;
     this.alvoArma = 0; // encaixe que recebe a próxima arma (0 = Z, 1 = X)
     this.naBase = false;
-    this.estado = { race: null, classe: null, tier: 0, nivel: 1, equip: {}, equipado: vazioEquipado(), status: null };
+    this.estado = { race: null, classe: null, tier: 0, nivel: 1, equip: {}, copias: {}, equipado: vazioEquipado(), status: null };
     this.chave = '';
     this.chaveNave = '';
     this.foco = null;
@@ -162,6 +162,7 @@ export class PainelInventario {
       tier: me?.tier ?? 0,
       nivel: nivel ?? 1,
       equip: me?.equip ?? {},
+      copias: me?.copias ?? {},
       equipado: { escudo: eq?.escudo ?? null, armadura: eq?.armadura ?? null, pot: [eq?.pot?.[0] ?? null, eq?.pot?.[1] ?? null] },
       status: me?.status ?? null,
     };
@@ -255,10 +256,13 @@ export class PainelInventario {
       ? 'Na base: escudo, armadura e potenciadores trocam livre'
       : 'Escudo, armadura e potenciadores só trocam pousado na sua base · armas trocam em qualquer lugar';
 
-    // Compartimento: o que se tem e não está na nave.
+    // Compartimento: o que se tem e não está na nave (cada cópia de potenciador conta).
     const armas = this.#armasPossuidas().filter((i) => !encaixes.includes(i));
-    const equipados = new Set([s.equipado.escudo, s.equipado.armadura, ...s.equipado.pot].filter(Boolean));
-    const itens = ORDEM_EQUIP.filter((k) => Object.hasOwn(s.equip, k) && !equipados.has(k));
+    const naNave = [s.equipado.escudo, s.equipado.armadura, ...s.equipado.pot].filter(Boolean);
+    const itens = ORDEM_EQUIP.filter((k) => Object.hasOwn(s.equip, k)).flatMap((k) => {
+      const sobra = (s.copias[k] ?? 1) - naNave.filter((x) => x === k).length;
+      return Array.from({ length: Math.max(0, sobra) }, () => k);
+    });
     const cartas = [
       ...armas.map((i) => {
         const nv = m.niveis[i] ?? 1;

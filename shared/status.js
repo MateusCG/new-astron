@@ -33,7 +33,7 @@
 // - penetra: fração de resistência do alvo que o tiro daquele tipo ignora;
 // - critico: chance (0 a 1) de o golpe sair com dano dobrado (sorteio só no servidor);
 // - velMult e acelMult: multiplicadores (1 = sem mudança).
-// Os dois potenciadores somam; o mesmo item duas vezes conta uma.
+// Os dois potenciadores somam, inclusive o mesmo item nos dois encaixes (duas cópias).
 //
 // Determinístico, sem sorte e sem relógio: servidor e cliente chegam ao mesmo número.
 
@@ -169,14 +169,16 @@ export function statusVazio() {
   };
 }
 
-/** Os itens equipados que valem (existem, são da classe), sem repetir: [[chave, nível]]. */
+/**
+ * Os itens equipados que valem (existem, são da classe): [[chave, nível]]. O mesmo
+ * potenciador nos dois encaixes conta duas vezes (são duas cópias; quem confere que o
+ * piloto tem as duas é o servidor).
+ */
 function itensEquipados(equipado, niveis, classe) {
   const chaves = [equipado?.escudo, equipado?.armadura, ...(Array.isArray(equipado?.pot) ? equipado.pot : [])];
-  const vistos = new Set();
   const out = [];
   for (const k of chaves) {
-    if (!equipamento(k) || vistos.has(k) || (classe !== undefined && !podeUsar(k, classe))) continue;
-    vistos.add(k);
+    if (!equipamento(k) || (classe !== undefined && !podeUsar(k, classe))) continue;
     out.push([k, nivelEquipValido(niveis?.[k] ?? 1)]);
   }
   return out;

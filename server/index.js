@@ -41,14 +41,15 @@
 //                        piloto, senão 'invalido'; equipamento pela chave, ex.
 //                        'e330010' (escudo, armadura ou potenciador de
 //                        shared/equipamentos.js, só da classe do piloto, senão
-//                        'invalido'; já possuído, 'ja_possui'; compra a V1 e, com o
+//                        'invalido'; já possuído, 'ja_possui', menos o potenciador,
+//                        que tem 2 cópias (a 2ª na versão da 1ª, pelo custo dela
+//                        até ali; evoluir sobe as duas e cobra cada uma); compra a V1 e, com o
 //                        encaixe da categoria vazio, já equipa: potenciador no
 //                        primeiro dos dois vazio); 'reparo' | 'energia'; ou
 //                        'evoluir:<chave>' para subir a arma ou o equipamento
 //                        possuído para a próxima versão do original (V2 a V8), ex.
 //                        'evoluir:o311001', 'evoluir:e330010'; sem possuir:
-//                        'sem_item'; sem o nível do piloto da versão (4, 7, 10, 13,
-//                        16, 19, 22): 'nivel_insuficiente'; na V8: 'limite')
+//                        'sem_item'; qualquer nível do piloto; na V8: 'limite')
 //                       {t:'pontos', atributo, qtd}   põe pontos livres do piloto num
 //                        atributo: 'energia' | 'fisico' | 'eletrico' | 'laser' (Op.);
 //                        qtd inteiro 1 a 99 (padrão 1), põe o que couber nos livres
@@ -60,8 +61,8 @@
 //                        para tirar; só pousado e parado em qualquer área de pouso da
 //                        própria base (anel ou plataformas), senão 'nao_pousado';
 //                        'sem_item' sem possuir; 'invalido' categoria errada para o
-//                        slot, outra classe ou slot ruim; 'ja_possui' o mesmo
-//                        potenciador já está no outro slot. Trocar de escudo zera o
+//                        slot, outra classe ou slot ruim; o mesmo potenciador
+//                        nos dois slots pede as 2 cópias (com 1, 'sem_item'). Trocar de escudo zera o
 //                        escudo atual
 //                       {t:'evoluir', opcao:'nave'}  Evolução da nave: compra a próxima
 //                        nave da linha da raça e classe (nível e ouro dela; na
@@ -133,7 +134,8 @@
 //         pontos e o equipamento
 //   me (STATUS e INVENTÁRIO; tudo zera a cada partida): pontos = {energia, fisico,
 //         eletrico, laser} distribuídos, pontosLivres (10 por nível menos os
-//         gastos), equip = {chave: nível 1 a 8} equipamentos possuídos, equipado =
+//         gastos), equip = {chave: nível 1 a 8} equipamentos possuídos, copias =
+//         {chave: 2} potenciadores com duas cópias, equipado =
 //         {escudo, armadura, pot: [a, b]} (chave ou null) o que está na nave,
 //         escudo / maxEscudo / regenEscudo (por s) = escudo do equipamento (o
 //         servidor conta; recupera depois de 3 s sem dano, enche pousado na base e

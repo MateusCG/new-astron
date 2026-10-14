@@ -1,7 +1,7 @@
 // Evolução de armas na Loja (shared/loja.js + server/servicos.js): cada arma possuída
 // sobe da versão V1 à V8 do original (o nível da arma, 1 a 8), pagando a taxa de
-// tuning do original em ouro e com o nível do piloto que a versão pede (1, 4, 7 ...
-// 22: NIVEL_POR_VERSAO, o mesmo de todo item). A versão vai na nave (s.niveis) e muda tudo o que a arma faz; o nível fica
+// tuning do original em ouro, em qualquer nível do piloto. A versão vai na nave
+// (s.niveis) e muda tudo o que a arma faz; o nível fica
 // no piloto (volta no renascimento, zera na partida seguinte).
 
 import { test } from 'node:test';
@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { World, ZONA_SEGURA } from '../server/game.js';
 import { createShip, stepShip, IDX_ARMA, ARMAS, WEAPONS, INPUT_VAZIO, armasIniciais, versaoArma } from '../shared/sim.js';
 import { BASE, SERVICOS } from '../shared/terrain.js';
-import { ARMA_NIVEL_MAX, precoEvoluirArma, nivelPilotoDaVersao, itemDaLoja } from '../shared/loja.js';
+import { ARMA_NIVEL_MAX, precoEvoluirArma, itemDaLoja } from '../shared/loja.js';
 
 const SEGUNDO = 30;
 const PARADO = { ...INPUT_VAZIO };
@@ -27,14 +27,13 @@ function pousar(j, servico = 'loja', time = j.time) {
 
 const evoluir = (w, j, kind) => w.pedido(j.id, { t: 'comprar', item: 'evoluir:' + kind });
 
-test('evoluir arma: preço da taxa de tuning do original, nível do piloto da versão e máximo na V8', () => {
+test('evoluir arma: preço da taxa de tuning do original e máximo na V8', () => {
   assert.equal(ARMA_NIVEL_MAX, 8);
   for (const kind of ARMAS) {
     if (WEAPONS[kind].npc) continue;
     for (let n = 1; n < ARMA_NIVEL_MAX; n++) {
       const p = precoEvoluirArma(kind, n);
       assert.ok(p > 0 && p % 10 === 0, `${kind} nível ${n}: ${p}`);
-      assert.equal(nivelPilotoDaVersao(kind, n + 1), [1, 4, 7, 10, 13, 16, 19, 22][n]);
     }
     assert.equal(precoEvoluirArma(kind, ARMA_NIVEL_MAX), null, 'no máximo não há próximo');
   }
@@ -50,7 +49,7 @@ test('evoluir arma: preço da taxa de tuning do original, nível do piloto da ve
   assert.equal(itemDaLoja('evoluir:laser'), null);
 });
 
-test('evoluir arma: cobra, exige pousado na Loja, possuir a arma, o nível do piloto e para no máximo', () => {
+test('evoluir arma: cobra, exige pousado na Loja e possuir a arma, vale em qualquer nível do piloto e para no máximo', () => {
   const w = mundo();
   const j = w.addPlayer('A', 'shrewdo');
   const [z] = armasIniciais('shrewdo');
@@ -62,15 +61,13 @@ test('evoluir arma: cobra, exige pousado na Loja, possuir a arma, o nível do pi
   pousar(j, 'loja');
   assert.equal(evoluir(w, j, 'o312001').codigo, 'sem_item', 'não possui');
   assert.equal(evoluir(w, j, 'o111001').codigo, 'sem_item', 'de outra raça');
-  assert.equal(evoluir(w, j, kz).codigo, 'nivel_insuficiente', 'a V2 pede nível 4');
-  j.nivel = 5;
+  assert.equal(j.nivel, 1);
   const ouro = j.ouro;
   assert.equal(evoluir(w, j, kz).ok, true);
   assert.equal(j.ouro, ouro - precoEvoluirArma(kz, 1));
   assert.equal(j.niveisArmas[z], 2);
   assert.equal(j.ship.niveis[z], 2, 'a nave em uso já tem a versão nova');
-  assert.equal(evoluir(w, j, kz).codigo, 'nivel_insuficiente', 'a V3 pede nível 7');
-  j.nivel = 22; // a V8 pede nível 22
+  // Até a V8 ainda no nível 1: a versão não pede nível do piloto.
   for (let n = 3; n <= ARMA_NIVEL_MAX; n++) assert.equal(evoluir(w, j, kz).ok, true, `nível ${n}`);
   assert.equal(evoluir(w, j, kz).codigo, 'limite');
   j.ouro = 0;

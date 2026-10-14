@@ -130,7 +130,7 @@ test('status: soma pontos, escudo, armadura e os dois potenciadores num objeto s
   assert.equal(st.acelMult, 1);
 });
 
-test('status: tetos, item repetido, item de outra classe e potenciadores de mobilidade e crítico', () => {
+test('status: tetos, potenciador nos dois encaixes, item de outra classe e potenciadores de mobilidade e crítico', () => {
   // Resistência Ph.: Alcânio Ph. V8 + Neutron Ph. V8 + Resistência Ph. V8 + Total V8 passa do teto.
   const cheio = somaEquipamento(
     { escudo: 'e330011', armadura: 'e320014', pot: ['e340012', 'e340022'] },
@@ -138,9 +138,9 @@ test('status: tetos, item repetido, item de outra classe e potenciadores de mobi
     'assault',
   );
   assert.equal(cheio.resist.fisico, RESIST_MAX);
-  // O mesmo potenciador duas vezes conta uma.
-  const dobrado = somaEquipamento({ pot: ['e340027', 'e340027'] }, { e340027: 8 });
-  perto(dobrado.critico, 0.4);
+  // O mesmo potenciador nos dois encaixes (duas cópias) conta duas vezes.
+  perto(somaEquipamento({ pot: ['e340027', null] }, { e340027: 8 }).critico, 0.4);
+  perto(somaEquipamento({ pot: ['e340027', 'e340027'] }, { e340027: 8 }).critico, 0.8);
   // Velocidade e aceleração viram multiplicadores.
   const mob = somaEquipamento({ pot: ['e340023', 'e340015'] }, { e340023: 8, e340015: 8 });
   perto(mob.velMult, 1 + 0.05 + 0.08);

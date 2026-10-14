@@ -47,8 +47,8 @@
 import { DT, sanitizeInput, versaoArma, armasIniciais, velocidadeBase, ARMAS, WEAPONS } from '../shared/sim.js';
 import { BASES, MINERIO, AREAS_POUSO, TORRETAS } from '../shared/terrain.js';
 import { naveDe } from '../shared/naves.js';
-import { precoEvoluirArma, nivelPilotoDaVersao, ITENS, PREFIXO_EVOLUIR } from '../shared/loja.js';
-import { EQUIPAMENTOS, equipamentosAVenda, precoEvoluirEquip, nivelPilotoDaVersaoItem } from '../shared/equipamentos.js';
+import { precoEvoluirArma, ITENS, PREFIXO_EVOLUIR } from '../shared/loja.js';
+import { EQUIPAMENTOS, equipamentosAVenda, precoEvoluirEquip } from '../shared/equipamentos.js';
 import { pontosLivres, PONTO_MAX, ORDEM_ATRIBUTOS } from '../shared/status.js';
 import { NIVEL_MAX } from './progressao.js';
 import { MapaNavegacao } from './navegacao.js';
@@ -470,17 +470,16 @@ export class Bots {
     for (const a of armasIniciais(race)) {
       const nv = j.niveisArmas[a] ?? 1;
       const preco = precoEvoluirArma(a, nv);
-      if (preco === null || j.nivel < nivelPilotoDaVersao(a, nv + 1) || ouro < preco) continue;
+      if (preco === null || ouro < preco) continue;
       out.push({ servico: 'loja', pedido: { t: 'comprar', item: PREFIXO_EVOLUIR + ARMAS[a] }, preco });
       ouro -= preco;
     }
     // Equipamento: compra o que falta (vai direto para o encaixe vazio) e depois
-    // evolui o que tem, quando o nível do piloto deixa.
+    // evolui o que tem.
     for (const chave of this.#equipDesejado(j)) {
       const nv = j.equip[chave];
       const preco = nv === undefined ? EQUIPAMENTOS[chave].preco : precoEvoluirEquip(chave, nv);
       if (preco === null || ouro < preco) continue;
-      if (nv !== undefined && j.nivel < nivelPilotoDaVersaoItem(nv + 1)) continue;
       out.push({ servico: 'loja', pedido: { t: 'comprar', item: nv === undefined ? chave : PREFIXO_EVOLUIR + chave }, preco });
       ouro -= preco;
     }

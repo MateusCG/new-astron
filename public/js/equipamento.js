@@ -87,17 +87,15 @@ export function linhasEfeitos(chave, nivel = 1) {
 
 /**
  * Detalhe de um equipamento, como o cartão do original: nome e versão, tipo de
- * equipamento, efeitos, nível exigido e classe. `acao` é a linha de baixo (o que o
- * clique faz), opcional; com `aviso`, ela sai no vermelho-claro (não dá agora).
+ * equipamento, efeitos e classe (a versão não pede nível do piloto). `acao` é a
+ * linha de baixo (o que o clique faz), opcional; com `aviso`, ela sai no vermelho-claro (não dá agora).
  */
 export function detalheEquip(chave, nivel = 1, acao = '', aviso = false) {
   const e = EQUIPAMENTOS[chave];
   if (!e) return '';
-  const v = versaoEquip(chave, nivel);
   return `<div class="detalhe-cab">${iconeEquip(chave)}<strong>[${esc(nomeEquip(chave, nivel))}]</strong></div>
     <p class="tipo-item">${CATEGORIAS_EQUIP[e.categoria]}${e.tipoDano ? ` · ${SIGLA_TIPO[e.tipoDano]}` : ''} <small class="original">${esc(e.nome.trim())}</small></p>
     <ul class="efeitos-item">${linhasEfeitos(chave, nivel)}</ul>
-    <p class="exige">Nível exigido: <b>${v.nivelPiloto}</b></p>
     <p class="exige">Classe: <b>${textoClasses(e.classes)}</b></p>
     ${acao ? `<p class="acao-item${aviso ? ' aviso' : ''}">${acao}</p>` : ''}`;
 }
@@ -117,7 +115,6 @@ export function detalheArma(idx, nivel = 1, acao = '') {
       <li>${r.segurar ? `Energia ${um(r.energia)}/s · segure a tecla` : `Recarga ${um(r.cd)} s · energia ${um(r.energia)}`}</li>
       <li>${esc(descreverArma(kind, nivel))}</li>
     </ul>
-    <p class="exige">Nível exigido: <b>${v.nivelPiloto}</b></p>
     <p class="exige">Classe: <b>${textoClasses(w.classes)}</b></p>
     ${acao ? `<p class="acao-item">${acao}</p>` : ''}`;
 }

@@ -14,8 +14,7 @@
 // 'invalido'); equipamento só da classe (podeUsar; de outra, 'invalido'). Evoluir
 // uma ARMA ou um EQUIPAMENTO é uma compra da Loja ({t:'comprar',
 // item:'evoluir:<chave>'}): sobe para a próxima versão do original, exige possuir o
-// item (senão 'sem_item') e o nível do piloto da versão ('nivel_insuficiente',
-// NIVEL_POR_VERSAO, o mesmo para todo item); na V8, 'limite'.
+// item (senão 'sem_item'), em qualquer nível do piloto; na V8, 'limite'.
 // A resposta é {t:'resultado', acao, item, ok, codigo?}, com código estável que o
 // cliente traduz: nao_pousado, ouro_insuficiente, nivel_insuficiente, ja_possui,
 // limite, invalido, no uso de item sem_item, recarga e cheio, e nos pontos
@@ -31,7 +30,8 @@
 // equipamento possuído ou null (tira). Só pousado e parado em qualquer área de pouso
 // da PRÓPRIA base (anel ou plataformas; senão 'nao_pousado'), para a build não
 // mudar no meio da briga; sem o item, 'sem_item'; categoria errada, outra classe ou
-// slot que não existe, 'invalido'; o mesmo potenciador nos dois slots, 'ja_possui'.
+// slot que não existe, 'invalido'; o mesmo potenciador nos dois slots só com as duas
+// cópias (j.copias; com uma só, 'sem_item').
 // Comprar um equipamento com o encaixe da categoria vazio já o equipa.
 //
 // Onde fica cada coisa: a posse do piloto fica no JOGADOR (j.armas = as compradas,
@@ -66,9 +66,9 @@
 
 import { VEL_TOQUE, DT, NAVE_SEM_CLASSE, aplicarNave, armasIniciais, armasDisponiveis } from '../shared/sim.js';
 import { areaPouso } from '../shared/terrain.js';
-import { itemDaLoja, ITENS, ORDEM_ITENS, niveisArmasIniciais, precoEvoluirArma, nivelPilotoDaVersao } from '../shared/loja.js';
+import { itemDaLoja, ITENS, ORDEM_ITENS, niveisArmasIniciais, precoEvoluirArma, copiasMax, precoCopiaEquip, precoEvoluirComCopias } from '../shared/loja.js';
 import { naveDe } from '../shared/naves.js';
-import { equipamento, podeUsar, precoEvoluirEquip, nivelPilotoDaVersaoItem, CATEGORIA_DO_SLOT, ORDEM_TIPOS_DANO } from '../shared/equipamentos.js';
+import { equipamento, podeUsar, CATEGORIA_DO_SLOT, ORDEM_TIPOS_DANO } from '../shared/equipamentos.js';
 import { distribuirPontos, pontosLivres, multRecarga } from '../shared/status.js';
 import {
   melhoriaMinerador,
@@ -87,12 +87,18 @@ export function equipadoVazio() {
   return { escudo: null, armadura: null, pot: [null, null] };
 }
 
+/** Quantas cópias do equipamento `chave` o piloto tem (0 se nenhuma). */
+export function copiasDe(j, chave) {
+  return Object.hasOwn(j.equip, chave) ? (j.copias?.[chave] ?? 1) : 0;
+}
+
 /** Campos de loja e evolução de um piloto no começo da partida. */
 export function novoEquipamento() {
   return {
     armas: [], // posse: as compradas (as de fábrica da raça valem sempre: armasDoPiloto)
     niveisArmas: niveisArmasIniciais(), // índice em ARMAS → nível (V1..V8), só as evoluídas
     equip: {}, // posse de equipamentos: chave → nível (V1..V8)
+    copias: {}, // chave → cópias no total, só do potenciador comprado 2 vezes (as duas na mesma versão)
     equipado: equipadoVazio(), // o que está na nave: { escudo, armadura, pot: [a, b] } (chave ou null)
     itens: Object.fromEntries(ORDEM_ITENS.map((id) => [id, 0])), // carga de cada item
     itemPronto: Object.fromEntries(ORDEM_ITENS.map((id) => [id, 0])), // tick em que pode usar de novo
@@ -258,7 +264,6 @@ export class Servicos {
     const nivel = j.niveisArmas[a] ?? 1;
     const preco = precoEvoluirArma(a, nivel);
     if (preco === null) return 'limite';
-    if (j.nivel < nivelPilotoDaVersao(a, nivel + 1)) return 'nivel_insuficiente';
     const erro = this.#pagar(j, preco);
     if (erro) return erro;
     j.niveisArmas = { ...j.niveisArmas, [a]: nivel + 1 };
@@ -266,13 +271,19 @@ export class Servicos {
     return null;
   }
 
-  /** Compra a V1 de um equipamento (já pousado na Loja); com o encaixe da categoria vazio, já equipa. */
+  /**
+   * Compra a V1 de um equipamento (já pousado na Loja); com o encaixe da categoria
+   * vazio, já equipa. Potenciador que o piloto já tem: compra a segunda cópia, na
+   * versão da primeira e pelo que ela custou até ali (precoCopiaEquip).
+   */
   #comprarEquip(j, chave) {
     if (!podeUsar(chave, j.classe)) return 'invalido'; // de outra classe
-    if (Object.hasOwn(j.equip, chave)) return 'ja_possui';
-    const erro = this.#pagar(j, equipamento(chave).preco);
+    const tem = copiasDe(j, chave);
+    if (tem >= copiasMax(chave)) return 'ja_possui';
+    const erro = this.#pagar(j, tem ? precoCopiaEquip(chave, j.equip[chave]) : equipamento(chave).preco);
     if (erro) return erro;
-    j.equip = { ...j.equip, [chave]: 1 };
+    if (tem) j.copias = { ...j.copias, [chave]: tem + 1 };
+    else j.equip = { ...j.equip, [chave]: 1 };
     const cat = equipamento(chave).categoria;
     const eq = j.equipado;
     let trocouEscudo = false;
@@ -288,13 +299,12 @@ export class Servicos {
     return null;
   }
 
-  /** Sobe o equipamento possuído para a próxima versão (já pousado na Loja). */
+  /** Sobe o equipamento possuído para a próxima versão (já pousado na Loja); as cópias sobem juntas, pagando cada uma. */
   #evoluirEquip(j, chave) {
     if (!Object.hasOwn(j.equip, chave)) return 'sem_item';
     const nivel = j.equip[chave];
-    const preco = precoEvoluirEquip(chave, nivel);
+    const preco = precoEvoluirComCopias(chave, nivel, copiasDe(j, chave));
     if (preco === null) return 'limite';
-    if (j.nivel < nivelPilotoDaVersaoItem(nivel + 1)) return 'nivel_insuficiente';
     const erro = this.#pagar(j, preco);
     if (erro) return erro;
     j.equip = { ...j.equip, [chave]: nivel + 1 };
@@ -323,7 +333,8 @@ export class Servicos {
     const eq = j.equipado;
     if (slot === 'pot1' || slot === 'pot2') {
       const i = slot === 'pot1' ? 0 : 1;
-      if (chave !== null && eq.pot[1 - i] === chave) return 'ja_possui'; // o mesmo potenciador no outro slot
+      // O mesmo potenciador nos dois encaixes só com as duas cópias.
+      if (chave !== null && eq.pot[1 - i] === chave && copiasDe(j, chave) < 2) return 'sem_item';
       eq.pot = i === 0 ? [chave, eq.pot[1]] : [eq.pot[0], chave];
       atualizarNave(j);
     } else {
@@ -425,6 +436,7 @@ export class Servicos {
       pontos: { ...j.pontos },
       pontosLivres: pontosLivres(j.nivel, j.pontos),
       equip: { ...j.equip },
+      copias: { ...j.copias },
       equipado: { escudo: j.equipado.escudo, armadura: j.equipado.armadura, pot: [...j.equipado.pot] },
       status: j.status,
       itens: { ...j.itens },

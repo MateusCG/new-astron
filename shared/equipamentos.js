@@ -2,12 +2,12 @@
 // (enhancers) das lojas do Astro-N original (dados em shared/equipamentos-original.js,
 // gerado por tools/gerar_equipamentos.mjs), convertidos para a escala do jogo novo.
 //
-// Na nave vão 1 escudo, 1 armadura e 2 potenciadores (de tipos diferentes), além das
-// duas armas. Cada item tem as versões V1 a V8 do original, que são o NÍVEL do item
-// (1 a 8), como nas armas: comprar dá a V1; evoluir paga a taxa de tuning do original
-// (sem chance de falhar) e pede o nível do piloto da versão (NIVEL_POR_VERSAO, o mesmo
-// de todo item, em shared/versoes.js). Alguns itens são de uma classe só (as colunas
-// de classe do original): podeUsar.
+// Na nave vão 1 escudo, 1 armadura e 2 potenciadores (podem ser iguais: duas cópias
+// do mesmo, compradas à parte; shared/loja.js), além das duas armas. Cada item tem as
+// versões V1 a V8 do original, que são o NÍVEL do item (1 a 8), como nas armas:
+// comprar dá a V1; evoluir paga a taxa de tuning do original (sem chance de falhar),
+// sem pedir nível do piloto (shared/versoes.js). Alguns itens são de uma classe só
+// (as colunas de classe do original): podeUsar.
 //
 // O que cada categoria faz (o efeito de tudo junto, com os pontos do piloto, é
 // statusDoPiloto em shared/status.js):
@@ -37,9 +37,9 @@
 import { EQUIPAMENTOS_ORIGINAL } from './equipamentos-original.js';
 import { FATOR_ESCALA_HP, FATOR_ENERGIA, FATOR_RECARGA, MS_POR_S, ORDEM_CLASSES } from './naves.js';
 import { FATOR_OURO, RESIST_POR_PONTO, RESIST_MAX, TIPOS_DANO } from './armas.js';
-import { NIVEL_ITEM_MAX, NIVEL_POR_VERSAO, nivelPilotoDaVersaoItem } from './versoes.js';
+import { NIVEL_ITEM_MAX } from './versoes.js';
 
-export { NIVEL_ITEM_MAX, NIVEL_POR_VERSAO, nivelPilotoDaVersaoItem, RESIST_POR_PONTO, RESIST_MAX };
+export { NIVEL_ITEM_MAX, RESIST_POR_PONTO, RESIST_MAX };
 
 export const FATOR_HP_EQUIP = FATOR_ESCALA_HP; // 0,2: HP a mais, escudo máximo
 export const FATOR_REGEN_HP_EQUIP = MS_POR_S * FATOR_ESCALA_HP; // por ms do original → HP (ou escudo) por s
@@ -147,7 +147,6 @@ function converterItem(o) {
     const versao = {
       v: v.v,
       id: v.id,
-      nivelPiloto: NIVEL_POR_VERSAO[i],
       preco,
       custoTotal: custo,
       taxaTuning: v.taxa ? ouro(v.taxa) : 0, // ouro para a próxima (0 na V8)
@@ -177,7 +176,7 @@ function converterItem(o) {
  * catálogo: escudos, armaduras e potenciadores. Cada um:
  * { chave, id, categoria: 'escudo'|'armadura'|'potenciador', nome (original), nomePt,
  *   tipoDano: 'fisico'|'laser'|'eletrico'|null, classes: ['assault', ...], preco (V1),
- *   versoes: [8 × { v, id, nivelPiloto, preco, custoTotal, taxaTuning,
+ *   versoes: [8 × { v, id, preco, custoTotal, taxaTuning,
  *   efeitos: [{ tipo, tipoDano?, valor }], maxEscudo?, regenEscudo?, hp? }] }.
  */
 export const EQUIPAMENTOS = Object.freeze(Object.fromEntries(EQUIPAMENTOS_ORIGINAL.map((o) => [`e${o.id}`, converterItem(o)])));
