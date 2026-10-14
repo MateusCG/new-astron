@@ -125,7 +125,7 @@ test('computador: joga pelos comandos de jogador e caça os monstros da jungle',
   assert.ok(bot.ack > 0, 'os comandos dele passam pela fila, como os da rede');
   const abates = eventos.filter((e) => e.e === 'morte' && e.por === bot.id && ['arnosh', 'vorax', 'krakor'].includes(e.tipo));
   assert.ok(abates.length >= 2, `caçou ${abates.length} monstros em 60 s`);
-  assert.ok(bot.ouro > 0 || Object.keys(bot.equip).length > 0, 'ganhou ouro');
+  assert.ok(bot.ouro > 0 || bot.inv.length > 2, 'ganhou ouro');
   assert.ok(bot.nivel >= 2, `subiu de nível (está no ${bot.nivel})`);
 });
 
@@ -138,8 +138,10 @@ test('computador: com nível e ouro, pousa na Evolução e compra a próxima nav
   const eventos = rodar(w, h, 40);
   assert.ok(eventos.some((e) => e.e === 'nave' && e.id === bot.id), 'comprou a nave');
   assert.equal(bot.tier, 1);
-  assert.ok(bot.niveisArmas && Object.keys(bot.niveisArmas).length >= 1, 'evoluiu as armas na Loja');
-  assert.ok(bot.equipado.escudo && bot.equip[bot.equipado.escudo] >= 1, 'comprou um escudo, e já está na nave');
+  assert.ok(bot.inv.some((x) => x.fabrica && x.nivel > 1), 'evoluiu as armas de fábrica (evoluirItem)');
+  assert.ok(Object.keys(bot.ship.niveis).length >= 1, 'e a versão foi para a nave');
+  const escudo = bot.inv.find((x) => x.id === bot.equipado.escudo);
+  assert.equal(escudo?.tipo, 'equip', 'comprou um escudo e o pôs na nave (equipar)');
   assert.ok(bot.ship.maxEscudo > 0, 'a nave tem escudo');
   assert.ok(bot.ouro < 2000);
 });
@@ -185,7 +187,8 @@ test('computador: distribui os pontos ao subir de nível e monta escudo, armadur
   assert.equal(p.energia + p.fisico + p.eletrico + p.laser, 40, 'gastou os 10 por nível');
   assert.equal(p.energia, 12, '30% na Energia');
   assert.ok(p.laser + p.fisico === 28, 'o resto no poder das armas dele');
-  assert.ok(bot.equipado.escudo && bot.equipado.armadura, 'escudo e armadura na nave');
-  assert.ok(bot.equipado.pot.every((k) => k), 'dois potenciadores na nave');
+  const naNave = [bot.equipado.escudo, bot.equipado.armadura, ...bot.equipado.pot];
+  assert.ok(naNave.every((id) => bot.inv.some((x) => x.id === id && x.tipo === 'equip')), 'escudo, armadura e dois potenciadores do inventário na nave');
+  assert.ok(bot.inv.filter((x) => x.tipo === 'equip').every((x) => naNave.includes(x.id)), 'nada comprado ficou parado no compartimento');
   assert.ok(bot.ship.maxEscudo > 0);
 });

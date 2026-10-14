@@ -30,7 +30,9 @@
 // - Ouro sobrando: pousa na Evolução para a próxima nave da linha e na Loja para
 //   as versões das duas armas de fábrica, o equipamento (um escudo, uma armadura
 //   geral e dois potenciadores: o Reforço do tipo de dano das armas dele e o de
-//   Durabilidade; comprar com o encaixe vazio já equipa), as versões dele e kits.
+//   Durabilidade), as versões dele e kits. Pelos mesmos pedidos do cliente: comprar
+//   põe a instância no compartimento, e logo depois ele a põe na nave ({t:'equipar'},
+//   no encaixe vazio da categoria); a versão sobe por instância ({t:'evoluirItem'}).
 //   Guarda ouro para a nave quando já tem o nível dela.
 // - Pontos do piloto: a cada nível, distribui os livres (o mesmo pedido {t:'pontos'}
 //   do cliente) entre o poder do tipo de dano das armas dele e a Energia
@@ -44,11 +46,11 @@
 // senão segue o campo de caminhos até o destino (campos de destinos fixos ficam em
 // cache; o de alvo que anda é refeito quando ele se move). Preso numa quina, dá ré.
 
-import { DT, sanitizeInput, versaoArma, armasIniciais, velocidadeBase, ARMAS, WEAPONS } from '../shared/sim.js';
+import { DT, sanitizeInput, versaoArma, velocidadeBase, ARMAS, WEAPONS } from '../shared/sim.js';
 import { BASES, MINERIO, AREAS_POUSO, TORRETAS } from '../shared/terrain.js';
 import { naveDe } from '../shared/naves.js';
-import { precoEvoluirArma, ITENS, PREFIXO_EVOLUIR } from '../shared/loja.js';
-import { EQUIPAMENTOS, equipamentosAVenda, precoEvoluirEquip } from '../shared/equipamentos.js';
+import { ITENS, precoEvoluirInst, naNave } from '../shared/loja.js';
+import { EQUIPAMENTOS, equipamentosAVenda } from '../shared/equipamentos.js';
 import { pontosLivres, PONTO_MAX, ORDEM_ATRIBUTOS } from '../shared/status.js';
 import { NIVEL_MAX } from './progressao.js';
 import { MapaNavegacao } from './navegacao.js';
@@ -467,20 +469,21 @@ export class Bots {
       out.push({ servico: 'evolucao', pedido: { t: 'evoluir', opcao: 'nave' }, preco: proxima.preco });
       ouro -= proxima.preco;
     }
-    for (const a of armasIniciais(race)) {
-      const nv = j.niveisArmas[a] ?? 1;
-      const preco = precoEvoluirArma(a, nv);
+    // Versões das armas de fábrica (por instância, pousado na base: a Loja serve).
+    for (const x of j.inv) {
+      if (!x.fabrica) continue;
+      const preco = precoEvoluirInst(x);
       if (preco === null || ouro < preco) continue;
-      out.push({ servico: 'loja', pedido: { t: 'comprar', item: PREFIXO_EVOLUIR + ARMAS[a] }, preco });
+      out.push({ servico: 'loja', pedido: { t: 'evoluirItem', inst: x.id }, preco });
       ouro -= preco;
     }
-    // Equipamento: compra o que falta (vai direto para o encaixe vazio) e depois
-    // evolui o que tem.
+    // Equipamento: compra o que falta (vai para o compartimento; #equiparDesejado
+    // põe na nave) e depois evolui a instância que tem.
     for (const chave of this.#equipDesejado(j)) {
-      const nv = j.equip[chave];
-      const preco = nv === undefined ? EQUIPAMENTOS[chave].preco : precoEvoluirEquip(chave, nv);
+      const x = j.inv.find((y) => y.chave === chave);
+      const preco = x ? precoEvoluirInst(x) : EQUIPAMENTOS[chave].preco;
       if (preco === null || ouro < preco) continue;
-      out.push({ servico: 'loja', pedido: { t: 'comprar', item: nv === undefined ? chave : PREFIXO_EVOLUIR + chave }, preco });
+      out.push({ servico: 'loja', pedido: x ? { t: 'evoluirItem', inst: x.id } : { t: 'comprar', item: chave }, preco });
       ouro -= preco;
     }
     for (let k = j.itens.reparo; k < IA.kitsDesejados && ouro >= ITENS.reparo.preco; k++) {
@@ -558,6 +561,23 @@ export class Bots {
     for (const d of this.#desejos(j)) {
       if (d.servico !== servico) continue;
       this.world.servicos.pedido(j, d.pedido);
+    }
+    this.#equiparDesejado(j);
+  }
+
+  /**
+   * Põe na nave o equipamento desejado que está no compartimento, cada um no
+   * encaixe vazio da categoria (potenciador: o primeiro vazio), pelo pedido do
+   * cliente ({t:'equipar'}).
+   */
+  #equiparDesejado(j) {
+    for (const chave of this.#equipDesejado(j)) {
+      const x = j.inv.find((y) => y.chave === chave);
+      if (!x || naNave(x, j.equipado, j.ship.encaixes)) continue;
+      const cat = EQUIPAMENTOS[chave].categoria;
+      const eq = j.equipado;
+      const slot = cat === 'potenciador' ? ['pot1', 'pot2'][eq.pot.indexOf(null)] : eq[cat] === null ? cat : undefined;
+      if (slot) this.world.servicos.pedido(j, { t: 'equipar', slot, inst: x.id });
     }
   }
 
