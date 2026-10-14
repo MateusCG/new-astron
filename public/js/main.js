@@ -111,6 +111,9 @@ import { RECALL_S } from '/shared/recall.js';
 import { TORRETAS } from '/shared/terrain.js';
 
 const INTERP_MS = 120;
+// Quanto a cena sobe em tela baixa (redimensionar): SUBIR_CENA_PX − FRAC × altura.
+const SUBIR_CENA_PX = 205;
+const SUBIR_CENA_FRAC = 0.21;
 // Diferença entre a predição e o servidor acima disso é salto (recall, renascimento),
 // não erro de predição: vai direto, sem suavizar, e a câmera acompanha na hora.
 const SALTO_M = 30;
@@ -519,6 +522,12 @@ function montarJogo(rede, boas, renderer, race, classe) {
   function redimensionar() {
     renderer.setSize(innerWidth, innerHeight);
     camera.aspect = innerWidth / innerHeight;
+    // Tela baixa: a cena sobe alguns pixels para a nave e a etiqueta do piloto não
+    // ficarem embaixo da dica de pouso, que se apoia no painel inferior (que ocupa
+    // uma altura fixa em pixels). De ~900 px de altura para cima não muda nada.
+    const subir = Math.max(0, Math.round(SUBIR_CENA_PX - SUBIR_CENA_FRAC * innerHeight));
+    if (subir > 0) camera.setViewOffset(innerWidth, innerHeight, 0, subir, innerWidth, innerHeight);
+    else camera.clearViewOffset();
     camera.updateProjectionMatrix();
   }
   addEventListener('resize', redimensionar);
