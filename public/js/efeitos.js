@@ -425,8 +425,9 @@ export class Efeitos {
       let v = this.minas.get(m.id);
       if (!v && m.campo) {
         const g = new THREE.Group();
-        const decal = this.armas.decalque(m.kind, m.nv, m.p, Math.max(3, m.raio ?? 10));
-        g.add(decal);
+        const campo = this.armas.campo(m.kind, m.nv, m.p, Math.max(3, m.raio ?? 10));
+        const decal = campo.userData.miolo;
+        g.add(campo);
         const cor = m.time === meuTime ? COR_TIME.meu : COR_TIME.outro;
         const brilhoCampo = spriteAditivo(cor, 4);
         brilhoCampo.position.y = 1.5;

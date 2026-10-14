@@ -44,14 +44,14 @@ const SEQUENCIAS = {
 const QUADROS_POR_S = 24;
 // Tamanhos (m) por categoria, na escala do jogo (efeitos do original × 0,25).
 const TAM_PROJETIL = {
-  beam: { comp: 5.5, larg: 1.7, brilho: 2.6 },
-  raio: { comp: 6, larg: 2.4, brilho: 3 },
+  beam: { comp: 7, larg: 2.4, brilho: 3.2 },
+  raio: { comp: 7, larg: 2.8, brilho: 3.4 },
   suporte: { comp: 3.5, larg: 3.5, brilho: 4 },
   lamina: { comp: 3.4, larg: 3.4, brilho: 3 },
   lancador: { comp: 3.2, larg: 3.2, brilho: 3.4 },
   mina: { comp: 3, larg: 3, brilho: 2.6 },
   canhao: { comp: 3.6, larg: 3.6, brilho: 4.2 },
-  gun: { comp: 3.6, larg: 0.22, brilho: 1.6 },
+  gun: { comp: 4, larg: 0.26, brilho: 1.8 },
   onda: { comp: 4, larg: 4, brilho: 3 },
   nova: { comp: 4, larg: 4, brilho: 3 },
   missil: { comp: 0, larg: 0, brilho: 3.4 },
@@ -114,6 +114,13 @@ export class VisualArmas {
     return this.mats.get(chave);
   }
 
+  /** Material sólido (núcleo do feixe, traçador) por cor, compartilhado. */
+  #matCor(cor) {
+    const chave = 'n|' + cor.getHexString();
+    if (!this.mats.has(chave)) this.mats.set(chave, new THREE.MeshBasicMaterial({ color: cor }));
+    return this.mats.get(chave);
+  }
+
   liberar() {
     for (const m of this.mats.values()) m.dispose();
     this.mats.clear();
@@ -145,10 +152,9 @@ export class VisualArmas {
       g.add(chama);
     } else if (cat === 'gun') {
       // Traçador: barra fina e clara na cor da arma (como o laser de antes).
-      const barra = new THREE.Mesh(this.geoBarra, new THREE.MeshBasicMaterial({ color: cor.clone().lerp(BRANCO, 0.45) }));
+      const barra = new THREE.Mesh(this.geoBarra, this.#matCor(cor.clone().lerp(BRANCO, 0.45)));
       barra.scale.set(tam.larg, tam.larg, tam.comp);
       g.add(barra);
-      g.userData.matProprio = barra.material;
     } else if (cat === 'canhao' && tex) {
       // Carga do canhão: sprite com os quadros do original girando.
       const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: texturaEfeito(tex), color: BRANCO, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
@@ -163,6 +169,13 @@ export class VisualArmas {
         const emPe = new THREE.Mesh(this.geoEmPe, this.#mat(tex));
         emPe.scale.set(1, tam.larg * 0.7, tam.comp);
         g.add(emPe);
+      }
+      if (cat === 'beam' || cat === 'raio') {
+        // Núcleo claro: o feixe lê de longe na câmera de perseguição (o plano deitado
+        // fica fino visto quase de lado).
+        const nucleo = new THREE.Mesh(this.geoBarra, this.#matCor(cor.clone().lerp(BRANCO, 0.55)));
+        nucleo.scale.set(0.28, 0.28, tam.comp * 0.8);
+        g.add(nucleo);
       }
       if (cat === 'lamina' || cat === 'lancador' || cat === 'mina' || cat === 'suporte') giro = 9;
       g.userData.deitado = deitado;
@@ -190,7 +203,6 @@ export class VisualArmas {
 
   /** Libera o material próprio de um projétil que saiu de cena. */
   soltarProjetil(g) {
-    g.userData.matProprio?.dispose();
     if (g.userData.anima) g.userData.anima.mat.dispose();
   }
 
@@ -276,9 +288,11 @@ export class VisualArmas {
       const q = quadros(tex);
       if (q.length > 1) anima = { mat: m.material, quadros: q };
     }
-    const c = new THREE.Sprite(this.#matProprio(null, cor, true));
+    // Clarão mais fraco que o raio (área pequena e rápida, como a da Metralha Shrewdo,
+    // não pode cegar a tela a cada tiro).
+    const c = new THREE.Sprite(this.#matProprio(null, cor.clone().multiplyScalar(0.5), true));
     c.userData.proprio = true;
-    c.scale.setScalar(r * 1.2);
+    c.scale.setScalar(Math.min(r * 0.8, 14));
     grupo.add(c);
     this.#passageiro(grupo, AREA_S, { anima, cresce: 1.15 });
   }
@@ -316,6 +330,23 @@ export class VisualArmas {
     m.scale.set(raio * 2, 1, raio * 2);
     m.position.y = 0.4;
     return m;
+  }
+
+  /**
+   * Campo (área parada que fere quem fica dentro): disco de luz redondo na cor da
+   * arma do tamanho da área, com o decalque do original girando no miolo.
+   */
+  campo(kind, nv, prof, raio) {
+    const g = new THREE.Group();
+    const disco = new THREE.Mesh(this.geoDeitado, this.#mat(null, new THREE.Color(corDaArma(kind, prof)).multiplyScalar(0.55)));
+    disco.scale.set(raio * 2.2, 1, raio * 2.2);
+    disco.position.y = 0.3;
+    g.add(disco);
+    const miolo = this.decalque(kind, nv, prof, raio * 0.55);
+    g.add(miolo);
+    g.userData.miolo = miolo;
+    g.userData.disco = disco;
+    return g;
   }
 
   /** Avança os efeitos passageiros (chamar a cada quadro). */
