@@ -26,9 +26,10 @@
 //   nada acertaria (o laser de antes já usava 5).
 //
 // Versões: cada arma tem as versões V1 a V8 do original, que são os NÍVEIS 1 a 8 da
-// arma (versaoArma). Evoluir na Loja paga a taxa de tuning do original (sem chance de
-// falhar) e não pede nível do piloto (shared/versoes.js). A versão muda tudo: dano,
-// recarga, energia, número de projéteis, efeito.
+// arma (versaoArma). Evoluir a arma (por instância do inventário, shared/loja.js)
+// paga a taxa de tuning do original (sem chance de falhar) e não pede nível do piloto
+// (shared/versoes.js). A versão muda tudo: dano, recarga, energia, número de
+// projéteis, efeito.
 //
 // O golpe (o que a arma cria) tem uma FORMA, e cada forma o servidor implementa uma
 // vez (server/golpes.js): 'projetil' (canos, leque, rajada, atravessar, área no

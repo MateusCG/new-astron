@@ -33,7 +33,10 @@
 // - penetra: fração de resistência do alvo que o tiro daquele tipo ignora;
 // - critico: chance (0 a 1) de o golpe sair com dano dobrado (sorteio só no servidor);
 // - velMult e acelMult: multiplicadores (1 = sem mudança).
-// Os dois potenciadores somam, inclusive o mesmo item nos dois encaixes (duas cópias).
+// O que está na nave chega como uma LISTA de itens, [[chave, nível], ...] (no
+// servidor, equipadosDoInv de shared/loja.js tira do inventário por instância): cada
+// instância tem a sua versão, então o mesmo potenciador nos dois encaixes entra duas
+// vezes, cada um no seu nível, e os dois somam.
 //
 // Determinístico, sem sorte e sem relógio: servidor e cliente chegam ao mesmo número.
 
@@ -170,16 +173,15 @@ export function statusVazio() {
 }
 
 /**
- * Os itens equipados que valem (existem, são da classe): [[chave, nível]]. O mesmo
- * potenciador nos dois encaixes conta duas vezes (são duas cópias; quem confere que o
- * piloto tem as duas é o servidor).
+ * Os itens da lista que valem (existem e, com a classe, são dela): [[chave, nível]]
+ * com o nível já válido (1 a 8). Entrada fora do formato é ignorada.
  */
-function itensEquipados(equipado, niveis, classe) {
-  const chaves = [equipado?.escudo, equipado?.armadura, ...(Array.isArray(equipado?.pot) ? equipado.pot : [])];
+function itensValidos(equipados, classe) {
   const out = [];
-  for (const k of chaves) {
+  for (const par of Array.isArray(equipados) ? equipados : []) {
+    const k = Array.isArray(par) ? par[0] : null;
     if (!equipamento(k) || (classe !== undefined && !podeUsar(k, classe))) continue;
-    out.push([k, nivelEquipValido(niveis?.[k] ?? 1)]);
+    out.push([k, nivelEquipValido(par[1])]);
   }
   return out;
 }
@@ -237,25 +239,26 @@ function fechar(st) {
 }
 
 /**
- * Soma do escudo, da armadura e dos potenciadores equipados, no formato de
- * statusDoPiloto (sem os pontos). equipado = { escudo, armadura, pot: [a, b] } (chaves
- * ou null); niveis = { chave: nível } (a posse; quem não está fica na V1); com a
- * classe, item de outra classe não conta.
+ * Soma do escudo, da armadura e dos potenciadores que estão na nave, no formato de
+ * statusDoPiloto (sem os pontos). equipados = [[chave, nível], ...] (um par por
+ * instância na nave; o mesmo item duas vezes conta duas vezes, cada um no seu
+ * nível); com a classe, item de outra classe não conta.
  */
-export function somaEquipamento(equipado, niveis, classe) {
+export function somaEquipamento(equipados, classe) {
   const st = statusVazio();
-  for (const [k, nv] of itensEquipados(equipado, niveis, classe)) for (const ef of equipamento(k).versoes[nv - 1].efeitos) somarEfeito(st, ef);
+  for (const [k, nv] of itensValidos(equipados, classe)) for (const ef of equipamento(k).versoes[nv - 1].efeitos) somarEfeito(st, ef);
   return fechar(st);
 }
 
 /**
  * O status do piloto: pontos + escudo + armadura + potenciadores, num objeto só (ver
- * o topo do arquivo). energiaBase = energia máxima da nave no jogo (para o % da
+ * o topo do arquivo). equipados = [[chave, nível], ...] o que está na nave (ver
+ * somaEquipamento); energiaBase = energia máxima da nave no jogo (para o % da
  * Energia). Tudo opcional: sem nada, statusVazio().
  */
-export function statusDoPiloto({ race, classe, pontos, equipado, niveis, energiaBase = 0 } = {}) {
+export function statusDoPiloto({ race, classe, pontos, equipados, energiaBase = 0 } = {}) {
   const st = statusVazio();
-  for (const [k, nv] of itensEquipados(equipado, niveis, classe)) for (const ef of equipamento(k).versoes[nv - 1].efeitos) somarEfeito(st, ef);
+  for (const [k, nv] of itensValidos(equipados, classe)) for (const ef of equipamento(k).versoes[nv - 1].efeitos) somarEfeito(st, ef);
   const p = efeitoDosPontos(race, classe, pontos, energiaBase);
   st.enExtra += p.energia;
   st.regenEnExtra += p.regenEn;

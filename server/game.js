@@ -14,7 +14,7 @@
 // disparos de cada encaixe e server/golpes.js cria e resolve tudo o que sai deles
 // (projéteis com rajada, leque, área, atravessar, dividir e teleguiado; novas;
 // minas e campos; dispositivos na própria nave) com os números da versão da arma
-// (o nível dela, evoluído na Loja). Efeitos de arma são só do servidor: o que mexe
+// (o nível dela, evoluído por instância: evoluirItem). Efeitos de arma são só do servidor: o que mexe
 // em movimento, tiro ou energia vai para a nave (o stepShip conta e a predição lê
 // pelo `me`); o resto fica na entidade (ent.st). O dreno de HP segue em
 // drenoTicks/drenoDono/drenoDps, aplicado aqui a cada tick, respeitando a zona
@@ -51,11 +51,11 @@
 // por adicionarTiro, com `fonte` e `time` no evento para o cliente pintar.
 //
 // Loja e Evolução (server/servicos.js): pedidos do cliente atendidos em pedido();
-// a posse de armas e de equipamentos (escudo, armadura, potenciadores), o que está
-// equipado, os pontos do piloto, os itens e a nave comprada (tier da linha da raça e
-// classe, shared/naves.js) ficam no jogador e vão para cada nave nova em
-// prepararNave (nascimento e renascimento), com o status do piloto em j.status
-// (statusDoPiloto de shared/status.js).
+// o inventário por instância (j.inv: armas e equipamentos, cada um na sua versão),
+// o que está equipado, os pontos do piloto, os itens e a nave comprada (tier da
+// linha da raça e classe, shared/naves.js) ficam no jogador e vão para cada nave
+// nova em prepararNave (nascimento e renascimento), com o status do piloto em
+// j.status (statusDoPiloto de shared/status.js).
 //
 // Status no dano (o servidor é quem aplica; números em shared/status.js e
 // shared/equipamentos.js): o dano que sai de um jogador é × (1 + poder) do tipo de
@@ -70,8 +70,8 @@
 // briga ele não volta; quem recua, sim), enche rápido pousado na própria base, como
 // o HP, e renasce cheio.
 //
-// Nível das armas (Loja): é a versão do original (V1 a V8) e vai na nave (s.niveis,
-// copiado de j.niveisArmas por prepararNave): o stepShip e os golpes leem a versão
+// Nível das armas (evoluirItem): é a versão do original (V1 a V8) da instância e vai
+// na nave (s.niveis, tirado de j.inv por prepararNave): o stepShip e os golpes leem a versão
 // dali. Monstro e minerador atiram sempre no nível 1.
 //
 // Computador (server/bots.js): jogador sem socket, marcado com `ia` (o cérebro).
@@ -462,7 +462,7 @@ export class World {
       mortes: 0,
       ...novaProgressao(), // nivel, xp
       ...novoCombate(), // sequencia, danoPor
-      ...novoEquipamento(), // armas, armadura, itens, tier da nave (Loja e Evolução)
+      ...novoEquipamento(raca), // inventário (as duas armas de fábrica), equipado, itens, tier da nave (Loja e Evolução)
     };
     prepararNave(jogador); // a primeira nave da linha, só com as armas de fábrica
     this.players.set(id, jogador);
@@ -525,8 +525,9 @@ export class World {
   }
 
   /**
-   * Pedido de Loja, Evolução, pontos ou equipamento ({t:'comprar'|'evoluir'|
-   * 'melhorar'|'reconstruir'|'usar'|'pontos'|'equipar'}) do jogador `id`. Devolve a resposta para ele (server/servicos.js).
+   * Pedido de Loja, Evolução, pontos ou inventário ({t:'comprar'|'evoluir'|
+   * 'melhorar'|'reconstruir'|'usar'|'pontos'|'equipar'|'vender'|'evoluirItem'}) do
+   * jogador `id`. Devolve a resposta para ele (server/servicos.js).
    */
   pedido(id, msg) {
     return this.servicos.pedido(this.players.get(id), msg);
@@ -1086,10 +1087,11 @@ export class World {
       if (vinhaDoFim) {
         for (const j of this.players.values()) {
           if (j.fila.length) j.ack = j.fila[j.fila.length - 1].seq; // descarta sem travar a predição
-          // Ouro, XP, nível, pontos, armas compradas, equipamentos (posse e o que
-          // está na nave), itens e a nave comprada (tier) são da partida (como num
-          // MOBA): zeram na seguinte. A raça e a classe ficam (são escolha da entrada).
-          Object.assign(j, novaProgressao(), novoCombate(), novoEquipamento(), { ouro: 0 });
+          // Ouro, XP, nível, pontos, o inventário (volta às duas armas de fábrica;
+          // os ids seguem crescendo), o que está na nave, itens e a nave comprada
+          // (tier) são da partida (como num MOBA): zeram na seguinte. A raça e a
+          // classe ficam (são escolha da entrada).
+          Object.assign(j, novaProgressao(), novoCombate(), novoEquipamento(j.ship.race, j.invProx), { ouro: 0 });
           this.#respawn(j);
         }
       }

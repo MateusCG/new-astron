@@ -12,7 +12,7 @@
 // sinal do efeito principal dentro.
 //
 // Tudo aqui só desenha: quem diz o que o piloto tem e o que está equipado é o
-// servidor (me.equip, me.equipado, me.status); os números saem de
+// servidor (me.inv, me.equipado, me.status); os números saem de
 // shared/equipamentos.js e shared/status.js.
 
 import { EQUIPAMENTOS, CATEGORIAS_EQUIP, ORDEM_TIPOS_DANO, SIGLA_TIPO, versaoEquip, textoEfeitoEquip, nivelEquipValido } from '/shared/equipamentos.js';

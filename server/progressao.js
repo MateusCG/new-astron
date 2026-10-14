@@ -23,8 +23,9 @@
 // 5 níveis (5, 10, 15, 20) a Evolução paga libera a próxima nave da linha
 // (shared/naves.js, server/servicos.js), que lê `j.nivel`.
 //
-// Status do piloto (statusDoJogador): os pontos, o escudo, a armadura e os dois
-// potenciadores equipados somados por statusDoPiloto (shared/status.js). O HP
+// Status do piloto (statusDoJogador): os pontos e as instâncias de escudo, armadura e
+// dos dois potenciadores que estão na nave (cada uma na sua versão) somados por
+// statusDoPiloto (shared/status.js). O HP
 // máximo do jogador junta a nave (raça, classe e tier), o nível e o hpExtra do
 // status (armadura e potenciadores) em hpMaxDoJogador.
 //
@@ -42,6 +43,7 @@
 import { NAVE_SEM_CLASSE } from '../shared/sim.js';
 import { naveDe, CLASSE_PADRAO } from '../shared/naves.js';
 import { pontosVazios, statusDoPiloto } from '../shared/status.js';
+import { equipadosDoInv } from '../shared/loja.js';
 import { MINERADOR } from './mineradores.js';
 
 export const NIVEL_MAX = 25;
@@ -128,16 +130,16 @@ export function hpMaxDoNivel(hpBase, nivel) {
 
 /**
  * O status do piloto (statusDoPiloto em shared/status.js): os pontos distribuídos
- * (j.pontos), o escudo, a armadura e os potenciadores equipados (j.equipado), nos
- * níveis da posse (j.equip), com a energia base da nave em uso.
+ * (j.pontos) e as instâncias de escudo, armadura e potenciadores que estão na nave
+ * (j.equipado, ids em j.inv), cada uma na sua versão, com a energia base da nave em
+ * uso.
  */
 export function statusDoJogador(j) {
   return statusDoPiloto({
     race: j.ship.race,
     classe: j.classe ?? CLASSE_PADRAO,
     pontos: j.pontos,
-    equipado: j.equipado,
-    niveis: j.equip,
+    equipados: equipadosDoInv(j.inv, j.equipado),
     energiaBase: naveDoJogador(j)?.energia ?? NAVE_SEM_CLASSE.energia,
   });
 }

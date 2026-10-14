@@ -90,7 +90,7 @@ export const NAVE_SEM_CLASSE = { hp: 250, energia: 60, velocidade: 52.25 }; // v
 //
 // O catálogo (shared/armas.js) é o do Astro-N original: 140 armas das lojas de
 // Acron, Bellico e Shrewdo, cada uma com as versões V1 a V8 (o NÍVEL da arma, 1 a 8,
-// evoluído na Loja). Aqui o stepShip lê da versão do encaixe (s.niveis[arma]) a
+// evoluído por instância do inventário). Aqui o stepShip lê da versão do encaixe (s.niveis[arma]) a
 // recarga, a energia, a rajada, a varredura do padrão e se a arma é de segurar a
 // tecla, e devolve os disparos; quem cria o golpe (projétil, nova, mina, campo,
 // efeito na própria nave) é o servidor (server/golpes.js). O que muda o movimento,

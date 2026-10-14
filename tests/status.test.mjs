@@ -108,8 +108,7 @@ test('status: soma pontos, escudo, armadura e os dois potenciadores num objeto s
     race: 'shrewdo',
     classe: 'functional',
     pontos: { energia: 0, fisico: 0, eletrico: 0, laser: 10 },
-    equipado: { escudo: 'e330010', armadura: 'e320009', pot: ['e340025', 'e340010'] },
-    niveis: { e330010: 7, e320009: 7, e340025: 7 },
+    equipados: [['e330010', 7], ['e320009', 7], ['e340025', 7], ['e340010', 1]],
     energiaBase: 45,
   });
   assert.deepEqual(Object.keys(st).sort(), Object.keys(statusVazio()).sort());
@@ -132,31 +131,33 @@ test('status: soma pontos, escudo, armadura e os dois potenciadores num objeto s
 
 test('status: tetos, potenciador nos dois encaixes, item de outra classe e potenciadores de mobilidade e crítico', () => {
   // Resistência Ph.: Alcânio Ph. V8 + Neutron Ph. V8 + Resistência Ph. V8 + Total V8 passa do teto.
-  const cheio = somaEquipamento(
-    { escudo: 'e330011', armadura: 'e320014', pot: ['e340012', 'e340022'] },
-    { e330011: 8, e320014: 8, e340012: 8, e340022: 8 },
-    'assault',
-  );
+  const cheio = somaEquipamento([['e330011', 8], ['e320014', 8], ['e340012', 8], ['e340022', 8]], 'assault');
   assert.equal(cheio.resist.fisico, RESIST_MAX);
-  // O mesmo potenciador nos dois encaixes (duas cópias) conta duas vezes.
-  perto(somaEquipamento({ pot: ['e340027', null] }, { e340027: 8 }).critico, 0.4);
-  perto(somaEquipamento({ pot: ['e340027', 'e340027'] }, { e340027: 8 }).critico, 0.8);
+  // O mesmo potenciador nos dois encaixes (duas instâncias) conta duas vezes, cada
+  // uma na sua versão.
+  perto(somaEquipamento([['e340027', 8]]).critico, 0.4);
+  perto(somaEquipamento([['e340027', 8], ['e340027', 8]]).critico, 0.8);
+  const v1 = somaEquipamento([['e340027', 1]]).critico;
+  perto(somaEquipamento([['e340027', 8], ['e340027', 1]]).critico, 0.4 + v1);
   // Velocidade e aceleração viram multiplicadores.
-  const mob = somaEquipamento({ pot: ['e340023', 'e340015'] }, { e340023: 8, e340015: 8 });
+  const mob = somaEquipamento([['e340023', 8], ['e340015', 8]]);
   perto(mob.velMult, 1 + 0.05 + 0.08);
   perto(mob.acelMult, 1.2);
   // Armadura de Argônio é Functional: numa Assault não conta.
-  assert.equal(somaEquipamento({ armadura: 'e320009' }, {}, 'assault').hpExtra, 0);
-  perto(somaEquipamento({ armadura: 'e320009' }, {}, 'functional').hpExtra, versaoEquip('e320009', 1).hp);
+  assert.equal(somaEquipamento([['e320009', 1]], 'assault').hpExtra, 0);
+  perto(somaEquipamento([['e320009', 1]], 'functional').hpExtra, versaoEquip('e320009', 1).hp);
   // Recarga nunca passa de RECARGA_MAX.
   assert.equal(multRecarga(2), 1 - RECARGA_MAX);
   assert.equal(multRecarga(undefined), 1);
   // Sem nada: o status vazio; chaves que não existem não quebram.
   assert.deepEqual(statusDoPiloto(), statusVazio());
-  assert.deepEqual(statusDoPiloto({ equipado: { escudo: 'nada', pot: [null, 'x'] } }), statusVazio());
+  assert.deepEqual(statusDoPiloto({ equipados: [['nada', 1], null, ['x'], 'e330010', 42] }), statusVazio());
+  // Nível fora de 1..8 vira V1.
+  assert.deepEqual(somaEquipamento([['e330010', 99]]), somaEquipamento([['e330010', 8]]));
+  assert.deepEqual(somaEquipamento([['e330010', 'x']]), somaEquipamento([['e330010', 1]]));
 });
 
 test('status: determinístico (mesma entrada, mesmo objeto)', () => {
-  const entrada = { race: 'acron', classe: 'mobile', pontos: { energia: 20, fisico: 7, eletrico: 3, laser: 0 }, equipado: { escudo: 'e330007', pot: ['e340019', 'e340031'] }, niveis: { e330007: 3 }, energiaBase: 36 };
+  const entrada = { race: 'acron', classe: 'mobile', pontos: { energia: 20, fisico: 7, eletrico: 3, laser: 0 }, equipados: [['e330007', 3], ['e340019', 1], ['e340031', 1]], energiaBase: 36 };
   assert.deepEqual(statusDoPiloto(entrada), statusDoPiloto(structuredClone(entrada)));
 });

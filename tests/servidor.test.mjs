@@ -176,7 +176,7 @@ test('servidor: não serve arquivo fora das pastas públicas', async () => {
     }
     const r = await fetch(`http://localhost:${srv.porta}/`);
     assert.equal(r.status, 200);
-    assert.match(await r.text(), /NEW <span>ASTRO<\/span>-N/);
+    assert.match(await r.text(), /NEW <span>ASTRON<\/span>/);
   } finally {
     await srv.fechar();
   }

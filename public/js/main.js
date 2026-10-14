@@ -39,10 +39,11 @@
 // painel abre sozinho; os pedidos vão direto pela rede e a resposta chega como
 // {t:'resultado'}. Com o painel aberto, como com o menu de armas, não sai tiro.
 //
-// STATUS (status.js, tecla C) e INVENTÁRIO (inventario.js, tecla I): janelas laterais,
-// uma de cada vez, que leem o `me` do snapshot (pontos, equipamento, status somado).
-// Os pedidos {t:'pontos'} e {t:'equipar'} vão direto pela rede; as armas Z/X do
-// inventário mudam os encaixes do menu de armas, como o Q/E. Abertas, não sai tiro.
+// STATUS (status.js, tecla C) e INVENTÁRIO (inventario.js, tecla I): janelas laterais
+// com a altura toda da tela, uma de cada vez, que leem o `me` do snapshot (pontos,
+// inventário por instância, status somado). Os pedidos {t:'pontos'}, {t:'equipar'},
+// {t:'vender'} e {t:'evoluirItem'} vão direto pela rede; as armas Z/X do inventário
+// mudam os encaixes do menu de armas, como o Q/E. Abertas, não sai tiro.
 //
 // Recall (B, shared/recall.js): o pedido vai no campo r do comando e só o servidor
 // decide; o cliente não prevê a canalização. Na chegada a nave salta para a base:
@@ -111,6 +112,9 @@ import { RECALL_S } from '/shared/recall.js';
 import { TORRETAS } from '/shared/terrain.js';
 
 const INTERP_MS = 120;
+// Quanto a cena sobe em tela baixa (redimensionar): SUBIR_CENA_PX − FRAC × altura.
+const SUBIR_CENA_PX = 205;
+const SUBIR_CENA_FRAC = 0.21;
 // Diferença entre a predição e o servidor acima disso é salto (recall, renascimento),
 // não erro de predição: vai direto, sem suavizar, e a câmera acompanha na hora.
 const SALTO_M = 30;
@@ -519,6 +523,12 @@ function montarJogo(rede, boas, renderer, race, classe) {
   function redimensionar() {
     renderer.setSize(innerWidth, innerHeight);
     camera.aspect = innerWidth / innerHeight;
+    // Tela baixa: a cena sobe alguns pixels para a nave e a etiqueta do piloto não
+    // ficarem embaixo da dica de pouso, que se apoia no painel inferior (que ocupa
+    // uma altura fixa em pixels). De ~900 px de altura para cima não muda nada.
+    const subir = Math.max(0, Math.round(SUBIR_CENA_PX - SUBIR_CENA_FRAC * innerHeight));
+    if (subir > 0) camera.setViewOffset(innerWidth, innerHeight, 0, subir, innerWidth, innerHeight);
+    else camera.clearViewOffset();
     camera.updateProjectionMatrix();
   }
   addEventListener('resize', redimensionar);
@@ -629,7 +639,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     estadosArmas = m.st ?? {};
     painel.atualizar({ ouro: m.ouro, nivel: m.nivel, me: m.me, melhorias: m.melhorias, torretas: m.torretas });
     status.atualizar({ me: m.me, nivel: m.nivel, xp: m.xp, xpProx: m.xpProx, ouro: m.ouro, nome: euNoSnap?.nome ?? meuNome });
-    inventario.atualizar({ me: m.me, nivel: m.nivel });
+    inventario.atualizar({ me: m.me, nivel: m.nivel, ouro: m.ouro });
     // A nave da linha que você pilota (muda ao evoluir na Evolução).
     if (m.me) definirNave(minhaNave, race, m.me.classe ?? classe, m.me.tier ?? 0);
 
@@ -841,10 +851,12 @@ function montarJogo(rede, boas, renderer, race, classe) {
   rede.aoReceber = (m) => {
     if (m.t === 'snap') aoSnapshot(m);
     else if (m.t === 'resultado' && m.acao === 'teste') painelTeste?.resultado(m);
-    else if (m.t === 'resultado' && (m.acao === 'pontos' || m.acao === 'equipar')) {
+    else if (m.t === 'resultado' && (m.acao === 'pontos' || m.acao === 'equipar' || m.acao === 'vender' || m.acao === 'evoluirItem')) {
       if (m.acao === 'pontos') status.resultado(m);
       else inventario.resultado(m);
-      sons.tocarInterface(m.ok ? SONS_INTERFACE.clique : SONS_INTERFACE.erro);
+      // Vender e evoluir mexem no ouro: o som da compra; o resto, o clique.
+      const ouro = m.acao === 'vender' || m.acao === 'evoluirItem';
+      sons.tocarInterface(!m.ok ? SONS_INTERFACE.erro : ouro ? SONS_INTERFACE.compra : SONS_INTERFACE.clique);
     } else if (m.t === 'resultado' && m.acao === 'ia') {
       times.resultado(m);
       sons.tocarInterface(m.ok ? SONS_INTERFACE.clique : SONS_INTERFACE.erro);
@@ -961,6 +973,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
       const fracRecall = vivo && recallLocal ? Math.min(1, recallLocal.frac + (agora - recallLocal.t) / 1000 / RECALL_S) : null;
       efeitos.recall(minhaNave, fracRecall, COR_TIME.meu, dt, tempo, true);
       hud.recall(fracRecall, fracRecall === null ? 0 : (1 - fracRecall) * RECALL_S);
+      // Troca de arma fora da base: "CARREGANDO" no meio da tela enquanto conta.
+      hud.carregando(vivo ? pred : null);
       foco.set(x, y, z);
     }
 
@@ -1088,8 +1102,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
       // Pousada e parada na Loja ou na Evolução da própria base: o painel abre.
       const parada = vivo && pred.pousado && Math.hypot(pred.vx, pred.vz) < VEL_TOQUE;
       painel.lugar(parada && area?.servico && area.time === meuTime ? area.servico : null);
-      // Pousada em qualquer área da própria base (anel ou plataformas): o inventário troca equipamento.
-      inventario.lugar(!!(vivo && pred.pousado && area && (area.base === meuTime || (area.servico && area.time === meuTime))));
+      // Pousada e parada em qualquer área da própria base (anel ou plataformas): o
+      // inventário vende e evolui (equipar vale em qualquer lugar).
+      inventario.lugar(!!(parada && area && (area.base === meuTime || (area.servico && area.time === meuTime))));
       // Plataforma do outro time não oferece pouso.
       hud.pouso(vivo && pousoPermitido(pred) ? area : null, vivo && pred.pousado, painel.aberto);
       // Pousada na marcação de um objetivo A: barra do progresso.
@@ -1177,6 +1192,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
    * aberto: fecha só ele. Devolve se fechou.
    */
   function fecharPainel() {
+    if (inventario.fecharCaixa()) return true; // a caixinha do item fecha antes da janela
     for (const janela of [times, status, inventario]) {
       if (janela.aberto) {
         janela.fechar();
