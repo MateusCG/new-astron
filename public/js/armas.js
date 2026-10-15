@@ -222,13 +222,13 @@ export function iconeArma(kind, nivel = 1) {
 }
 
 /** Texto do dano na carta: "4×3" (por projétil × quantos, contando a rajada), o total ou "—". */
-export function textoDano(kind, nivel = 1) {
+export function textoDano(kind, nivel = 1, mult = 1) {
   const v = versaoArma(kind, nivel);
   if (!v) return '—';
   const r = resumoVersao(v);
   if (!(r.dano > 0)) return '—';
   const n = Math.round(r.dano / (r.danoProjetil || r.dano));
-  return n > 1 ? `${um(r.danoProjetil)}×${n}` : um(r.dano);
+  return n > 1 ? `${um(r.danoProjetil * mult)}×${n}` : um(r.dano * mult);
 }
 
 /** Forma do golpe em poucas palavras ("3 paralelos", "leque de 8", "rajada de 3", "área 17 m"...). */

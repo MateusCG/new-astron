@@ -120,21 +120,24 @@ export function detalheArma(idx, nivel = 1, acao = '') {
 }
 
 /**
- * Uma célula de arma da tabela de tipos: o poder (%) da arma do encaixe na linha
- * do tipo dela; nas outras linhas, vazia. O title mostra o dano com o poder.
+ * Uma célula de arma da tabela de tipos: o dano REAL por disparo da arma do encaixe
+ * (o da versão × (1 + poder do piloto no tipo dela), no formato do detalhe da arma:
+ * "214,8×6" = 6 projéteis de 214,8), na linha do tipo dela; nas outras linhas,
+ * vazia. Pedido do Mateus: a porcentagem de poder já aparece no atributo (STATUS) e
+ * no title; aqui vale o número que sai no tiro. Arma sem dano (suporte) mostra "—".
  */
 export function celulaArma(idx, nivel, tipo, poder) {
   const w = WEAPONS[ARMAS[idx]];
   if (!w || w.npc || w.tipoDano !== tipo) return '<td class="vazia"></td>';
   const p = poder?.[tipo] ?? 0;
   const r = resumoVersao(versaoArma(idx, nivel));
-  const dano = r.dano > 0 ? ` · dano ${(+(r.dano * (1 + p)).toFixed(1)).toLocaleString('pt-BR')} por disparo` : '';
-  return `<td title="${esc(`${w.nome} V${nivel}: poder ${SIGLA_TIPO[tipo]} +${pct(p)}${dano}`)}">+${pct(p)}</td>`;
+  const total = r.dano > 0 ? ` · ${(+(r.dano * (1 + p)).toFixed(1)).toLocaleString('pt-BR')} no total por disparo` : '';
+  return `<td title="${esc(`${w.nome} V${nivel}: dano ${textoDano(idx, nivel)} × (1 + poder ${SIGLA_TIPO[tipo]} ${pct(p)})${total}`)}">${textoDano(idx, nivel, 1 + p)}</td>`;
 }
 
 /**
  * A tabela do INVENTÁRIO (e do original): uma linha por tipo de dano (Ph., El.,
- * Op.), com o poder de cada arma equipada no tipo dela e a resistência da nave.
+ * Op.), com o dano real por disparo de cada arma equipada no tipo dela e a resistência da nave.
  * `encaixes` = [Z, X] (índices), `nivEnc` = [versão do Z, versão do X] (me.nivEnc),
  * `status` = me.status.
  */
