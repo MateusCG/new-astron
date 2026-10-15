@@ -139,7 +139,7 @@ test('computador: com nível e ouro, pousa na Evolução e compra a próxima nav
   assert.ok(eventos.some((e) => e.e === 'nave' && e.id === bot.id), 'comprou a nave');
   assert.equal(bot.tier, 1);
   assert.ok(bot.inv.some((x) => x.fabrica && x.nivel > 1), 'evoluiu as armas de fábrica (evoluirItem)');
-  assert.ok(Object.keys(bot.ship.niveis).length >= 1, 'e a versão foi para a nave');
+  assert.ok(bot.ship.nivEnc.some((n) => n > 1), 'e a versão foi para a nave');
   const escudo = bot.inv.find((x) => x.id === bot.equipado.escudo);
   assert.equal(escudo?.tipo, 'equip', 'comprou um escudo e o pôs na nave (equipar)');
   assert.ok(bot.ship.maxEscudo > 0, 'a nave tem escudo');

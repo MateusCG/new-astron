@@ -13,7 +13,7 @@ import { hpMaxDoNivel } from '../server/progressao.js';
 import { naveDe } from '../shared/naves.js';
 import { BASES, SERVICOS, OBJETIVOS } from '../shared/terrain.js';
 import { EQUIPAMENTOS, versaoEquip, precoEvoluirEquip } from '../shared/equipamentos.js';
-import { COMPARTIMENTO_MAX, precoArma, armasAVenda } from '../shared/loja.js';
+import { COMPARTIMENTO_MAX, ARMA_COPIAS_MAX, precoArma, armasAVenda } from '../shared/loja.js';
 import { PONTO_MAX, efeitoDosPontos, somaEquipamento } from '../shared/status.js';
 import { ARMAS, IDX_ARMA, armasIniciais } from '../shared/sim.js';
 
@@ -52,11 +52,13 @@ function novo(w, j, chave) {
   return j.inv.at(-1).id;
 }
 const inst = (j, id) => j.inv.find((x) => x.id === id);
+/** A primeira arma à venda da raça e classe que não é de fábrica. */
+const compravel = (race, classe) => armasAVenda(race, classe).find((a) => !armasIniciais(race).includes(a));
 /** Quantos itens há no compartimento, pelo `me` (o que o cliente vê). */
 function noCompartimento(w, j) {
   const me = w.snapshotPara(j, [], []).me;
   const naNave = new Set([me.equipado.escudo, me.equipado.armadura, ...me.equipado.pot]);
-  return me.inv.filter((x) => (x.tipo === 'arma' ? !me.encaixes.includes(IDX_ARMA[x.chave]) : !naNave.has(x.id))).length;
+  return me.inv.filter((x) => (x.tipo === 'arma' ? !me.encInst.includes(x.id) : !naNave.has(x.id))).length;
 }
 const pontos = (w, j, atributo, qtd) => w.pedido(j.id, { t: 'pontos', atributo, qtd });
 
@@ -114,7 +116,7 @@ test('pontos: Energia sobe a energia máxima e a regeneração; o poder vai para
   assert.equal(me.pontosLivres, 8, '60 do nível 6 menos 52');
 });
 
-test('inventário: comprar vai para o compartimento, sem equipar; arma repetida é ja_possui, equipamento repete', () => {
+test('inventário: comprar vai para o compartimento, sem equipar; arma até duas cópias, equipamento repete', () => {
   const w = mundo();
   const j = w.addPlayer('A', 'bellico', 'mobile');
   // Começa com as duas de fábrica, nos encaixes: compartimento vazio.
@@ -135,13 +137,18 @@ test('inventário: comprar vai para o compartimento, sem equipar; arma repetida 
   assert.equal(j.ship.maxEscudo, 0);
   const e2 = novo(w, j, ESCUDO);
   assert.ok(e2 > e1, 'o mesmo escudo de novo é outra instância, com id maior');
-  const arma = armasAVenda('bellico', 'mobile')[0];
+  const arma = compravel('bellico', 'mobile');
   const a1 = novo(w, j, ARMAS[arma]);
   assert.equal(inst(j, a1).pago, precoArma(arma));
   assert.ok(j.ship.armas.includes(arma), 'a arma comprada já pode ir num encaixe');
-  assert.equal(comprar(w, j, ARMAS[arma]).codigo, 'ja_possui', 'arma, uma de cada');
-  assert.equal(comprar(w, j, ARMAS[armasIniciais('bellico')[0]]).codigo, 'ja_possui', 'a de fábrica já é dele');
-  assert.equal(noCompartimento(w, j), 3);
+  const a2 = novo(w, j, ARMAS[arma]);
+  assert.ok(a2 > a1, 'a segunda cópia é outra instância');
+  assert.equal(comprar(w, j, ARMAS[arma]).codigo, 'ja_possui', `arma, até ${ARMA_COPIAS_MAX} cópias`);
+  const fz = ARMAS[armasIniciais('bellico')[0]];
+  assert.equal(comprar(w, j, fz).ok, true, 'a de fábrica conta como a primeira: compra a segunda');
+  assert.equal(comprar(w, j, fz).codigo, 'ja_possui', 'e a terceira não');
+  assert.deepEqual(j.ship.armas, [...new Set(j.ship.armas)], 's.armas não repete as cópias');
+  assert.equal(noCompartimento(w, j), 5, 'dois escudos, duas cópias da comprada e a cópia da de fábrica');
   const me = w.snapshotPara(j, [], []).me;
   assert.equal(me.compMax, COMPARTIMENTO_MAX);
   assert.deepEqual(me.inv, j.inv);
@@ -275,7 +282,7 @@ test('inventário: vender dá metade do pago, só do compartimento, na própria 
   assert.equal(evoluir(w, j, e).ok, true);
   const pago = EQUIPAMENTOS[ARMADURA].preco + precoEvoluirEquip(ARMADURA, 1);
   assert.equal(inst(j, e).pago, pago);
-  const arma = armasAVenda('bellico', 'assault')[0];
+  const arma = compravel('bellico', 'assault');
   const a = novo(w, j, ARMAS[arma]);
   const fabrica = j.inv.find((x) => x.fabrica);
 
@@ -301,11 +308,12 @@ test('inventário: vender dá metade do pago, só do compartimento, na própria 
   assert.equal(vender(w, j, e).codigo, 'sem_item', 'não vende duas vezes');
 
   // Arma num encaixe Z/X está na nave; no compartimento, vende e sai de s.armas.
-  w.pushInput(j.id, { s: 1, a: arma });
+  w.pushInput(j.id, { s: 1, a });
   w.step();
   assert.equal(j.ship.encaixes[0], arma);
+  assert.deepEqual(j.ship.encInst[0], a, 'o comando escolhe a instância');
   assert.equal(vender(w, j, a).codigo, 'equipado');
-  w.pushInput(j.id, { s: 2, a: armasIniciais('bellico')[0] });
+  w.pushInput(j.id, { s: 2, a: fabrica.id });
   w.step();
   assert.equal(vender(w, j, a).ok, true);
   assert.ok(!j.ship.armas.includes(arma));
@@ -386,7 +394,8 @@ test('inventário: volta a cada renascimento (escudo cheio) e tudo zera na parti
     armasIniciais('acron').map((a) => ['arma', ARMAS[a], 1, 0, true]),
   );
   assert.ok(j.inv.every((x) => x.id >= proxId), 'os ids não se repetem no mesmo piloto');
-  assert.deepEqual(j.ship.niveis, {});
+  assert.deepEqual(j.ship.nivEnc, [1, 1]);
+  assert.deepEqual(j.ship.encInst, j.inv.map((x) => x.id), 'as de fábrica novas nos encaixes');
   assert.deepEqual(j.equipado, { escudo: null, armadura: null, pot: [null, null] });
   assert.deepEqual(j.pontos, { energia: 0, fisico: 0, eletrico: 0, laser: 0 });
   assert.equal(j.ship.maxEscudo, 0);

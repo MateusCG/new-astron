@@ -90,9 +90,9 @@ export const NAVE_SEM_CLASSE = { hp: 250, energia: 60, velocidade: 52.25 }; // v
 //
 // O catálogo (shared/armas.js) é o do Astro-N original: 140 armas das lojas de
 // Acron, Bellico e Shrewdo, cada uma com as versões V1 a V8 (o NÍVEL da arma, 1 a 8,
-// evoluído por instância do inventário). Aqui o stepShip lê da versão do encaixe (s.niveis[arma]) a
-// recarga, a energia, a rajada, a varredura do padrão e se a arma é de segurar a
-// tecla, e devolve os disparos; quem cria o golpe (projétil, nova, mina, campo,
+// evoluído por instância do inventário). Aqui o stepShip lê da versão do encaixe
+// (s.nivEnc[encaixe]) a recarga, a energia, a rajada, a varredura do padrão e se a
+// arma é de segurar a tecla, e devolve os disparos; quem cria o golpe (projétil, nova, mina, campo,
 // efeito na própria nave) é o servidor (server/golpes.js). O que muda o movimento,
 // o tiro ou a energia da própria nave fica aqui, para a predição bater:
 // - Rajada (s.raj1/raj2): o gatilho dispara o primeiro tiro e gasta a energia; os
@@ -113,6 +113,21 @@ export const NAVE_SEM_CLASSE = { hp: 250, energia: 60, velocidade: 52.25 }; // v
 // Armas iniciais: as duas da raça (armasIniciais) são de fábrica, sempre possuídas.
 // Nave sem raça jogável (drones e monstros, que usam a física daqui) atira com os
 // tiros de NPC (laser no Z, plasma no X), que ficam fora do catálogo do jogador.
+//
+// Encaixe por INSTÂNCIA (pedido do Mateus: a mesma arma pode ser comprada duas
+// vezes, cada cópia com a sua versão). A nave de jogador traz as armas do piloto em
+// s.armasInst = [[id, índice em ARMAS, nível], ...] (uma por instância do inventário,
+// que o servidor tira de j.inv e manda no `me`), e o comando escolhe a INSTÂNCIA de
+// cada encaixe pelo id (a = Z, a2 = X). Daí sai o estado do encaixe: s.encInst =
+// [id do Z, id do X], e, derivados, s.encaixes = [arma do Z, arma do X] (índices,
+// para os golpes, os rótulos, o modelo na asa e os computadores) e s.nivEnc = [nível
+// do Z, nível do X]. Uma instância vai num encaixe só: a mesma arma no Z e no X são
+// duas cópias. Id que a nave não tem (ou de arma de outra raça ou classe) cai na
+// de fábrica do encaixe (a primeira cópia dela; se ela está no outro encaixe, a
+// de fábrica do outro). Nave sem s.armasInst (monstros, mineradores, a física solta
+// dos testes) não tem inventário: o comando escolhe pelo ÍNDICE da arma, com a posse
+// em s.armas e o nível em s.niveis, como antes. Os dois lados (servidor e predição)
+// leem o mesmo s.armasInst, então decidem igual.
 export const AREA_ALTURA = 12; // m de diferença de altura até onde a área ainda pega
 export const TELEPORTE_PASSO = 10; // m: o teleporte recua isto até achar lugar livre
 export const TELEPORTE_FOLGA = SHIP_RADIUS + 3; // m de chão livre em volta do destino
@@ -125,6 +140,9 @@ export const TELEPORTE_FOLGA = SHIP_RADIUS + 3; // m de chão livre em volta do 
 // troca zera. Nave sem time (monstros, testes) troca livre, como no pouso. Fica no
 // estado da nave e roda no stepShip, então a predição bate com o servidor.
 export const TROCA_ARMA_S = 3;
+
+/** Maior id que o comando aceita no encaixe (id de instância ou índice de arma); acima, -1. */
+export const ID_ENCAIXE_MAX = 2 ** 31 - 1;
 
 export { WEAPONS, ARMAS, IDX_ARMA, TIPOS_DANO, CATEGORIAS, PAPEIS, armasIniciais, armasDisponiveis, versaoArma };
 
@@ -145,6 +163,15 @@ export function armaValida(a) {
 }
 
 /**
+ * Campo de encaixe do comando (a, a2) vindo da rede: inteiro de 0 a ID_ENCAIXE_MAX
+ * (id de instância na nave com inventário, índice de arma na sem), ou -1 (a de
+ * fábrica do encaixe). Se a nave tem mesmo aquilo, o stepShip decide.
+ */
+export function idEncaixeValido(a) {
+  return Number.isInteger(a) && a >= 0 && a <= ID_ENCAIXE_MAX ? a : -1;
+}
+
+/**
  * A nave pode usar a arma de índice a? Tem de ser da raça e da classe dela
  * (armasDisponiveis) e possuída: as de fábrica (armasIniciais) sempre; as outras se
  * estão em s.armas (a posse que a Loja dá ao piloto e o servidor copia para a nave).
@@ -154,15 +181,82 @@ export function possuiArma(s, a) {
   return armasIniciais(s.race).includes(a) || !s.armas || s.armas.includes(a);
 }
 
-/** Arma que o encaixe usa de fato: a pedida, se válida e possuída; senão a de fábrica dele. */
+/**
+ * Arma (índice) que o encaixe usa de fato com o pedido `pedida`: na nave sem
+ * inventário, a pedida (índice) se válida e possuída, senão a de fábrica do
+ * encaixe; na com inventário, a arma da instância que o encaixe resolve
+ * (instDoEncaixe).
+ */
 export function armaDoEncaixe(s, pedida, encaixe) {
+  if (temInventario(s)) return instArma(s, instDoEncaixe(s, pedida, encaixe))?.[1] ?? encaixePadrao(s)[encaixe];
   const a = armaValida(pedida);
   return a >= 0 && possuiArma(s, a) ? a : encaixePadrao(s)[encaixe];
 }
 
-/** Nível (1 a 8) da arma de índice a na nave (s.niveis, que o servidor copia do piloto). */
+/** Nível (1 a 8) da arma de índice a na nave SEM inventário (s.niveis; a com inventário lê s.nivEnc). */
 export function nivelDaArma(s, a) {
   return nivelArmaValido(s.niveis?.[a] ?? 1);
+}
+
+/** A nave tem inventário (armas por instância em s.armasInst)? */
+export function temInventario(s) {
+  return Array.isArray(s?.armasInst);
+}
+
+/** A instância de arma `id` da nave ([id, índice, nível]) se ela a tem e pode usar; senão null. */
+export function instArma(s, id) {
+  if (!Number.isInteger(id) || id < 0 || !temInventario(s)) return null;
+  const x = s.armasInst.find((y) => y?.[0] === id);
+  return x && armaDisponivel(s.race, s.classe, x[1]) ? x : null;
+}
+
+/**
+ * A instância de fábrica do encaixe, que não seja `ocupada` (a do outro encaixe):
+ * a primeira cópia da arma de fábrica dele; se essa está no outro encaixe, a do
+ * outro; em último caso, qualquer arma livre da nave. Null se não há (inventário
+ * vazio).
+ */
+function fabricaDoEncaixe(s, encaixe, ocupada) {
+  const padrao = encaixePadrao(s);
+  for (const a of [padrao[encaixe], padrao[1 - encaixe]]) {
+    const x = s.armasInst.find((y) => y?.[1] === a && y[0] !== ocupada && instArma(s, y[0]));
+    if (x) return x[0];
+  }
+  return s.armasInst.find((y) => y?.[0] !== ocupada && instArma(s, y?.[0]))?.[0] ?? null;
+}
+
+/**
+ * Instância (id) que o encaixe usa com o pedido `pedida` (nave com inventário): a
+ * pedida, se a nave a tem, pode usar e ela não é a `ocupada` (a do outro encaixe:
+ * uma instância vai num encaixe só); senão a de fábrica do encaixe.
+ */
+export function instDoEncaixe(s, pedida, encaixe, ocupada = null) {
+  const x = instArma(s, pedida);
+  return x && x[0] !== ocupada ? x[0] : fabricaDoEncaixe(s, encaixe, ocupada);
+}
+
+/**
+ * Põe nos encaixes os campos derivados: s.encaixes (índices das armas) e s.nivEnc
+ * (níveis). Nave com inventário: de s.encInst, trocando o que ela não tem mais
+ * (vendido, partida nova) pela de fábrica sem recarga de troca; sem inventário: de
+ * s.encaixes e s.niveis. O servidor chama depois de mexer no inventário (a versão
+ * evoluída vale na hora); o stepShip, a cada passo.
+ */
+export function derivarEncaixes(s) {
+  if (temInventario(s)) {
+    const atual = Array.isArray(s.encInst) ? s.encInst : [null, null];
+    const z = instArma(s, atual[0]) ? atual[0] : fabricaDoEncaixe(s, 0, atual[1]);
+    const x = instArma(s, atual[1]) && atual[1] !== z ? atual[1] : fabricaDoEncaixe(s, 1, z);
+    s.encInst = [z, x];
+    const insts = s.encInst.map((id) => instArma(s, id));
+    const padrao = encaixePadrao(s);
+    s.encaixes = insts.map((y, enc) => y?.[1] ?? padrao[enc]);
+    s.nivEnc = insts.map((y) => nivelArmaValido(y?.[2] ?? 1));
+  } else {
+    s.encaixes ??= [...encaixePadrao(s)];
+    s.nivEnc = s.encaixes.map((a) => nivelDaArma(s, a));
+  }
+  return s;
 }
 
 /**
@@ -276,8 +370,9 @@ export function createShip(race, x, z, yaw = 0, classe = CLASSE_PADRAO, tier = 0
   // Armas de fábrica nos encaixes; a posse sem restrição aqui (monstros, mineradores,
   // testes): a nave de jogador recebe a do piloto no World (server/servicos.js).
   s.encaixes = [...armasIniciais(raca)];
+  s.nivEnc = [1, 1]; // nível da arma de cada encaixe (derivarEncaixes)
   s.armas = [...armasDisponiveis(raca, s.classe)];
-  s.niveis = {}; // nível de cada arma (índice → 1 a 8; sem entrada = 1)
+  s.niveis = {}; // sem inventário: nível de cada arma (índice → 1 a 8; sem entrada = 1)
   s.hp = s.maxHp;
   s.en = s.maxEn;
   return s;
@@ -301,8 +396,8 @@ export function sanitizeInput(i) {
     f2: !!i?.f2,
     p: !!i?.p,
     r: !!i?.r, // recall (B): pulso; só o servidor lê (shared/recall.js), o stepShip não
-    a: armaValida(i?.a), // -1: a arma de fábrica do encaixe
-    a2: armaValida(i?.a2),
+    a: idEncaixeValido(i?.a), // id da instância (ou índice, na nave sem inventário); -1: a de fábrica
+    a2: idEncaixeValido(i?.a2),
   };
 }
 
@@ -341,6 +436,56 @@ export function teleportar(s, dist) {
 }
 
 /**
+ * Troca das armas dos encaixes pelo comando (parte do stepShip). As armas dos dois
+ * encaixes vêm no comando (a = Z, a2 = X) a cada passo, para predição e servidor
+ * trocarem no mesmo passo: o id da instância (nave com inventário) ou o índice da
+ * arma (sem). A recarga do tiro é do encaixe, não da arma: trocar de arma não zera
+ * a espera do tiro. O que a nave não tem (ou id ruim) cai na de fábrica do encaixe.
+ * Fora da própria base, trocar põe o encaixe em recarga de troca (TROCA_ARMA_S);
+ * pedir outra troca enquanto ela conta é ignorado (a nave fica com a que tem). Uma
+ * instância não vai nos dois encaixes: o X não leva a que o Z pediu, e um encaixe
+ * não leva a que o outro, travado na troca, segura.
+ */
+function trocarArmas(s, inp) {
+  const livre = trocaLivre(s);
+  if (livre) s.troca1 = s.troca2 = 0;
+  const comInv = temInventario(s);
+  if (comInv) derivarEncaixes(s); // encaixes válidos antes de comparar
+  const antes = comInv ? [...s.encInst] : [...(s.encaixes ?? encaixePadrao(s))];
+  const possui = (x) => (comInv ? !!instArma(s, x) : possuiArma(s, x));
+  // O que cada encaixe pede. Com inventário, uma instância vai num encaixe só: a
+  // mesma nos dois, o X fica sem; e quem pede o que não tem cai numa de fábrica que
+  // não seja a do outro encaixe (a pedida por ele ou, sem pedido válido, a que ele
+  // já tem), para id ruim não tirar a arma do outro encaixe.
+  let pedido;
+  if (comInv) {
+    const pz = instArma(s, inp.a)?.[0] ?? null;
+    let px = instArma(s, inp.a2)?.[0] ?? null;
+    if (px === pz) px = null;
+    const z = pz ?? fabricaDoEncaixe(s, 0, px ?? antes[1]);
+    pedido = [z, px ?? fabricaDoEncaixe(s, 1, z)];
+  } else pedido = [armaDoEncaixe(s, inp.a, 0), armaDoEncaixe(s, inp.a2, 1)];
+  // Encaixe travado: quer trocar, mas a recarga de troca dele ainda conta.
+  const travado = [0, 1].map((enc) => pedido[enc] !== antes[enc] && possui(antes[enc]) && !livre && s[enc ? 'troca2' : 'troca1'] > 0);
+  if (comInv) {
+    for (const enc of [0, 1]) if (travado[1 - enc] && pedido[enc] === antes[1 - enc]) pedido[enc] = antes[enc];
+  }
+  const depois = [0, 1].map((enc) => {
+    const atual = antes[enc];
+    if (pedido[enc] === atual || travado[enc]) return atual;
+    // A do encaixe deixou de ser possuída (vendida, partida nova): a nova entra sem recarga.
+    if (!possui(atual) || livre) return pedido[enc];
+    s[enc ? 'troca2' : 'troca1'] = TROCA_ARMA_S;
+    return pedido[enc];
+  });
+  if (comInv) s.encInst = depois;
+  else s.encaixes = depois;
+  derivarEncaixes(s);
+  // Trocou a arma: a rajada daquele encaixe acaba.
+  for (const enc of [0, 1]) if (depois[enc] !== antes[enc]) s[enc ? 'raj2' : 'raj1'] = 0;
+}
+
+/**
  * Avança a nave um passo DT com o comando dado. Retorna os disparos deste passo,
  * como [{ kind, enc, nivel, k, off, ang }] (kind = chave de WEAPONS, enc = encaixe,
  * nivel = da arma, k = tiro da rajada, off = deslocamento lateral em metros, ang =
@@ -349,30 +494,7 @@ export function teleportar(s, dist) {
  * nave vêm como um disparo só. O teleporte já acontece aqui (a predição salta junto).
  */
 export function stepShip(s, inp, dt = DT) {
-  // As armas dos dois encaixes vêm no comando (a = Z, a2 = X) a cada passo, para
-  // predição e servidor trocarem no mesmo passo. A recarga do tiro é do encaixe,
-  // não da arma: trocar de arma não zera a espera do tiro. Arma que a nave não
-  // possui (ou índice ruim) cai na de fábrica do encaixe. Fora da própria base, trocar
-  // põe o encaixe em recarga de troca (TROCA_ARMA_S); pedir outra troca enquanto
-  // ela conta é ignorado (a nave fica com a arma que tem).
-  const livre = trocaLivre(s);
-  if (livre) s.troca1 = s.troca2 = 0;
-  const padrao = encaixePadrao(s);
-  const encaixes = s.encaixes ?? padrao;
-  s.encaixes = [0, 1].map((enc) => {
-    const atual = encaixes[enc];
-    const pedida = armaDoEncaixe(s, enc === 0 ? inp.a : inp.a2, enc);
-    if (pedida === atual) return atual;
-    // A arma do encaixe deixou de ser possuída (não acontece no jogo): volta à de fábrica sem recarga.
-    if (!possuiArma(s, atual)) return padrao[enc];
-    if (livre) return pedida;
-    const troca = enc === 0 ? 'troca1' : 'troca2';
-    if (s[troca] > 0) return atual;
-    s[troca] = TROCA_ARMA_S;
-    return pedida;
-  });
-  // Trocou a arma: a rajada daquele encaixe acaba.
-  for (const enc of [0, 1]) if (s.encaixes[enc] !== encaixes[enc]) s[enc ? 'raj2' : 'raj1'] = 0;
+  trocarArmas(s, inp);
 
   // Efeitos de quem levou tiro. EMP: sem tiro e sem boost (o servidor já zerou a
   // energia); paralisia do ataque: sem tiro. Contam aqui, a predição junto.
@@ -398,7 +520,7 @@ export function stepShip(s, inp, dt = DT) {
   for (const enc of [0, 1]) {
     const campo = enc ? 'seg2' : 'seg1';
     const a = s.encaixes[enc];
-    const nivel = nivelDaArma(s, a);
+    const nivel = s.nivEnc[enc];
     const v = versaoArma(a, nivel);
     const aperto = enc ? inp.f2 : inp.f1;
     const troca = enc ? s.troca2 : s.troca1;
@@ -504,7 +626,7 @@ export function stepShip(s, inp, dt = DT) {
     const [cd, troca, raj, rajT, rajK] = enc ? ['cd2', 'troca2', 'raj2', 'rajT2', 'rajK2'] : ['cd1', 'troca1', 'raj1', 'rajT1', 'rajK1'];
     const a = s.encaixes[enc];
     const kind = ARMAS[a];
-    const nivel = nivelDaArma(s, a);
+    const nivel = s.nivEnc[enc];
     const v = versaoArma(a, nivel);
     if (!v || v.segurar) continue;
     const g = v.golpe;

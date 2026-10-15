@@ -4,7 +4,7 @@ import WebSocket from 'ws';
 import { iniciar } from '../server/index.js';
 import { World, ZONA_SEGURA } from '../server/game.js';
 import { createShip, createBullet, WEAPONS, DT, SHIP_RADIUS, ARMAS, IDX_ARMA, armasIniciais, versaoArma, pousadaNaBase } from '../shared/sim.js';
-import { BASE, BASES, CORREDOR, heightAt, noMapaAberto } from '../shared/terrain.js';
+import { BASE, BASES, CORREDOR, SERVICOS, heightAt, noMapaAberto } from '../shared/terrain.js';
 import { alturaSolida, pontoLivre } from '../shared/obstaculos.js';
 
 function conectar(porta) {
@@ -213,15 +213,21 @@ test('servidor: aplica a arma escolhida no comando (e limpa valor inválido)', (
   w.pushInput(j.id, { s: 1, f1: true, a: circular });
   w.step();
   assert.equal(j.ship.encaixes[0], z);
-  // Com ele na posse (é o que a compra faz), sai o circular (oito feixes).
-  j.ship.armas = [...j.ship.armas, circular];
+  // Comprado na Loja (vira uma instância do inventário), o comando o escolhe pelo id
+  // da instância: sai o circular (oito feixes).
+  const sv = SERVICOS.find((x) => x.servico === 'loja' && x.time === j.time);
+  Object.assign(j.ship, { x: sv.x, z: sv.z, vx: 0, vz: 0, pousado: true });
+  j.ouro = 10000;
+  assert.equal(w.pedido(j.id, { t: 'comprar', item: ARMAS[circular] }).ok, true);
+  const inst = j.inv.at(-1).id;
+  j.ship.pousado = false; // decola (pousada não atira)
   for (let s = 2; s < 32; s++) {
     w.pushInput(j.id, { s });
     w.step();
   }
   w.bullets.length = 0;
   w.tirarEventos();
-  w.pushInput(j.id, { s: 32, f1: true, a: circular });
+  w.pushInput(j.id, { s: 32, f1: true, a: inst });
   w.step();
   assert.equal(j.ship.encaixes[0], circular);
   assert.deepEqual(w.bullets.map((b) => b.kind), Array(8).fill('o111009'));

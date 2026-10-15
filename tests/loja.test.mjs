@@ -61,10 +61,10 @@ function comprarEquipar(w, j, k) {
 }
 const usar = (w, j, item) => w.pedido(j.id, { t: 'usar', item });
 
-test('loja: à venda as armas da raça e da classe que não são de fábrica, com o preço do original', () => {
+test('loja: à venda as armas da raça e da classe (as de fábrica também, para a segunda cópia), com o preço do original', () => {
   const venda = armasAVenda('bellico', 'assault');
-  assert.equal(venda.length, armasDisponiveis('bellico', 'assault').length - 2);
-  for (const i of ARMAS_INICIAIS) assert.ok(!venda.includes(i), 'arma de fábrica não se vende');
+  assert.deepEqual(venda, armasDisponiveis('bellico', 'assault'));
+  for (const i of ARMAS_INICIAIS) assert.ok(venda.includes(i), 'a de fábrica também: o piloto compra a segunda cópia');
   assert.ok(venda.includes(missil) && venda.includes(emp));
   assert.ok(!venda.includes(IDX_ARMA.o312010), 'arma de outra raça não');
   assert.equal(PRECO_ARMA.missil, 230, '3800 do original × 0,06, arredondado à dezena');
@@ -105,14 +105,16 @@ test('loja: só compra pousado e parado na Loja da própria base, e com ouro', (
   assert.ok(armasDoInv(j).includes(MISSIL) && j.ship.armas.includes(missil));
   assert.deepEqual(j.inv.at(-1), { id: j.inv.at(-1).id, tipo: 'arma', chave: MISSIL, nivel: 1, pago: PRECO_ARMA.missil });
   j.ouro = 1000;
-  assert.equal(comprar(w, j, MISSIL).codigo, 'ja_possui');
+  assert.equal(comprar(w, j, MISSIL).ok, true, 'a segunda cópia');
+  j.ouro = 1000;
+  assert.equal(comprar(w, j, MISSIL).codigo, 'ja_possui', 'a terceira não');
   assert.equal(j.ouro, 1000, 'recusa não cobra');
 
   j.vivo = false;
   assert.equal(comprar(w, j, EMP).codigo, 'nao_pousado', 'morto não compra');
 });
 
-test('loja: arma comprada vai nos dois encaixes; não comprada cai na padrão', () => {
+test('loja: arma comprada vai num encaixe pela instância; nos dois, só com duas cópias', () => {
   const w = mundo();
   const j = w.addPlayer('A', 'bellico');
   assert.deepEqual(armasDoInv(j), ARMAS_INICIAIS.map((a) => ARMAS[a]), 'começa só com as de fábrica');
@@ -123,12 +125,17 @@ test('loja: arma comprada vai nos dois encaixes; não comprada cai na padrão', 
     w.step();
     return [...j.ship.encaixes];
   };
-  assert.deepEqual(comando(missil, emp), [laser, plasma], 'sem comprar, cai na padrão de cada encaixe');
+  assert.deepEqual(comando(missil, emp), [laser, plasma], 'sem comprar (ids que não tem), cai na padrão de cada encaixe');
   pousar(j, 'loja');
   j.ouro = 1000;
   assert.equal(comprar(w, j, MISSIL).ok, true);
-  assert.deepEqual(comando(missil, missil), [missil, missil], 'a comprada vai no Z e no X');
-  assert.deepEqual(comando(emp, missil), [laser, missil], 'a não comprada continua travada');
+  const m1 = j.inv.at(-1).id;
+  assert.deepEqual(comando(m1, m1), [missil, plasma], 'uma cópia só: vai num encaixe, o X fica com a de fábrica');
+  assert.equal(comprar(w, j, MISSIL).ok, true);
+  const m2 = j.inv.at(-1).id;
+  assert.deepEqual(comando(m1, m2), [missil, missil], 'duas cópias: no Z e no X');
+  assert.deepEqual(j.ship.encInst, [m1, m2]);
+  assert.deepEqual(comando(-1, m1), [laser, missil], '-1: a de fábrica');
 });
 
 test('loja: a posse sobrevive ao renascimento e zera na partida seguinte', () => {

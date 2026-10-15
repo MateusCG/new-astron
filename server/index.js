@@ -24,22 +24,27 @@
 //                        r = botão do recall (B), pulso: na borda começa a
 //                        canalizar a volta à base ou cancela (shared/recall.js);
 //                        f1/f2 = gatilho do Z/X (segurado: as armas de segurar a
-//                        tecla ficam ligadas enquanto vale); a/a2 = arma do
-//                        encaixe do Z/X, índice em ARMAS (shared/armas.js): 0 e 1
-//                        são os tiros dos NPCs (laser, plasma; o jogador nunca
-//                        usa), 2 a 141 as armas do Astro-N original na ordem das
-//                        lojas (Acron 2–49, Bellico 50–92, Shrewdo 93–141; chave
-//                        'o<id do original>'); fora da lista vira -1; arma de outra
-//                        raça ou classe, ou que a nave não possui (s.armas), cai
-//                        na de fábrica da raça no encaixe (armasIniciais: um feixe
-//                        no Z, uma metralhadora no X); fora da própria base, trocar
-//                        a arma de um encaixe o põe em recarga de troca de
+//                        tecla ficam ligadas enquanto vale); a/a2 = INSTÂNCIA da
+//                        arma do encaixe do Z/X: o id dela em me.inv (inteiro de 0
+//                        a ID_ENCAIXE_MAX; outra coisa vira -1). Uma instância vai
+//                        num encaixe só (a mesma arma no Z e no X são duas cópias:
+//                        a mesma instância nos dois, o X fica sem ela); id que a
+//                        nave não tem, de equipamento, de arma de outra raça ou
+//                        classe, ou -1, cai na de fábrica do encaixe
+//                        (armasIniciais: a primeira cópia dela; se está no outro
+//                        encaixe, a de fábrica do outro); fora da própria base,
+//                        trocar a arma de um encaixe o põe em recarga de troca de
 //                        TROCA_ARMA_S, e outra troca nele enquanto conta é
-//                        ignorada: o stepShip fica com a arma que tem)
+//                        ignorada: o stepShip fica com a que tem. Índices em ARMAS
+//                        (shared/armas.js): 0 e 1 são os tiros dos NPCs (laser,
+//                        plasma), 2 a 141 as armas do Astro-N original na ordem
+//                        das lojas (Acron 2–49, Bellico 50–92, Shrewdo 93–141;
+//                        chave 'o<id do original>'))
 //                       {t:'comprar', item}      Loja: item = id de shared/loja.js (arma
 //                        pela chave, ex. 'o312010', só da raça e da classe do
-//                        piloto, senão 'invalido'; uma de cada: a que já tem é
-//                        'ja_possui'; equipamento pela chave, ex. 'e330010'
+//                        piloto, senão 'invalido'; até ARMA_COPIAS_MAX (2) cópias
+//                        de cada, a de fábrica conta, cada uma com a sua versão:
+//                        a terceira é 'ja_possui'; equipamento pela chave, ex. 'e330010'
 //                        (escudo, armadura ou potenciador de shared/equipamentos.js,
 //                        só da classe do piloto, senão 'invalido'; pode repetir);
 //                        cria a instância V1 no COMPARTIMENTO do inventário, sem
@@ -48,11 +53,13 @@
 //                       {t:'vender', inst}       vende a instância `inst` (id em me.inv)
 //                        do compartimento por metade do que se pagou nela (pago,
 //                        para baixo); só pousado e parado numa área de pouso da
-//                        própria base, senão 'nao_pousado'; na nave, 'equipado'; arma
+//                        própria base, senão 'nao_pousado'; na nave (num encaixe
+//                        Z/X, me.encInst, ou de equipamento), 'equipado'; arma
 //                        de fábrica ou inst que não é inteiro, 'invalido'; não tem,
 //                        'sem_item'
 //                       {t:'evoluirItem', inst}  sobe a instância `inst` (no compartimento
-//                        ou na nave) para a próxima versão do original (V2 a V8),
+//                        ou na nave; só ela: a outra cópia da mesma arma fica na
+//                        versão dela) para a próxima versão do original (V2 a V8),
 //                        pagando a taxa de tuning dela, que soma no pago; só pousado
 //                        e parado na própria base ('nao_pousado'); na V8, 'limite';
 //                        sem ouro, 'ouro_insuficiente'; qualquer nível do piloto
@@ -71,7 +78,7 @@
 //                        inst que não é inteiro; a instância que já está no outro
 //                        slot de potenciador troca de lugar com a deste. Trocar de
 //                        escudo zera o escudo atual. As armas dos encaixes Z/X são
-//                        do comando (a/a2), não deste pedido
+//                        do comando (a/a2, ids de instância), não deste pedido
 //                       {t:'evoluir', opcao:'nave'}  Evolução da nave: compra a próxima
 //                        nave da linha da raça e classe (nível e ouro dela; na
 //                        última, 'limite'; outra opcao, 'invalido')
@@ -101,13 +108,16 @@
 //                       {t:'snap', tick, ack, vivo, renasceEm, time, me, ouro, abates, mortes,
 //                        nivel, xp, xpProx, partida, bonus, obj, torretas, melhorias, minas,
 //                        guiados, jogadores, st, ents, ev}
-//                       (me.encaixes = [arma do Z, arma do X], me.cd1/cd2 = recarga
-//                        de cada encaixe, me.troca1/troca2 = s de recarga de troca
-//                        de arma de cada encaixe (sem tiro e sem troca nele),
-//                        me.armas = armas que possui (índices, tirados de me.inv: as
-//                        de fábrica da raça e as compradas), me.niveis = nível
-//                        (versão V1–V8) de cada arma evoluída {índice: nível} (o
-//                        stepShip lê a versão daqui),
+//                       (me.encInst = [id da instância no Z, id no X], e derivados
+//                        dela me.encaixes = [arma do Z, arma do X] (índices em
+//                        ARMAS) e me.nivEnc = [versão do Z, versão do X] (V1–V8);
+//                        me.armasInst = [[id, índice em ARMAS, nível], ...] as armas
+//                        do inventário por instância (tiradas de me.inv; o
+//                        stepShip da predição resolve o encaixe e a versão daqui),
+//                        me.cd1/cd2 = recarga de cada encaixe, me.troca1/troca2 = s
+//                        de recarga de troca de arma de cada encaixe (sem tiro e
+//                        sem troca nele), me.armas = armas que possui (índices sem
+//                        repetir as cópias: as de fábrica da raça e as compradas),
 //                        me.raj1/raj2 (+ rajT, rajK) = rajada em andamento de cada
 //                        encaixe, me.seg1/seg2 = arma de segurar ligada (-1 nenhuma),
 //                        efeitos de arma recebidos (s restantes, todos lidos no
@@ -138,8 +148,8 @@
 //                       'equipado' | 'sem_pontos' | 'maximo'
 //                       {t:'pong', c}
 //   me (Loja e Evolução): armas = posse (de fábrica + compradas, tirada de inv; zera
-//         a cada partida), niveis = {índice em ARMAS: nível 2 a 8} das armas
-//         evoluídas (tirado de inv; zera a cada partida), itens {reparo, energia} (carga),
+//         a cada partida), armasInst = as armas por instância com a versão de cada
+//         cópia (tirado de inv; zera a cada partida), itens {reparo, energia} (carga),
 //         cdItens {reparo, energia} (s de recarga), tier (nave da linha comprada,
 //         0 a 4; zera a cada partida); maxHp e maxEn já com a nave, o nível, os
 //         pontos e o equipamento
@@ -149,8 +159,9 @@
 //         fabrica?}] o inventário por instância (id inteiro único do piloto;
 //         chave 'o311001' da arma ou 'e330010' do equipamento; pago = ouro gasto
 //         nela, compra + evoluções; fabrica: true nas duas armas de fábrica, que
-//         não se vendem), compMax = tamanho do compartimento (12: o que está em inv
-//         e não na nave, armas fora de encaixes inclusive), equipado =
+//         não se vendem; até 2 instâncias da mesma arma), compMax = tamanho do
+//         compartimento (12: o que está em inv e não na nave, as instâncias de arma
+//         fora de me.encInst inclusive), equipado =
 //         {escudo, armadura, pot: [a, b]} (id de instância ou null) o que está na nave,
 //         escudo / maxEscudo / regenEscudo (por s) = escudo do equipamento (o
 //         servidor conta; recupera depois de 3 s sem dano, enche pousado na base e

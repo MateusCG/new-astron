@@ -20,6 +20,7 @@ import {
   armasIniciais,
   armasDisponiveis,
   versaoArma,
+  ID_ENCAIXE_MAX,
 } from '../shared/sim.js';
 import { podePousar, topoPouso, AREAS_POUSO } from '../shared/terrain.js';
 import { NAVES, ORDEM_CLASSES } from '../shared/naves.js';
@@ -103,12 +104,14 @@ test('comando da rede é limitado', () => {
   assert.deepEqual(sanitizeInput(null), { th: 0, tu: 0, b: false, f1: false, f2: false, p: false, r: false, a: -1, a2: -1 });
 });
 
-test('comando da rede: arma fora da lista vira a de fábrica do encaixe', () => {
-  for (const a of [ARMAS.length, 999, -1, 1.5, '1', '__proto__', 'length', null, undefined, {}, NaN, Infinity]) {
+test('comando da rede: encaixe que não é id vira -1 (a de fábrica do encaixe)', () => {
+  // O encaixe leva o id da instância (nave com inventário) ou o índice da arma (sem):
+  // qualquer inteiro de 0 a ID_ENCAIXE_MAX passa; se a nave tem aquilo, o stepShip decide.
+  for (const a of [ID_ENCAIXE_MAX + 1, -1, -3, 1.5, '1', '__proto__', 'length', null, undefined, {}, NaN, Infinity]) {
     assert.equal(sanitizeInput({ a, a2: a }).a, -1, String(a));
     assert.equal(sanitizeInput({ a, a2: a }).a2, -1, String(a));
   }
-  for (let a = 0; a < ARMAS.length; a++) {
+  for (const a of [0, 1, ARMAS.length, 999, ID_ENCAIXE_MAX]) {
     assert.equal(sanitizeInput({ a }).a, a);
     assert.equal(sanitizeInput({ a2: a }).a2, a);
   }

@@ -1,9 +1,9 @@
 // Evolução de armas por instância ({t:'evoluirItem', inst}, shared/loja.js +
 // server/servicos.js): cada arma do inventário sobe da versão V1 à V8 do original (o
 // nível da arma, 1 a 8), pagando a taxa de tuning do original em ouro, em qualquer
-// nível do piloto, pousado e parado na própria base. A versão vai na nave (s.niveis)
-// e muda tudo o que a arma faz; a instância fica no piloto (volta no renascimento,
-// zera na partida seguinte).
+// nível do piloto, pousado e parado na própria base. A versão vai na nave por
+// instância (s.armasInst; no encaixe, s.nivEnc) e muda tudo o que a arma faz; a
+// instância fica no piloto (volta no renascimento, zera na partida seguinte).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,6 +29,8 @@ function pousar(j, servico = 'loja', time = j.time) {
 /** Id da instância da arma `kind` no inventário de `j` (undefined se não tem). */
 const instDe = (j, kind) => j.inv.find((x) => x.chave === kind)?.id;
 const evoluir = (w, j, inst) => w.pedido(j.id, { t: 'evoluirItem', inst });
+/** Nível da instância `inst` como a nave a lê (s.armasInst: [id, índice, nível]). */
+const nivelNaNave = (s, inst) => s.armasInst.find((x) => x[0] === inst)?.[2];
 
 test('evoluir arma: preço da taxa de tuning do original e máximo na V8', () => {
   assert.equal(ARMA_NIVEL_MAX, 8);
@@ -72,12 +74,12 @@ test('evoluir arma: cobra, exige pousado na própria base e a instância, vale e
   assert.equal(j.ouro, ouro - precoEvoluirArma(kz, 1));
   assert.equal(j.inv.find((x) => x.id === iz).nivel, 2);
   assert.equal(j.inv.find((x) => x.id === iz).pago, precoEvoluirArma(kz, 1), 'a de fábrica sai de graça; a evolução soma no pago');
-  assert.equal(j.ship.niveis[z], 2, 'a nave em uso já tem a versão nova');
+  assert.equal(j.ship.nivEnc[0], 2, 'a nave em uso já tem a versão nova no Z');
   // Até a V8 ainda no nível 1: a versão não pede nível do piloto.
   pousar(j, 'loja');
   for (let n = 3; n <= ARMA_NIVEL_MAX; n++) assert.equal(evoluir(w, j, iz).ok, true, `nível ${n}`);
   assert.equal(evoluir(w, j, iz).codigo, 'limite');
-  assert.equal(j.ship.niveis[z], ARMA_NIVEL_MAX);
+  assert.equal(j.ship.nivEnc[0], ARMA_NIVEL_MAX);
   j.ouro = 0;
   const outra = instDe(j, ARMAS[armasIniciais('shrewdo')[1]]);
   assert.equal(evoluir(w, j, outra).codigo, 'ouro_insuficiente');
@@ -85,8 +87,10 @@ test('evoluir arma: cobra, exige pousado na própria base e a instância, vale e
   j.ouro = 10000;
   assert.equal(w.pedido(j.id, { t: 'comprar', item: 'o312001' }).ok, true);
   assert.equal(evoluir(w, j, instDe(j, 'o312001')).ok, true);
-  assert.equal(j.ship.niveis[IDX_ARMA.o312001], 2);
-  assert.equal(w.snapshotPara(j, [], []).me.niveis[IDX_ARMA.o312001], 2);
+  const comprada = instDe(j, 'o312001');
+  assert.equal(nivelNaNave(j.ship, comprada), 2);
+  assert.equal(nivelNaNave(w.snapshotPara(j, [], []).me, comprada), 2, 'o `me` leva a versão da instância');
+  assert.equal(IDX_ARMA.o312001, j.ship.armasInst.find((x) => x[0] === comprada)[1]);
 });
 
 test('evoluir arma: a versão nova muda o tiro (dano, energia e projéteis) no servidor e na predição', () => {
@@ -134,10 +138,11 @@ test('evoluir arma: o nível volta no renascimento e zera na partida seguinte', 
   j.respawnTick = w.tick + 1;
   w.step();
   assert.ok(j.vivo);
-  assert.equal(j.ship.niveis[z], 2, 'a nave nova vem com a versão');
-  assert.equal(w.snapshotPara(j, [], []).me.niveis[z], 2, 'o `me` leva a versão para a predição e o menu');
+  assert.equal(j.ship.nivEnc[0], 2, 'a nave nova vem com a versão');
+  assert.equal(w.snapshotPara(j, [], []).me.nivEnc[0], 2, 'o `me` leva a versão para a predição e o menu');
   for (let i = 0; i < SEGUNDO * 10 && w.partida.numero < 2; i++) w.step();
   assert.equal(w.partida.numero, 2);
   assert.equal(j.inv.find((x) => x.chave === ARMAS[z]).nivel, 1, 'a de fábrica volta à V1');
-  assert.deepEqual(j.ship.niveis, {});
+  assert.deepEqual(j.ship.nivEnc, [1, 1]);
+  assert.ok(j.ship.armasInst.every((x) => x[2] === 1));
 });
