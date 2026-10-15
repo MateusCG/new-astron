@@ -161,7 +161,7 @@ const PARADO = { th: 0, tu: 0, b: false, f1: false, f2: false, p: false, r: fals
 /** Alcance (m) e velocidade do projétil da arma do encaixe, na versão que a nave tem. */
 function armaDoEncaixe(s, enc) {
   const a = s.encaixes?.[enc];
-  const v = versaoArma(a, s.niveis?.[a] ?? 1);
+  const v = versaoArma(a, s.nivEnc?.[enc] ?? 1);
   const g = v?.golpe;
   if (!g || g.forma !== 'projetil' || !(g.vel > 0)) return null;
   return { alcance: g.vel * g.vida, vel: g.vel, energia: v.energia };
@@ -573,7 +573,7 @@ export class Bots {
   #equiparDesejado(j) {
     for (const chave of this.#equipDesejado(j)) {
       const x = j.inv.find((y) => y.chave === chave);
-      if (!x || naNave(x, j.equipado, j.ship.encaixes)) continue;
+      if (!x || naNave(x, j.equipado, j.ship.encInst)) continue;
       const cat = EQUIPAMENTOS[chave].categoria;
       const eq = j.equipado;
       const slot = cat === 'potenciador' ? ['pot1', 'pot2'][eq.pot.indexOf(null)] : eq[cat] === null ? cat : undefined;

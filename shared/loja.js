@@ -15,11 +15,14 @@
 //
 // Prateleiras, cada item com um id único (é o `item` da mensagem {t:'comprar', item}):
 // - Armas: as do Astro-N original (shared/armas.js) da RAÇA e da CLASSE do piloto
-//   (armasDisponiveis), menos as duas de fábrica. O id é a chave da arma
-//   ('o312010'); o preço é o do original × FATOR_OURO (a V1). Arma, no máximo UMA de
-//   cada (os encaixes Z e X do comando escolhem a arma pelo índice): a mesma de novo é
-//   'ja_possui'. As duas de fábrica da raça já vêm no inventário (fabrica: true,
-//   pago 0) e não se vendem. Arma de outra raça ou classe é 'invalido'.
+//   (armasDisponiveis), as de fábrica inclusive. O id é a chave da arma
+//   ('o312010'); o preço é o do original × FATOR_OURO (a V1). Cada arma vai até
+//   ARMA_COPIAS_MAX cópias (pedido do Mateus, como os potenciadores): cada cópia é
+//   uma instância com a sua versão, e a mesma arma no Z e no X são duas cópias (os
+//   encaixes do comando escolhem a INSTÂNCIA pelo id); passou disso, 'ja_possui'.
+//   As duas de fábrica da raça já vêm no inventário (fabrica: true, pago 0), contam
+//   como a primeira cópia e não se vendem (a segunda, comprada, sim). Arma de outra
+//   raça ou classe é 'invalido'.
 // - Equipamentos: os escudos, armaduras e potenciadores do original
 //   (shared/equipamentos.js) que a CLASSE do piloto usa (equipamentosAVenda; de
 //   outra classe, 'invalido'). O id é a chave do item ('e330010'). Equipamento pode
@@ -33,8 +36,8 @@
 //   (no compartimento ou na nave), que sobe para a próxima versão do original pagando
 //   a taxa de tuning × FATOR_OURO (precoEvoluirInst; sem chance de falhar e sem nível
 //   do piloto), até a V8. A versão da arma muda tudo (dano, recarga, energia,
-//   projéteis, efeito) e vai na nave (s.niveis, niveisDoInv), que o stepShip lê: a
-//   predição acompanha.
+//   projéteis, efeito) e vai na nave por instância (s.armasInst, armasInstDoInv),
+//   que o stepShip lê: a predição acompanha, e evoluir uma cópia não mexe na outra.
 
 import {
   ARMAS,
@@ -57,10 +60,21 @@ export function precoArma(arma) {
   return w && !w.npc ? w.preco : null;
 }
 
-/** Armas à venda para a raça e a classe (índices): as dela menos as de fábrica. */
+/**
+ * Armas à venda para a raça e a classe (índices): todas as dela, as de fábrica
+ * inclusive (o piloto já tem uma cópia; a Loja vende a segunda, para ir nos dois
+ * encaixes).
+ */
 export function armasAVenda(race, classe) {
-  const fabrica = armasIniciais(race);
-  return armasDisponiveis(race, classe).filter((i) => !fabrica.includes(i));
+  return armasDisponiveis(race, classe);
+}
+
+/** Até quantas cópias (instâncias) da mesma arma o piloto pode ter (a de fábrica conta). */
+export const ARMA_COPIAS_MAX = 2;
+
+/** Quantas cópias da arma de chave `chave` há no inventário. */
+export function copiasDaArma(inv, chave) {
+  return (inv ?? []).filter((x) => x.tipo === 'arma' && x.chave === chave).length;
 }
 
 export const REPARO_CURA = 0.4; // fração do HP máximo
@@ -125,22 +139,21 @@ export function armaDaInst(inst) {
   return inst?.tipo === 'arma' ? (IDX_ARMA[inst.chave] ?? null) : null;
 }
 
-/** As armas que o piloto possui (índices em ARMAS, em ordem): vira s.armas na nave. */
+/** As armas que o piloto possui (índices em ARMAS, em ordem, sem repetir as cópias): vira s.armas na nave. */
 export function armasDoInv(inv) {
-  return (inv ?? [])
-    .map(armaDaInst)
-    .filter((a) => a !== null)
-    .sort((a, b) => a - b);
+  return [...new Set((inv ?? []).map(armaDaInst).filter((a) => a !== null))].sort((a, b) => a - b);
 }
 
-/** Versão de cada arma possuída acima da V1 ({índice: nível}): vira s.niveis, que o stepShip lê. */
-export function niveisDoInv(inv) {
-  const out = {};
-  for (const x of inv ?? []) {
-    const a = armaDaInst(x);
-    if (a !== null && x.nivel > 1) out[a] = x.nivel;
-  }
-  return out;
+/**
+ * As armas do inventário por instância, como a nave as lê (s.armasInst, que vai no
+ * `me` e o stepShip da predição usa): [[id, índice em ARMAS, nível], ...], em ordem
+ * de id (a de fábrica, mais velha, vem antes da cópia comprada).
+ */
+export function armasInstDoInv(inv) {
+  return (inv ?? [])
+    .map((x) => [x.id, armaDaInst(x), x.nivel])
+    .filter((x) => x[1] !== null)
+    .sort((a, b) => a[0] - b[0]);
 }
 
 /** Ids das instâncias de equipamento nos quatro encaixes (sem os vazios). */
@@ -163,17 +176,17 @@ export function equipadosDoInv(inv, equipado) {
 
 /**
  * A instância está na nave? Equipamento: num dos quatro encaixes (equipado). Arma:
- * num dos encaixes Z/X da nave (encaixes = s.encaixes, índices em ARMAS).
+ * num dos encaixes Z/X da nave (encInst = s.encInst, ids das instâncias do Z e do X).
  */
-export function naNave(inst, equipado, encaixes) {
+export function naNave(inst, equipado, encInst) {
   if (!inst) return false;
-  if (inst.tipo === 'arma') return (encaixes ?? []).includes(armaDaInst(inst));
+  if (inst.tipo === 'arma') return (encInst ?? []).includes(inst.id);
   return idsEquipados(equipado).includes(inst.id);
 }
 
-/** As instâncias do compartimento (tudo o que o piloto tem e não está na nave). */
-export function noCompartimento(inv, equipado, encaixes) {
-  return (inv ?? []).filter((x) => !naNave(x, equipado, encaixes));
+/** As instâncias do compartimento (tudo o que o piloto tem e não está na nave; encInst como em naNave). */
+export function noCompartimento(inv, equipado, encInst) {
+  return (inv ?? []).filter((x) => !naNave(x, equipado, encInst));
 }
 
 /** O slot de equipamento ('escudo' | 'armadura' | 'pot1' | 'pot2') que leva a categoria? */

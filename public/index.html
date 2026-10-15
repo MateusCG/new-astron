@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <title>New AstroN</title>
     <link rel="stylesheet" href="/css/jogo.css" />
+    <!-- Sem ícone próprio ainda: o vazio evita o pedido automático de /favicon.ico (404 no console). -->
+    <link rel="icon" href="data:," />
     <script type="importmap">
       { "imports": { "three": "/vendor/three.module.js", "three/addons/": "/vendor/addons/" } }
     </script>
@@ -72,6 +74,23 @@
           </div>
         </aside>
       </form>
+    </section>
+
+    <!-- Tela de carregamento (carregamento.js): do "Decolar" até a partida, baixa e
+         prepara tudo o que a nave pode precisar. As linhas dos grupos entram por JS. -->
+    <section id="carregamento" hidden aria-live="polite" aria-label="Carregando a partida">
+      <div class="chapa-carregamento">
+        <h1>NEW <span>ASTRON</span></h1>
+        <p class="titulo-carregamento">Preparando a decolagem</p>
+        <p class="piloto"></p>
+        <div class="medidor">
+          <b class="pct">0%</b>
+          <span class="barra-total"><i></i></span>
+          <p class="agora">Carregando…</p>
+        </div>
+        <ul class="grupos"></ul>
+        <p class="dica-carregamento">Tudo o que a sua nave usa carrega agora, para nada travar no meio da partida. Sua nave espera na base, na zona segura. <kbd>Esc</kbd> cancela</p>
+      </div>
     </section>
 
     <section id="hud" hidden>
@@ -149,7 +168,7 @@
         <div class="opcoes"></div>
         <p class="dica">
           <span class="so-teclado"><kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> escolhe entre as suas · <span class="dica-encaixe"></span></span><span class="so-toque">Toque para escolher · ARMA Z/X troca ou fecha</span>
-          · a mesma arma pode ir nos dois · sem tiro com o menu aberto
+          · a mesma arma nos dois: compre a 2ª cópia na Loja · sem tiro com o menu aberto
         </p>
       </section>
 

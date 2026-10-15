@@ -204,10 +204,10 @@ test('catálogo: o resumo de cada versão (menu e Loja) tem dano, recarga, energ
 
 // ---------- Validação ----------
 
-test('validação: sanitizeInput mantém só índices do catálogo (-1 = arma de fábrica do encaixe)', () => {
+test('validação: sanitizeInput mantém só inteiros não negativos (id de instância; -1 = arma de fábrica do encaixe)', () => {
   assert.equal(sanitizeInput({ a: 5, a2: 141 }).a, 5);
-  assert.equal(sanitizeInput({ a: 5, a2: 141 }).a2, 141);
-  for (const a of [-1, 142, 1.5, '3', null, undefined, NaN, {}]) {
+  assert.equal(sanitizeInput({ a: 5, a2: 142 }).a2, 142, 'id de instância passa do tamanho do catálogo');
+  for (const a of [-1, -7, 2 ** 31, 1.5, '3', null, undefined, NaN, {}]) {
     assert.equal(sanitizeInput({ a, a2: a }).a, -1, String(a));
     assert.equal(sanitizeInput({ a, a2: a }).a2, -1, String(a));
   }
@@ -237,11 +237,13 @@ test('validação: no servidor, o encaixe só aceita arma da raça e classe que 
   const daClasse = idx('212029'); // Míssil de Cruzeiro: Bellico Mobile
   w.pushInput(j.id, { s: 1, a: outraClasse, a2: daClasse });
   w.step();
-  assert.deepEqual(j.ship.encaixes, armasIniciais('bellico'), 'sem comprar, nada muda');
-  j.ship.armas = [daClasse, outraClasse]; // a posse na nave (o servidor a tira de j.inv)
-  w.pushInput(j.id, { s: 2, a: outraClasse, a2: daClasse });
+  assert.deepEqual(j.ship.encaixes, armasIniciais('bellico'), 'sem comprar (ids que não tem), nada muda');
+  // Instâncias na nave (o servidor as tira de j.inv): a de outra classe nunca viria, mas se viesse...
+  j.ship.armasInst = [...j.ship.armasInst, [900, daClasse, 1], [901, outraClasse, 1]];
+  w.pushInput(j.id, { s: 2, a: 901, a2: 900 });
   w.step();
   assert.deepEqual(j.ship.encaixes, [armasIniciais('bellico')[0], daClasse], 'a da outra classe continua recusada');
+  assert.equal(j.ship.encInst[1], 900);
 });
 
 // ---------- stepShip ----------

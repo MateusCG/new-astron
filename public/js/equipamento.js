@@ -135,11 +135,12 @@ export function celulaArma(idx, nivel, tipo, poder) {
 /**
  * A tabela do INVENTÁRIO (e do original): uma linha por tipo de dano (Ph., El.,
  * Op.), com o poder de cada arma equipada no tipo dela e a resistência da nave.
- * `encaixes` = [Z, X] (índices), `niveis` = me.niveis, `status` = me.status.
+ * `encaixes` = [Z, X] (índices), `nivEnc` = [versão do Z, versão do X] (me.nivEnc),
+ * `status` = me.status.
  */
-export function tabelaTipos({ encaixes = [], niveis = {}, status }) {
+export function tabelaTipos({ encaixes = [], nivEnc = [1, 1], status }) {
   const linhas = LINHAS_TIPO.map(
-    (t) => `<tr class="${classeTipo(t)}"><th>${SIGLA_TIPO[t]}</th>${[0, 1].map((enc) => celulaArma(encaixes[enc], niveis?.[encaixes[enc]] ?? 1, t, status?.poder)).join('')}<td class="resist">${pct(status?.resist?.[t] ?? 0)}</td></tr>`,
+    (t) => `<tr class="${classeTipo(t)}"><th>${SIGLA_TIPO[t]}</th>${[0, 1].map((enc) => celulaArma(encaixes[enc], nivEnc?.[enc] ?? 1, t, status?.poder)).join('')}<td class="resist">${pct(status?.resist?.[t] ?? 0)}</td></tr>`,
   ).join('');
   return `<table class="tabela-tipos"><thead><tr><th></th><th>Arma <kbd>Z</kbd></th><th>Arma <kbd>X</kbd></th><th>Resist.</th></tr></thead><tbody>${linhas}</tbody></table>`;
 }

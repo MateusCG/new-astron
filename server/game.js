@@ -71,8 +71,10 @@
 // o HP, e renasce cheio.
 //
 // Nível das armas (evoluirItem): é a versão do original (V1 a V8) da instância e vai
-// na nave (s.niveis, tirado de j.inv por prepararNave): o stepShip e os golpes leem a versão
-// dali. Monstro e minerador atiram sempre no nível 1.
+// na nave por instância (s.armasInst, tirado de j.inv por prepararNave; até duas
+// cópias da mesma arma, cada uma na sua versão): o comando escolhe a instância de
+// cada encaixe e o stepShip deixa a versão em s.nivEnc, que os disparos levam (nivel)
+// para os golpes. Monstro e minerador atiram sempre no nível 1.
 //
 // Computador (server/bots.js): jogador sem socket, marcado com `ia` (o cérebro).
 // Entra pelo pedido {t:'ia'} de quem está na partida (pedidoIa), no time pedido,
@@ -1053,7 +1055,9 @@ export class World {
       const novo = this.#novoDrone();
       ent.ship = novo.ship;
     } else {
+      const encInst = ent.ship.encInst; // as cópias que estavam no Z e no X continuam lá
       ent.ship = this.#naveNaBase(ent.ship.race, ent.time, ent.classe, ent.tier);
+      if (encInst) ent.ship.encInst = [...encInst];
       prepararNave(ent); // nave da linha, nível, pontos, equipamento e a posse de armas
       ent.fila.length = 0;
       ent.protegidoAte = this.tick + PROTECAO_TICKS;

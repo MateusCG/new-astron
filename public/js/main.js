@@ -56,9 +56,17 @@
 // torreta e de escolta vem pelo evento 'tiro' com `fonte` e `time` e sai na cor do
 // time de quem atirou.
 //
-// Naves (nave.js): a sua carrega antes de conectar; as dos outros, quando aparecem.
-// Cada jogador traz raça, classe e tier no snapshot, e definirNave troca o modelo
-// quando o tier muda (Evolução), para você e para os outros.
+// Tela de carregamento (carregamento.js): depois do Decolar, conecta e, ao mesmo
+// tempo, baixa tudo o que a sua nave pode usar (as 5 naves da linha, as armas na asa
+// da raça e da classe, as texturas dos efeitos de todas as versões, os sons e as
+// miniaturas da Evolução) e a nave de quem já está na partida; depois monta a cena e
+// aquece a placa de vídeo (shaders e texturas) com ela ainda coberta. Só então o laço
+// de quadros começa: até lá a nave espera parada na base (zona segura) e nenhum
+// comando sai. ESC na tela cancela e volta para a entrada.
+//
+// Naves (nave.js): cada jogador traz raça, classe e tier no snapshot, e definirNave
+// troca o modelo quando o tier muda (Evolução), para você e para os outros; a linha
+// de quem aparece (outra raça e classe) baixa em segundo plano (carregarEmFundo).
 //
 // ESC sai da partida e volta para a tela de entrada (nome, raça e classe como estavam),
 // para trocar de piloto sem recarregar a página. Sair desmonta tudo o que a
@@ -73,7 +81,6 @@ import { areaPouso } from '/shared/terrain.js';
 import { alturaSolida } from '/shared/obstaculos.js';
 import { criarCena, liberarCena } from './cena.js';
 import {
-  carregarModelos,
   criarNave,
   definirNave,
   criarDrone,
@@ -107,6 +114,7 @@ import { PainelTimes } from './times.js';
 import { PainelServicos } from './servicos.js';
 import { PainelStatus } from './status.js';
 import { PainelInventario } from './inventario.js';
+import { TelaCarregamento, Carregamento, aquecerGpu, carregarEmFundo } from './carregamento.js';
 import { MELHORIAS_MINERADOR, MELHORIA_TORRETAS } from '/shared/evolucao.js';
 import { RECALL_S } from '/shared/recall.js';
 import { TORRETAS } from '/shared/terrain.js';
@@ -198,6 +206,7 @@ addEventListener('keydown', (e) => {
 let racaEscolhida = 'acron';
 let classeEscolhida = 'assault';
 let jogoAtual = null; // { sair } da partida em andamento; null na tela de entrada
+let cargaAtual = null; // o Carregamento da tela de carregamento aberta (ESC cancela)
 
 const lerLocal = (k) => {
   try {
@@ -327,18 +336,25 @@ function montarEntrada() {
     gravarLocal('astron.nome', nome.value);
     const erro = document.querySelector('#erro-entrada');
     erro.textContent = '';
+    // Quem decola com Enter no campo de nome deixaria o foco no <input>, e os
+    // controles ignoram teclas digitadas em campo de texto.
+    document.activeElement?.blur();
+    // A prévia para: a vitrine desenha as miniaturas da Evolução no carregamento.
+    pararPrevia();
     try {
       jogoAtual = await iniciar(nome.value, racaEscolhida, classeEscolhida, document.querySelector('#modo-teste').checked);
-      pararPrevia();
       document.querySelector('#entrada').hidden = true;
-      // Quem decola com Enter no campo de nome deixaria o foco no <input>, e os
-      // controles ignoram teclas digitadas em campo de texto.
-      document.activeElement?.blur();
+      telaCarregamento?.esconder();
     } catch (err) {
-      console.error('Falha ao entrar no jogo:', err);
+      telaCarregamento?.esconder();
       botao.disabled = false;
       botao.textContent = 'Decolar';
+      entrada.mostrarPasso('classe');
+      if (err?.message === 'cancelado') return;
+      console.error('Falha ao entrar no jogo:', err);
       erro.textContent = MENSAGENS_ERRO[err?.message] ?? `Erro ao iniciar o jogo (${err?.message ?? err}). Mande um print desta tela.`;
+    } finally {
+      cargaAtual = null;
     }
   });
 
@@ -347,7 +363,7 @@ function montarEntrada() {
   // ou na tela de entrada), ESC só fecha ela. Com o menu de armas (#menu-armas, o mesmo
   // elemento para o Z e o X) aberto, ESC só fecha o menu; com o painel da Loja ou
   // da Evolução (#servico) aberto, só fecha o painel; senão sai da partida. Na tela
-  // de entrada (ou enquanto conecta) não há partida e o ESC não faz nada.
+  // de carregamento, cancela e volta para a entrada; na de entrada, não faz nada.
   addEventListener(
     'keydown',
     (e) => {
@@ -356,7 +372,10 @@ function montarEntrada() {
         painelVolume.fechar();
         return;
       }
-      if (!jogoAtual) return;
+      if (!jogoAtual) {
+        cargaAtual?.cancelar();
+        return;
+      }
       const menu = document.querySelector('#menu-armas');
       if (menu && !menu.hidden) {
         menu.hidden = true;
@@ -405,6 +424,7 @@ const MENSAGENS_ERRO = {
 };
 
 let rendererUnico = null;
+let telaCarregamento = null; // criada na primeira entrada (o DOM já existe)
 
 /** Cria o renderer uma vez só (reaproveitado se a entrada falhar e tentar de novo). */
 function criarRenderer() {
@@ -421,20 +441,45 @@ function criarRenderer() {
 
 /**
  * Entra no jogo: confere o WebGL ANTES de conectar (sem 3D não adianta entrar e
- * deixar uma nave fantasma no servidor), conecta e monta a cena. Se montar falhar
- * depois de conectado, fecha a conexão para a nave não ficar parada no mundo.
- * Devolve { sair } para desmontar a partida.
+ * deixar uma nave fantasma no servidor), abre a tela de carregamento, conecta e
+ * baixa tudo ao mesmo tempo (carregamento.js), monta a cena, aquece a placa de vídeo
+ * e só então começa o laço de quadros. Falhou ou cancelou (ESC) depois de conectado:
+ * fecha a conexão para a nave não ficar parada no mundo. Devolve { sair } para
+ * desmontar a partida.
  */
 async function iniciar(nome, race, classe, teste = false) {
   const renderer = criarRenderer();
-  // Só o modelo da SUA nave carrega antes de conectar; os outros, quando aparecerem.
-  await carregarModelos(race, classe, 0);
+  telaCarregamento ??= new TelaCarregamento();
+  telaCarregamento.mostrar(race, classe);
+  const carga = new Carregamento({ race, classe, sons, tela: telaCarregamento });
+  cargaAtual = carga;
   const rede = new Rede();
-  const boas = await rede.entrar(nome, race, classe, teste);
+  // Snapshots que chegam enquanto carrega: o último diz quem já está na partida.
+  let ultimoSnap = null;
+  rede.aoReceber = (m) => {
+    if (m.t === 'snap') ultimoSnap = m;
+  };
+  let jogo = null;
   try {
-    return montarJogo(rede, boas, renderer, race, classe);
+    const entrou = rede.entrar(nome, race, classe, teste).then((boas) => {
+      carga.conectado(boas);
+      return boas;
+    });
+    const [boas] = await carga.esperar(Promise.all([entrou, carga.carregar()]));
+    await carga.esperar(carga.outrosPilotos(() => ultimoSnap, boas.id));
+    jogo = montarJogo(rede, boas, renderer, race, classe);
+    await carga.esperar(jogo.aquecer(carga));
+    jogo.comecar();
+    const r = carga.resumo();
+    console.info(
+      `Carregamento: pronto em ${(r.ms / 1000).toFixed(1)} s (arquivos ${((r.msArquivos ?? 0) / 1000).toFixed(1)} s, placa ${((r.msGpu ?? 0) / 1000).toFixed(1)} s):`,
+      `${r.naves} naves, ${r.armas} armas, ${r.texturas} texturas, ${r.sons} sons`,
+    );
+    window.__carregamento = r;
+    return jogo;
   } catch (err) {
-    rede.fechar();
+    if (jogo) jogo.sair();
+    else rede.fechar();
     throw err;
   }
 }
@@ -494,13 +539,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
     noticia: (texto, tipo) => hud.noticia(texto, tipo),
     signal: controles.parar.signal,
   });
-  // Sons das armas da raça (as que podem aparecer na sua nave e nas do seu lado).
-  sons.carregar(
-    Object.values(WEAPONS)
-      .filter((w) => w.raca === race)
-      .flatMap((w) => [w.som, w.somImpacto, ...w.versoes.map((v) => v.som)])
-      .filter(Boolean),
-  );
+  // Os sons das suas armas já vieram na tela de carregamento; os dos outros pilotos
+  // vêm em segundo plano quando eles aparecem (carregarEmFundo).
   mostrarEstadoSom();
 
   /** Som de arma (disparo ou impacto) no ponto, com a variação de tom da metralhadora. */
@@ -1004,6 +1044,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
         o = { obj, drone: e.drone, tipo: e.tipo, aliado };
         scene.add(o.obj);
         outras.set(e.id, o);
+        // Piloto de outra raça ou classe: a linha, as armas e os sons dele em segundo plano.
+        if (e.tipo === 'jogador') carregarEmFundo(e.race, e.classe, sons);
       }
       // Comprou a próxima nave na Evolução: o modelo troca (carrega se for novo); as
       // armas dele penduram nas asas.
@@ -1131,7 +1173,21 @@ function montarJogo(rede, boas, renderer, race, classe) {
     renderer.render(scene, camera);
     idQuadro = requestAnimationFrame(quadro);
   }
-  idQuadro = requestAnimationFrame(quadro);
+
+  /**
+   * Aquece a placa de vídeo com a cena montada, ainda atrás da tela de carregamento
+   * (carregamento.js): shaders e texturas de tudo o que a nave pode usar.
+   */
+  function aquecer(carga) {
+    return aquecerGpu({ renderer, scene, camera, efeitos, focar: (p) => atualizarCena(0, p), race, classe, meuTime, tela: carga.tela, carga });
+  }
+
+  /** Começa o laço de quadros (e com ele a predição e os comandos). */
+  function comecar() {
+    if (!ativo || idQuadro) return;
+    ultimo = performance.now();
+    idQuadro = requestAnimationFrame(quadro);
+  }
 
   // Para depuração no console e para os testes de navegador.
   window.__astron = {
@@ -1204,7 +1260,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     return true;
   }
 
-  return { sair, fecharPainel };
+  return { sair, fecharPainel, aquecer, comecar };
 }
 
 montarEntrada();

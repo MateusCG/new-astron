@@ -24,9 +24,10 @@
 // (encaixes Z/X, escolhidos no comando a/a2), 1 escudo, 1 armadura e 2
 // potenciadores (j.equipado: ids de instância); o resto é o COMPARTIMENTO, com no
 // máximo COMPARTIMENTO_MAX (shared/loja.js: noCompartimento). Por pedido:
-// - comprar (na Loja): cria a instância V1 no compartimento, sem equipar; arma que já
-//   tem, 'ja_possui' (uma de cada: o encaixe é por índice); compartimento cheio,
-//   'cheio'. Equipamento pode repetir (cada um com a sua versão).
+// - comprar (na Loja): cria a instância V1 no compartimento, sem equipar; arma, até
+//   ARMA_COPIAS_MAX cópias (a de fábrica conta; passou, 'ja_possui'), cada uma com a
+//   sua versão (o encaixe Z/X do comando escolhe a instância pelo id); compartimento
+//   cheio, 'cheio'. Equipamento pode repetir à vontade (cada um com a sua versão).
 // - equipar ({slot: 'escudo' | 'armadura' | 'pot1' | 'pot2', inst: id | null}): em
 //   QUALQUER lugar, vivo (morto, 'invalido'); a instância tem de estar no
 //   compartimento (ou já num encaixe: no mesmo nada muda, no outro encaixe de
@@ -34,11 +35,13 @@
 //   outra classe ou slot ruim, 'invalido'; null tira para o compartimento (cheio,
 //   'cheio'). Trocar de escudo zera o escudo atual (sem trocar para encher).
 // - vender: pousado e parado numa área de pouso da própria base (senão
-//   'nao_pousado'); só do compartimento (na nave, 'equipado'); arma de fábrica,
+//   'nao_pousado'); só do compartimento (na nave, 'equipado': a instância que está
+//   num encaixe Z/X, s.encInst, ou de equipamento); arma de fábrica,
 //   'invalido'; dá precoVenda (metade do pago, para baixo).
 // - evoluirItem: pousado e parado na própria base (senão 'nao_pousado'); vale no
 //   compartimento e na nave; paga a taxa de tuning da versão (precoEvoluirInst), que
-//   soma no pago; na V8, 'limite'. Sem nível do piloto (o limite é o ouro).
+//   soma no pago; na V8, 'limite'. Sem nível do piloto (o limite é o ouro). Muda só
+//   aquela instância: a outra cópia da mesma arma fica na versão dela.
 //
 // Pontos do piloto ({t:'pontos', atributo, qtd}): põe até qtd (1 a PONTO_MAX,
 // padrão 1) pontos livres no atributo (distribuirPontos em shared/status.js), em
@@ -48,8 +51,9 @@
 // Onde fica cada coisa: a posse do piloto fica no JOGADOR (j.inv, j.invProx,
 // j.equipado, j.itens, j.itemPronto, j.tier, j.pontos), porque a nave é recriada a
 // cada renascimento; prepararNave() tira dela o que vai na nave junto com o nível
-// (as armas possuídas em s.armas e as versões delas em s.niveis, derivadas de j.inv:
-// armasDoInv, niveisDoInv) e aplica o status do piloto (aplicarStatus:
+// (as armas por instância em s.armasInst, [[id, índice, nível], ...], e as possuídas
+// em s.armas, derivadas de j.inv: armasInstDoInv, armasDoInv; os encaixes Z/X em
+// s.encInst, que o comando escolhe e o renascimento mantém) e aplica o status do piloto (aplicarStatus:
 // statusDoPiloto de shared/status.js com as instâncias equipadas, guardado em
 // j.status): HP máximo (nave + nível + hpExtra), energia máxima (nave + enExtra),
 // regenerações (nave + extras), escudo (s.maxEscudo, s.regenEscudo), velocidade e
@@ -74,18 +78,20 @@
 // na partida seguinte. Como nas melhorias dos mineradores, o time recebe a notícia
 // (evento 'melhoria' com melhoria 'torretas'; a reconstrução vira o evento 'torreta').
 
-import { VEL_TOQUE, DT, NAVE_SEM_CLASSE, aplicarNave, armasDisponiveis } from '../shared/sim.js';
+import { VEL_TOQUE, DT, NAVE_SEM_CLASSE, aplicarNave, armasDisponiveis, derivarEncaixes } from '../shared/sim.js';
 import { areaPouso } from '../shared/terrain.js';
 import {
   itemDaLoja,
   ITENS,
   ORDEM_ITENS,
   COMPARTIMENTO_MAX,
+  ARMA_COPIAS_MAX,
+  copiasDaArma,
   equipadoVazio,
   invInicial,
   instDoInv,
   armasDoInv,
-  niveisDoInv,
+  armasInstDoInv,
   naNave,
   noCompartimento,
   slotAceita,
@@ -130,7 +136,7 @@ export function novoEquipamento(race, proxId = 1) {
 
 /** Instâncias do compartimento do piloto (o que tem e não está na nave). */
 export function compartimento(j) {
-  return noCompartimento(j.inv, j.equipado, j.ship?.encaixes);
+  return noCompartimento(j.inv, j.equipado, j.ship?.encInst);
 }
 
 /** Cabe mais um item no compartimento? */
@@ -151,7 +157,9 @@ function aplicarStatus(j) {
   j.status = st;
   aplicarNave(s, nave);
   s.armas = armasDoInv(j.inv);
-  s.niveis = niveisDoInv(j.inv);
+  s.armasInst = armasInstDoInv(j.inv);
+  delete s.niveis; // com inventário a versão é da instância (s.nivEnc, por encaixe)
+  derivarEncaixes(s); // a versão nova (ou a venda) vale na hora, sem esperar o comando
   s.maxHp = hpMaxDoJogador(j, st);
   s.maxEn = Math.round((nave?.energia ?? NAVE_SEM_CLASSE.energia) + st.enExtra);
   s.regenEn += st.regenEnExtra;
@@ -281,7 +289,7 @@ export class Servicos {
     if (it.tipo === 'arma') {
       if (!armasDisponiveis(j.ship.race, j.classe).includes(it.arma)) return 'invalido'; // outra raça ou classe
       chave = id;
-      if (j.inv.some((x) => x.tipo === 'arma' && x.chave === chave)) return 'ja_possui'; // uma de cada
+      if (copiasDaArma(j.inv, chave) >= ARMA_COPIAS_MAX) return 'ja_possui'; // até duas cópias
     } else {
       if (!podeUsar(it.chave, j.classe)) return 'invalido'; // de outra classe
       chave = it.chave;
@@ -290,7 +298,7 @@ export class Servicos {
     const erro = this.#pagar(j, it.preco);
     if (erro) return erro;
     j.inv = [...j.inv, { id: j.invProx++, tipo: it.tipo, chave, nivel: 1, pago: it.preco }];
-    atualizarNave(j); // arma nova entra em s.armas (o comando já pode pô-la num encaixe)
+    atualizarNave(j); // arma nova entra em s.armasInst (o comando já pode pô-la num encaixe)
     return null;
   }
 
@@ -304,7 +312,7 @@ export class Servicos {
     const x = instDoInv(j.inv, inst);
     if (!x) return 'sem_item';
     if (x.fabrica) return 'invalido'; // as de fábrica não se vendem
-    if (naNave(x, j.equipado, j.ship.encaixes)) return 'equipado';
+    if (naNave(x, j.equipado, j.ship.encInst)) return 'equipado';
     j.ouro += precoVenda(x);
     j.inv = j.inv.filter((y) => y !== x);
     atualizarNave(j);
@@ -314,7 +322,8 @@ export class Servicos {
   /**
    * Sobe a instância `inst` (no compartimento ou na nave) para a próxima versão,
    * pousado e parado na própria base; a taxa paga soma no `pago` dela. Arma: a nave
-   * lê a versão nova de s.niveis; equipamento na nave: o status muda na hora.
+   * lê a versão nova de s.armasInst (só a daquela cópia; no encaixe, s.nivEnc muda na
+   * hora); equipamento na nave: o status muda na hora.
    */
   #evoluirItem(j, inst) {
     if (!Number.isInteger(inst)) return 'invalido';
@@ -358,7 +367,7 @@ export class Servicos {
       if (!x) return 'sem_item';
       if (x.tipo !== 'equip' || !slotAceita(slot, equipamento(x.chave)?.categoria) || !podeUsar(x.chave, j.classe)) return 'invalido';
       if (atual === inst) return null; // já está aí
-      if (naNave(x, eq, j.ship.encaixes)) {
+      if (naNave(x, eq, j.ship.encInst)) {
         // Só pode estar no outro encaixe de potenciador: os dois trocam de lugar.
         if (pot < 0 || eq.pot[1 - pot] !== inst) return 'invalido';
         eq.pot = pot === 0 ? [inst, atual] : [atual, inst];
@@ -451,8 +460,9 @@ export class Servicos {
 
   /**
    * O que vai no `me` do snapshot além da nave (que já traz classe, tier,
-   * velocidade, regenEn, regenHpVoo e regenHpPousada, os encaixes Z/X, as armas
-   * possuídas em `armas` e as versões delas em `niveis`, escudo, maxEscudo,
+   * velocidade, regenEn, regenHpVoo e regenHpPousada, os encaixes Z/X (encInst,
+   * encaixes, nivEnc), as armas por instância em `armasInst` e as possuídas em
+   * `armas`, escudo, maxEscudo,
    * regenEscudo, velMult, acelMult e recargaMult): pontos e pontos livres, o
    * inventário (inv, cópia das instâncias), o tamanho do compartimento (compMax), o
    * que está na nave (equipado, ids), o status do piloto já somado (para a janela

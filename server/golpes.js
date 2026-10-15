@@ -86,7 +86,7 @@ export class Golpes {
     if (ent.ultimoTiro !== undefined && this.tick - ent.ultimoTiro < ticks(INVISIVEL_TIRO_S)) return false;
     if (this.st(ent, 'invisivel')) return true;
     const s = ent.ship;
-    return [s.seg1, s.seg2].some((a) => a >= 0 && segurando(a, s)?.tipo === 'invisivel');
+    return segurandoTipo(s, 'invisivel');
   }
 
   // ---------- Disparo ----------
@@ -595,11 +595,10 @@ export class Golpes {
       const cura = this.st(ent, 'curaTempo');
       if (cura) hps += cura.hps;
       let custo = 0;
-      for (const a of [s.seg1, s.seg2]) {
-        if (!(a >= 0)) continue;
-        const ef = segurando(a, s);
+      for (const enc of [0, 1]) {
+        const ef = segurando(s, enc);
         if (ef?.tipo === 'regen') hps += s.maxHp * ef.fracPorS;
-        custo += versaoDe(a, s)?.hpPorS ?? 0; // Arrancada, Amplificador e Reparador Bellico gastam HP
+        custo += versaoSeg(s, enc)?.hpPorS ?? 0; // Arrancada, Amplificador e Reparador Bellico gastam HP
       }
       if (hps > 0 && s.hp < s.maxHp) s.hp = Math.min(s.maxHp, s.hp + hps * DT);
       // O custo em HP das armas de segurar não mata: para em 1.
@@ -675,8 +674,8 @@ export class Golpes {
     if (this.st(ent, 'invulneravel')) fx.push('invul');
     if (this.st(ent, 'escudo')?.hp > 0) fx.push('escudo');
     if (this.st(ent, 'vulneravel') || this.st(ent, 'fraco') || this.st(ent, 'recuo')) fx.push('fraco');
-    if (this.st(ent, 'regen') || this.st(ent, 'curaTempo') || [s.seg1, s.seg2].some((a) => a >= 0 && segurando(a, s)?.tipo === 'regen')) fx.push('regen');
-    if ([s.seg1, s.seg2].some((a) => a >= 0 && segurando(a, s)?.tipo === 'acelera')) fx.push('acel');
+    if (this.st(ent, 'regen') || this.st(ent, 'curaTempo') || segurandoTipo(s, 'regen')) fx.push('regen');
+    if (segurandoTipo(s, 'acelera')) fx.push('acel');
     if (this.invisivel(ent)) fx.push('inv');
     return fx;
   }
@@ -688,13 +687,20 @@ export class Golpes {
 }
 
 
-function versaoDe(a, s) {
-  return versaoArma(a, s.niveis?.[a] ?? 1);
+/** Versão da arma de segurar ligada no encaixe `enc` da nave `s` (s.seg1/seg2, no nível do encaixe), ou null. */
+function versaoSeg(s, enc) {
+  const a = enc ? s.seg2 : s.seg1;
+  return a >= 0 ? versaoArma(a, s.nivEnc?.[enc] ?? 1) : null;
 }
 
-/** Efeito de segurar da arma `a` ligada na nave `s` (ou null). */
-function segurando(a, s) {
-  return versaoDe(a, s)?.golpe.efeitos.find((e) => e.segurar) ?? null;
+/** Efeito de segurar ligado no encaixe `enc` da nave `s` (ou null). */
+function segurando(s, enc) {
+  return versaoSeg(s, enc)?.golpe.efeitos.find((e) => e.segurar) ?? null;
+}
+
+/** Algum dos dois encaixes está segurando um efeito do tipo `tipo`? */
+function segurandoTipo(s, tipo) {
+  return [0, 1].some((enc) => segurando(s, enc)?.tipo === tipo);
 }
 
 /** Tira os debuffs de inimigo (paralisia, lentidão e os outros) de um aliado. */

@@ -4,8 +4,11 @@
 // Um renderer pequeno só para isso (o do jogo é criado ao entrar e ocupa a tela
 // inteira), com a mesma luz quente de fim de tarde da cena (cena.js) sobre um fundo
 // transparente. Só carrega o modelo que vai mostrar (modeloDaNave, com o cache de
-// nave.js): a entrada baixa uma nave, não as 45. Sem WebGL a vitrine fica vazia e
-// a miniatura devolve null (o cartão mostra um ícone), sem quebrar a tela.
+// nave.js): a entrada baixa uma nave, não as 45. As miniaturas das 5 naves da linha
+// já saem na tela de carregamento (carregamento.js), para o cartão da Evolução e o
+// inventário abrirem sem desenhar nada na hora (cada miniatura é feita uma vez por
+// página). Sem WebGL a vitrine fica vazia e a miniatura devolve null (o cartão
+// mostra um ícone), sem quebrar a tela.
 
 import * as THREE from 'three';
 import { criarNave, definirNave, modeloDaNave } from './nave.js';

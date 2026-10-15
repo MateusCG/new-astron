@@ -347,7 +347,7 @@ export class Hud {
       const idx = me.encaixes?.[enc] ?? armasIniciais(me.race)[enc];
       const kind = ARMAS[idx];
       const w = WEAPONS[kind];
-      const nivel = me.niveis?.[idx] ?? 1;
+      const nivel = me.nivEnc?.[enc] ?? 1; // a versão da cópia que está no encaixe
       const v = versaoArma(idx, nivel);
       if (kind !== slot.kind || nivel !== slot.nivel) {
         slot.kind = kind;
@@ -471,7 +471,7 @@ export class Hud {
       if (!(troca > 0)) continue;
       const idx = me.encaixes?.[enc];
       const kind = ARMAS[idx];
-      const nivel = me.niveis?.[idx] ?? 1;
+      const nivel = me.nivEnc?.[enc] ?? 1;
       if (kind !== linha.kind) {
         linha.kind = kind;
         linha.ic.innerHTML = WEAPONS[kind] ? iconeArma(kind, nivel) : '';
