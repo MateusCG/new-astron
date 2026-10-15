@@ -42,8 +42,12 @@
 // metralhadora, canhão, míssil, mina, nova, dispositivo...) para não virar uma
 // parede de cartões; cada cartão traz o ícone, o nome (e o do original em inglês,
 // pequeno), dano, recarga e energia, a forma e o efeito, as etiquetas de tipo de
-// dano e papel, e o preço. Arma é uma de cada: a que o piloto já tem aparece como
-// COMPRADA.
+// dano e papel, e o preço. Cada arma vai até ARMA_COPIAS_MAX cópias (shared/
+// loja.js; a de fábrica conta como a primeira, e por isso também está à venda),
+// cada uma com a sua versão, para a mesma arma ir no Z e no X: como nos
+// equipamentos, o cartão conta quantas o piloto tem ("NO INVENTÁRIO ×n", "NA NAVE"
+// se uma está num encaixe) e, no máximo, apaga ("MÁXIMO ×2"; o servidor recusaria
+// com 'ja_possui').
 //
 // Evolução › Torretas: o nível das quatro torretas do time ({t:'melhorar',
 // melhoria:'torretas'}) e um cartão por torreta do time, com a vida (de pé), a obra
@@ -53,7 +57,7 @@
 // Listeners no `signal` dos controles: sair da partida e entrar de novo não duplica.
 
 import { ARMAS, WEAPONS } from '/shared/sim.js';
-import { ITENS, ORDEM_ITENS, COMPARTIMENTO_MAX, armasAVenda, noCompartimento, armasDoInv } from '/shared/loja.js';
+import { ITENS, ORDEM_ITENS, COMPARTIMENTO_MAX, ARMA_COPIAS_MAX, armasAVenda, noCompartimento, armasDoInv, copiasDaArma } from '/shared/loja.js';
 import { EQUIPAMENTOS, SIGLA_TIPO, ORDEM_TIPOS_DANO, equipamentosAVenda, versaoEquip, textoEfeitoEquip } from '/shared/equipamentos.js';
 import { CATEGORIAS, versaoArma, resumoVersao } from '/shared/armas.js';
 import { linhaDe, CLASSES } from '/shared/naves.js';
@@ -161,7 +165,7 @@ export class PainelServicos {
     this.filtro = 'todas'; // categoria do filtro das abas de armas da Loja
     this.filtroPot = 'todos'; // tipo de dano do filtro da aba Potenciadores
     this.compEl = this.el.querySelector('.comp-loja');
-    this.estado = { ouro: 0, nivel: 1, armas: [], inv: [], compMax: COMPARTIMENTO_MAX, noComp: 0, equipado: {}, itens: {}, race: null, classe: null, tier: 0, melhorias: {}, torretas: [] };
+    this.estado = { ouro: 0, nivel: 1, armas: [], inv: [], compMax: COMPARTIMENTO_MAX, noComp: 0, encInst: [], equipado: {}, itens: {}, race: null, classe: null, tier: 0, melhorias: {}, torretas: [] };
     this.minis = new Map(); // 'race/classe/tier' -> data URL da miniatura já feita
     this.chave = '';
 
@@ -266,9 +270,10 @@ export class PainelServicos {
       nivel: nivel ?? 1,
       // Posse por instância (me.inv); sem ela (servidor antigo), as armas de me.armas.
       armas: Array.isArray(me?.inv) ? armasDoInv(me.inv) : (me?.armas ?? []),
-      inv: (me?.inv ?? []).map(({ id, tipo, chave }) => ({ id, tipo, chave })),
+      inv: (me?.inv ?? []).map(({ id, tipo, chave, fabrica }) => ({ id, tipo, chave, fabrica: !!fabrica })),
       compMax: me?.compMax ?? COMPARTIMENTO_MAX,
-      noComp: noCompartimento(me?.inv, me?.equipado, me?.encaixes).length,
+      noComp: noCompartimento(me?.inv, me?.equipado, me?.encInst).length,
+      encInst: me?.encInst ?? [], // instâncias das armas no Z e no X
       equipado: me?.equipado ?? {},
       itens: me?.itens ?? {},
       race: me?.race ?? null,
@@ -297,6 +302,8 @@ export class PainelServicos {
     if (ok) texto = this.#textoSucesso(m);
     else if (m.acao === 'comprar' && m.codigo === 'cheio' && !ITENS[m.item]) {
       texto = `Compartimento cheio (${this.estado.compMax}): venda ou equipe algo no Inventário (I)`;
+    } else if (m.acao === 'comprar' && m.codigo === 'ja_possui' && WEAPONS[m.item]) {
+      texto = `Você já tem ${ARMA_COPIAS_MAX} cópias de ${WEAPONS[m.item].nome}, o máximo`;
     } else texto = MENSAGEM_ERRO[m.codigo] ?? 'Não deu certo';
     this.msg.textContent = texto;
     this.msg.className = 'msg ' + (ok ? 'bom' : 'ruim');
@@ -408,27 +415,36 @@ export class PainelServicos {
 
   /** Armas à venda da raça e da classe do piloto, por categoria. */
   #armas() {
-    const { race, classe, armas } = this.estado;
+    const { race, classe, inv, encInst } = this.estado;
     const venda = ordenarPorCategoria(armasAVenda(race, classe));
     if (!venda.length) return '<p class="nota">Sem armas à venda para esta nave.</p>';
     const { html, filtrada } = this.#filtroCategorias(venda);
     const cartoes = filtrada.map((i) => {
       const kind = ARMAS[i];
       const preco = WEAPONS[kind].preco;
-      const tem = armas.includes(i);
-      const [estado, selo] = tem ? ['comprado', 'COMPRADA · NO INVENTÁRIO'] : this.#paraOCompartimento(preco);
+      const n = copiasDaArma(inv, kind);
+      const cheia = n >= ARMA_COPIAS_MAX;
+      const [estado, selo] = cheia ? ['comprado', `MÁXIMO ×${ARMA_COPIAS_MAX}`] : this.#paraOCompartimento(preco);
+      const naNave = inv.some((x) => x.tipo === 'arma' && x.chave === kind && encInst.includes(x.id));
+      const fabrica = inv.some((x) => x.chave === kind && x.fabrica);
+      const marcas = [
+        naNave ? '<i class="selo-nave">NA NAVE</i>' : '',
+        n > 0 ? `<i class="selo-nave guardado">NO INVENTÁRIO ×${n}</i>` : '',
+        fabrica ? '<i class="so-classe">DE FÁBRICA</i>' : '',
+      ].join('');
       return this.#cartao({
         icone: iconeArma(kind),
         nome: nomeArma(kind, true),
         efeito: descreverArma(kind),
-        preco: tem ? null : preco,
+        preco: cheia ? null : preco,
         selo,
         estado,
         pedido: { t: 'comprar', item: kind },
-        extra: `${this.#numerosArma(i, 1)}${etiquetasArma(kind)}`,
+        extra: `${this.#numerosArma(i, 1)}${etiquetasArma(kind)}${marcas ? `<span class="linha-nivel">${marcas}</span>` : ''}`,
+        classe: n > 0 ? 'possuido' : '',
       });
     });
-    const nota = `<p class="nota">Armas da ${CLASSES[classe]?.nome ?? ''} ${race ? race[0].toUpperCase() + race.slice(1) : ''}, uma de cada: a comprada vai para o compartimento do Inventário (<kbd>I</kbd>), de onde se equipa no Z ou no X (ou com Q e E), se evolui e se vende. As de fábrica não se vendem.</p>`;
+    const nota = `<p class="nota">Armas da ${CLASSES[classe]?.nome ?? ''} ${race ? race[0].toUpperCase() + race.slice(1) : ''}, até ${ARMA_COPIAS_MAX} cópias de cada (a de fábrica conta como a primeira), cada uma na sua versão: com duas, a mesma arma vai no Z e no X. A comprada vai para o compartimento do Inventário (<kbd>I</kbd>), de onde se equipa no Z ou no X (ou com Q e E), se evolui e se vende. As de fábrica não se vendem.</p>`;
     return `${nota}${html}<div class="grade">${cartoes.join('')}</div>`;
   }
 
