@@ -10,10 +10,14 @@
 //   antes disso suja o console com aviso, então o contexto só nasce em `desbloquear()`
 //   (chame no primeiro clique ou tecla). Antes disso `carregar()` já busca os arquivos
 //   (só os bytes); a decodificação acontece quando o contexto existir.
-// - Carregamento sob demanda com cache: cada som é buscado uma vez. Som que falhou (404,
-//   arquivo corrompido) fica marcado e nunca quebra o jogo: `tocar` só não faz nada.
-//   Som pedido que ainda não chegou também não toca (tiro com som atrasado engana mais
-//   do que tiro mudo), mas o pedido já dispara o carregamento para a próxima vez.
+// - Carregamento com cache: cada som é buscado uma vez por página. A tela de
+//   carregamento (carregamento.js) pede antes da partida os sons das armas da raça e
+//   da classe e os de interface, e espera cada um ficar pronto (buscado e decodificado);
+//   o resto (armas dos outros pilotos) vem em segundo plano ou sob demanda. Som que
+//   falhou (404, arquivo corrompido) fica marcado e nunca quebra o jogo: `tocar` só não
+//   faz nada. Som pedido que ainda não chegou também não toca (tiro com som atrasado
+//   engana mais do que tiro mudo), mas o pedido já dispara o carregamento para a
+//   próxima vez.
 // - Posição: o jogo é visto de cima no plano x/z, então o som também. O volume cai com
 //   a distância até o ouvinte (curva "inversa" da Web Audio: cheio até DISTANCIA_REF,
 //   metade a 2× etc.) e some de vez perto de ALCANCE, para tiro do outro lado do mapa não
@@ -243,6 +247,11 @@ export class Sons {
   /** True se o som está decodificado e pronto para tocar. */
   carregado(nome) {
     return !!this._cache.get(nome)?.buffer;
+  }
+
+  /** True se o som foi pedido e não deu para buscar ou decodificar (a tela de carregamento avisa no console). */
+  falhou(nome) {
+    return !!this._cache.get(nome)?.falhou;
   }
 
   _carregar(nome) {
