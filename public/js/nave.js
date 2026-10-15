@@ -49,10 +49,12 @@ function matNeon(cor) {
 
 // Naves de jogador: os 45 modelos do Astro-N original (public/modelos/naves/<raça>/
 // <classe>/<id>.glb, um por nave de shared/naves.js), escolhidos pela raça, pela
-// classe e pelo tier da nave. Carregam SOB DEMANDA: antes de conectar só a sua
-// (carregarModelos), as outras quando aparecem (criarNave/definirNave pedem; até
-// chegar, a nave é um losango neon do time no lugar). Cada arquivo é baixado e
-// preparado uma vez só (cache por URL) e todas as naves daquele modelo dividem a
+// classe e pelo tier da nave. A tela de carregamento (carregamento.js) baixa antes
+// da partida as 5 da linha do piloto e as armas da raça e da classe dele; as dos
+// outros pilotos vêm quando eles aparecem (criarNave/definirNave pedem; até chegar,
+// a nave é um losango neon do time no lugar) e o resto da linha deles em segundo
+// plano. Cada arquivo é baixado e preparado uma vez só por página (cache por URL,
+// que sobrevive a sair e entrar de novo) e todas as naves daquele modelo dividem a
 // mesma geometria e o mesmo material; cada nave é só um Mesh novo.
 //
 // Os arquivos vêm com o nariz para +x (os motores, encaixes *_propulsion, ficam
@@ -206,8 +208,12 @@ function prepararModelo(gltf, tamanho) {
 const armasCarregando = new Map(); // modelo -> Promise({ partes, boca })
 const armasProntas = new Map(); // modelo -> { partes, boca }
 
-/** Baixa o modelo de arma (public/modelos/armas/<modelo>.glb), uma vez por arquivo. */
-function carregarArma(modelo) {
+/**
+ * Baixa o modelo de arma (public/modelos/armas/<modelo>.glb), uma vez por arquivo.
+ * A tela de carregamento chama para todas as armas da raça e da classe, para a
+ * troca de arma (Q/E, inventário) pendurar a nova na hora, sem baixar nada.
+ */
+export function carregarArma(modelo) {
   if (!armasCarregando.has(modelo)) {
     const p = (async () => {
       carregador ??= new (await import('three/addons/loaders/GLTFLoader.js')).GLTFLoader();
@@ -298,16 +304,22 @@ export function bocaDaArma(raiz, enc, alvo = new THREE.Vector3()) {
 }
 
 /**
- * Carrega o modelo da SUA nave (o único que precisa estar pronto antes de conectar;
- * os outros vêm sob demanda). Sem argumentos, a primeira nave Acron Assault.
+ * Promessa do modelo da nave pronto (a tela de carregamento, a vitrine da entrada e
+ * as miniaturas da Evolução). Falha de rede rejeita e sai do cache.
  */
-export async function carregarModelos(race = 'acron', classe = 'assault', tier = 0) {
-  await carregarNave(naveDoCatalogo(race, classe, tier));
-}
-
-/** Promessa do modelo da nave (para a vitrine da entrada e as miniaturas da Evolução). */
 export function modeloDaNave(race, classe, tier) {
   return carregarNave(naveDoCatalogo(race, classe, tier));
+}
+
+/**
+ * Texturas dos modelos já prontos (naves e armas), para a tela de carregamento
+ * enviar à placa de vídeo antes da partida (renderer.initTexture): sem isso, o
+ * envio acontece no primeiro quadro em que a nave ou a arma aparece.
+ */
+export function texturasDosModelos() {
+  const lista = new Set();
+  for (const m of [...prontos.values(), ...armasProntas.values()]) for (const { material } of m.partes) if (material.map) lista.add(material.map);
+  return [...lista];
 }
 
 /**
