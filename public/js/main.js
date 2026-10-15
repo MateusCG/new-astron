@@ -43,7 +43,9 @@
 // com a altura toda da tela, uma de cada vez, que leem o `me` do snapshot (pontos,
 // inventário por instância, status somado). Os pedidos {t:'pontos'}, {t:'equipar'},
 // {t:'vender'} e {t:'evoluirItem'} vão direto pela rede; as armas Z/X do inventário
-// mudam os encaixes do menu de armas, como o Q/E. Abertas, não sai tiro.
+// mudam os encaixes do menu de armas, como o Q/E. Abertas, a nave atira normal
+// (pedido do Mateus: dá para olhar o status ou trocar de arma no meio da luta); os
+// botões delas soltam o foco no clique, para o Espaço do tiro não apertá-los.
 //
 // Recall (B, shared/recall.js): o pedido vai no campo r do comando e só o servidor
 // decide; o cliente não prevê a canalização. Na chegada a nave salta para a base:
@@ -611,10 +613,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
     if (!vivo || !pred) return;
     const inp = controles.ler();
     // As armas dos dois encaixes vão em todo comando; com o menu, o painel da
-    // Loja/Evolução ou a janela de volume, dos times, do STATUS ou do INVENTÁRIO
-    // aberta não sai tiro.
+    // Loja/Evolução ou a janela de volume ou dos times aberta não sai tiro. Com o
+    // STATUS ou o INVENTÁRIO aberto, sai (são janelas laterais de consulta).
     [inp.a, inp.a2] = menuArmas.encaixes;
-    if (menuArmas.aberto || painel.aberto || painelVolume.aberto || times.aberto || status.aberto || inventario.aberto) inp.f1 = inp.f2 = false;
+    if (menuArmas.aberto || painel.aberto || painelVolume.aberto || times.aberto) inp.f1 = inp.f2 = false;
     seq++;
     rede.enviar({ t: 'in', s: seq, ...inp });
     ant = pose(pred);
