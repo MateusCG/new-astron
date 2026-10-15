@@ -20,27 +20,17 @@
 //
 // Desempenho: geometrias e materiais compartilhados por textura e cor (só o que
 // some aos poucos, como clarão e impacto, ganha material próprio, liberado no fim);
-// texturas baixadas uma vez (cache por nome); sequências de quadros só nos efeitos
-// curtos e na carga dos canhões.
+// texturas baixadas uma vez (cache por nome), todas as da nave já na tela de
+// carregamento (carregamento.js; quais são sai de insumos.js, que também guarda as
+// sequências de quadros e as texturas de casco); sequências de quadros só nos
+// efeitos curtos e na carga dos canhões.
 
 import * as THREE from 'three';
 import { WEAPONS, golpeDaArma, visualEfeito } from '/shared/armas.js';
 import { brilho } from './nave.js';
 import { corDaArma } from './armas.js';
+import { PASTA_TEXTURAS_EFEITO, quadrosDe, texturaDoEfeito } from './insumos.js';
 
-const PASTA = '/texturas/efeitos/';
-// Texturas que no original são do casco 3D (opacas), não luz: não servem de efeito aditivo.
-const TEXTURAS_CASCO = new Set(['1321011_01', '1321021_01', 'gun', 'missile', '1351005_01', '1131056']);
-// Sequências de quadros do original (o primeiro quadro é o que a lista do efeito cita).
-const SEQUENCIAS = {
-  charge_vox00: Array.from({ length: 15 }, (_, i) => `charge_vox${String(i).padStart(2, '0')}`),
-  '2403002_0050': Array.from({ length: 21 }, (_, i) => `2403002_00${50 + i}`),
-  '2432001_0050': Array.from({ length: 21 }, (_, i) => `2432001_00${50 + i}`),
-  '1352004_0050': Array.from({ length: 10 }, (_, i) => `1352004_00${50 + i}`),
-  '1333002_00': ['1333002_00', ...Array.from({ length: 11 }, (_, i) => `1333002_${String(i + 1).padStart(2, '0')}`)],
-  '1401007_01': Array.from({ length: 16 }, (_, i) => `1401007_${String(i + 1).padStart(2, '0')}`),
-  '2163011_0100': Array.from({ length: 21 }, (_, i) => `2163011_0${100 + i}`),
-};
 const QUADROS_POR_S = 24;
 // Tamanhos (m) por categoria, na escala do jogo (efeitos do original × 0,25).
 const TAM_PROJETIL = {
@@ -63,27 +53,46 @@ const AREA_S = 0.6;
 const NOVA_FADE_S = 0.35;
 
 const carregador = new THREE.TextureLoader();
-const texturas = new Map();
+const texturas = new Map(); // nome -> Texture (a imagem chega depois)
+const carregando = new Map(); // nome -> Promise da textura pronta
+
+/**
+ * Baixa a textura de efeito do original (uma vez por nome) e devolve a promessa
+ * dela pronta. A tela de carregamento espera todas as da nave antes da partida; no
+ * meio dela, quem desenha usa texturaEfeito, que só pede (e já acha pronta).
+ */
+export function carregarTexturaEfeito(nome) {
+  if (!carregando.has(nome)) {
+    const p = new Promise((ok, falha) => {
+      const t = carregador.load(PASTA_TEXTURAS_EFEITO + nome + '.png', ok, undefined, () => falha(new Error(`textura ${nome}`)));
+      t.colorSpace = THREE.SRGBColorSpace;
+      texturas.set(nome, t);
+    });
+    // Ninguém esperando (pedido do meio da partida): a falha não vira erro solto no
+    // console; o efeito só sai sem a textura.
+    p.catch(() => {});
+    carregando.set(nome, p);
+  }
+  return carregando.get(nome);
+}
 
 /** Textura de efeito do original (cache por nome). */
 export function texturaEfeito(nome) {
-  if (!texturas.has(nome)) {
-    const t = carregador.load(PASTA + nome + '.png');
-    t.colorSpace = THREE.SRGBColorSpace;
-    texturas.set(nome, t);
-  }
+  if (!texturas.has(nome)) carregarTexturaEfeito(nome);
   return texturas.get(nome);
 }
 
-/** A primeira textura de luz (aditiva) do efeito visual `id`, ou null. */
-function texturaDe(id) {
-  const v = visualEfeito(id);
-  return v?.texturas.find((t) => t && !TEXTURAS_CASCO.has(t)) ?? null;
+/** As texturas de efeito já pedidas (para a tela de carregamento enviar à placa de vídeo). */
+export function texturasEfeitoPedidas() {
+  return [...texturas.values()];
 }
+
+/** A primeira textura de luz (aditiva) do efeito visual `id`, ou null. */
+const texturaDe = texturaDoEfeito;
 
 /** Quadros de uma textura (ela mesma, ou a sequência do original que começa nela). */
 function quadros(nome) {
-  return (SEQUENCIAS[nome] ?? [nome]).map(texturaEfeito);
+  return quadrosDe(nome).map(texturaEfeito);
 }
 
 const BRANCO = new THREE.Color('#ffffff');
@@ -347,6 +356,12 @@ export class VisualArmas {
     g.userData.miolo = miolo;
     g.userData.disco = disco;
     return g;
+  }
+
+  /** Tira de cena os passageiros SEM liberar os materiais (só no aquecimento da placa; ver Efeitos.esquecer). */
+  esquecer() {
+    for (const e of this.efeitos) this.scene.remove(e.obj);
+    this.efeitos = [];
   }
 
   /** Avança os efeitos passageiros (chamar a cada quadro). */

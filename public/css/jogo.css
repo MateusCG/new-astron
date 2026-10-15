@@ -3897,3 +3897,248 @@ body.dano::after {
     height: 44px;
   }
 }
+
+/* ---------- Tela de carregamento (#carregamento, carregamento.js) ----------
+   Do "Decolar" até a partida: o mesmo céu de fim de tarde e a mesma chapa da tela
+   inicial, com o nome do jogo, a barra geral (porcentagem em mono, barra --neon com
+   brilho) e uma linha por grupo (naves, armas, efeitos, sons...) com a contagem e um
+   fio de 3 px que enche, como a recarga das armas no painel inferior. Por cima de
+   tudo (o jogo monta e aquece atrás dela) e só some quando a nave pode voar. */
+#carregamento {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  overflow-y: auto;
+  background:
+    radial-gradient(ellipse at 50% 120%, #f59a45 0%, #a8402a 35%, #2a0f1c 75%),
+    #2a0f1c;
+  transition: opacity 0.2s ease-out;
+}
+
+#carregamento.saindo {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chapa-carregamento {
+  width: min(760px, 100%);
+  padding: 22px 36px 20px;
+  border: 1px solid var(--neon-escuro);
+  border-top: 2px solid var(--neon);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(24, 48, 46, 0.94), rgba(10, 22, 21, 0.96));
+  box-shadow: 0 0 40px rgba(0, 239, 192, 0.15);
+}
+
+.chapa-carregamento h1 {
+  font-size: 36px;
+}
+
+.titulo-carregamento {
+  margin: 6px 0 0;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--neon);
+  animation: piscar-carregando 1.6s ease-in-out infinite;
+}
+
+.chapa-carregamento .piloto {
+  margin: 4px 0 16px;
+  text-align: center;
+  opacity: 0.85;
+}
+
+/* A raça na cor dela (como o botão de voltar da tela inicial); a nave em neon. */
+.chapa-carregamento .piloto b {
+  color: var(--cor-raca, var(--texto));
+}
+
+.chapa-carregamento .piloto span {
+  color: var(--neon);
+}
+
+.medidor {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 4px 16px;
+}
+
+.medidor .pct {
+  min-width: 3.4em;
+  font: 700 34px/1 ui-monospace, monospace;
+  color: var(--neon);
+  text-shadow: 0 0 12px rgba(0, 239, 192, 0.55);
+  text-align: right;
+}
+
+.barra-total {
+  position: relative;
+  height: 16px;
+  border: 1px solid var(--neon-escuro);
+  border-radius: 8px;
+  background: #0b1716;
+  overflow: hidden;
+}
+
+.barra-total i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  border-radius: 8px;
+  background: var(--neon);
+  box-shadow: 0 0 12px var(--neon);
+  transition: width 0.15s linear;
+}
+
+.medidor .agora {
+  grid-column: 2;
+  margin: 0;
+  font-size: 16px;
+  opacity: 0.85;
+}
+
+.grupos {
+  display: grid;
+  gap: 7px;
+  margin: 18px 0 0;
+  padding: 14px 16px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 8px;
+  background: rgba(8, 20, 19, 0.6);
+  list-style: none;
+}
+
+.grupos li {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  grid-template-areas: 'marca nome conta' '. fio fio';
+  align-items: center;
+  gap: 3px 10px;
+  font-size: 16px;
+}
+
+/* Marca do grupo: anel apagado esperando, anel neon girando enquanto carrega e
+   ponto neon cheio quando termina. */
+.grupos .marca {
+  grid-area: marca;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--chapa-clara);
+  border-radius: 50%;
+}
+
+.grupos li:not(.pronto) .marca {
+  border-color: var(--neon-escuro);
+  border-top-color: var(--neon);
+  animation: girar-marca 0.9s linear infinite;
+}
+
+.grupos li.pronto .marca {
+  border-color: var(--neon);
+  background: var(--neon);
+  box-shadow: 0 0 6px var(--neon);
+}
+
+.grupos .nome {
+  grid-area: nome;
+  opacity: 0.75;
+}
+
+.grupos li.pronto .nome {
+  opacity: 1;
+}
+
+.grupos .conta {
+  grid-area: conta;
+  font: 600 15px ui-monospace, monospace;
+  color: var(--texto);
+  opacity: 0.8;
+}
+
+.grupos li.pronto .conta {
+  color: var(--neon);
+  opacity: 1;
+}
+
+.grupos li.falhou .conta {
+  color: #ff8a70;
+}
+
+.grupos .fio {
+  grid-area: fio;
+  position: relative;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(223, 245, 239, 0.12);
+  overflow: hidden;
+}
+
+.grupos .fio i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: var(--neon);
+}
+
+.dica-carregamento {
+  margin: 14px 0 0;
+  text-align: center;
+  font-size: 14px;
+  opacity: 0.65;
+}
+
+@keyframes girar-marca {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes piscar-carregando {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (max-height: 760px) {
+  .chapa-carregamento {
+    padding: 14px 28px 14px;
+  }
+
+  .chapa-carregamento h1 {
+    font-size: 30px;
+  }
+
+  .grupos {
+    gap: 5px;
+    margin-top: 12px;
+    padding: 10px 14px;
+  }
+}
+
+@media (max-width: 600px) {
+  .chapa-carregamento {
+    padding: 14px 16px;
+  }
+
+  .medidor .pct {
+    font-size: 26px;
+  }
+
+  .grupos li {
+    font-size: 13px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .titulo-carregamento,
+  .grupos li:not(.pronto) .marca {
+    animation: none;
+  }
+}

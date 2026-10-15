@@ -152,6 +152,33 @@ export class Efeitos {
     }
   }
 
+  /**
+   * Tira de cena e das listas tudo o que está passando (tiros, explosões, anéis,
+   * feixes do recall, fumaça, partículas das auras e os passageiros das armas) SEM
+   * liberar os materiais. Só para o aquecimento da placa (carregamento.js): material
+   * liberado faz o Three.js apagar o programa de shader que ninguém mais usa, e o
+   * próximo efeito igual compilaria de novo no meio da partida; estes ficam de reserva.
+   */
+  esquecer() {
+    for (const t of this.tiros.values()) this.scene.remove(t.g);
+    this.tiros.clear();
+    for (const p of this.particulas) {
+      this.scene.remove(p.flash, p.pts);
+      p.pts.geometry.dispose();
+    }
+    for (const a of this.aneisArea) this.scene.remove(a.anel);
+    for (const f of this.feixes) this.scene.remove(f.m);
+    for (const p of [...this.fumacas, ...this.auras]) this.scene.remove(p.s);
+    for (const a of this.aneis) a.obj.remove(a.anel);
+    this.particulas = [];
+    this.aneisArea = [];
+    this.feixes = [];
+    this.fumacas = [];
+    this.aneis = [];
+    this.auras = [];
+    this.armas.esquecer();
+  }
+
   constructor(scene) {
     this.scene = scene;
     this.tiros = new Map();
