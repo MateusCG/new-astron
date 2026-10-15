@@ -7,7 +7,8 @@
 // armaduras e potenciadores fora dos encaixes).
 //
 // Cada coisa é um objeto (uma instância de me.inv, com a sua versão V1 a V8 e o ouro
-// pago nela). Clicar (ou tocar) num item abre uma caixinha junto dele com o que dá
+// pago nela); a mesma arma pode estar em duas cópias, cada uma com a sua versão, e
+// cada cópia aparece como um item (no Z, no X ou no compartimento). Clicar (ou tocar) num item abre uma caixinha junto dele com o que dá
 // para fazer, e cada opção que não dá agora fica apagada com o porquê embaixo:
 // - Item do compartimento: Equipar (arma: no Z ou no X; potenciador: no 1 ou no 2),
 //   Vender (metade do que foi pago; arma de fábrica não vende) e Evoluir (Vn → Vn+1
@@ -19,8 +20,8 @@
 // (anel ou plataformas). O cliente só PEDE ({t:'equipar', slot, inst}, {t:'vender',
 // inst}, {t:'evoluirItem', inst}); o servidor valida, cobra e o snapshot traz o
 // inventário novo. As armas Z/X não passam pelo servidor: são os `encaixes` do
-// cliente, que vão nos campos a/a2 de cada comando, o mesmo caminho do menu do Q/E
-// (MenuArmas.equipar, com a recarga de troca fora da base).
+// cliente (ids das instâncias), que vão nos campos a/a2 de cada comando, o mesmo
+// caminho do menu do Q/E (MenuArmas.equipar, com a recarga de troca fora da base).
 //
 // Passar o mouse (ou tocar) num item mostra o detalhe como no original, à esquerda da
 // janela: nome e versão, tipo, efeitos e classe. Preços e contas saem de
@@ -240,7 +241,7 @@ export class PainelInventario {
     this.msg.className = 'msg ' + (ok ? 'bom' : 'ruim');
   }
 
-  /** Instâncias do compartimento (as armas pelos encaixes do cliente, que vão no comando). */
+  /** Instâncias do compartimento (as armas pelos encaixes do cliente, ids que vão no comando). */
   #compartimento() {
     const s = this.estado;
     return noCompartimento(s.inv, s.equipado, this.menuArmas.encaixes);
@@ -248,8 +249,7 @@ export class PainelInventario {
 
   /** A instância da arma que está no encaixe enc (0 = Z, 1 = X). */
   #instDaArma(enc) {
-    const kind = ARMAS[this.menuArmas.encaixes[enc]];
-    return this.estado.inv.find((x) => x.tipo === 'arma' && x.chave === kind) ?? null;
+    return instDoInv(this.estado.inv, this.menuArmas.encaixes[enc]);
   }
 
   /** A instância no encaixe (de arma ou de equipamento), ou null. */
@@ -329,11 +329,12 @@ export class PainelInventario {
         ops.push(opcao('Tirar', 'tirar', { slot: c.slot }, cheio ? `Compartimento cheio (${s.compMax}/${s.compMax})` : ''));
       }
     } else if (inst.tipo === 'arma') {
-      const idx = armaDaInst(inst);
       for (const enc of [0, 1]) {
         const espera = this.menuArmas.esperaTroca(enc);
         const porque = espera > 0 ? `Arma ${ENCAIXES[enc].tecla} carregando: ${espera.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} s` : '';
-        ops.push(opcao(`Equipar no <kbd>${ENCAIXES[enc].tecla}</kbd>`, 'arma', { enc, idx }, porque, 'principal'));
+        const ocupado = this.#instDaArma(enc);
+        const troca = ocupado ? ` <i>troca com ${esc(nomeInst(ocupado))}</i>` : '';
+        ops.push(opcao(`Equipar no <kbd>${ENCAIXES[enc].tecla}</kbd>${troca}`, 'arma', { enc, inst: id }, porque, 'principal'));
       }
     } else {
       const cat = EQUIPAMENTOS[inst.chave]?.categoria;
@@ -366,7 +367,7 @@ export class PainelInventario {
     const d = b.dataset;
     const inst = instDoInv(this.estado.inv, Number(d.inst));
     if (d.acao === 'arma') {
-      if (this.menuArmas.equipar(Number(d.enc), Number(d.idx))) {
+      if (this.menuArmas.equipar(Number(d.enc), Number(d.inst))) {
         this.msg.textContent = '';
         this.fecharCaixa();
         this.#desenhar(true);
@@ -395,9 +396,10 @@ export class PainelInventario {
   #desenhar(forcar) {
     const s = this.estado;
     const m = this.menuArmas;
-    const encaixes = [...m.encaixes];
+    const encaixes = m.armasNosEncaixes; // índices das armas do Z e do X
+    const nivEnc = m.nivEnc;
     const espera = [m.esperaTroca(0) > 0, m.esperaTroca(1) > 0];
-    const chave = JSON.stringify([s, encaixes, m.niveis, espera, this.naBase]);
+    const chave = JSON.stringify([s, m.encaixes, encaixes, nivEnc, espera, this.naBase]);
     if (!forcar && chave === this.chave) {
       if (this.caixa) this.#desenharCaixa();
       return;
@@ -405,7 +407,7 @@ export class PainelInventario {
     this.chave = chave;
 
     if (this.ouroEl) this.ouroEl.textContent = numero(s.ouro);
-    this.tabela.innerHTML = tabelaTipos({ encaixes, niveis: m.niveis, status: s.status });
+    this.tabela.innerHTML = tabelaTipos({ encaixes, nivEnc, status: s.status });
     this.#desenharNave();
 
     // Encaixes da nave.
@@ -415,7 +417,7 @@ export class PainelInventario {
       const marcado = caixaSlot === enc.slot ? ' com-caixa' : '';
       if (enc.arma !== undefined) {
         const i = encaixes[enc.arma];
-        const nv = inst?.nivel ?? m.niveis[i] ?? 1;
+        const nv = inst?.nivel ?? nivEnc[enc.arma];
         return `<button type="button" class="slot arma${marcado}" data-slot="${enc.slot}" title="Clique para trocar ou evoluir">
           <span class="rot">${enc.nome}</span><span class="ic">${ARMAS[i] ? iconeArma(ARMAS[i], nv) : ''}</span><span class="nm">${ARMAS[i] ? nomeArma(ARMAS[i]) : ''}</span><b class="v">V${nv}</b>
         </button>`;
@@ -432,7 +434,7 @@ export class PainelInventario {
       : 'Equipar vale em qualquer lugar · vender e evoluir, só pousado e parado na sua base';
 
     // Compartimento: as armas primeiro (na ordem do catálogo), depois os equipamentos.
-    const comp = this.#compartimento().sort((a, b) => (a.tipo === b.tipo ? (a.tipo === 'arma' ? IDX_ARMA[a.chave] - IDX_ARMA[b.chave] : a.id - b.id) : a.tipo === 'arma' ? -1 : 1));
+    const comp = this.#compartimento().sort((a, b) => (a.tipo === b.tipo ? (a.tipo === 'arma' ? IDX_ARMA[a.chave] - IDX_ARMA[b.chave] || a.id - b.id : a.id - b.id) : a.tipo === 'arma' ? -1 : 1));
     const caixaInst = this.caixa?.inst;
     const cartas = comp.map((x) => {
       const ic = x.tipo === 'arma' ? iconeArma(x.chave, x.nivel) : iconeEquip(x.chave);

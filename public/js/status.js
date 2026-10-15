@@ -82,7 +82,7 @@ function lerEstado({ me, nivel, xp, xpProx, ouro, nome }) {
     status,
     energiaBase,
     encaixes: me?.encaixes ?? [],
-    niveis: me?.niveis ?? {},
+    nivEnc: me?.nivEnc ?? [1, 1], // versão da arma de cada encaixe (por instância)
   };
 }
 
@@ -276,7 +276,7 @@ export class PainelStatus {
       if (a === 'energia') {
         this.#texto(at.efeito, `+${num(efeito.energia, 1)} · +${num(efeito.regenEn, 1)}/s`, 'efEn');
       } else {
-        const cel = [0, 1].map((enc) => celulaArma(s.encaixes[enc], s.niveis?.[s.encaixes[enc]] ?? 1, a, s.status.poder)).join('');
+        const cel = [0, 1].map((enc) => celulaArma(s.encaixes[enc], s.nivEnc?.[enc] ?? 1, a, s.status.poder)).join('');
         this.#texto(at.valores, `<td class="poder-at">+${pct(efeito.poder[a])}</td>${cel}<td class="resist">${pct(s.status.resist?.[a] ?? 0)}</td>`, `v${a}`);
       }
     }
