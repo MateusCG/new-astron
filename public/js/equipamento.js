@@ -120,10 +120,10 @@ export function detalheArma(idx, nivel = 1, acao = '') {
 }
 
 /**
- * Uma célula de arma da tabela de tipos: o dano REAL por disparo da arma do encaixe
- * (o da versão × (1 + poder do piloto no tipo dela), no formato do detalhe da arma:
- * "214,8×6" = 6 projéteis de 214,8), na linha do tipo dela; nas outras linhas,
- * vazia. Pedido do Mateus: a porcentagem de poder já aparece no atributo (STATUS) e
+ * Uma célula de arma da tabela de tipos: o dano REAL por disparo da arma do encaixe,
+ * já multiplicado (todos os projéteis, canos e a rajada de um aperto do gatilho ×
+ * (1 + poder do piloto no tipo dela): a Metralha Larga "6×6" com +20% mostra 43,2),
+ * na linha do tipo dela; nas outras linhas, vazia. A conta fica no title. Pedido do Mateus: a porcentagem de poder já aparece no atributo (STATUS) e
  * no title; aqui vale o número que sai no tiro. Arma sem dano (suporte) mostra "—".
  */
 export function celulaArma(idx, nivel, tipo, poder) {
@@ -131,8 +131,9 @@ export function celulaArma(idx, nivel, tipo, poder) {
   if (!w || w.npc || w.tipoDano !== tipo) return '<td class="vazia"></td>';
   const p = poder?.[tipo] ?? 0;
   const r = resumoVersao(versaoArma(idx, nivel));
-  const total = r.dano > 0 ? ` · ${(+(r.dano * (1 + p)).toFixed(1)).toLocaleString('pt-BR')} no total por disparo` : '';
-  return `<td title="${esc(`${w.nome} V${nivel}: dano ${textoDano(idx, nivel)} × (1 + poder ${SIGLA_TIPO[tipo]} ${pct(p)})${total}`)}">${textoDano(idx, nivel, 1 + p)}</td>`;
+  if (!(r.dano > 0)) return `<td title="${esc(`${w.nome} V${nivel}: sem dano`)}">—</td>`;
+  const total = (+(r.dano * (1 + p)).toFixed(1)).toLocaleString('pt-BR');
+  return `<td title="${esc(`${w.nome} V${nivel}: dano ${textoDano(idx, nivel)} = ${(+r.dano.toFixed(1)).toLocaleString('pt-BR')} × (1 + poder ${SIGLA_TIPO[tipo]} ${pct(p)}) = ${total} por disparo`)}">${total}</td>`;
 }
 
 /**
