@@ -7,7 +7,7 @@
 //   'ida'        sai do centro da base e segue a rota até a própria doca da
 //                mineradora (DOCAS; a mineradora em si é sólida);
 //   'minerando'  para ali MINERADOR.mineracaoS segundos, virando para voltar, e
-//                enche o contêiner com a carga (10, +1 com o bônus de mineração);
+//                enche o contêiner com a carga (10, mais a melhoria da Evolução);
 //   'volta'      refaz a rota de trás para frente e, ao passar pela ENTREGAS[time]
 //                do próprio time, soma a carga no placar e volta para a 'ida'.
 // Cada sentido anda na sua faixa (mão direita, FAIXA_MINERADOR do eixo), para quem
@@ -18,24 +18,41 @@
 // time. O destruído não volta: o próximo sai da base depois do intervalo, contado
 // a partir de quando abriu a vaga.
 //
+// Tempos (medidos em tests/mineradores.test.mjs, sem melhoria, 30 m/s): da base à
+// doca são ~1200 m, uns 41 s; minerando 5 s; da doca à entrega ~1030 m, uns 35 s. A
+// primeira entrega sai ~81 s depois da saída e cada volta seguinte (entrega → doca →
+// entrega) leva ~76 s. Numa partida de 20 minutos cada minerador que sobrevive faz
+// umas 15 viagens: ~45 entregas por time com os três, ~450 de minério, mais o dobro
+// do que entra nos 3 minutos da fase final.
+//
+// Onda do Núcleo (server/objetivos.js chama ondaDoNucleo quando um time toma o
+// Núcleo de He-3): saem da base, NA HORA, MINERADOR_NUCLEO.quantos mineradores
+// especiais (`nucleo: 1` no snapshot), em fila, maiores (raio de acerto maior), mais
+// lentos e com mais HP, que vão à própria doca, carregam MINERADOR_NUCLEO.carga cada
+// (5× o normal), voltam, entregam e SOMEM (não voltam para a doca). Contam além do
+// limite normal (maxAtivos) e não mexem no intervalo de saída dos outros. Com 21
+// m/s levam ~60 s até a doca, 8 s carregando e ~50 s de volta: quase dois minutos
+// de alvo enorme para o outro time.
+//
 // A física é a mesma das naves (stepShip), com o acelerador limitado para dar a
 // velocidade do minerador: assim eles batem nas construções (alturaSolida) e
 // deslizam nelas como qualquer nave, e o tiro criogênico também os deixa lentos.
 // O pulso EMP os deixa parados (sem motor, e sem minerar) enquanto durar.
 //
-// Atributos num lugar só: atributos(time, tick) junta as constantes de MINERADOR,
-// as melhorias do time (this.melhorias, compradas na Evolução) e os bônus
-// por tempo dos objetivos (server/bonus.js). Quem quiser mexer em minerador mexe ali.
+// Atributos num lugar só: atributos(time, tick) junta as constantes de MINERADOR e
+// as melhorias do time (this.melhorias, compradas na Evolução). Quem quiser mexer em
+// minerador mexe ali. (Os bônus de mineração, velocidade e durabilidade dos
+// objetivos A/B/C do mapa antigo saíram: a jungle nova mexe nos mineradores pela
+// onda do Núcleo.)
 //
 // A escolta armada que anda com eles (server/escoltas.js) usa a mesma rota e as
 // mesmas faixas (pontoRota), mas é outro módulo: não minera, não entra no placar e
-// não lê as melhorias nem os bônus dos mineradores.
+// não lê as melhorias dos mineradores.
 
 import { createShip, stepShip, velocidadeBase, DT } from '../shared/sim.js';
 import { BASES, ROTAS, ENTREGAS } from '../shared/terrain.js';
-import { BONUS } from './bonus.js';
 
-/** Números de balanceamento do minerador (sem melhoria nem bônus). */
+/** Números de balanceamento do minerador (sem melhoria). */
 export const MINERADOR = {
   nome: 'Minerador',
   raca: 'shrewdo', // só para a física (stepShip): a raça mais rápida, para sobrar acelerador
@@ -50,6 +67,12 @@ export const MINERADOR = {
 };
 /** Distância do eixo da lane de cada faixa (ida de um lado, volta do outro). */
 export const FAIXA_MINERADOR = 15;
+/**
+ * Minerador do Núcleo (onda do Núcleo de He-3): multiplicadores em cima dos
+ * atributos do time, carga, tempo minerando, raio de acerto (o normal é o da nave,
+ * SHIP_RADIUS = 4,5 m), quantos saem e o espaço entre eles na fila da saída.
+ */
+export const MINERADOR_NUCLEO = { quantos: 3, hpMult: 4, velMult: 0.7, carga: 50, mineracaoS: 8, raio: 7, espaco: 25 };
 const CHEGOU = 12; // m: perto assim de um ponto da rota, segue para o próximo
 const FREIA_DIST = 40; // m antes da doca: começa a frear para parar nela
 
@@ -81,11 +104,10 @@ export function yawPara(x, z, ax, az) {
 
 export class Mineradores {
   /**
-   * @param {{ bonus: import('./bonus.js').Bonus, novoId: () => number,
+   * @param {{ novoId: () => number,
    *   entregar: (time: number, carga: number) => number | void, evento: (ev: object) => void }} ctx
    */
-  constructor({ bonus, novoId, entregar, evento }) {
-    this.bonus = bonus;
+  constructor({ novoId, entregar, evento }) {
     this.novoId = novoId;
     this.entregar = entregar;
     this.evento = evento;
@@ -98,19 +120,21 @@ export class Mineradores {
   }
 
   /**
-   * Atributos dos mineradores do `time` no `tick`: constantes + melhorias do time +
-   * bônus ativos. Único lugar que decide HP, velocidade, carga e quantos saem.
+   * Atributos dos mineradores do `time`: constantes + melhorias do time. Único lugar
+   * que decide HP, velocidade, carga e quantos saem. `nucleo` = os do Núcleo
+   * (MINERADOR_NUCLEO em cima dos do time). `tick` fica no contrato para efeitos por
+   * tempo.
    */
-  atributos(time, tick) {
+  atributos(time, tick, nucleo = false) {
     const m = this.melhorias[time] ?? {};
-    const b = (nome) => this.bonus.ativo(time, nome, tick);
+    const n = nucleo ? MINERADOR_NUCLEO : null;
     return {
       maxAtivos: MINERADOR.maxAtivos + (m.maxAtivos ?? 0),
       intervaloTicks: Math.round(MINERADOR.intervaloS / DT),
-      hp: MINERADOR.hp * (m.hpMult ?? 1) * (b('durabilidade') ? BONUS.durabilidade.mult : 1),
-      velocidade: MINERADOR.velocidade * (m.velocidadeMult ?? 1) * (b('velocidade') ? BONUS.velocidade.mult : 1),
-      carga: MINERADOR.carga + (m.cargaExtra ?? 0) + (b('mineracao') ? BONUS.mineracao.cargaExtra : 0),
-      mineracaoTicks: Math.round(MINERADOR.mineracaoS / DT),
+      hp: MINERADOR.hp * (m.hpMult ?? 1) * (n?.hpMult ?? 1),
+      velocidade: MINERADOR.velocidade * (m.velocidadeMult ?? 1) * (n?.velMult ?? 1),
+      carga: n ? n.carga : MINERADOR.carga + (m.cargaExtra ?? 0),
+      mineracaoTicks: Math.round((n?.mineracaoS ?? MINERADOR.mineracaoS) / DT),
       // Fração do dano que o minerador deixa de levar (melhoria de defesa; o World
       // aplica em #ferir).
       defesa: Math.min(MINERADOR.defesaMax, m.defesa ?? 0),
@@ -128,13 +152,22 @@ export class Mineradores {
     this.lista = [];
   }
 
-  #novo(time, a) {
+  /**
+   * Minerador novo do `time` com os atributos `a`, no começo da rota; `atras` = m
+   * para trás dela (a fila da onda do Núcleo), `nucleo` = do Núcleo.
+   */
+  #novo(time, a, atras = 0, nucleo = false) {
     const p = pontoRota(time, 0, true);
     const q = pontoRota(time, 1, true);
-    const ship = createShip(MINERADOR.raca, p.x, p.z, yawPara(p.x, p.z, q.x, q.z));
+    const len = Math.hypot(q.x - p.x, q.z - p.z) || 1;
+    const x = p.x - ((q.x - p.x) / len) * atras;
+    const z = p.z - ((q.z - p.z) / len) * atras;
+    const ship = createShip(MINERADOR.raca, x, z, yawPara(x, z, q.x, q.z));
     ship.time = time;
     ship.hp = ship.maxHp = a.hp;
+    if (nucleo) ship.raio = MINERADOR_NUCLEO.raio; // alvo maior (bulletHits e áreas leem s.raio)
     return {
+      ...(nucleo ? { nucleo: true } : {}),
       id: this.novoId(),
       tipo: 'minerador',
       nome: MINERADOR.nome,
@@ -151,12 +184,26 @@ export class Mineradores {
     };
   }
 
-  /** Um passo: tira os destruídos, solta os novos e move todos. */
+  /**
+   * Onda do Núcleo: MINERADOR_NUCLEO.quantos mineradores do Núcleo do `time` saem da
+   * base agora, em fila. Devolve os novos.
+   */
+  ondaDoNucleo(time, tick) {
+    const a = this.atributos(time, tick, true);
+    const novos = [];
+    for (let i = 0; i < MINERADOR_NUCLEO.quantos; i++) novos.push(this.#novo(time, a, i * MINERADOR_NUCLEO.espaco, true));
+    this.lista.push(...novos);
+    this.evento({ e: 'ondaNucleo', time, ids: novos.map((m) => m.id) });
+    return novos;
+  }
+
+  /** Um passo: tira os destruídos, solta os novos, move todos e tira os do Núcleo que já entregaram. */
   passo(tick) {
     this.lista = this.lista.filter((m) => m.vivo);
     for (const b of BASES) {
       const a = this.atributos(b.time, tick);
-      const ativos = this.lista.reduce((n, m) => n + (m.time === b.time), 0);
+      // Os do Núcleo contam além do limite.
+      const ativos = this.lista.reduce((n, m) => n + (m.time === b.time && !m.nucleo), 0);
       if (ativos >= a.maxAtivos) {
         // Sem vaga: o intervalo só começa a contar quando abrir uma.
         this.proximaSaida[b.time] = Math.max(this.proximaSaida[b.time], tick + a.intervaloTicks);
@@ -165,13 +212,14 @@ export class Mineradores {
         this.proximaSaida[b.time] = tick + a.intervaloTicks;
       }
     }
-    for (const m of this.lista) this.#mover(m, this.atributos(m.time, tick), tick);
+    for (const m of this.lista) this.#mover(m, this.atributos(m.time, tick, !!m.nucleo), tick);
+    if (this.lista.some((m) => m.sumiu)) this.lista = this.lista.filter((m) => !m.sumiu);
   }
 
   #mover(m, a, tick) {
     const s = m.ship;
-    // Durabilidade (melhoria ou bônus) mudou o HP máximo: a vida acompanha na
-    // mesma proporção, para o bônus não "curar" nem "ferir" de graça.
+    // Durabilidade (melhoria) mudou o HP máximo: a vida acompanha na
+    // mesma proporção, para a melhoria não "curar" nem "ferir" de graça.
     if (s.maxHp !== a.hp) {
       s.hp = (s.hp / s.maxHp) * a.hp;
       s.maxHp = a.hp;
@@ -225,8 +273,12 @@ export class Mineradores {
     if (m.estado === 'volta' && Math.abs(s.x - e.x) <= e.largura / 2 && Math.abs(s.z - e.z) <= e.profundidade / 2) {
       // O placar decide quanto a carga vale (dobra na fase final); o evento leva isso.
       const valor = this.entregar(m.time, m.carga) ?? m.carga;
-      this.evento({ e: 'entrega', id: m.id, time: m.time, carga: valor, x: s.x, y: s.y, z: s.z });
+      this.evento({ e: 'entrega', id: m.id, time: m.time, carga: valor, x: s.x, y: s.y, z: s.z, ...(m.nucleo ? { nucleo: 1 } : {}) });
       m.carga = 0;
+      if (m.nucleo) {
+        m.sumiu = true; // o do Núcleo entrega uma vez só e some
+        return;
+      }
       m.estado = 'ida';
       // Segue para o primeiro ponto da rota que fica adiante, rumo à doca.
       const fim = rota[ultimo];
