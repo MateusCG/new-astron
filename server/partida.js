@@ -1,5 +1,5 @@
 // Partida do 3 contra 3 (DESIGN-PARTIDA.md): dois times de até três jogadores,
-// cronômetro de 10 minutos e placar de minério. Vence quem tiver mais minério
+// cronômetro de 20 minutos e placar de minério. Vence quem tiver mais minério
 // entregue pelos mineradores quando o tempo acaba (empate é possível).
 //
 // Ciclo: 'esperando' (servidor vazio) → 'andamento' → 'fim' (tela de resultado por
@@ -12,7 +12,7 @@
 // Este módulo só guarda o estado e decide as viradas; quem reage a elas (tirar os
 // mineradores, renascer os jogadores) é o World em server/game.js.
 //
-// Fase final: nos últimos FASE_FINAL_S da partida (a partir dos 7:00 de 10:00) o
+// Fase final: nos últimos FASE_FINAL_S da partida (a partir dos 17:00 de 20:00) o
 // minério entregue vale MULT_FASE_FINAL vezes (em cima da carga que já vem com o
 // bônus de mineração). É a virada: um time atrás no placar ainda pode buscar se
 // proteger os mineradores no fim, e quem está na frente não pode relaxar. Só
@@ -21,10 +21,15 @@
 //
 // Modo de teste (duracaoS = Infinity, mundo de teste em server/index.js): a partida
 // nunca acaba nem entra na fase final; o snapshot avisa com semTempo.
+//
+// Relógio da partida (decorrido): os objetivos do mapa aparecem em tempos fixos da
+// partida (buff de suporte aos 1:30, plataformas aos 2:00, Núcleo aos 8:00 e aos
+// 15:00; server/objetivos.js), contados de quando ela começou. decorrido() vale
+// também no modo de teste (a partida não acaba, mas o relógio anda).
 
 import { DT } from '../shared/sim.js';
 
-export const DURACAO_PARTIDA_S = 600; // 10 minutos
+export const DURACAO_PARTIDA_S = 1200; // 20 minutos
 export const INTERVALO_FIM_S = 15; // tela de fim antes da próxima partida
 export const MAX_POR_TIME = 3;
 export const N_TIMES = 2;
@@ -44,6 +49,7 @@ export class Partida {
     this.estado = 'esperando';
     this.placar = [0, 0];
     this.vencedor = null; // time vencedor, -1 = empate, null = ainda jogando
+    this.inicioTick = 0; // tick em que a partida começou
     this.fimTick = 0; // tick em que o cronômetro zera
     this.novaTick = 0; // tick em que começa a próxima partida (no estado 'fim')
   }
@@ -67,6 +73,7 @@ export class Partida {
     this.estado = 'andamento';
     this.placar = [0, 0];
     this.vencedor = null;
+    this.inicioTick = tick;
     this.fimTick = tick + this.duracaoTicks;
     this.novaTick = 0;
     this.faseFinalAnunciada = false;
@@ -135,6 +142,14 @@ export class Partida {
   fracaoDecorrida(tick) {
     if (!this.emAndamento || this.semTempo) return 0;
     return Math.min(1, Math.max(0, 1 - (this.fimTick - tick) / this.duracaoTicks));
+  }
+
+  /**
+   * Segundos de partida já decorridos no `tick` (o relógio dos objetivos); 0 fora do
+   * andamento. Anda também no modo de teste.
+   */
+  decorrido(tick) {
+    return this.emAndamento ? Math.max(0, (tick - this.inicioTick) * DT) : 0;
   }
 
   /** Partida sem relógio (modo de teste): nunca acaba. */

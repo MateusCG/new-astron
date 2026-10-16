@@ -300,3 +300,20 @@ test('partida: empate e servidor vazio', () => {
   w.step();
   assert.equal(w.partida.estado, 'andamento');
 });
+
+test('partida: 20 minutos, fase final dos 17:00 aos 20:00 e o relógio decorrido', () => {
+  assert.equal(DURACAO_PARTIDA_S, 1200);
+  assert.equal(FASE_FINAL_S, 180);
+  const p = new Partida();
+  assert.equal(p.decorrido(0), 0, 'esperando: relógio parado');
+  p.comecar(100);
+  assert.equal(p.decorrido(100), 0);
+  assert.equal(p.decorrido(100 + 90 * SEGUNDO), 90);
+  assert.equal(p.fase(100 + 1019 * SEGUNDO), 'normal', 'aos 16:59 ainda normal');
+  assert.equal(p.fase(100 + 1020 * SEGUNDO), 'final', 'aos 17:00 começa a fase final');
+  assert.equal(p.restante(100 + 1020 * SEGUNDO), 180);
+  // Modo de teste: não acaba, mas o relógio dos objetivos anda.
+  const teste = new Partida({ duracaoS: Infinity });
+  teste.comecar(0);
+  assert.equal(teste.decorrido(600 * SEGUNDO), 600);
+});
