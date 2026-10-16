@@ -118,6 +118,7 @@ import { KRAKOR, N_KRAKOR, novaElite, renascerElite, iaElite } from './elites.js
 import { Golpes, INVISIVEL_VISTO_M } from './golpes.js';
 import { RECALL_S, motivoRecall } from '../shared/recall.js';
 import { Bots, nomeDeBot } from './bots.js';
+import { Visao } from './visao.js';
 
 export const TICK_HZ = 30;
 const SNAP_CADA = 2; // ticks entre snapshots (15 Hz)
@@ -285,6 +286,9 @@ export class World {
     this.torretas = new Torretas(this);
     this.servicos = new Servicos(this);
     this.bots = new Bots(this, { zonaSegura: ZONA_SEGURA });
+    // Visão do time (névoa de guerra): o snapshot de cada jogador só leva o que algum
+    // aliado enxerga (server/visao.js, aplicado em snapshotPara).
+    this.visao = new Visao(this);
     this.danoMultDrone = DRONE.danoMult; // tiro de drone tira menos (server/golpes.js lê)
     this.golpes = new Golpes(this, {
       ferir: (alvo, dano, autor, ev, opcoes) => this.#ferir(alvo, dano, autor, ev, opcoes),
@@ -1319,6 +1323,8 @@ export class World {
         jogadores: this.#jogadoresSnap(),
       };
     }
+    // Visão do time: só o que algum aliado enxerga (server/visao.js); a camuflagem vem por cima.
+    ents = this.visao.entidades(j, ents);
     // Invisível (Camuflagem) sai da lista de quem é do outro time, salvo de perto.
     const ocultos = this.#ocultosPara(j);
     if (ocultos.size) ents = ents.filter((e) => !ocultos.has(e.id));
@@ -1342,11 +1348,11 @@ export class World {
       obj: this.cacheObj.obj,
       torretas: this.cacheObj.torretas,
       melhorias: this.servicos.niveis[j.time], // níveis das melhorias dos mineradores do time
-      minas: this.cacheObj.minas,
-      guiados: this.cacheObj.guiados,
+      minas: this.visao.minas(j, this.cacheObj.minas),
+      guiados: this.visao.guiados(j, this.cacheObj.guiados),
       jogadores: this.cacheObj.jogadores,
       ents,
-      ev: eventos,
+      ev: this.visao.eventos(j, eventos),
     };
   }
 

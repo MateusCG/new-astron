@@ -234,3 +234,48 @@ export function baseEnxerga(time, x, z) {
   const b = BASES[time];
   return !!b && enxerga(b.x, b.z, x, z, VISAO_BASE);
 }
+
+// ---------- Olhos do time (frente Visão, fase 2) ----------
+//
+// O time enxerga pela soma dos olhos dele: as naves de jogador vivas (VISAO_RAIO),
+// os mineradores e as escoltas (VISAO_MINERADOR: menor, para o minerador avisar que
+// tem gente chegando sem virar um radar que cobre a lane inteira), as torres
+// sentinela de pé (VISAO_TORRETA) e a base (VISAO_BASE). O servidor monta os olhos
+// pelo mundo (server/visao.js) e o cliente pelo snapshot (public/js/nevoa.js), e os
+// dois perguntam a algumOlhoVe, então o que a névoa mostra é o que o servidor manda.
+
+/** Raio de visão de minerador e escolta do time (m). */
+export const VISAO_MINERADOR = 300;
+
+const PERTO2 = VISAO_ASTEROIDE_PERTO * VISAO_ASTEROIDE_PERTO;
+
+/**
+ * Um olho de visão em (x, z) com `raio`: guarda o raio² e o campo de asteroides em
+ * que ele está (contado uma vez, não a cada alvo).
+ */
+export function olho(x, z, raio) {
+  return { x, z, raio, r2: raio * raio, campo: emAsteroides(x, z) };
+}
+
+/** Os olhos fixos da base do `time` (hoje um só, no centro). */
+export function olhosDaBase(time) {
+  const b = BASES[time];
+  return b ? [olho(b.x, b.z, VISAO_BASE)] : [];
+}
+
+/**
+ * Algum olho da lista enxerga o ponto (x, z)? A mesma regra de `enxerga` (raio,
+ * asteroide, rocha e mineradora), com o teste barato (distância) antes do caro.
+ */
+export function algumOlhoVe(olhos, x, z) {
+  const campo = emAsteroides(x, z);
+  for (const o of olhos) {
+    const dx = x - o.x;
+    const dz = z - o.z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 > o.r2) continue;
+    if (campo && o.campo !== campo && d2 > PERTO2) continue;
+    if (!bloqueiaVisao(o.x, o.z, x, z)) return true;
+  }
+  return false;
+}

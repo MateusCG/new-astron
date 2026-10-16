@@ -113,7 +113,10 @@ test('computador: o snapshot lista os jogadores dos dois times, com os computado
   assert.equal(bot.time, 1 - h.time);
   assert.match(bot.nome, NICK);
   assert.equal(snap.jogadores.find((j) => j.id === h.id).ia, undefined);
-  const ent = snap.ents.find((e) => e.id === bot.id);
+  // Na base dele o computador inimigo está fora da visão (névoa): perto do humano, aparece.
+  const nave = w.players.get(bot.id).ship;
+  Object.assign(nave, { x: h.ship.x + 100, z: h.ship.z });
+  const ent = w.snapshotPara(h, w.entidades(), []).ents.find((e) => e.id === bot.id);
   assert.equal(ent.tipo, 'jogador', 'na tela é uma nave de jogador como outra qualquer');
 });
 
