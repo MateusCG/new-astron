@@ -190,8 +190,8 @@
 //         s de recarga; no A, prog (0 a 1), quem (time tomando) e falta (s); no B e
 //         no C, vida (0 a 1) da torre ou do guardião. Torre B em 'recarga' está
 //         caída: o cliente a tira da física (definirObstaculoAtivo).
-//   torretas: [{id, time, vida, max, nivel, viva, alvo?, obra?}]   as oito torretas do
-//         corredor (server/torretas.js; posição em TORRETAS de shared/terrain.js):
+//   torretas: [{id, time, vida, max, nivel, viva, alvo?, obra?}]   as oito torres
+//         sentinela da lane (server/torretas.js; posição em TORRETAS de shared/terrain.js):
 //         vida e max em HP, nivel = nível do time dono (1 a 3), viva = de pé e
 //         sólida (false: o cliente a tira da física com definirObstaculoAtivo);
 //         alvo = id na mira (só se mira alguém); obra = reconstrução paga

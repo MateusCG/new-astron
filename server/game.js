@@ -171,7 +171,7 @@ const PROTECAO_TICKS = 3 * TICK_HZ; // invulnerável logo depois de nascer
 const RECALL_TICKS = Math.round(RECALL_S * TICK_HZ);
 
 // Monstros Vorax: caçadores que, provocados, vêm atrás de quem os atacou, de qualquer
-// canto do mapa, contornando as mesas de rocha (server/navegacao.js); sem raiva,
+// canto do mapa, contornando as rochas (server/navegacao.js); sem raiva,
 // patrulham a jungle como os Arnosh. Atacam com as garras, de
 // perto, e não atiram. Mais lentos que qualquer nave de jogador (a mais lenta faz
 // ~50 m/s sem boost), para dar para fugir ou virar e brigar. Não entram na zona

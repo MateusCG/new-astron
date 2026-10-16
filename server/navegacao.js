@@ -1,13 +1,13 @@
 // Navegação dos monstros pelo mapa (só no servidor).
 //
-// Ir em linha reta até o jogador prende o monstro na primeira rocha: o M1 é um
-// deserto aberto cheio de mesas de pedra. Por isso o mapa vira uma grade de CELULA
-// metros, calculada uma vez a partir do relevo, com a mesma regra de rampa da nave
-// (MAX_SLOPE de shared/sim.js): de uma célula para a vizinha só se passa se a subida
-// não for íngreme demais, e descer é sempre livre. A altura é a de alturaSolida
-// (terreno ou construção), então rochas, muralha, cristais do minério e torres dos
-// objetivos entram do mesmo jeito, sem lista à parte do que é obstáculo. A torre do
-// objetivo B entra sempre de pé (alturaSolida com `todos`), mesmo que tenha caído
+// Ir em linha reta até o jogador prende o monstro na primeira rocha: a jungle do
+// mapa tem rochas, paredes em L e a mineradora no meio da lane. Por isso o mapa vira
+// uma grade de CELULA metros, calculada uma vez a partir do relevo, com a mesma
+// regra de rampa da nave (MAX_SLOPE de shared/sim.js): de uma célula para a vizinha
+// só se passa se a subida não for íngreme demais, e descer é sempre livre. A altura é a de alturaSolida
+// (terreno ou construção), então rochas, borda, mineradora e torres entram do mesmo
+// jeito, sem lista à parte do que é obstáculo. Torre que cai (a do buff de suporte,
+// as torretas) entra sempre de pé (alturaSolida com `todos`), mesmo que tenha caído
 // quando a grade foi montada: assim a grade não depende da hora em que foi feita.
 //
 // Sobre essa grade roda um Dijkstra com várias fontes (os jogadores caçáveis), que dá,
@@ -23,8 +23,8 @@
 //   ele alcança em linha livre (até OLHAR_CELULAS): a curva sai suave.
 // - A zona segura de cada base entra na grade como bloqueada, para nenhum caminho
 //   passar por dentro dela.
-// - A grade é retangular (MAP_HALF_X × MAP_HALF_Z): com células de 10 m são 300 × 200
-//   células, umas 60 mil, e a montagem (240 mil alturas) leva menos de meio
+// - A grade é retangular (MAP_HALF_X × MAP_HALF_Z): com células de 10 m são 300 × 224
+//   células, umas 67 mil, e a montagem (270 mil alturas) leva menos de meio
 //   segundo, uma vez por processo.
 
 import { MAP_HALF_X, MAP_HALF_Z, BASES } from '../shared/terrain.js';
