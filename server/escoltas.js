@@ -3,10 +3,10 @@
 // Cada time tem ESCOLTA.maxAtivos escolta(s): uma mini-nave armada que sai da base
 // como os mineradores (de ESCOLTA.intervaloS em intervalos, contado a partir de
 // quando abriu a vaga; a primeira sai ESCOLTA.primeiraS depois do começo da
-// partida, logo atrás do primeiro minerador) e anda com eles pelo corredor, sem
+// partida, logo atrás do primeiro minerador) e anda com eles pela lane, sem
 // minerar:
 // - Com minerador do time no mapa, acompanha o mais exposto (o mais longe da própria
-//   base), do lado de fora do corredor (ESCOLTA.lado m para fora da faixa dele) e um
+//   base), do lado de fora da lane (ESCOLTA.lado m para fora da faixa dele) e um
 //   pouco atrás; quando ele para no depósito, ela para do lado.
 // - Sem minerador, faz a ronda da rota dos mineradores (ROTAS[time], faixa de cada
 //   sentido, como eles), da base até a coroa do minério e de volta.
@@ -26,7 +26,7 @@
 // (x, z) e `time`, e ela vai nas entidades do snapshot com `tipo: 'escolta'`.
 
 import { createShip, stepShip, createBullet, forward, velocidadeBase, DT, WEAPONS } from '../shared/sim.js';
-import { BASES, CORREDOR, ROTAS } from '../shared/terrain.js';
+import { BASES, LANE, ROTAS } from '../shared/terrain.js';
 import { pontoRota, anguloEntre, yawPara } from './mineradores.js';
 import { linhaDeTiro, alvosDoTime } from './torretas.js';
 
@@ -43,7 +43,7 @@ export const ESCOLTA = {
   dano: 6, // por tiro
   cadenciaS: 0.6,
   kind: 'laser', // forma do projétil (a cor vem do time no cliente)
-  lado: 14, // m para fora do corredor, ao lado do minerador
+  lado: 14, // m para fora da lane, ao lado do minerador
   atras: 6, // m atrás do minerador
 };
 const CADENCIA_TICKS = Math.round(ESCOLTA.cadenciaS / DT);
@@ -145,9 +145,9 @@ export class Escoltas {
       // Lugar dela: do lado de fora da faixa do minerador, um pouco atrás.
       const ms = m.ship;
       const f = forward(ms.yaw);
-      const lado = Math.sign(ms.x - CORREDOR.x) || 1;
-      const px = ms.x + lado * ESCOLTA.lado - f.x * ESCOLTA.atras;
-      const pz = ms.z - f.z * ESCOLTA.atras;
+      const lado = Math.sign(ms.z - LANE.z) || 1;
+      const px = ms.x - f.x * ESCOLTA.atras;
+      const pz = ms.z + lado * ESCOLTA.lado - f.z * ESCOLTA.atras;
       vx = ms.vx + (px - s.x) * SEGUIR;
       vz = ms.vz + (pz - s.z) * SEGUIR;
       olhar = ms.yaw;

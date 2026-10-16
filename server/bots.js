@@ -47,7 +47,7 @@
 // cache; o de alvo que anda é refeito quando ele se move). Preso numa quina, dá ré.
 
 import { DT, sanitizeInput, versaoArma, velocidadeBase, ARMAS, WEAPONS } from '../shared/sim.js';
-import { BASES, MINERIO, AREAS_POUSO, TORRETAS } from '../shared/terrain.js';
+import { BASES, MINERADORA, LANE, AREAS_POUSO, TORRETAS } from '../shared/terrain.js';
 import { naveDe } from '../shared/naves.js';
 import { ITENS, precoEvoluirInst, naNave } from '../shared/loja.js';
 import { EQUIPAMENTOS, equipamentosAVenda } from '../shared/equipamentos.js';
@@ -81,8 +81,8 @@ export const IA = {
   krakorNivel: 7, // caça Krakor a partir daqui (com vida cheia)
   cacaMax: 1400, // m: monstro mais longe que isso não vale a viagem
   cacaPerto: 450, // m: no corredor sem minerador, caça monstro até aqui
-  espreitaX: 85, // m do eixo do corredor onde espera os mineradores
-  espreitaZ: 30, // m para o lado do outro time, a partir do minério
+  espreitaX: 85, // m do eixo da lane onde espera os mineradores
+  espreitaZ: 60, // m além da face da mineradora, do lado do outro time
   alvoMineradorMax: 650, // m da espreita: minerador mais longe não vale
   torretaFolga: 5, // m além do alcance da torreta inimiga (a coroa do minério fica a ~176 m dela)
   torretaNivel: 12,
@@ -421,11 +421,11 @@ export class Bots {
     return j.nivel >= nivel || decorrido >= IA.corredorS;
   }
 
-  /** Onde esperar os mineradores do outro time: do lado do minério deles, fora das torretas. */
+  /** Onde esperar os mineradores do outro time: perto da doca deles, fora das torretas. */
   #espreita(j) {
     const outro = BASES[1 - j.time];
-    const sinal = Math.sign(outro.z - MINERIO.z) || 1;
-    return { x: MINERIO.x + IA.espreitaX * j.ia.lado, z: MINERIO.z + sinal * IA.espreitaZ };
+    const sinal = Math.sign(outro.x - MINERADORA.x) || 1;
+    return { x: MINERADORA.x + sinal * (MINERADORA.meiaX + IA.espreitaZ), z: LANE.z + IA.espreitaX * j.ia.lado };
   }
 
   /** Minerador ou escolta do outro time que dá para derrubar sem entrar nas torretas. */

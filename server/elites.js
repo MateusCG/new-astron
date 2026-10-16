@@ -19,14 +19,14 @@
 //   Muito HP, atira um leque de três. Derrotá-lo toma o objetivo C
 //   (server/objetivos.js), e ele só volta depois da recarga do objetivo.
 //
-// Onde não entram: nas bases (zona segura e uma folga) nem na faixa do corredor
+// Onde não entram: nas bases (zona segura e uma folga) nem na faixa da lane
 // dos mineradores. O covil do Krakor já nasce longe dos dois, o ponto de patrulha
 // nunca cai neles e, se um elite estiver dentro, volta para o covil. Quem está no
 // corredor ainda pode levar tiro de um Krakor na beira dele (a faixa é dos
 // mineradores, não um esconderijo).
 
 import { velocidadeBase, createShip, DT } from '../shared/sim.js';
-import { BASES, CORREDOR, ARENA_C, noMapaAberto } from '../shared/terrain.js';
+import { BASES, LANE, noMapaAberto } from '../shared/terrain.js';
 
 /** Elite do mundo aberto. */
 export const KRAKOR = {
@@ -42,7 +42,7 @@ export const KRAKOR = {
   territorio: 260,
   renascerS: 30,
   folgaBase: 300, // m além do raio da base onde o covil não nasce
-  folgaCorredor: 180, // m além da beira do corredor onde o covil não nasce
+  folgaCorredor: 180, // m além da beira da lane onde o covil não nasce
   passivo: true, // só ataca quem o atacou
 };
 /** Guardião da arena dos objetivos C. */
@@ -57,7 +57,7 @@ export const GUARDIAO = {
   intervaloS: 1.6,
   danoMult: 0.5, // ~21 por projétil
   leque: [0.12, 0, -0.12], // rad: três projéteis por disparo
-  territorio: ARENA_C - 15,
+  territorio: 45, // m: a arena do antigo objetivo C (60 m) menos uma folga
 };
 export const N_KRAKOR = 8;
 const ELITE_PERTO = 70; // m: mais perto que isso do alvo, para de avançar e só atira
@@ -66,7 +66,7 @@ const ELITE_PATRULHA_TROCA_TICKS = 8 / DT;
 const ELITE_PRESO_TICKS = 1.5 / DT;
 const ELITE_RE_TICKS = 0.8 / DT;
 const FOLGA_PROIBIDA_BASE = 80; // m além da zona segura
-const FOLGA_PROIBIDA_CORREDOR = 30; // m além da beira do corredor
+const FOLGA_PROIBIDA_LANE = 30; // m além da beira da lane
 const VEL_PLASMA = 190; // m/s, para mirar adiantado (WEAPONS.plasma.vel)
 
 function anguloEntre(a, b) {
@@ -76,9 +76,9 @@ function anguloEntre(a, b) {
   return d;
 }
 
-/** Ponto onde elite não entra: bases (com folga) e a faixa do corredor. */
+/** Ponto onde elite não entra: bases (com folga) e a faixa da lane. */
 export function proibidoParaElite(x, z, zonaSegura) {
-  if (Math.abs(x - CORREDOR.x) < CORREDOR.largura / 2 + FOLGA_PROIBIDA_CORREDOR) return true;
+  if (Math.abs(z - LANE.z) < LANE.meiaLargura + FOLGA_PROIBIDA_LANE) return true;
   return BASES.some((b) => Math.hypot(x - b.x, z - b.z) < zonaSegura + FOLGA_PROIBIDA_BASE);
 }
 

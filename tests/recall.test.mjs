@@ -17,7 +17,7 @@ function mundo() {
   return w;
 }
 
-/** Leva a nave de `j` para o corredor, longe das duas bases, parada. */
+/** Leva a nave de `j` para a coluna central (fora da mineradora), longe das duas bases, parada. */
 function noCorredor(j, z = 150) {
   Object.assign(j.ship, { x: 0, z, vx: 0, vz: 0, yaw: 0, pousado: false });
   j.protegidoAte = 0;
@@ -71,7 +71,7 @@ test('recall: completa e leva para a base do time certo mantendo vida, energia e
   for (let i = 0; i < 5; i++) w.step();
   assert.equal(j.recall, null);
   assert.ok(distBase(j) < 80, `chegou na base do time 1 (a ${distBase(j).toFixed(0)} m)`);
-  assert.equal(j.ship.yaw, Math.PI, 'voltada para o corredor, como quem renasce no time 1');
+  assert.equal(j.ship.yaw, Math.PI / 2, 'voltada para a lane, como quem renasce no time 1');
   assert.equal(j.ship.hp, 77, 'a vida fica como estava');
   assert.ok(j.ship.en >= 20, 'a energia não zera');
   assert.equal(j.nivel, 4);

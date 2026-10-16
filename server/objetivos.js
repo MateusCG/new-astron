@@ -23,12 +23,17 @@
 //   lá. O XP é o do abate, RECOMPENSA.guardiao.
 //   Ele renasce, com HP cheio, no fim da recarga.
 //
+// Mapa novo (Stage 6): OBJETIVOS está vazio na transição, então este módulo roda
+// sem objetivo nenhum até a frente Objetivos trocá-lo pelas regras novas (buffs,
+// plataformas de pouso, Núcleo). TORRE_B aponta para a torre de suporte só para o
+// código antigo do B continuar compilando.
+//
 // Times: o jogador tem `j.time` (0 ou 1) quando a partida de times existir; até lá
 // vale `j.time ?? 0`.
 
 import { OBJETIVOS } from '../shared/terrain.js';
 import { DT, VEL_TOQUE, SHIP_RADIUS } from '../shared/sim.js';
-import { TORRE_B, OBSTACULOS, definirObstaculoAtivo } from '../shared/obstaculos.js';
+import { TORRE_SUPORTE as TORRE_B, OBSTACULOS, definirObstaculoAtivo } from '../shared/obstaculos.js';
 import { ganharXp, XP_OBJETIVO } from './progressao.js';
 import { novaElite, renascerElite } from './elites.js';
 

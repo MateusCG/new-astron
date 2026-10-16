@@ -2,8 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World, ZONA_SEGURA } from '../server/game.js';
 import { createShip } from '../shared/sim.js';
-import { BASE, BASES } from '../shared/terrain.js';
+import { BASES } from '../shared/terrain.js';
 import { MapaNavegacao } from '../server/navegacao.js';
+import { CAMPO } from './lugares.mjs';
 
 // rng com semente: os testes não dependem da sorte do Math.random.
 function rngFixo(semente = 1) {
@@ -13,7 +14,7 @@ function rngFixo(semente = 1) {
 
 // Distância até a base mais perto (as duas têm zona segura).
 const distBase = (s) => Math.min(...BASES.map((b) => Math.hypot(s.x - b.x, s.z - b.z)));
-const CORREDOR = { x: BASE.x, z: BASE.z - ZONA_SEGURA - 250 }; // corredor dos mineradores, fora da base
+const CORREDOR = CAMPO; // jungle do time 0, fora da base
 
 // Os monstros da jungle são passivos: só caçam quem os atacou. Nos testes que medem a
 // caça, o monstro já começa com raiva do jogador.
@@ -25,8 +26,6 @@ test('monstros: o snapshot diz o tipo de cada entidade', () => {
   const tipos = w.entidades().map((e) => [e.tipo, e.drone]);
   assert.deepEqual(tipos.sort(), [
     ['arnosh', true],
-    ['guardiao', true], // um em cada objetivo C
-    ['guardiao', true],
     ['jogador', false],
     ['krakor', true],
     ['vorax', true],
@@ -40,8 +39,8 @@ test('monstros: Vorax solto longe contorna as rochas até o jogador fora da base
   j.ship = createShip('bellico', CORREDOR.x, CORREDOR.z, 0);
   j.protegidoAte = Infinity; // só medimos a chegada
   const m = w.monstros[0];
-  // No oeste do mapa, a 1,3 km, atrás de uma mesa: em linha reta bateria na rocha.
-  const ini = { x: -1300, z: 100 };
+  // Em cima, a 1,1 km, atrás da rocha do quadrante: em linha reta bateria nela.
+  const ini = { x: -450, z: -1000 };
   assert.equal(new MapaNavegacao({ raioBloqueio: ZONA_SEGURA }).linhaLivre(ini.x, ini.z, j.ship.x, j.ship.z), false, 'tem rocha no meio');
   m.ship = createShip('mechan', ini.x, ini.z, 0);
   provocar(m, j);

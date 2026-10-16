@@ -8,15 +8,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import WebSocket from 'ws';
-import { World, ZONA_SEGURA } from '../server/game.js';
+import { World } from '../server/game.js';
 import { iniciar } from '../server/index.js';
 import { hpMaxDoNivel } from '../server/progressao.js';
 import { createShip, IDX_ARMA, DT, armasIniciais, versaoArma } from '../shared/sim.js';
 import { naveDe } from '../shared/naves.js';
-import { BASE, SERVICOS, CORREDOR } from '../shared/terrain.js';
+import { SERVICOS, CORREDOR } from '../shared/terrain.js';
 import { ITENS, REPARO_CURA, ITEM_CARGA_MAX, armasAVenda, precoArma, itemDaLoja } from '../shared/loja.js';
 import { armasDisponiveis, WEAPONS, ARMAS } from '../shared/armas.js';
 import { versaoEquip, EQUIPAMENTOS, ORDEM_EQUIP } from '../shared/equipamentos.js';
+import { CAMPO } from './lugares.mjs';
 
 const SEGUNDO = 30;
 // O piloto dos testes é Bellico Assault: de fábrica o Feixe Bellico (Z) e a Vulcan
@@ -184,9 +185,9 @@ function danoDeUmLaser(equipDeB) {
   b.ouro = 1000;
   pousar(b, 'loja');
   for (const item of equipDeB) assert.equal(comprarEquipar(w, b, item).ok, true, item);
-  const z = BASE.z - ZONA_SEGURA - 120;
-  Object.assign(a.ship, createShip('acron', BASE.x, z, 0), { time: a.time, armas: a.ship.armas });
-  Object.assign(b.ship, { x: BASE.x, z: z - 20, y: a.ship.y, vx: 0, vz: 0, pousado: false });
+  const z = CAMPO.z;
+  Object.assign(a.ship, createShip('acron', CAMPO.x, z, 0), { time: a.time, armas: a.ship.armas });
+  Object.assign(b.ship, { x: CAMPO.x, z: z - 20, y: a.ship.y, vx: 0, vz: 0, pousado: false });
   a.protegidoAte = b.protegidoAte = 0;
   const hp = b.ship.hp;
   w.pushInput(a.id, { s: 1, f1: true });

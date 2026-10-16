@@ -1,4 +1,4 @@
-// Torretas do corredor (server/torretas.js, TORRETAS em shared/terrain.js) e o
+// Torres sentinela da lane (server/torretas.js, TORRETAS em shared/terrain.js) e o
 // nível/reconstrução delas na Evolução (server/servicos.js, shared/evolucao.js):
 // posição no mapa, tiro só em inimigo, dano só de jogador inimigo, queda (física e
 // recompensa), Evolução e partida nova.
@@ -9,7 +9,7 @@ import { World } from '../server/game.js';
 import { TORRETA, linhaDeTiro } from '../server/torretas.js';
 import { RECOMPENSA, xpParaNivel } from '../server/progressao.js';
 import { createShip, createBullet, WEAPONS, HOVER, SHIP_RADIUS, IDX_ARMA, versaoArma } from '../shared/sim.js';
-import { TORRETAS, TORRETA_LADO, BASES, CORREDOR, MINERIO, ROTAS, SERVICOS, heightAt } from '../shared/terrain.js';
+import { TORRETAS, TORRETA_LADO, BASES, LANE, MINERADORA, ROTAS, SERVICOS, heightAt } from '../shared/terrain.js';
 import { OBSTACULOS, TORRETA as PLANTA, alturaSolida, obstaculoAtivo } from '../shared/obstaculos.js';
 import { FAIXA_MINERADOR } from '../server/mineradores.js';
 import { MELHORIA_TORRETAS, PRECO_RECONSTRUIR, TORRETA_HP_POR_NIVEL, TORRETA_DANO_POR_NIVEL, TORRETA_NIVEL_MAX } from '../shared/evolucao.js';
@@ -43,25 +43,25 @@ function pousar(j, servico, time = j.time) {
 const torreta = (w, id) => w.torretas.torreta(id);
 const tirosDeTorreta = (ev) => ev.filter((e) => e.e === 'tiro' && e.fonte === 'torreta');
 
-test('torretas: quatro por time, duas de cada lado, fora da estrada, na metade do time e simétricas', () => {
+test('torretas: quatro por time, duas de cada lado, fora da lane, na metade do time e simétricas', () => {
   assert.equal(TORRETAS.length, 8);
   for (const time of [0, 1]) {
     const minhas = TORRETAS.filter((t) => t.time === time);
     assert.equal(minhas.length, 4);
-    assert.equal(minhas.filter((t) => t.x < CORREDOR.x).length, 2, 'duas de cada lado');
+    assert.equal(minhas.filter((t) => t.z < LANE.z).length, 2, 'duas de cada lado');
     const b = BASES[time];
     for (const t of minhas) {
-      assert.ok(Math.abs(t.x - CORREDOR.x) > CORREDOR.largura / 2 + PLANTA.raio, `${t.id} fora da estrada`);
-      assert.ok(Math.abs(t.x - CORREDOR.x) - PLANTA.raio - SHIP_RADIUS > FAIXA_MINERADOR + 10, `${t.id} longe da faixa dos mineradores`);
-      // Entre a base (fora da zona dela) e o minério, do lado do time.
-      assert.ok(Math.sign(t.z - MINERIO.z) === Math.sign(b.z - MINERIO.z), `${t.id} na metade do time`);
-      assert.ok(Math.abs(t.z - MINERIO.z) > MINERIO.raio + 100 && Math.abs(t.z - b.z) > b.raio, `${t.id} entre a base e o minério`);
+      assert.ok(Math.abs(t.z - LANE.z) > LANE.meiaLargura + PLANTA.raio, `${t.id} fora da lane`);
+      assert.ok(Math.abs(t.z - LANE.z) - PLANTA.raio - SHIP_RADIUS > FAIXA_MINERADOR + 10, `${t.id} longe da faixa dos mineradores`);
+      // Entre a base (fora da zona dela) e a mineradora, do lado do time.
+      assert.ok(Math.sign(t.x - MINERADORA.x) === Math.sign(b.x - MINERADORA.x), `${t.id} na metade do time`);
+      assert.ok(Math.abs(t.x - MINERADORA.x) > MINERADORA.meiaX + 100 && Math.abs(t.x - b.x) > b.raio, `${t.id} entre a base e a mineradora`);
       const g = TORRETAS.find((o) => o.time !== time && o.x === -t.x && o.z === -t.z);
       assert.ok(g, `${t.id} tem gêmea girada 180°`);
       assert.equal(g.id.slice(3), t.id.slice(3), 'mesmo número');
     }
   }
-  assert.equal(TORRETA_LADO, CORREDOR.largura / 2 + 12);
+  assert.equal(TORRETA_LADO, 171);
 });
 
 test('torretas: são sólidas (planta única) e não bloqueiam a rota dos mineradores', () => {
@@ -75,8 +75,8 @@ test('torretas: são sólidas (planta única) e não bloqueiam a rota dos minera
     for (let i = 0; i + 1 < rota.length; i++) {
       for (let k = 0; k <= 10; k++) {
         for (const lado of [-1, 1]) {
-          const x = rota[i].x + lado * FAIXA_MINERADOR + (rota[i + 1].x - rota[i].x) * (k / 10);
-          const z = rota[i].z + (rota[i + 1].z - rota[i].z) * (k / 10);
+          const x = rota[i].x + (rota[i + 1].x - rota[i].x) * (k / 10);
+          const z = rota[i].z + lado * FAIXA_MINERADOR + (rota[i + 1].z - rota[i].z) * (k / 10);
           const livre = OBSTACULOS.filter((o) => o.grupo === 'torreta').every((o) => Math.hypot(o.x - x, o.z - z) > o.raio + SHIP_RADIUS + 10);
           assert.ok(livre, `rota do time ${time} passa longe das torretas em (${x}, ${z.toFixed(0)})`);
         }

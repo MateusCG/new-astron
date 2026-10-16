@@ -9,7 +9,7 @@ import { World } from '../server/game.js';
 import { ESCOLTA } from '../server/escoltas.js';
 import { RECOMPENSA } from '../server/progressao.js';
 import { createShip } from '../shared/sim.js';
-import { BASES, CORREDOR, MINERIO, heightAt } from '../shared/terrain.js';
+import { BASES, LANE, MINERADORA, DOCAS, heightAt } from '../shared/terrain.js';
 import { alturaSolida } from '../shared/obstaculos.js';
 
 const SEGUNDO = 30;
@@ -41,7 +41,7 @@ function esperarEscolta(w, depoisS = 0) {
   for (let i = 0; i < (ESCOLTA.primeiraS + depoisS) * SEGUNDO + 2; i++) w.step();
 }
 
-test('escolta: sai da base depois do começo e anda pelo corredor junto com os mineradores', () => {
+test('escolta: sai da base depois do começo e anda pela lane junto com os mineradores', () => {
   const { w } = mundo();
   assert.equal(w.escoltas.lista.length, 0, 'ainda não saiu');
   esperarEscolta(w);
@@ -55,24 +55,24 @@ test('escolta: sai da base depois do começo e anda pelo corredor junto com os m
     assert.equal(ent.time, time);
   }
   const e0 = escoltaDo(w, 0);
-  let maisPerto = Infinity;
+  let maisPerto = -Infinity;
   let pertoDoMinerador = 0;
-  for (let i = 0; i < 40 * SEGUNDO; i++) {
+  for (let i = 0; i < 50 * SEGUNDO; i++) {
     w.step();
     const s = e0.ship;
-    assert.ok(Math.abs(s.x - CORREDOR.x) < CORREDOR.largura / 2, `no corredor (x ${s.x.toFixed(1)})`);
-    assert.ok(s.z > MINERIO.z, 'na metade do time 0');
+    assert.ok(Math.abs(s.z - LANE.z) < LANE.meiaLargura, `na lane (z ${s.z.toFixed(1)})`);
+    assert.ok(s.x < MINERADORA.x, 'na metade do time 0');
     assert.equal(alturaSolida(s.x, s.z), heightAt(s.x, s.z), 'não entra em construção');
-    maisPerto = Math.min(maisPerto, s.z);
+    maisPerto = Math.max(maisPerto, s.x);
     const m = w.mineradores.lista.find((x) => x.vivo && x.time === 0);
     if (m && Math.hypot(m.ship.x - s.x, m.ship.z - s.z) < 30) pertoDoMinerador++;
   }
-  assert.ok(maisPerto < MINERIO.z + 120, `chegou perto do minério (z ${maisPerto.toFixed(0)})`);
-  assert.ok(pertoDoMinerador > 20 * SEGUNDO, `andou colada no minerador (${(pertoDoMinerador / SEGUNDO).toFixed(0)} s)`);
+  assert.ok(maisPerto > DOCAS[0].x - 120, `chegou perto da doca (x ${maisPerto.toFixed(0)})`);
+  assert.ok(pertoDoMinerador > 25 * SEGUNDO, `andou colada no minerador (${(pertoDoMinerador / SEGUNDO).toFixed(0)} s)`);
   assert.equal(w.escoltas.lista.filter((e) => e.time === 0).length, ESCOLTA.maxAtivos, 'uma por time');
 });
 
-test('escolta: sem minerador, faz a ronda da rota (vai ao minério e volta)', () => {
+test('escolta: sem minerador, faz a ronda da rota (vai à doca e volta)', () => {
   const { w } = mundo();
   w.mineradores.passo = () => {};
   w.mineradores.limpar();
@@ -80,12 +80,13 @@ test('escolta: sem minerador, faz a ronda da rota (vai ao minério e volta)', ()
   const e = escoltaDo(w, 1);
   let menorDist = Infinity;
   let voltou = false;
-  for (let i = 0; i < 60 * SEGUNDO; i++) {
+  const doca = DOCAS[1];
+  for (let i = 0; i < 75 * SEGUNDO; i++) {
     w.step();
-    menorDist = Math.min(menorDist, Math.abs(e.ship.z - MINERIO.z));
-    if (menorDist < 80 && Math.abs(e.ship.z - BASES[1].z) < 150) voltou = true;
+    menorDist = Math.min(menorDist, Math.hypot(e.ship.x - doca.x, e.ship.z - doca.z));
+    if (menorDist < 40 && Math.abs(e.ship.x - BASES[1].x) < 150) voltou = true;
   }
-  assert.ok(menorDist < 80, `foi até o minério (${menorDist.toFixed(0)} m)`);
+  assert.ok(menorDist < 40, `foi até a doca (${menorDist.toFixed(0)} m)`);
   assert.ok(voltou, 'e voltou para perto da base');
 });
 

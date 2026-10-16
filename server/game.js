@@ -91,7 +91,7 @@
 // fila de comandos segue, e o cliente reconcilia o salto pelo `me`.
 
 import { DT, WEAPONS, createShip, sanitizeInput, stepShip, VEL_TOQUE, velocidadeBase, pousadaNaBase, BASE_CURA_FRAC } from '../shared/sim.js';
-import { BASE, BASES, CORREDOR } from '../shared/terrain.js';
+import { BASE, BASES, LANE } from '../shared/terrain.js';
 import { pontoAberto } from '../shared/obstaculos.js';
 import { racaJogavel, RACAS_JOGAVEIS, classeOuPadrao } from '../shared/naves.js';
 import { MapaNavegacao } from './navegacao.js';
@@ -158,12 +158,12 @@ const TESTE_XP = 100;
 const RAIVA_TICKS = RAIVA_S * TICK_HZ;
 // visao: até onde o Arnosh provocado ainda persegue quem o atacou.
 const DRONE = { nome: 'Arnosh', hp: 90, visao: 400, alcance: 210, danoMult: 0.5 };
-// Arnosh patrulhando não entra na faixa do corredor (é dos mineradores): dá meia
-// volta a esta distância do meio dele. Caçando um jogador, entra.
-const DRONE_LIMITE_CORREDOR = CORREDOR.largura / 2 + 40;
-// Zona segura: em volta da base do PRÓPRIO time ninguém leva dano. Drones não
-// perseguem quem está em base nenhuma (nem entram nelas).
-export const ZONA_SEGURA = BASE.raio + 30;
+// Arnosh patrulhando não entra na faixa da lane (é dos mineradores): dá meia volta a
+// esta distância do eixo dela. Caçando um jogador, entra.
+const DRONE_LIMITE_LANE = LANE.meiaLargura + 40;
+// Zona segura: em volta da base do PRÓPRIO time ninguém leva dano (o raio de BASES).
+// Drones não perseguem quem está em base nenhuma (nem entram nelas).
+export const ZONA_SEGURA = BASE.raio;
 // Drone que chega a esta distância de uma base (patrulhando ou caçando) dá meia
 // volta para o mundo aberto: as bases são território dos jogadores.
 const DRONE_LIMITE_BASE = ZONA_SEGURA + 60;
@@ -309,17 +309,17 @@ export class World {
     return this.nextId++;
   }
 
-  /** Ponto sorteado no centro da base do time, e o yaw de quem olha para o corredor. */
+  /** Ponto sorteado no centro da base do time, e o yaw de quem olha para a lane. */
   #pontoNaBase(time) {
     const b = BASES[time];
     const a = this.rng() * Math.PI * 2;
     const r = this.rng() * 60;
-    // yaw 0 olha para -z: a base de baixo (+z) olha para o norte, a de cima para o sul.
-    const yaw = b.z > CORREDOR.zInicio ? 0 : Math.PI;
+    // yaw 0 olha para -z e -π/2 para +x: a base da esquerda (x < 0) olha para +x.
+    const yaw = b.x < 0 ? -Math.PI / 2 : Math.PI / 2;
     return { x: b.x + Math.cos(a) * r, z: b.z + Math.sin(a) * r, yaw };
   }
 
-  /** Nave nova do jogador na base do time dele, voltada para o corredor (a nave da classe e do tier dele). */
+  /** Nave nova do jogador na base do time dele, voltada para a lane (a nave da classe e do tier dele). */
   #naveNaBase(race, time, classe, tier = 0) {
     const p = this.#pontoNaBase(time);
     const ship = createShip(race, p.x, p.z, p.yaw, classe, tier);
@@ -340,7 +340,7 @@ export class World {
    * monstro brotar do lado.
    */
   #pontoVorax(opcoes) {
-    const rede = nav().rede(BASE.x, BASE.z - LIMITE_VORAX - 50);
+    const rede = nav().rede(BASE.x + LIMITE_VORAX + 50, BASE.z); // na lane, na boca da base
     let reserva = null;
     for (let t = 0; t < 300; t++) {
       const p = pontoAberto(this.rng, opcoes);
@@ -602,10 +602,10 @@ export class World {
         alvo = j;
       }
     }
-    if (!alvo && Math.abs(s.x - CORREDOR.x) < DRONE_LIMITE_CORREDOR) {
-      // Patrulhando na faixa do corredor: vira para o lado de onde veio.
-      const lado = Math.sign(s.x - CORREDOR.x) || 1;
-      const diff = anguloEntre(s.yaw, Math.atan2(-lado, 0));
+    if (!alvo && Math.abs(s.z - LANE.z) < DRONE_LIMITE_LANE) {
+      // Patrulhando na faixa da lane: vira para o lado de onde veio.
+      const lado = Math.sign(s.z - LANE.z) || 1;
+      const diff = anguloEntre(s.yaw, Math.atan2(0, -lado));
       return { th: Math.abs(diff) > 1 ? 0.2 : 0.6, tu: Math.max(-1, Math.min(1, diff * 2.5)), b: false, f1: false, f2: false };
     }
     if (alvo) {
@@ -750,7 +750,7 @@ export class World {
     const b = baseMaisPerto(s);
     let rumo = null;
     if (Math.hypot(s.x - b.x, s.z - b.z) < DRONE_LIMITE_BASE) rumo = Math.atan2(-(s.x - b.x), -(s.z - b.z));
-    else if (Math.abs(s.x - CORREDOR.x) < DRONE_LIMITE_CORREDOR) rumo = Math.atan2(-(Math.sign(s.x - CORREDOR.x) || 1), 0);
+    else if (Math.abs(s.z - LANE.z) < DRONE_LIMITE_LANE) rumo = Math.atan2(0, -(Math.sign(s.z - LANE.z) || 1));
     if (rumo !== null) {
       const diff = anguloEntre(s.yaw, rumo);
       return { th: thMax * (Math.abs(diff) > 1 ? 0.2 : 0.6), tu: Math.max(-1, Math.min(1, diff * 2.5)), b: false, f1: false, f2: false };
@@ -767,8 +767,8 @@ export class World {
     const rz = s.z - b.z;
     const r = Math.hypot(rx, rz);
     if (r >= LIMITE_VORAX) return;
-    const ux = r > 1e-6 ? rx / r : 0;
-    const uz = r > 1e-6 ? rz / r : Math.sign(-b.z) || -1; // de dentro, sai pelo corredor
+    const ux = r > 1e-6 ? rx / r : -Math.sign(b.x) || 1; // de dentro, sai pela lane
+    const uz = r > 1e-6 ? rz / r : 0;
     s.x = b.x + ux * LIMITE_VORAX;
     s.z = b.z + uz * LIMITE_VORAX;
     const vr = s.vx * ux + s.vz * uz;

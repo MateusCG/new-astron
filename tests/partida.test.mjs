@@ -11,7 +11,8 @@ import { MAX_POR_TIME, Partida, FASE_FINAL_S, MULT_FASE_FINAL, DURACAO_PARTIDA_S
 import { MINERADOR } from '../server/mineradores.js';
 import { BONUS } from '../server/bonus.js';
 import { createShip, createBullet, pousoPermitido, WEAPONS } from '../shared/sim.js';
-import { BASES, SERVICOS, OBJETIVOS } from '../shared/terrain.js';
+import { BASES, SERVICOS, PLATAFORMAS_POUSO } from '../shared/terrain.js';
+import { rumoLane } from './lugares.mjs';
 
 const SEGUNDO = 30; // ticks
 
@@ -87,18 +88,18 @@ test('partida: bemvindo traz o time e a partida cheia recusa com código estáve
   }
 });
 
-test('partida: cada um nasce e renasce na base do próprio time, voltado para o corredor', () => {
+test('partida: cada um nasce e renasce na base do próprio time, voltado para a lane', () => {
   const w = new World({ drones: 0, monstros: 0, elites: 0 });
   for (let i = 0; i < 6; i++) w.addPlayer(`P${i}`, 'bellico');
   for (const j of w.players.values()) {
     const b = BASES[j.time];
     assert.ok(Math.hypot(j.ship.x - b.x, j.ship.z - b.z) <= 60, `nasceu na base ${j.time}`);
-    // yaw 0 olha para -z: o time 0 (embaixo) olha para o norte, o time 1 para o sul.
-    assert.equal(j.ship.yaw, j.time === 0 ? 0 : Math.PI);
+    // yaw -π/2 olha para +x: o time 0 (à esquerda) olha para a direita, o time 1 para a esquerda.
+    assert.equal(j.ship.yaw, rumoLane(j.time));
     assert.equal(j.ship.time, j.time);
   }
   const j = [...w.players.values()].find((p) => p.time === 1);
-  colocar(j, 0, 300); // no corredor, fora das duas zonas seguras
+  colocar(j, 0, 300); // na coluna central, fora das duas zonas seguras
   j.ship.hp = 1;
   w.bullets.push({ ...createBullet(createShip('mechan', 0, 320, 0), 'laser', 999, -1), drone: true });
   for (let i = 0; i < 5 * SEGUNDO; i++) w.step();
@@ -124,7 +125,7 @@ test('partida: sem fogo amigo, o tiro atravessa o aliado e acerta o inimigo atr�
   assert.equal(hpInimigo - inimigo.ship.hp, WEAPONS.laser.dano, 'o inimigo atrás levou o tiro');
 });
 
-test('partida: pouso no anel e nos serviços só na base do próprio time; objetivo A aceita todos', () => {
+test('partida: pouso no anel e nos serviços só na base do próprio time; plataforma de pouso aceita todos', () => {
   for (const b of BASES) {
     for (const time of [0, 1]) {
       const s = createShip('acron', b.x, b.z);
@@ -139,11 +140,12 @@ test('partida: pouso no anel e nos serviços só na base do próprio time; objet
     s.time = sv.time;
     assert.equal(pousoPermitido(s), true, `${sv.servico} do próprio time`);
   }
-  const a = OBJETIVOS.find((o) => o.tipo === 'A');
-  for (const time of [0, 1]) {
-    const s = createShip('acron', a.x, a.z);
-    s.time = time;
-    assert.equal(pousoPermitido(s), true, 'objetivo A é de quem chegar');
+  for (const p of PLATAFORMAS_POUSO) {
+    for (const time of [0, 1]) {
+      const s = createShip('acron', p.x, p.z);
+      s.time = time;
+      assert.equal(pousoPermitido(s), true, `plataforma ${p.id} é de quem chegar`);
+    }
   }
 
   // No servidor: o time 1 aperta L no anel da base do time 0 e não pousa.

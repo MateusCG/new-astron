@@ -7,7 +7,7 @@ import { World } from '../server/game.js';
 import { MINERADOR } from '../server/mineradores.js';
 import { Bonus, BONUS } from '../server/bonus.js';
 import { createShip, createBullet, WEAPONS } from '../shared/sim.js';
-import { BASES, ENTREGAS, MINERIO, heightAt } from '../shared/terrain.js';
+import { BASES, ENTREGAS, DOCAS, heightAt } from '../shared/terrain.js';
 import { alturaSolida } from '../shared/obstaculos.js';
 
 const SEGUNDO = 30; // ticks
@@ -55,19 +55,20 @@ test('bônus: ativar, ativo, restante, renovar e snapshot', () => {
   assert.deepEqual(b.paraSnapshot(0), { 0: {}, 1: {} });
 });
 
-test('mineradores: fazem o ciclo base → minério → entrega e somam 10 no placar, sem atravessar construção', () => {
+test('mineradores: fazem o ciclo base → doca → entrega e somam 10 no placar, sem atravessar construção', () => {
   const { w } = mundo();
   let viuCarregado = false;
   let viuMinerando = false;
   const entregas = [];
-  for (let i = 0; i < 70 * SEGUNDO && entregas.length < 2; i++) {
+  for (let i = 0; i < 100 * SEGUNDO && entregas.length < 2; i++) {
     w.step();
     for (const m of w.mineradores.lista) {
-      // O centro do minerador nunca fica dentro de construção (cristais, portal...).
+      // O centro do minerador nunca fica dentro de construção (mineradora, torretas...).
       assert.ok(alturaSolida(m.ship.x, m.ship.z) <= heightAt(m.ship.x, m.ship.z) + 1e-9, `dentro de construção em (${m.ship.x}, ${m.ship.z})`);
       if (m.estado === 'minerando') {
         viuMinerando = true;
-        assert.ok(Math.hypot(m.ship.x - MINERIO.x, m.ship.z - MINERIO.z) < MINERIO.raio + 20, 'minera na coroa do depósito');
+        const d = DOCAS[m.time];
+        assert.ok(Math.hypot(m.ship.x - d.x, m.ship.z - d.z) < 30, 'minera na doca do próprio time');
       }
     }
     for (const e of w.entidades()) if (e.tipo === 'minerador' && e.carga === MINERADOR.carga) viuCarregado = true;

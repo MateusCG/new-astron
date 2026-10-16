@@ -9,11 +9,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
-import { World, ZONA_SEGURA } from '../server/game.js';
+import { World } from '../server/game.js';
 import { iniciar } from '../server/index.js';
 import { hpMaxDoNivel } from '../server/progressao.js';
 import { createShip, stepShip, velocidadeBase, DT } from '../shared/sim.js';
-import { BASE, SERVICOS, OBJETIVOS } from '../shared/terrain.js';
+import { SERVICOS, PLATAFORMAS_POUSO } from '../shared/terrain.js';
 import {
   NAVES,
   CLASSES,
@@ -29,6 +29,7 @@ import {
   classeOuPadrao,
   motivoRacaRecusada,
 } from '../shared/naves.js';
+import { CAMPO } from './lugares.mjs';
 
 const PUBLICO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const SEGUNDO = 30;
@@ -298,7 +299,7 @@ test('naves: Bellico regenera voando, mesmo levando dano; as outras não', () =>
   const b = w.addPlayer('B', 'bellico', 'assault');
   const a = w.addPlayer('A', 'acron', 'assault');
   for (const [j, dx] of [[b, 0], [a, 60]]) {
-    Object.assign(j.ship, { x: BASE.x + dx, z: BASE.z - ZONA_SEGURA - 150 });
+    Object.assign(j.ship, { x: CAMPO.x + dx, z: CAMPO.z });
     j.ship.hp = 100;
     j.ultimoDano = w.tick; // acabou de levar dano
   }
@@ -311,8 +312,8 @@ test('naves: Bellico regenera voando, mesmo levando dano; as outras não', () =>
 test('naves: pousada e parada fora da base, a nave conserta o regenHpPousada dela', () => {
   const w = mundo();
   const j = w.addPlayer('A', 'acron', 'mobile');
-  // Na marcação do objetivo A (fora da base: sem a cura rápida da base).
-  const a = OBJETIVOS.find((o) => o.tipo === 'A');
+  // Numa plataforma de pouso da jungle (fora da base: sem a cura rápida da base).
+  const a = PLATAFORMAS_POUSO[0];
   Object.assign(j.ship, { x: a.x, z: a.z, vx: 0, vz: 0, pousado: true });
   j.protegidoAte = Infinity;
   j.ship.hp = 50;

@@ -1,151 +1,320 @@
-// Terreno do mapa M1 (cânion do deserto), compartilhado entre servidor e cliente.
+// Mapa da partida (o lago do Stage 6 no formato do desenho 2D do Mateus),
+// compartilhado entre servidor e cliente.
 //
 // O servidor usa heightAt() para decidir colisão de nave e de tiro com as rochas;
-// o cliente usa a mesmíssima função para montar a malha 3D e para a predição local.
-// Por isso o ruído é determinístico (hash inteiro, sem Math.random) e o arquivo não
-// importa nada de Three.js: qualquer diferença aqui faria o cliente "atravessar"
-// rochas que o servidor considera sólidas.
+// o cliente usa a mesmíssima função para a predição local e para o desenho. Por isso
+// tudo aqui é determinístico (formas analíticas e ruído de hash inteiro, sem
+// Math.random) e o arquivo não importa nada de Three.js: qualquer diferença faria o
+// cliente "atravessar" rochas que o servidor considera sólidas.
 //
-// O mapa segue o desenho da partida (DESIGN-PARTIDA.md): um retângulo aberto de
-// deserto, cercado por uma muralha só na borda, para dois times de três. No eixo
-// x = 0, de norte a sul: a base do time 1, a entrega dele, o corredor dos
-// mineradores com o depósito de minério no meio, a entrega do time 0 e a base do
-// time 0. O resto é mundo aberto (monstros, XP e ouro) com os objetivos A, B e C
-// de cada lado.
+// O desenho (mapa-2d.png, 1 px = 2,25 m; x para a direita, z para BAIXO, então -z é
+// "em cima") é um MOBA de três rotas resumidas numa: a lane horizontal no meio, com
+// a mineradora de Hélio-3 no centro dividindo-a em duas metades, as bases nas pontas
+// (time 0 = Base A à esquerda, x < 0; time 1 = Base B à direita) e a jungle em cima
+// e embaixo, com acampamentos, buffs, plataformas de pouso, campos de asteroides
+// (passáveis, escondem quem está dentro) e os dois poços dos objetivos épicos (o
+// Núcleo de He-3 em cima, a Ancient Medusa embaixo), cercados por paredes em L.
 //
-// Tudo é simétrico por rotação de 180° em torno do centro (x, z) → (-x, -z): o que
-// um time tem do seu lado, o outro tem do lado dele, inclusive o relevo. As mesas de
-// rocha são sorteadas (com semente) numa metade e espelhadas na outra, e o ruído do
-// chão é a média do ruído no ponto e no ponto espelhado.
+// Três tipos de terreno: rocha (bloqueio total de passagem, tiro e visão), campo de
+// asteroides (ASTEROIDES: passável, só esconde) e campo aberto (o resto). A rocha é a
+// planta única ROCHAS: a borda (tudo fora da região aberta), as rochas dos quadrantes
+// e as paredes em L. A física (heightAt/paredeAt, e alturaSolida em
+// shared/obstaculos.js), a visão (shared/visao.js) e o desenho usam a mesma lista.
 //
-// As mesas são "paredes de cânion" soltas: subida mais íngreme que MAX_SLOPE, então
-// a nave contorna em vez de subir. Nenhuma mesa nasce perto das bases, do corredor
-// (que fica aberto para o resto do mapa), dos objetivos nem do caminho reto do
-// corredor até cada objetivo.
+// Altura: o chão de voo da região aberta é PLANO, heightAt = 0 (a nave voa a HOVER =
+// 10 m). Lá embaixo fica o lago (NIVEL_AGUA, só visual), para tudo parecer flutuar
+// sobre a água como no Stage 6. A rocha sobe com um degrau vertical (DEGRAU da altura
+// do topo) e chega ao topo em RAMPA metros: degrau não se sobe de jeito nenhum, nem
+// de lado, então a nave contorna. O topo varia devagar (ruído simétrico), entre o
+// topoMin e o topo de cada rocha.
+//
+// Tudo é simétrico por rotação de 180° em torno do centro, (x, z) → (-x, -z): só o
+// lado do time 0 é escrito, e o do time 1 sai girado (girar()).
 
 export const MAP_HALF_X = 1500;
-export const MAP_HALF_Z = 1000;
+export const MAP_HALF_Z = 1120;
 /** @deprecated Metade do lado MAIOR do mapa; use MAP_HALF_X e MAP_HALF_Z. */
 export const MAP_HALF = MAP_HALF_X;
-export const WALL_HEIGHT = 70;
-/** Largura da muralha da borda: daqui para dentro da borda já não é chão. */
-export const MURALHA = 80;
 
-/** Bases dos dois times. A do time 0 fica embaixo (+z), a do time 1 em cima (-z). */
+/** Superfície do lago (só visual): abaixo do chão de voo (0), para tudo flutuar. */
+export const NIVEL_AGUA = -18;
+/** Fundo do lago (só visual), visto pela água. */
+export const FUNDO_LAGO = -60;
+
+/**
+ * Região aberta: a união da jungle (retângulo |x| ≤ 1080, |z| ≤ 1060) com a faixa da
+ * lane e das bocas das bases (|x| ≤ 1440, |z| ≤ 180). Os cantos (os de cada retângulo
+ * e os encontros dos dois) são arredondados com raio `canto`, para a nave deslizar na
+ * parede em vez de enroscar. O resto é a rocha da borda.
+ */
+export const ABERTO = { jungle: { meiaX: 1080, meiaZ: 1060 }, lane: { meiaX: 1440, meiaZ: 180 }, canto: 40 };
+
+/** Bases dos dois times: a do time 0 (Base A) à esquerda, a do time 1 à direita. `raio` é a zona segura. */
 export const BASES = [
-  { time: 0, x: 0, z: 700, raio: 200 },
-  { time: 1, x: 0, z: -700, raio: 200 },
+  { time: 0, x: -1280, z: 0, raio: 170 },
+  { time: 1, x: 1280, z: 0, raio: 170 },
 ];
-/** Base do time 0, onde por enquanto todo jogador nasce (compatibilidade). */
+/** Base do time 0 (compatibilidade). */
 export const BASE = BASES[0];
-/** Corredor dos mineradores: estrada reta em x = 0, da borda de uma base à outra. */
-export const CORREDOR = { x: 0, largura: 100, zInicio: BASES[1].z + BASES[1].raio, zFim: BASES[0].z - BASES[0].raio };
-/** Depósito de minério no meio do corredor (cristais sólidos no miolo). */
-export const MINERIO = { x: 0, z: 0, raio: 60 };
-/** Pontos de entrega do minério, colados na boca de cada base. */
+
+/**
+ * Bolsão de cada base no fim da lane: 1125 ≤ |x| ≤ 1440, |z| ≤ 180 (é o fim do
+ * retângulo da lane em ABERTO). A base vê o bolsão inteiro (shared/visao.js).
+ */
+export const BOLSAO = { xMin: 1125, xMax: 1440, meiaZ: 180 };
+
+/**
+ * Lane: faixa |z| ≤ 90 entre as bocas das bases. Sem pista nem regra própria: é por
+ * onde os mineradores voam e onde ficam as torres sentinela. `largura` é em z.
+ */
+export const LANE = { z: 0, meiaLargura: 90, largura: 180, xInicio: -BOLSAO.xMin, xFim: BOLSAO.xMin };
+/** @deprecated O corredor vertical do mapa antigo virou a LANE horizontal; use LANE. */
+export const CORREDOR = LANE;
+
+/**
+ * Mineradora de Hélio-3 no centro da lane: retângulo arredondado (meia-largura em x,
+ * meia-profundidade em z, raio do canto), mais largo que a lane e mais alto que
+ * qualquer tiro ou olhar. Bloqueia passagem, tiro e visão. A construção sólida está
+ * em shared/obstaculos.js (com esta mesma planta).
+ */
+export const MINERADORA = { x: 0, z: 0, meiaX: 70, meiaZ: 115, canto: 24, topo: 95 };
+/** Docas da mineradora: na face voltada para a própria base. O minerador para ali, minera e volta. */
+export const DOCAS = [
+  { time: 0, x: -84, z: 0 },
+  { time: 1, x: 84, z: 0 },
+];
+/** @deprecated O depósito de minério virou a MINERADORA (as docas são o ponto de carga). */
+export const MINERIO = { x: MINERADORA.x, z: MINERADORA.z, raio: MINERADORA.meiaZ };
+
+/**
+ * Pontos de entrega do minério, na boca de cada base, virados para a lane.
+ * `largura` é a extensão em x (ao longo da lane) e `profundidade` a extensão em z.
+ */
 export const ENTREGAS = [
-  { time: 0, x: 0, z: 500, largura: 120, profundidade: 30 },
-  { time: 1, x: 0, z: -500, largura: 120, profundidade: 30 },
+  { time: 0, x: -1110, z: 0, largura: 30, profundidade: 120 },
+  { time: 1, x: 1110, z: 0, largura: 30, profundidade: 120 },
 ];
+
 /**
- * Serviços de cada base: plataformas de pouso na linha do centro da base. Pousado
- * na da esquerda (x < 0) abre a Evolução; na da direita, a Loja.
+ * Leva um ponto do referencial da base do time 0 (centro na origem, lane para +x)
+ * para o mundo, na base `b`. A base do time 1 é a do time 0 girada 180°.
  */
-export const SERVICOS = BASES.flatMap((b) => [
-  { servico: 'evolucao', time: b.time, x: b.x - 150, z: b.z, raio: 20 },
-  { servico: 'loja', time: b.time, x: b.x + 150, z: b.z, raio: 20 },
-]);
+export function daBase(b, lx, lz) {
+  const s = b.time === 0 ? 1 : -1;
+  return { x: b.x + s * lx, z: b.z + s * lz };
+}
+
 /**
- * Objetivos: A = pousar na marcação; B = torre (sólida, em shared/obstaculos.js);
- * C = arena do guardião. Os do índice 2 são os do 1 girados 180°.
+ * Serviços de cada base: plataformas de pouso no fundo do bolsão, dos dois lados do
+ * anel. Olhando da base para a lane, a da esquerda (-z na base do time 0) é a
+ * Evolução e a da direita, a Loja.
  */
-export const OBJETIVOS = [
-  { id: 'A1', tipo: 'A', x: -540, z: -140, raio: 25 },
-  { id: 'B1', tipo: 'B', x: -520, z: 300, raio: 25 },
-  { id: 'C1', tipo: 'C', x: -1050, z: 420, raio: 25 },
-  { id: 'A2', tipo: 'A', x: 540, z: 140, raio: 25 },
-  { id: 'B2', tipo: 'B', x: 520, z: -300, raio: 25 },
-  { id: 'C2', tipo: 'C', x: 1050, z: -420, raio: 25 },
-];
+export const SERVICO_LOCAL = { evolucao: { lx: -40, lz: -125 }, loja: { lx: -40, lz: 125 } };
+export const SERVICOS = BASES.flatMap((b) =>
+  ['evolucao', 'loja'].map((servico) => ({ servico, time: b.time, ...daBase(b, SERVICO_LOCAL[servico].lx, SERVICO_LOCAL[servico].lz), raio: 20 })),
+);
+
+/** @deprecated Os objetivos A/B/C do mapa antigo saíram; os novos estão em BUFFS, PLATAFORMAS_POUSO, MEDUSA e NUCLEO. */
+export const OBJETIVOS = [];
+
+/** Gira 180° em volta do centro do mapa. */
+function girar(x, z) {
+  return { x: -x, z: -z };
+}
+/** Troca o time do id ('0' ↔ '1') e o lado ('N' ↔ 'S') de um id do time 0. */
+function idGirado(id) {
+  return id.replace(/[01NS]/g, (c) => ({ 0: '1', 1: '0', N: 'S', S: 'N' })[c]);
+}
+/** A lista do time 0 e a mesma girada 180° (time 1). */
+function comGirados(lista, girarItem) {
+  return [...lista, ...lista.map(girarItem)];
+}
+const girarPonto = (o) => ({ ...o, id: idGirado(o.id), time: 1 - o.time, ...girar(o.x, o.z) });
+
 /**
- * Torretas de defesa do corredor: 4 por time, 2 de cada lado da estrada, na metade
- * do mapa do próprio time, entre a base e o minério. Ficam TORRETA_LADO m do eixo
- * (fora da estrada de 100 m e longe das faixas dos mineradores, a 15 m do eixo) e
- * TORRETA_DIST m do centro da base, rumo ao minério: a de perto da base cobre a
- * entrega e a saída do portal (fora da zona segura, que vai até 230 m), a de perto
- * do minério cobre o meio da metade do time sem alcançar a coroa do outro lado.
- * As z escolhidas fogem dos caminhos retos do corredor até os objetivos (z ±140,
- * ±300 e ±420), para a torreta não ficar no meio de quem vai para lá.
- *
- * `nome` é do ponto de vista de quem é do time, olhando da base para o minério
- * (esquerda/direita de quem sai pelo portal). As do time 1 são as do time 0
- * giradas 180°, com o mesmo número: T0-1 ↔ T1-1. A construção sólida fica em
- * shared/obstaculos.js; vida, tiro e reconstrução em server/torretas.js.
+ * Torres sentinela: 4 por time, fora da lane (na faixa entre a lane e a jungle),
+ * duas de cada lado dela. `nome` é do ponto de vista de quem é do time, olhando da
+ * base para a mineradora (à esquerda = -z na metade do time 0). As do time 1 são as
+ * do time 0 giradas 180°, com o mesmo número: T0-1 ↔ T1-1. A construção sólida fica
+ * em shared/obstaculos.js; vida, tiro e reconstrução em server/torretas.js.
  */
-export const TORRETA_LADO = CORREDOR.largura / 2 + 12;
-export const TORRETA_DIST = [340, 480];
-export const TORRETAS = BASES.flatMap((b) => {
-  const s = b.time === 0 ? 1 : -1; // o time 1 é o time 0 girado 180°
-  return TORRETA_DIST.flatMap((d, i) =>
+export const TORRETA_LADO = 171; // m do eixo da lane
+export const TORRETA_DIST = [492.5, 852.5]; // m do centro da base, rumo à mineradora
+export const TORRETAS = BASES.flatMap((b) =>
+  TORRETA_DIST.flatMap((d, i) =>
     [-1, 1].map((lado, k) => ({
       id: `T${b.time}-${i * 2 + k + 1}`,
       time: b.time,
-      nome: `${i === 0 ? 'Perto da base' : 'Perto do minério'}, à ${lado < 0 ? 'esquerda' : 'direita'}`,
-      x: b.x + s * lado * TORRETA_LADO,
-      z: b.z - s * d,
+      nome: `${i === 0 ? 'Perto da base' : 'Perto da mineradora'}, à ${lado < 0 ? 'esquerda' : 'direita'}`,
+      ...daBase(b, d, lado * TORRETA_LADO),
     })),
-  );
-});
-/** Raio da arena dos objetivos C (o círculo marcado em volta do guardião). */
-export const ARENA_C = 60;
+  ),
+);
+
 /**
- * Caminho dos mineradores de cada time: do centro da base até a beira do depósito
- * de minério, pelo meio do corredor. A volta é a mesma lista de trás para frente.
+ * Caminho dos mineradores de cada time: em LINHA RETA pela lane (z = 0), do centro da
+ * base, passando pela entrega, até a própria doca, com um ponto a cada 100 m no
+ * máximo. A volta é a mesma lista de trás para frente.
  */
 export const ROTAS = BASES.map((b) => {
-  const fim = MINERIO.z + Math.sign(b.z - MINERIO.z) * (MINERIO.raio - 10);
-  const n = Math.ceil(Math.abs(b.z - fim) / 100);
-  return Array.from({ length: n + 1 }, (_, i) => ({ x: b.x, z: b.z + ((fim - b.z) * i) / n }));
+  const fim = DOCAS[b.time];
+  const n = Math.ceil(Math.abs(fim.x - b.x) / 100);
+  return Array.from({ length: n + 1 }, (_, i) => ({ x: b.x + ((fim.x - b.x) * i) / n, z: b.z + ((fim.z - b.z) * i) / n }));
 });
 
-const RAMPA = 16; // metros do pé ao alto da rocha (bem mais íngreme que MAX_SLOPE)
-// A rocha começa com um degrau vertical (esta fração da altura): rampa contínua,
-// por mais íngreme, a nave sobe "de lado", andando quase paralela à parede e
-// ganhando um pouco de altura a cada passo. Degrau não se sobe de jeito nenhum.
-const DEGRAU = 0.3;
-const BORDA_RUIDO = 16; // até quanto o ruído engorda a mesa, em metros
+// ---------- Jungle ----------
+
+/** Campos de asteroides: retângulos passáveis que escondem quem está dentro (largura em x, profundidade em z). */
+export const ASTEROIDES = comGirados(
+  [
+    { id: 'AB0N', time: 0, x: -607.5, z: -898, largura: 153, profundidade: 248 }, // junto ao buff de ataque
+    { id: 'AB0S', time: 0, x: -607.5, z: 898, largura: 153, profundidade: 248 }, // junto ao buff de suporte
+    { id: 'AC0N', time: 0, x: -180, z: -405, largura: 180, profundidade: 315 }, // centrais
+    { id: 'AC0S', time: 0, x: -180, z: 405, largura: 180, profundidade: 315 },
+  ],
+  girarPonto,
+);
+
+/** Id do campo de asteroides que contém o ponto, ou null. */
+export function emAsteroides(x, z) {
+  for (const a of ASTEROIDES) {
+    if (Math.abs(x - a.x) <= a.largura / 2 && Math.abs(z - a.z) <= a.profundidade / 2) return a.id;
+  }
+  return null;
+}
 
 /**
- * Áreas de pouso: a nave só pousa dentro de uma delas. O anel de conserto de cada
- * base (`base`: time), as plataformas de serviço (`servico` e `time`) e as
- * marcações dos objetivos A (`objetivo`: id, e `tipo`).
- *
- * `piso` é a altura do topo da plataforma acima do terreno no centro da área. O
- * chão em volta das áreas é plano (heightAt aplaina), então a altura vale para a
- * área inteira. A física pousa a nave em cima dele e o cenário desenha a plataforma
- * com esse mesmo número.
+ * Acampamentos de monstros comuns. `tipo` 'base' (perto da base: 4 pequenos) ou
+ * 'centro' (perto do centro: 1 grande e 2 pequenos); `time` é o território.
  */
-export const AREAS_POUSO = [
-  ...BASES.map((b) => ({ x: b.x, z: b.z, raio: 64, piso: 1.7, base: b.time })),
-  ...SERVICOS.map((s) => ({ x: s.x, z: s.z, raio: s.raio, piso: 1.2, servico: s.servico, time: s.time })),
-  ...OBJETIVOS.filter((o) => o.tipo === 'A').map((o) => ({ x: o.x, z: o.z, raio: o.raio, piso: 0.5, objetivo: o.id, tipo: o.tipo })),
+export const ACAMPAMENTOS = comGirados(
+  [
+    { id: 'JB0N', time: 0, tipo: 'base', x: -945, z: -337.5, raio: 50 },
+    { id: 'JB0S', time: 0, tipo: 'base', x: -945, z: 337.5, raio: 50 },
+    { id: 'JC0N', time: 0, tipo: 'centro', x: -472.5, z: -922.5, raio: 55 },
+    { id: 'JC0S', time: 0, tipo: 'centro', x: -472.5, z: 922.5, raio: 55 },
+  ],
+  girarPonto,
+);
+
+/**
+ * Buffs: o de ataque é um monstro forte, o de suporte uma torre (sólida, em
+ * shared/obstaculos.js). Pela simetria, o de ataque do time 0 fica em cima (perto do
+ * Núcleo) e o do time 1 embaixo (perto da Medusa).
+ */
+export const BUFFS = [
+  { id: 'BA0', tipo: 'ataque', time: 0, x: -855, z: -909 },
+  { id: 'BS0', tipo: 'suporte', time: 0, x: -855, z: 909 },
+  { id: 'BA1', tipo: 'ataque', time: 1, x: 855, z: 909 },
+  { id: 'BS1', tipo: 'suporte', time: 1, x: 855, z: -909 },
 ];
 
-/** Área de pouso que contém o ponto (x, z), ou undefined. */
-export function areaPouso(x, z) {
-  return AREAS_POUSO.find((a) => Math.hypot(x - a.x, z - a.z) <= a.raio);
+/** Plataformas de pouso que dão ouro ao time (qualquer time pousa em qualquer uma). */
+export const PLATAFORMAS_POUSO = [
+  { id: 'P0', time: 0, x: -495, z: -445.5, raio: 28 },
+  { id: 'P1', time: 1, x: 495, z: 445.5, raio: 28 },
+];
+
+/** Núcleo de He-3 (poço de cima) e Ancient Medusa (poço de baixo); `raio` é o da arena. */
+export const NUCLEO = { x: 0, z: -877, raio: 120 };
+export const MEDUSA = { x: 0, z: 877, raio: 120 };
+
+/**
+ * Trajeto da sonda errante pela coluna central (ida), da ponta de cima (perto do
+ * Núcleo) à de baixo (perto da Medusa), contornando a mineradora por x = +130. A
+ * volta é a lista ao contrário. Para ficar justo com os dois times, a sonda que nasce
+ * na ponta de baixo usa este trajeto girado 180° (contorna por x = -130): ver
+ * trajetoSonda().
+ */
+export const SONDA_TRAJETO = [
+  { x: 0, z: -337.5 },
+  { x: 130, z: -190 },
+  { x: 130, z: 190 },
+  { x: 0, z: 337.5 },
+];
+
+/**
+ * Trajeto de ida da sonda que nasce na `ponta` 0 (em cima, -z) ou 1 (embaixo, +z).
+ * O de baixo é o de cima girado 180°.
+ */
+export function trajetoSonda(ponta = 0) {
+  return ponta === 0 ? SONDA_TRAJETO.map((p) => ({ ...p })) : SONDA_TRAJETO.map((p) => girar(p.x, p.z));
 }
 
-/** O ponto (x, z) fica dentro de alguma área de pouso? */
-export function podePousar(x, z) {
-  return !!areaPouso(x, z);
+// ---------- Rochas ----------
+
+const RAMPA = 16; // metros do pé ao alto da rocha (bem mais íngreme que MAX_SLOPE)
+// A rocha começa com um degrau vertical (esta fração da altura do topo): rampa
+// contínua, por mais íngreme, a nave sobe "de lado", andando quase paralela à parede
+// e ganhando um pouco de altura a cada passo. Degrau não se sobe de jeito nenhum.
+const DEGRAU = 0.3;
+const DETALHE_TOPO = 3; // ± metros de relevo fino no alto da rocha
+
+/** Paredes em L dos poços: espessura e topo (iguais nas duas barras de cada L). */
+export const PAREDE_L = { espessura: 40, canto: 10, topoMin: 84, topo: 100 };
+/** Rochas dos quadrantes: cápsula de 360 × 135 m. */
+export const ROCHA_QUADRANTE = { comprimento: 360, largura: 135, topoMin: 74, topo: 106 };
+
+function rochaQuadrante(id, x, z) {
+  const r = ROCHA_QUADRANTE.largura / 2;
+  const meio = ROCHA_QUADRANTE.comprimento / 2 - r;
+  return { id, time: 0, forma: 'capsula', ax: x - meio, az: z, bx: x + meio, bz: z, raio: r, topoMin: ROCHA_QUADRANTE.topoMin, topo: ROCHA_QUADRANTE.topo };
 }
 
-/** Altura absoluta do topo da plataforma no ponto, ou null fora das áreas de pouso. */
-export function topoPouso(x, z) {
-  const a = areaPouso(x, z);
-  return a ? heightAt(a.x, a.z) + a.piso : null;
+/** Barra de parede em L entre (x0, z0) e (x1, z1) (as bordas externas, no eixo de uma delas). */
+function barraL(id, x0, z0, x1, z1) {
+  const e = PAREDE_L.espessura / 2;
+  const meiaX = x0 === x1 ? e : Math.abs(x1 - x0) / 2;
+  const meiaZ = z0 === z1 ? e : Math.abs(z1 - z0) / 2;
+  return { id, time: 0, forma: 'retangulo', x: (x0 + x1) / 2, z: (z0 + z1) / 2, meiaX, meiaZ, canto: PAREDE_L.canto, topoMin: PAREDE_L.topoMin, topo: PAREDE_L.topo };
 }
+
+function girarRocha(r) {
+  const g = { ...r, id: idGirado(r.id), time: 1 - r.time };
+  if (r.forma === 'capsula') Object.assign(g, { ax: -r.ax, az: -r.az, bx: -r.bx, bz: -r.bz });
+  else Object.assign(g, girar(r.x, r.z));
+  return g;
+}
+
+/** Caixa alinhada aos eixos que envolve a forma (para descartar rápido). */
+function caixaDe(r) {
+  if (r.forma === 'capsula') {
+    return { x0: Math.min(r.ax, r.bx) - r.raio, x1: Math.max(r.ax, r.bx) + r.raio, z0: Math.min(r.az, r.bz) - r.raio, z1: Math.max(r.az, r.bz) + r.raio };
+  }
+  if (r.forma === 'retangulo') return { x0: r.x - r.meiaX, x1: r.x + r.meiaX, z0: r.z - r.meiaZ, z1: r.z + r.meiaZ };
+  return null; // a borda é tudo fora da região aberta
+}
+
+/**
+ * Planta única das rochas (bloqueio total de passagem, tiro e visão). Formas:
+ * - 'borda': tudo fora da região aberta (`jungle`, `lane` e `canto`, como ABERTO);
+ * - 'capsula': segmento (ax, az)-(bx, bz) engordado por `raio` (rochas dos quadrantes);
+ * - 'retangulo': centro (x, z), `meiaX`, `meiaZ`, cantos arredondados com raio `canto`
+ *   (as barras das paredes em L; cada L são duas barras, `<id>v` e `<id>h`).
+ * Cada uma tem `id`, `time` (território; a borda não tem), `topoMin` e `topo` (o
+ * alto varia devagar entre os dois) e `caixa` ({ x0, x1, z0, z1 }, null na borda).
+ * Os ids do time 1 são os do time 0 girados: 0 ↔ 1 e N ↔ S (LN0v ↔ LS1v).
+ */
+export const ROCHAS = [
+  { id: 'borda', forma: 'borda', ...ABERTO, topoMin: 100, topo: 140 },
+  ...comGirados(
+    [
+      rochaQuadrante('Q0N', -697.5, -652.5),
+      rochaQuadrante('Q0S', -697.5, 652.5),
+      // Poço de cima (Núcleo), lado do time 0: barra vertical e barra horizontal.
+      barraL('LN0v', -324, -877, -324, -625),
+      barraL('LN0h', -351, -648, -99, -648),
+      // Poço de baixo (Medusa), lado do time 0: o de cima espelhado em z.
+      barraL('LS0v', -324, 625, -324, 877),
+      barraL('LS0h', -351, 648, -99, 648),
+    ],
+    girarRocha,
+  ),
+].map((r) => ({ ...r, caixa: caixaDe(r) }));
+const BORDA = ROCHAS[0];
+const INTERIORES = ROCHAS.slice(1);
+
+// ---------- Ruído ----------
 
 function hash(ix, iz, seed) {
   let h = Math.imul(ix, 374761393) ^ Math.imul(iz, 668265263) ^ Math.imul(seed, 2147483647);
@@ -195,8 +364,10 @@ export function smoothstep(a, b, x) {
   return t * t * (3 - 2 * t);
 }
 
+// ---------- Distâncias com sinal (negativo dentro da forma) ----------
+
 /** Distância de (px, pz) ao segmento a-b. */
-function distSegmento(px, pz, ax, az, bx, bz) {
+export function distSegmento(px, pz, ax, az, bx, bz) {
   const dx = bx - ax;
   const dz = bz - az;
   const l2 = dx * dx + dz * dz;
@@ -204,156 +375,125 @@ function distSegmento(px, pz, ax, az, bx, bz) {
   return Math.hypot(px - ax - dx * t, pz - az - dz * t);
 }
 
-// ---------- Mesas de rocha ----------
+/** Distância com sinal de (px, pz) a um retângulo de cantos arredondados centrado em (cx, cz). */
+export function sdRetanguloArredondado(px, pz, cx, cz, meiaX, meiaZ, canto) {
+  const qx = Math.abs(px - cx) - (meiaX - canto);
+  const qz = Math.abs(pz - cz) - (meiaZ - canto);
+  return Math.hypot(Math.max(qx, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, qz), 0) - canto;
+}
 
 /**
- * Áreas onde não pode haver rocha, cada uma com a folga que exige: círculos
- * (bases, objetivos, serviços) e segmentos (o corredor inteiro, com uma faixa aberta
- * dos dois lados, e o caminho reto do corredor até cada objetivo). Já é simétrica,
- * então mesa e espelho passam ou caem juntos.
+ * Distância com sinal até a borda da região aberta (positiva na rocha da borda).
+ * A união dos dois retângulos usa um mínimo suave circular: nos encontros da jungle
+ * com a lane, a quina da rocha sai arredondada com raio `canto`.
  */
-const PROTEGIDO = [
-  ...BASES.map((b) => ({ ax: b.x, az: b.z, bx: b.x, bz: b.z, folga: b.raio + 40 })),
-  { ax: CORREDOR.x, az: BASES[1].z, bx: CORREDOR.x, bz: BASES[0].z, folga: CORREDOR.largura / 2 + 90 },
-  ...OBJETIVOS.map((o) => ({ ax: o.x, az: o.z, bx: o.x, bz: o.z, folga: (o.tipo === 'C' ? ARENA_C : o.raio) + 50 })),
-  ...OBJETIVOS.map((o) => ({ ax: CORREDOR.x, az: o.z, bx: o.x, bz: o.z, folga: 45 })),
-];
+function sdBorda(x, z) {
+  const k = BORDA.canto;
+  const a = sdRetanguloArredondado(x, z, 0, 0, BORDA.jungle.meiaX, BORDA.jungle.meiaZ, k);
+  const b = sdRetanguloArredondado(x, z, 0, 0, BORDA.lane.meiaX, BORDA.lane.meiaZ, k);
+  return Math.max(k, Math.min(a, b)) - Math.hypot(Math.max(k - a, 0), Math.max(k - b, 0));
+}
 
-/** Menor distância entre o segmento de uma mesa e uma área protegida, menos a folga dela. */
-function folgaMesa(m) {
-  let menor = Infinity;
-  for (const p of PROTEGIDO) {
-    // Distância entre dois segmentos: amostra o da mesa (curto) contra o protegido.
-    for (let t = 0; t <= 1; t += 0.125) {
-      const x = m.ax + (m.bx - m.ax) * t;
-      const z = m.az + (m.bz - m.az) * t;
-      menor = Math.min(menor, distSegmento(x, z, p.ax, p.az, p.bx, p.bz) - p.folga);
+/** Quanto o ponto está para dentro da rocha `r` (positivo dentro, negativo fora). */
+function profundidadeEm(r, x, z) {
+  if (r.forma === 'borda') return sdBorda(x, z);
+  if (r.forma === 'capsula') return r.raio - distSegmento(x, z, r.ax, r.az, r.bx, r.bz);
+  return -sdRetanguloArredondado(x, z, r.x, r.z, r.meiaX, r.meiaZ, r.canto);
+}
+
+/**
+ * A rocha mais funda no ponto: { r, d } (d > 0 dentro), ou null fora de toda rocha.
+ * A caixa de cada rocha descarta rápido a maior parte do mapa.
+ */
+function rochaNoPonto(x, z) {
+  let melhor = null;
+  let fundo = 0;
+  const db = sdBorda(x, z);
+  if (db > 0) {
+    melhor = BORDA;
+    fundo = db;
+  }
+  for (const r of INTERIORES) {
+    const c = r.caixa;
+    if (x < c.x0 || x > c.x1 || z < c.z0 || z > c.z1) continue;
+    const d = profundidadeEm(r, x, z);
+    if (d > fundo) {
+      melhor = r;
+      fundo = d;
     }
   }
-  return menor;
+  return melhor ? { r: melhor, d: fundo } : null;
+}
+
+/** Id da rocha que contém o ponto (x, z), ou null no campo aberto. */
+export function rochaEm(x, z) {
+  return rochaNoPonto(x, z)?.r.id ?? null;
+}
+
+/** Fração da altura do topo no ponto, a `d` metros para dentro da rocha. */
+function fracaoParede(d) {
+  return d <= 0 ? 0 : DEGRAU + (1 - DEGRAU) * smoothstep(0, RAMPA, d);
+}
+
+/** Altura do alto da rocha `r` no ponto: varia devagar entre topoMin e topo, com relevo fino. */
+function alturaTopo(r, x, z) {
+  const t = smoothstep(0.3, 0.7, fbmSim(x, z, 0.006, 61, 2));
+  return r.topoMin + (r.topo - r.topoMin) * t + (fbmSim(x, z, 0.04, 91, 2) - 0.5) * 2 * DETALHE_TOPO;
 }
 
 /**
- * Sorteia as mesas (com semente) numa grade com tremor na metade sul (z > 0) e
- * espelha cada uma na metade norte. Cada mesa é uma cápsula: segmento a-b com raio
- * r. Fica fora quem chegar perto de área protegida ou da muralha.
- */
-function montarMesas() {
-  const celula = 190;
-  const lista = [];
-  const nx = Math.floor((2 * MAP_HALF_X) / celula);
-  const nz = Math.floor(MAP_HALF_Z / celula);
-  for (let j = 0; j < nz; j++) {
-    for (let i = 0; i < nx; i++) {
-      if (hash(i, j, 501) > 0.85) continue; // um ou outro buraco na grade
-      const cx = -MAP_HALF_X + (i + 0.2 + hash(i, j, 502) * 0.6) * celula;
-      const cz = (j + 0.2 + hash(i, j, 503) * 0.6) * celula;
-      const r = 30 + hash(i, j, 504) * 45;
-      const meio = hash(i, j, 505) * 90;
-      const ang = hash(i, j, 506) * Math.PI;
-      const m = {
-        ax: cx - Math.cos(ang) * meio,
-        az: cz - Math.sin(ang) * meio,
-        bx: cx + Math.cos(ang) * meio,
-        bz: cz + Math.sin(ang) * meio,
-        r,
-      };
-      const alcance = meio + r + BORDA_RUIDO + RAMPA;
-      if (Math.abs(cx) + alcance > MAP_HALF_X - MURALHA || cz + alcance > MAP_HALF_Z - MURALHA) continue;
-      if (folgaMesa(m) < r + BORDA_RUIDO + RAMPA + 15) continue;
-      lista.push(m, { ax: -m.ax, az: -m.az, bx: -m.bx, bz: -m.bz, r });
-    }
-  }
-  for (const m of lista) {
-    m.cx = (m.ax + m.bx) / 2;
-    m.cz = (m.az + m.bz) / 2;
-    m.alcance = Math.hypot(m.bx - m.ax, m.bz - m.az) / 2 + m.r + BORDA_RUIDO + RAMPA * 2;
-  }
-  return lista;
-}
-
-/** Mesas de rocha do mapa (cápsulas). O cliente usa para a decoração e o minimapa. */
-export const MESAS = montarMesas();
-
-/**
- * Quanto se está "para dentro" da rocha: positivo dentro da mesa (com a borda
- * irregular de ruído), negativo fora. Longe de qualquer mesa devolve -Infinity sem
- * calcular ruído, que é o caso da maior parte do mapa.
- */
-function profundidadeRocha(x, z) {
-  let d = Infinity;
-  for (const m of MESAS) {
-    if (Math.abs(x - m.cx) > m.alcance || Math.abs(z - m.cz) > m.alcance) continue;
-    d = Math.min(d, distSegmento(x, z, m.ax, m.az, m.bx, m.bz) - m.r);
-  }
-  if (d > BORDA_RUIDO) return -Infinity;
-  const irregular = Math.min(BORDA_RUIDO, fbmSim(x, z, 0.01, 31, 3) * 12 + fbmSim(x, z, 0.05, 37, 2) * 2.5);
-  return irregular - d;
-}
-
-/** Quanto o ponto é muralha da borda (0 no chão, 1 no alto). */
-function muralhaAt(x, z) {
-  const b = Math.max(Math.abs(x) - MAP_HALF_X, Math.abs(z) - MAP_HALF_Z) + MURALHA;
-  return b <= 0 ? 0 : DEGRAU + (1 - DEGRAU) * smoothstep(0, MURALHA * 0.75, b);
-}
-
-/**
- * Quanto um ponto é rocha (0 = chão navegável, 1 = alto da mesa ou da muralha).
- * Exportado para o cliente pintar o terreno e posicionar cenário.
+ * Quanto um ponto é rocha (0 = campo aberto, 1 = alto da rocha). O degrau faz o
+ * primeiro valor dentro da rocha já ser DEGRAU. Exportado para o cliente pintar o
+ * terreno e o minimapa.
  */
 export function paredeAt(x, z) {
-  const mur = muralhaAt(x, z);
-  const e = profundidadeRocha(x, z);
-  if (e <= 0) return mur;
-  if (e >= RAMPA * 1.5) return 1;
-  // A profundidade não é uma distância exata: onde o ruído da borda varia ela cresce
-  // mais devagar que 1 m por metro, e a rampa ficaria comprida. Dividir pelo
-  // gradiente devolve a distância real até a borda, e a rocha sai igualmente
-  // íngreme em todo lugar.
-  // Diferença central (e não para frente), para o ponto e o espelhado darem o mesmo.
-  const g = Math.hypot(profundidadeRocha(x + 0.5, z) - profundidadeRocha(x - 0.5, z), profundidadeRocha(x, z + 0.5) - profundidadeRocha(x, z - 0.5));
-  const g2 = Number.isFinite(g) ? Math.max(g, 0.4) : 1;
-  return Math.max(mur, DEGRAU + (1 - DEGRAU) * smoothstep(0, RAMPA, e / g2));
+  const h = rochaNoPonto(x, z);
+  return h ? fracaoParede(h.d) : 0;
 }
 
-/**
- * O ponto é chão navegável (fora das mesas e da muralha)? Bate com o terreno: é
- * exatamente onde paredeAt() vale 0.
- */
+/** O ponto é campo aberto (fora de toda rocha)? Exatamente onde paredeAt() vale 0. */
 export function noMapaAberto(x, z) {
-  return paredeAt(x, z) === 0;
+  return rochaNoPonto(x, z) === null;
 }
+
+/** Altura do chão de voo em metros no ponto (x, z): 0 no campo aberto, o alto da rocha nela. */
+export function heightAt(x, z) {
+  const h = rochaNoPonto(x, z);
+  if (!h) return 0;
+  return fracaoParede(h.d) * alturaTopo(h.r, x, z);
+}
+
+// ---------- Pouso ----------
 
 /**
- * Quanto o chão é aplainado no ponto (0 = plano, 1 = ondulação cheia): bases,
- * corredor e áreas de pouso são planos, para plataformas e estrada assentarem.
+ * Áreas de pouso: a nave só pousa dentro de uma delas. O anel de conserto de cada
+ * base (`base`: time), as plataformas de serviço (`servico` e `time`) e as plataformas
+ * de pouso de dinheiro (`plataforma`: id, `territorio`: time; sem dono, então qualquer
+ * time pousa: pousoPermitido em shared/sim.js só restringe `base` e `time`).
+ *
+ * `piso` é a altura do topo da plataforma acima do chão de voo. O chão aberto é
+ * plano, então a altura vale para a área inteira. A física pousa a nave em cima dele
+ * e o cenário desenha a plataforma com esse mesmo número. As plataformas são
+ * estruturas flutuantes sobre o lago; os pilares até a água são decoração.
  */
-function ondulacaoAt(x, z) {
-  // Corredor com folga dos lados: a entrega (120 m) e o minério (raio 60) são mais
-  // largos que a estrada.
-  let k = smoothstep(CORREDOR.largura / 2 + 15, CORREDOR.largura / 2 + 50, Math.abs(x - CORREDOR.x));
-  for (const b of BASES) k = Math.min(k, smoothstep(b.raio, b.raio + 40, Math.hypot(x - b.x, z - b.z)));
-  for (const a of AREAS_POUSO) k = Math.min(k, smoothstep(a.raio + 4, a.raio + 30, Math.hypot(x - a.x, z - a.z)));
-  for (const o of OBJETIVOS) k = Math.min(k, smoothstep(ARENA_C, ARENA_C + 30, Math.hypot(x - o.x, z - o.z)));
-  return k;
+export const AREAS_POUSO = [
+  ...BASES.map((b) => ({ x: b.x, z: b.z, raio: 64, piso: 1.7, base: b.time })),
+  ...SERVICOS.map((s) => ({ x: s.x, z: s.z, raio: s.raio, piso: 1.2, servico: s.servico, time: s.time })),
+  ...PLATAFORMAS_POUSO.map((p) => ({ x: p.x, z: p.z, raio: p.raio, piso: 1, plataforma: p.id, territorio: p.time })),
+];
+
+/** Área de pouso que contém o ponto (x, z), ou undefined. */
+export function areaPouso(x, z) {
+  return AREAS_POUSO.find((a) => Math.hypot(x - a.x, z - a.z) <= a.raio);
 }
 
-/** Altura do chão em metros no ponto (x, z) do mundo. */
-export function heightAt(x, z) {
-  const p = paredeAt(x, z);
-  const detalhe = fbmSim(x, z, 0.02, 91, 3);
-  let h = 0;
-  if (p < 1) {
-    // Chão: ondulação fina e dunas largas, baixas (nada que a nave não acompanhe).
-    const k = ondulacaoAt(x, z);
-    if (k > 0) h += (1 - p) * k * (detalhe * 2.5 + fbmSim(x, z, 0.004, 17, 2) * 7);
-  }
-  if (p > 0) {
-    // Mesa: o alto varia devagar de uma mesa para outra.
-    const topo = WALL_HEIGHT * (0.75 + 0.55 * fbmSim(x, z, 0.003, 61, 2)) + detalhe * 14;
-    h += p * topo;
-  }
-  // Borda do mapa: a muralha sobe mais que as mesas, para ninguém cair do mundo.
-  h += muralhaAt(x, z) * 90;
-  return h;
+/** O ponto (x, z) fica dentro de alguma área de pouso? */
+export function podePousar(x, z) {
+  return !!areaPouso(x, z);
+}
+
+/** Altura absoluta do topo da plataforma no ponto, ou null fora das áreas de pouso. */
+export function topoPouso(x, z) {
+  const a = areaPouso(x, z);
+  return a ? heightAt(a.x, a.z) + a.piso : null;
 }

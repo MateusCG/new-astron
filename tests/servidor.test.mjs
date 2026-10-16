@@ -4,8 +4,9 @@ import WebSocket from 'ws';
 import { iniciar } from '../server/index.js';
 import { World, ZONA_SEGURA } from '../server/game.js';
 import { createShip, createBullet, WEAPONS, DT, SHIP_RADIUS, ARMAS, IDX_ARMA, armasIniciais, versaoArma, pousadaNaBase } from '../shared/sim.js';
-import { BASE, BASES, CORREDOR, SERVICOS, heightAt, noMapaAberto } from '../shared/terrain.js';
+import { BASE, BASES, LANE, SERVICOS, heightAt, noMapaAberto } from '../shared/terrain.js';
 import { alturaSolida, pontoLivre } from '../shared/obstaculos.js';
+import { CAMPO } from './lugares.mjs';
 
 function conectar(porta) {
   const ws = new WebSocket(`ws://localhost:${porta}/ws`);
@@ -41,10 +42,10 @@ test('servidor: entra, anda com comandos e recebe ack', async () => {
     const j = srv.world.players.get(boas.id);
     assert.equal(j.nome, 'bMateusb', 'nome sem HTML');
     assert.equal(j.ship.race, 'bellico');
-    const z0 = j.ship.z;
+    const x0 = j.ship.x;
     for (let s = 1; s <= 30; s++) c.ws.send(JSON.stringify({ t: 'in', s, th: 1, tu: 0 }));
     const snap = await c.esperar((m) => m.t === 'snap' && m.ack === 30);
-    assert.ok(snap.me.z < z0 - 5, 'andou para frente (−z)');
+    assert.ok(snap.me.x > x0 + 5, 'andou para frente (+x, rumo à lane)');
     assert.ok(snap.ents.some((e) => e.id === boas.id));
     c.ws.close();
   } finally {
@@ -97,8 +98,8 @@ test('servidor: tiro tira vida, abate dá ouro e o morto renasce na base', () =>
   const a = w.addPlayer('A', 'acron');
   const b = w.addPlayer('B', 'shrewdo');
   // Leva os dois para longe da zona segura, um na frente do outro.
-  a.ship = createShip('acron', BASE.x, BASE.z - ZONA_SEGURA - 100, 0);
-  b.ship = createShip('shrewdo', BASE.x, BASE.z - ZONA_SEGURA - 130, 0);
+  a.ship = createShip('acron', CAMPO.x, CAMPO.z, 0);
+  b.ship = createShip('shrewdo', CAMPO.x, CAMPO.z - 30, 0);
   a.protegidoAte = b.protegidoAte = 0;
   let seq = 0;
   for (let i = 0; i < 30 * 20 && b.vivo; i++) {
@@ -249,8 +250,8 @@ test('servidor: cada projétil do Feixe Duplo tira o dano dele', () => {
   const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
   const a = w.addPlayer('A', 'shrewdo');
   const b = w.addPlayer('B', 'acron');
-  a.ship = createShip('shrewdo', BASE.x, BASE.z - ZONA_SEGURA - 100, 0);
-  b.ship = createShip('acron', BASE.x, BASE.z - ZONA_SEGURA - 130, 0);
+  a.ship = createShip('shrewdo', CAMPO.x, CAMPO.z, 0);
+  b.ship = createShip('acron', CAMPO.x, CAMPO.z - 30, 0);
   a.protegidoAte = b.protegidoAte = 0;
   const hp = b.ship.hp;
   w.pushInput(a.id, { s: 1, f1: true });
@@ -263,8 +264,8 @@ function duelo() {
   const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
   const a = w.addPlayer('A', 'shrewdo');
   const b = w.addPlayer('B', 'acron');
-  a.ship = createShip('shrewdo', BASE.x, BASE.z - ZONA_SEGURA - 100, 0);
-  b.ship = createShip('acron', BASE.x, BASE.z - ZONA_SEGURA - 120, 0);
+  a.ship = createShip('shrewdo', CAMPO.x, CAMPO.z, 0);
+  b.ship = createShip('acron', CAMPO.x, CAMPO.z - 20, 0);
   a.protegidoAte = b.protegidoAte = 0;
   /** Põe um projétil da arma `kind` saindo de A, como se A tivesse atirado. */
   const tiro = (kind) => w.bullets.push(createBullet(a.ship, kind, 1000 + w.tick, a.id));
@@ -359,7 +360,7 @@ test('servidor: Canhão Freio deixa o alvo lento, e o snapshot leva isso', () =>
   assert.equal(w.entidades().find((e) => e.id === b.id).lento, false);
 });
 
-test('servidor: drones nascem no mundo aberto, fora das bases e do corredor', () => {
+test('servidor: drones nascem no mundo aberto, fora das bases e da lane', () => {
   // Gerador com semente fixa: o teste não depende da sorte.
   let a = 42;
   const rng = () => {
@@ -374,7 +375,7 @@ test('servidor: drones nascem no mundo aberto, fora das bases e do corredor', ()
     assert.ok(pontoLivre(x, z), 'com folga das rochas');
     assert.equal(alturaSolida(x, z, SHIP_RADIUS), heightAt(x, z), 'fora de construção');
     for (const b of BASES) assert.ok(Math.hypot(x - b.x, z - b.z) > ZONA_SEGURA + 100, 'longe das bases');
-    assert.ok(Math.abs(x - CORREDOR.x) > CORREDOR.largura / 2, 'fora do corredor');
+    assert.ok(Math.abs(z - LANE.z) > LANE.meiaLargura, 'fora da lane');
     if (x < 0) oeste++;
   }
   assert.ok(oeste > 15 && oeste < 45, `${oeste} a oeste, o resto a leste`);

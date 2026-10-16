@@ -2,16 +2,17 @@
 // São elas que fazem os pontos da partida; os jogadores só protegem os seus e caçam
 // os do outro time.
 //
-// Ciclo de cada minerador, sempre pelo corredor (ROTAS[time] em shared/terrain.js):
-//   'ida'        sai do centro da base e segue a rota até a coroa do depósito de
-//                minério (o miolo, com os cristais grandes, é sólido);
+// Ciclo de cada minerador, sempre em linha reta pela lane (ROTAS[time] em
+// shared/terrain.js, sem estrada):
+//   'ida'        sai do centro da base e segue a rota até a própria doca da
+//                mineradora (DOCAS; a mineradora em si é sólida);
 //   'minerando'  para ali MINERADOR.mineracaoS segundos, virando para voltar, e
 //                enche o contêiner com a carga (10, +1 com o bônus de mineração);
 //   'volta'      refaz a rota de trás para frente e, ao passar pela ENTREGAS[time]
 //                do próprio time, soma a carga no placar e volta para a 'ida'.
 // Cada sentido anda na sua faixa (mão direita, FAIXA_MINERADOR do eixo), para quem
-// vai não atravessar quem volta. Os dois times usam metades diferentes do corredor
-// (cada um minera na coroa do seu lado), então não se cruzam.
+// vai não atravessar quem volta. Os dois times usam metades diferentes da lane (cada
+// um atraca na doca do seu lado), então não se cruzam.
 //
 // Saem da base de MINERADOR.intervaloS em intervalos, até MINERADOR.maxAtivos por
 // time. O destruído não volta: o próximo sai da base depois do intervalo, contado
@@ -47,10 +48,10 @@ export const MINERADOR = {
   ouro: 40, // para quem destrói um minerador inimigo
   defesaMax: 0.6, // teto da defesa comprada na Evolução (nunca fica imune)
 };
-/** Distância do eixo do corredor de cada faixa (ida de um lado, volta do outro). */
+/** Distância do eixo da lane de cada faixa (ida de um lado, volta do outro). */
 export const FAIXA_MINERADOR = 15;
 const CHEGOU = 12; // m: perto assim de um ponto da rota, segue para o próximo
-const FREIA_DIST = 40; // m antes do depósito: começa a frear para parar nele
+const FREIA_DIST = 40; // m antes da doca: começa a frear para parar nela
 
 /** Diferença de ângulo de a para b, em (-π, π]. */
 export function anguloEntre(a, b) {
@@ -65,7 +66,7 @@ export function pontoRota(time, i, ida) {
   const rota = ROTAS[time];
   const fim = rota[rota.length - 1];
   const ini = rota[0];
-  // Direção da ida (base → minério) e a direita de quem anda nela.
+  // Direção da ida (base → doca) e a direita de quem anda nela.
   const len = Math.hypot(fim.x - ini.x, fim.z - ini.z) || 1;
   const fx = (fim.x - ini.x) / len;
   const fz = (fim.z - ini.z) / len;
@@ -200,7 +201,7 @@ export class Mineradores {
       }
     }
     if (m.estado === 'minerando') {
-      // Parado no depósito, virando para a volta.
+      // Parado na doca, virando para a volta.
       const volta = pontoRota(m.time, ultimo - 1, false);
       const diff = anguloEntre(s.yaw, yawPara(s.x, s.z, volta.x, volta.z));
       stepShip(s, { th: 0, tu: Math.max(-1, Math.min(1, diff * 2.5)), b: false, f1: false, f2: false, p: false, a: 0 });
@@ -227,7 +228,7 @@ export class Mineradores {
       this.evento({ e: 'entrega', id: m.id, time: m.time, carga: valor, x: s.x, y: s.y, z: s.z });
       m.carga = 0;
       m.estado = 'ida';
-      // Segue para o primeiro ponto da rota que fica adiante, rumo ao minério.
+      // Segue para o primeiro ponto da rota que fica adiante, rumo à doca.
       const fim = rota[ultimo];
       const falta = Math.hypot(fim.x - s.x, fim.z - s.z);
       m.ponto = rota.findIndex((p) => Math.hypot(fim.x - p.x, fim.z - p.z) < falta - 5);
