@@ -623,7 +623,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     const apertouPouso = inp.p && !pred.pAnt;
     if (apertouPouso && !pred.pousado && !pousoPermitido(pred)) {
       hud.noticia(
-        areaPouso(pred.x, pred.z) ? 'Esta plataforma é do outro time' : 'Só dá para pousar na sua base e nos objetivos A',
+        areaPouso(pred.x, pred.z) ? 'Esta plataforma é do outro time' : 'Só dá para pousar na sua base e nas plataformas de pouso',
         'ruim',
       );
     }

@@ -4,7 +4,24 @@
 // "destruído". É DOM puro por cima do canvas.
 
 import * as THREE from 'three';
-import { paredeAt, MAP_HALF_X, MAP_HALF_Z, BASES, CORREDOR, MINERIO, ENTREGAS, SERVICOS, OBJETIVOS, TORRETAS } from '/shared/terrain.js';
+import {
+  paredeAt,
+  MAP_HALF_X,
+  MAP_HALF_Z,
+  BASES,
+  LANE,
+  MINERADORA,
+  DOCAS,
+  ENTREGAS,
+  SERVICOS,
+  OBJETIVOS,
+  TORRETAS,
+  ASTEROIDES,
+  BUFFS,
+  PLATAFORMAS_POUSO,
+  NUCLEO,
+  MEDUSA,
+} from '/shared/terrain.js';
 import { WEAPONS, ARMAS, TROCA_ARMA_S, armasIniciais, versaoArma } from '/shared/sim.js';
 import { iconeArma } from './armas.js';
 import { iconeItem } from './servicos.js';
@@ -13,9 +30,10 @@ import { relogio } from './objetivos.js';
 
 const $ = (s) => document.querySelector(s);
 
-// O minimapa mostra o retângulo inteiro (o canvas tem a mesma proporção do mapa).
+// O minimapa mostra o retângulo inteiro (o que sobra do canvas é rocha da borda).
 // Cores do guia visual: sua base em turquesa, a do outro time em vermelho, o
 // circuito do minério em azul, serviços na cor de cada um e objetivos em âmbar.
+// O fundo (lago, rocha, asteroides) é provisório até o visual do mapa novo.
 const COR_MEU_TIME = '#00efc0';
 const COR_OUTRO_TIME = '#ff4a2a';
 const COR_INIMIGA = '#ff4a2a'; // monstros e tudo do outro time
@@ -113,9 +131,10 @@ export class Hud {
         const [x, z] = this.#doMapa(i + 0.5, j + 0.5);
         const p = paredeAt(x, z);
         const k = (j * w + i) * 4;
-        img.data[k] = 40 + p * 90;
-        img.data[k + 1] = 22 + p * 50;
-        img.data[k + 2] = 14 + p * 25;
+        // Lago (campo aberto) escuro e esverdeado; rocha em cinza, mais clara no alto.
+        img.data[k] = p === 0 ? 18 : 60 + p * 50;
+        img.data[k + 1] = p === 0 ? 44 : 62 + p * 50;
+        img.data[k + 2] = p === 0 ? 52 : 64 + p * 48;
         img.data[k + 3] = 255;
       }
     }
@@ -139,12 +158,20 @@ export class Hud {
       ctx.fillStyle = cor;
       ctx.fillRect(cx, cz, Math.max(1.5, larg * k), Math.max(1.5, prof * k));
     };
-    // Corredor (faixa azul apagada), entregas e minério.
-    ctx.globalAlpha = 0.35;
-    retangulo(CORREDOR.x, (CORREDOR.zInicio + CORREDOR.zFim) / 2, CORREDOR.largura, CORREDOR.zFim - CORREDOR.zInicio, COR_CIRCUITO);
+    // Campos de asteroides (passáveis, escondem) em cinza claro apagado.
+    ctx.globalAlpha = 0.3;
+    for (const a of ASTEROIDES) retangulo(a.x, a.z, a.largura, a.profundidade, '#b9c4b8');
+    // Lane (faixa azul apagada), entregas, docas e a mineradora.
+    ctx.globalAlpha = 0.2;
+    retangulo((LANE.xInicio + LANE.xFim) / 2, LANE.z, LANE.xFim - LANE.xInicio, LANE.largura, COR_CIRCUITO);
     ctx.globalAlpha = 1;
     for (const e of ENTREGAS) retangulo(e.x, e.z, e.largura, e.profundidade, COR_CIRCUITO);
-    circulo(MINERIO.x, MINERIO.z, MINERIO.raio * 0.7, COR_MINERIO, true);
+    retangulo(MINERADORA.x, MINERADORA.z, MINERADORA.meiaX * 2, MINERADORA.meiaZ * 2, '#55605f');
+    for (const d of DOCAS) circulo(d.x, d.z, 12, COR_MINERIO, true);
+    // Objetivos da jungle (provisório): plataformas, buffs e as arenas, em âmbar.
+    for (const p of PLATAFORMAS_POUSO) circulo(p.x, p.z, p.raio, COR_OBJETIVO, false);
+    for (const b of BUFFS) circulo(b.x, b.z, 18, COR_OBJETIVO, b.tipo === 'ataque');
+    for (const o of [NUCLEO, MEDUSA]) circulo(o.x, o.z, o.raio * 0.6, COR_OBJETIVO, false);
     for (const b of BASES) circulo(b.x, b.z, b.raio, b.time === this.meuTime ? COR_MEU_TIME : COR_OUTRO_TIME, false);
     for (const sv of SERVICOS) retangulo(sv.x, sv.z, sv.raio * 2.4, sv.raio * 2, COR_SERVICO[sv.servico]);
     // Objetivos: a letra do tipo em âmbar.
