@@ -16,8 +16,9 @@
 //
 // Como ele joga (o "cérebro" fica em j.ia; pensa a cada IA.pensarTicks e dirige a
 // nave a cada tick):
-// - Começo de partida: caça os monstros da jungle (Arnosh e Vorax; Krakor só com
-//   nível e vida sobrando) para ganhar XP e ouro. Quem o atacou vem primeiro.
+// - Começo de partida: caça os monstros da jungle (server/jungle.js; o SN-4 do buff
+//   de ataque só com nível e vida sobrando, a Medusa nunca: é de time inteiro) para
+//   ganhar XP e ouro. Quem o atacou vem primeiro.
 // - Com nível (IA.nivelCorredor, ± o jeito de cada um) ou com a partida andando
 //   (IA.corredorS), vai atrapalhar a mineração do outro time: espera perto do
 //   minério, do lado de lá, e derruba os mineradores e a escolta inimigos que
@@ -55,7 +56,7 @@ import { pontosLivres, PONTO_MAX, ORDEM_ATRIBUTOS } from '../shared/status.js';
 import { NIVEL_MAX } from './progressao.js';
 import { MapaNavegacao } from './navegacao.js';
 import { TORRETA } from './torretas.js';
-import { GUARDIAO } from './elites.js';
+import { alcanceMaximo } from './especies.js';
 import { INVISIVEL_VISTO_M } from './golpes.js';
 import { naPlataforma } from './servicos.js';
 import { RECALL_VEL_MAX } from '../shared/recall.js';
@@ -78,7 +79,7 @@ export const IA = {
   energiaCelula: 0.15, // usa a célula de energia brigando abaixo disto
   nivelCorredor: 4, // a partir daqui vai atrapalhar os mineradores do outro time
   corredorS: 150, // ...ou com a partida andando há isto
-  krakorNivel: 7, // caça Krakor a partir daqui (com vida cheia)
+  chefeNivel: 7, // caça o SN-4 do buff de ataque a partir daqui (com vida cheia)
   cacaMax: 1400, // m: monstro mais longe que isso não vale a viagem
   cacaPerto: 450, // m: no corredor sem minerador, caça monstro até aqui
   espreitaX: 85, // m do eixo da lane onde espera os mineradores
@@ -86,7 +87,7 @@ export const IA = {
   alvoMineradorMax: 650, // m da espreita: minerador mais longe não vale
   torretaFolga: 5, // m além do alcance da torreta inimiga (a coroa do minério fica a ~176 m dela)
   torretaNivel: 12,
-  guardiaoFolga: 40, // m além da visão do guardião do objetivo C (ele atira em quem entra)
+  medusaFolga: 40, // m além do alcance da Medusa viva (não chega perto dela sozinho)
   revidaDist: 140, // m: minerador ou escolta perto assim se derruba mesmo junto da torreta deles // só encara torreta com este nível e vida cheia
   recallDist: 550, // m da base: mais longe que isso, volta de recall
   calmoS: 2.5, // s sem levar dano para tentar o recall
@@ -342,10 +343,10 @@ export class Bots {
     return false;
   }
 
-  /** O ponto está ao alcance de um guardião de objetivo C vivo? (ele atira em quem chega) */
-  #perigoGuardiao(p) {
-    for (const e of this.world.elites) {
-      if (e.tipo === 'guardiao' && e.vivo && dist(p, e.ship) < GUARDIAO.visao + IA.guardiaoFolga) return true;
+  /** O ponto está ao alcance da Medusa viva? (chefe de time inteiro: o computador não encara sozinho) */
+  #perigoMedusa(p) {
+    for (const m of this.world.monstros) {
+      if (m.esp === 'medusa' && m.vivo && dist(p, m.ship) < alcanceMaximo('medusa') + IA.medusaFolga) return true;
     }
     return false;
   }
@@ -379,7 +380,7 @@ export class Bots {
     const w = this.world;
     let melhor = null;
     let melhorD = Infinity;
-    for (const m of [...w.drones, ...w.monstros, ...w.elites]) {
+    for (const m of w.monstros) {
       if (!m.vivo || !(m.raiva?.get(j.id) > w.tick)) continue;
       const d = dist(j.ship, m.ship);
       if (d < melhorD) {
@@ -396,15 +397,14 @@ export class Bots {
     const vida = j.ship.hp / j.ship.maxHp;
     let melhor = null;
     let melhorNota = Infinity;
-    const candidatos = [...w.drones, ...w.monstros, ...w.elites.filter((e) => e.tipo === 'krakor')];
-    for (const m of candidatos) {
-      if (!m.vivo) continue;
-      if (m.tipo === 'krakor' && (j.nivel < IA.krakorNivel || vida < 0.75)) continue;
+    for (const m of w.monstros) {
+      if (!m.vivo || m.esp === 'medusa') continue;
+      if (m.esp === 'sn4' && (j.nivel < IA.chefeNivel || vida < 0.75)) continue;
       const d = dist(de, m.ship);
       if (d > max) continue;
-      if (this.#perigoTorreta(m.ship, j.time) || this.#perigoGuardiao(m.ship)) continue;
-      // Perto de quem caça vale mais; o Vorax (garra) um pouco menos; o Krakor paga mais.
-      const nota = dist(j.ship, m.ship) * (m.tipo === 'vorax' ? 1.2 : m.tipo === 'krakor' ? 0.7 : 1);
+      if (this.#perigoTorreta(m.ship, j.time) || this.#perigoMedusa(m.ship)) continue;
+      // Perto de quem caça vale mais; o de chama (curto) um pouco menos; o SN-4 paga mais.
+      const nota = dist(j.ship, m.ship) * (m.esp === 'sn4' ? 0.7 : alcanceMaximo(m.esp) < 150 ? 1.2 : 1);
       if (nota < melhorNota) {
         melhor = m;
         melhorNota = nota;
@@ -638,7 +638,8 @@ export class Bots {
     const z = armaDoEncaixe(s, 0);
     const x = armaDoEncaixe(s, 1);
     const alcance = Math.min(z?.alcance ?? 250, x?.alcance ?? 250);
-    const garra = alvo.tipo === 'vorax';
+    // Monstro de alcance curto (a chama do Grande Xerxes): briga de longe.
+    const garra = alvo.tipo === 'monstro' && alcanceMaximo(alvo.esp) < 150;
     // Sem linha livre, contorna a rocha pelo caminho até ele.
     if (d > 60 && !this.#livre(j, t.x, t.z)) return this.#navegar(j, t, true);
 
@@ -655,7 +656,7 @@ export class Bots {
     const mx = t.x + (t.vx ?? 0) * voo;
     const mz = t.z + (t.vz ?? 0) * voo;
     const diff = anguloEntre(s.yaw, yawPara(s, mx, mz) + ia.erro);
-    const ideal = garra ? 110 : alcance * 0.6;
+    const ideal = garra ? 160 : alcance * 0.6; // fora do alcance da chama
     let th;
     if (d > ideal + 40) th = 1;
     else if (d < ideal - 60) th = Math.abs(diff) < 0.6 ? -0.6 : 0.2;

@@ -1,11 +1,12 @@
 // XP, nível e ouro do jogador na partida (DESIGN-PARTIDA.md, "Progressão do
 // jogador"). Tudo em memória: começa no nível 1 a cada entrada.
 //
-// Quem dá XP e ouro: destruir monstros (Arnosh, Vorax, Krakor, o guardião do
-// objetivo C), mineradores e escoltas do outro time, torretas do outro time (quem dá
-// o último tiro; o resto do time ganha um pouco de ouro, em server/torretas.js) e
-// jogadores inimigos; tomar um objetivo A ou B dá XP_OBJETIVO a quem tomou (no C,
-// o XP é o do abate do guardião). Os valores por tipo ficam em RECOMPENSA.
+// Quem dá XP e ouro: destruir monstros da jungle (cada espécie de
+// server/especies.js tem o seu XP e ouro; a Medusa paga cada piloto do time de quem
+// a matou, em server/jungle.js), mineradores e escoltas do outro time, torretas do
+// outro time (quem dá o último tiro; o resto do time ganha um pouco de ouro, em
+// server/torretas.js) e jogadores inimigos. Os valores por tipo ficam em RECOMPENSA
+// (o monstro entra pela espécie: chaveRecompensa).
 //
 // Curva: para passar do nível n para o n + 1 são xpParaNivel(n) pontos (60 no
 // primeiro, +20 a cada nível). Numa partida de 10 minutos, caçando sem parar, dá
@@ -45,16 +46,19 @@ import { naveDe, CLASSE_PADRAO } from '../shared/naves.js';
 import { pontosVazios, statusDoPiloto } from '../shared/status.js';
 import { equipadosDoInv } from '../shared/loja.js';
 import { MINERADOR } from './mineradores.js';
+import { ESPECIES } from './especies.js';
 
 export const NIVEL_MAX = 25;
 export const HP_POR_NIVEL = 0.03; // fração do HP da nave por nível acima do 1
 export const XP_OBJETIVO = 60; // a quem toma um objetivo A ou B
 /** XP e ouro por abate, pelo tipo do que morreu. */
 export const RECOMPENSA = {
-  arnosh: { xp: 20, ouro: 25 },
-  vorax: { xp: 30, ouro: 30 },
-  krakor: { xp: 120, ouro: 90 },
-  guardiao: { xp: 250, ouro: 150 },
+  // Monstros da jungle, pela espécie (a Medusa, `doTime`, fica de fora: paga o time inteiro).
+  ...Object.fromEntries(
+    Object.entries(ESPECIES)
+      .filter(([, e]) => !e.doTime)
+      .map(([esp, e]) => [esp, { xp: e.xp, ouro: e.ouro }]),
+  ),
   minerador: { xp: 40, ouro: MINERADOR.ouro },
   escolta: { xp: 50, ouro: 45 },
   torreta: { xp: 80, ouro: 70 },
@@ -169,6 +173,11 @@ export function ganharXp(j, xp, eventos) {
   }
   if (j.nivel >= NIVEL_MAX) j.xp = 0;
   return subiu;
+}
+
+/** Chave de RECOMPENSA do que morreu: a espécie, no monstro; o tipo, no resto. */
+export function chaveRecompensa(alvo) {
+  return alvo.tipo === 'monstro' ? alvo.esp : alvo.tipo;
 }
 
 /** Dá ao jogador o XP e o ouro do abate de algo do tipo `tipo`. */

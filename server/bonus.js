@@ -27,12 +27,62 @@ export const BONUS = {
   velocidade: { mult: 1.4 },
   durabilidade: { mult: 1.5 },
   furia: { mult: 1.2 },
+  // Mapa novo (Stage 6): golpe final na Ancient Medusa (server/jungle.js). Esqueleto
+  // mínimo da frente Jungle: o efeito (+15% de dano e de velocidade das naves do
+  // time) é da frente Objetivos, dona deste arquivo.
+  medusa: { dano: 1.15, vel: 1.15 },
+};
+
+/**
+ * Bônus de NAVE (individuais, de quem deu o golpe final): 'ataque' (SN-4 do buff de
+ * ataque), 'suporte' (torre do buff de suporte), 'sonda' (sonda errante). Esqueleto
+ * mínimo da frente Jungle (só guarda o tempo); os efeitos são da frente Objetivos.
+ */
+export const BONUS_NAVE = {
+  ataque: { dano: 1.2 },
+  suporte: { hpFrac: 0.02, en: 4 },
+  sonda: { vel: 1.25 },
 };
 
 export class Bonus {
-  constructor() {
+  /** @param {{ evento?: (ev: object) => void }} [ctx] evento: recebe o {e:'bonusNave', id, nome, s} de cada ativarNave. */
+  constructor({ evento } = {}) {
+    this.evento = evento;
     // ate[time][nome] = tick em que o bônus deixa de valer.
     this.ate = [{}, {}];
+    // nave: id do jogador → { nome: tick em que deixa de valer }.
+    this.nave = new Map();
+  }
+
+  /** Liga o bônus de nave `nome` para o jogador `id` por `segundos` (renova, não soma). */
+  ativarNave(id, nome, segundos, tick) {
+    if (!BONUS_NAVE[nome]) throw new Error(`bônus de nave desconhecido: ${nome}`);
+    const fins = this.nave.get(id) ?? {};
+    fins[nome] = Math.max(fins[nome] ?? 0, tick + Math.round(segundos / DT));
+    this.nave.set(id, fins);
+    this.evento?.({ e: 'bonusNave', id, nome, s: segundos });
+  }
+
+  /** O bônus de nave vale para o jogador `id` no `tick`? */
+  ativoNave(id, nome, tick) {
+    return (this.nave.get(id)?.[nome] ?? 0) > tick;
+  }
+
+  /** Segundos que ainda faltam do bônus de nave (0 se não está ativo). */
+  restanteNave(id, nome, tick) {
+    return Math.max(0, ((this.nave.get(id)?.[nome] ?? 0) - tick) * DT);
+  }
+
+  /** Bônus de nave ativos do jogador, em segundos inteiros: `{ ataque: 42 }`. */
+  paraNave(id, tick) {
+    const r = {};
+    for (const [nome, fim] of Object.entries(this.nave.get(id) ?? {})) if (fim > tick) r[nome] = Math.ceil(Math.max(0, (fim - tick) * DT) - 1e-9);
+    return r;
+  }
+
+  /** Tira todos os bônus de nave do jogador (morte ou saída). */
+  limparNave(id) {
+    this.nave.delete(id);
   }
 
   #conferir(time, nome) {
@@ -76,5 +126,6 @@ export class Bonus {
   /** Desliga tudo (nova partida). */
   limpar() {
     this.ate = [{}, {}];
+    this.nave.clear();
   }
 }
