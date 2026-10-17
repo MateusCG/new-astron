@@ -19,9 +19,9 @@
 // a partir de quando abriu a vaga.
 //
 // Tempos (medidos em tests/mineradores.test.mjs, sem melhoria, 30 m/s): da base à
-// doca são ~1200 m, uns 41 s; minerando 5 s; da doca à entrega ~1030 m, uns 35 s. A
-// primeira entrega sai ~81 s depois da saída e cada volta seguinte (entrega → doca →
-// entrega) leva ~76 s. Numa partida de 20 minutos cada minerador que sobrevive faz
+// doca são ~1200 m, uns 40 s; minerando 5 s; da doca à entrega ~1030 m, uns 34 s. A
+// primeira entrega sai ~79 s depois da saída e cada volta seguinte (entrega → doca →
+// entrega) leva ~75 s. Numa partida de 20 minutos cada minerador que sobrevive faz
 // umas 15 viagens: ~45 entregas por time com os três, ~450 de minério, mais o dobro
 // do que entra nos 3 minutos da fase final.
 //
@@ -31,8 +31,8 @@
 // lentos e com mais HP, que vão à própria doca, carregam MINERADOR_NUCLEO.carga cada
 // (5× o normal), voltam, entregam e SOMEM (não voltam para a doca). Contam além do
 // limite normal (maxAtivos) e não mexem no intervalo de saída dos outros. Com 21
-// m/s levam ~60 s até a doca, 8 s carregando e ~50 s de volta: quase dois minutos
-// de alvo enorme para o outro time.
+// m/s levam ~57 s até a doca, 8 s carregando e entregam ~115 s depois de sair: quase
+// dois minutos de alvo enorme para o outro time.
 //
 // A física é a mesma das naves (stepShip), com o acelerador limitado para dar a
 // velocidade do minerador: assim eles batem nas construções (alturaSolida) e

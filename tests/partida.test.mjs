@@ -9,7 +9,6 @@ import { iniciar } from '../server/index.js';
 import { World, ZONA_SEGURA } from '../server/game.js';
 import { MAX_POR_TIME, Partida, FASE_FINAL_S, MULT_FASE_FINAL, DURACAO_PARTIDA_S } from '../server/partida.js';
 import { MINERADOR } from '../server/mineradores.js';
-import { BONUS } from '../server/bonus.js';
 import { createShip, createBullet, pousoPermitido, WEAPONS } from '../shared/sim.js';
 import { BASES, SERVICOS, PLATAFORMAS_POUSO } from '../shared/terrain.js';
 import { rumoLane } from './lugares.mjs';
@@ -247,13 +246,12 @@ test('partida: fase final nos últimos FASE_FINAL_S dobra o minério entregue, e
   assert.equal(new Partida().faseFinalTicks, FASE_FINAL_S * SEGUNDO);
 });
 
-test('partida: no mundo, a entrega na fase final soma o dobro (com o bônus de mineração) e o evento anuncia', () => {
+test('partida: no mundo, a entrega na fase final soma o dobro e o evento anuncia', () => {
   const w = new World({ drones: 0, monstros: 0, elites: 0, duracaoPartidaS: DURACAO_PARTIDA_S, faseFinalS: DURACAO_PARTIDA_S - 5, intervaloFimS: 1 });
   const a = w.addPlayer('A', 'acron');
   w.addPlayer('B', 'acron');
   w.step();
   assert.equal(w.snapshotPara(a, [], []).partida.fase, 'normal');
-  w.bonus.ativar(0, 'mineracao', 300, w.tick);
   let anuncio = null;
   let entrega = null;
   for (let i = 0; i < 200 * SEGUNDO && !entrega; i++) {
@@ -267,7 +265,7 @@ test('partida: no mundo, a entrega na fase final soma o dobro (com o bônus de m
   assert.equal(anuncio.mult, MULT_FASE_FINAL);
   assert.equal(w.snapshotPara(a, [], []).partida.fase, 'final');
   assert.ok(entrega, 'houve entrega');
-  assert.equal(entrega.carga, (MINERADOR.carga + BONUS.mineracao.cargaExtra) * MULT_FASE_FINAL);
+  assert.equal(entrega.carga, MINERADOR.carga * MULT_FASE_FINAL);
   assert.equal(w.partida.placar[0], entrega.carga);
 });
 
