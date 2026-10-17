@@ -199,7 +199,7 @@ export class Golpes {
       if (g?.cresce && b.raio < g.cresce.raio) b.raio = Math.min(g.cresce.raio, b.raio + g.cresce.vel * DT);
       const segue = stepBullet(b);
       if (w.objetivos.tiroNaTorre(b) || w.torretas.tiroNaTorreta(b)) {
-        // Bateu numa torre B ou numa torreta (sólidas): acaba ali.
+        // Bateu numa torre de suporte ou numa torreta (sólidas): acaba ali.
         this.#fimDoTiro(b, g, novos);
         return false;
       }

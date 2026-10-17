@@ -131,7 +131,12 @@
 //                        me.time = time da nave, para a predição do pouso;
 //                        me.classe e me.tier = a nave da linha (shared/naves.js),
 //                        me.velocidade (m/s) e me.regenEn (energia por s) = da
-//                        nave, lidos no stepShip da predição; me.regenHpVoo e
+//                        nave, lidos no stepShip da predição; me.velMult e
+//                        me.regenEn já vêm com os bônus por tempo (sonda, medusa,
+//                        suporte; server/bonus.js); me.bonusNave = {ataque: s,
+//                        suporte: s, sonda: s} os bônus de nave ativos e
+//                        me.bonusSuspenso = ['sonda'] quando a sonda está suspensa
+//                        (3 s depois de causar ou levar dano); me.regenHpVoo e
 //                        me.regenHpPousada (HP/s voando e pousada) = da nave, só
 //                        informação (quem regenera é o servidor);
 //                        cada ent traz dreno/lento/emp booleanos para desenhar o efeito;
@@ -192,15 +197,22 @@
 //         estado = 'esperando' | 'andamento' | 'fim'; fase = 'normal' | 'final'
 //         (últimos 3 min: minério entregue vale o dobro); restante e novaEm em s;
 //         vencedor = time, -1 empate, null jogando
-//   bonus: {0: {mineracao: s, velocidade: s, durabilidade: s, furia: s}, 1: {...}}
-//         só os ativos; furia = +20% de dano das naves do time (objetivo C)
-//   obj:  [{id, tipo, estado, time, resta, prog?, quem?, falta?, vida?}]  os seis
-//         objetivos (server/objetivos.js): estado = 'livre' | 'tomando' |
-//         'contestado' | 'recarga'; time = quem tomou por último (ou null); resta =
-//         s de recarga; no A, prog (0 a 1), quem (time tomando) e falta (s); no B e
-//         no C, vida (0 a 1) da torre ou do guardião. Torre B em 'recarga' está
-//         caída: o cliente a tira da física (definirObstaculoAtivo).
-//   torretas: [{id, time, vida, max, nivel, viva, alvo?, obra?}]   as oito torres
+//   bonus: {0: {medusa: s}, 1: {...}}   bônus de TIME ativos (s que faltam; medusa =
+//         +15% de dano e +15% de velocidade das naves do time, server/bonus.js)
+//   obj:  {[id]: estado}   objetivos do mapa, por id (server/objetivos.js: BS0, BS1,
+//         P0, P1, NUCLEO; server/jungle.js: BA0, BA1, SONDA, MEDUSA). estado =
+//         'espera' (ainda não apareceu) | 'ativo' | 'recarga' (tomado, volta depois) |
+//         'tomado' (o Núcleo depois da última aparição); volta = s até aparecer ou
+//         voltar (em 'espera' e 'recarga'); time = time de quem tomou por último (ou
+//         null). Torre de suporte (BS0/BS1): vida (0 a 1); em 'recarga' está caída e
+//         o cliente a tira da física (definirObstaculoAtivo(id, false)); de pé em
+//         'espera' e 'ativo' (em 'espera' não aceita dano). Plataforma (P0/P1): prog
+//         (s pousado do time que está coletando), quem (esse time, ou null),
+//         contestado? (os dois times pousados: trava); o feixe de luz acende com
+//         quem != null. Núcleo: vida (0 a 1, ativo), aparicao (quantas vezes já
+//         apareceu: 0, 1 ou 2)
+//   torretas: [{id, time, vida, max, nivel, viva, alvo?, obra?}]   as oito torres (1400 de
+//         HP no nível 1, alcance de 560 m, míssil teleguiado)
 //         sentinela da lane (server/torretas.js; posição em TORRETAS de shared/terrain.js):
 //         vida e max em HP, nivel = nível do time dono (1 a 3), viva = de pé e
 //         sólida (false: o cliente a tira da física com definirObstaculoAtivo);
@@ -219,15 +231,18 @@
 //         minimapa e dos rótulos
 //   ents: [{id, nome, tipo, drone, vivo, race, x, y, z, yaw, roll, hp, maxHp, boost, pousado,
 //           dreno, lento, emp, fx?, time?, carga?, minerando?, nivel?, classe?, tier?, arm?, esc?,
-//           recall?}]
+//           recall?, bn?, nucleo?}]
+//         bn = bônus de nave ativos do jogador ('ataque' | 'suporte' | 'sonda');
+//         nucleo = 1 no minerador da onda do Núcleo (maior, mais lento, carga 50);
 //         esc = fração (0 a 1) do escudo do equipamento, só em jogador com escudo;
 //         fx = efeitos de arma visíveis ('para', 'desg', 'energia', 'invul',
 //         'escudo', 'fraco', 'regen', 'acel', 'inv'); arm = [arma do Z, arma do X]
 //         dos jogadores (o modelo pendurado em cada asa). Jogador camuflado do outro
 //         time não vem na lista (salvo a INVISIVEL_VISTO_M da sua nave ou logo
 //         depois de atirar);
-//         tipo = 'jogador' | 'arnosh' | 'vorax' | 'krakor' | 'guardiao' | 'minerador' |
-//         'escolta' (o que desenhar); drone = inimigo do PvE; time em jogadores,
+//         tipo = 'jogador' | 'arnosh' | 'vorax' | 'krakor' | 'minerador' | 'escolta' |
+//         'nucleo' (o que desenhar; o Núcleo de He-3 é uma entidade parada no poço de
+//         cima, neutra, com hp/maxHp, só enquanto vivo); drone = inimigo do PvE; time em jogadores,
 //         mineradores e escoltas; carga e minerando só nos mineradores; nivel, classe
 //         e tier só nos jogadores (raça + classe + tier = o modelo da nave); recall
 //         (0 a 1) só em quem está canalizando a volta à base
@@ -247,9 +262,18 @@
 //                                    encerrou = bônus de ouro (só com seq >= 2);
 //                                    seqPor = sequência do matador com este abate
 //         {e:'garra', id, alvo, dano, x, y, z}   golpe corpo a corpo de um Vorax
-//         {e:'tiro', ..., fonte, time}   tiro de torreta (fonte 'torreta', dono = id
-//                                    dela) ou de escolta (fonte 'escolta'): cor do time
-//         {e:'acerto', ..., torre}   tiro que bateu numa torre B (alvo 0)
+//         {e:'tiro', ..., fonte, time, guiado?, alvo?, vida?}   tiro de torreta (fonte
+//                                    'torreta', dono = id dela; míssil teleguiado:
+//                                    guiado true, alvo = id travado, vai também em
+//                                    `guiados`) ou de escolta (fonte 'escolta'): cor do time
+//         {e:'acerto', ..., torre}   tiro que bateu numa torre de suporte (alvo 0;
+//                                    dano 0 se não foi de jogador ou se ela ainda não acendeu)
+//         {e:'acerto', kind:'pulso', alvo, dano, x, y, z}   o pulso do Núcleo pegou a nave
+//         {e:'pulso', id, x, y, z, raio, forca}   pulso de energia do Núcleo (id = o
+//                                    Núcleo; forca de 1, vida cheia, a 2,5, sem vida)
+//         {e:'bonusNave', id, nome, s}   o jogador id ganhou o bônus de nave `nome`
+//                                    ('ataque' | 'suporte' | 'sonda') por s segundos
+//         {e:'ondaNucleo', time, ids}   saíram da base os mineradores do Núcleo
 //         {e:'acerto', ..., torreta}   tiro ou área que bateu numa torreta (alvo 0;
 //                                    dano 0 se não foi de jogador inimigo)
 //         {e:'torreta', id, time, estado, por, nome, x, y, z}   estado 'destruida' (por =
@@ -276,11 +300,16 @@
 //         {e:'melhoria', id, nome, time, melhoria, nivel}   alguém do time `time` comprou
 //                                    um nível de melhoria dos mineradores (ou das
 //                                    torretas: melhoria 'torretas')
-//         {e:'objetivo', id, tipo, time, bonus, bonusNaves, segundos, quem}   um time
-//                                    tomou um objetivo (bonus = dos mineradores;
-//                                    bonusNaves = das naves do time, só no C: 'furia')
-//         {e:'entrega', id, time, carga, x, y, z}   minerador somou carga no placar
-//                                    (carga = o que entrou, já dobrado na fase final)
+//         {e:'objetivo', id, acao, time, quem, por?, motivo?, ouro?, ouroPouso?, x?, z?}
+//                                    acao 'apareceu' | 'tomado' (torre de suporte ou
+//                                    Núcleo; time e quem = nome de quem deu o golpe
+//                                    final, por = id) | 'coletou' (plataforma: ouro =
+//                                    de cada piloto do time, ouroPouso = a mais para
+//                                    quem estava pousado) | 'cancelou' (plataforma:
+//                                    motivo 'saiu' | 'dano')
+//         {e:'entrega', id, time, carga, x, y, z, nucleo?}   minerador somou carga no
+//                                    placar (carga = o que entrou, já dobrado na fase
+//                                    final; nucleo = 1 no da onda do Núcleo)
 //         {e:'faseFinal', mult, restante}   começou a fase final (minério × mult)
 //         {e:'partida', n}   começou a partida n (placar zerado)
 //         {e:'fimPartida', vencedor, placar}

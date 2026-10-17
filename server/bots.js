@@ -333,8 +333,14 @@ export class Bots {
     return !!b && dist(ent.ship, b) < this.zonaSegura;
   }
 
-  /** O ponto está ao alcance de uma torreta de pé do time que não é `time`? */
+  /**
+   * O ponto está ao alcance de uma torreta de pé do time que não é `time`? Torretas
+   * que não atiram (World({ torretas: false })) não são perigo. (Com o alcance de
+   * 560 m do mapa novo, a metade da lane do outro time inteira fica coberta: a IA
+   * nova dos computadores é da fase de integração.)
+   */
   #perigoTorreta(p, time) {
+    if (!this.world.torretasAtiram) return false;
     for (const t of TORRETAS) {
       if (t.time === time || !this.world.torretas.torreta(t.id)?.viva) continue;
       if (dist(p, t) < TORRETA.alcance + IA.torretaFolga) return true;
