@@ -80,7 +80,7 @@ test('progressão: abater um Vorax dá XP e ouro, e o snapshot leva nível e XP'
 });
 
 test('progressão: abates sobem o nível e a nave renasce com o HP do nível', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, elites: 0 });
+  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
   const a = w.addPlayer('A', 'acron');
   const b = w.addPlayer('B', 'shrewdo');
   a.ship = createShip('acron', FORA.x, FORA.z, 0);
