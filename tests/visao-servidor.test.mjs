@@ -248,3 +248,37 @@ test('visão: custo do filtro com 6 jogadores e os monstros do mapa', () => {
   // Snapshot inteiro (me, status, filtro) dos 6 jogadores: folga grande, só para pegar regressão feia.
   assert.ok(porSnap < 5, `${porSnap.toFixed(3)} ms por rodada de snapshots`);
 });
+
+test('visão: míssil da torre sentinela chega a quem ele persegue; pulso do Núcleo longe não chega', () => {
+  const { w, js } = mundo(2);
+  const [a, b] = js;
+  colocar(a, -900, 0);
+  colocar(b, 900, 0); // longe, do outro lado
+  w.step();
+  // Míssil de torre do time 0 (dono = id da torre) travado em b, saindo de longe dele.
+  const missil = { e: 'tiro', id: 8101, dono: 'T0-1', kind: 'laser', x: -400, y: 10, z: 171, vx: 300, vy: 0, vz: 0, fonte: 'torreta', time: 0, guiado: true, alvo: b.id, vida: 2 };
+  assert.ok(w.snapshotPara(b, [], [missil]).ev.includes(missil), 'o alvo recebe o míssil que vem atrás dele');
+  const pulso = { e: 'pulso', id: 4242, x: 0, y: 18, z: -877, raio: 80, forca: 1 };
+  assert.ok(!w.snapshotPara(a, [], [pulso]).ev.length, 'pulso do Núcleo fora da visão não chega');
+  colocar(a, -200, -700);
+  w.step();
+  assert.equal(w.snapshotPara(a, [], [pulso]).ev.length, 1, 'perto do poço, chega');
+});
+
+test('visão: o Núcleo de He-3 (neutro) só vem com alguém vendo o poço', () => {
+  const { w, js } = mundo(2);
+  const [a] = js;
+  colocar(a, -900, 0);
+  const tipos = () => {
+    w.step();
+    return w.snapshotPara(a, w.entidades(), []).ents.filter((e) => e.tipo === 'nucleo').length;
+  };
+  Object.assign(w.objetivos.nucleo, { vivo: true });
+  w.objetivos.nucleo.ship.hp = w.objetivos.nucleo.ship.maxHp;
+  assert.equal(w.entidades().filter((e) => e.tipo === 'nucleo').length, 1);
+  assert.equal(tipos(), 0, 'longe do poço, o núcleo não vem');
+  colocar(a, -150, -600);
+  assert.equal(tipos(), 0, 'atrás da parede em L do poço, não vem');
+  colocar(a, 0, -560); // na entrada central do poço
+  assert.equal(tipos(), 1, 'pela entrada do poço, vem');
+});

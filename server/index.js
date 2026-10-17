@@ -157,7 +157,7 @@
 //         escoltas 300 m, torres sentinela de pé 560 m, a base; rocha e mineradora
 //         tampam, asteroide esconde quem está dentro: shared/visao.js). Vale para
 //         ents (as do próprio time sempre vêm), minas, guiados e os eventos com x/z
-//         (quem é autor ou alvo recebe o seu; 'tiro' vem se o caminho dele entra na
+//         (quem é autor ou alvo recebe o seu, o 'tiro' travado nele inclusive; 'tiro' vem se o caminho dele entra na
 //         visão, e o 'fim'/'acerto' do tiro anunciado vem sempre; 'morte' de jogador
 //         fora da visão vem sem x/y/z; 'recall' de outro time só o 'chegou', sem a
 //         ponta escondida (de ou x/y/z)). Entidade que some some do `ents`; ao voltar,

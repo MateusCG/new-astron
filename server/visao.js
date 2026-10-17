@@ -61,7 +61,7 @@ const PUBLICOS = new Set([
 
 /** Campos de um evento que nomeiam uma entidade envolvida (autor ou alvo), por tipo de evento. */
 const ENVOLVIDOS = {
-  tiro: ['dono'],
+  tiro: ['dono', 'alvo'], // alvo: a trava do míssil da torre sentinela
   acerto: ['alvo'],
   explosao: ['dono'],
   nova: ['dono'],
