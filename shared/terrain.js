@@ -479,7 +479,10 @@ export function heightAt(x, z) {
 export const AREAS_POUSO = [
   ...BASES.map((b) => ({ x: b.x, z: b.z, raio: 64, piso: 1.7, base: b.time })),
   ...SERVICOS.map((s) => ({ x: s.x, z: s.z, raio: s.raio, piso: 1.2, servico: s.servico, time: s.time })),
-  ...PLATAFORMAS_POUSO.map((p) => ({ x: p.x, z: p.z, raio: p.raio, piso: 1, plataforma: p.id, territorio: p.time })),
+  // Piso 2: a nave pousada fica a HOVER - piso - ALTURA_POUSADO = 6,6 m abaixo de
+  // quem voa, dentro dos 7 m do acerto de tiro (bulletHits): pousada na plataforma
+  // de dinheiro ela é alvo (com piso 1 o tiro reto passava por cima).
+  ...PLATAFORMAS_POUSO.map((p) => ({ x: p.x, z: p.z, raio: p.raio, piso: 2, plataforma: p.id, territorio: p.time })),
 ];
 
 /** Área de pouso que contém o ponto (x, z), ou undefined. */
