@@ -55,7 +55,7 @@
 //
 // Torretas do corredor (server/torretas.js) e a escolta armada dos mineradores
 // (server/escoltas.js): ganchos no step (andar e atirar), no tiro que bate numa
-// torreta (tiroNaTorreta, como a torre B), no dano em área (#area) e no snapshot
+// torreta (tiroNaTorreta, como a torre do buff de suporte), no dano em área (#area) e no snapshot
 // (`torretas`; a escolta é uma entidade como o minerador). Os tiros delas entram
 // por adicionarTiro, com `fonte` e `time` no evento para o cliente pintar.
 //
@@ -157,8 +157,7 @@ export const CRITICO_MULT = 2;
 // São PASSIVOS (pedido do Mateus): patrulham a "jungle" e só seguem e atacam quem os
 // atacou. Cada monstro guarda quem o feriu (`raiva`: id do jogador → tick até onde
 // lembra) e esquece RAIVA_S depois do último golpe recebido, quando o jogador morre
-// ou quando o próprio monstro morre. O guardião do objetivo C não é da jungle: segue
-// defendendo a arena de quem entra.
+// ou quando o próprio monstro morre.
 const N_DRONES = 28;
 const RAIVA_S = 20;
 // Modo de teste: quanto cada botão dá.
@@ -271,7 +270,7 @@ export class World {
     this.players = new Map();
     this.drones = [];
     this.monstros = [];
-    this.elites = []; // Krakor e guardiões
+    this.elites = []; // Krakor
     this.bullets = [];
     this.minas = [];
     this.eventos = [];
@@ -900,7 +899,7 @@ export class World {
   }
 
   /**
-   * Dano de um tiro no impacto, sem os estados do alvo (torre B e torretas usam):
+   * Dano de um tiro no impacto, sem os estados do alvo (torre de suporte e torretas usam):
    * o do golpe × multiplicador do NPC × bônus do time e poder de quem atirou.
    */
   danoDoTiro(bala) {
@@ -1288,11 +1287,12 @@ export class World {
 
   /**
    * Entidades visíveis para todos (mesma lista para cada jogador). `tipo` diz o
-   * que desenhar ('jogador', 'arnosh', 'vorax', 'krakor', 'guardiao', 'minerador'
-   * ou 'escolta'); `drone` continua true para todo inimigo do PvE. Jogadores,
+   * que desenhar ('jogador', 'arnosh', 'vorax', 'krakor', 'minerador', 'escolta'
+   * ou 'nucleo'); `drone` continua true para todo inimigo do PvE e o Núcleo. Jogadores,
    * mineradores e escoltas trazem `time`; os mineradores também `carga` (minério no contêiner)
-   * e `minerando`. Jogador traz `nivel`, `classe` e `tier` (a nave a desenhar) e,
-   * com escudo equipado, `esc` (fração 0 a 1 do escudo).
+   * e `minerando`, e os da onda do Núcleo `nucleo: 1`. Jogador traz `nivel`, `classe` e
+   * `tier` (a nave a desenhar), com escudo equipado `esc` (fração 0 a 1 do escudo) e,
+   * com bônus de nave, `bn` (['ataque', 'suporte', 'sonda'], os ativos).
    */
   entidades() {
     const lista = [];
