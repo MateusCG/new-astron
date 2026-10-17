@@ -147,6 +147,16 @@
 //                       'sem_item' | 'recarga' | 'cheio' (item ou compartimento) |
 //                       'equipado' | 'sem_pontos' | 'maximo'
 //                       {t:'pong', c}
+//   VISÃO DO TIME (névoa de guerra, server/visao.js): o snapshot de cada jogador só
+//         leva o que algum aliado enxerga (naves de jogador vivas 550 m, mineradores e
+//         escoltas 300 m, torres sentinela de pé 560 m, a base; rocha e mineradora
+//         tampam, asteroide esconde quem está dentro: shared/visao.js). Vale para
+//         ents (as do próprio time sempre vêm), minas, guiados e os eventos com x/z
+//         (quem é autor ou alvo recebe o seu; 'tiro' vem se o caminho dele entra na
+//         visão, e o 'fim'/'acerto' do tiro anunciado vem sempre; 'morte' de jogador
+//         fora da visão vem sem x/y/z; 'recall' de outro time só o 'chegou', sem a
+//         ponta escondida (de ou x/y/z)). Entidade que some some do `ents`; ao voltar,
+//         vem no lugar novo. obj, torretas, partida, placar e jogadores são públicos.
 //   me (Loja e Evolução): armas = posse (de fábrica + compradas, tirada de inv; zera
 //         a cada partida), armasInst = as armas por instância com a versão de cada
 //         cópia (tirado de inv; zera a cada partida), itens {reparo, energia} (carga),
