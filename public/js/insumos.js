@@ -110,3 +110,59 @@ export function insumosDaNave(race, classe) {
   }
   return { naves, armas, texturas: [...texturas], sons: [...sons] };
 }
+
+// ---------- Mapa e monstros ----------
+//
+// Os modelos do cenário (public/modelos/mapa/, feitos no Blender pela frente Cenário)
+// e os dos monstros da jungle (public/modelos/monstros/, do AstroN original) são os
+// mesmos para todo piloto: entram inteiros na tela de carregamento, antes da cena ser
+// montada (cena.js e monstros.js só montam o que já está no cache).
+
+/** Pasta dos modelos do mapa (lago de Hélio-3). */
+export const PASTA_MODELOS_MAPA = '/modelos/mapa/';
+/** Pasta dos modelos dos monstros. */
+export const PASTA_MODELOS_MONSTRO = '/modelos/monstros/';
+
+/** Os modelos do mapa, sem extensão (ver public/modelos/mapa/LISTA.md). */
+export const MODELOS_MAPA = Object.freeze([
+  'borda-quadrante',
+  'borda-quadrante-espelhada',
+  'borda-horizonte',
+  'fundo-lago',
+  'rocha-quadrante',
+  'rocha-quadrante-b',
+  'parede-l',
+  'parede-l-espelhada',
+  'mineradora',
+  'base-warp',
+  'plataforma-base',
+  'plataforma-servico',
+  'plataforma-pouso',
+  'entrega',
+  'nucleo',
+  'torre-suporte',
+  'torre-suporte-caida',
+  'asteroide-1',
+  'asteroide-2',
+  'asteroide-3',
+  'asteroide-4',
+  'coral',
+  'alga',
+  'cristais-he3',
+  'pedra-lago-1',
+  'pedra-lago-2',
+  'ruina-submersa',
+]);
+
+/** Espécies de monstro (a `esp` do protocolo = o nome do glb). */
+export const ESPECIES_MONSTRO = Object.freeze(['armish', 'chrometic', 'xerxes', 'great_xerxes', 'bazit', 'anti', 'sn4', 'medusa', 'sonda']);
+/** Os modelos dos monstros e os efeitos da Medusa (sangue e bolhas, decoração). */
+export const MODELOS_MONSTRO = Object.freeze([...ESPECIES_MONSTRO, 'medusa-sangue', 'medusa-bolha']);
+
+/** URLs do que o mapa e os monstros usam: { mapa: [{ nome, url }], monstros: [{ nome, url }] }. */
+export function insumosDoMapa() {
+  return {
+    mapa: MODELOS_MAPA.map((nome) => ({ nome, url: `${PASTA_MODELOS_MAPA}${nome}.glb` })),
+    monstros: MODELOS_MONSTRO.map((nome) => ({ nome, url: `${PASTA_MODELOS_MONSTRO}${nome}.glb` })),
+  };
+}

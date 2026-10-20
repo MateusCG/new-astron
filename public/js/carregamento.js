@@ -3,6 +3,9 @@
 // de arma, evoluir a arma, comprar a nave seguinte na Evolução).
 //
 // O que entra (a lista sai de insumos.js, que é puro e testado no Node):
+// - os modelos do mapa (o lago de He-3: borda, rochas, mineradora, bases, objetivos,
+//   asteroides e decoração) e os dos monstros da jungle: iguais para todo piloto, a
+//   cena (cena.js) e os monstros (monstros.js) só montam o que já está no cache;
 // - os modelos das 5 naves da linha da raça e da classe (as que a Evolução compra) e
 //   as miniaturas delas para o cartão da Evolução (vitrine.js);
 // - os modelos das armas na asa de todas as armas que a raça e a classe usam;
@@ -45,7 +48,9 @@ import { RACES } from '/shared/sim.js';
 import { CLASSES, naveDe } from '/shared/naves.js';
 import { WEAPONS, ARMAS } from '/shared/armas.js';
 import { BASES } from '/shared/terrain.js';
-import { insumosDaNave } from './insumos.js';
+import { insumosDaNave, insumosDoMapa, ESPECIES_MONSTRO } from './insumos.js';
+import { carregarModeloMapa } from './mapa-modelos.js';
+import { carregarMonstro, criarMonstro, texturasDosMonstros } from './monstros.js';
 import {
   modeloDaNave,
   carregarArma,
@@ -53,10 +58,6 @@ import {
   brilho,
   criarNave,
   definirArmas,
-  criarDrone,
-  criarVorax,
-  criarKrakor,
-  criarGuardiao,
   criarMinerador,
   criarEscolta,
 } from './nave.js';
@@ -77,6 +78,8 @@ const ESPERA_SNAP_MS = 800;
 // mais ou menos pelo tamanho (uma linha de naves ~0,8 MB, as armas ~0,4 a 1,6 MB,
 // as texturas ~0,25 MB, os sons ~1,8 MB) e pelo tempo da placa de vídeo.
 const LINHAS = [
+  { id: 'mapa', nome: 'Cenário · lago de Hélio-3', curto: 'Cenário', peso: 10 },
+  { id: 'monstros', nome: 'Monstros da jungle', curto: 'Monstros', peso: 7 },
   { id: 'naves', nome: 'Naves da linha', curto: 'Naves', peso: 20 },
   { id: 'armas', nome: 'Armas na asa', curto: 'Armas', peso: 18 },
   { id: 'efeitos', nome: 'Efeitos das armas · V1 a V8', curto: 'Efeitos', peso: 8 },
@@ -243,7 +246,10 @@ export class Carregamento {
   /** Baixa tudo da lista da nave (resolve sempre, mesmo com falhas). */
   carregar() {
     const { naves, armas, texturas, sons } = this.insumos;
+    const { mapa, monstros } = insumosDoMapa();
     const t = this.tela;
+    t?.linha('mapa', { total: mapa.length });
+    t?.linha('monstros', { total: monstros.length });
     t?.linha('naves', { total: naves.length });
     t?.linha('armas', { total: armas.length });
     t?.linha('efeitos', { total: texturas.length });
@@ -252,6 +258,9 @@ export class Carregamento {
     t?.linha('servidor', { total: 1, texto: 'Conectando…' });
     t?.linha('gpu', { total: 3 });
     const tarefas = [
+      // O mapa primeiro: a cena só se monta com ele (o resto pode chegar depois).
+      ...mapa.map((m) => this.#item('mapa', `cenário ${m.url}`, () => carregarModeloMapa(m.nome))),
+      ...monstros.map((m) => this.#item('monstros', `monstro ${m.url}`, () => carregarMonstro(m.nome))),
       ...naves.map((n) => this.#item('naves', `nave ${n.url}`, () => modeloDaNave(this.race, this.classe, n.tier))),
       ...armas.map((a) =>
         this.#item('armas', `arma ${a.nome} (${a.modelos.join(', ') || 'sem modelo'})`, () => Promise.all(a.modelos.map((m) => carregarArma(m)))),
@@ -301,7 +310,18 @@ export class Carregamento {
   resumo() {
     const ms = Math.round(performance.now() - this.inicio);
     const { naves, armas, texturas, sons } = this.insumos;
-    return { ms, msArquivos: this.msArquivos, msGpu: this.msGpu, naves: naves.length, armas: armas.length, texturas: texturas.length, sons: sons.length };
+    const { mapa, monstros } = insumosDoMapa();
+    return {
+      ms,
+      msArquivos: this.msArquivos,
+      msGpu: this.msGpu,
+      mapa: mapa.length,
+      monstros: monstros.length,
+      naves: naves.length,
+      armas: armas.length,
+      texturas: texturas.length,
+      sons: sons.length,
+    };
   }
 }
 
@@ -315,13 +335,15 @@ let entradaAtual = 0; // muda a cada aquecimento (sair libera tudo da placa)
  * Prepara a placa de vídeo antes do primeiro quadro: monta, num canto do céu sobre a
  * base do piloto, as 5 naves da linha, uma nave com cada arma da raça e da classe, o
  * projétil de cada versão de cada arma, os efeitos passageiros (clarão, impacto, área,
- * nova, campo), as auras, o recall, os monstros, mineradores e escoltas; compila os
+ * nova, campo), as auras e os bônus, o recall, os monstros e os tiros deles, o pulso
+ * do Núcleo, mineradores e escoltas; o cenário inteiro já está na cena; compila os
  * shaders de tudo (compileAsync), envia todas as texturas (initTexture) e desenha um
  * quadro com a sombra do sol em cima (o shader de sombra das naves também compila).
  * Depois tira tudo de cena. `focar(p)` põe o sol e a sombra em p (atualizar de
- * cena.js). Falha aqui não impede a entrada: o pior caso é a travada de antes.
+ * cena.js). `alvo` é o alvo de desenho da névoa (nevoa.alvoCena), onde a partida
+ * desenha. Falha aqui não impede a entrada: o pior caso é a travada de antes.
  */
-export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race, classe, meuTime = 0, tela = null, carga = null }) {
+export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race, classe, meuTime = 0, tela = null, carga = null, alvo = null }) {
   const t0 = performance.now();
   rendererAtual = renderer;
   entradaAtual++;
@@ -351,15 +373,22 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
       definirArmas(obj, [a.idx, a.idx]);
       lugar(obj);
     }
-    // Auras, recall, fúria, camuflagem e o anel de nível, em duas naves só para isso.
+    // Auras, recall, bônus, camuflagem e o anel de nível, em duas naves só para isso.
     const auras = lugar(criarNave(race, { aliado: true, classe, tier: 0 }));
-    efeitos.estadoNave(auras, { dreno: true, lento: true, emp: true, furia: true, fx: ['para', 'desg', 'energia', 'invul', 'escudo', 'fraco', 'regen', 'acel'] }, 0.2, 0);
+    efeitos.estadoNave(
+      auras,
+      { dreno: true, lento: true, emp: true, bonus: ['ataque', 'suporte', 'sonda', 'medusa'], fx: ['para', 'desg', 'energia', 'invul', 'escudo', 'fraco', 'regen', 'acel'] },
+      0.2,
+      0,
+    );
     efeitos.recall(auras, 0.5, COR_TIME.meu, 0.016, 0);
     efeitos.anelNivel(auras);
     const fantasma = lugar(criarNave(race, { aliado: true, classe, tier: 0 }));
     efeitos.estadoNave(fantasma, { fx: ['inv'] }, 0.016, 0);
-    // Monstros, mineradores e escoltas (primitivas, mas com materiais próprios).
-    for (const criar of [criarDrone, criarVorax, criarKrakor, criarGuardiao, () => criarMinerador({ aliado: true }), () => criarEscolta({ aliado: false })]) {
+    // Monstros (modelos do original, geometria do cache: não se libera), mineradores
+    // (o comum e o do Núcleo) e escoltas (primitivas, com materiais próprios).
+    for (const esp of ESPECIES_MONSTRO) lugar(criarMonstro(esp));
+    for (const criar of [() => criarMinerador({ aliado: true }), () => criarMinerador({ aliado: false, nucleo: true }), () => criarEscolta({ aliado: false })]) {
       const obj = lugar(criar());
       obj.traverse((o) => o.geometry && temporarios.push(o.geometry));
     }
@@ -395,6 +424,13 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
     efeitos.explosao(ponto.x, ponto.y + 5, ponto.z + 10, 3, '#ff9a3a');
     efeitos.anelArea(ponto.x, ponto.y + 5, ponto.z - 10, 8, COR_TIME.outro);
     efeitos.feixeRecall(ponto.x + 20, ponto.y, ponto.z, COR_TIME.meu);
+    // Monstros: um tiro de cada ataque, a chama, a onda e o pulso do Núcleo.
+    const ataques = ['pedra', 'pedra_gigante', 'onda_eletrica', 'bala_explosiva', 'feixe_optico', 'controle', 'missil', 'armadilha'];
+    ataques.forEach((atq, i) =>
+      efeitos.tiro({ id: `aq-${atq}`, kind: 'plasma', atq, x: ponto.x + i * 4, y: ponto.y + 25, z: ponto.z, vx: 0, vy: 0, vz: -1, vida: 0.5 }),
+    );
+    efeitos.chama({ x: ponto.x, y: ponto.y + 30, z: ponto.z, yaw: 0, alcance: 70, abertura: 0.5 });
+    efeitos.pulsoNucleo(ponto.x, ponto.y + 35, ponto.z, 80, 1.5);
 
     scene.add(grupo);
     grupo.updateMatrixWorld(true);
@@ -405,6 +441,9 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
 
     // Um quadro para a tela mostrar "Preparando a placa de vídeo" antes do trabalho.
     await new Promise((ok) => requestAnimationFrame(ok));
+    // A partida desenha no alvo da névoa (nevoa.js: cor linear, sem tone mapping no
+    // material): compila e desenha lá, para os programas serem os mesmos da partida.
+    if (alvo) renderer.setRenderTarget(alvo);
     // Compilação em paralelo só onde a placa ajuda (KHR_parallel_shader_compile); sem
     // ela o compileAsync do Three.js só avisa no console e compila igual, então vai
     // direto o compile.
@@ -414,13 +453,15 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
     if (carga?.cancelado) return;
     // Texturas: as das naves e armas, as dos efeitos (todos os quadros das
     // sequências, não só o primeiro) e o brilho dos motores.
-    enviarTexturas([brilho(), ...texturasDosModelos(), ...texturasEfeitoPedidas()], Infinity);
+    enviarTexturas([brilho(), ...texturasDosModelos(), ...texturasDosMonstros(), ...texturasEfeitoPedidas()], Infinity);
     tela?.feito('gpu');
     renderer.render(scene, camera);
+    renderer.setRenderTarget(null);
     tela?.feito('gpu');
   } catch (err) {
     console.warn('Carregamento: aquecer a placa de vídeo falhou (a entrada segue):', err);
   } finally {
+    renderer.setRenderTarget(null);
     scene.remove(grupo);
     for (const g of temporarios) g.dispose();
     // Os passageiros, tiros, partículas e anéis criados aqui saem de cena SEM liberar
