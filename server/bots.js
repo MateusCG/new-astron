@@ -35,7 +35,8 @@
 //   suporte (a torre, que não revida) assim que acende e o de ataque (o SN-4) com
 //   nível IA.chefeNivel e vida; pousa na plataforma de pouso do território quando
 //   ninguém do outro time está à vista; mata a sonda errante. Sem nada para fazer,
-//   espera o próximo acampamento ou ajuda a lane.
+//   espera o próximo acampamento ou ajuda a lane (faz o mesmo que ela: dois juntos
+//   no posto ganham a licença para empurrar).
 // - ROAMER: alterna (IA.emboscadaS emboscando, IA.roamerFarmS farmando). Na
 //   emboscada, vai pela jungle e pelos asteroides (o caminho contorna o alcance das
 //   torres inimigas) até a beira do campo de asteroides central do outro time mais
@@ -75,7 +76,8 @@
 // escudo, uma armadura geral e dois potenciadores: o Reforço do tipo de dano das armas
 // dele e o de Durabilidade), as versões dele e kits, pelos mesmos pedidos do cliente
 // ({t:'comprar'}, {t:'equipar'}, {t:'evoluirItem'}). Guarda ouro para a nave quando já
-// tem o nível dela. A cada nível, distribui os pontos livres ({t:'pontos'}) entre o
+// tem o nível dela; fora a nave, só vai comprar com ouro que valha a viagem
+// (IA.compraMin, mais IA.compraPorNivel por nível). A cada nível, distribui os pontos livres ({t:'pontos'}) entre o
 // poder do tipo de dano das armas e a Energia (IA.fracaoEnergia).
 //
 // Para não parecer máquina: demora um pouco para reagir a um alvo novo (IA.reacaoS),
