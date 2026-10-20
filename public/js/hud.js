@@ -208,10 +208,18 @@ export class Hud {
   /**
    * Desenha o minimapa com o mapa fixo, o estado dos objetivos (`obj` do
    * snapshot) e das torretas (`torretas`), os outros (pontos) e você (seta).
+   * `nevoa` (canvas da grade de visão de nevoa.js, opcional) escurece o que o seu
+   * time não vê, esticada sobre o retângulo do mapa.
    */
-  minimapa(eu, ents, meuId, obj = [], torretas = []) {
+  minimapa(eu, ents, meuId, obj = [], torretas = [], nevoa = null) {
     const ctx = this.ctx;
     ctx.drawImage(this.fundoMapa, 0, 0);
+    if (nevoa) {
+      const [x0, z0] = this.#paraMapa(-MAP_HALF_X, -MAP_HALF_Z);
+      const k = this.#escala();
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(nevoa, x0, z0, 2 * MAP_HALF_X * k, 2 * MAP_HALF_Z * k);
+    }
     this.#objetivosNoMapa(obj);
     this.#torretasNoMapa(torretas);
     for (const e of ents) {

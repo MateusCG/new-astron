@@ -70,6 +70,14 @@
 // troca o modelo quando o tier muda (Evolução), para você e para os outros; a linha
 // de quem aparece (outra raça e classe) baixa em segundo plano (carregarEmFundo).
 //
+// Névoa de guerra (nevoa.js): o servidor só manda o que o seu time enxerga; o
+// cliente faz a mesma conta (shared/visao.js) com a sua nave, os aliados, as torres
+// de pé e a base, e desenha o que está fora da visão escurecido e sem cor (passo de
+// tela inteira: nevoa.desenhar no lugar de renderer.render) e escuro no minimapa.
+// Quem some da visão some do snapshot (e da tela); ao voltar é criado de novo, sem
+// interpolar do ponto antigo. Morte de jogador fora da visão vem sem lugar: só a
+// notícia, sem explosão. Os nomes vêm da lista `jogadores` (o placar de abates é público).
+//
 // ESC sai da partida e volta para a tela de entrada (nome, raça e classe como estavam),
 // para trocar de piloto sem recarregar a página. Sair desmonta tudo o que a
 // partida criou (conexão, laço de quadros, listeners, cena na GPU); só o renderer
@@ -82,6 +90,7 @@ import { CLASSES, ORDEM_CLASSES, RACAS_BLOQUEADAS, naveDe, linhaDe, classeValida
 import { areaPouso } from '/shared/terrain.js';
 import { alturaSolida } from '/shared/obstaculos.js';
 import { criarCena, liberarCena } from './cena.js';
+import { Nevoa } from './nevoa.js';
 import {
   criarNave,
   definirNave,
@@ -501,6 +510,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
   const camera = new THREE.PerspectiveCamera(65, 1, 0.5, 5000);
   const { scene, atualizar: atualizarCena, definirObjetivo } = criarCena({ meuTime });
   const efeitos = new Efeitos(scene);
+  const nevoa = new Nevoa({ renderer, scene, meuTime }); // névoa de guerra (visão do time)
   const controles = new Controles(document.body);
   const hud = new Hud({ meuTime });
   const placar = new Placar({ meuTime });
@@ -658,6 +668,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     snaps.push({ t: performance.now(), ents: m.ents });
     while (snaps.length > 30) snaps.shift();
     for (const e of m.ents) nomes.set(e.id, e.nome);
+    for (const p of m.jogadores ?? []) nomes.set(p.id, p.nome); // névoa: quem não está à vista também tem nome
     const euNoSnap = m.ents.find((e) => e.id === meuId);
     recallLocal = euNoSnap?.recall !== undefined ? { frac: euNoSnap.recall, t: performance.now() } : null;
     placar.atualizar(m.partida, m.bonus);
@@ -737,7 +748,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
       const time = e.id === meuId ? meuTime : snaps.at(-1)?.ents.find((x) => x.id === e.id)?.time;
       const cor = time === meuTime ? COR_TIME.meu : COR_TIME.outro;
       if (e.de) efeitos.feixeRecall(e.de.x, e.de.y, e.de.z, cor);
-      efeitos.feixeRecall(e.x, e.y, e.z, cor);
+      if (e.x !== undefined) efeitos.feixeRecall(e.x, e.y, e.z, cor); // névoa: a ponta escondida não vem
     }
     if (e.id !== meuId) return;
     if (e.estado === 'inicio') hud.noticia(`Voltando à base em ${e.s} s · sem tiro, sem boost, quase parado`, 'bom');
@@ -840,8 +851,11 @@ function montarJogo(rede, boas, renderer, race, classe) {
         hud.noticia('Nova partida: o time que minerar mais vence', 'bom');
       } else if (e.e === 'morte') {
         const tipo = e.tipo ?? outras.get(e.id)?.tipo;
-        efeitos.explosao(e.x, e.y, e.z, tipo === 'guardiao' ? 9 : tipo === 'krakor' ? 6 : 4, '#ff9a3a');
-        somNoMundo(tipo === 'jogador' || tipo === 'guardiao' || tipo === 'krakor' ? 'h_explo' : 'n2_explo', e.x, e.z);
+        // Fora da visão (névoa) a morte de jogador vem sem lugar: só a notícia.
+        if (e.x !== undefined) {
+          efeitos.explosao(e.x, e.y, e.z, tipo === 'guardiao' ? 9 : tipo === 'krakor' ? 6 : 4, '#ff9a3a');
+          somNoMundo(tipo === 'jogador' || tipo === 'guardiao' || tipo === 'krakor' ? 'h_explo' : 'n2_explo', e.x, e.z);
+        }
         const quem = nomes.get(e.id) ?? '?';
         const matador = e.por === meuId ? 'Você' : (nomes.get(e.por) ?? '?');
         if (e.id === meuId) hud.noticia(`Você foi destruído por ${nomes.get(e.por) ?? '?'}`, 'ruim');
@@ -1164,6 +1178,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
         meuId,
         [...objetivos.estado.values()],
         torretas.estados(),
+        nevoa.canvasMapa,
       );
     }
     if (!vivo && renasceAte) {
@@ -1172,7 +1187,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
     }
     hud.rotulosNaves(rotulos, camera, innerWidth, innerHeight);
     objetivos.desenhar(camera, innerWidth, innerHeight);
-    renderer.render(scene, camera);
+    // Névoa: a grade da visão do time (sua nave, aliados, torres, base) e a cena desenhada com ela.
+    nevoa.atualizar(dt, { eu: vivo && pred ? { id: meuId, x: foco.x, z: foco.z } : null, ents: snaps.at(-1)?.ents, torretas: torretas.estados() });
+    nevoa.desenhar(renderer, scene, camera);
     idQuadro = requestAnimationFrame(quadro);
   }
 
@@ -1214,6 +1231,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     torretas,
     efeitos,
     minhaNave,
+    nevoa,
   };
 
   /**
@@ -1240,6 +1258,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     torretas.limpar();
     renderer.domElement.remove();
     efeitos.liberar();
+    nevoa.liberar();
     liberarCena(scene);
     renderer.renderLists.dispose();
     if (window.__astron?.scene === scene) window.__astron = null;
