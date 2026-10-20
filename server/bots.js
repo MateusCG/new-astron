@@ -110,6 +110,7 @@ import {
   ASTEROIDES,
   MAP_HALF_X,
   MAP_HALF_Z,
+  BOLSAO,
   trajetoSonda,
 } from '../shared/terrain.js';
 import { enxerga, bloqueiaVisao, olho, olhosDaBase, algumOlhoVe, VISAO_RAIO, VISAO_MINERADOR, VISAO_TORRETA } from '../shared/visao.js';
@@ -171,6 +172,7 @@ export const IA = {
   laneCacaRaio: 1000, // m do posto: acampamento da base até aqui ele limpa com a lane quieta
   laneFarmNivel: 8, // a partir daqui a lane só escolta e empurra
   empurrarNivel: 5, // nível para empurrar (com o time ganhando) e espreitar a doca deles (sem torre cobrindo)
+  empurrarDist: 800, // m: torre inimiga mais longe que isso não vale o empurrão
   espreitaX: 60, // m além da face da mineradora, do lado do outro time
   espreitaZ: 80, // m do eixo da lane (de onde a doca deles fica à vista)
 
@@ -547,21 +549,18 @@ export class Bots {
    */
   #forcas(j, p) {
     const peso = (o) => (o.ship.hp / o.ship.maxHp) * (o.nivel + IA.forcaNivel);
-    let nosso = 0;
-    let deles = 0;
-    let nossos = 0;
-    let deles_n = 0;
+    const f = { nosso: 0, deles: 0, nossos: 0, delesN: 0 };
     for (const o of this.#saber(j.time).aliados) {
       if (dist(o.ship, p) > IA.forcaRaio) continue;
-      nosso += peso(o);
-      nossos++;
+      f.nosso += peso(o);
+      f.nossos++;
     }
     for (const o of this.#inimigosVistos(j)) {
       if (dist(o.ship, p) > IA.forcaRaio) continue;
-      deles += peso(o);
-      deles_n++;
+      f.deles += peso(o);
+      f.delesN++;
     }
-    return { nosso, deles, nossos, delesN: deles_n };
+    return f;
   }
 
   /**
@@ -610,31 +609,26 @@ export class Bots {
     const c = this.perigos[time];
     if (c?.chave === chave) return c.grade;
     const n = nav();
-    const g = new Float32Array(n.total);
+    const g = this.#soBase(time).slice();
     const r = TORRETA.alcance + IA.torretaFolga;
-    const celula = (x, z) => n.indice(x, z);
     for (const t of vivas) {
       for (let x = t.x - r; x <= t.x + r; x += CELULA) {
         for (let z = t.z - r; z <= t.z + r; z += CELULA) {
-          const k = celula(x, z);
+          const k = n.indice(x, z);
           if (k < 0 || g[k] > 0) continue;
           const p = n.centro(k);
           if (enxerga(t.x, t.z, p.x, p.z, r)) g[k] = IA.custoPerigo;
         }
       }
     }
-    const outra = BASES.find((b) => b.time !== time);
-    for (let x = outra.x - 260; x <= outra.x + 260; x += CELULA) {
-      for (let z = outra.z - 260; z <= outra.z + 260; z += CELULA) {
-        const k = celula(x, z);
-        if (k >= 0 && Math.abs(x) <= MAP_HALF_X && Math.abs(z) <= MAP_HALF_Z && Math.abs(x) >= 1100) g[k] = IA.custoBaseInimiga;
-      }
-    }
     this.perigos[time] = { chave, grade: g };
     return g;
   }
 
-  /** Grade só com a base inimiga (para quem tem licença de entrar no alcance das torres). */
+  /**
+   * Grade só com o bolsão da base do outro time (o caminho de quem tem licença para
+   * entrar no alcance das torres; e a base de #perigo). Uma por time.
+   */
   #soBase(time) {
     this.semTorres ??= BASES.map(() => null);
     if (!this.semTorres[time]) {
@@ -644,7 +638,7 @@ export class Bots {
       for (let x = outra.x - 260; x <= outra.x + 260; x += CELULA) {
         for (let z = outra.z - 260; z <= outra.z + 260; z += CELULA) {
           const k = n.indice(x, z);
-          if (k >= 0 && Math.abs(x) >= 1100) g[k] = IA.custoBaseInimiga;
+          if (k >= 0 && Math.abs(x) >= BOLSAO.xMin - 25) g[k] = IA.custoBaseInimiga;
         }
       }
       this.semTorres[time] = g;
@@ -1018,15 +1012,19 @@ export class Bots {
     return { x, z: LANE.z + IA.laneLado * j.ia.lado };
   }
 
-  /** Lane: escolta, defende a metade do time, farma o acampamento perto com a lane quieta e empurra ganhando. */
-  #lane(j, vida) {
+  /**
+   * Lane: escolta, defende a metade do time, farma o acampamento perto com a lane
+   * quieta e empurra ganhando. `ajuda` = jungle ou roamer sem nada para fazer (não
+   * farma: já veio de lá).
+   */
+  #lane(j, vida, ajuda = false) {
     const posto = this.#postoLane(j);
     // Empurrar: com o time ganhando, os mineradores na doca deles e a torre mais perto.
     if (j.nivel >= IA.empurrarNivel && this.#licenca(j)) {
       const m = this.#mineradorInimigo(j, j.ship, 900);
       if (m) return this.#atacar(j, m, 'empurrar mineradores');
       const torre = this.#torreMaisPerto(j);
-      if (torre) return this.#atacar(j, this.#alvoTorreta(torre), 'empurrar torre');
+      if (torre && dist(j.ship, torre) < IA.empurrarDist) return this.#atacar(j, this.#alvoTorreta(torre), 'empurrar torre');
     }
     const m = this.#mineradorInimigo(j, posto, IA.laneDefesa);
     if (m) return this.#atacar(j, m, 'minerador inimigo');
@@ -1043,7 +1041,7 @@ export class Bots {
       }
     }
     // Com a lane quieta e pouco nível, o acampamento da base perto da lane.
-    if (j.nivel < IA.laneFarmNivel) {
+    if (!ajuda && j.nivel < IA.laneFarmNivel) {
       const campo = this.#proximoCampo(j, posto, IA.laneCacaRaio, ['base']);
       if (campo) return this.#limparCampo(j, campo);
     }
@@ -1051,7 +1049,7 @@ export class Bots {
     const perto = this.#monstroParaCacar(j, posto, 250);
     if (perto) return this.#atacar(j, perto, 'monstro perto da lane');
     j.ia.campo = null;
-    this.#irPara(j, posto, 'escoltar');
+    this.#irPara(j, posto, ajuda ? 'ajudar lane' : 'escoltar');
   }
 
   /** A torre de pé do outro time mais perto de `j`. */
@@ -1144,7 +1142,8 @@ export class Bots {
       if (!prox || v.em < prox.em) prox = { c, em: v.em };
     }
     if (prox && prox.em - w.tick < ticks(IA.esperaCampoS)) return this.#irPara(j, prox.c, `esperar ${prox.c.id}`);
-    return this.#irPara(j, this.#postoLane(j), 'ajudar lane');
+    // Ajuda a lane (faz o mesmo que ela: dois juntos no posto ganham a licença para empurrar).
+    return this.#lane(j, vida, true);
   }
 
   /** Roamer: alterna farm e emboscada nos asteroides do outro time, perto da doca deles. */
@@ -1171,9 +1170,9 @@ export class Bots {
     const perto = this.#monstroParaCacar(j, j.ship, 500);
     if (perto) return this.#atacar(j, perto, 'monstro perto');
     ia.campo = null;
-    // Nada para farmar: emboscada mais cedo.
+    // Nada para farmar: emboscada mais cedo; antes do nível dela, ajuda a lane.
     if (j.nivel >= IA.roamerNivel) ia.cicloAte = tick;
-    return this.#irPara(j, this.#postoLane(j), 'ajudar lane');
+    return this.#lane(j, vida, true);
   }
 
   /**
