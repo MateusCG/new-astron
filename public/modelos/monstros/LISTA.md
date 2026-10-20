@@ -22,15 +22,18 @@ números do jogo) está em `new-astron-progresso/mapa-stage6/PESQUISA-MONSTROS.m
 | Arquivo (`esp`) | Monstro (original) | id no `initnpc.cfg` → unidade → modelo | Triângulos | Tamanho no jogo (envergadura × comprimento × altura) | Escala sobre o original | Textura |
 |---|---|---|---|---|---|---|
 | `armish.glb` | Armish IV | 700103 → 500103 → NU0013 (usa a malha `nu0012`, ver `effect/nu0013.eff`) | 178 | 4,4 × 12,0 × 5,4 m | 0,305 (original 39 m) | `nu0012.png` 128² |
+| `chrometic.glb` | Chrometic | 705020 → 502030 → `nu0240` | 258 | 3,5 × 12,0 × 4,4 m | 0,173 (original 69 m) | `nu0240.png` 256², `-nu0270_wing.png` 256² (MASK, barbatanas) |
 | `xerxes.glb` | Xerxes | 705050 → 502060 → `nu0270` | 602 | 13,0 × 10,6 × 5,4 m | 0,135 (original 96 m) | `nu0270.png` 256², `-nu0270_wing.png` 256² (MASK) |
 | `great_xerxes.glb` | Great Xerxes | 705055 → 502065 → `nu0300` (a malha do Xerxes 2× maior, couro vermelho) | 602 | 26,0 × 21,2 × 10,7 m | 0,135 (original 193 m) | `nu0300.png` 256², `-nu0270_wing.png` 256² (MASK) |
+| `bazit.glb` | Bazit | 705040 → 502050 → `nu0260` | 658 | 13,0 × 10,8 × 8,9 m | 0,171 (original 76 m) | `nu0260.png` 256², `-nu0260_wing.png` 256² (MASK, asas) |
+| `anti.glb` | Anti | 705060 → 502070 → `nu0280` | 326 | 26,0 × 23,1 × 5,5 m | 0,383 (original 68 m) | `nu0280.png` 256² |
 | `sn4.glb` | SN-4 (chefe do Stage 5) | 702600 → 510600 → `nu1060` | 1498 | 30,0 × 28,6 × 28,5 m | 0,118 (original 255 m) | `nu1060_1.png`, `nu1060_2.png` 256² |
 | `medusa.glb` | Ancient Medusa (chefe do Stage 6) | 702700 → 510700 → `nu1070` | 1390 | 48,0 × 47,5 × 42,7 m | 0,242 (original 199 m) | `nu1070.png` 256², `nu1070_tail.png` 64×256 (MASK, tentáculos) |
 | `sonda.glb` | A-Fly IV (sonda errante) | 700303 → 500303 → `nu0033` | 226 | 3,5 × 8,0 × 3,3 m | 0,171 (original 47 m) | `nu0033.png` 128² |
 | `medusa-sangue.glb` | efeito `BOSS_BLOOD` (#59 do `effectevent.txt`) | `s6_boss_blood` | 2 | 1,4 × 1,4 m, plano deitado | 0,242 (a da Medusa) | `s6_boss_blood.png` 128² (MASK) |
 | `medusa-bolha.glb` | efeito `BOSS_BUBBLE` (#60) | `s6_boss_bubble` | 18 | 1,5 × 1,3 × 0,6 m | 0,242 (a da Medusa) | `1321045.png` 64² (MASK) |
 
-Pasta inteira: ~820 KB.
+Pasta inteira: ~1,15 MB.
 
 **Efeitos da Medusa no original** (`assets_obb/cfg/effectevent.txt`): o sangue nasce num ponto
 sorteado a até 70 m (original) do centro, girado ao acaso, cresce 0,3–0,7× por segundo e some em

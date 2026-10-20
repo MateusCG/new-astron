@@ -26,19 +26,29 @@
 //
 // Partida 3 contra 3 (DESIGN-PARTIDA.md): times, cronômetro e placar ficam em
 // server/partida.js; os mineradores em server/mineradores.js; os bônus por tempo
-// dos mineradores em server/bonus.js. Aqui ficam só os ganchos: o jogador entra no
+// (de nave e de time) em server/bonus.js. Aqui ficam só os ganchos: o jogador entra no
 // time com menos gente e nasce na base dele; tiro de aliado atravessa aliado (sem
 // fogo amigo, nem nos mineradores); a zona segura só protege o time dono da base
 // (na base do outro time você leva dano normalmente). Monstro nenhum entra em base
 // nenhuma: as duas são território dos jogadores.
 //
 // XP, nível e ouro por abate ficam em server/progressao.js (na morte, em #ferir); os
-// objetivos em server/objetivos.js (no step e no tiro que bate na torre), que ligam
-// os bônus em this.bonus. A jungle (server/jungle.js: acampamentos, buff de ataque,
-// Medusa e sonda) tem ganchos no step (jungle.passo), no dano (jungle.provocar: a
-// raiva dos monstros), na morte (jungle.aoMorrer: recarga do lugar e bônus do golpe
-// final), na partida (comecar/limpar) e no snapshot (entidades `monstro` e o `obj`
-// de BA0, BA1, SONDA e MEDUSA).
+// objetivos do mapa (torre do buff de suporte, plataformas de pouso e o Núcleo de
+// He-3) em server/objetivos.js (no step, no tiro que bate na torre e na morte do
+// Núcleo, que é uma entidade como os monstros), que ligam os bônus em this.bonus. A
+// jungle (server/jungle.js: acampamentos, buff de ataque, Medusa e sonda) tem
+// ganchos no step (jungle.passo), no dano (jungle.provocar: a raiva dos monstros),
+// na morte (jungle.aoMorrer: recarga do lugar e bônus do golpe final), na partida
+// (comecar/limpar) e no snapshot (entidades `monstro` e o `obj` de BA0, BA1, SONDA
+// e MEDUSA).
+//
+// Bônus (server/bonus.js): aplicados aqui. O dano em multDanoDe ('ataque' da nave e
+// 'medusa' do time); a velocidade e a energia do suporte na nave, a cada tick antes
+// dos comandos (#bonusDaNave: s.velMult e s.regenEn, que vão no `me` e o stepShip da
+// predição lê); o HP do suporte em #regen. #ferir anota quem levou e quem causou dano
+// (levouDanoTick, causouDanoTick: a 'sonda' fica suspensa em combate e a plataforma
+// de pouso cancela) e quem agrediu alguém de um time (agrediu: as torres sentinela
+// preferem esse alvo). Morrer limpa os bônus de nave.
 //
 // Combate entre jogadores (DESIGN-PARTIDA.md, "Combate"; números em
 // server/progressao.js): todo dano de jogador inimigo (tiro, dreno, mina, choque)
@@ -49,7 +59,7 @@
 //
 // Torretas do corredor (server/torretas.js) e a escolta armada dos mineradores
 // (server/escoltas.js): ganchos no step (andar e atirar), no tiro que bate numa
-// torreta (tiroNaTorreta, como a torre B), no dano em área (#area) e no snapshot
+// torreta (tiroNaTorreta, como a torre do buff de suporte), no dano em área (#area) e no snapshot
 // (`torretas`; a escolta é uma entidade como o minerador). Os tiros delas entram
 // por adicionarTiro, com `fonte` e `time` no evento para o cliente pintar.
 //
@@ -100,7 +110,7 @@ import { Partida, N_TIMES, MULT_FASE_FINAL, MAX_POR_TIME } from './partida.js';
 import { Mineradores } from './mineradores.js';
 import { Escoltas } from './escoltas.js';
 import { Torretas } from './torretas.js';
-import { Bonus, BONUS } from './bonus.js';
+import { Bonus } from './bonus.js';
 import { Objetivos } from './objetivos.js';
 import {
   novaProgressao,
@@ -165,12 +175,14 @@ export class World {
   /**
    * @param {{ rng?: () => number, jungle?: boolean, temposJungle?: object,
    *   duracaoPartidaS?: number, intervaloFimS?: number, faseFinalS?: number, torretas?: boolean,
-   *   teste?: boolean }} [opcoes]
+   *   teste?: boolean, objetivos?: object }} [opcoes]
    * jungle = false: mundo sem monstros (testes). temposJungle: troca os tempos de
    * aparecer e voltar da jungle (TEMPOS_JUNGLE em server/jungle.js; os testes
-   * encurtam). torretas = false deixa as torretas de pé mas sem atirar (testes
-   * que brigam no meio do corredor). teste = mundo do modo de teste (um por piloto,
+   * encurtam). torretas = false deixa as torretas de pé mas sem atirar (testes que
+   * brigam no meio da lane). teste = mundo do modo de teste (um por piloto,
    * server/index.js): partida sem relógio e os pedidos {t:'teste'} (pedidoTeste).
+   * objetivos = tempos dos objetivos (TEMPOS de server/objetivos.js) trocados, para
+   * os testes não esperarem minutos.
    */
   constructor({
     rng = Math.random,
@@ -181,6 +193,7 @@ export class World {
     faseFinalS,
     torretas = true,
     teste = false,
+    objetivos,
   } = {}) {
     this.teste = teste;
     this.rng = rng;
@@ -194,7 +207,6 @@ export class World {
     this.partida = new Partida({ duracaoS: teste ? Infinity : duracaoPartidaS, intervaloFimS, faseFinalS });
     this.bonus = new Bonus({ evento: (ev) => this.eventos.push(ev) });
     this.mineradores = new Mineradores({
-      bonus: this.bonus,
       novoId: () => this.#id(),
       entregar: (time, carga) => this.partida.somar(time, carga, this.tick),
       evento: (ev) => this.eventos.push(ev),
@@ -207,7 +219,10 @@ export class World {
       ativo: jungle,
       tempos: temposJungle,
     });
-    this.objetivos = new Objetivos(this);
+    this.objetivos = new Objetivos(this, {
+      ferir: (alvo, dano, autor, ev, opcoes) => this.#ferir(alvo, dano, autor, ev, opcoes),
+      tempos: objetivos,
+    });
     this.torretas = new Torretas(this);
     this.servicos = new Servicos(this);
     this.bots = new Bots(this, { zonaSegura: ZONA_SEGURA });
@@ -331,6 +346,7 @@ export class World {
     if (!j) return;
     this.players.delete(id);
     this.minas = this.minas.filter((m) => m.dono !== id); // as minas de quem saiu somem
+    this.bonus.limparNave(id);
     this.eventos.push({ e: 'saiu', id, nome: j.nome });
     // Saiu o último humano: os computadores saem junto (ninguém para jogar com eles).
     if (!j.ia && ![...this.players.values()].some((o) => !o.ia)) {
@@ -477,17 +493,18 @@ export class World {
       ...this.jungle.lista,
       ...this.mineradores.lista,
       ...this.escoltas.lista,
+      ...this.objetivos.entidades(),
     ].filter((e) => e.vivo);
   }
 
   /**
    * Multiplicador do dano causado pelo jogador `autorId` agora (1 para monstro,
    * drone ou quem já saiu), para um golpe do tipo `tipoDano` ('fisico', 'laser',
-   * 'eletrico'). Ponto único dos multiplicadores do atacante: o bônus 'furia' do
-   * time (objetivo C; vale no impacto, então só enquanto o bônus dura) e o poder do
-   * piloto naquele tipo (pontos e potenciadores: × (1 + status.poder[tipo])). Tiro,
-   * área, nova, mina, campo, dreno, torre B e torretas passam por aqui, uma vez por
-   * golpe.
+   * 'eletrico'). Ponto único dos multiplicadores do atacante: os bônus (o 'ataque'
+   * da nave e a 'medusa' do time, server/bonus.js; valem no impacto, então só
+   * enquanto duram) e o poder do piloto naquele tipo (pontos e potenciadores: ×
+   * (1 + status.poder[tipo])). Tiro, área, nova, mina, campo, dreno, torre de
+   * suporte, Núcleo e torretas passam por aqui, uma vez por golpe.
    */
   /** Os monstros da jungle (vivos e os mortos até o lugar deles renascer). */
   get monstros() {
@@ -497,12 +514,25 @@ export class World {
   multDanoDe(autorId, tipoDano) {
     const j = this.players.get(autorId);
     if (!j) return 1;
-    const furia = this.bonus.ativo(j.time, 'furia', this.tick) ? BONUS.furia.mult : 1;
-    return furia * (1 + (j.status?.poder[tipoDano] ?? 0));
+    return this.bonus.multDano(j, this.tick) * (1 + (j.status?.poder[tipoDano] ?? 0));
   }
 
   /**
-   * Dano de um tiro no impacto, sem os estados do alvo (torre B e torretas usam):
+   * Os bônus que mexem na nave (server/bonus.js), postos a cada tick antes dos
+   * comandos: a velocidade máxima (s.velMult = a do status × 'sonda' fora de combate
+   * × 'medusa') e a energia do 'suporte' (s.regenEn = a da nave e do status + o
+   * bônus). Os dois vão no `me`, e o stepShip da predição lê os mesmos números.
+   * j.baseNave é o que o status pôs (server/servicos.js, aplicarStatus).
+   */
+  #bonusDaNave(j) {
+    const b = j.baseNave;
+    if (!b) return;
+    j.ship.velMult = b.velMult * this.bonus.multVelocidade(j, this.tick);
+    j.ship.regenEn = b.regenEn + this.bonus.regenNave(j, this.tick).en;
+  }
+
+  /**
+   * Dano de um tiro no impacto, sem os estados do alvo (torre de suporte e torretas usam):
    * o do golpe × multiplicador do NPC × bônus do time e poder de quem atirou.
    */
   danoDoTiro(bala) {
@@ -530,6 +560,11 @@ export class World {
       return;
     }
     const quem = this.players.get(autor);
+    // Alvo que só jogador fere (o Núcleo de He-3): tiro de monstro, torreta ou escolta bate e não tira nada.
+    if (alvo.soJogador && !quem) {
+      if (ev) this.eventos.push({ ...ev, alvo: alvo.id, dano: 0 });
+      return;
+    }
     const tipo = opcoes.tipoDano;
     // Golpe crítico do atacante (só golpe direto de arma; o sorteio é só do servidor).
     let crit = false;
@@ -557,6 +592,14 @@ export class World {
     }
     s.hp -= dano;
     alvo.ultimoDano = this.tick;
+    if (total > 0) {
+      // Combate (server/bonus.js e server/objetivos.js) e agressão (server/torretas.js).
+      if (alvo.tipo === 'jogador') alvo.levouDanoTick = this.tick;
+      if (quem && quem !== alvo) {
+        quem.causouDanoTick = this.tick;
+        if (alvo.time !== undefined && alvo.time !== quem.time) quem.agrediu = { tick: this.tick, time: alvo.time, x: alvo.ship.x, z: alvo.ship.z };
+      }
+    }
     // Dano de jogador inimigo (no escudo também): anota para a assistência.
     const atacante = alvo.tipo === 'jogador' && total > 0 ? quem : undefined;
     if (atacante && atacante.time !== alvo.time) alvo.danoPor.set(atacante.id, this.tick);
@@ -598,9 +641,10 @@ export class World {
     if (alvo.tipo === 'monstro') this.jungle.aoMorrer(alvo, matador);
     if (matador) morte.ouro = matador.ouro - ouroAntes;
     if (alvo.tipo === 'jogador') {
-      // Morrer (para quem for) zera a sequência e o registro de dano.
+      // Morrer (para quem for) zera a sequência, o registro de dano e os bônus de nave.
       alvo.sequencia = 0;
       alvo.danoPor.clear();
+      this.bonus.limparNave(alvo.id);
       morte.renasce = Math.round((alvo.respawnTick - this.tick) / TICK_HZ);
     }
     this.objetivos.aoMorrer(alvo, matador);
@@ -665,6 +709,8 @@ export class World {
     const noChao = s.pousado && Math.hypot(s.vx, s.vz) < VEL_TOQUE;
     if (ent.tipo === 'jogador') {
       let porS = noChao ? (semDano > POUSO_REGEN_ESPERA_TICKS ? s.regenHpPousada : 0) : s.regenHpVoo;
+      // Bônus 'suporte' (server/bonus.js): fração do HP máximo por s, sempre.
+      porS += s.maxHp * this.bonus.regenNave(ent, this.tick).hpFrac;
       // Pousada e parada na própria base: conserta rápido (BASE_CURA_FRAC em shared/sim.js).
       if (pousadaNaBase(s)) porS += s.maxHp * BASE_CURA_FRAC;
       if (porS > 0) s.hp = Math.min(s.maxHp, s.hp + porS * DT);
@@ -797,6 +843,7 @@ export class World {
         if (this.tick >= j.respawnTick) this.#respawn(j);
         continue;
       }
+      this.#bonusDaNave(j);
       const n = Math.min(MAX_INPUTS_TICK, j.fila.length);
       for (let k = 0; k < n; k++) {
         const { seq, inp } = j.fila.shift();
@@ -835,12 +882,13 @@ export class World {
 
   /**
    * Entidades visíveis para todos (mesma lista para cada jogador). `tipo` diz o
-   * que desenhar ('jogador', 'monstro', 'minerador' ou 'escolta'; o monstro traz
-   * `esp`, a espécie de server/especies.js, e só vem vivo); `drone` continua true
-   * para todo inimigo do PvE. Jogadores,
+   * que desenhar ('jogador', 'monstro', 'minerador', 'escolta' ou 'nucleo'; o
+   * monstro traz `esp`, a espécie de server/especies.js, e só vem vivo); `drone`
+   * continua true para todo inimigo do PvE e o Núcleo. Jogadores,
    * mineradores e escoltas trazem `time`; os mineradores também `carga` (minério no contêiner)
-   * e `minerando`. Jogador traz `nivel`, `classe` e `tier` (a nave a desenhar) e,
-   * com escudo equipado, `esc` (fração 0 a 1 do escudo).
+   * e `minerando`, e os da onda do Núcleo `nucleo: 1`. Jogador traz `nivel`, `classe` e
+   * `tier` (a nave a desenhar), com escudo equipado `esc` (fração 0 a 1 do escudo) e,
+   * com bônus de nave, `bn` (['ataque', 'suporte', 'sonda'], os ativos).
    */
   entidades() {
     const lista = [];
@@ -876,11 +924,15 @@ export class World {
         ent.arm = e.ship.encaixes; // armas do Z e do X (o modelo na asa de cada uma)
         // Fração do escudo do equipamento, para a barra nos rótulos (sem escudo, não vem).
         if (e.ship.maxEscudo > 0) ent.esc = +Math.max(0, Math.min(1, e.ship.escudo / e.ship.maxEscudo)).toFixed(2);
+        // Bônus de nave ativos ('ataque', 'suporte', 'sonda'), para a aura.
+        const bn = Object.keys(this.bonus.paraNave(e.id, this.tick));
+        if (bn.length) ent.bn = bn;
       }
       if (e.recall) ent.recall = +Math.min(1, (this.tick - e.recall.inicio) / (e.recall.fim - e.recall.inicio)).toFixed(2);
       if (e.tipo === 'minerador') {
         ent.carga = e.carga;
         ent.minerando = e.estado === 'minerando';
+        if (e.nucleo) ent.nucleo = 1; // da onda do Núcleo (maior, brilhando He-3)
       }
       if (e.tipo === 'monstro') ent.esp = e.esp;
       lista.push(ent);
@@ -889,6 +941,7 @@ export class World {
     for (const m of this.jungle.lista) if (m.vivo) add(m);
     for (const m of this.mineradores.lista) add(m);
     for (const e of this.escoltas.lista) add(e);
+    for (const e of this.objetivos.entidades()) add(e); // o Núcleo de He-3 (tipo 'nucleo')
     return lista;
   }
 
@@ -919,7 +972,7 @@ export class World {
       vivo: j.vivo,
       renasceEm: j.vivo ? 0 : Math.max(0, +((j.respawnTick - this.tick) / TICK_HZ).toFixed(1)),
       time: j.time,
-      me: { ...j.ship, ...this.servicos.paraMe(j) },
+      me: { ...j.ship, ...this.servicos.paraMe(j), ...this.#bonusParaMe(j) },
       st: this.golpes.paraMe(j), // estados das armas no próprio jogador (s restantes), para o HUD
       ouro: j.ouro,
       abates: j.abates,
@@ -938,6 +991,16 @@ export class World {
       ents,
       ev: eventos,
     };
+  }
+
+  /**
+   * Bônus de nave no `me`: bonusNave = { ataque: s, suporte: s, sonda: s } (só os
+   * ativos) e, com a 'sonda' suspensa em combate, bonusSuspenso = ['sonda'].
+   */
+  #bonusParaMe(j) {
+    const bonusNave = this.bonus.paraNave(j.id, this.tick);
+    if (bonusNave.sonda && this.bonus.emCombate(j, this.tick)) return { bonusNave, bonusSuspenso: ['sonda'] };
+    return { bonusNave };
   }
 
   /** Ids dos jogadores invisíveis para `j` (do outro time e longe da nave dele). */

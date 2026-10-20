@@ -54,6 +54,7 @@ import { MISSIL_CONE } from '../shared/armas.js';
 import { MapaNavegacao } from './navegacao.js';
 import { ESPECIES, TERRITORIO_COMUM, alcanceMaximo } from './especies.js';
 import { ganharXp } from './progressao.js';
+import { BONUS, BONUS_NAVE } from './bonus.js';
 
 const TICK_HZ = Math.round(1 / DT);
 const ticks = (s) => Math.round(s * TICK_HZ);
@@ -69,10 +70,10 @@ export const TEMPOS_JUNGLE = {
 export const RAIVA_S = 20;
 /** Atacar um monstro provoca o acampamento inteiro (sugestão da pesquisa). */
 export const PROVOCA_GRUPO = true;
-/** Duração dos bônus do golpe final (s). */
-export const BONUS_ATAQUE_S = 90;
-export const BONUS_SONDA_S = 40;
-export const BONUS_MEDUSA_S = 120;
+/** Duração dos bônus do golpe final (s): as de server/bonus.js (90, 40 e 120). */
+export const BONUS_ATAQUE_S = BONUS_NAVE.ataque.s;
+export const BONUS_SONDA_S = BONUS_NAVE.sonda.s;
+export const BONUS_MEDUSA_S = BONUS.medusa.s;
 
 /**
  * Espécies de cada acampamento, no referencial do time 0 (o do time 1 é o girado:
@@ -250,18 +251,18 @@ export class Jungle {
 
   // ---------- Relógio ----------
 
-  /** Partida nova: some todo monstro e o relógio de cada lugar recomeça de `tick`. */
+  /** Partida nova: somem os monstros dos lugares e o relógio de cada lugar recomeça de `tick` (os avulsos ficam). */
   comecar(tick = this.tick) {
-    this.lista = [];
+    this.lista = this.lista.filter((m) => !m.covil);
     for (const c of this.covis) {
       Object.assign(c, { membros: [], estado: 'espera', ponta: 0, ultimoTime: null });
       c.proxTick = tick + ticks(this.tempos[c.tipo].primeiroS);
     }
   }
 
-  /** Servidor vazio: nenhum monstro e nada para nascer até a próxima partida. */
+  /** Servidor vazio: nenhum monstro dos lugares e nada para nascer até a próxima partida. */
   limpar() {
-    this.lista = [];
+    this.lista = this.lista.filter((m) => !m.covil);
     for (const c of this.covis) Object.assign(c, { membros: [], estado: 'espera', proxTick: Infinity, ponta: 0, ultimoTime: null });
   }
 

@@ -33,7 +33,7 @@ function conectar(porta) {
 }
 
 test('servidor: entra, anda com comandos e recebe ack', async () => {
-  const srv = await iniciar({ porta: 0, world: new World({ drones: 0, monstros: 0, elites: 0, torretas: false }) });
+  const srv = await iniciar({ porta: 0, world: new World({ jungle: false, torretas: false }) });
   try {
     const c = conectar(srv.porta);
     await c.aberto;
@@ -56,7 +56,7 @@ test('servidor: entra, anda com comandos e recebe ack', async () => {
 // O ESC do cliente sai da partida só fechando o WebSocket: o servidor tem que tirar
 // a nave do mundo, avisar quem ficou e aceitar a mesma pessoa de volta com outra raça.
 test('servidor: fechar a conexão (ESC) tira a nave e dá para entrar de novo com outra raça', async () => {
-  const srv = await iniciar({ porta: 0, world: new World({ drones: 0, monstros: 0, elites: 0, torretas: false }) });
+  const srv = await iniciar({ porta: 0, world: new World({ jungle: false, torretas: false }) });
   const jogadores = async () => (await (await fetch(`http://localhost:${srv.porta}/healthz`)).json()).jogadores;
   try {
     const outro = conectar(srv.porta);
@@ -83,7 +83,7 @@ test('servidor: fechar a conexão (ESC) tira a nave e dá para entrar de novo co
 });
 
 test('servidor: no máximo 4 comandos por tick (sem acelerar o tempo)', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
+  const w = new World({ jungle: false, torretas: false });
   const j = w.addPlayer('a', 'shrewdo');
   for (let s = 1; s <= 20; s++) w.pushInput(j.id, { s, th: 1 });
   w.step();
@@ -94,7 +94,7 @@ test('servidor: no máximo 4 comandos por tick (sem acelerar o tempo)', () => {
 });
 
 test('servidor: tiro tira vida, abate dá ouro e o morto renasce na base', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
+  const w = new World({ jungle: false, torretas: false });
   const a = w.addPlayer('A', 'acron');
   const b = w.addPlayer('B', 'shrewdo');
   // Leva os dois para longe da zona segura, um na frente do outro.
@@ -117,7 +117,7 @@ test('servidor: tiro tira vida, abate dá ouro e o morto renasce na base', () =>
 });
 
 test('servidor: ninguém leva dano na zona segura da base', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
+  const w = new World({ jungle: false, torretas: false });
   const a = w.addPlayer('A', 'acron');
   a.protegidoAte = 0;
   const hp = a.ship.hp;
@@ -129,7 +129,7 @@ test('servidor: ninguém leva dano na zona segura da base', () => {
 
 test('servidor: nave pousada conserta mais rápido que voando', () => {
   const regenEm = (pousar) => {
-    const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
+    const w = new World({ jungle: false, torretas: false });
     const j = w.addPlayer('A', 'bellico');
     j.ship.hp = 100;
     let seq = 0;
@@ -146,7 +146,7 @@ test('servidor: nave pousada conserta mais rápido que voando', () => {
 });
 
 test('servidor: pousada e parada na própria base, vida e energia enchem em poucos segundos', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
+  const w = new World({ jungle: false, torretas: false });
   const j = w.addPlayer('A', 'acron', 'assault');
   let seq = 0;
   w.pushInput(j.id, { s: ++seq, p: true });
@@ -169,7 +169,7 @@ test('servidor: pousada e parada na própria base, vida e energia enchem em pouc
 });
 
 test('servidor: não serve arquivo fora das pastas públicas', async () => {
-  const srv = await iniciar({ porta: 0, world: new World({ drones: 0, monstros: 0, elites: 0, torretas: false }) });
+  const srv = await iniciar({ porta: 0, world: new World({ jungle: false, torretas: false }) });
   try {
     for (const rota of ['/%2e%2e/package.json', '/shared/%2e%2e/package.json', '/vendor/%2e%2e/%2e%2e/%2e%2e/package.json']) {
       const r = await fetch(`http://localhost:${srv.porta}${rota}`);
@@ -184,7 +184,7 @@ test('servidor: não serve arquivo fora das pastas públicas', async () => {
 });
 
 test('servidor: serve o modelo da nave e o GLTFLoader que o lê', async () => {
-  const srv = await iniciar({ porta: 0, world: new World({ drones: 0, monstros: 0, elites: 0, torretas: false }) });
+  const srv = await iniciar({ porta: 0, world: new World({ jungle: false, torretas: false }) });
   try {
     const modelo = await fetch(`http://localhost:${srv.porta}/modelos/naves/acron/assault/ulysses.glb`);
     assert.equal(modelo.status, 200);
@@ -206,7 +206,7 @@ test('servidor: serve o modelo da nave e o GLTFLoader que o lê', async () => {
 });
 
 test('servidor: aplica a arma escolhida no comando (e limpa valor inválido)', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
+  const w = new World({ jungle: false, torretas: false });
   const j = w.addPlayer('A', 'acron');
   const [z, x] = armasIniciais('acron');
   const circular = IDX_ARMA.o111009; // Feixe Circular, Acron Assault
@@ -247,7 +247,7 @@ test('servidor: aplica a arma escolhida no comando (e limpa valor inválido)', (
 });
 
 test('servidor: cada projétil do Feixe Duplo tira o dano dele', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
+  const w = new World({ jungle: false, torretas: false });
   const a = w.addPlayer('A', 'shrewdo');
   const b = w.addPlayer('B', 'acron');
   a.ship = createShip('shrewdo', CAMPO.x, CAMPO.z, 0);
@@ -261,7 +261,7 @@ test('servidor: cada projétil do Feixe Duplo tira o dano dele', () => {
 
 /** Mundo com dois jogadores fora da zona segura: A atira em B, 20 m à frente (B Acron, sem regenerar voando). */
 function duelo() {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
+  const w = new World({ jungle: false, torretas: false });
   const a = w.addPlayer('A', 'shrewdo');
   const b = w.addPlayer('B', 'acron');
   a.ship = createShip('shrewdo', CAMPO.x, CAMPO.z, 0);
@@ -308,7 +308,7 @@ test('servidor: acertar o dreno de novo renova a duração, sem empilhar', () =>
 });
 
 test('servidor: dreno não age na zona segura (nem na proteção de nascimento)', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
+  const w = new World({ jungle: false, torretas: false });
   const j = w.addPlayer('A', 'acron');
   j.protegidoAte = 0;
   j.drenoTicks = 30 * 4;
@@ -360,32 +360,32 @@ test('servidor: Canhão Freio deixa o alvo lento, e o snapshot leva isso', () =>
   assert.equal(w.entidades().find((e) => e.id === b.id).lento, false);
 });
 
-test('servidor: drones nascem no mundo aberto, fora das bases e da lane', () => {
-  // Gerador com semente fixa: o teste não depende da sorte.
-  let a = 42;
-  const rng = () => {
-    a = (a * 1664525 + 1013904223) >>> 0;
-    return a / 4294967296;
-  };
-  const w = new World({ rng, drones: 60, monstros: 0, elites: 0 });
+test('servidor: monstros nascem nos acampamentos, buffs e poço, em chão livre e fora das bases e da lane', () => {
+  const ja = { primeiroS: 0 };
+  const w = new World({ temposJungle: { acampamento: ja, ataque: ja, medusa: ja, sonda: ja } });
+  w.addPlayer('A', 'acron');
+  w.step();
+  w.step();
+  const monstros = w.monstros.filter((m) => m.vivo);
+  assert.equal(monstros.length, 8 * 3.5 + 2 + 1, '28 dos acampamentos, 2 SN-4 e a Medusa (a sonda espera a Medusa morrer)');
   let oeste = 0;
-  for (const d of w.drones) {
-    const { x, z } = d.ship;
-    assert.ok(noMapaAberto(x, z), `drone fora do chão (${x.toFixed(0)}, ${z.toFixed(0)})`);
-    assert.ok(pontoLivre(x, z), 'com folga das rochas');
+  for (const m of monstros) {
+    const { x, z } = m.ship;
+    assert.ok(noMapaAberto(x, z), `${m.esp} fora do chão (${x.toFixed(0)}, ${z.toFixed(0)})`);
+    assert.ok(pontoLivre(x, z), `${m.esp} com folga das rochas`);
     assert.equal(alturaSolida(x, z, SHIP_RADIUS), heightAt(x, z), 'fora de construção');
     for (const b of BASES) assert.ok(Math.hypot(x - b.x, z - b.z) > ZONA_SEGURA + 100, 'longe das bases');
     assert.ok(Math.abs(z - LANE.z) > LANE.meiaLargura, 'fora da lane');
-    if (x < 0) oeste++;
+    if (m.esp !== 'medusa' && x < 0) oeste++;
   }
-  assert.ok(oeste > 15 && oeste < 45, `${oeste} a oeste, o resto a leste`);
+  assert.equal(oeste, 14 + 1, 'metade de cada lado (14 dos acampamentos e um SN-4; a Medusa fica no meio)');
 });
 
 // Cada base protege o próprio time (a do outro time não: ver partida.test.mjs).
 test('servidor: a zona segura cobre as duas bases, cada uma para o seu time', () => {
   assert.ok(ZONA_SEGURA >= BASE.raio);
   for (const b of BASES) {
-    const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
+    const w = new World({ jungle: false, torretas: false });
     const primeiro = w.addPlayer('A', 'acron');
     const j = b.time === 0 ? primeiro : w.addPlayer('B', 'acron');
     assert.equal(j.time, b.time);
@@ -399,20 +399,20 @@ test('servidor: a zona segura cobre as duas bases, cada uma para o seu time', ()
   }
 });
 
-test('servidor: drone que chega perto de uma base dá meia volta', () => {
+test('servidor: monstro provocado não entra na zona segura atrás de quem fugiu para a base', () => {
   for (const b of BASES) {
-    const w = new World({ drones: 1, monstros: 0, elites: 0 });
-    const d = w.drones[0];
-    // Na entrada da zona segura, de lado, apontando para dentro da base.
-    const ini = { x: b.x + ZONA_SEGURA + 20, z: b.z };
-    d.ship = createShip('mechan', ini.x, ini.z, Math.PI / 2);
-    d.ship.hp = d.ship.maxHp = 90;
+    const w = new World({ jungle: false });
+    const j = b.time === 0 ? w.addPlayer('A', 'acron') : (w.addPlayer('X', 'acron'), w.addPlayer('B', 'acron'));
+    j.ship = createShip('acron', b.x, b.z, 0);
+    // Monstro rápido com território grande, logo na beira da zona segura, com raiva de quem está dentro.
+    const m = w.jungle.criarMonstro('xerxes', b.x + Math.sign(-b.x) * (ZONA_SEGURA + 40), b.z, { territorio: 2000 });
+    m.raiva.set(j.id, Infinity);
     let maisPerto = Infinity;
-    for (let i = 0; i < 30 * 15; i++) {
+    for (let i = 0; i < 30 * 10; i++) {
       w.step();
-      maisPerto = Math.min(maisPerto, Math.hypot(d.ship.x - b.x, d.ship.z - b.z));
+      maisPerto = Math.min(maisPerto, Math.hypot(m.ship.x - b.x, m.ship.z - b.z));
     }
-    assert.ok(maisPerto > b.raio, `entrou na base ${b.time} (chegou a ${maisPerto.toFixed(0)} m)`);
-    assert.ok(Math.hypot(d.ship.x - b.x, d.ship.z - b.z) > ZONA_SEGURA + 40, 'voltou para o mundo aberto');
+    assert.ok(maisPerto > ZONA_SEGURA, `entrou na base ${b.time} (chegou a ${maisPerto.toFixed(0)} m)`);
+    assert.equal(j.ship.hp, j.ship.maxHp, 'ninguém leva dano na própria base');
   }
 });

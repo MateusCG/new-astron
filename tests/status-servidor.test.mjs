@@ -29,7 +29,7 @@ const perto = (a, b, msg) => assert.ok(Math.abs(a - b) < 1e-6, `${msg ?? ''} ${a
 const valor = (chave, tipo) => versaoEquip(chave, 1).efeitos.find((e) => e.tipo === tipo).valor;
 
 function mundo() {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
+  const w = new World({ jungle: false, torretas: false });
   w.mineradores.passo = () => {};
   return w;
 }

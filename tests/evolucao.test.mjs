@@ -19,7 +19,7 @@ function pousar(j, servico, time = j.time) {
 }
 
 function mundo(opcoes = {}) {
-  return new World({ drones: 0, monstros: 0, elites: 0, ...opcoes });
+  return new World({ jungle: false, ...opcoes });
 }
 
 const evoluir = (w, j, opcao) => w.pedido(j.id, { t: 'evoluir', opcao });

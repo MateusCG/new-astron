@@ -1,13 +1,12 @@
-// Mineradores (server/mineradores.js) e o contrato de bônus (server/bonus.js):
-// ciclo base → minério → entrega, efeito dos bônus, destruição pelo outro time.
+// Mineradores (server/mineradores.js): ciclo base → doca → entrega em linha reta,
+// tempos, onda do Núcleo, destruição pelo outro time.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World } from '../server/game.js';
-import { MINERADOR } from '../server/mineradores.js';
-import { Bonus, BONUS } from '../server/bonus.js';
+import { MINERADOR, MINERADOR_NUCLEO } from '../server/mineradores.js';
 import { createShip, createBullet, WEAPONS } from '../shared/sim.js';
-import { BASES, ENTREGAS, DOCAS, heightAt } from '../shared/terrain.js';
+import { BASES, ENTREGAS, DOCAS, ROTAS, heightAt } from '../shared/terrain.js';
 import { alturaSolida } from '../shared/obstaculos.js';
 
 const SEGUNDO = 30; // ticks
@@ -20,7 +19,7 @@ function rngFixo(semente = 1) {
 
 /** Mundo com um jogador em cada time (a partida começa no primeiro passo). */
 function mundo() {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, rng: rngFixo() });
+  const w = new World({ jungle: false, rng: rngFixo() });
   const a = w.addPlayer('A', 'acron');
   const b = w.addPlayer('B', 'bellico');
   w.step();
@@ -36,24 +35,6 @@ function primeiraEntrega(w, time, maxS = 120) {
   }
   return null;
 }
-
-test('bônus: ativar, ativo, restante, renovar e snapshot', () => {
-  const b = new Bonus();
-  assert.equal(b.ativo(0, 'mineracao', 0), false);
-  b.ativar(0, 'mineracao', 60, 100);
-  assert.equal(b.ativo(0, 'mineracao', 100), true);
-  assert.equal(b.ativo(1, 'mineracao', 100), false, 'só no time que ganhou');
-  assert.ok(Math.abs(b.restante(0, 'mineracao', 100) - 60) < 1e-9);
-  assert.ok(Math.abs(b.restante(0, 'mineracao', 100 + 30 * SEGUNDO) - 30) < 1e-9);
-  assert.equal(b.ativo(0, 'mineracao', 100 + 60 * SEGUNDO), false, 'acabou');
-  b.ativar(0, 'mineracao', 10, 0); // mais curto que o que já vale: não encurta
-  assert.ok(Math.abs(b.restante(0, 'mineracao', 100) - 60) < 1e-9);
-  b.ativar(1, 'velocidade', 5, 100);
-  assert.deepEqual(b.paraSnapshot(100 + 10), { 0: { mineracao: 60 }, 1: { velocidade: 5 } });
-  assert.throws(() => b.ativar(0, 'voar', 10, 0), /bônus desconhecido/);
-  b.limpar();
-  assert.deepEqual(b.paraSnapshot(0), { 0: {}, 1: {} });
-});
 
 test('mineradores: fazem o ciclo base → doca → entrega e somam 10 no placar, sem atravessar construção', () => {
   const { w } = mundo();
@@ -104,36 +85,64 @@ test('mineradores: saem em intervalos, no máximo MINERADOR.maxAtivos por time',
   assert.equal(maximo, MINERADOR.maxAtivos);
 });
 
-test('mineradores: bônus de mineração faz a viagem entregar 11', () => {
+test('mineradores: linha reta da entrega à doca, nos tempos documentados (ida ~40 s, primeira entrega ~79 s, ciclo ~75 s)', () => {
   const { w } = mundo();
-  w.bonus.ativar(0, 'mineracao', 120, w.tick);
-  const r = primeiraEntrega(w, 0);
-  assert.equal(r.evento.carga, MINERADOR.carga + BONUS.mineracao.cargaExtra);
-  assert.equal(w.partida.placar[0], 11);
-  assert.equal(w.snapshotPara([...w.players.values()][0], [], []).bonus[0].mineracao > 0, true, 'o snapshot mostra o bônus');
+  const m = w.mineradores.lista.find((x) => x.time === 0);
+  let minerouEm = null;
+  let entregas = [];
+  let maxDesvio = 0;
+  for (let i = 0; i < 260 * SEGUNDO && entregas.length < 2; i++) {
+    w.step();
+    if (m.vivo) maxDesvio = Math.max(maxDesvio, Math.abs(m.ship.z));
+    if (minerouEm === null && m.estado === 'minerando') minerouEm = w.tick;
+    for (const e of w.tirarEventos()) if (e.e === 'entrega' && e.id === m.id) entregas.push(w.tick);
+  }
+  assert.ok(maxDesvio < 25, `voa reto pela lane (desvio ${maxDesvio.toFixed(1)} m)`);
+  const ida = minerouEm / SEGUNDO;
+  const primeira = entregas[0] / SEGUNDO;
+  const ciclo = (entregas[1] - entregas[0]) / SEGUNDO;
+  assert.ok(ida > 36 && ida < 46, `ida ${ida.toFixed(1)} s`);
+  assert.ok(primeira > 74 && primeira < 88, `primeira entrega ${primeira.toFixed(1)} s`);
+  assert.ok(ciclo > 68 && ciclo < 84, `ciclo ${ciclo.toFixed(1)} s`);
 });
 
-test('mineradores: bônus de velocidade encurta o ciclo', () => {
-  const normal = primeiraEntrega(mundo().w, 0).segundos;
+test('mineradores: a onda do Núcleo sai na hora, além do limite, carrega 50, entrega e some', () => {
   const { w } = mundo();
-  w.bonus.ativar(0, 'velocidade', 120, w.tick);
-  const rapido = primeiraEntrega(w, 0).segundos;
-  assert.ok(rapido < normal * 0.85, `com bônus ${rapido}s, sem ${normal}s`);
+  w.escoltas.passo = () => {};
+  const conta = (t) => w.mineradores.lista.filter((m) => m.time === t && !m.nucleo).length;
+  const onda = w.mineradores.ondaDoNucleo(1, w.tick);
+  assert.equal(onda.length, MINERADOR_NUCLEO.quantos);
+  assert.ok(w.tirarEventos().some((e) => e.e === 'ondaNucleo' && e.time === 1 && e.ids.length === 3));
+  for (const m of onda) {
+    assert.equal(m.nucleo, true);
+    assert.equal(m.ship.maxHp, MINERADOR.hp * MINERADOR_NUCLEO.hpMult);
+    assert.equal(m.ship.raio, MINERADOR_NUCLEO.raio, 'alvo maior');
+  }
+  const ent = w.entidades().find((e) => e.id === onda[0].id);
+  assert.equal(ent.nucleo, 1, 'o snapshot marca o minerador do Núcleo');
+  // Os normais continuam saindo até o limite deles.
+  let maxNormais = 0;
+  const entregas = [];
+  for (let i = 0; i < 200 * SEGUNDO && entregas.length < 3; i++) {
+    w.step();
+    maxNormais = Math.max(maxNormais, conta(1));
+    for (const e of w.tirarEventos()) if (e.e === 'entrega' && e.nucleo) entregas.push(e);
+  }
+  assert.equal(entregas.length, 3, 'os três entregaram');
+  assert.ok(entregas.every((e) => e.carga === MINERADOR_NUCLEO.carga && e.time === 1));
+  assert.equal(maxNormais, MINERADOR.maxAtivos, 'contam além do limite normal');
+  assert.equal(w.mineradores.lista.filter((m) => m.nucleo).length, 0, 'somem depois de entregar');
+  assert.ok(w.partida.placar[1] >= 3 * MINERADOR_NUCLEO.carga);
 });
 
-test('mineradores: bônus de durabilidade aumenta o HP enquanto vale', () => {
+test('mineradores: o do Núcleo é mais lento que o normal', () => {
   const { w } = mundo();
-  const m = w.mineradores.lista.find((x) => x.time === 1);
-  assert.equal(m.ship.maxHp, MINERADOR.hp);
-  m.ship.hp = MINERADOR.hp / 2;
-  w.bonus.ativar(1, 'durabilidade', 2, w.tick);
-  w.step();
-  assert.equal(m.ship.maxHp, MINERADOR.hp * BONUS.durabilidade.mult);
-  assert.equal(m.ship.hp, (MINERADOR.hp * BONUS.durabilidade.mult) / 2, 'a vida acompanha na proporção');
-  assert.equal(w.entidades().find((e) => e.id === m.id).maxHp, MINERADOR.hp * BONUS.durabilidade.mult);
-  for (let i = 0; i < 3 * SEGUNDO; i++) w.step();
-  assert.equal(m.ship.maxHp, MINERADOR.hp, 'acabou o bônus');
-  assert.equal(w.mineradores.lista.find((x) => x.time === 0).ship.maxHp, MINERADOR.hp, 'o outro time não ganhou nada');
+  const [n] = w.mineradores.ondaDoNucleo(0, w.tick);
+  const normal = w.mineradores.lista.find((m) => m.time === 0 && !m.nucleo);
+  for (let i = 0; i < 10 * SEGUNDO; i++) w.step();
+  const andouN = Math.abs(n.ship.x - ROTAS[0][0].x);
+  const andou = Math.abs(normal.ship.x - ROTAS[0][0].x);
+  assert.ok(andouN < andou * 0.85, `Núcleo ${andouN.toFixed(0)} m, normal ${andou.toFixed(0)} m`);
 });
 
 test('mineradores: destruir o do outro time dá ouro e a carga se perde; aliado e drone não ferem', () => {

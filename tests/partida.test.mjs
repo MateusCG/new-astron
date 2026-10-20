@@ -9,7 +9,6 @@ import { iniciar } from '../server/index.js';
 import { World, ZONA_SEGURA } from '../server/game.js';
 import { MAX_POR_TIME, Partida, FASE_FINAL_S, MULT_FASE_FINAL, DURACAO_PARTIDA_S } from '../server/partida.js';
 import { MINERADOR } from '../server/mineradores.js';
-import { BONUS } from '../server/bonus.js';
 import { createShip, createBullet, pousoPermitido, WEAPONS } from '../shared/sim.js';
 import { BASES, SERVICOS, PLATAFORMAS_POUSO } from '../shared/terrain.js';
 import { rumoLane } from './lugares.mjs';
@@ -42,7 +41,7 @@ function colocar(j, x, z, yaw = 0) {
 }
 
 test('partida: entra no time com menos gente, até 3 em cada', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0 });
+  const w = new World({ jungle: false });
   const times = [];
   for (let i = 0; i < 2 * MAX_POR_TIME; i++) times.push(w.addPlayer(`P${i}`, 'acron').time);
   assert.deepEqual(times, [0, 1, 0, 1, 0, 1]);
@@ -55,7 +54,7 @@ test('partida: entra no time com menos gente, até 3 em cada', () => {
 });
 
 test('partida: bemvindo traz o time e a partida cheia recusa com código estável', async () => {
-  const world = new World({ drones: 0, monstros: 0, elites: 0 });
+  const world = new World({ jungle: false });
   const srv = await iniciar({ porta: 0, world });
   try {
     const a = conectar(srv.porta);
@@ -89,7 +88,7 @@ test('partida: bemvindo traz o time e a partida cheia recusa com código estáve
 });
 
 test('partida: cada um nasce e renasce na base do próprio time, voltado para a lane', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0 });
+  const w = new World({ jungle: false });
   for (let i = 0; i < 6; i++) w.addPlayer(`P${i}`, 'bellico');
   for (const j of w.players.values()) {
     const b = BASES[j.time];
@@ -109,7 +108,7 @@ test('partida: cada um nasce e renasce na base do próprio time, voltado para a 
 });
 
 test('partida: sem fogo amigo, o tiro atravessa o aliado e acerta o inimigo atrás', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0 });
+  const w = new World({ jungle: false });
   const a = w.addPlayer('A', 'acron'); // time 0
   const inimigo = w.addPlayer('B', 'acron'); // time 1 (sem blindagem de nave: leva o dano cheio)
   const aliado = w.addPlayer('C', 'shrewdo'); // time 0
@@ -149,7 +148,7 @@ test('partida: pouso no anel e nos serviços só na base do próprio time; plata
   }
 
   // No servidor: o time 1 aperta L no anel da base do time 0 e não pousa.
-  const w = new World({ drones: 0, monstros: 0, elites: 0 });
+  const w = new World({ jungle: false });
   w.addPlayer('A', 'acron');
   const j = w.addPlayer('B', 'acron');
   colocar(j, BASES[0].x, BASES[0].z);
@@ -164,7 +163,7 @@ test('partida: pouso no anel e nos serviços só na base do próprio time; plata
 });
 
 test('partida: a zona segura só protege o time dono da base', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0 });
+  const w = new World({ jungle: false });
   const dono = w.addPlayer('Dono', 'acron'); // time 0
   const invasor = w.addPlayer('Invasor', 'acron'); // time 1
   const b = BASES[0];
@@ -183,7 +182,7 @@ test('partida: a zona segura só protege o time dono da base', () => {
 });
 
 test('partida: no fim vence quem minerou mais, todos veem e outra partida começa do zero', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, duracaoPartidaS: 3, intervaloFimS: 2 });
+  const w = new World({ jungle: false, duracaoPartidaS: 3, intervaloFimS: 2 });
   assert.equal(w.partida.estado, 'esperando', 'servidor vazio não gasta partida');
   const a = w.addPlayer('A', 'acron');
   const b = w.addPlayer('B', 'acron');
@@ -247,13 +246,12 @@ test('partida: fase final nos últimos FASE_FINAL_S dobra o minério entregue, e
   assert.equal(new Partida().faseFinalTicks, FASE_FINAL_S * SEGUNDO);
 });
 
-test('partida: no mundo, a entrega na fase final soma o dobro (com o bônus de mineração) e o evento anuncia', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, duracaoPartidaS: DURACAO_PARTIDA_S, faseFinalS: DURACAO_PARTIDA_S - 5, intervaloFimS: 1 });
+test('partida: no mundo, a entrega na fase final soma o dobro e o evento anuncia', () => {
+  const w = new World({ jungle: false, duracaoPartidaS: DURACAO_PARTIDA_S, faseFinalS: DURACAO_PARTIDA_S - 5, intervaloFimS: 1 });
   const a = w.addPlayer('A', 'acron');
   w.addPlayer('B', 'acron');
   w.step();
   assert.equal(w.snapshotPara(a, [], []).partida.fase, 'normal');
-  w.bonus.ativar(0, 'mineracao', 300, w.tick);
   let anuncio = null;
   let entrega = null;
   for (let i = 0; i < 200 * SEGUNDO && !entrega; i++) {
@@ -267,12 +265,12 @@ test('partida: no mundo, a entrega na fase final soma o dobro (com o bônus de m
   assert.equal(anuncio.mult, MULT_FASE_FINAL);
   assert.equal(w.snapshotPara(a, [], []).partida.fase, 'final');
   assert.ok(entrega, 'houve entrega');
-  assert.equal(entrega.carga, (MINERADOR.carga + BONUS.mineracao.cargaExtra) * MULT_FASE_FINAL);
+  assert.equal(entrega.carga, MINERADOR.carga * MULT_FASE_FINAL);
   assert.equal(w.partida.placar[0], entrega.carga);
 });
 
 test('partida: no mundo, a fase final volta ao normal na partida seguinte', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, duracaoPartidaS: 4, faseFinalS: 2, intervaloFimS: 1 });
+  const w = new World({ jungle: false, duracaoPartidaS: 4, faseFinalS: 2, intervaloFimS: 1 });
   const a = w.addPlayer('A', 'acron');
   w.step();
   const fases = [];
@@ -287,7 +285,7 @@ test('partida: no mundo, a fase final volta ao normal na partida seguinte', () =
 });
 
 test('partida: empate e servidor vazio', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, duracaoPartidaS: 1, intervaloFimS: 1 });
+  const w = new World({ jungle: false, duracaoPartidaS: 1, intervaloFimS: 1 });
   const a = w.addPlayer('A', 'acron');
   for (let i = 0; i < SEGUNDO + 1; i++) w.step();
   assert.equal(w.partida.estado, 'fim');
@@ -299,4 +297,21 @@ test('partida: empate e servidor vazio', () => {
   w.addPlayer('B', 'acron');
   w.step();
   assert.equal(w.partida.estado, 'andamento');
+});
+
+test('partida: 20 minutos, fase final dos 17:00 aos 20:00 e o relógio decorrido', () => {
+  assert.equal(DURACAO_PARTIDA_S, 1200);
+  assert.equal(FASE_FINAL_S, 180);
+  const p = new Partida();
+  assert.equal(p.decorrido(0), 0, 'esperando: relógio parado');
+  p.comecar(100);
+  assert.equal(p.decorrido(100), 0);
+  assert.equal(p.decorrido(100 + 90 * SEGUNDO), 90);
+  assert.equal(p.fase(100 + 1019 * SEGUNDO), 'normal', 'aos 16:59 ainda normal');
+  assert.equal(p.fase(100 + 1020 * SEGUNDO), 'final', 'aos 17:00 começa a fase final');
+  assert.equal(p.restante(100 + 1020 * SEGUNDO), 180);
+  // Modo de teste: não acaba, mas o relógio dos objetivos anda.
+  const teste = new Partida({ duracaoS: Infinity });
+  teste.comecar(0);
+  assert.equal(teste.decorrido(600 * SEGUNDO), 600);
 });
