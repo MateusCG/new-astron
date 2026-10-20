@@ -1079,7 +1079,69 @@ kbd {
   opacity: 0.8;
 }
 
-/* Barra do pouso no objetivo A, acima da dica de pouso. */
+/* Ícone do objetivo no rótulo: traço escuro sobre a caixinha âmbar. */
+.rot-obj .letra svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: #2a1a00;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Bônus da sua nave (ataque, suporte, sonda) e o do time (Medusa): ícone âmbar e os
+   segundos, em cima do painel inferior, à esquerda; a sonda suspensa em combate apaga. */
+#bonus-nave {
+  position: absolute;
+  bottom: calc(var(--alto-painel) + 10px);
+  left: max(12px, calc(50% - 470px));
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#bonus-nave[hidden] {
+  display: none;
+}
+
+#bonus-nave li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px 3px 5px;
+  border: 1px solid rgba(255, 182, 39, 0.55);
+  border-radius: 4px;
+  background: rgba(10, 8, 4, 0.7);
+  font: 600 14px system-ui, sans-serif;
+  color: var(--objetivo);
+  text-shadow: 0 1px 2px #000;
+}
+
+#bonus-nave li b {
+  font: 700 14px ui-monospace, monospace;
+  color: var(--texto);
+}
+
+#bonus-nave svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--objetivo);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 2px var(--objetivo));
+}
+
+#bonus-nave li.suspenso {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+/* Barra do pouso na plataforma de ouro, acima da dica de pouso. */
 #prog-obj {
   position: absolute;
   bottom: calc(var(--alto-painel) + 48px);
