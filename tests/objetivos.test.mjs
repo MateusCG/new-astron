@@ -22,7 +22,7 @@ const RAPIDO = {
 
 /** Mundo sem monstros e sem mineradores andando, com A e C no time 0 e B no 1. */
 function mundo(opcoes = {}) {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false, objetivos: RAPIDO, ...opcoes });
+  const w = new World({ jungle: false, torretas: false, objetivos: RAPIDO, ...opcoes });
   const a = w.addPlayer('A', 'bellico');
   const b = w.addPlayer('B', 'acron');
   const c = w.addPlayer('C', 'shrewdo');
@@ -63,7 +63,7 @@ const obj = (w, j, id) => w.snapshotPara(j, [], []).obj[id];
 test('objetivos: os A/B/C antigos saíram e o obj traz BS0, BS1, P0, P1 e NUCLEO à espera', () => {
   assert.deepEqual(OBJETIVOS, []);
   assert.deepEqual(TEMPOS, { suporte: { primeiroS: 90, voltaS: 240 }, plataforma: { primeiroS: 120, recargaS: 150, pousoS: 6 }, nucleo: { aparicoesS: [480, 900] } });
-  const w = new World({ drones: 0, monstros: 0, elites: 0 });
+  const w = new World({ jungle: false });
   const a = w.addPlayer('A', 'bellico');
   w.step();
   const o = w.snapshotPara(a, [], []).obj;
@@ -71,7 +71,7 @@ test('objetivos: os A/B/C antigos saíram e o obj traz BS0, BS1, P0, P1 e NUCLEO
   assert.deepEqual(o.BS0, { time: null, estado: 'espera', volta: 90, vida: 1 });
   assert.deepEqual(o.P1, { time: null, estado: 'espera', volta: 120 });
   assert.deepEqual(o.NUCLEO, { time: null, aparicao: 0, estado: 'espera', volta: 480 });
-  assert.equal(w.elites.filter((e) => e.tipo === 'guardiao').length, 0, 'sem guardião');
+  assert.equal(w.entidades().filter((e) => e.tipo === 'guardiao').length, 0, 'sem guardião');
   assert.equal(w.entidades().filter((e) => e.tipo === 'nucleo').length, 0, 'o Núcleo ainda não está no mapa');
 });
 
@@ -297,7 +297,7 @@ test('objetivos: fora de briga o Núcleo recupera vida', () => {
 });
 
 test('objetivos: a partida nova volta tudo à espera, com as torres de pé', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false, objetivos: RAPIDO, duracaoPartidaS: 5, intervaloFimS: 1 });
+  const w = new World({ jungle: false, torretas: false, objetivos: RAPIDO, duracaoPartidaS: 5, intervaloFimS: 1 });
   const a = w.addPlayer('A', 'bellico');
   passos(w, 2.2);
   w.objetivos.suportes[0].hp = 1;

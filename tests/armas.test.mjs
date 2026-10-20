@@ -230,7 +230,7 @@ test('validação: arma de outra raça, de outra classe, de NPC ou não possuíd
 });
 
 test('validação: no servidor, o encaixe só aceita arma da raça e classe que o piloto possui', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
+  const w = new World({ jungle: false, torretas: false });
   const j = w.addPlayer('A', 'bellico', 'mobile');
   // Na própria base (troca livre).
   const outraClasse = idx('212002'); // Canhão de Magma em Leque: Bellico Assault
@@ -384,7 +384,7 @@ test('stepShip: efeitos no alvo que mexem no movimento e no tiro (lento, paralis
 });
 
 test('predição: o stepShip do cliente (a partir do `me`) bate com o do servidor nas armas que mexem na nave', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
+  const w = new World({ jungle: false, torretas: false });
   const j = w.addPlayer('P', 'shrewdo', 'mobile');
   j.ship = createShip('shrewdo', CAMPO.x, CAMPO.z, 0, 'mobile');
   j.protegidoAte = 0;

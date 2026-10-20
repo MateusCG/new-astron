@@ -1,7 +1,7 @@
 // Catálogo das armas do jogo: as 140 armas das lojas do Astro-N original (Acron,
 // Bellico e Shrewdo; dados em shared/armas-original.js, gerado por
 // tools/gerar_armas.mjs) convertidas para a escala do jogo novo, e os tiros próprios
-// dos NPCs (torretas, escolta, drones Arnosh, Krakor e guardião), que ficam fora do
+// dos NPCs (torretas, escolta e os monstros da jungle), que ficam fora do
 // catálogo do jogador.
 //
 // Mesmo arquivo no servidor e no cliente, e determinístico (sem sorte, sem relógio):
@@ -483,9 +483,9 @@ function converterArma(a) {
 }
 
 /**
- * Tiros dos NPCs (fora do catálogo do jogador): o laser das torretas, da escolta e
- * dos drones Arnosh, e o plasma do cuspe do Krakor e do guardião. Mesmos números de
- * antes do catálogo do original, para eles se comportarem igual.
+ * Tiros dos NPCs (fora do catálogo do jogador): o laser das torretas e da escolta.
+ * Os monstros da jungle (server/jungle.js) usam 'laser' e 'plasma' só como o desenho
+ * do tiro: o dano, o tipo e o alcance vêm do ataque da espécie (server/especies.js).
  */
 export const NPC_LASER = { dano: 12, vel: 340, cd: 0.16, energia: 2, vida: 1.3, raio: 5 };
 export const NPC_PLASMA = { dano: 42, vel: 190, cd: 0.9, energia: 14, vida: 2.2, raio: 6.5 };

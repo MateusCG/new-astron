@@ -138,6 +138,11 @@ export class Objetivos {
     };
   }
 
+  /** O Núcleo de He-3 está vivo? (a sonda errante da jungle não aparece enquanto ele vive: server/jungle.js) */
+  nucleoVivo() {
+    return this.nucleo.vivo;
+  }
+
   /** Entidades dos objetivos que vão para o mundo (alvos de tiro e snapshot): o Núcleo, se vivo. */
   entidades() {
     return this.nucleo.vivo ? [this.nucleo] : [];

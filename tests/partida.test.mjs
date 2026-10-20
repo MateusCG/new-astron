@@ -41,7 +41,7 @@ function colocar(j, x, z, yaw = 0) {
 }
 
 test('partida: entra no time com menos gente, até 3 em cada', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0 });
+  const w = new World({ jungle: false });
   const times = [];
   for (let i = 0; i < 2 * MAX_POR_TIME; i++) times.push(w.addPlayer(`P${i}`, 'acron').time);
   assert.deepEqual(times, [0, 1, 0, 1, 0, 1]);
@@ -54,7 +54,7 @@ test('partida: entra no time com menos gente, até 3 em cada', () => {
 });
 
 test('partida: bemvindo traz o time e a partida cheia recusa com código estável', async () => {
-  const world = new World({ drones: 0, monstros: 0, elites: 0 });
+  const world = new World({ jungle: false });
   const srv = await iniciar({ porta: 0, world });
   try {
     const a = conectar(srv.porta);
@@ -88,7 +88,7 @@ test('partida: bemvindo traz o time e a partida cheia recusa com código estáve
 });
 
 test('partida: cada um nasce e renasce na base do próprio time, voltado para a lane', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0 });
+  const w = new World({ jungle: false });
   for (let i = 0; i < 6; i++) w.addPlayer(`P${i}`, 'bellico');
   for (const j of w.players.values()) {
     const b = BASES[j.time];
@@ -108,7 +108,7 @@ test('partida: cada um nasce e renasce na base do próprio time, voltado para a 
 });
 
 test('partida: sem fogo amigo, o tiro atravessa o aliado e acerta o inimigo atrás', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0 });
+  const w = new World({ jungle: false });
   const a = w.addPlayer('A', 'acron'); // time 0
   const inimigo = w.addPlayer('B', 'acron'); // time 1 (sem blindagem de nave: leva o dano cheio)
   const aliado = w.addPlayer('C', 'shrewdo'); // time 0
@@ -148,7 +148,7 @@ test('partida: pouso no anel e nos serviços só na base do próprio time; plata
   }
 
   // No servidor: o time 1 aperta L no anel da base do time 0 e não pousa.
-  const w = new World({ drones: 0, monstros: 0, elites: 0 });
+  const w = new World({ jungle: false });
   w.addPlayer('A', 'acron');
   const j = w.addPlayer('B', 'acron');
   colocar(j, BASES[0].x, BASES[0].z);
@@ -163,7 +163,7 @@ test('partida: pouso no anel e nos serviços só na base do próprio time; plata
 });
 
 test('partida: a zona segura só protege o time dono da base', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0 });
+  const w = new World({ jungle: false });
   const dono = w.addPlayer('Dono', 'acron'); // time 0
   const invasor = w.addPlayer('Invasor', 'acron'); // time 1
   const b = BASES[0];
@@ -182,7 +182,7 @@ test('partida: a zona segura só protege o time dono da base', () => {
 });
 
 test('partida: no fim vence quem minerou mais, todos veem e outra partida começa do zero', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, duracaoPartidaS: 3, intervaloFimS: 2 });
+  const w = new World({ jungle: false, duracaoPartidaS: 3, intervaloFimS: 2 });
   assert.equal(w.partida.estado, 'esperando', 'servidor vazio não gasta partida');
   const a = w.addPlayer('A', 'acron');
   const b = w.addPlayer('B', 'acron');
@@ -247,7 +247,7 @@ test('partida: fase final nos últimos FASE_FINAL_S dobra o minério entregue, e
 });
 
 test('partida: no mundo, a entrega na fase final soma o dobro e o evento anuncia', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, duracaoPartidaS: DURACAO_PARTIDA_S, faseFinalS: DURACAO_PARTIDA_S - 5, intervaloFimS: 1 });
+  const w = new World({ jungle: false, duracaoPartidaS: DURACAO_PARTIDA_S, faseFinalS: DURACAO_PARTIDA_S - 5, intervaloFimS: 1 });
   const a = w.addPlayer('A', 'acron');
   w.addPlayer('B', 'acron');
   w.step();
@@ -270,7 +270,7 @@ test('partida: no mundo, a entrega na fase final soma o dobro e o evento anuncia
 });
 
 test('partida: no mundo, a fase final volta ao normal na partida seguinte', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, duracaoPartidaS: 4, faseFinalS: 2, intervaloFimS: 1 });
+  const w = new World({ jungle: false, duracaoPartidaS: 4, faseFinalS: 2, intervaloFimS: 1 });
   const a = w.addPlayer('A', 'acron');
   w.step();
   const fases = [];
@@ -285,7 +285,7 @@ test('partida: no mundo, a fase final volta ao normal na partida seguinte', () =
 });
 
 test('partida: empate e servidor vazio', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, duracaoPartidaS: 1, intervaloFimS: 1 });
+  const w = new World({ jungle: false, duracaoPartidaS: 1, intervaloFimS: 1 });
   const a = w.addPlayer('A', 'acron');
   for (let i = 0; i < SEGUNDO + 1; i++) w.step();
   assert.equal(w.partida.estado, 'fim');

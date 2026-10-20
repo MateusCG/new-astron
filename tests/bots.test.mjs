@@ -89,7 +89,7 @@ test('computador: humano que chega com a partida cheia fica com a vaga de um com
 });
 
 test('computador: sai junto com o último humano, e a partida volta a esperar', () => {
-  const { w, h } = mundoComHumano({ drones: 0, monstros: 0, elites: 0 });
+  const { w, h } = mundoComHumano({ jungle: false });
   w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'meu' });
   w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'inimigo' });
   rodar(w, h, 1);
@@ -104,7 +104,7 @@ test('computador: sai junto com o último humano, e a partida volta a esperar', 
 });
 
 test('computador: o snapshot lista os jogadores dos dois times, com os computadores marcados', () => {
-  const { w, h } = mundoComHumano({ drones: 0, monstros: 0, elites: 0 });
+  const { w, h } = mundoComHumano({ jungle: false });
   w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'inimigo' });
   w.step();
   const snap = w.snapshotPara(h, w.entidades(), []);
@@ -121,19 +121,20 @@ test('computador: o snapshot lista os jogadores dos dois times, com os computado
 });
 
 test('computador: joga pelos comandos de jogador e caça os monstros da jungle', () => {
-  const { w, h } = mundoComHumano();
+  // Os acampamentos aparecem logo (na partida de verdade, aos 0:45).
+  const { w, h } = mundoComHumano({ temposJungle: { acampamento: { primeiroS: 1 } } });
   w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'meu' });
   const bot = [...w.players.values()].find((j) => j.ia);
   const eventos = rodar(w, h, 60);
   assert.ok(bot.ack > 0, 'os comandos dele passam pela fila, como os da rede');
-  const abates = eventos.filter((e) => e.e === 'morte' && e.por === bot.id && ['arnosh', 'vorax', 'krakor'].includes(e.tipo));
+  const abates = eventos.filter((e) => e.e === 'morte' && e.por === bot.id && e.tipo === 'monstro');
   assert.ok(abates.length >= 2, `caçou ${abates.length} monstros em 60 s`);
   assert.ok(bot.ouro > 0 || bot.inv.length > 2, 'ganhou ouro');
   assert.ok(bot.nivel >= 2, `subiu de nível (está no ${bot.nivel})`);
 });
 
 test('computador: com nível e ouro, pousa na Evolução e compra a próxima nave', () => {
-  const { w, h } = mundoComHumano({ drones: 0, monstros: 0, elites: 0 });
+  const { w, h } = mundoComHumano({ jungle: false });
   w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'meu' });
   const bot = [...w.players.values()].find((j) => j.ia);
   bot.nivel = 5;
@@ -150,7 +151,7 @@ test('computador: com nível e ouro, pousa na Evolução e compra a próxima nav
 });
 
 test('computador: com nível, vai ao minério e derruba os mineradores do outro time', () => {
-  const { w, h } = mundoComHumano({ drones: 0, monstros: 0, elites: 0, torretas: false });
+  const { w, h } = mundoComHumano({ jungle: false, torretas: false });
   w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'meu' });
   const bot = [...w.players.values()].find((j) => j.ia);
   bot.nivel = 8;
@@ -161,7 +162,7 @@ test('computador: com nível, vai ao minério e derruba os mineradores do outro 
 });
 
 test('computador: com a vida baixa, volta para a base e conserta', () => {
-  const { w, h } = mundoComHumano({ drones: 0, monstros: 0, elites: 0 });
+  const { w, h } = mundoComHumano({ jungle: false });
   w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'meu' });
   const bot = [...w.players.values()].find((j) => j.ia);
   rodar(w, h, 1);
@@ -180,7 +181,7 @@ test('computador: com a vida baixa, volta para a base e conserta', () => {
 });
 
 test('computador: distribui os pontos ao subir de nível e monta escudo, armadura e potenciadores', () => {
-  const { w, h } = mundoComHumano({ drones: 0, monstros: 0, elites: 0 });
+  const { w, h } = mundoComHumano({ jungle: false });
   w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'meu' });
   const bot = [...w.players.values()].find((j) => j.ia);
   bot.nivel = 4; // sem nave nova para comprar: o ouro vai para a Loja
@@ -197,7 +198,7 @@ test('computador: distribui os pontos ao subir de nível e monta escudo, armadur
 });
 
 test('computador: entra no nível 1 com a primeira nave e só compra a próxima com o nível dela (o ouro, o servidor cobra: naves.test.mjs)', () => {
-  const { w, h } = mundoComHumano({ drones: 0, monstros: 0, elites: 0 });
+  const { w, h } = mundoComHumano({ jungle: false });
   for (const lado of ['meu', 'meu', 'inimigo', 'inimigo']) w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado });
   const bots = [...w.players.values()].filter((j) => j.ia);
   assert.equal(bots.length, 4);

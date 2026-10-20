@@ -21,7 +21,7 @@ function rngFixo(semente = 1) {
 
 /** Mundo com um jogador em cada time; a partida começa no primeiro passo. */
 function mundo() {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false, rng: rngFixo() });
+  const w = new World({ jungle: false, torretas: false, rng: rngFixo() });
   const a = w.addPlayer('A', 'bellico'); // time 0
   const b = w.addPlayer('B', 'bellico'); // time 1
   w.step();

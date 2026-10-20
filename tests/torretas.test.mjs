@@ -19,7 +19,7 @@ const SEGUNDO = 30;
 
 /** Mundo sem monstros, com um jogador em cada time, partida já começada. */
 function mundo(opcoes = {}) {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, ...opcoes });
+  const w = new World({ jungle: false, ...opcoes });
   const a = w.addPlayer('A', 'bellico'); // time 0
   const b = w.addPlayer('B', 'bellico'); // time 1
   a.protegidoAte = b.protegidoAte = 0;
@@ -289,7 +289,7 @@ test('evolução: reconstruir a torreta destruída do próprio time, com o níve
 });
 
 test('torretas: a partida nova põe todas de pé, inteiras e no nível 1', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, duracaoPartidaS: 2, intervaloFimS: 1 });
+  const w = new World({ jungle: false, duracaoPartidaS: 2, intervaloFimS: 1 });
   const a = w.addPlayer('A', 'bellico');
   w.addPlayer('B', 'bellico');
   w.step();

@@ -13,7 +13,7 @@ import { CAMPO } from './lugares.mjs';
 const SEGUNDO = Math.round(1 / DT);
 
 function mundo() {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
+  const w = new World({ jungle: false, torretas: false });
   const a = w.addPlayer('A', 'bellico'); // time 0
   const b = w.addPlayer('B', 'acron'); // time 1
   const c = w.addPlayer('C', 'shrewdo'); // time 0

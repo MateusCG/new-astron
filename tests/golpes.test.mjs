@@ -28,7 +28,7 @@ function rngFixo(semente = 1) {
  * física troca de arma livre (como se tivesse equipado na base).
  */
 function arena(...lista) {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false, rng: rngFixo() });
+  const w = new World({ jungle: false, torretas: false, rng: rngFixo() });
   w.mineradores.passo = () => {};
   const x0 = CAMPO.x;
   const z0 = CAMPO.z;
@@ -470,10 +470,11 @@ test('teleporte: o servidor salta junto com a predição e avisa o efeito', () =
   assert.ok(w.tirarEventos().some((e) => e.e === 'efeito' && e.kind === 'o112021'));
 });
 
-test('npc: o tiro de drone e de torreta segue com os números de antes', () => {
-  const w = new World({ drones: 1, monstros: 0, elites: 0, rng: rngFixo(3) });
-  const d = w.drones[0];
-  assert.deepEqual(d.ship.encaixes, [IDX_ARMA.laser, IDX_ARMA.plasma]);
+test('npc: o tiro de NPC e de torreta segue com os números de antes', () => {
+  const w = new World({ jungle: false, rng: rngFixo(3) });
+  const m = w.jungle.criarMonstro('armish', 0, -600);
+  assert.deepEqual(m.ship.encaixes, [IDX_ARMA.laser, IDX_ARMA.plasma], 'monstro sem raça jogável fica com os tiros de NPC');
+  assert.equal(m.danoMult, 1, 'o dano do monstro já vem no ataque da espécie');
   assert.equal(WEAPONS.laser.raio, 5);
   assert.equal(w.danoDoTiro({ kind: 'laser', mult: 0.5, drone: true }), 6);
 });

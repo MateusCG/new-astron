@@ -20,7 +20,7 @@ function rngFixo(semente = 1) {
  * onde o teste liga).
  */
 function mundo(n = 2, opcoes = {}) {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, rng: rngFixo(), torretas: false, ...opcoes });
+  const w = new World({ jungle: false, rng: rngFixo(), torretas: false, ...opcoes });
   w.mineradores.passo = () => {};
   w.escoltas.passo = () => {};
   const js = [];
@@ -133,9 +133,9 @@ test('visão: minerador do time enxerga em volta (raio menor)', () => {
 });
 
 test('visão: monstro fora da visão não vem; perto, vem', () => {
-  const { w, js } = mundo(2, { drones: 1 });
+  const { w, js } = mundo(2);
   const [a] = js;
-  const d = w.drones[0];
+  const d = w.jungle.criarMonstro('armish', 800, 600);
   colocar(a, -900, 0);
   d.ship = createShip('mechan', 800, 600, 0);
   assert.ok(!vistos(w, a).has(d.id));
@@ -220,10 +220,10 @@ test('visão: minas inimigas só pela posição; as do time sempre', () => {
 });
 
 test('visão: o modo de teste também usa a névoa', () => {
-  const w = new World({ teste: true, drones: 1, monstros: 0, elites: 0, rng: rngFixo() });
+  const w = new World({ teste: true, jungle: false, rng: rngFixo() });
   const j = w.addPlayer('Teste', 'acron');
   w.step();
-  const d = w.drones[0];
+  const d = w.jungle.criarMonstro('armish', 900, 700);
   d.ship = createShip('mechan', 900, 700, 0);
   w.step();
   assert.ok(!w.snapshotPara(j, w.entidades(), []).ents.some((e) => e.id === d.id));
