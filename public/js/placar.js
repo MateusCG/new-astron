@@ -3,34 +3,21 @@
 // Tudo vem do snapshot (`partida` e `bonus`, ver o topo de server/index.js): o
 // cliente não conta tempo nem minério, só mostra. O seu time fica sempre à
 // esquerda, em turquesa; o outro à direita, em vermelho. Embaixo de cada número,
-// os bônus por tempo que o time tem agora (ícone âmbar, a cor dos objetivos, que
-// é de onde os bônus vêm) com a contagem regressiva. Na fase final (últimos 3
+// o bônus de time que ele tem agora (o da Medusa Anciã: ícone âmbar, a cor dos
+// objetivos, que é de onde os bônus vêm) com a contagem regressiva. Na fase final (últimos 3
 // minutos, `partida.fase === 'final'`) aparece a faixa "MINÉRIO ×2" embaixo de tudo.
+
+import { ICONE_OBJETIVO } from './objetivos.js';
 
 const $ = (s) => document.querySelector(s);
 
-/** Ícones dos bônus (SVG de traço, como os das armas) e o nome para o title. */
+/**
+ * Bônus de TIME (o `bonus` do snapshot) com o ícone e o que faz, para o title. Hoje
+ * só a Medusa dá bônus ao time inteiro (server/bonus.js); os de nave (ataque,
+ * suporte, sonda) ficam no HUD de quem os tem (hud.bonusNave).
+ */
 const ICONE_BONUS = {
-  // Cristal com "+": mais minério por viagem.
-  mineracao: {
-    nome: 'Mineração: +1 de minério por viagem',
-    svg: '<path d="M12 3 L18 10 L12 21 L6 10 Z"/><path d="M6 10 H18"/>',
-  },
-  // Duas setas: mineradores mais rápidos.
-  velocidade: {
-    nome: 'Velocidade: mineradores mais rápidos',
-    svg: '<path d="M5 6 L11 12 L5 18"/><path d="M13 6 L19 12 L13 18"/>',
-  },
-  // Escudo: mineradores mais duráveis.
-  durabilidade: {
-    nome: 'Durabilidade: mineradores com mais vida',
-    svg: '<path d="M12 3 L19 6 V12 C19 16 16 19 12 21 C8 19 5 16 5 12 V6 Z"/>',
-  },
-  // Raio: naves do time batem mais forte.
-  furia: {
-    nome: 'Fúria: naves do time com +20% de dano',
-    svg: '<path d="M13 3 L6 13 H11 L10 21 L18 10 H13 Z"/>',
-  },
+  medusa: { nome: 'Medusa Anciã: naves do time com +15% de dano e +15% de velocidade', svg: ICONE_OBJETIVO.medusa },
 };
 
 /** "mm:ss" de um número de segundos. */
@@ -77,7 +64,7 @@ export class Placar {
       .filter(([nome]) => ICONE_BONUS[nome])
       .map(
         ([nome, s]) =>
-          `<li title="${ICONE_BONUS[nome].nome}"><svg class="icone-bonus" viewBox="0 0 24 24" aria-hidden="true">${ICONE_BONUS[nome].svg}</svg>${s}s</li>`,
+          `<li title="${ICONE_BONUS[nome].nome}"><svg class="icone-bonus" viewBox="0 0 24 24" aria-hidden="true">${ICONE_BONUS[nome].svg}</svg>${Math.ceil(s)}s</li>`,
       )
       .join('');
     if (ul.innerHTML !== html) ul.innerHTML = html;

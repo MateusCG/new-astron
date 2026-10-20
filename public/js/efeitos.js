@@ -21,6 +21,20 @@
 // (laser e plasma) continuam com a forma de antes. As naves atingidas mostram os
 // efeitos das armas pela lista `fx` de cada entidade (paralisia, desgoverno, energia,
 // invulnerável, escudo, fraco, conserto, aceleração, camuflagem).
+//
+// Bônus dos objetivos na nave (`bonus`: 'ataque', 'suporte', 'sonda' da própria nave e
+// 'medusa' do time): um anel fino deitado em volta dela por bônus, cada um com raio,
+// cor e jeito próprios (o de ataque âmbar pulsando, o de suporte verde abrindo para
+// fora, o da sonda azul em três arcos girando, o da Medusa violeta largo e lento),
+// para dar para empilhar e ler de longe.
+//
+// Monstros da jungle (server/jungle.js): o tiro de cada ataque (`atq` nos eventos e
+// nos `guiados`) tem forma própria, sempre com o brilho no vermelho de perigo
+// #ff4a2a: pedra marrom girando, onda elétrica em anel azulado, bala explosiva
+// laranja, feixes ópticos, raios de controle, mísseis com rastro, orbes da armadilha
+// pulsando; a chama do Xerxes é um cone de fogo (evento 'chama'), a onda do SN-4 um
+// anel que abre, o campo elétrico um disco azulado no chão. O pulso do Núcleo de He-3
+// é um anel azul-gelo (puxando para o vermelho quanto mais forte) que abre até o raio.
 
 import * as THREE from 'three';
 import { stepBullet, WEAPONS } from '/shared/sim.js';
@@ -37,9 +51,37 @@ const COR_EMP = new THREE.Color('#c8d2ff');
 // fino deitado em volta da nave, pulsando devagar, sem partículas: brilho difuso
 // some no deserto alaranjado, e o anel lê bem na câmera de perseguição sem
 // competir com tiro, explosão nem com as auras de arma (que são nuvens).
-const COR_FURIA = new THREE.Color('#ffb627');
-const FURIA_RAIO = 7.5; // m
-const FURIA_OPACIDADE = 0.9;
+// Anéis dos bônus na nave: cor, raio (m) e jeito (pulsa, abre, gira em arcos, lento).
+const ANEIS_BONUS = {
+  ataque: { cor: new THREE.Color('#ffb627'), raio: 7.5, jeito: 'pulsa' },
+  suporte: { cor: new THREE.Color('#7dff9a'), raio: 8.2, jeito: 'abre' },
+  sonda: { cor: new THREE.Color('#7fd8ff'), raio: 6.4, jeito: 'arcos' },
+  medusa: { cor: new THREE.Color('#e7a6ff'), raio: 9.6, jeito: 'lento' },
+};
+const BONUS_OPACIDADE = 0.85;
+// Monstros: o vermelho de perigo de todo tiro de monstro e a forma de cada ataque (atq).
+const COR_PERIGO = new THREE.Color('#ff4a2a');
+const FORMA_ATQ = {
+  pedra: { forma: 'pedra', raio: 1.1, cor: '#7a5a3e', brilho: 3 },
+  pedra_gigante: { forma: 'pedra', raio: 3.2, cor: '#6e4f36', brilho: 9 },
+  onda_eletrica: { forma: 'anel', raio: 2.2, cor: '#8fb4ff', brilho: 4 },
+  bala_explosiva: { forma: 'bola', raio: 0.9, cor: '#ff9a3a', brilho: 4.5 },
+  feixe_optico: { forma: 'barra', barra: 6, grossura: 0.3, cor: '#ff8a70', brilho: 2.6 },
+  controle: { forma: 'barra', barra: 5, grossura: 0.22, cor: '#9fb0ff', brilho: 2.4 },
+  missil: { forma: 'missil', brilho: 4.5 },
+  missil_cruzador: { forma: 'missil', brilho: 5.5 },
+  armadilha: { forma: 'orbe', raio: 1.1, cor: '#ffd0c8', brilho: 5 },
+};
+// Chama em cone (Xerxes): quanto dura cada lufada (o servidor manda uma a cada 0,4 s).
+const CHAMA_S = 0.45;
+const COR_CHAMA_MONSTRO = new THREE.Color('#ff6a2a');
+// Campo elétrico de monstro (SN-4): disco azulado no chão com a borda vermelha.
+const COR_CAMPO_MONSTRO = new THREE.Color('#8fb4ff');
+// Pulso do Núcleo: duração (s) do anel abrindo, cor com força 1 e com força máxima.
+const PULSO_S = 0.7;
+const PULSO_RAIO_INICIO = 11; // m: o círculo âmbar de 22 m do prato do Núcleo
+const COR_PULSO = new THREE.Color('#9fe8ff');
+const COR_PULSO_FORTE = new THREE.Color('#ff6a4a');
 const COR_BRANCO = new THREE.Color('#ffffff'); // estalo mais forte das faíscas do EMP
 const COR_CHAMA = new THREE.Color('#fff0c8'); // chama do míssil
 const COR_FUMACA = new THREE.Color('#8f8a83'); // rastro do míssil (sem brilho)
@@ -123,14 +165,20 @@ function spriteAditivo(cor, tamanho) {
   return s;
 }
 
-/** Anel da fúria: toro fino deitado em volta da nave, aditivo. */
-function anelFuria() {
-  const anel = new THREE.Mesh(
-    new THREE.TorusGeometry(FURIA_RAIO, 0.18, 4, 64, Math.PI * 2),
-    new THREE.MeshBasicMaterial({ color: COR_FURIA, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }),
-  );
-  anel.rotation.x = Math.PI / 2;
-  return anel;
+/** Anel de um bônus: toro fino deitado em volta da nave (três arcos na sonda), aditivo. */
+function anelBonus(def) {
+  const mat = new THREE.MeshBasicMaterial({ color: def.cor, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
+  const g = new THREE.Group();
+  if (def.jeito === 'arcos') {
+    for (let i = 0; i < 3; i++) {
+      const arco = new THREE.Mesh(new THREE.TorusGeometry(def.raio, 0.2, 4, 24, Math.PI * 0.45), mat);
+      arco.rotation.z = (i * Math.PI * 2) / 3;
+      g.add(arco);
+    }
+  } else g.add(new THREE.Mesh(new THREE.TorusGeometry(def.raio, def.jeito === 'lento' ? 0.24 : 0.18, 4, 64), mat));
+  g.rotation.x = Math.PI / 2;
+  g.userData.mat = mat;
+  return g;
 }
 
 export class Efeitos {
@@ -147,7 +195,13 @@ export class Efeitos {
       f.m.material.dispose();
     }
     this.feixes = [];
-    for (const r of [this.geoMina, this.geoEspinho, this.geoLuzMina, this.matMina, this.geoMissil, this.geoNarizMissil, this.matMissil, this.geoAnel, this.geoColuna, this.geoAnelRecall]) {
+    for (const c of [...this.chamas, ...this.pulsos]) {
+      this.scene.remove(c.m);
+      c.m.material.dispose();
+    }
+    this.chamas = [];
+    this.pulsos = [];
+    for (const r of [this.geoMina, this.geoEspinho, this.geoLuzMina, this.matMina, this.geoMissil, this.geoNarizMissil, this.matMissil, this.geoAnel, this.geoColuna, this.geoAnelRecall, this.geoPedra, this.geoBola, this.geoAnelTiro]) {
       r.dispose();
     }
   }
@@ -170,6 +224,9 @@ export class Efeitos {
     for (const f of this.feixes) this.scene.remove(f.m);
     for (const p of [...this.fumacas, ...this.auras]) this.scene.remove(p.s);
     for (const a of this.aneis) a.obj.remove(a.anel);
+    for (const c of [...this.chamas, ...this.pulsos]) this.scene.remove(c.m);
+    this.chamas = [];
+    this.pulsos = [];
     this.particulas = [];
     this.aneisArea = [];
     this.feixes = [];
@@ -211,6 +268,12 @@ export class Efeitos {
     this.geoColuna.setAttribute('color', new THREE.BufferAttribute(cores, 3));
     this.geoAnelRecall = new THREE.TorusGeometry(1, 0.045, 4, 40);
     this.feixes = []; // feixes de partida e chegada do recall
+    this.chamas = []; // lufadas de chama dos monstros
+    this.pulsos = []; // pulsos do Núcleo de He-3
+    // Peças dos tiros de monstro (uma geometria por forma, liberadas em liberar()).
+    this.geoPedra = new THREE.IcosahedronGeometry(1, 0);
+    this.geoBola = new THREE.IcosahedronGeometry(1, 1);
+    this.geoAnelTiro = new THREE.TorusGeometry(1, 0.18, 4, 20);
     this.armas = new VisualArmas(scene);
   }
 
@@ -297,29 +360,28 @@ export class Efeitos {
   /**
    * Mostra na nave (grupo do Three.js) os efeitos ativos vindos do servidor:
    * dreno (aura violeta pulsando + partículas subindo) e lento (aura azul-gelo +
-   * cristais caindo), e a fúria do time (anel âmbar, objetivo C). Chamar a
-   * cada quadro para cada nave visível.
+   * cristais caindo), e os bônus dos objetivos (`bonus`: lista de 'ataque',
+   * 'suporte', 'sonda', 'medusa'; um anel cada). Chamar a cada quadro para cada
+   * nave visível.
    */
-  estadoNave(obj, { dreno = false, lento = false, emp = false, furia = false, fx = [] }, dt, tempo) {
+  estadoNave(obj, { dreno = false, lento = false, emp = false, bonus = [], fx = [] }, dt, tempo) {
     this.#fxArmas(obj, fx, dt, tempo);
+    this.#bonus(obj, bonus, tempo);
     let a = obj.userData.auras;
     if (!a) {
-      if (!dreno && !lento && !emp && !furia) return;
+      if (!dreno && !lento && !emp) return;
       a = obj.userData.auras = {
         dreno: spriteAditivo(COR_DRENO, 11),
         gelo: spriteAditivo(COR_GELO, 13),
         emp: spriteAditivo(COR_EMP, 14),
-        furia: anelFuria(),
         acc: 0,
         accEmp: 0,
       };
-      obj.add(a.dreno, a.gelo, a.emp, a.furia);
+      obj.add(a.dreno, a.gelo, a.emp);
     }
     a.dreno.visible = dreno;
     a.gelo.visible = lento;
     a.emp.visible = emp;
-    a.furia.visible = furia;
-    if (furia) a.furia.material.opacity = FURIA_OPACIDADE * (0.7 + 0.3 * Math.sin(tempo * 2.5));
     if (dreno) a.dreno.material.opacity = 0.45 + 0.3 * Math.sin(tempo * 9);
     if (lento) a.gelo.material.opacity = 0.5 + 0.1 * Math.sin(tempo * 3);
     // EMP: a aura falha como um curto-circuito (pisca irregular).
@@ -343,6 +405,36 @@ export class Efeitos {
         a.accEmp -= FAISCA_EMP_S;
         this.#particula(Math.random() < 0.5 ? COR_EMP : COR_BRANCO, 1.8 + Math.random() * 2, (Math.random() * 2 - 1) * 6, 0.14, 6);
       }
+    }
+  }
+
+  /** Anéis dos bônus ativos na nave (criados na primeira vez, escondidos quando acabam). */
+  #bonus(obj, bonus, tempo) {
+    const ud = obj.userData;
+    if (!ud.bonus) {
+      if (!bonus?.length) return;
+      ud.bonus = {};
+    }
+    const ativos = new Set(bonus ?? []);
+    for (const [nome, def] of Object.entries(ANEIS_BONUS)) {
+      let anel = ud.bonus[nome];
+      if (!anel) {
+        if (!ativos.has(nome)) continue;
+        anel = ud.bonus[nome] = anelBonus(def);
+        obj.add(anel);
+      }
+      anel.visible = ativos.has(nome);
+      if (!anel.visible) continue;
+      const m = anel.userData.mat;
+      if (def.jeito === 'pulsa') m.opacity = BONUS_OPACIDADE * (0.65 + 0.35 * Math.sin(tempo * 3));
+      else if (def.jeito === 'abre') {
+        const k = (tempo * 0.8) % 1;
+        anel.scale.setScalar(0.8 + 0.4 * k);
+        m.opacity = BONUS_OPACIDADE * (1 - k);
+      } else if (def.jeito === 'arcos') {
+        anel.rotation.z = tempo * 2.4;
+        m.opacity = BONUS_OPACIDADE;
+      } else m.opacity = BONUS_OPACIDADE * (0.55 + 0.2 * Math.sin(tempo * 1.2));
     }
   }
 
@@ -450,6 +542,29 @@ export class Efeitos {
     for (const m of lista ?? []) {
       vistas.add(m.id);
       let v = this.minas.get(m.id);
+      if (!v && m.campo && m.atq) {
+        // Campo elétrico de monstro: disco azulado no chão com a borda vermelha de perigo.
+        const g = new THREE.Group();
+        const raio = Math.max(3, m.raio ?? 10);
+        const disco = new THREE.Mesh(
+          new THREE.CircleGeometry(raio, 40),
+          new THREE.MeshBasicMaterial({ color: COR_CAMPO_MONSTRO, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.25, depthWrite: false, side: THREE.DoubleSide }),
+        );
+        disco.rotation.x = -Math.PI / 2;
+        disco.position.y = 0.3;
+        const borda = new THREE.Mesh(
+          new THREE.RingGeometry(raio * 0.94, raio, 48),
+          new THREE.MeshBasicMaterial({ color: COR_PERIGO, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }),
+        );
+        borda.rotation.x = -Math.PI / 2;
+        borda.position.y = 0.4;
+        const brilhoCampo = spriteAditivo(COR_CAMPO_MONSTRO, raio * 0.8);
+        brilhoCampo.position.y = 1.5;
+        g.add(disco, borda, brilhoCampo);
+        this.scene.add(g);
+        v = { g, luz: null, brilho: brilhoCampo, decal: borda, campo: true, fase: Math.random() * Math.PI * 2, proprios: [disco, borda] };
+        this.minas.set(m.id, v);
+      }
       if (!v && m.campo) {
         const g = new THREE.Group();
         const campo = this.armas.campo(m.kind, m.nv, m.p, Math.max(3, m.raio ?? 10));
@@ -499,6 +614,10 @@ export class Efeitos {
       this.scene.remove(v.g);
       v.luz?.material.dispose();
       v.brilho.material.dispose();
+      for (const p of v.proprios ?? []) {
+        p.geometry.dispose();
+        p.material.dispose();
+      }
       this.minas.delete(id);
     }
   }
@@ -512,7 +631,12 @@ export class Efeitos {
     for (const g of lista ?? []) {
       const t = this.tiros.get(g.id);
       if (!t) {
-        this.tiro({ id: g.id, kind: g.kind ?? 'plasma', nv: g.nv, p: g.p, x: g.x, y: g.y, z: g.z, vx: g.vx, vy: g.vy, vz: g.vz, vida: 3 });
+        // Míssil de monstro (atq), de torre (tiro de NPC sem atq: o evento se perdeu ou
+        // entrou agora na visão) ou de arma de jogador.
+        const npc = !WEAPONS[g.kind] || WEAPONS[g.kind].npc;
+        const b = { id: g.id, kind: g.kind ?? 'plasma', atq: g.atq, nv: g.nv, p: g.p, x: g.x, y: g.y, z: g.z, vx: g.vx, vy: g.vy, vz: g.vz, vida: 3 };
+        if (npc && !g.atq) this.tiro({ ...b, kind: 'missil' }, true);
+        else this.tiro(b);
         continue;
       }
       Object.assign(t.b, { x: g.x, y: g.y, z: g.z, vx: g.vx, vy: g.vy, vz: g.vz });
@@ -533,6 +657,7 @@ export class Efeitos {
    * dela (efeitos-armas.js); `boca` (Vector3) é de onde o desenho sai.
    */
   tiro(b, inimigo = false, cor = null, boca = null) {
+    if (b.atq && FORMA_ATQ[b.atq]) return this.#tiroMonstro(b);
     const w = WEAPONS[b.kind];
     if (w && !w.npc && !inimigo && !cor) {
       const p = this.armas.projetil(b.kind, b.nv ?? 1, b.p ?? 0);
@@ -569,6 +694,107 @@ export class Efeitos {
     g.lookAt(b.x + b.vx, b.y + b.vy, b.z + b.vz);
     this.scene.add(g);
     this.tiros.set(b.id, { b, g, guiado: !!forma.corpo, rastro: { x: b.x, y: b.y, z: b.z } });
+  }
+
+  /**
+   * Tiro de monstro pelo ataque (`b.atq`, FORMA_ATQ): a peça do ataque e o brilho no
+   * vermelho de perigo. Mísseis viram com a curva e deixam fumaça, como os outros.
+   */
+  #tiroMonstro(b) {
+    const f = FORMA_ATQ[b.atq];
+    const g = new THREE.Group();
+    let animar = null;
+    if (f.forma === 'pedra') {
+      const pedra = new THREE.Mesh(this.geoPedra, new THREE.MeshStandardMaterial({ color: f.cor, roughness: 0.95, flatShading: true }));
+      pedra.scale.setScalar(f.raio);
+      g.add(pedra);
+      animar = (dt) => {
+        pedra.rotation.x += dt * 5;
+        pedra.rotation.y += dt * 3;
+      };
+    } else if (f.forma === 'anel') {
+      const anel = new THREE.Mesh(this.geoAnelTiro, new THREE.MeshBasicMaterial({ color: f.cor, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
+      anel.scale.setScalar(f.raio);
+      g.add(anel);
+      animar = (dt, t) => anel.scale.setScalar(f.raio * (0.85 + 0.25 * Math.sin(t * 30)));
+    } else if (f.forma === 'bola' || f.forma === 'orbe') {
+      const bola = new THREE.Mesh(this.geoBola, new THREE.MeshBasicMaterial({ color: f.cor }));
+      bola.scale.setScalar(f.raio);
+      g.add(bola);
+      if (f.forma === 'orbe') animar = (dt, t) => bola.scale.setScalar(f.raio * (0.8 + 0.35 * Math.sin(t * 9)));
+    } else if (f.forma === 'barra') {
+      g.add(new THREE.Mesh(this.#barra(f), new THREE.MeshBasicMaterial({ color: new THREE.Color(f.cor).lerp(new THREE.Color('#fff'), 0.35) })));
+    } else if (f.forma === 'missil') {
+      const casco = new THREE.Mesh(this.geoMissil, this.matMissil);
+      casco.rotation.x = Math.PI / 2;
+      const nariz = new THREE.Mesh(this.geoNarizMissil, this.matMissil);
+      nariz.rotation.x = Math.PI / 2;
+      nariz.position.z = 1.6;
+      g.add(casco, nariz);
+    }
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: brilho(), color: COR_PERIGO, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    s.scale.setScalar(f.brilho);
+    if (f.forma === 'missil') s.position.z = -1.5;
+    g.add(s);
+    g.position.set(b.x, b.y, b.z);
+    g.lookAt(b.x + b.vx, b.y + b.vy, b.z + b.vz);
+    this.scene.add(g);
+    this.tiros.set(b.id, { b, g, guiado: f.forma === 'missil', corRastro: null, animar, rastro: { x: b.x, y: b.y, z: b.z } });
+  }
+
+  /**
+   * Lufada de chama de um monstro (evento 'chama'): cone de fogo aditivo do ponto, no
+   * rumo `yaw`, até `alcance` m, aberto `abertura` rad (ou `area` m do eixo).
+   */
+  chama({ x, y, z, yaw, alcance, abertura, area }) {
+    const raio = area ?? Math.tan(abertura ?? 0.5) * alcance;
+    const geo = new THREE.ConeGeometry(Math.max(2, raio), alcance, 14, 1, true);
+    geo.rotateX(Math.PI / 2);
+    geo.translate(0, 0, -alcance / 2);
+    // Mais claro e quente perto da boca, apagando na ponta larga.
+    const pos = geo.attributes.position;
+    const cores = new Float32Array(pos.count * 3);
+    const quente = new THREE.Color('#ffd28a');
+    const c = new THREE.Color();
+    for (let i = 0; i < pos.count; i++) {
+      const k = Math.min(1, -pos.getZ(i) / alcance);
+      c.copy(quente).lerp(COR_CHAMA_MONSTRO, Math.min(1, k * 1.6)).multiplyScalar(0.6 * (1 - k * 0.85));
+      cores.set([c.r, c.g, c.b], i * 3);
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(cores, 3));
+    const m = new THREE.Mesh(
+      geo,
+      new THREE.MeshBasicMaterial({ vertexColors: true, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, side: THREE.DoubleSide }),
+    );
+    m.position.set(x, y, z);
+    m.rotation.y = yaw;
+    this.scene.add(m);
+    this.chamas.push({ m, vida: 0 });
+  }
+
+  /**
+   * Pulso de energia do Núcleo de He-3 (evento 'pulso'): anel que abre do prato do
+   * Núcleo até `raio`, mais grosso e mais vermelho quanto maior a `forca` (1 a 2,5),
+   * com uma casca clara.
+   */
+  pulsoNucleo(x, y, z, raio, forca = 1) {
+    const k = Math.max(0, Math.min(1, (forca - 1) / 1.5));
+    const cor = COR_PULSO.clone().lerp(COR_PULSO_FORTE, k);
+    const anel = new THREE.Mesh(
+      new THREE.TorusGeometry(1, 0.02 + 0.03 * k, 4, 64),
+      new THREE.MeshBasicMaterial({ color: cor, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }),
+    );
+    anel.rotation.x = Math.PI / 2;
+    anel.position.set(x, y, z);
+    this.scene.add(anel);
+    this.pulsos.push({ m: anel, vida: 0, raio, anel: true });
+    const casca = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: cor, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, side: THREE.DoubleSide }),
+    );
+    casca.position.set(x, y - 10, z);
+    this.scene.add(casca);
+    this.pulsos.push({ m: casca, vida: 0, raio, anel: false, forca: 0.18 + 0.12 * k });
   }
 
   /**
@@ -644,6 +870,7 @@ export class Efeitos {
         continue;
       }
       t.g.position.set(t.b.x, t.b.y, t.b.z);
+      t.animar?.(dt, this.tempo);
       if (t.desvio) {
         // Sai da boca da arma e encontra a linha do tiro de verdade.
         t.desvio.t += dt;
@@ -696,6 +923,41 @@ export class Efeitos {
       } else {
         a.anel.scale.setScalar(Math.max(0.5, a.raio * sai));
         a.anel.material.opacity = (1 - k) * 0.9;
+      }
+      return true;
+    });
+
+    this.chamas = this.chamas.filter((c) => {
+      c.vida += dt;
+      const k = c.vida / CHAMA_S;
+      if (k >= 1) {
+        this.scene.remove(c.m);
+        c.m.geometry.dispose();
+        c.m.material.dispose();
+        return false;
+      }
+      c.m.material.opacity = (k < 0.2 ? k / 0.2 : 1 - (k - 0.2) / 0.8) * (0.75 + 0.25 * Math.random());
+      c.m.scale.set(0.8 + 0.3 * k, 0.8 + 0.3 * k, 0.9 + 0.1 * k);
+      return true;
+    });
+
+    this.pulsos = this.pulsos.filter((p) => {
+      p.vida += dt;
+      const k = p.vida / PULSO_S;
+      if (k >= 1) {
+        this.scene.remove(p.m);
+        p.m.geometry.dispose();
+        p.m.material.dispose();
+        return false;
+      }
+      const sai = 1 - (1 - k) * (1 - k);
+      const r = PULSO_RAIO_INICIO + (p.raio - PULSO_RAIO_INICIO) * sai;
+      if (p.anel) {
+        p.m.scale.setScalar(r);
+        p.m.material.opacity = 0.95 * (1 - k);
+      } else {
+        p.m.scale.set(r, r * 0.35, r);
+        p.m.material.opacity = p.forca * (1 - k);
       }
       return true;
     });

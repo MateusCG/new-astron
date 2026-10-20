@@ -36,8 +36,12 @@ export const MAP_HALF_Z = 1120;
 /** @deprecated Metade do lado MAIOR do mapa; use MAP_HALF_X e MAP_HALF_Z. */
 export const MAP_HALF = MAP_HALF_X;
 
-/** Superfície do lago (só visual): abaixo do chão de voo (0), para tudo flutuar. */
-export const NIVEL_AGUA = -18;
+/**
+ * Superfície do lago (só visual): abaixo do chão de voo (0), para tudo flutuar. Os
+ * modelos do mapa (public/modelos/mapa/) foram feitos para −16: as cintas da linha
+ * d'água da mineradora, dos pilares e das rochas encaixam nela.
+ */
+export const NIVEL_AGUA = -16;
 /** Fundo do lago (só visual), visto pela água. */
 export const FUNDO_LAGO = -60;
 
