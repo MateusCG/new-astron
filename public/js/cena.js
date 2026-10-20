@@ -80,7 +80,7 @@ export const SOL_DIR = new THREE.Vector3(-0.55, 0.42, -0.72).normalize();
 const SOL_COR = '#ffd9b0';
 const SOL_INTENSIDADE = 2.4;
 const HEMI_CEU = '#f0c9a0';
-const HEMI_CHAO = '#1f4a48';
+const HEMI_CHAO = '#3a6e69'; // a luz que volta da água (mais clara que a da proposta: o fundo da ilha do portal ficava preto)
 const HEMI_INTENSIDADE = 1.0;
 /** Raio da esfera do céu (acompanha a câmera; a câmera vai até 5000 m). */
 const CEU_RAIO = 4200;
@@ -247,7 +247,11 @@ function montarRochas(g) {
   // O horizonte e o fundo do lago: enormes, não projetam sombra (o mapa de sombra
   // só cobre a volta da nave), só recebem.
   por(g, 'borda-horizonte', 0, 0, 0, 0, { sombra: false });
-  if (!por(g, 'fundo-lago', 0, 0, 0, 0, { sombra: false })) faltou = true;
+  // O fundo não recebe sombra: o mapa de sombra só cobre a volta da nave, e a borda
+  // dele aparecia no fundo visto pela água (claro fora, escuro dentro).
+  const fundo = por(g, 'fundo-lago', 0, 0, 0, 0, { sombra: false });
+  if (fundo) fundo.traverse((o) => o.isMesh && (o.receiveShadow = false));
+  else faltou = true;
   if (faltou) {
     console.warn('Cenário: faltou modelo de rocha; o terreno provisório de heightAt entra de reserva');
     g.add(criarTerrenoReserva());

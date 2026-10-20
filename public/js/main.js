@@ -118,7 +118,7 @@ import { Efeitos, COR_TIME } from './efeitos.js';
 import { Controles } from './controles.js';
 import { Hud, BONUS_NAVE } from './hud.js';
 import { ObjetivosNaTela, LUGARES_OBJETIVO, NOME_OBJETIVO } from './objetivos.js';
-import { criarMonstro, animarMonstro, criarMarcadorNucleo, EXPLOSAO_MONSTRO } from './monstros.js';
+import { criarMonstro, animarMonstro, criarMarcadorNucleo, EXPLOSAO_MONSTRO, ROTULO_MONSTRO } from './monstros.js';
 import { TorretasNaTela } from './torretas.js';
 import { Rede } from './rede.js';
 import { mostrarPrevia, pararPrevia } from './vitrine.js';
@@ -1152,7 +1152,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
       efeitos.recall(o.obj, e.recall ?? null, aliado ? COR_TIME.meu : COR_TIME.outro, dt, tempo);
       // Radar desligado (Canhão Antirradar): sem rótulo de quem não é do seu time.
       if (aliado || !(estadosArmas.cego > 0)) {
-        rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position, nivel: e.nivel, piloto: e.tipo === 'jogador', esc: e.esc });
+        // Monstro grande: o rótulo sobe até o alto dele (a Medusa é desenhada mais alta).
+        let pos = o.obj.position;
+        if (e.tipo === 'monstro' && ROTULO_MONSTRO[e.esp]) pos = (o.posRotulo ??= new THREE.Vector3()).copy(pos).setY(pos.y + ROTULO_MONSTRO[e.esp]);
+        rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos, nivel: e.nivel, piloto: e.tipo === 'jogador', esc: e.esc });
       }
     }
     objetivos.seguir('SONDA', sonda);

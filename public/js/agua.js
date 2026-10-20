@@ -20,7 +20,8 @@
 //
 // Cáusticas: o fundo do lago e a rocha molhada (da água para baixo) ganham as linhas
 // de luz da água andando devagar (comCaustica, por onBeforeCompile no material do
-// glb), apagando com a profundidade.
+// glb), apagando com a profundidade; a luz deles também cai com a profundidade e
+// puxa para o verde-azulado (o fundo é uma cor só: quem dá a profundidade é isto).
 //
 // O relógio das ondas e das cáusticas é um uniforme só (TEMPO_AGUA), que a cena
 // avança a cada quadro.
@@ -167,9 +168,12 @@ const FRAGMENTO = /* glsl */ `
     // Luz do sol na face (difusa fraca: a água é escura e a cor vem da profundidade).
     cor *= 0.8 + 0.35 * max(dot(N, uSolDir), 0.0);
     float fr = pow(1.0 - max(dot(N, V), 0.0), 4.0);
-    cor = mix(cor, uCeu, fr * 0.6);
-    float spec = pow(max(dot(reflect(-uSolDir, N), V), 0.0), 90.0);
-    cor += uBrilho * spec * 1.4;
+    cor = mix(cor, uCeu, fr * 0.45);
+    // Brilho do sol: só as facetas bem viradas (a grade é grossa e quase plana; com a
+    // receita original, 90 e 1,4, o reflexo do sol baixo virava uma placa branca
+    // perto da câmera; assim fica em faíscas nas facetas).
+    float spec = pow(max(dot(reflect(-uSolDir, N), V), 0.0), 600.0);
+    cor += uBrilho * spec * 0.45;
     alpha = max(alpha, fr * 0.9);
     float esp = step(ruido(vPos.xz * 0.3 + uTempo * 0.5), 1.0 - d / 6.0);
     esp += 0.35 * step(0.92, sin(d * 1.2 - uTempo * 1.5)) * step(d, 14.0) * step(0.5, d);
@@ -266,6 +270,13 @@ export function comCaustica(material, forca = 0.25) {
         `#include <emissivemap_fragment>
         float fundoAgua = smoothstep(-70.0, -20.0, vMundoAgua.y) * step(vMundoAgua.y, ${NIVEL_AGUA.toFixed(1)});
         totalEmissiveRadiance += uCausticaCor * causticaAgua(vMundoAgua.xz, uTempo) * ${forca.toFixed(3)} * fundoAgua;`,
+      )
+      // Embaixo d'água a luz cai com a profundidade e puxa para o verde-azulado da água.
+      .replace(
+        '#include <opaque_fragment>',
+        `float claroAgua = smoothstep(-66.0, ${NIVEL_AGUA.toFixed(1)}, vMundoAgua.y);
+        if (vMundoAgua.y < ${NIVEL_AGUA.toFixed(1)}) outgoingLight = mix(outgoingLight * vec3(0.42, 0.6, 0.62), outgoingLight, claroAgua * 0.6);
+        #include <opaque_fragment>`,
       );
   };
   material.customProgramCacheKey = () => `caustica${forca}`;

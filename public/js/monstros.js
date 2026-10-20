@@ -25,6 +25,11 @@ import { PASTA_MODELOS_MONSTRO, ESPECIES_MONSTRO } from './insumos.js';
 export const PONTO_MONSTRO = { sonda: 3, armish: 3.5, chrometic: 3.5, xerxes: 4, bazit: 4, great_xerxes: 5.5, anti: 5.5, sn4: 6.5, medusa: 8 };
 /** Tamanho da explosão da morte de cada espécie (efeitos.explosao). */
 export const EXPLOSAO_MONSTRO = { sonda: 2, armish: 2.5, chrometic: 2.5, xerxes: 3, bazit: 3, great_xerxes: 5, anti: 5, sn4: 7, medusa: 10 };
+/**
+ * Quanto o rótulo (nome e barra) de cada espécie sobe além do de uma nave: os
+ * grandes têm o alto bem acima do centro (a Medusa, desenhada mais alta, mais ainda).
+ */
+export const ROTULO_MONSTRO = { sonda: 0, armish: 0, chrometic: 0, xerxes: 1, bazit: 2, great_xerxes: 5, anti: 1, sn4: 10, medusa: 32 };
 /** Altura do centro da Medusa acima do chão de voo (m). */
 export const MEDUSA_CENTRO = 18;
 /** Balanço de cada espécie: subida e descida (m), frequência (rad/s) e balanço lateral (rad). */

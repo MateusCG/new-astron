@@ -30,11 +30,11 @@ const DIST_ESMAECE = 750;
  * `tipo` escolhe o ícone e os textos.
  */
 export const LUGARES_OBJETIVO = [
-  ...BUFFS.map((b) => ({ id: b.id, tipo: b.tipo, x: b.x, z: b.z, alt: b.tipo === 'ataque' ? 38 : 42 })),
+  ...BUFFS.map((b) => ({ id: b.id, tipo: b.tipo, x: b.x, z: b.z, alt: b.tipo === 'ataque' ? 44 : 42 })),
   ...PLATAFORMAS_POUSO.map((p) => ({ id: p.id, tipo: 'plataforma', x: p.x, z: p.z, alt: 16 })),
   // A sonda anda em volta da mineradora (pela coluna central); parada, o rótulo fica em cima dela.
   { id: 'SONDA', tipo: 'sonda', x: 0, z: 0, alt: 112 },
-  { id: 'MEDUSA', tipo: 'medusa', x: MEDUSA.x, z: MEDUSA.z, alt: 52 },
+  { id: 'MEDUSA', tipo: 'medusa', x: MEDUSA.x, z: MEDUSA.z, alt: 64 },
   { id: 'NUCLEO', tipo: 'nucleo', x: NUCLEO.x, z: NUCLEO.z, alt: 44 },
 ];
 

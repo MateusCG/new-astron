@@ -50,7 +50,7 @@ function materialCompartilhado(m) {
     mat.roughness = 0.6;
     mat.metalness = 0;
   }
-  if (nome === 'rocha_molhada' || nome === 'fundo_lago') comCaustica(mat, nome === 'fundo_lago' ? 0.16 : 0.12);
+  if (nome === 'rocha_molhada' || nome === 'fundo_lago') comCaustica(mat, nome === 'fundo_lago' ? 0.12 : 0.1);
   mat.name = nome;
   materiais.set(nome, mat);
   return mat;
