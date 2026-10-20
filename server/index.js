@@ -202,7 +202,7 @@
 //         quem != null. Núcleo: vida (0 a 1, ativo), aparicao (quantas vezes já
 //         apareceu: 0, 1 ou 2). Da jungle (BA0/BA1 = SN-4 do buff de ataque, SONDA,
 //         MEDUSA): estado 'espera' | 'ativo' | 'recarga', vida (0 a 1, ativo), volta,
-//         time (de quem deu o último golpe final; só depois do primeiro) e, na SONDA,
+//         time (de quem deu o último golpe final, ou null) e, na SONDA,
 //         bloqueada (true: esperando a Medusa ou o Núcleo morrerem para aparecer)
 //   torretas: [{id, time, vida, max, nivel, viva, alvo?, obra?}]   as oito torres (1400 de
 //         HP no nível 1, alcance de 560 m, míssil teleguiado)

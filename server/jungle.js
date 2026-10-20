@@ -701,7 +701,7 @@ export class Jungle {
   /**
    * Estado dos objetivos da jungle para o `obj` do snapshot: { BA0, BA1, SONDA,
    * MEDUSA }, cada um { estado: 'espera' | 'ativo' | 'recarga', volta?: s até
-   * aparecer, vida?: fração (vivo), time?: time de quem deu o último golpe final,
+   * aparecer, vida?: fração (vivo), time: time de quem deu o último golpe final (ou null),
    * bloqueada?: true (sonda esperando a Medusa ou o Núcleo morrerem) }.
    */
   estado() {
@@ -709,12 +709,11 @@ export class Jungle {
     const t = this.tick;
     for (const c of this.covis) {
       if (c.tipo === 'acampamento') continue;
-      const o = { estado: c.estado };
+      const o = { time: c.ultimoTime, estado: c.estado };
       if (c.estado === 'ativo') {
         const m = c.membros[0];
         o.vida = +(Math.max(0, m.ship.hp) / m.ship.maxHp).toFixed(3);
       } else if (Number.isFinite(c.proxTick)) o.volta = Math.max(0, Math.ceil((c.proxTick - t) * DT - 1e-9));
-      if (c.ultimoTime !== null) o.time = c.ultimoTime;
       if (c.tipo === 'sonda' && c.estado !== 'ativo' && !this.sondaLiberada()) o.bloqueada = true;
       r[c.id] = o;
     }

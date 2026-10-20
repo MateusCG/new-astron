@@ -46,10 +46,10 @@ test('jungle: os tempos são os do contrato', () => {
   assert.equal(BONUS_MEDUSA_S, 120);
   const { w, a } = mundo();
   const obj = w.snapshotPara(a, [], []).obj;
-  assert.deepEqual(obj.BA0, { estado: 'espera', volta: 90 });
-  assert.deepEqual(obj.BA1, { estado: 'espera', volta: 90 });
-  assert.deepEqual(obj.SONDA, { estado: 'espera', volta: 180 });
-  assert.deepEqual(obj.MEDUSA, { estado: 'espera', volta: 300 });
+  assert.deepEqual(obj.BA0, { time: null, estado: 'espera', volta: 90 });
+  assert.deepEqual(obj.BA1, { time: null, estado: 'espera', volta: 90 });
+  assert.deepEqual(obj.SONDA, { time: null, estado: 'espera', volta: 180 });
+  assert.deepEqual(obj.MEDUSA, { time: null, estado: 'espera', volta: 300 });
   assert.equal(w.monstros.length, 0, 'nada no mapa no começo');
 });
 
