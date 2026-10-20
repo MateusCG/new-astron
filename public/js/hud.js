@@ -460,7 +460,7 @@ export class Hud {
     } else if (r?.quem != null) {
       const meu = r.quem === this.meuTime;
       const falta = Math.max(0, POUSO_PLATAFORMA_S - (r.prog ?? 0));
-      html = meu ? `Ouro para o time em ${falta.toFixed(1).replace('.', ',')} s · levar dano cancela` : 'O inimigo está coletando';
+      html = meu ? `Ouro para o time em ${falta.toFixed(1).replace('.', ',')} s` : 'O inimigo está coletando';
       frac = (r.prog ?? 0) / POUSO_PLATAFORMA_S;
       classe = meu ? 'meu' : 'deles';
     } else if (r) {
@@ -480,7 +480,7 @@ export class Hud {
   /**
    * Bônus ativos na sua nave (me.bonusNave = { ataque: s, ... }) e o do time
    * (`time` = bonus[meuTime], { medusa: s }): um ícone âmbar com os segundos que
-   * faltam, em cima do painel. A sonda fica apagada enquanto suspensa em combate
+   * faltam, empilhados à esquerda, em cima do painel. A sonda fica apagada enquanto suspensa em combate
    * (`suspensos`, me.bonusSuspenso).
    */
   bonusNave(nave = {}, time = {}, suspensos = []) {

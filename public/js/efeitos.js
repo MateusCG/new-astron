@@ -758,7 +758,7 @@ export class Efeitos {
     const c = new THREE.Color();
     for (let i = 0; i < pos.count; i++) {
       const k = Math.min(1, -pos.getZ(i) / alcance);
-      c.copy(quente).lerp(COR_CHAMA_MONSTRO, Math.min(1, k * 1.6)).multiplyScalar(1 - k * 0.85);
+      c.copy(quente).lerp(COR_CHAMA_MONSTRO, Math.min(1, k * 1.6)).multiplyScalar(0.6 * (1 - k * 0.85));
       cores.set([c.r, c.g, c.b], i * 3);
     }
     geo.setAttribute('color', new THREE.BufferAttribute(cores, 3));

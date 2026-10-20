@@ -490,7 +490,7 @@ async function iniciar(nome, race, classe, teste = false) {
     const r = carga.resumo();
     console.info(
       `Carregamento: pronto em ${(r.ms / 1000).toFixed(1)} s (arquivos ${((r.msArquivos ?? 0) / 1000).toFixed(1)} s, placa ${((r.msGpu ?? 0) / 1000).toFixed(1)} s):`,
-      `${r.naves} naves, ${r.armas} armas, ${r.texturas} texturas, ${r.sons} sons`,
+      `${r.mapa} modelos do mapa, ${r.monstros} de monstros, ${r.naves} naves, ${r.armas} armas, ${r.texturas} texturas, ${r.sons} sons`,
     );
     window.__carregamento = r;
     return jogo;

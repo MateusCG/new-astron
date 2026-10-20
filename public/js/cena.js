@@ -94,8 +94,12 @@ const OBJ_APAGADO = 0.15;
 /** Ilha do portal warp: quanto boia (m) e em quantos segundos. */
 const PORTAL_BOIA_M = 1.5;
 const PORTAL_BOIA_S = 9;
-/** Feixe da plataforma de ouro com alguém pousado (m). */
-const FEIXE_PLATAFORMA = { raio: 5, altura: 70 };
+/**
+ * Feixe da plataforma de ouro com alguém pousado (m): começa acima da nave pousada
+ * (`base`), para quem está pousado continuar vendo a própria nave, e sobe alto para
+ * quem está longe ver.
+ */
+const FEIXE_PLATAFORMA = { raio: 3.2, altura: 80, base: 7 };
 /** Asteroides por campo e a receita da LISTA.md (pesos dos tipos 1 a 4). */
 const ASTEROIDES_POR_CAMPO = 26;
 const PESO_ASTEROIDE = [5, 4, 1, 2];
@@ -450,8 +454,8 @@ function montarPlataformas(g) {
     const ambar = neon(CORES.objetivo, OBJ_APAGADO);
     const m = por(g, 'plataforma-pouso', p.x, y, p.z, p.time === 0 ? 0 : Math.PI);
     if (m) pintar(m, 'neon_objetivo', ambar);
-    const feixe = criarFeixe(CORES.objetivo, FEIXE_PLATAFORMA.raio, FEIXE_PLATAFORMA.altura, 0.45);
-    feixe.position.set(p.x, y, p.z);
+    const feixe = criarFeixe(CORES.objetivo, FEIXE_PLATAFORMA.raio, FEIXE_PLATAFORMA.altura, 0.3);
+    feixe.position.set(p.x, y + FEIXE_PLATAFORMA.base, p.z);
     feixe.visible = false;
     g.add(feixe);
     plats.set(p.id, { m, ambar, feixe, estado: 'espera', quem: null, contestado: false });
@@ -723,7 +727,7 @@ export function criarCena({ meuTime = 0 } = {}) {
 
     // Plataformas: feixe com alguém pousado (contestado pisca); acesa e livre, o âmbar pulsa.
     for (const pl of plataformas.values()) {
-      if (pl.feixe.visible) pl.feixe.material.opacity = pl.contestado ? (Math.sin(tempo * 14) > 0 ? 0.55 : 0.15) : 0.35 + 0.12 * Math.sin(tempo * 5);
+      if (pl.feixe.visible) pl.feixe.material.opacity = pl.contestado ? (Math.sin(tempo * 14) > 0 ? 0.4 : 0.1) : 0.24 + 0.08 * Math.sin(tempo * 5);
       else if (pl.estado === 'ativo') pl.ambar.emissiveIntensity = 0.75 + 0.25 * Math.sin(tempo * 2.4);
     }
 

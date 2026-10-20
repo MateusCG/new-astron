@@ -1091,13 +1091,16 @@ kbd {
 }
 
 /* Bônus da sua nave (ataque, suporte, sonda) e o do time (Medusa): ícone âmbar e os
-   segundos, em cima do painel inferior, à esquerda; a sonda suspensa em combate apaga. */
+   segundos, empilhados no canto de baixo à esquerda, em cima do painel inferior (longe
+   da dica de pouso e da barra da plataforma, no meio); a sonda suspensa em combate apaga. */
 #bonus-nave {
   position: absolute;
   bottom: calc(var(--alto-painel) + 10px);
-  left: max(12px, calc(50% - 470px));
+  left: 12px;
   display: flex;
-  gap: 6px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
