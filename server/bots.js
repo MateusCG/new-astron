@@ -222,7 +222,8 @@ export const IA = {
   calmoS: 2.5, // s sem levar dano para tentar o recall
 
   // Compras e pontos.
-  compraMin: 110, // ouro de compras para valer a viagem à base
+  compraMin: 110, // ouro de compras para valer a viagem à base (no nível 1)
+  compraPorNivel: 30, // ...e mais isto por nível
   kitsDesejados: 2,
   fracaoEnergia: 0.3, // dos pontos do piloto, esta fração vai na Energia; o resto no poder das armas
   potenciadorVida: 'e340001', // Potenciador de Durabilidade: o segundo potenciador de todo computador
@@ -1321,7 +1322,9 @@ export class Bots {
   /** Vale a viagem até a base para comprar? */
   #valeComprar(j) {
     const d = this.#desejos(j);
-    return d.some((x) => x.pedido.opcao === 'nave') || d.reduce((n, x) => n + x.preco, 0) >= IA.compraMin;
+    // A viagem custa mais tempo de partida que o ouro pequeno compra: o mínimo cresce com o nível.
+    const minimo = IA.compraMin + IA.compraPorNivel * (j.nivel - 1);
+    return d.some((x) => x.pedido.opcao === 'nave') || d.reduce((n, x) => n + x.preco, 0) >= minimo;
   }
 
   #irComprar(j) {
