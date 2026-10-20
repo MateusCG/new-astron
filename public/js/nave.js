@@ -6,8 +6,8 @@
 // das asas (turquesa = do seu time, vermelho = do outro, relativo a quem olha); o
 // resto é montado com primitivas (low-poly): os mineradores são mini-naves de
 // carga com a mesma marca de time, e a escolta armada é o mesmo casco com uma torre
-// de dois canos em cima; os drones Arnosh são uma criatura orgânica escura com olho
-// vermelho, como os inimigos dos planetas de missão do AstroN.
+// de dois canos em cima. Os monstros da jungle (modelos do original) ficam em
+// monstros.js.
 
 import * as THREE from 'three';
 import { RACES, WEAPONS, ARMAS } from '/shared/sim.js';
@@ -456,9 +456,13 @@ function montarCasco(raiz, modelo, race) {
  * cor do time de quem olha (turquesa seu, vermelho do outro). Em cima, a moldura
  * do contêiner; o minério (bloco e cristais azul-gelo, a cor do minério no mapa)
  * só aparece com o contêiner cheio. Minerando, desce um feixe azul até os cristais.
- * userData: corpo, motores, carga (grupo do minério), feixe.
+ * O minerador da onda do Núcleo (`nucleo`) é o mesmo casco ESCALA_NUCLEO vezes
+ * maior, com a carga de He-3 sempre à mostra e um brilho azul-gelo pulsando em volta
+ * (carga de 50: o alvo enorme da partida).
+ * userData: corpo, motores, carga (grupo do minério), feixe, he3 (brilho do Núcleo).
  */
-export function criarMinerador({ aliado = true } = {}) {
+const ESCALA_NUCLEO = 1.7;
+export function criarMinerador({ aliado = true, nucleo = false } = {}) {
   const corTime = aliado ? COR_TIME.aliado : COR_TIME.inimigo;
   const g = new THREE.Group();
   const casco = new THREE.MeshStandardMaterial({ color: '#9aa5a3', metalness: 0.4, roughness: 0.6, flatShading: true });
@@ -531,16 +535,27 @@ export function criarMinerador({ aliado = true } = {}) {
   feixe.visible = false;
   g.add(feixe);
 
+  let he3 = null;
+  if (nucleo) {
+    g.scale.setScalar(ESCALA_NUCLEO);
+    azul.emissiveIntensity = 1;
+    he3 = spriteBrilho(new THREE.Color('#9fe8ff'), 11);
+    he3.material.opacity = 0.5;
+    he3.position.y = 1.5;
+    g.add(he3);
+  }
+
   const raiz = new THREE.Group();
   raiz.add(g);
-  raiz.userData = { corpo: g, motores, carga, feixe };
+  raiz.userData = { corpo: g, motores, carga, feixe, he3 };
   return raiz;
 }
 
 /** Anima o minerador: contêiner cheio ou vazio, feixe pulsando enquanto minera, motores. */
 export function animarMinerador(m, { carga, minerando }, t, fase = 0) {
-  const { carga: grupo, feixe, motores } = m.userData;
-  grupo.visible = carga > 0;
+  const { carga: grupo, feixe, motores, he3 } = m.userData;
+  grupo.visible = carga > 0 || !!he3;
+  if (he3) he3.material.opacity = 0.35 + 0.25 * (Math.sin(t * 3 + fase) + 1) / 2;
   feixe.visible = !!minerando;
   if (minerando) {
     feixe.material.opacity = 0.25 + 0.2 * (Math.sin(t * 8 + fase) + 1) / 2;
@@ -550,7 +565,6 @@ export function animarMinerador(m, { carga, minerando }, t, fase = 0) {
   for (const [i, s] of motores.entries()) s.scale.setScalar(base + Math.sin(t * 40 + i * 2 + fase) * 0.2);
 }
 
-/** Drone inimigo Arnosh. */
 /**
  * Escolta armada dos mineradores: o mesmo casco de carga, sem contêiner, com uma
  * torre de dois canos em cima (gira sozinha para o alvo: a nave não precisa virar
@@ -638,133 +652,6 @@ export function animarEscolta(e, t, dt, fase = 0) {
   torre.rotation.y += Math.max(-5 * dt, Math.min(5 * dt, d));
 }
 
-export function criarDrone() {
-  const g = new THREE.Group();
-  const pele = new THREE.MeshStandardMaterial({ color: '#4a1414', roughness: 0.6, metalness: 0.2, flatShading: true });
-  const espinho = new THREE.MeshStandardMaterial({ color: '#8c2a1f', roughness: 0.5, flatShading: true });
-  const corpo = new THREE.Mesh(new THREE.IcosahedronGeometry(2.6, 0), pele);
-  corpo.scale.set(1, 0.7, 1.4);
-  g.add(corpo);
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2;
-    const e = new THREE.Mesh(new THREE.ConeGeometry(0.45, 3.6, 5), espinho);
-    e.position.set(Math.cos(a) * 2.6, 0, Math.sin(a) * 2.6 * 1.2);
-    e.rotation.z = -Math.PI / 2;
-    e.rotation.y = -a;
-    g.add(e);
-  }
-  const olho = new THREE.Mesh(
-    new THREE.SphereGeometry(0.8, 10, 8),
-    new THREE.MeshStandardMaterial({ color: '#300', emissive: '#ff2a1a', emissiveIntensity: 3 }),
-  );
-  olho.position.set(0, 0.3, -3.3);
-  const brilhoOlho = spriteBrilho(new THREE.Color('#ff3a1a'), 4);
-  brilhoOlho.position.copy(olho.position);
-  g.add(olho, brilhoOlho);
-  g.traverse((o) => {
-    if (o.isMesh) o.castShadow = true;
-  });
-  const raiz = new THREE.Group();
-  raiz.add(g);
-  raiz.userData = { corpo: g, motores: [] };
-  return raiz;
-}
-
-/**
- * Monstro caçador Vorax: corpo comprido em três gomos (cabeça, tórax, cauda com
- * ferrão), espinhos nas costas e duas garras em foice na frente, que abrem e
- * fecham. Mesma pele escura do Arnosh, mas a silhueta é de bicho que corre atrás
- * de você (comprida, de garras para a frente), não o disco espinhento que patrulha.
- * Um olho só, vermelho, na cabeça. Uns 10 m de comprimento, do tamanho da nave.
- */
-export function criarVorax() {
-  const g = new THREE.Group();
-  const pele = new THREE.MeshStandardMaterial({ color: '#4a1414', roughness: 0.7, metalness: 0.1, flatShading: true });
-  const carapaca = new THREE.MeshStandardMaterial({ color: '#8c2a1f', roughness: 0.55, metalness: 0.2, flatShading: true });
-
-  // Gomos do corpo, da cabeça (-z) para a cauda (+z). Cada um num grupo próprio
-  // para a animação ondular o corpo.
-  const gomos = [];
-  const medidas = [
-    { r: 1.8, z: -3, esc: [1, 0.8, 1.2] },
-    { r: 2.3, z: 0, esc: [1.1, 0.75, 1.3] },
-    { r: 1.6, z: 3.2, esc: [0.9, 0.7, 1.4] },
-  ];
-  for (const [k, m] of medidas.entries()) {
-    const gomo = new THREE.Group();
-    gomo.position.z = m.z;
-    const corpo = new THREE.Mesh(new THREE.DodecahedronGeometry(m.r, 0), k === 1 ? carapaca : pele);
-    corpo.scale.set(...m.esc);
-    gomo.add(corpo);
-    // Espinhos nas costas, inclinados para trás.
-    for (const lado of k === 1 ? [-0.7, 0, 0.7] : [0]) {
-      const e = new THREE.Mesh(new THREE.ConeGeometry(0.35, 2.2 - Math.abs(lado), 5), carapaca);
-      e.position.set(lado, m.r * 0.75, 0.2);
-      e.rotation.x = 0.6;
-      gomo.add(e);
-    }
-    gomos.push(gomo);
-    g.add(gomo);
-  }
-  // Ferrão na ponta da cauda.
-  const ferrao = new THREE.Mesh(new THREE.ConeGeometry(0.5, 3, 5), carapaca);
-  ferrao.position.set(0, 0.6, 2.4);
-  ferrao.rotation.x = Math.PI / 2 + 0.5;
-  gomos[2].add(ferrao);
-
-  // Garras: braço curto + lâmina em foice, presas em pivôs dos lados da cabeça.
-  const garras = [];
-  for (const lado of [-1, 1]) {
-    // Pivô ao lado da cabeça (coordenadas do gomo da cabeça); girar nele em y
-    // abre e fecha a garra.
-    const pivo = new THREE.Group();
-    pivo.position.set(lado * 1.6, -0.3, -0.2);
-    const braco = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 2.6, 5), pele);
-    braco.rotation.x = Math.PI / 2;
-    braco.position.z = -1.2;
-    // Lâmina no fim do braço, apontando para a frente e curvada para dentro.
-    const cotovelo = new THREE.Group();
-    cotovelo.position.z = -2.4;
-    cotovelo.rotation.y = lado * 0.7;
-    const lamina = new THREE.Mesh(new THREE.ConeGeometry(0.45, 3.4, 4), carapaca);
-    lamina.rotation.x = -Math.PI / 2;
-    lamina.position.z = -1.6;
-    cotovelo.add(lamina);
-    pivo.add(braco, cotovelo);
-    gomos[0].add(pivo);
-    garras.push({ pivo, lado });
-  }
-
-  // Olho vermelho emissivo (neon: cor = emissive, intensidade no teto do guia).
-  const olho = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.55, 0),
-    new THREE.MeshStandardMaterial({ color: '#ff2a1a', emissive: '#ff2a1a', emissiveIntensity: 1.2, flatShading: true }),
-  );
-  olho.position.set(0, 0.7, -1.55);
-  const brilhoOlho = spriteBrilho(new THREE.Color('#ff3a1a'), 3.5);
-  brilhoOlho.position.copy(olho.position);
-  gomos[0].add(olho, brilhoOlho);
-
-  g.traverse((o) => {
-    if (o.isMesh) o.castShadow = true;
-  });
-  const raiz = new THREE.Group();
-  raiz.add(g);
-  raiz.userData = { corpo: g, motores: [], gomos, garras };
-  return raiz;
-}
-
-/** Anima o Vorax: corpo ondulando, garras abrindo e fechando. fase separa um do outro. */
-export function animarVorax(vorax, t, fase = 0) {
-  const { gomos, garras } = vorax.userData;
-  for (const [k, gomo] of gomos.entries()) {
-    gomo.rotation.y = Math.sin(t * 4 + fase - k * 0.9) * 0.18;
-    gomo.position.y = Math.sin(t * 4 + fase - k * 0.9) * 0.25;
-  }
-  const abre = (Math.sin(t * 6 + fase) + 1) / 2; // 0 fechada, 1 aberta
-  for (const { pivo, lado } of garras) pivo.rotation.y = lado * (0.1 + abre * 0.6);
-}
-
 /** Atualiza motores (maiores com boost, quase apagados pousada) e o trem de pouso. */
 export function atualizarMotor(nave, boost, t, pousado = false) {
   if (nave.userData.trem) nave.userData.trem.visible = pousado;
@@ -772,140 +659,4 @@ export function atualizarMotor(nave, boost, t, pousado = false) {
   for (const [i, m] of nave.userData.motores.entries()) {
     m.scale.setScalar(base + Math.sin(t * 40 + i * 2) * 0.35);
   }
-}
-
-/**
- * Krakor, o elite do mundo aberto: besta pesada e lenta, bem maior que a nave
- * (uns 17 m), com uma carapaça grossa em cúpula, chifre comprido para a frente,
- * placas espinhentas no lombo e seis patas curtas penduradas (ela flutua como os
- * outros). Mesma pele escura e um olho vermelho só, embaixo do chifre. A
- * silhueta é de "tanque" (larga e alta), para não confundir com o Vorax comprido
- * nem com o disco do Arnosh.
- */
-export function criarKrakor() {
-  const g = new THREE.Group();
-  const pele = new THREE.MeshStandardMaterial({ color: '#4a1414', roughness: 0.75, metalness: 0.1, flatShading: true });
-  const carapaca = new THREE.MeshStandardMaterial({ color: '#8c2a1f', roughness: 0.55, metalness: 0.2, flatShading: true });
-
-  const barriga = new THREE.Mesh(new THREE.DodecahedronGeometry(4.2, 0), pele);
-  barriga.scale.set(1.15, 0.7, 1.6);
-  const casco = new THREE.Mesh(new THREE.IcosahedronGeometry(4.6, 0), carapaca);
-  casco.scale.set(1.2, 0.75, 1.55);
-  casco.position.y = 1.4;
-  const cabeca = new THREE.Mesh(new THREE.DodecahedronGeometry(2.4, 0), pele);
-  cabeca.scale.set(1.1, 0.8, 1.1);
-  cabeca.position.set(0, 0.4, -6.2);
-  const chifre = new THREE.Mesh(new THREE.ConeGeometry(0.9, 5.5, 5), carapaca);
-  chifre.rotation.x = -Math.PI / 2 - 0.35;
-  chifre.position.set(0, 2, -8.6);
-  g.add(barriga, casco, cabeca, chifre);
-  // Placas espinhentas no lombo, em duas fileiras.
-  for (let k = 0; k < 4; k++) {
-    for (const lado of [-1, 1]) {
-      const placa = new THREE.Mesh(new THREE.ConeGeometry(0.8, 3 - k * 0.3, 4), carapaca);
-      placa.position.set(lado * 1.6, 4.4 - k * 0.2, -2.4 + k * 2.2);
-      placa.rotation.set(0.5, 0, lado * -0.35);
-      g.add(placa);
-    }
-  }
-  // Patas: três de cada lado, presas em pivôs para a animação balançar.
-  const patas = [];
-  for (let k = 0; k < 3; k++) {
-    for (const lado of [-1, 1]) {
-      const pivo = new THREE.Group();
-      pivo.position.set(lado * 3.6, -1.6, -3 + k * 3);
-      const pata = new THREE.Mesh(new THREE.ConeGeometry(0.6, 3.6, 4), pele);
-      pata.rotation.z = Math.PI + lado * 0.35;
-      pata.position.set(lado * 0.6, -1.6, 0);
-      pivo.add(pata);
-      g.add(pivo);
-      patas.push({ pivo, fase: k * 2.1 + (lado > 0 ? Math.PI : 0) });
-    }
-  }
-  const olho = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.75, 0),
-    new THREE.MeshStandardMaterial({ color: '#ff2a1a', emissive: '#ff2a1a', emissiveIntensity: 1.2, flatShading: true }),
-  );
-  olho.position.set(0, 0.6, -8.3);
-  const brilhoOlho = spriteBrilho(new THREE.Color('#ff3a1a'), 5);
-  brilhoOlho.position.copy(olho.position);
-  g.add(olho, brilhoOlho);
-
-  g.traverse((o) => {
-    if (o.isMesh) o.castShadow = true;
-  });
-  const raiz = new THREE.Group();
-  raiz.add(g);
-  raiz.userData = { corpo: g, motores: [], patas };
-  return raiz;
-}
-
-/** Anima o Krakor: patas balançando devagar e o corpo arfando. */
-export function animarKrakor(k, t, fase = 0) {
-  const { corpo, patas } = k.userData;
-  corpo.position.y = Math.sin(t * 1.6 + fase) * 0.4;
-  for (const p of patas) p.pivo.rotation.x = Math.sin(t * 2.4 + fase + p.fase) * 0.35;
-}
-
-/**
- * Guardião da arena (objetivo C): colosso flutuante, de pé, bem maior que o
- * Krakor. Núcleo escuro facetado, coroa de chifres grandes em volta do alto,
- * três lascas de carapaça girando em volta do corpo e um olho vermelho enorme na
- * frente. É a única silhueta "vertical" entre os inimigos: dá para reconhecer de
- * longe que aquilo é o chefe da arena.
- */
-export function criarGuardiao() {
-  const g = new THREE.Group();
-  const pele = new THREE.MeshStandardMaterial({ color: '#4a1414', roughness: 0.7, metalness: 0.15, flatShading: true });
-  const carapaca = new THREE.MeshStandardMaterial({ color: '#8c2a1f', roughness: 0.5, metalness: 0.25, flatShading: true });
-
-  const nucleo = new THREE.Mesh(new THREE.IcosahedronGeometry(5, 0), pele);
-  nucleo.scale.set(1, 1.35, 1);
-  nucleo.position.y = 3;
-  const base = new THREE.Mesh(new THREE.ConeGeometry(3.4, 6, 6), carapaca);
-  base.rotation.x = Math.PI;
-  base.position.y = -3.5;
-  g.add(nucleo, base);
-  // Coroa: chifres grandes em volta do alto, abertos para fora.
-  for (let k = 0; k < 7; k++) {
-    const a = (k / 7) * Math.PI * 2;
-    const chifre = new THREE.Mesh(new THREE.ConeGeometry(0.9, 6 + (k % 2) * 2, 4), carapaca);
-    chifre.position.set(Math.cos(a) * 3.4, 9, Math.sin(a) * 3.4);
-    chifre.rotation.set(Math.sin(a) * 0.55, 0, -Math.cos(a) * 0.55);
-    g.add(chifre);
-  }
-  // Lascas girando em volta.
-  const orbita = new THREE.Group();
-  orbita.position.y = 2;
-  for (let k = 0; k < 3; k++) {
-    const a = (k / 3) * Math.PI * 2;
-    const lasca = new THREE.Mesh(new THREE.OctahedronGeometry(2, 0), carapaca);
-    lasca.scale.set(0.6, 1.6, 1);
-    lasca.position.set(Math.cos(a) * 9, 0, Math.sin(a) * 9);
-    lasca.rotation.y = -a;
-    orbita.add(lasca);
-  }
-  g.add(orbita);
-  const olho = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(1.5, 0),
-    new THREE.MeshStandardMaterial({ color: '#ff2a1a', emissive: '#ff2a1a', emissiveIntensity: 1.2, flatShading: true }),
-  );
-  olho.position.set(0, 4, -4.6);
-  const brilhoOlho = spriteBrilho(new THREE.Color('#ff3a1a'), 9);
-  brilhoOlho.position.copy(olho.position);
-  g.add(olho, brilhoOlho);
-
-  g.traverse((o) => {
-    if (o.isMesh) o.castShadow = true;
-  });
-  const raiz = new THREE.Group();
-  raiz.add(g);
-  raiz.userData = { corpo: g, motores: [], orbita };
-  return raiz;
-}
-
-/** Anima o guardião: lascas girando e o corpo subindo e descendo devagar. */
-export function animarGuardiao(gd, t) {
-  gd.userData.orbita.rotation.y = t * 0.8;
-  gd.userData.corpo.position.y = Math.sin(t * 1.1) * 0.6;
 }
