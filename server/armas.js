@@ -115,7 +115,7 @@ export function alturaNoChao(x, z, y) {
 
 /**
  * A nave de `ent` está a `raio` m do ponto (x, y, z)? No plano, com folga de
- * AREA_ALTURA na altura e somando o raio da nave (os elites são maiores).
+ * AREA_ALTURA na altura e somando o raio da nave (monstro grande pega de mais longe).
  */
 export function naArea(ent, x, y, z, raio) {
   const s = ent.ship;

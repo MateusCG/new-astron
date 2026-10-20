@@ -9,9 +9,9 @@
 // (o monstro entra pela espécie: chaveRecompensa).
 //
 // Curva: para passar do nível n para o n + 1 são xpParaNivel(n) pontos (60 no
-// primeiro, +20 a cada nível). Numa partida de 10 minutos, caçando sem parar, dá
-// para chegar perto do 15: o nível 5 sai com uns 12 Vorax, o 10 com uns 1300 XP e o
-// 15 com uns 2700. NIVEL_MAX (25, como pediu o Mateus) fecha a conta; lá a barra
+// primeiro, +20 a cada nível). Numa partida de 20 minutos, um jungler dedicado tira
+// uns 3000 a 3500 XP da jungle (PESQUISA-MONSTROS.md, "Ritmo"), perto do nível 15 a
+// 18 com os abates. NIVEL_MAX (25, como pediu o Mateus) fecha a conta; lá a barra
 // fica cheia.
 //
 // XP, nível, pontos e ouro são da partida: zeram quando começa a seguinte (World,

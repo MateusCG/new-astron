@@ -332,7 +332,10 @@ export class Jungle {
     });
     c.estado = 'ativo';
     c.proxTick = Infinity;
-    if (c.tipo !== 'acampamento') this.world.eventos.push({ e: 'objetivo', id: c.id, acao: 'apareceu' });
+    if (c.tipo !== 'acampamento') {
+      const p = c.membros[0].ship;
+      this.world.eventos.push({ e: 'objetivo', id: c.id, acao: 'apareceu', x: +p.x.toFixed(1), z: +p.z.toFixed(1) });
+    }
     if (c.tipo === 'sonda') c.ponta = 1 - c.ponta; // a próxima nasce na outra ponta
   }
 
@@ -690,7 +693,7 @@ export class Jungle {
       }
       w.bonus.ativar(matador.time, 'medusa', BONUS_MEDUSA_S, t);
     }
-    w.eventos.push({ e: 'objetivo', id: c.id, acao: 'tomado', time: matador.time, quem: matador.nome });
+    w.eventos.push({ e: 'objetivo', id: c.id, acao: 'tomado', time: matador.time, quem: matador.nome, por: matador.id });
   }
 
   // ---------- Snapshot ----------

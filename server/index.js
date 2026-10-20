@@ -200,7 +200,10 @@
 //         (s pousado do time que está coletando), quem (esse time, ou null),
 //         contestado? (os dois times pousados: trava); o feixe de luz acende com
 //         quem != null. Núcleo: vida (0 a 1, ativo), aparicao (quantas vezes já
-//         apareceu: 0, 1 ou 2)
+//         apareceu: 0, 1 ou 2). Da jungle (BA0/BA1 = SN-4 do buff de ataque, SONDA,
+//         MEDUSA): estado 'espera' | 'ativo' | 'recarga', vida (0 a 1, ativo), volta,
+//         time (de quem deu o último golpe final; só depois do primeiro) e, na SONDA,
+//         bloqueada (true: esperando a Medusa ou o Núcleo morrerem para aparecer)
 //   torretas: [{id, time, vida, max, nivel, viva, alvo?, obra?}]   as oito torres (1400 de
 //         HP no nível 1, alcance de 560 m, míssil teleguiado)
 //         sentinela da lane (server/torretas.js; posição em TORRETAS de shared/terrain.js):
@@ -208,11 +211,12 @@
 //         sólida (false: o cliente a tira da física com definirObstaculoAtivo);
 //         alvo = id na mira (só se mira alguém); obra = reconstrução paga
 //         esperando o lugar ficar livre
-//   minas: [{id, dono, time, kind, nv, p, campo?, raio, x, y, z, armada}]   minas e
+//   minas: [{id, dono, time, kind, nv, p, campo?, atq?, raio, x, y, z, armada}]   minas e
 //         campos no chão (time de quem soltou; kind/nv/p = a arma, a versão e a
 //         profundidade do golpe, para o desenho; campo = área que fere a cada
-//         intervalo; raio = gatilho da mina ou área do campo; armada = já age)
-//   guiados: [{id, kind, nv, p, x, y, z, vx, vy, vz}]   teleguiados em voo: o
+//         intervalo; raio = gatilho da mina ou área do campo; armada = já age;
+//         atq = ataque de monstro, ver "Ataques de monstro" abaixo)
+//   guiados: [{id, kind, nv, p, atq?, x, y, z, vx, vy, vz}]   teleguiados em voo: o
 //         cliente não prevê a curva e corrige o desenho por aqui
 //   st: {cego?, invisivel?, revelado?, invulneravel?, escudo?, converte?, regen?,
 //         fraco?, vulneravel?, recuo?, curaTempo?, resiste_<tipo>?}   estados das
@@ -221,7 +225,7 @@
 //         minimapa e dos rótulos
 //   ents: [{id, nome, tipo, drone, vivo, race, x, y, z, yaw, roll, hp, maxHp, boost, pousado,
 //           dreno, lento, emp, fx?, time?, carga?, minerando?, nivel?, classe?, tier?, arm?, esc?,
-//           recall?, bn?, nucleo?}]
+//           recall?, bn?, nucleo?, esp?}]
 //         bn = bônus de nave ativos do jogador ('ataque' | 'suporte' | 'sonda');
 //         nucleo = 1 no minerador da onda do Núcleo (maior, mais lento, carga 50);
 //         esc = fração (0 a 1) do escudo do equipamento, só em jogador com escudo;
@@ -230,9 +234,12 @@
 //         dos jogadores (o modelo pendurado em cada asa). Jogador camuflado do outro
 //         time não vem na lista (salvo a INVISIVEL_VISTO_M da sua nave ou logo
 //         depois de atirar);
-//         tipo = 'jogador' | 'arnosh' | 'vorax' | 'krakor' | 'minerador' | 'escolta' |
-//         'nucleo' (o que desenhar; o Núcleo de He-3 é uma entidade parada no poço de
-//         cima, neutra, com hp/maxHp, só enquanto vivo); drone = inimigo do PvE; time em jogadores,
+//         tipo = 'jogador' | 'monstro' | 'minerador' | 'escolta' | 'nucleo' (o que
+//         desenhar; o Núcleo de He-3 é uma entidade parada no poço de cima, neutra,
+//         com hp/maxHp, só enquanto vivo); monstro (server/jungle.js, só vivo) traz
+//         esp = 'armish' | 'chrometic' | 'xerxes' | 'great_xerxes' | 'bazit' | 'anti' |
+//         'sn4' | 'medusa' | 'sonda' (o modelo: public/modelos/monstros/<esp>.glb;
+//         nome = nome na tela, sem time); drone = inimigo do PvE; time em jogadores,
 //         mineradores e escoltas; carga e minerando só nos mineradores; nivel, classe
 //         e tier só nos jogadores (raça + classe + tier = o modelo da nave); recall
 //         (0 a 1) só em quem está canalizando a volta à base
@@ -242,8 +249,8 @@
 //                                    0 o disparo, 1+ subprojétil; enc = encaixe de
 //                                    onde saiu, para o desenho sair da boca da arma)
 //         {e:'entrou', id, nome, time}
-//         {e:'morte', id, por, tipo, time?, x, y, z, ouro?, renasce?, assist?, ouroAssist?,
-//          seq?, encerrou?, seqPor?}
+//         {e:'morte', id, por, tipo, time?, esp?, x, y, z, ouro?, renasce?, assist?, ouroAssist?,
+//          seq?, encerrou?, seqPor?}   (esp = espécie, na morte de monstro)
 //                                    ouro = ouro que o matador (jogador) ganhou, bônus
 //                                    incluso; em morte de jogador: renasce = s até
 //                                    renascer; assist = ids dos aliados do matador que
@@ -251,7 +258,25 @@
 //                                    cada um; seq = sequência da vítima encerrada e
 //                                    encerrou = bônus de ouro (só com seq >= 2);
 //                                    seqPor = sequência do matador com este abate
-//         {e:'garra', id, alvo, dano, x, y, z}   golpe corpo a corpo de um Vorax
+//         Ataques de monstro (server/especies.js): os eventos 'tiro', 'acerto',
+//                                    'explosao' e 'nova', as `minas` e os `guiados`
+//                                    de um golpe de monstro trazem atq = 'pedra'
+//                                    (Armish), 'onda_eletrica' (Chrometic),
+//                                    'bala_explosiva' (Xerxes, área 10 m), 'chama'
+//                                    (Xerxes e Grande Xerxes; só 'acerto', o desenho
+//                                    vem no evento 'chama'), 'feixe_optico' (Bazit, 3
+//                                    feixes paralelos), 'missil' (Anti, 3 teleguiados de
+//                                    curva leve), 'missil_cruzador' (SN-4, 4
+//                                    teleguiados), 'onda_feixe' (SN-4, nova de 70 m),
+//                                    'campo_eletrico' (SN-4, campo de 20 m no chão,
+//                                    lento), 'pedra_gigante' (Medusa, 2 pedras),
+//                                    'controle' (Medusa, leque de 10, desgoverno),
+//                                    'armadilha' (Medusa, 8 teleguiados lentos, sem
+//                                    tiro); kind = 'laser' ou 'plasma' (tiro de NPC)
+//         {e:'chama', id, esp, x, y, z, yaw, alcance, abertura, area}   chama em cone
+//                                    de um monstro (id): do ponto, no rumo yaw, até
+//                                    alcance m, meia-abertura em rad (ou area m do
+//                                    eixo, a chama larga do Grande Xerxes)
 //         {e:'tiro', ..., fonte, time, guiado?, alvo?, vida?}   tiro de torreta (fonte
 //                                    'torreta', dono = id dela; míssil teleguiado:
 //                                    guiado true, alvo = id travado, vai também em
@@ -296,7 +321,9 @@
 //                                    final, por = id) | 'coletou' (plataforma: ouro =
 //                                    de cada piloto do time, ouroPouso = a mais para
 //                                    quem estava pousado) | 'cancelou' (plataforma:
-//                                    motivo 'saiu' | 'dano')
+//                                    motivo 'saiu' | 'dano'). Da jungle (id BA0, BA1,
+//                                    SONDA, MEDUSA): 'apareceu' (x, z) e 'tomado'
+//                                    (time, quem, por = quem deu o golpe final)
 //         {e:'entrega', id, time, carga, x, y, z, nucleo?}   minerador somou carga no
 //                                    placar (carga = o que entrou, já dobrado na fase
 //                                    final; nucleo = 1 no da onda do Núcleo)
