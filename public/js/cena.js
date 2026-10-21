@@ -1,56 +1,114 @@
-// Cenário do mapa M1: deserto de cânion com céu de fim de tarde, inspirado nos
-// planetas de missão do AstroN (rocha marrom, céu laranja, canos e torres
-// enferrujadas). O chão é o de shared/terrain.js (partida 3 contra 3, ver
-// DESIGN-PARTIDA.md): as duas bases de time, o corredor dos mineradores com o
-// depósito de minério no meio e as entregas nas pontas, os serviços (Evolução e
-// Loja) em cada base, os objetivos A, B e C e as mesas de rocha do mundo aberto.
+// Cenário do mapa da partida: o lago de Hélio-3 (Stage 6 no formato do desenho 2D).
 //
-// Cor das bases é relativa a quem olha: a do seu time em turquesa, a do outro em
-// vermelho (criarCena({ meuTime })). O resto das cores sai do guia visual.
+// A planta é uma só (shared/terrain.js e shared/obstaculos.js: rochas, mineradora,
+// bases, objetivos), e o desenho são os modelos da frente Cenário
+// (public/modelos/mapa/, ver LISTA.md: medidas, pivôs e onde pôr cada peça),
+// montados aqui nos lugares da planta. Cada peça sólida casa com a planta (a
+// silhueta fica entre a planta e a planta + 4 m), então o que se vê é o que bate. A
+// física continua de heightAt/alturaSolida; a malha de heightAt (o terreno
+// provisório da fase 1) só volta como reserva se um modelo de rocha não carregar.
 //
-// Tudo é gerado em código a partir de shared/terrain.js e shared/obstaculos.js; o
-// cenário decorativo (canos, pedras, torres) usa um gerador pseudoaleatório com
-// semente fixa, então todo jogador vê o mesmo mapa sem baixar nenhum modelo.
+// O que entra:
+// - borda (quatro quartos), horizonte, fundo do lago, rochas dos quadrantes e
+//   paredes em L dos poços, em rocha de estratos;
+// - a água (agua.js, shader próprio) em NIVEL_AGUA, abaixo do chão de voo: tudo
+//   flutua sobre o lago;
+// - a mineradora de He-3 no centro, com as docas na cor do time dono (relativa a quem
+//   olha) e o He-3 "respirando" (mais forte com minerador minerando);
+// - as bases: portal warp flutuante (ilha boiando devagar, membrana em redemoinho e
+//   um feixe fino da ponta da broca até a água), anel de pouso, plataformas da
+//   Evolução e da Loja com o ícone e o nome no chão, e a entrega na boca da base;
+// - os objetivos: torres de suporte (de pé, apagadas em 'espera', caídas em
+//   'recarga'), plataformas de pouso de ouro (feixe de luz com alguém pousado), o
+//   Núcleo de He-3 (anéis e lascas girando, mais rápido com menos vida);
+// - campos de asteroides (pedaços flutuando e girando devagar, espalhados com
+//   semente fixa: todo jogador vê igual) e a decoração do lago (pedras que furam a
+//   água, ruínas, corais, algas e cristais no fundo), simétrica pela rotação de 180°.
+//
+// Cor de time é relativa a quem olha (criarCena({ meuTime })): o seu time em
+// turquesa, o outro em vermelho. Paleta do planeta da PROPOSTA-VISUAL.md (céu de
+// fim de tarde ardósia para areia, sol mais alto que no M1, luz hemisférica com o
+// chão verde-azulado da água).
+//
+// A névoa de guerra (nevoa.js) desenha a cena num passo de tela inteira e ajusta a
+// neblina (scene.fog, que tem de continuar um THREE.Fog) ao raio de visão.
 
 import * as THREE from 'three';
 import {
   heightAt,
   paredeAt,
-  noMapaAberto,
   fbm,
+  noMapaAberto,
   MAP_HALF_X,
   MAP_HALF_Z,
+  NIVEL_AGUA,
+  FUNDO_LAGO,
   BASES,
-  CORREDOR,
-  MINERIO,
   ENTREGAS,
   SERVICOS,
-  OBJETIVOS,
-  ARENA_C,
-  MESAS,
   AREAS_POUSO,
-  TORRETAS,
+  ASTEROIDES,
+  ACAMPAMENTOS,
+  BUFFS,
+  PLATAFORMAS_POUSO,
+  NUCLEO,
+  LANE,
+  daBase,
 } from '/shared/terrain.js';
-import { OBSTACULOS, HANGAR, PORTAL, ANTENAS, alturaSolida, daBase } from '/shared/obstaculos.js';
-
-const ALTURA_PLATAFORMA = 3;
-const OBJETIVO_APAGADO = 0.2; // brilho do âmbar de um objetivo em recarga
+import { PORTAL_WARP, OBSTACULOS } from '/shared/obstaculos.js';
+import { criarAgua, TEMPO_AGUA } from './agua.js';
+import { instanciaMapa, partesDoModelo, pintar, neon, materialDoMapa, modeloMapaPronto } from './mapa-modelos.js';
 
 export const CORES = {
-  ceuTopo: new THREE.Color('#2a0f1c'),
-  ceuMeio: new THREE.Color('#a8402a'),
-  horizonte: new THREE.Color('#f59a45'),
-  neblina: new THREE.Color('#c96a3a'),
-  neon: new THREE.Color('#00efc0'), // base do seu time
-  perigo: new THREE.Color('#ff3b2a'), // base do outro time
-  objetivo: new THREE.Color('#ffb627'), // objetivos A, B e C (âmbar)
-  minerio: new THREE.Color('#9fe8ff'), // cristais do depósito (azul-gelo)
-  circuito: new THREE.Color('#4fb8ff'), // estrada e entregas dos mineradores
+  ceuTopo: new THREE.Color('#22304a'),
+  ceuMeio: new THREE.Color('#9a8574'),
+  horizonte: new THREE.Color('#ebcba2'),
+  neblina: new THREE.Color('#d8b993'),
+  sol: new THREE.Color('#fff0d8'),
+  halo: new THREE.Color('#ffc890'),
+  neon: new THREE.Color('#00efc0'), // seu time
+  perigo: new THREE.Color('#ff3b2a'), // o outro time
+  objetivo: new THREE.Color('#ffb627'), // objetivos (âmbar)
+  minerio: new THREE.Color('#9fe8ff'), // Hélio-3 (azul-gelo)
   evolucao: new THREE.Color('#a58bff'), // plataforma da Evolução (violeta)
   loja: new THREE.Color('#ff6fd8'), // plataforma da Loja (magenta)
+  poeira: new THREE.Color('#e9f3ea'), // gotículas do lago
 };
 
-const SOL_DIR = new THREE.Vector3(-0.55, 0.32, -0.77).normalize();
+/** Direção do sol (vem de −x/−z, elevação ~25°): bate com o disco desenhado no céu. */
+export const SOL_DIR = new THREE.Vector3(-0.55, 0.42, -0.72).normalize();
+const SOL_COR = '#ffd9b0';
+const SOL_INTENSIDADE = 2.4;
+const HEMI_CEU = '#f0c9a0';
+const HEMI_CHAO = '#3a6e69'; // a luz que volta da água (mais clara que a da proposta: o fundo da ilha do portal ficava preto)
+const HEMI_INTENSIDADE = 1.0;
+/** Raio da esfera do céu (acompanha a câmera; a câmera vai até 5000 m). */
+const CEU_RAIO = 4200;
+
+/** Neon do He-3: "respira" entre estes valores (e sobe com minerador minerando). */
+const HE3_MIN = 0.6;
+const HE3_MAX = 1.1;
+/** Âmbar de objetivo aceso e apagado (espera/recarga). */
+const OBJ_ACESO = 1.0;
+const OBJ_APAGADO = 0.15;
+/** Ilha do portal warp: quanto boia (m) e em quantos segundos. */
+const PORTAL_BOIA_M = 1.5;
+const PORTAL_BOIA_S = 9;
+/**
+ * Feixe da plataforma de ouro com alguém pousado (m): começa acima da nave pousada
+ * (`base`), para quem está pousado continuar vendo a própria nave, e sobe alto para
+ * quem está longe ver.
+ */
+const FEIXE_PLATAFORMA = { raio: 3.2, altura: 80, base: 7 };
+/** Asteroides por campo e a receita da LISTA.md (pesos dos tipos 1 a 4). */
+const ASTEROIDES_POR_CAMPO = 26;
+const PESO_ASTEROIDE = [5, 4, 1, 2];
+const SEMENTE_ASTEROIDES = 4242;
+const SEMENTE_DECORACAO = 6161;
+/** Núcleo: velocidade dos anéis (rad/s) parado, vivo e a mais com a vida acabando. */
+const NUCLEO_GIRO_PARADO = 0.08;
+const NUCLEO_GIRO_VIVO = 0.5;
+const NUCLEO_GIRO_FERIDO = 2.2;
 
 function mulberry32(a) {
   return () => {
@@ -62,91 +120,165 @@ function mulberry32(a) {
   };
 }
 
-/** Textura de grão (tons de cinza) que dá detalhe de areia/rocha de perto. */
-function texturaGrao() {
-  const n = 256;
-  const c = document.createElement('canvas');
-  c.width = c.height = n;
-  const ctx = c.getContext('2d');
-  const img = ctx.createImageData(n, n);
-  const rnd = mulberry32(5);
-  for (let i = 0; i < n * n; i++) {
-    const v = 200 + rnd() * 55;
-    img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = v;
-    img.data[i * 4 + 3] = 255;
-  }
-  ctx.putImageData(img, 0, 0);
-  const t = new THREE.CanvasTexture(c);
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(220, 220);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
-  return t;
+/** Põe a cópia de um modelo do mapa no lugar (x, y, z) com giro em y. null se o modelo não está pronto. */
+function por(grupo, nome, x, y, z, giro = 0, opcoes) {
+  const m = instanciaMapa(nome, opcoes);
+  if (!m) return null;
+  m.position.set(x, y, z);
+  m.rotation.y = giro;
+  grupo.add(m);
+  return m;
 }
 
+/** Nó de um modelo pelo nome (os do Núcleo, da torre e do portal). */
+function no(obj, nome) {
+  return obj?.getObjectByName(nome) ?? null;
+}
 
-function criarTerreno() {
-  // ~6 m por quadrado: a rocha (degrau + rampa de 16 m) ainda sai com quina viva.
-  const segX = Math.round((2 * MAP_HALF_X) / 6);
-  const segZ = Math.round((2 * MAP_HALF_Z) / 6);
+// ---------- Céu, poeira ----------
+
+function criarCeu() {
+  const geo = new THREE.SphereGeometry(CEU_RAIO, 32, 16);
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    fog: false,
+    uniforms: {
+      topo: { value: CORES.ceuTopo },
+      meio: { value: CORES.ceuMeio },
+      horizonte: { value: CORES.horizonte },
+      corSol: { value: CORES.sol },
+      corHalo: { value: CORES.halo },
+      solDir: { value: SOL_DIR },
+    },
+    vertexShader: `
+      varying vec3 vDir;
+      void main() {
+        vDir = normalize(position);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      uniform vec3 topo, meio, horizonte, corSol, corHalo, solDir;
+      varying vec3 vDir;
+      void main() {
+        float h = clamp(vDir.y, -0.2, 1.0);
+        vec3 c = mix(horizonte, meio, smoothstep(0.02, 0.22, h));
+        c = mix(c, topo, smoothstep(0.22, 0.8, h));
+        float s = max(dot(vDir, solDir), 0.0);
+        c = mix(c, corSol * 1.6, smoothstep(0.9993, 0.9996, s)); // disco do sol
+        c += corHalo * pow(s, 14.0) * 0.35;                       // halo em volta
+        gl_FragColor = vec4(c, 1.0);
+      }`,
+  });
+  const ceu = new THREE.Mesh(geo, mat);
+  ceu.renderOrder = -10; // primeiro: tudo o mais desenha por cima
+  ceu.frustumCulled = false;
+  return ceu;
+}
+
+/** Gotículas flutuando em volta da câmera (lago úmido): dão noção de velocidade. */
+function criarPoeira() {
+  const n = 600;
+  const pos = new Float32Array(n * 3);
+  const rnd = mulberry32(77);
+  for (let i = 0; i < n * 3; i++) pos[i] = (rnd() * 2 - 1) * 80;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const mat = new THREE.PointsMaterial({ color: CORES.poeira, size: 0.3, transparent: true, opacity: 0.35, depthWrite: false });
+  const pts = new THREE.Points(geo, mat);
+  pts.frustumCulled = false;
+  return pts;
+}
+
+// ---------- Reserva: terreno de heightAt ----------
+
+/**
+ * Terreno provisório (a malha de heightAt nas rochas e o fundo do lago no campo
+ * aberto). Só entra se algum modelo de rocha não carregou, para o mapa não ficar
+ * com buraco onde a física tem parede.
+ */
+function criarTerrenoReserva() {
+  const segX = Math.round((2 * MAP_HALF_X) / 8);
+  const segZ = Math.round((2 * MAP_HALF_Z) / 8);
   const geo = new THREE.PlaneGeometry(MAP_HALF_X * 2, MAP_HALF_Z * 2, segX, segZ);
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
   const cores = new Float32Array(pos.count * 3);
-  const areia = new THREE.Color('#9b6239');
-  const areiaEscura = new THREE.Color('#6e3f24');
-  const rochaA = new THREE.Color('#5a2f1e');
-  const rochaB = new THREE.Color('#a8683e');
-  const topo = new THREE.Color('#b9804f');
+  const fundo = new THREE.Color('#4a4b40');
+  const rochaA = new THREE.Color('#4f3d2e');
+  const rochaB = new THREE.Color('#b59a74');
   const c = new THREE.Color();
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
     const z = pos.getZ(i);
-    const h = heightAt(x, z);
-    pos.setY(i, h);
-    const p = paredeAt(x, z);
-    const ruido = fbm(x * 0.05, z * 0.05, 3, 2);
-    if (p === 0) {
-      c.copy(areiaEscura).lerp(areia, ruido);
+    if (paredeAt(x, z) === 0) {
+      pos.setY(i, FUNDO_LAGO);
+      c.copy(fundo);
     } else {
-      // Estratos: faixas horizontais de rocha clara e escura, como paredes de cânion.
-      const faixa = 0.5 + 0.5 * Math.sin(h * 0.45 + fbm(x * 0.01, z * 0.01, 4, 2) * 6);
-      c.copy(rochaA).lerp(rochaB, faixa * 0.8 + ruido * 0.2);
-      if (p > 0.97) c.lerp(topo, 0.6);
+      const h = heightAt(x, z);
+      pos.setY(i, h);
+      c.copy(rochaA).lerp(rochaB, 0.5 + 0.5 * Math.sin(h * 0.35 + fbm(x * 0.01, z * 0.01, 4, 2) * 6));
     }
-    cores[i * 3] = c.r;
-    cores[i * 3 + 1] = c.g;
-    cores[i * 3 + 2] = c.b;
+    cores.set([c.r, c.g, c.b], i * 3);
   }
   geo.setAttribute('color', new THREE.BufferAttribute(cores, 3));
-  geo.computeVertexNormals();
-  const grao = texturaGrao();
-  grao.repeat.set((220 * MAP_HALF_X) / 1000, (220 * MAP_HALF_Z) / 1000);
-  const mat = new THREE.MeshStandardMaterial({
-    vertexColors: true,
-    map: grao,
-    roughness: 0.95,
-    metalness: 0,
-    flatShading: true,
-  });
-  const malha = new THREE.Mesh(geo, mat);
+  const malha = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, flatShading: true }));
   malha.receiveShadow = true;
   return malha;
 }
 
-/** Caixa fina deitada no chão (faixas de luz, bordas de placa). */
-function faixa(g, mat, x, y, z, larg, prof, ang = 0, alt = 0.15) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(larg, alt, prof), mat);
-  m.position.set(x, y, z);
-  m.rotation.y = ang;
-  g.add(m);
+// ---------- Rochas, borda, fundo ----------
+
+/** Rochas dos quadrantes, paredes em L e borda (LISTA.md: posição, variante e giro de cada uma). */
+const PECAS_ROCHA = [
+  ['rocha-quadrante', -697.5, -652.5, 0],
+  ['rocha-quadrante-b', -697.5, 652.5, 0],
+  ['rocha-quadrante', 697.5, 652.5, Math.PI],
+  ['rocha-quadrante-b', 697.5, -652.5, Math.PI],
+  ['parede-l', -324, -648, 0],
+  ['parede-l', 324, 648, Math.PI],
+  ['parede-l-espelhada', -324, 648, 0],
+  ['parede-l-espelhada', 324, -648, Math.PI],
+  ['borda-quadrante', 0, 0, 0],
+  ['borda-quadrante', 0, 0, Math.PI],
+  ['borda-quadrante-espelhada', 0, 0, 0],
+  ['borda-quadrante-espelhada', 0, 0, Math.PI],
+];
+
+function montarRochas(g) {
+  let faltou = false;
+  for (const [nome, x, z, giro] of PECAS_ROCHA) if (!por(g, nome, x, 0, z, giro)) faltou = true;
+  // O horizonte e o fundo do lago: enormes, não projetam sombra (o mapa de sombra
+  // só cobre a volta da nave), só recebem.
+  por(g, 'borda-horizonte', 0, 0, 0, 0, { sombra: false });
+  // O fundo não recebe sombra: o mapa de sombra só cobre a volta da nave, e a borda
+  // dele aparecia no fundo visto pela água (claro fora, escuro dentro).
+  const fundo = por(g, 'fundo-lago', 0, 0, 0, 0, { sombra: false });
+  if (fundo) fundo.traverse((o) => o.isMesh && (o.receiveShadow = false));
+  else faltou = true;
+  if (faltou) {
+    console.warn('Cenário: faltou modelo de rocha; o terreno provisório de heightAt entra de reserva');
+    g.add(criarTerrenoReserva());
+  }
+}
+
+/** Todos os modelos de rocha estão no cache? (senão a cena usa a reserva de heightAt) */
+export function rochasProntas() {
+  return PECAS_ROCHA.every(([nome]) => modeloMapaPronto(nome));
+}
+
+// ---------- Mineradora ----------
+
+function montarMineradora(g, meuTime) {
+  const m = por(g, 'mineradora', 0, 0, 0, 0);
+  if (!m) return null;
+  for (const time of [0, 1]) pintar(m, `neon_doca_${time}`, neon(time === meuTime ? CORES.neon : CORES.perigo));
   return m;
 }
 
-/**
- * Plaquinha com texto deitada no chão (nome do serviço). Textura feita em canvas,
- * sem imagem baixada.
- */
+// ---------- Bases ----------
+
+/** Plaquinha com texto deitada no chão (nome do serviço). Textura feita em canvas. */
 function rotuloChao(texto, cor, largura) {
   const c = document.createElement('canvas');
   c.width = 512;
@@ -165,569 +297,401 @@ function rotuloChao(texto, cor, largura) {
   return m;
 }
 
-/**
- * Base de um time: plataforma de pouso com anel, hangares, portal na boca do
- * corredor e antenas, tudo da planta em shared/obstaculos.js (a mesma que a física
- * usa). `cor` é o neon da base para quem olha: turquesa se é a do seu time,
- * vermelho se é a do outro.
- */
-function criarBase(b, cor) {
-  const g = new THREE.Group();
-  const y = heightAt(b.x, b.z);
-  const metal = matMetal('#5d6866');
-  const escuro = matMetal('#3a4442');
-  const neon = matNeon(cor);
-  const giro = b.time === 0 ? 0 : Math.PI;
-
-  // O topo da plataforma fica exatamente no piso da área de pouso (shared/terrain.js),
-  // que é onde a física apoia a nave pousada.
-  const area = AREAS_POUSO.find((a) => a.base === b.time);
-  const plataforma = new THREE.Mesh(new THREE.CylinderGeometry(70, 76, ALTURA_PLATAFORMA, 24), metal);
-  plataforma.position.set(b.x, y + area.piso - ALTURA_PLATAFORMA / 2, b.z);
-  plataforma.receiveShadow = true;
-  g.add(plataforma);
-  for (const r of [area.raio, 14]) {
-    const anel = new THREE.Mesh(new THREE.TorusGeometry(r, r > 20 ? 0.6 : 0.5, 6, 48), neon);
-    anel.rotation.x = Math.PI / 2;
-    anel.position.set(b.x, y + area.piso + 0.2, b.z);
-    g.add(anel);
-  }
-
-  for (const o of OBSTACULOS.filter((o) => o.nome === 'hangar' && o.time === b.time)) {
-    const hangar = new THREE.Group();
-    const corpo = new THREE.Mesh(new THREE.BoxGeometry(HANGAR.largura - 4, HANGAR.altura - 2, HANGAR.profundidade - 4), escuro);
-    corpo.position.y = (HANGAR.altura - 2) / 2;
-    corpo.castShadow = corpo.receiveShadow = true;
-    const teto = new THREE.Mesh(new THREE.BoxGeometry(HANGAR.largura, 2, HANGAR.profundidade), metal);
-    teto.position.y = HANGAR.altura - 1;
-    teto.castShadow = true;
-    const fx = new THREE.Mesh(new THREE.BoxGeometry(HANGAR.largura - 3.8, 0.7, HANGAR.profundidade - 3.8), neon);
-    fx.position.y = 10;
-    const porta = new THREE.Mesh(new THREE.PlaneGeometry(12, 8), matNeon(cor.clone().multiplyScalar(0.55)));
-    porta.position.set(0, 4.5, (HANGAR.profundidade - 4) / 2 + 0.05);
-    hangar.add(corpo, teto, fx, porta);
-    hangar.position.set(o.x, o.chao, o.z);
-    hangar.rotation.y = o.ang;
-    g.add(hangar);
-  }
-
-  // Portal na boca do corredor.
-  const portal = new THREE.Group();
-  const altColuna = PORTAL.altura - 3;
-  for (const lado of [-1, 1]) {
-    const coluna = new THREE.Mesh(new THREE.BoxGeometry(PORTAL.colunaLarg, altColuna, PORTAL.colunaProf), escuro);
-    coluna.position.set(lado * PORTAL.vao, altColuna / 2, 0);
-    coluna.castShadow = true;
-    const luz = new THREE.Mesh(new THREE.BoxGeometry(PORTAL.colunaLarg + 0.2, 18, 0.6), neon);
-    luz.position.set(lado * PORTAL.vao, 12, PORTAL.colunaProf / 2 + 0.2);
-    portal.add(coluna, luz);
-  }
-  const viga = new THREE.Mesh(new THREE.BoxGeometry(PORTAL.vao * 2 + 6, 4, 7), escuro);
-  viga.position.y = PORTAL.altura - 2;
-  viga.castShadow = true;
-  const vigaNeon = new THREE.Mesh(new THREE.BoxGeometry(PORTAL.vao * 2, 0.7, 7.2), neon);
-  vigaNeon.position.y = 25;
-  portal.add(viga, vigaNeon);
-  const boca = daBase(b, 0, -PORTAL.dz);
-  portal.position.set(boca.x, OBSTACULOS.find((o) => o.nome === 'coluna-portal' && o.time === b.time).chao, boca.z);
-  portal.rotation.y = giro;
-  g.add(portal);
-
-  // Torres de antena com luz piscando (a luz é animada em atualizar()).
-  const luzes = [];
-  for (const o of OBSTACULOS.filter((o) => o.nome === 'antena' && o.time === b.time)) {
-    const torre = new THREE.Mesh(new THREE.CylinderGeometry(ANTENAS.raio / 2, ANTENAS.raio, ANTENAS.altura, 6), metal);
-    torre.position.set(o.x, o.chao + ANTENAS.altura / 2, o.z);
-    torre.castShadow = true;
-    const luz = new THREE.Mesh(new THREE.SphereGeometry(1.2, 8, 6), matNeon(new THREE.Color('#ff3b2a')));
-    luz.position.set(o.x, o.topo + 1, o.z);
-    luzes.push(luz);
-    g.add(torre, luz);
-  }
-
-  // Serviços: Evolução (esquerda) e Loja (direita), plataformas de pouso com ícone.
-  for (const s of SERVICOS.filter((s) => s.time === b.time)) g.add(criarServico(s));
-
-  g.userData.luzes = luzes;
-  return g;
+/** Caixa fina deitada (traço do ícone do serviço no deque). */
+function traco(g, mat, x, y, z, larg, prof, ang = 0) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(larg, 0.12, prof), mat);
+  m.position.set(x, y, z);
+  m.rotation.y = ang;
+  g.add(m);
 }
 
-/** Plataforma de serviço (Evolução ou Loja): placa retangular, borda, ícone e nome. */
-function criarServico(s) {
-  const g = new THREE.Group();
-  const a = AREAS_POUSO.find((p) => p.servico === s.servico && p.time === s.time);
-  const cor = CORES[s.servico];
-  const neon = matNeon(cor);
-  const y = heightAt(s.x, s.z);
-  const larg = a.raio * 2 + 14;
-  const prof = a.raio * 2 + 4;
-  const alt = a.piso + 0.6;
-  const placa = new THREE.Mesh(new THREE.BoxGeometry(larg, alt, prof), matMetal('#3d4644', { roughness: 0.8 }));
-  placa.position.set(0, a.piso - alt / 2, 0);
-  placa.receiveShadow = true;
-  g.add(placa);
-  const topo = a.piso + 0.08;
-  faixa(g, neon, 0, topo, -prof / 2 + 0.5, larg - 1, 0.6);
-  faixa(g, neon, 0, topo, prof / 2 - 0.5, larg - 1, 0.6);
-  faixa(g, neon, -larg / 2 + 0.5, topo, 0, 0.6, prof - 1);
-  faixa(g, neon, larg / 2 - 0.5, topo, 0, 0.6, prof - 1);
-  if (s.servico === 'evolucao') {
-    // Duas setas para cima ("melhorar").
-    for (const dz of [-4, 3]) {
-      faixa(g, neon, -3.2, topo, dz, 9, 1, Math.PI / 4);
-      faixa(g, neon, 3.2, topo, dz, 9, 1, -Math.PI / 4);
-    }
-  } else {
-    // Moeda: anel com uma barra no meio ("comprar").
-    const anel = new THREE.Mesh(new THREE.TorusGeometry(6.5, 0.6, 4, 24), neon);
-    anel.rotation.x = Math.PI / 2;
-    anel.position.y = topo;
-    g.add(anel);
-    faixa(g, neon, 0, topo, 0, 1.2, 8);
-  }
-  const nome = rotuloChao(s.servico === 'evolucao' ? 'EVOLUÇÃO' : 'LOJA', cor, 26);
-  nome.position.set(0, topo + 0.05, prof / 2 - 5);
-  g.add(nome);
-  g.position.set(s.x, y, s.z);
-  // O nome se lê de dentro da base, de quem olha para o corredor (como a câmera ao nascer).
-  g.rotation.y = s.time === 0 ? 0 : Math.PI;
-  return g;
-}
-
-/**
- * Corredor dos mineradores: estrada escura com bordas de luz azul tracejadas e
- * linha central clara, mais as placas de entrega azuis coladas em cada base.
- */
-function criarCorredor() {
-  const g = new THREE.Group();
-  const comp = BASES[0].z - BASES[1].z - BASES[0].raio; // de dentro de uma base à outra
-  const estrada = new THREE.Mesh(
-    new THREE.PlaneGeometry(CORREDOR.largura, comp),
-    new THREE.MeshStandardMaterial({ color: '#4a3326', roughness: 1, polygonOffset: true, polygonOffsetFactor: -2 }),
-  );
-  estrada.rotation.x = -Math.PI / 2;
-  estrada.position.set(CORREDOR.x, 0.04, (BASES[0].z + BASES[1].z) / 2);
-  estrada.receiveShadow = true;
-  g.add(estrada);
-
-  // Tracejado com InstancedMesh: centenas de traços num desenho só.
-  const tracos = [];
-  for (let z = -comp / 2 + 6; z < comp / 2 - 6; z += 24) {
-    if (Math.abs(z - MINERIO.z) < MINERIO.raio + 4) continue; // o depósito interrompe a estrada
-    for (const x of [-CORREDOR.largura / 2 + 2, CORREDOR.largura / 2 - 2]) tracos.push([CORREDOR.x + x, z, 'borda']);
-    tracos.push([CORREDOR.x, z, 'meio']);
-  }
-  for (const tipo of ['borda', 'meio']) {
-    const lista = tracos.filter((t) => t[2] === tipo);
-    const mat = tipo === 'borda' ? matNeon(CORES.circuito) : matNeon(new THREE.Color('#cfe9ff'));
-    mat.emissiveIntensity = tipo === 'borda' ? 0.8 : 0.5;
-    // A estrada já é puxada para a frente (polygonOffset) para não brigar com o chão;
-    // o traço precisa ser puxado mais ainda, senão some debaixo dela de longe.
-    mat.polygonOffset = true;
-    mat.polygonOffsetFactor = -6;
-    mat.polygonOffsetUnits = -6;
-    const inst = new THREE.InstancedMesh(new THREE.BoxGeometry(tipo === 'borda' ? 1.4 : 0.8, 0.12, 12), mat, lista.length);
-    const m = new THREE.Matrix4();
-    lista.forEach(([x, z], i) => inst.setMatrixAt(i, m.makeTranslation(x, heightAt(x, z) + 0.1, z)));
-    g.add(inst);
-  }
-
-  const azul = matNeon(CORES.circuito);
-  for (const e of ENTREGAS) {
-    const y = heightAt(e.x, e.z);
-    const placa = new THREE.Mesh(new THREE.BoxGeometry(e.largura, 0.5, e.profundidade), matMetal('#36424a', { roughness: 0.8 }));
-    placa.position.set(e.x, y + 0.1, e.z);
-    placa.receiveShadow = true;
-    g.add(placa);
-    const t = y + 0.4;
-    faixa(g, azul, e.x, t, e.z - e.profundidade / 2 + 0.5, e.largura - 1, 0.7);
-    faixa(g, azul, e.x, t, e.z + e.profundidade / 2 - 0.5, e.largura - 1, 0.7);
-    faixa(g, azul, e.x - e.largura / 2 + 0.5, t, e.z, 0.7, e.profundidade - 1);
-    faixa(g, azul, e.x + e.largura / 2 - 0.5, t, e.z, 0.7, e.profundidade - 1);
-    // Setas apontando para dentro da base: é para lá que o minério vai.
-    const s = Math.sign(BASES[e.time].z - e.z);
-    for (const dx of [-36, 0, 36]) {
-      faixa(g, azul, e.x + dx - 3, t, e.z, 9, 1, (s * Math.PI) / 4);
-      faixa(g, azul, e.x + dx + 3, t, e.z, 9, 1, (-s * Math.PI) / 4);
-    }
-  }
-  return g;
-}
-
-/**
- * Depósito de minério: chão de rocha azulada e cristais azul-gelo, os grandes por
- * cima dos cilindros sólidos da planta, e lascas baixas espalhadas na coroa onde os
- * mineradores vão carregar.
- */
-function criarMinerio() {
-  const g = new THREE.Group();
-  const rnd = mulberry32(99);
-  const cristal = new THREE.MeshStandardMaterial({
-    color: CORES.minerio,
-    emissive: CORES.minerio,
-    emissiveIntensity: 0.55,
-    roughness: 0.35,
-    metalness: 0.1,
-    flatShading: true,
-  });
-  const brilhos = [];
-  const chao = new THREE.Mesh(
-    new THREE.CircleGeometry(MINERIO.raio, 40),
-    new THREE.MeshStandardMaterial({ color: '#3f4a55', roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -3 }),
-  );
-  chao.rotation.x = -Math.PI / 2;
-  chao.position.set(MINERIO.x, heightAt(MINERIO.x, MINERIO.z) + 0.06, MINERIO.z);
-  chao.receiveShadow = true;
-  g.add(chao);
-  for (const o of OBSTACULOS.filter((o) => o.nome === 'cristal')) {
-    const alt = o.topo - o.chao;
-    const n = 3 + Math.floor(rnd() * 3);
-    for (let k = 0; k < n; k++) {
-      // Octaedro esticado: ponta fina para cima, inclinado para fora do centro.
-      const a = rnd() * Math.PI * 2;
-      const r = k === 0 ? 0 : o.raio * (0.3 + rnd() * 0.4);
-      const h = k === 0 ? alt : alt * (0.45 + rnd() * 0.35);
-      const pedra = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), cristal);
-      pedra.scale.set(o.raio * (k === 0 ? 0.6 : 0.35), h / 2, o.raio * (k === 0 ? 0.6 : 0.35));
-      pedra.position.set(o.x + Math.cos(a) * r, o.chao + h / 2 - 0.5, o.z + Math.sin(a) * r);
-      pedra.rotation.set(Math.sin(a) * 0.25, rnd() * Math.PI, Math.cos(a) * 0.25);
-      pedra.castShadow = true;
-      g.add(pedra);
-    }
-  }
-  for (let k = 0; k < 40; k++) {
-    const a = rnd() * Math.PI * 2;
-    const r = 28 + rnd() * (MINERIO.raio - 32);
-    const x = MINERIO.x + Math.cos(a) * r;
-    const z = MINERIO.z + Math.sin(a) * r;
-    const h = 0.8 + rnd() * 1.4; // lasca baixa: a nave passa por cima
-    const lasca = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), cristal);
-    lasca.scale.set(0.5 + rnd() * 0.4, h / 2, 0.5 + rnd() * 0.4);
-    lasca.position.set(x, heightAt(x, z) + h / 2 - 0.2, z);
-    lasca.rotation.set(rnd() * 0.6 - 0.3, rnd() * 3, rnd() * 0.6 - 0.3);
-    g.add(lasca);
-  }
-  brilhos.push(cristal);
-  g.userData.brilhos = brilhos;
-  return g;
-}
-
-/**
- * Objetivos (âmbar, a cor de "tome isto"): A é uma marcação de pouso com losango;
- * B é a torre (sólida, da planta) num pedestal, com faixas e farol âmbar; C é a
- * arena do guardião, um círculo marcado com triângulo no meio e pilares baixos em
- * volta.
- *
- * O estado de cada um vem do servidor (snapshot `obj`) e muda o desenho por
- * definirObjetivo (devolvida por criarCena): em recarga o anel âmbar para de
- * pulsar e fica apagado; a torre B caída some e deixa destroços baixos (abaixo da
- * altura de voo, sem colisão) em volta do pedestal.
- */
-function criarObjetivos() {
-  const g = new THREE.Group();
-  const ambar = matNeon(CORES.objetivo);
-  const placaMat = matMetal('#4d4a3c', { roughness: 0.8 });
-  const escuro = matMetal('#3a3630', { roughness: 0.75 });
-  const pulsam = [];
-  const porObjetivo = new Map();
-  const anelChao = (x, y, z, r, mat = ambar, lados = 48) => {
-    const anel = new THREE.Mesh(new THREE.TorusGeometry(r, 0.5, 4, lados), mat);
-    anel.rotation.x = Math.PI / 2;
-    anel.position.set(x, y, z);
-    g.add(anel);
-    return anel;
-  };
-  for (const o of OBJETIVOS) {
-    const y = heightAt(o.x, o.z);
-    const estado = { pulsam: [], apagado: false, torre: null, destrocos: null };
-    porObjetivo.set(o.id, estado);
-    const antes = pulsam.length;
-    if (o.tipo === 'A') {
-      const a = AREAS_POUSO.find((p) => p.objetivo === o.id);
-      const alt = a.piso + 0.6;
-      const placa = new THREE.Mesh(new THREE.CylinderGeometry(a.raio + 1, a.raio + 2, alt, 24), placaMat);
-      placa.position.set(o.x, y + a.piso - alt / 2, o.z);
-      placa.receiveShadow = true;
-      g.add(placa);
-      const t = y + a.piso + 0.15;
-      pulsam.push(anelChao(o.x, t, o.z, a.raio, matNeon(CORES.objetivo)));
-      // Losango (toro de 4 lados) com um ponto no meio.
-      anelChao(o.x, t, o.z, a.raio * 0.45, ambar, 4);
-      const ponto = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 0.3, 4), ambar);
-      ponto.position.set(o.x, t, o.z);
-      g.add(ponto);
-    } else if (o.tipo === 'B') {
-      const torre = OBSTACULOS.find((t) => t.objetivo === o.id);
-      const alt = torre.topo - torre.chao;
-      const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(o.raio * 0.5, o.raio * 0.6, 2, 6), placaMat);
-      pedestal.position.set(o.x, y + 1, o.z);
-      pedestal.receiveShadow = true;
-      const corpo = new THREE.Mesh(new THREE.CylinderGeometry(torre.raio * 0.55, torre.raio, alt - 4, 6), escuro);
-      corpo.position.set(o.x, y + 2 + (alt - 4) / 2 - 2, o.z);
-      corpo.castShadow = true;
-      // A torre (o que cai) num grupo só; o pedestal fica.
-      const deTorre = new THREE.Group();
-      deTorre.add(corpo);
-      g.add(pedestal, deTorre);
-      for (const k of [0.3, 0.6]) {
-        const fx = new THREE.Mesh(new THREE.CylinderGeometry(torre.raio * (1 - 0.45 * k) + 0.2, torre.raio * (1 - 0.45 * k) + 0.2, 0.8, 6), ambar);
-        fx.position.set(o.x, y + alt * k, o.z);
-        deTorre.add(fx);
-      }
-      const farol = new THREE.Mesh(new THREE.OctahedronGeometry(2.2, 0), matNeon(CORES.objetivo));
-      farol.position.set(o.x, y + alt + 1, o.z);
-      pulsam.push(farol);
-      deTorre.add(farol);
-      anelChao(o.x, y + 0.15, o.z, o.raio);
-      // Destroços da torre caída: lascas escuras deitadas em volta do pedestal,
-      // até 1,5 m de altura (a nave passa por cima).
-      const destrocos = new THREE.Group();
-      for (let k = 0; k < 7; k++) {
-        const a = (k / 7) * Math.PI * 2 + 0.4;
-        const r = o.raio * 0.6 + (k % 3) * 2.5;
-        const lasca = new THREE.Mesh(new THREE.BoxGeometry(1.6 + (k % 2), 1.2, 3 + (k % 3)), escuro);
-        lasca.position.set(o.x + Math.cos(a) * r, heightAt(o.x + Math.cos(a) * r, o.z + Math.sin(a) * r) + 0.5, o.z + Math.sin(a) * r);
-        lasca.rotation.set(0.3 * (k % 2), a, 0.25);
-        lasca.castShadow = true;
-        destrocos.add(lasca);
-      }
-      destrocos.visible = false;
-      g.add(destrocos);
-      estado.torre = deTorre;
-      estado.destrocos = destrocos;
-    } else {
-      // Arena do guardião: anel largo, anel interno e triângulo no meio.
-      const piso = new THREE.Mesh(new THREE.CircleGeometry(o.raio, 32), new THREE.MeshStandardMaterial({ color: '#3a2a20', roughness: 1, polygonOffset: true, polygonOffsetFactor: -2 }));
-      piso.rotation.x = -Math.PI / 2;
-      piso.position.set(o.x, y + 0.05, o.z);
-      piso.receiveShadow = true;
-      g.add(piso);
-      pulsam.push(anelChao(o.x, y + 0.15, o.z, ARENA_C, matNeon(CORES.objetivo), 64));
-      anelChao(o.x, y + 0.15, o.z, o.raio);
-      anelChao(o.x, y + 0.15, o.z, o.raio * 0.5, ambar, 3);
-      for (let k = 0; k < 8; k++) {
-        // Pilares baixos (2 m, a nave passa por cima) marcando a arena.
-        const ang = (k / 8) * Math.PI * 2;
-        const px = o.x + Math.cos(ang) * (ARENA_C + 3);
-        const pz = o.z + Math.sin(ang) * (ARENA_C + 3);
-        const pilar = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.8, 1.4), escuro);
-        pilar.position.set(px, heightAt(px, pz) + 0.9, pz);
-        pilar.castShadow = true;
-        const luz = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.35, 1.5), ambar);
-        luz.position.set(px, heightAt(px, pz) + 1.9, pz);
-        g.add(pilar, luz);
-      }
-    }
-    estado.pulsam = pulsam.slice(antes);
-  }
-  g.userData.pulsam = pulsam;
-  g.userData.porObjetivo = porObjetivo;
-  return g;
-}
-
-/** Ponto onde decoração pode ficar: chão aberto, longe de construção e de tudo que é do jogo. */
-function livreParaDecorar(x, z) {
-  if (!noMapaAberto(x, z) || alturaSolida(x, z, 8) !== heightAt(x, z)) return false;
-  if (Math.abs(x - CORREDOR.x) < CORREDOR.largura / 2 + 12) return false;
-  if (BASES.some((b) => Math.hypot(x - b.x, z - b.z) < b.raio + 10)) return false;
-  return !OBJETIVOS.some((o) => Math.hypot(x - o.x, z - o.z) < ARENA_C + 12);
-}
-
-/**
- * Canos ao longo do corredor, pedras no chão (mais perto das rochas) e torres de
- * treliça no alto das mesas. Tudo só decoração, sem colisão: o que fica no chão
- * tem até 2,5 m e a nave passa por cima.
- */
-function criarDecoracao() {
-  const g = new THREE.Group();
-  const rnd = mulberry32(1234);
-  const ferrugem = matMetal('#6d3420', { metalness: 0.5, roughness: 0.8 });
-  const ferrugemClara = matMetal('#8a4a2a', { metalness: 0.4, roughness: 0.85 });
-  const pedra = new THREE.MeshStandardMaterial({ color: '#5e3a26', roughness: 1, flatShading: true });
-
-  // Canos deitados dos dois lados do corredor, fora da estrada.
-  for (let z = CORREDOR.zInicio + 40; z < CORREDOR.zFim - 40; z += 50 + rnd() * 60) {
-    const lado = rnd() < 0.5 ? -1 : 1;
-    const x = CORREDOR.x + lado * (CORREDOR.largura / 2 + 14 + rnd() * 10);
-    const comp = 18 + rnd() * 26;
-    if (Math.abs(z - MINERIO.z) < MINERIO.raio + comp) continue;
-    // Nada de cano atravessando o pé de uma torreta (ela é de server/torretas.js).
-    if (TORRETAS.some((t) => Math.sign(t.x - CORREDOR.x) === lado && Math.abs(t.z - z) < comp / 2 + 12)) continue;
-    const h = Math.max(heightAt(x, z - comp / 2), heightAt(x, z), heightAt(x, z + comp / 2));
-    const cano = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, comp, 8), ferrugem);
-    cano.rotation.x = Math.PI / 2;
-    cano.position.set(x, h + 1.2, z);
-    cano.castShadow = cano.receiveShadow = true;
-    g.add(cano);
-    for (const k of [-0.4, 0.4]) {
-      const az = z + comp * k;
-      const apoio = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2, 0.8), ferrugemClara);
-      apoio.position.set(x, heightAt(x, az) + 0.6, az);
-      g.add(apoio);
-    }
-  }
-
-  // Pedras: metade em volta das mesas, metade solta no deserto.
-  let pedras = 0;
-  for (let t = 0; t < 30000 && pedras < 360; t++) {
-    let x;
-    let z;
-    if (t % 2 === 0 && MESAS.length) {
-      const m = MESAS[Math.floor(rnd() * MESAS.length)];
-      const a = rnd() * Math.PI * 2;
-      const r = Math.hypot(m.bx - m.ax, m.bz - m.az) / 2 + m.r + 10 + rnd() * 40;
-      x = m.cx + Math.cos(a) * r;
-      z = m.cz + Math.sin(a) * r;
-    } else {
-      x = (rnd() * 2 - 1) * (MAP_HALF_X - 100);
-      z = (rnd() * 2 - 1) * (MAP_HALF_Z - 100);
-    }
-    if (!livreParaDecorar(x, z)) continue;
-    const r = 0.8 + rnd() * 1.4; // baixa: a nave (5 m) passa por cima
-    const rocha = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), pedra);
-    rocha.position.set(x, heightAt(x, z) + r * 0.3, z);
-    rocha.rotation.set(rnd() * 3, rnd() * 3, rnd() * 3);
-    rocha.scale.y = 0.6 + rnd() * 0.4;
-    rocha.castShadow = rocha.receiveShadow = true;
-    g.add(rocha);
-    pedras++;
-  }
-
-  // Torre de treliça no alto de cada mesa (silhueta contra o céu).
-  for (const m of MESAS) {
-    const x = m.cx + (rnd() - 0.5) * m.r * 0.6;
-    const z = m.cz + (rnd() - 0.5) * m.r * 0.6;
-    if (paredeAt(x, z) < 0.97 || rnd() < 0.3) continue;
-    const alt = 18 + rnd() * 22;
-    const torre = new THREE.Group();
-    for (const [ox, oz] of [
-      [-2, -2],
-      [2, -2],
-      [-2, 2],
-      [2, 2],
-    ]) {
-      const perna = new THREE.Mesh(new THREE.BoxGeometry(0.6, alt, 0.6), ferrugem);
-      perna.position.set(ox, alt / 2, oz);
-      torre.add(perna);
-    }
-    for (let k = 1; k < 5; k++) {
-      const anel = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.4, 4.8), ferrugemClara);
-      anel.position.y = (alt * k) / 5;
-      torre.add(anel);
-    }
-    torre.position.set(x, heightAt(x, z) - 0.5, z);
-    torre.rotation.y = rnd() * Math.PI;
-    torre.traverse((o) => (o.castShadow = true));
-    g.add(torre);
-  }
-  return g;
-}
-
-function criarCeu() {
-  const geo = new THREE.SphereGeometry(2400, 32, 16);
-  const mat = new THREE.ShaderMaterial({
-    side: THREE.BackSide,
+/** Membrana do portal: redemoinho aditivo na cor do time (troca o portal_time do glb). */
+function membranaPortal(cor, centro, raio) {
+  return new THREE.ShaderMaterial({
+    transparent: true,
     depthWrite: false,
-    fog: false,
-    uniforms: {
-      topo: { value: CORES.ceuTopo },
-      meio: { value: CORES.ceuMeio },
-      horizonte: { value: CORES.horizonte },
-      solDir: { value: SOL_DIR },
-    },
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    uniforms: { uTempo: TEMPO_AGUA, uCor: { value: new THREE.Color(cor) }, uCentro: { value: centro }, uRaio: { value: raio } },
     vertexShader: `
-      varying vec3 vDir;
+      varying vec3 vLocal;
       void main() {
-        vDir = normalize(position);
+        vLocal = position;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }`,
     fragmentShader: `
-      uniform vec3 topo, meio, horizonte, solDir;
-      varying vec3 vDir;
+      uniform float uTempo, uRaio;
+      uniform vec3 uCor, uCentro;
+      varying vec3 vLocal;
       void main() {
-        float h = clamp(vDir.y, -0.2, 1.0);
-        vec3 c = mix(horizonte, meio, smoothstep(0.0, 0.18, h));
-        c = mix(c, topo, smoothstep(0.18, 0.7, h));
-        float s = max(dot(vDir, solDir), 0.0);
-        c += vec3(1.0, 0.75, 0.4) * pow(s, 400.0) * 3.0;  // disco do sol
-        c += vec3(1.0, 0.55, 0.25) * pow(s, 12.0) * 0.45;  // brilho em volta
-        gl_FragColor = vec4(c, 1.0);
+        vec2 p = (vLocal.zy - uCentro.zy) / uRaio;
+        float r = length(p);
+        float a = atan(p.y, p.x);
+        float espiral = 0.5 + 0.5 * sin(a * 3.0 + r * 9.0 - uTempo * 2.2);
+        float aneis = 0.5 + 0.5 * sin(r * 18.0 - uTempo * 3.0);
+        float k = mix(0.25, 0.75, espiral) * (0.7 + 0.3 * aneis);
+        k *= smoothstep(1.02, 0.85, r);
+        k += 0.35 * smoothstep(0.35, 0.0, r);
+        gl_FragColor = vec4(uCor * k * 0.85, 1.0);
       }`,
   });
-  return new THREE.Mesh(geo, mat);
 }
 
-// Metal com metalness baixo de propósito: sem mapa de ambiente, metal "de verdade"
-// fica preto (não há o que refletir) ou estoura no reflexo do sol.
-function matMetal(cor, extra = {}) {
-  return new THREE.MeshStandardMaterial({ color: cor, metalness: 0.3, roughness: 0.65, flatShading: true, ...extra });
+/** Feixe aditivo vertical (cilindro aberto que some no alto), da altura `altura`. */
+function criarFeixe(cor, raio, altura, opacidade = 0.4) {
+  const geo = new THREE.CylinderGeometry(raio, raio, 1, 16, 1, true);
+  geo.translate(0, 0.5, 0);
+  const pos = geo.attributes.position;
+  const cores = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) cores.fill(1 - pos.getY(i), i * 3, i * 3 + 3);
+  geo.setAttribute('color', new THREE.BufferAttribute(cores, 3));
+  const mat = new THREE.MeshBasicMaterial({
+    color: cor,
+    vertexColors: true,
+    blending: THREE.AdditiveBlending,
+    transparent: true,
+    opacity: opacidade,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const m = new THREE.Mesh(geo, mat);
+  m.scale.y = altura;
+  return m;
 }
 
-// Intensidade perto de 1: acima disso o tone mapping (ACES) puxa o neon para o
-// branco e o turquesa some.
-function matNeon(cor = CORES.neon) {
-  return new THREE.MeshStandardMaterial({ color: cor, emissive: cor, emissiveIntensity: 0.9 });
+function montarBase(g, b, meuTime) {
+  const cor = b.time === meuTime ? CORES.neon : CORES.perigo;
+  const neonTime = neon(cor);
+  const giro = b.time === 0 ? 0 : Math.PI;
+  const anim = { portal: null, feixe: null, neon: neonTime, base: b };
+
+  // Portal warp flutuante (a peça mais baixa a 31 m: a nave passa por baixo).
+  const p = daBase(b, PORTAL_WARP.lx, PORTAL_WARP.lz);
+  const portal = por(g, 'base-warp', p.x, 0, p.z, giro);
+  if (portal) {
+    pintar(portal, 'neon_time', neonTime);
+    const membrana = no(portal, 'portal_membrana');
+    if (membrana) {
+      membrana.geometry.computeBoundingBox();
+      const caixa = membrana.geometry.boundingBox;
+      const tam = caixa.getSize(new THREE.Vector3());
+      membrana.material = membranaPortal(cor, caixa.getCenter(new THREE.Vector3()), Math.max(tam.y, tam.z) / 2);
+      membrana.castShadow = false;
+      membrana.renderOrder = 2;
+    }
+    // Feixe fino da ponta da broca até a água, na cor do time.
+    const feixe = criarFeixe(cor, 0.8, 31 - NIVEL_AGUA, 0.3);
+    feixe.position.set(0, NIVEL_AGUA, 0);
+    portal.add(feixe);
+    anim.portal = portal;
+    anim.feixe = feixe;
+  }
+
+  // Anel de pouso (topo do deque = piso da área de pouso, onde a física apoia a nave).
+  const area = AREAS_POUSO.find((a) => a.base === b.time);
+  const anel = por(g, 'plataforma-base', b.x, heightAt(b.x, b.z) + area.piso, b.z, giro);
+  if (anel) pintar(anel, 'neon_time', neonTime);
+
+  // Evolução e Loja: deque com o anel na cor do serviço, o ícone e o nome no chão.
+  for (const s of SERVICOS.filter((s) => s.time === b.time)) {
+    const a = AREAS_POUSO.find((x) => x.servico === s.servico && x.time === s.time);
+    const y = heightAt(s.x, s.z) + a.piso;
+    const plat = por(g, 'plataforma-servico', s.x, y, s.z, giro);
+    const corServico = CORES[s.servico];
+    const mat = neon(corServico);
+    if (plat) pintar(plat, 'neon_servico', mat);
+    const marca = new THREE.Group();
+    marca.position.set(s.x, y + 0.06, s.z);
+    // O nome se lê de dentro da base, de quem olha para a lane (como a câmera ao nascer).
+    marca.rotation.y = s.time === 0 ? -Math.PI / 2 : Math.PI / 2;
+    if (s.servico === 'evolucao') {
+      for (const dz of [-3, 2.5]) {
+        traco(marca, mat, -2.4, 0, dz, 7, 0.8, Math.PI / 4);
+        traco(marca, mat, 2.4, 0, dz, 7, 0.8, -Math.PI / 4);
+      }
+    } else {
+      const moeda = new THREE.Mesh(new THREE.TorusGeometry(5, 0.45, 4, 24), mat);
+      moeda.rotation.x = Math.PI / 2;
+      marca.add(moeda);
+      traco(marca, mat, 0, 0, 0, 0.9, 6.5);
+    }
+    const nome = rotuloChao(s.servico === 'evolucao' ? 'EVOLUÇÃO' : 'LOJA', corServico, 17);
+    nome.position.set(0, 0.04, 12.5);
+    marca.add(nome);
+    g.add(marca);
+  }
+
+  // Entrega dos mineradores, na boca da base.
+  const e = ENTREGAS[b.time];
+  const entrega = por(g, 'entrega', e.x, 0, e.z, giro);
+  if (entrega) pintar(entrega, 'neon_time', neonTime);
+  return anim;
 }
 
+// ---------- Objetivos ----------
 
-/** Poeira flutuando em volta da câmera: dá noção de velocidade. */
-function criarPoeira() {
-  const n = 600;
-  const pos = new Float32Array(n * 3);
-  const rnd = mulberry32(77);
-  for (let i = 0; i < n * 3; i++) pos[i] = (rnd() * 2 - 1) * 80;
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const mat = new THREE.PointsMaterial({ color: '#ffc98f', size: 0.35, transparent: true, opacity: 0.55, depthWrite: false });
-  const pts = new THREE.Points(geo, mat);
-  pts.frustumCulled = false;
-  return pts;
+/** Torres de suporte (BS0/BS1): de pé e caída, uma de cada vez. */
+function montarTorres(g) {
+  const torres = new Map();
+  for (const b of BUFFS.filter((b) => b.tipo === 'suporte')) {
+    const ambar = neon(CORES.objetivo, OBJ_APAGADO);
+    const giro = b.time === 0 ? 0 : Math.PI;
+    const dePe = por(g, 'torre-suporte', b.x, heightAt(b.x, b.z), b.z, giro);
+    const caida = por(g, 'torre-suporte-caida', b.x, heightAt(b.x, b.z), b.z, giro);
+    for (const m of [dePe, caida]) if (m) pintar(m, 'neon_objetivo', ambar);
+    if (caida) caida.visible = false;
+    torres.set(b.id, { dePe, caida, ambar, nucleo: no(dePe, 'suporte_nucleo'), estado: 'espera' });
+  }
+  return torres;
+}
+
+/** Plataformas de pouso de ouro (P0/P1): deque âmbar e o feixe com alguém pousado. */
+function montarPlataformas(g) {
+  const plats = new Map();
+  for (const p of PLATAFORMAS_POUSO) {
+    const a = AREAS_POUSO.find((x) => x.plataforma === p.id);
+    const y = heightAt(p.x, p.z) + a.piso;
+    const ambar = neon(CORES.objetivo, OBJ_APAGADO);
+    const m = por(g, 'plataforma-pouso', p.x, y, p.z, p.time === 0 ? 0 : Math.PI);
+    if (m) pintar(m, 'neon_objetivo', ambar);
+    const feixe = criarFeixe(CORES.objetivo, FEIXE_PLATAFORMA.raio, FEIXE_PLATAFORMA.altura, 0.3);
+    feixe.position.set(p.x, y + FEIXE_PLATAFORMA.base, p.z);
+    feixe.visible = false;
+    g.add(feixe);
+    plats.set(p.id, { m, ambar, feixe, estado: 'espera', quem: null, contestado: false });
+  }
+  return plats;
+}
+
+/** Núcleo de He-3 (poço de cima): os nós que giram e os materiais que acendem. */
+function montarNucleo(g) {
+  const m = por(g, 'nucleo', NUCLEO.x, 0, NUCLEO.z, 0);
+  if (!m) return null;
+  const ambar = neon(CORES.objetivo, OBJ_APAGADO);
+  const he3 = neon(CORES.minerio, 0.35);
+  pintar(m, 'neon_objetivo', ambar);
+  pintar(m, 'neon_he3', he3);
+  return {
+    m,
+    ambar,
+    he3,
+    cristal: no(m, 'nucleo_cristal'),
+    lascas: no(m, 'nucleo_lascas'),
+    aneis: [1, 2, 3].map((i) => no(m, `nucleo_anel_${i}`)),
+    estado: 'espera',
+    vida: 1,
+    giro: NUCLEO_GIRO_PARADO,
+  };
+}
+
+// ---------- Asteroides e decoração ----------
+
+/** Sorteia o tipo (0 a 3) pelos pesos da receita. */
+function tipoAsteroide(r) {
+  const total = PESO_ASTEROIDE.reduce((a, b) => a + b, 0);
+  let x = r * total;
+  for (let i = 0; i < PESO_ASTEROIDE.length; i++) {
+    x -= PESO_ASTEROIDE[i];
+    if (x < 0) return i;
+  }
+  return 0;
 }
 
 /**
- * Monta a cena inteira. Retorna { scene, atualizar(dt, foco) }, onde foco é o
- * ponto (nave do jogador) que a sombra e a poeira acompanham. `meuTime` decide a
- * cor das bases (a sua em turquesa, a do outro time em vermelho).
+ * Campos de asteroides: ~26 pedaços por campo (receita da LISTA.md), mais densos no
+ * miolo, flutuando de 4 a 42 m e girando devagar. Um InstancedMesh por malha de cada
+ * tipo; a cada quadro só as matrizes mudam. Devolve animar(t).
+ */
+function montarAsteroides(g) {
+  const rnd = mulberry32(SEMENTE_ASTEROIDES);
+  const pedras = [[], [], [], []];
+  for (const a of ASTEROIDES) {
+    for (let k = 0; k < ASTEROIDES_POR_CAMPO; k++) {
+      // Metade com viés para o miolo (média de dois sorteios), metade uniforme.
+      const miolo = rnd() < 0.55;
+      const u = miolo ? (rnd() + rnd()) / 2 - 0.5 : rnd() - 0.5;
+      const v = miolo ? (rnd() + rnd()) / 2 - 0.5 : rnd() - 0.5;
+      pedras[tipoAsteroide(rnd())].push({
+        x: a.x + u * a.largura * 0.92,
+        z: a.z + v * a.profundidade * 0.92,
+        y: 4 + rnd() * 38,
+        giro: rnd() * Math.PI * 2,
+        incl: (rnd() * 2 - 1) * 0.6,
+        escala: 0.7 + rnd() * 0.6,
+        vel: (0.02 + rnd() * 0.06) * (rnd() < 0.5 ? -1 : 1),
+        fase: rnd() * Math.PI * 2,
+      });
+    }
+  }
+  const malhas = [];
+  pedras.forEach((lista, t) => {
+    if (!lista.length) return;
+    for (const { geometria, material } of partesDoModelo(`asteroide-${t + 1}`)) {
+      const inst = new THREE.InstancedMesh(geometria, material, lista.length);
+      inst.castShadow = true;
+      inst.receiveShadow = true;
+      inst.frustumCulled = false;
+      g.add(inst);
+      malhas.push({ inst, lista });
+    }
+  });
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const e = new THREE.Euler();
+  const p = new THREE.Vector3();
+  const s = new THREE.Vector3();
+  return (t) => {
+    for (const { inst, lista } of malhas) {
+      lista.forEach((a, i) => {
+        q.setFromEuler(e.set(a.incl, a.giro + a.vel * t, a.incl * 0.4));
+        p.set(a.x, a.y + Math.sin(t * 0.35 + a.fase), a.z);
+        inst.setMatrixAt(i, m.compose(p, q, s.setScalar(a.escala)));
+      });
+      inst.instanceMatrix.needsUpdate = true;
+    }
+  };
+}
+
+/** O ponto serve para decoração? Campo aberto com folga, longe de base, lane, acampamento e objetivo. */
+function lugarLivre(x, z, { folga = 30, foraDaLane = true } = {}) {
+  for (const [dx, dz] of [[0, 0], [folga, 0], [-folga, 0], [0, folga], [0, -folga]]) if (!noMapaAberto(x + dx, z + dz)) return false;
+  if (Math.abs(x) > 1060) return false; // bocas e bolsões das bases
+  if (foraDaLane && Math.abs(z - LANE.z) < LANE.meiaLargura + 40) return false;
+  if (ACAMPAMENTOS.some((a) => Math.hypot(x - a.x, z - a.z) < a.raio + 25)) return false;
+  if ([...BUFFS, ...PLATAFORMAS_POUSO].some((b) => Math.hypot(x - b.x, z - b.z) < 60)) return false;
+  if (OBSTACULOS.some((o) => Math.hypot(x - o.x, z - o.z) < (o.alcance ?? 10) + 25)) return false;
+  return true;
+}
+
+/**
+ * Decoração do lago, simétrica pela rotação de 180° (cada ponto sai com o par girado):
+ * pedras que furam a água (até 2,5 m acima do chão de voo: a nave passa por cima),
+ * pedras submersas, as ruínas, e corais, algas e cristais de He-3 no fundo.
+ * Devolve os sólidos que furam a água (espuma) e os cristais (brilho na água).
+ */
+function montarDecoracao(g) {
+  const rnd = mulberry32(SEMENTE_DECORACAO);
+  const furam = [];
+  const cristais = [];
+  const pares = (n, opcoes, fazer) => {
+    let feitos = 0;
+    for (let t = 0; t < n * 60 && feitos < n; t++) {
+      const x = (rnd() * 2 - 1) * 1060;
+      const z = (rnd() * 2 - 1) * 1040;
+      if (!lugarLivre(x, z, opcoes) || !lugarLivre(-x, -z, opcoes)) continue;
+      const giro = rnd() * Math.PI * 2;
+      const escala = 0.75 + rnd() * 0.5;
+      fazer(x, z, giro, escala);
+      fazer(-x, -z, giro + Math.PI, escala);
+      feitos++;
+    }
+  };
+  pares(7, { folga: 40 }, (x, z, giro, k) => {
+    const m = por(g, 'pedra-lago-1', x, 0, z, giro);
+    if (!m) return;
+    m.scale.set(k, 1, k);
+    furam.push({ x, z, raio: 15 * k });
+  });
+  pares(5, { folga: 30, foraDaLane: false }, (x, z, giro, k) => por(g, 'pedra-lago-2', x, 0, z, giro, { sombra: false })?.scale.set(k, 1, k));
+  por(g, 'ruina-submersa', -420, 0, 640, 0, { sombra: false });
+  por(g, 'ruina-submersa', 420, 0, -640, Math.PI, { sombra: false });
+  // Corais, algas e cristais: instanciados (muitos, pequenos, embaixo d'água).
+  const lugares = { coral: [], alga: [], 'cristais-he3': [] };
+  pares(12, { folga: 15, foraDaLane: false }, (x, z, giro, k) => lugares.coral.push({ x, z, giro, k }));
+  pares(12, { folga: 15, foraDaLane: false }, (x, z, giro, k) => lugares.alga.push({ x, z, giro, k }));
+  pares(9, { folga: 15, foraDaLane: false }, (x, z, giro, k) => {
+    lugares['cristais-he3'].push({ x, z, giro, k });
+    cristais.push({ x, z });
+  });
+  const fundo = FUNDO_LAGO - 3;
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const eixoY = new THREE.Vector3(0, 1, 0);
+  for (const [nome, lista] of Object.entries(lugares)) {
+    if (!lista.length) continue;
+    for (const { geometria, material } of partesDoModelo(nome)) {
+      const inst = new THREE.InstancedMesh(geometria, material, lista.length);
+      lista.forEach((l, i) => {
+        q.setFromAxisAngle(eixoY, l.giro);
+        inst.setMatrixAt(i, m.compose(new THREE.Vector3(l.x, fundo, l.z), q, new THREE.Vector3(l.k, l.k, l.k)));
+      });
+      inst.receiveShadow = true;
+      g.add(inst);
+    }
+  }
+  return { furam, cristais };
+}
+
+// ---------- Cena ----------
+
+/**
+ * Monta a cena inteira. Retorna { scene, atualizar(dt, foco), definirObjetivo(id,
+ * estado), definirMineracao(n) }: foco é o ponto (nave do jogador) que a sombra, o
+ * céu e as gotículas acompanham; definirObjetivo recebe o estado de cada objetivo do
+ * snapshot (obj[id]) e acende, apaga, derruba ou gira a peça dele; definirMineracao
+ * diz quantos mineradores estão minerando (o He-3 da mineradora brilha mais).
+ * `meuTime` decide as cores relativas (o seu time turquesa, o outro vermelho).
+ * Os modelos já têm de estar no cache (tela de carregamento).
  */
 export function criarCena({ meuTime = 0 } = {}) {
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(CORES.neblina, 120, 900);
+  scene.fog = new THREE.Fog(CORES.neblina, 280, 1500); // a névoa de guerra ajusta ao raio de visão
   scene.background = CORES.horizonte.clone();
 
-  scene.add(criarCeu());
-  scene.add(criarTerreno());
-  const bases = BASES.map((b) => criarBase(b, b.time === meuTime ? CORES.neon : CORES.perigo));
-  scene.add(...bases);
-  scene.add(criarCorredor());
-  const minerio = criarMinerio();
-  scene.add(minerio);
-  const objetivos = criarObjetivos();
-  scene.add(objetivos);
-  scene.add(criarDecoracao());
+  const ceu = criarCeu();
+  scene.add(ceu);
+  const mapa = new THREE.Group();
+  scene.add(mapa);
+  montarRochas(mapa);
+  montarMineradora(mapa, meuTime);
+  const bases = BASES.map((b) => montarBase(mapa, b, meuTime));
+  const torres = montarTorres(mapa);
+  const plataformas = montarPlataformas(mapa);
+  const nucleo = montarNucleo(mapa);
+  const animarAsteroides = montarAsteroides(mapa);
+  const deco = montarDecoracao(mapa);
+
+  // A água por cima de tudo o que é do fundo: brilho de He-3 sobre a mineradora, o
+  // Núcleo e os veios de cristal; espuma nas pedras que furam a água.
+  const agua = criarAgua({
+    ceu: CORES.neblina,
+    solDir: SOL_DIR,
+    pontosHe3: [
+      { x: 0, z: 0, raio: 260, forca: 0.22 },
+      { x: NUCLEO.x, z: NUCLEO.z, raio: 110, forca: 0.25 },
+      ...deco.cristais.slice(0, 6).map((c) => ({ x: c.x, z: c.z, raio: 35, forca: 0.14 })),
+    ],
+    extras: deco.furam,
+  });
+  scene.add(agua);
   const poeira = criarPoeira();
   scene.add(poeira);
 
-  scene.add(new THREE.HemisphereLight('#ffb27a', '#3b1c10', 1.1));
-  const sol = new THREE.DirectionalLight('#ffd3a1', 2.6);
+  scene.add(new THREE.HemisphereLight(HEMI_CEU, HEMI_CHAO, HEMI_INTENSIDADE));
+  const sol = new THREE.DirectionalLight(SOL_COR, SOL_INTENSIDADE);
   sol.castShadow = true;
   sol.shadow.mapSize.set(2048, 2048);
   const sc = sol.shadow.camera;
-  sc.left = sc.bottom = -110;
-  sc.right = sc.top = 110;
+  sc.left = sc.bottom = -120;
+  sc.right = sc.top = 120;
   sc.near = 10;
-  sc.far = 700;
+  sc.far = 900;
   sol.shadow.bias = -0.0008;
   sol.shadow.normalBias = 0.6;
   scene.add(sol, sol.target);
 
   let tempo = 0;
+  let minerando = 0;
+  let he3Atual = HE3_MIN;
+
   function atualizar(dt, foco) {
     tempo += dt;
-    sol.position.copy(foco).addScaledVector(SOL_DIR, 350);
+    TEMPO_AGUA.value = tempo;
+    ceu.position.copy(foco);
+    sol.position.copy(foco).addScaledVector(SOL_DIR, 500);
     sol.target.position.copy(foco);
-    // A poeira "dá a volta" num cubo de 160 m em torno do foco.
+    // As gotículas "dão a volta" num cubo de 160 m em torno do foco.
     const p = poeira.geometry.attributes.position;
-    poeira.position.set(0, 0, 0);
     for (let i = 0; i < p.count; i++) {
       for (let k = 0; k < 3; k++) {
         const f = k === 0 ? foco.x : k === 1 ? foco.y : foco.z;
@@ -738,41 +702,106 @@ export function criarCena({ meuTime = 0 } = {}) {
       }
     }
     p.needsUpdate = true;
-    const pisca = Math.sin(tempo * 4) > 0.3 ? 1.2 : 0.1;
-    for (const b of bases) for (const l of b.userData.luzes) l.material.emissiveIntensity = pisca;
-    // Os objetivos pulsam (chamam atenção); em recarga ficam apagados. Os
-    // cristais "respiram" devagar.
-    const pulso = 0.8 + 0.35 * Math.sin(tempo * 3);
-    for (const est of objetivos.userData.porObjetivo.values()) {
-      for (const a of est.pulsam) a.material.emissiveIntensity = est.apagado ? OBJETIVO_APAGADO : pulso;
+
+    // He-3 "respira"; com minerador minerando, a mineradora acende mais.
+    const alvoHe3 = minerando > 0 ? HE3_MAX : HE3_MIN + 0.2;
+    he3Atual += (alvoHe3 - he3Atual) * (1 - Math.exp(-2 * dt));
+    const respira = he3Atual * (0.82 + 0.18 * Math.sin(tempo * 1.3));
+    const he3 = materialDoMapa('neon_he3');
+    if (he3) he3.emissiveIntensity = respira;
+    agua.userData.material.uniforms.uHe3Pulso.value = 0.6 + 0.4 * (respira / HE3_MAX);
+
+    // Bases: a ilha do portal boia devagar e o feixe da broca pulsa.
+    for (const b of bases) {
+      if (b.portal) b.portal.position.y = Math.sin((tempo / PORTAL_BOIA_S) * Math.PI * 2 + b.base.time * 2) * PORTAL_BOIA_M;
+      if (b.feixe) b.feixe.material.opacity = 0.22 + 0.1 * Math.sin(tempo * 1.7);
+      b.neon.emissiveIntensity = 0.85 + 0.15 * Math.sin(tempo * 2 + b.base.time);
     }
-    const brilho = 0.5 + 0.2 * Math.sin(tempo * 1.3);
-    for (const m of minerio.userData.brilhos) m.emissiveIntensity = brilho;
+
+    // Torres de suporte: o octaedro do alto gira e pulsa enquanto a torre está acesa.
+    for (const t of torres.values()) {
+      if (t.estado !== 'ativo') continue;
+      t.ambar.emissiveIntensity = 0.8 + 0.2 * Math.sin(tempo * 3);
+      if (t.nucleo) t.nucleo.rotation.y += dt * 1.2;
+    }
+
+    // Plataformas: feixe com alguém pousado (contestado pisca); acesa e livre, o âmbar pulsa.
+    for (const pl of plataformas.values()) {
+      if (pl.feixe.visible) pl.feixe.material.opacity = pl.contestado ? (Math.sin(tempo * 14) > 0 ? 0.4 : 0.1) : 0.24 + 0.08 * Math.sin(tempo * 5);
+      else if (pl.estado === 'ativo') pl.ambar.emissiveIntensity = 0.75 + 0.25 * Math.sin(tempo * 2.4);
+    }
+
+    // Núcleo: anéis cada um num eixo, lascas em órbita, cristal girando devagar.
+    if (nucleo) {
+      const ativo = nucleo.estado === 'ativo';
+      const alvo = ativo ? NUCLEO_GIRO_VIVO + (1 - nucleo.vida) * NUCLEO_GIRO_FERIDO : NUCLEO_GIRO_PARADO;
+      nucleo.giro += (alvo - nucleo.giro) * (1 - Math.exp(-1.5 * dt));
+      const w = nucleo.giro * dt;
+      const [a1, a2, a3] = nucleo.aneis;
+      a1?.rotateY(w);
+      a2?.rotateX(w * 0.8);
+      a3?.rotateZ(w * 1.2);
+      if (nucleo.lascas) nucleo.lascas.rotation.y += w * 0.7;
+      if (nucleo.cristal) {
+        nucleo.cristal.rotation.y += w * 0.4;
+        nucleo.cristal.position.y = 18 + (ativo ? Math.sin(tempo * 1.1) * 0.6 : 0);
+      }
+      nucleo.he3.emissiveIntensity = ativo ? 0.85 + 0.25 * Math.sin(tempo * (2 + (1 - nucleo.vida) * 4)) : 0.3;
+      nucleo.ambar.emissiveIntensity = ativo ? 0.9 : OBJ_APAGADO;
+    }
+
+    animarAsteroides(tempo);
   }
 
   /**
-   * Muda o desenho do objetivo `id` conforme o estado do servidor: `apagado` (em
-   * recarga) e, nos B, `torreDePe`.
+   * Estado de um objetivo (obj[id] do snapshot) no cenário: torre de suporte
+   * apagada em 'espera', acesa em 'ativo' e caída em 'recarga'; plataforma acesa em
+   * 'ativo', com o feixe na cor do time que está pousado (`quem`; âmbar piscando se
+   * contestado); Núcleo girando e brilhando em 'ativo', parado e apagado fora dele.
+   * Os outros (BA, SONDA, MEDUSA) são monstros: o cenário não muda.
    */
-  function definirObjetivo(id, { apagado = false, torreDePe = true } = {}) {
-    const est = objetivos.userData.porObjetivo.get(id);
-    if (!est) return;
-    est.apagado = apagado;
-    if (est.torre) {
-      est.torre.visible = torreDePe;
-      est.destrocos.visible = !torreDePe;
+  function definirObjetivo(id, r) {
+    if (!r) return;
+    const t = torres.get(id);
+    if (t) {
+      t.estado = r.estado;
+      const caida = r.estado === 'recarga';
+      if (t.dePe) t.dePe.visible = !caida;
+      if (t.caida) t.caida.visible = caida;
+      t.ambar.emissiveIntensity = r.estado === 'ativo' ? OBJ_ACESO : OBJ_APAGADO;
+      return;
+    }
+    const p = plataformas.get(id);
+    if (p) {
+      p.estado = r.estado;
+      p.quem = r.quem ?? null;
+      p.contestado = !!r.contestado;
+      p.feixe.visible = r.estado === 'ativo' && r.quem != null;
+      if (p.feixe.visible) p.feixe.material.color.copy(p.contestado ? CORES.objetivo : r.quem === meuTime ? CORES.neon : CORES.perigo);
+      p.ambar.emissiveIntensity = r.estado === 'ativo' ? OBJ_ACESO : OBJ_APAGADO;
+      return;
+    }
+    if (id === 'NUCLEO' && nucleo) {
+      nucleo.estado = r.estado;
+      nucleo.vida = r.estado === 'ativo' ? (r.vida ?? 1) : 1;
     }
   }
 
-  return { scene, atualizar, definirObjetivo };
+  /** Quantos mineradores estão minerando agora (o He-3 da mineradora acende mais). */
+  function definirMineracao(n) {
+    minerando = n;
+  }
+
+  return { scene, atualizar, definirObjetivo, definirMineracao };
 }
 
 /**
  * Libera da GPU tudo o que a cena usa (geometrias, materiais, texturas e o mapa de
  * sombra do sol). Chamado ao sair da partida: cada entrada monta uma cena nova, e
- * sem isto a memória de vídeo cresceria a cada sair/entrar. Texturas compartilhadas
- * (o brilho de nave.js) podem ser liberadas sem medo: o Three.js as envia de novo
- * na próxima vez que forem desenhadas.
+ * sem isto a memória de vídeo cresceria a cada sair/entrar. Geometrias, materiais e
+ * texturas compartilhados (os modelos do mapa em cache, o brilho de nave.js) podem
+ * ser liberados sem medo: o Three.js os envia de novo na próxima vez que forem
+ * desenhados.
  */
 export function liberarCena(scene) {
   scene.traverse((o) => {
@@ -780,6 +809,7 @@ export function liberarCena(scene) {
     const materiais = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
     for (const m of materiais) {
       for (const v of Object.values(m)) if (v?.isTexture) v.dispose();
+      if (m.uniforms) for (const u of Object.values(m.uniforms)) if (u?.value?.isTexture) u.value.dispose();
       m.dispose();
     }
     o.shadow?.dispose();

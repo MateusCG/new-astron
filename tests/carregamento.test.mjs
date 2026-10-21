@@ -5,10 +5,22 @@
 // viraria download falho na entrada ou, pior, um arquivo baixando no meio da partida.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { insumosDaNave, texturasDaArma, sonsDaArma, golpesDaArma, quadrosDe, texturaDoEfeito, SONS_GERAIS, SEQUENCIAS } from '../public/js/insumos.js';
+import {
+  insumosDaNave,
+  insumosDoMapa,
+  texturasDaArma,
+  sonsDaArma,
+  golpesDaArma,
+  quadrosDe,
+  texturaDoEfeito,
+  SONS_GERAIS,
+  SEQUENCIAS,
+  ESPECIES_MONSTRO,
+} from '../public/js/insumos.js';
+import { ESPECIES } from '../server/especies.js';
 import { RACAS_JOGAVEIS, ORDEM_CLASSES, linhaDe } from '../shared/naves.js';
 import { WEAPONS, ARMAS, armasDisponiveis } from '../shared/armas.js';
 import { SONS_INTERFACE } from '../public/js/sons.js';
@@ -75,4 +87,25 @@ test('carregamento: golpes de todas as versões, com subprojétil e o que a mina
       for (let g = v.golpe; g; g = g.divide ?? g.dispara ?? null) assert.ok(golpes.includes(g), `${kind} V${v.nivel}`);
     }
   }
+});
+
+test('carregamento: todos os modelos do mapa e dos monstros entram na lista, e todo arquivo da lista existe', () => {
+  const { mapa, monstros } = insumosDoMapa();
+  // Cada .glb das pastas está na lista (um modelo novo do Cenário não fica de fora da tela de carregamento).
+  const naPasta = (pasta) => readdirSync(path.join(PUBLIC, pasta)).filter((f) => f.endsWith('.glb')).map((f) => f.replace(/\.glb$/, ''));
+  assert.deepEqual(new Set(mapa.map((m) => m.nome)), new Set(naPasta('modelos/mapa')));
+  assert.deepEqual(new Set(monstros.map((m) => m.nome)), new Set(naPasta('modelos/monstros')));
+  for (const m of [...mapa, ...monstros]) assert.ok(existe(m.url), m.url);
+  assert.equal(new Set(mapa.map((m) => m.url)).size, mapa.length);
+  assert.equal(new Set(monstros.map((m) => m.url)).size, monstros.length);
+  // As peças que a cena monta pelos nomes (cena.js) e os efeitos da Medusa (monstros.js).
+  for (const nome of ['borda-quadrante', 'borda-quadrante-espelhada', 'fundo-lago', 'mineradora', 'base-warp', 'nucleo', 'torre-suporte', 'torre-suporte-caida', 'plataforma-pouso']) {
+    assert.ok(mapa.some((m) => m.nome === nome), nome);
+  }
+  for (const nome of ['medusa-sangue', 'medusa-bolha']) assert.ok(monstros.some((m) => m.nome === nome), nome);
+});
+
+test('carregamento: toda espécie do servidor tem modelo (a esp do protocolo é o nome do glb)', () => {
+  assert.deepEqual(new Set(ESPECIES_MONSTRO), new Set(Object.keys(ESPECIES)));
+  for (const esp of ESPECIES_MONSTRO) assert.ok(existe(`modelos/monstros/${esp}.glb`), esp);
 });

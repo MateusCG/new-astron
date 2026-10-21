@@ -6,8 +6,8 @@ Guia obrigatório para qualquer coisa que entre no jogo: cenário, nave, inimigo
 
 **Ficção científica industrial, low-poly facetado, em planetas hostis ao entardecer.**
 
-- A referência é o AstroN (naves voando baixo por cânions e bases, painel metálico verde-azulado). É **inspiração, não cópia**: nada de sprites, modelos, logos ou nomes tirados do jogo original. **Exceção, por decisão do Mateus (out/2026):** entram do AstroN original as **45 naves de jogador com classe** das raças Acron, Bellico e Shrewdo (`public/modelos/naves/<raca>/<classe>/<id>.glb`, low-poly de ~170 a ~740 triângulos, com a textura própria de cada uma; as faces do avesso de algumas são corrigidas ao carregar, `orientarFaces` em `nave.js`), os **modelos das armas** (`public/modelos/armas/`), as **texturas dos efeitos de tiro** (`public/texturas/efeitos/`) e os **sons** (`public/sons/`), cada pasta com a sua `LISTA.md`. Outra coisa do jogo original só entra com a mesma decisão explícita.
-- Fora as naves de jogador, as armas penduradas nelas, os efeitos de tiro e os sons, tudo é **feito em código** (primitivas do Three.js, shaders e ruído), sem texturas fotográficas. O estilo low-poly é escolha estética e de desempenho: roda no navegador e no celular.
+- A referência é o AstroN (naves voando baixo por cânions, lagos e bases, painel metálico verde-azulado). É **inspiração, não cópia**: nada de sprites, modelos, logos ou nomes tirados do jogo original. **Exceção, por decisão do Mateus (out/2026):** entram do AstroN original as **45 naves de jogador com classe** das raças Acron, Bellico e Shrewdo (`public/modelos/naves/<raca>/<classe>/<id>.glb`, low-poly de ~170 a ~740 triângulos, com a textura própria de cada uma; as faces do avesso de algumas são corrigidas ao carregar, `orientarFaces` em `nave.js`), os **modelos das armas** (`public/modelos/armas/`), as **texturas dos efeitos de tiro** (`public/texturas/efeitos/`) e os **sons** (`public/sons/`), cada pasta com a sua `LISTA.md`. **Também por decisão do Mateus (out/2026, mapa do Stage 6):** entram os **modelos dos monstros do Stage 6** e do **SN-4** (chefe do Stage 5), com a textura própria (`public/modelos/monstros/<esp>.glb`, com `LISTA.md`). Outra coisa do jogo original só entra com a mesma decisão explícita.
+- Fora as naves de jogador, as armas penduradas nelas, os efeitos de tiro, os sons e os monstros, tudo é **feito em código** (primitivas do Three.js, shaders e ruído) **ou modelado por nós no Blender** (os modelos do mapa em `public/modelos/mapa/`, gerados por script `bpy`, low-poly facetado, só cor + emissivo, sem textura; fontes e scripts em `~/Documentos/new-astron-progresso/mapa-stage6/`; o Stage 6 do original foi só referência de forma e clima), sem texturas fotográficas. O estilo low-poly é escolha estética e de desempenho: roda no navegador e no celular.
 - Três camadas de cor em toda cena:
   1. **Ambiente** quente e dessaturado (rocha, areia, céu);
   2. **Tecnologia** em cinza-metal com **neon turquesa**;
@@ -15,7 +15,7 @@ Guia obrigatório para qualquer coisa que entre no jogo: cenário, nave, inimigo
 
   Se uma cor nova não se encaixa em uma dessas três, provavelmente está errada. As
   exceções são as **cores de jogo do mapa** (abaixo, em "Mapa da partida"): âmbar dos
-  objetivos, azul do circuito do minério e as cores dos serviços. Elas marcam lugares
+  objetivos, azul-gelo do Hélio-3 e as cores dos serviços. Elas marcam lugares
   com regra própria e só aparecem no chão, no minimapa e na interface ligada a esses
   lugares (o painel de cada serviço usa a cor da plataforma dele).
 
@@ -111,39 +111,48 @@ As armas de jogador são as do AstroN original (`shared/armas.js`), com o **visu
 | Acelerado | `#7fd8ff` |
 | Camuflado | a nave vira um **fantasma** `#9fb4c8` para você e os aliados; o outro time não a vê |
 
-**Bônus na nave** (vem do `bonus` do snapshot, pelo time da nave): **Fúria** (objetivo C, +20% de dano) = anel fino `#ffb627` âmbar, aditivo, deitado em volta da nave (raio 7,5 m), pulsando devagar, sem partículas, em toda nave de jogador do time com o bônus (a sua inclusive). É âmbar porque vem de um objetivo; é anel, e não nuvem, porque brilho difuso âmbar some no deserto alaranjado e para não parecer aura de arma.
+**Bônus na nave** (vêm do `bn` de cada nave e do `bonus` do time; `public/js/efeitos.js`): anéis aditivos deitados em volta da nave, sem partículas, um por bônus (é anel, e não nuvem, para não parecer aura de arma). No HUD, ícones âmbar com o tempo, empilhados à esquerda acima do painel (o da sonda apaga enquanto ela está suspensa em combate); no placar, só o da Medusa.
+
+| Bônus | Cor | Raio | Jeito |
+|---|---|---|---|
+| Ataque (SN-4, +20% de dano) | âmbar `#ffb627` | 7,5 m | pulsa |
+| Suporte (torre, regeneração) | verde `#7dff9a` | 8,2 m | abre para fora |
+| Sonda (+25% de velocidade) | azul `#7fd8ff` | 6,4 m | três arcos girando |
+| Medusa (time: dano e velocidade) | violeta `#e7a6ff` | 9,6 m | largo e lento |
 
 As cores de tiro e de aura são cores de **efeito de arma**, fora das três camadas de cena: só aparecem em tiro, aura e ícone de arma, nunca em cenário ou interface comum.
 
-### Mapa da partida (M1, 3 contra 3)
+### Mapa da partida: o lago de He-3 (3 contra 3)
 
-O mapa segue `DESIGN-PARTIDA.md` e `shared/terrain.js`. Cores em `public/js/cena.js` (`CORES`) e no minimapa (`public/js/hud.js`).
+O mapa segue `DESIGN-PARTIDA.md` e `shared/terrain.js`; o visual é inspirado no **Stage 6** do original (lago, Warp Gate alto e flutuante), com modelos nossos do Blender (`public/modelos/mapa/`, `LISTA.md` com medidas, pivôs e onde pôr cada peça) montados em `public/js/cena.js`.
 
-**Cor das bases é relativa a quem olha:** a base do **seu time** tem neon **turquesa** `#00efc0`; a do **outro time**, neon **vermelho** `#ff3b2a` (perigo). As duas são a mesma planta (girada 180°): plataforma com anel de pouso, hangares, antenas, portal na boca do corredor. No código: `criarCena({ meuTime })` e `new Hud({ meuTime })` (padrão 0 enquanto o cliente não sabe o time).
+**Cor de time é relativa a quem olha:** o que é do **seu time** tem neon **turquesa** `#00efc0`; o do **outro time**, **vermelho** `#ff3b2a`. Os `.glb` marcam isso pelo **nome do material**, e o cliente pinta (`public/js/mapa-modelos.js`, `pintar()`): `neon_time` (acento do time), `portal_time` (membrana do portal), `neon_doca_0`/`neon_doca_1` (luz da doca de cada time), `neon_servico` (violeta na Evolução, magenta na Loja); `neon_he3` (azul-gelo `#9fe8ff`) e `neon_objetivo` (âmbar `#ffb627`) são fixos.
 
 | Coisa | Cor | Forma | Significado |
 |---|---|---|---|
-| Base do seu time | metal `#5d6866`/`#3a4442` + neon `#00efc0` | Plataforma redonda com anel, hangares, antenas, portal | Nasce, pousa, conserta; zona segura |
-| Base do outro time | mesmo metal + neon `#ff3b2a` | A mesma planta | Base deles (também zona segura) |
-| Corredor dos mineradores | estrada `#4a3326`, bordas tracejadas `#4fb8ff`, linha do meio `#cfe9ff` | Faixa de 100 m em x = 0, aberta dos lados | Por onde os mineradores vão e voltam |
-| Entrega | placa `#36424a` com borda e setas `#4fb8ff` | Retângulo 120 × 30 m colado na boca de cada base | Onde o minerador entrega o minério |
-| Minério | cristais azul-gelo `#9fe8ff` (emissivos, "respiram"), chão `#3f4a55` | Cristais grandes sólidos no miolo, lascas baixas na coroa | Onde os mineradores carregam |
-| Evolução | violeta `#a58bff` | Placa retangular com borda, duas setas para cima e "EVOLUÇÃO" | Pousado e parado: abre o painel da Evolução (nave e mineradores) |
-| Loja | magenta `#ff6fd8` | Placa retangular com borda, moeda (anel + barra) e "LOJA" | Pousado e parado: abre o painel da Loja (armas, armaduras, itens) |
-| Objetivo A | âmbar `#ffb627` (pulsa) | Placa redonda com anel e losango no chão | **Pouse na marcação** para tomar |
-| Objetivo B | âmbar `#ffb627` | Torre escura sextavada (sólida) com faixas âmbar e farol no alto, anel no chão | **Destrua a torre** para tomar |
-| Objetivo C | âmbar `#ffb627` | Arena: anel largo de 60 m, anel interno, triângulo e pilares baixos | **Derrote o guardião** da arena |
-| Torreta | metal `#5d6866`/`#3a4442` + neon do **time** (turquesa as suas, vermelho `#ff3b2a` as do outro) | Torre sextavada de 16 m (sólida, `TORRETA` em `obstaculos.js`): pé baixo, corpo com faixa de neon, cabeça giratória na altura de voo com dois canos de boca neon, mastro com sensor (octaedro neon) no alto. A cabeça vira para o alvo; o sensor fica firme mirando e pulsa em repouso. Caída: o corpo tomba e afunda; ficam o pé (2,4 m), lascas e um cano solto (até 2,5 m, sem colisão). Reconstruída, sobe do chão (`public/js/torretas.js`) | Defesa do time no corredor |
-| Escolta | casco `#9aa5a3` + faixas, pontas de asa e bocas dos canos na cor do time | Casco de carga mais comprido e baixo que o minerador (~7 m), sem contêiner, asinhas curtas e uma torre de dois canos em cima que gira para onde atira (`criarEscolta` em `nave.js`) | Anda com os mineradores e atira |
-| Minerador | casco `#9aa5a3` + faixas do time; minério `#9fe8ff` (cristais) sobre bloco `#2f7fb8` | Mini-nave de carga de ~6 m (`criarMinerador` em `nave.js`): casco quadrado, cabine em pirâmide na frente, dois motores laterais, moldura de contêiner em cima. Cheio, aparecem o bloco e os cristais azuis no contêiner; minerando, desce um feixe azul-gelo pulsando até o chão | Leva o minério do depósito até a entrega |
+| Base (portal warp) | metal + `neon_time` | Ilha de rocha flutuando bem alto, com um anel em pé (centro a 124 m) e aletas na cor do time, membrana girando; embaixo, tubos que convergem numa ponta de broca e um feixe fino até a água. Anel de pouso e plataformas da Evolução e da Loja flutuando sobre o lago | Nasce, pousa, conserta; zona segura |
+| Entrega | `neon_time` | Arco flutuante na boca da base | Onde o minerador entrega |
+| **Mineradora de He-3** | metal escuro + He-3 `#9fe8ff` + docas na cor do time dono | Plataforma de perfuração que sobe do fundo do lago: pernas de âncora e veio de cristais no fundo, casco blindado em degraus (34, 55 e 64 m) com duto de He-3 em volta, torre de perfuração em treliça até 128 m, uma doca por face (boca de admissão, pórtico de carga acima de 31 m) | Bloqueia passagem, tiro e visão; os mineradores atracam na doca do time |
+| **Núcleo de He-3** | cristal `#9fe8ff` + anéis âmbar | Bipirâmide de cristal com três anéis de contenção, lascas orbitando, prato emissor e quatro agulhas flutuantes; gira mais rápido quanto menos vida | Objetivo épico (poço de cima) |
+| Pulso do Núcleo | azul-gelo, puxando para o vermelho com a força | Anel e cúpula que abrem até o raio (80 m) | Área que machuca |
+| Torre do buff de suporte | metal + âmbar | Torre com núcleo âmbar: apagada esperando, acesa ativa, o modelo caído em recarga | Destrua para o buff de suporte |
+| Plataforma de pouso (ouro) | âmbar | Plataforma flutuante; com alguém pousado, feixe de luz na cor do time de quem pousou (âmbar piscando se contestado), começando 7 m acima do deque | Pouse 6 s: ouro para o time |
+| Rochas, paredes em L e borda | estratos `#b59a74` / `#9c8062` / `#765c45` / `#4f3d2e`, molhada `#33302a` | Paredes em estratos saindo da água; a borda continua em montanhas até o horizonte | Bloqueio total |
+| Campos de asteroides | rocha | ~26 pedaços flutuando e girando devagar por campo, de 4 a 42 m de altura | Passáveis; escondem quem está dentro |
+| Torre sentinela | metal + neon do time | Torre sextavada de 16 m (sólida, `TORRETA`), cabeça giratória; o tiro é um míssil com corpo, curva e fumaça | Defesa do time na lane |
+| Escolta e minerador | casco `#9aa5a3` + faixas do time | Como antes; o **minerador do Núcleo** é 1,7× maior, com a carga sempre à mostra e brilho de He-3 pulsando | Mineração |
 
-- **Âmbar = objetivo.** Os três tipos usam âmbar e se distinguem pela forma (losango, torre, triângulo) e, no minimapa, pela letra.
-- **Estado do objetivo** (vem do servidor, `public/js/objetivos.js`): sobre cada marcação, um rótulo em chapa escura com a letra numa caixinha `--objetivo` e o estado em uma linha: o que fazer ("Pouse para tomar", "Destrua a torre", "Derrote o guardião", com barra de vida âmbar no B e no C), progresso ("Seu time · 6 s" em turquesa ou "Inimigo · 6 s" em vermelho, com barra na mesma cor), "Contestado" (âmbar piscando) ou a recarga ("Volta em 1:12 · seu time", letra e borda em cinza-areia `#8a7f6a`). Em recarga o âmbar da marcação **para de pulsar e apaga** (0,2). A torre B caída some e deixa **destroços** escuros baixos (até 1,5 m, sem colisão) em volta do pedestal, depois de uma explosão laranja + âmbar.
-- **Objetivos no minimapa:** em cima da letra, um arco de progresso do A na cor do time que está tomando (âmbar piscando se contestado), arco vermelho com a vida da torre B ou do guardião quando ferido; em recarga, a letra fica `#8a7f6a`, com um anel na cor de quem tomou e os segundos que faltam embaixo.
-- **Azul = circuito do minério** (estrada, entregas, cristais). Os cristais usam o mesmo azul-gelo do Criogênico, mas só no chão; aura em nave é sempre efeito de arma.
-- **Torretas no minimapa:** triângulo na cor do time (cheio de pé; só o contorno com a reconstrução esperando o lugar ficar livre) e um "x" cinza-areia `#8a7f6a` onde ela caiu. A **escolta** é um losango pequeno, entre a bolinha do minerador e o quadrado das naves. Rótulo da torreta: o mesmo das naves ("Torreta NV n" com a barra de vida), na cor do time.
-- **Minimapa:** retângulo inteiro do mapa; sua base em turquesa, a outra em vermelho, corredor em azul apagado, entregas e minério em azul, serviços em violeta e magenta, objetivos com a letra em âmbar.
-- **Mesas de rocha** do mundo aberto: a mesma rocha em estratos das paredes de cânion, com o alto mais claro (`#b9804f`) e torres de treliça em cima.
+- **Âmbar = objetivo.** Rótulo de estado sobre cada um, com ícone por tipo (espada = SN-4, escudo com cruz = suporte, moeda = plataforma, setas = sonda, água-viva = Medusa, cristal com anel = Núcleo), barra de vida ou de pouso e o tempo até voltar (`public/js/objetivos.js`).
+- **Azul-gelo = Hélio-3** (cristais, duto da mineradora, Núcleo, brilho na água), só no cenário; aura em nave é sempre efeito de arma.
+- **Minimapa:** retângulo do mapa na paleta do lago (água, rocha, asteroides), sua base em turquesa e a outra em vermelho, mineradora e docas, letras dos objetivos (A, S, $, V, M, N) com arco de vida ou de pouso e o tempo de recarga, torres em triângulo na cor do time, monstros em ponto vermelho redondo pelo tamanho (sonda 3 px, Armish e Chrometic 3,5, Xerxes e Bazit 4, Grande Xerxes e Anti 5,5, SN-4 6,5, Medusa 8).
+
+### Névoa de guerra
+
+O que o seu time não enxerga (`shared/visao.js`; ver `DESIGN-PARTIDA.md`, "Visão") fica **escuro e sem cor**, sem sumir o terreno: luz × 0,32 e 15% da cor, puxando para o frio `#1c2c33`, **nunca preto**. Borda suave (20 a 40 m), abrindo e fechando em 0,35 s. Campo de asteroides que o time não vê ganha uma **poeira** `#8fa6b2` mexendo devagar. O minimapa escurece igual. A neblina do horizonte vai de 550 a 1430 m, acompanhando o raio de visão. É um passo de tela inteira (`public/js/nevoa.js`), então vale para qualquer material.
+
+### Água (lago de He-3)
+
+Shader próprio (`public/js/agua.js`), superfície em `NIVEL_AGUA` (−16 m, abaixo do voo; o fundo a −60/−68): três senos de onda (~0,6 m) com normal facetada; cor rasa `#4fb3a6` a funda `#0e3f4a` por um mapa de distância às rochas (a água fica rasa e transparente perto delas); Fresnel 0,45 puxando para a cor do céu; brilho do sol em faíscas (expoente 600, força 0,45; mais que isso vira placa branca); espuma `#e9f3ea` serrilhada onde a rocha está a menos de 6 m; brilho de He-3 sobre a mineradora e os cristais; cáusticas `#bff3e6` fracas (0,12 no fundo, 0,10 na rocha) que somem com a profundidade; o fundo e a rocha molhada não recebem sombra.
 
 ### Planetas (biomas)
 
@@ -151,7 +160,8 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 
 | Planeta | Céu topo / meio / horizonte | Neblina | Rocha | Chão | Status |
 |---|---|---|---|---|---|
-| **M1 Cânion (Bellico)** | `#2a0f1c` / `#a8402a` / `#f59a45` | `#c96a3a` | `#5a2f1e` a `#a8683e` em estratos | `#6e3f24` a `#9b6239` | **feito** (`public/js/cena.js`, `CORES`): mapa da partida 3 contra 3 |
+| **Lago de He-3 (Stage 6)** | `#22304a` / `#9a8574` / `#ebcba2` | `#d8b993` | `#4f3d2e` a `#b59a74` em estratos | água `#4fb3a6` / `#0e3f4a`, fundo `#4a4b40` | **feito** (`public/js/cena.js`, `public/js/agua.js`): mapa da partida 3 contra 3 |
+| M1 Cânion (Bellico) | `#2a0f1c` / `#a8402a` / `#f59a45` | `#c96a3a` | `#5a2f1e` a `#a8683e` em estratos | `#6e3f24` a `#9b6239` | saiu (substituído pelo lago em out/2026) |
 | Base Shrewdo | `#1d3b5c` / `#6f9cc4` / `#d8e6ee` | `#b9cdd8` | metal `#5d6866` | concreto `#7a817f` | planejado |
 | Vale tóxico (Mechan) | `#1a0820` / `#6a1f5e` / `#c0508a` | `#7a3460` | `#4a3328` | `#5c4a2a` com poças `#7dff6a` | planejado |
 | Mar raso (Acron) | `#04131f` / `#0f4c6b` / `#5fc9d6` | `#3e8fa0` | `#2c3d45` | água `#0f5a6e` | planejado |
@@ -162,18 +172,22 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 - **Metal sem mapa de ambiente:** `metalness` até **0.5** e `roughness` de **0.4 a 0.8**. Metal alto sem nada para refletir fica preto ou estoura no reflexo do sol.
 - **Neon:** material com `color` e `emissive` iguais e `emissiveIntensity` entre **0.8 e 1.2**. Acima disso o tone mapping (ACES) puxa para o branco e a cor some. Luz piscando vai de 0.1 a 1.2.
 - **Uma cor de destaque por objeto.** Hangar e portal: cinza + neon da base (turquesa na sua, vermelho na do outro time). Nave de jogador: a textura do modelo do original + neon do time nas pontas das asas.
-- **Inimigos são orgânicos:** formas irregulares (icosaedro, espinhos), pele escura `#4a1414`/`#8c2a1f` e **olho vermelho emissivo**. Nunca usar o visual "nave limpa" dos jogadores neles.
-- **Cada inimigo tem silhueta própria**, para o jogador saber de longe o que vem:
+- **Monstros são os do original** (Stage 6 e o SN-4), cada um com a textura própria; a regra antiga "pele escura e olho vermelho" não vale para eles. **O perigo fica no vermelho da interface:** rótulo e barra vermelhos, ponto vermelho no minimapa e o brilho `#ff4a2a` em todo tiro de monstro. Cada um tem silhueta própria (`public/js/monstros.js`):
 
-  | Inimigo | Forma | Comportamento |
+  | Monstro | Forma | Papel |
   |---|---|---|
-  | Arnosh (drone) | Disco de icosaedro com espinhos em volta, olho na frente | Patrulha e atira de longe |
-  | Vorax (monstro) | Comprido, três gomos (cabeça, tórax, cauda com ferrão), espinhos nas costas, duas garras em foice que abrem e fecham | Caça de qualquer distância e ataca de perto; o golpe de garra é uma faísca `#ff4a2a` em quem leva |
-  | Krakor (elite) | "Tanque" largo e alto (~17 m): carapaça em cúpula, chifre comprido para a frente, placas espinhentas em duas fileiras no lombo, seis patas curtas penduradas que balançam devagar, um olho embaixo do chifre | Raro e lento; guarda o covil e cospe plasma (tiro inimigo vermelho) em quem chega perto |
-  | Guardião (objetivo C) | Colosso **vertical** (~23 m de altura): núcleo facetado, coroa de sete chifres abertos no alto, três lascas de carapaça girando em volta, olho grande na frente | Único em cada arena; atira um leque de três plasmas e não sai da arena |
+  | Armish | peixe-girino compacto (12 m) | pequeno do acampamento da base |
+  | Chrometic | peixe-diabo comprido (12 m) | pequeno do acampamento da base |
+  | Xerxes | dragão de asas de morcego (13 m) | pequeno do acampamento do centro |
+  | Bazit | criatura de asas abertas (13 m) | pequeno do acampamento do centro |
+  | Grande Xerxes | o dragão 2× maior e vermelho (26 m) | grande do centro |
+  | Anti | forma larga e achatada (26 m) | grande do centro |
+  | SN-4 | máquina suspensa com quatro garras (30 m) | buff de ataque |
+  | Ancient Medusa | água-viva de cúpula dourada (48 m), centro a 18 m, cúpula respirando, sangue e bolhas do original em volta | chefe épico |
+  | Sonda errante | inseto azul (8 m), menor que a nave | neutra, foge |
 
-  No minimapa todo inimigo é ponto vermelho, maior quanto mais perigoso: Arnosh 3 px, Vorax 4,5, Krakor 6, guardião 7.
-- **Área de pouso é sempre marcada no chão**, com a cor do que ela é: anel com o neon da base (turquesa na sua), placa violeta da Evolução, placa magenta da Loja, anel âmbar do objetivo A (`AREAS_POUSO`). Nenhum anel turquesa no chão pode existir fora da sua base, para o jogador não confundir.
+  **Ataques de monstro** (sempre com o brilho `#ff4a2a`): pedra marrom girando; onda elétrica = anel azulado; bala explosiva = bola laranja; feixe óptico = feixes rosados; controle = leque de raios azul-violeta; mísseis com fumaça; armadilha = orbes pulsando; chama = cone laranja; campo elétrico = disco azulado com borda vermelha.
+- **Área de pouso é sempre marcada no chão**, com a cor do que ela é: anel com o neon da base (turquesa na sua), placa violeta da Evolução, placa magenta da Loja, plataforma âmbar de ouro (`AREAS_POUSO`). Nenhum anel turquesa no chão pode existir fora da sua base, para o jogador não confundir.
 - **Tudo projeta sombra** (`castShadow`), e o terreno a recebe.
 
 ### Escala de referência
@@ -182,23 +196,23 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 |---|---|
 | Nave de jogador | 9,6 m (1ª nave da linha) a 11,6 m (5ª) na média de comprimento × envergadura; a Assault 4% maior, a Mobile 3% menor; envergadura no máximo 1,45× esse tamanho (o modelo é escalado ao carregar, em `nave.js`) |
 | Minerador | ~6 m de comprimento, ~4 m de largura (metade da nave), voa na mesma altura (`HOVER`) |
-| Krakor | ~17 m de comprimento, ~10 m de largura (acerto com raio 8 m, `KRAKOR.raio`) |
-| Guardião | ~23 m de altura, lascas girando a 9 m do centro (acerto com raio 10 m) |
+| Monstros | sonda 8 m, Armish/Chrometic 12, Xerxes/Bazit 13, Grande Xerxes/Anti 26, SN-4 30, Medusa 48 de largura × ~43 de altura (acerto com raio 4 a 20 m, `ESPECIES`) |
 | Altura de voo | 10 m acima do chão (`HOVER`) |
 | Nave pousada | 1,4 m (`ALTURA_POUSADO`), com trem de pouso visível e motores quase apagados |
-| Parede de cânion / mesa de rocha | ~50 a 95 m; começa com um degrau vertical de ~20 m (nem de lado a nave sobe) |
-| Mapa | 3000 × 2000 m (`MAP_HALF_X`, `MAP_HALF_Z`), muralha só na borda |
-| Base de time | raio 200 m (`BASES`) |
-| Corredor dos mineradores | 100 m de largura (`CORREDOR`) |
-| Hangar | 26 × 14 × 18 m |
-| Decoração no chão do cânion | **até 2,5 m de altura** (a nave passa por cima; não há colisão com decoração) |
+| Rocha (quadrante, parede em L, borda) | quadrante 360 × 135 m, topo 74–110; paredes em L com 40 m de espessura, topo 84–100; borda 100–165 m (montanhas até o horizonte); começa com um degrau vertical de 30% da altura (nem de lado a nave sobe) |
+| Mapa | 3000 × 2240 m (`MAP_HALF_X`, `MAP_HALF_Z`) |
+| Água | superfície a −16 m (`NIVEL_AGUA`), fundo a −60/−68 m |
+| Base de time | zona segura de raio 170 m (`BASES`), num bolsão no fim da lane; portal warp de 31 a 224 m (anel de raio 46 com centro a 124 m) |
+| Lane | 180 m de largura (`LANE`), sem pista |
+| Mineradora | 140 × 230 m, sólida até 95 m; do fundo (−64) à ponta da torre (134 m) |
+| Decoração | acima do chão de voo **até 2,5 m** (pedras que furam a água, balizas; a nave passa por cima, sem colisão); **embaixo da água**, qualquer altura; **acima de 30 m** podem flutuar peças sem colisão (portal, pórtico da doca, arco da entrega, estabilizadores do Núcleo; asteroides até 42 m são passáveis por regra) |
 | Torreta do corredor | 16 m de altura, raio 4,5 m (canhão na altura de voo) |
-| Construções (hangar, portal, antena, cristais do minério, torre do objetivo B, torretas) | **sólidas**: nave e tiro batem. Tamanho e posição saem de `shared/obstaculos.js`, nunca só do `cena.js` |
+| Construções (mineradora, torre do buff de suporte, torretas) | **sólidas**: nave e tiro batem. Tamanho e posição saem de `shared/obstaculos.js`, nunca só do `cena.js` |
 
 ## Luz e atmosfera
 
-- **Sol baixo e quente**, que desenha silhuetas e sombras longas. A direção do sol (`SOL_DIR`) bate com o disco desenhado no céu.
-- **Luz hemisférica** com o céu quente em cima e marrom escuro embaixo: sombra nunca é preta pura.
+- **Sol quente e não muito alto** (no lago, elevação ~25°), que desenha silhuetas e sombras longas. A direção do sol (`SOL_DIR`) bate com o disco desenhado no céu.
+- **Luz hemisférica** com o céu quente em cima e, no lago, verde-azulado embaixo (`#3a6e69`, a luz que volta da água; mais escuro, o fundo da ilha do portal ficava preto): sombra nunca é preta pura.
 - **Tone mapping ACES**, com exposição em torno de 1.05.
 - **Poeira flutuando** em volta da câmera em todo planeta com atmosfera (dá noção de velocidade).
 
@@ -213,10 +227,10 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 
 - **Painel inferior em chapa metálica** (degradê `--chapa-clara` para `--chapa`, cantos de cima mais arredondados, contorno `--neon-escuro`). Barras de HP e EN com rótulo à esquerda e número à direita, em fonte mono. Embaixo delas, uma **barra de XP** mais baixa (12 px) em `--xp`, com "NV n" à esquerda e "xp / próximo" à direita ("máx." no nível 20).
 - **Tamanhos do painel inferior e da Loja (desktop):** painel inferior com 940 px de largura, barras HP/EN 26 px e ESC/XP 20 px, ícones de arma e item 26 px, linha de recarga 3 px; em telas baixas a cena sobe um pouco (`setViewOffset`: 54 px em 720 de altura, nada a partir de ~980 px) para a nave e a dica de pouso não ficarem embaixo do painel. Loja e Evolução quase na largura toda (`min(1720px, 100% − 32px − lateral)`, altura até o painel inferior, cartões a partir de 230 px, ícones 28 px); menu de armas 920 px.
-- **Recall (volta à base):** quem canaliza vê, no centro da tela acima da nave (a 26% do alto, longe da barra do objetivo A), um painel escuro com borda `--neon-escuro` e brilho turquesa: "Voltando à base · 3,2 s" em `--neon` (segundos em mono) e a barra `--neon` enchendo. No 3D, qualquer nave canalizando fica dentro de uma **coluna de luz** aditiva na **cor do time** (turquesa `#00efc0` do seu, vermelho `#ff3b2a` do outro), de ~12 m de diâmetro e ~46 m de altura, que some no alto (cor dos vértices até o preto) e acende e afina com o progresso, com três anéis finos subindo cada vez mais rápido e um clarão na nave; ao sumir e ao aparecer na base, um feixe alto e curto (0,7 s) na mesma cor. Nada no chão (anel turquesa no chão é só pouso). No celular, o botão BASE (64 px) fica à esquerda do POUSAR e acende em `--neon` enquanto canaliza.
+- **Recall (volta à base):** quem canaliza vê, no centro da tela acima da nave (a 26% do alto, longe da barra do pouso na plataforma), um painel escuro com borda `--neon-escuro` e brilho turquesa: "Voltando à base · 3,2 s" em `--neon` (segundos em mono) e a barra `--neon` enchendo. No 3D, qualquer nave canalizando fica dentro de uma **coluna de luz** aditiva na **cor do time** (turquesa `#00efc0` do seu, vermelho `#ff3b2a` do outro), de ~12 m de diâmetro e ~46 m de altura, que some no alto (cor dos vértices até o preto) e acende e afina com o progresso, com três anéis finos subindo cada vez mais rápido e um clarão na nave; ao sumir e ao aparecer na base, um feixe alto e curto (0,7 s) na mesma cor. Nada no chão (anel turquesa no chão é só pouso). No celular, o botão BASE (64 px) fica à esquerda do POUSAR e acende em `--neon` enquanto canaliza.
 - **Subiu de nível:** dois anéis finos `--xp` (aditivos) abrindo em volta da nave até ~14 m e subindo, com um clarão suave, por 1,2 s; vale para qualquer nave (a sua e as dos outros). Notícia "Nível n! HP máximo maior".
-- **Pouso no objetivo A:** acima da dica de pouso, um painel escuro com borda âmbar e a barra de progresso: "Tomando o objetivo A · 6,2 s" (turquesa), "O inimigo está tomando" (vermelho), "Contestado" (âmbar piscando) ou "Objetivo A em recarga · volta em 1:12".
-- **Minimapa** no canto superior esquerdo, **placar** no superior direito (na mesma chapa do painel: minério do seu time em turquesa à esquerda, tempo `mm:ss` em fonte mono no meio, que pisca em `#ff8a70` no último minuto, minério do outro time em vermelho à direita; embaixo de cada número, os bônus ativos do time como ícone de traço âmbar + segundos: cristal = mineração, setas = velocidade, escudo = durabilidade, raio = fúria; na **fase final** (últimos 3 min), uma faixa âmbar "MINÉRIO ×2" na largura do placar, separada por um fio âmbar, que pisca ao começar), **notícias** logo abaixo do placar (descem junto quando a faixa aparece), **avisos** no centro da tela.
+- **Pouso na plataforma de ouro:** a dica diz "Pouse 6 s: ouro para o time" (pousado: "sem tiro enquanto pousada") e, acima dela, a barra do pouso enchendo até 6 s, com contestado e recarga.
+- **Minimapa** no canto superior esquerdo, **placar** no superior direito (na mesma chapa do painel: minério do seu time em turquesa à esquerda, tempo `mm:ss` em fonte mono no meio, que pisca em `#ff8a70` no último minuto, minério do outro time em vermelho à direita; embaixo de cada número, o bônus de time ativo (Medusa) como ícone de traço + segundos; na **fase final** (últimos 3 min), uma faixa âmbar "MINÉRIO ×2" na largura do placar, separada por um fio âmbar, que pisca ao começar), **notícias** logo abaixo do placar (descem junto quando a faixa aparece), **avisos** no centro da tela.
 - **Tela de fim de partida** (`#fim-partida`): painel em chapa no alto e centro, sem bloquear o jogo, com "VITÓRIA" (turquesa com brilho), "DERROTA" (vermelho com brilho) ou "EMPATE" (texto claro), uma frase curta, o placar grande (seu time × outro) e "Nova partida em Ns".
 - **Menu de armas** (`#menu-armas`, Q edita a arma do Z, E a do X; um elemento só, com o título "Arma do Z" / "Arma do X"): painel na mesma chapa do painel inferior, no **alto e centro** da tela, para a nave continuar à vista (o jogo não pausa). Com 18 a 28 armas por raça e classe, ele **rola**: em cima, "SUAS ARMAS" (as de fábrica e as compradas), na ordem das categorias do original, com as teclas 1 a 9 e 0 nas dez primeiras; embaixo, apagadas e agrupadas por categoria, as que estão "NA LOJA". Cada carta: tecla, ícone e nome em português, nível da arma ("NV 3", mono, `--neon`), etiquetas de tipo de dano (LASER, FÍSICO, ELÉTRICO) e papel (ATAQUE; BLOQUEIO, REFORÇO e SUPORTE com contorno `--neon-escuro` e texto `--neon`), dano / energia / recarga da versão e uma linha do que a arma faz. A arma deste encaixe tem borda `--neon` e o selo "EM USO"; a do outro encaixe, borda tracejada `--neon-escuro` e o selo "NO X" (ou "NO Z"). Linha da troca entre o título e as cartas: "Na base: troca livre" em `--neon`, "Fora da base: trocar trava o encaixe por 3 s" em texto, e com a recarga contando "Troca do Z em recarga: 2,1 s" em `#ff8a70`, com as outras cartas apagadas (0,4). **Ícone de arma** (SVG de traço, sem preenchimento): um desenho por categoria (traços paralelos ou em leque para feixe e metralhadora, carga para canhão, foguete para míssil, hélice para lâmina, espinhos para mina, anel para nova, escudo/raio para dispositivo), na **cor do projétil do original** (`--cor-arma`).
 - **Painel da Loja e da Evolução** (`#servico`, um elemento para os dois; `public/js/servicos.js`): abre sozinho com a nave pousada e parada na plataforma do serviço da própria base, na mesma chapa do painel inferior, no **alto e centro** (como o menu de armas, que abre por cima dele). A **cor do serviço** é a da plataforma no chão: borda de cima, título com brilho, aba ativa e selos em `--loja` (magenta) na Loja e `--evolucao` (violeta) na Evolução. No cabeçalho, o **ouro em destaque** (`--ouro`, mono, 20 px, com brilho) e o botão ✕. Abas: Loja = Armas · Evoluir · Armaduras · Itens. Na aba Armas, só as da raça e da classe, com **filtro por categoria** (pílulas "Todas 26 · Feixe 6 · ..." na cor do serviço) e, em cada cartão, o nome em português com o original em inglês pequeno embaixo, a linha do que faz e a linha mono de dano / recarga / energia. Na aba Evoluir, um cartão por arma possuída com "NV n" (a versão do original, V1 a V5) mono na cor do serviço ao lado do nome, o que muda na próxima versão, o nível de piloto que ela pede e os tracinhos do nível na cor do serviço; selo "EVOLUIR" ou "MÁX." apagado (versão não pede nível); Evolução = Nave · Mineradores do time · Torretas. Na aba Torretas: um cartão com o nível do time (tracinhos como nas melhorias) e um por torreta do time, com a barra de vida fina em `--neon` e o selo "DE PÉ · n%" (é seu), "RECONSTRUIR" com o preço (caída; barra vazia tracejada em `#ff8a70`) ou "SUBINDO" apagado; ícones de torreta e de reconstruir (seta para cima) em traço `--neon`. **Cartões** em grade (mín. 150 px): ícone de traço e nome, uma linha de efeito, preço em `--ouro` mono ("120 ouro") e o selo do estado à direita: "COMPRAR" / "ESCOLHER" / "NÍVEL n" na cor do serviço (disponível); "COMPRADA · Q/E equipa" e "EQUIPADA" em `--neon` com borda neon (é seu); "SEM OURO" com preço e selo em `#ff8a70`; "PEDE NV 10", "JÁ TEM MELHOR", "CHEIO 3/3", "MÁX." e "COMPLETA" apagados (0,45). Na Evolução da nave (aba Nave), cinco cartões com a linha de naves da raça e da classe: nome e "NV n", **miniatura 3D** da nave (renderizada uma vez por modelo, `public/js/vitrine.js`), HP / energia / velocidade com a diferença para a atual em `--neon` (e a regeneração em voo nas Bellico), preço em `--ouro` e o selo: "ATUAL" em `--neon` com borda neon, "COMPRAR" na cor do serviço, "PEDE NV n", "SEM OURO" e "JÁ PASSOU" apagados. Melhorias dos mineradores com tracinhos de nível acesos na cor do serviço. Embaixo, uma linha com a resposta do servidor (boa em `--neon`, ruim em `#ff8a70`). **Ícones da Loja/Evolução** (SVG de traço, como os de arma): armas com o próprio ícone de arma; armadura = escudo `--neon` com 1 a 3 divisas; Kit de reparo = cruz em quadrado `--hp`; Célula de energia = bateria com raio `--en`; Casco de carga em `--hp`, Mais mineradores, Blindagem e Motor de carga em `--neon`. Fechado com ESC ainda pousado, a dica de pouso vira botão: "Loja · Enter ou toque abre · L decola".

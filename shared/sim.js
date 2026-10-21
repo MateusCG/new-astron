@@ -75,10 +75,9 @@ export const BOOST_GASTO = 14; // energia por segundo
 export const ENERGIA_REGEN = 9; // por segundo, sem boost (nave sem regenEn própria)
 
 /**
- * Física de quem não é nave de jogador com classe (drones, Vorax, Krakor, guardião,
- * mineradores, escoltas, e a raça sem naves): só a velocidade máxima conta para a
- * IA deles (o HP cada um põe o seu). Os números são os da raça Mechan de antes,
- * para drones e Vorax andarem como andavam.
+ * Física de quem não é nave de jogador com classe (monstros da jungle, mineradores,
+ * escoltas, e a raça sem naves): só a velocidade máxima conta para a IA deles (o
+ * HP cada um põe o seu). Os números são os da raça Mechan de antes.
  */
 export const NAVE_SEM_CLASSE = { hp: 250, energia: 60, velocidade: 52.25 }; // velocidade em m/s
 
@@ -708,7 +707,7 @@ export function stepBullet(b, dt = DT) {
 /**
  * O tiro passou pela nave neste passo? Teste de segmento contra cilindro vertical,
  * para tiro rápido não atravessar nave sem acertar entre um passo e outro. Monstro
- * grande (os elites) leva `s.raio` maior que o da nave.
+ * grande leva `s.raio` maior que o da nave (o da espécie, server/especies.js).
  */
 export function bulletHits(b, s) {
   const raio = (b.raio ?? WEAPONS[b.kind]?.raio ?? 0) + (s.raio ?? SHIP_RADIUS);

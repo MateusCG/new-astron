@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { World, ZONA_SEGURA } from '../server/game.js';
+import { World } from '../server/game.js';
 import {
   tempoRenascer,
   ouroEncerrar,
@@ -19,11 +19,11 @@ import {
   ENCERRAR_OURO_MAX,
 } from '../server/progressao.js';
 import { createShip, IDX_ARMA } from '../shared/sim.js';
-import { BASE } from '../shared/terrain.js';
+import { CAMPO } from './lugares.mjs';
 
 const SEGUNDO = 30; // ticks
-const X0 = BASE.x;
-const Z0 = BASE.z - ZONA_SEGURA - 150; // mundo aberto ao norte da base 0
+const X0 = CAMPO.x;
+const Z0 = CAMPO.z; // jungle do time 0, fora da zona segura
 
 function rngFixo(semente = 1) {
   let s = semente;
@@ -36,7 +36,7 @@ function rngFixo(semente = 1) {
  * todas as armas (ship.armas indefinido).
  */
 function arena(n, opcoes = {}) {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, rng: rngFixo(), ...opcoes });
+  const w = new World({ jungle: false, torretas: false, rng: rngFixo(), ...opcoes });
   w.mineradores.passo = () => {};
   const js = [];
   for (let i = 0; i < n; i++) {

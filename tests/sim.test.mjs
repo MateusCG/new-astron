@@ -24,6 +24,7 @@ import {
 } from '../shared/sim.js';
 import { podePousar, topoPouso, AREAS_POUSO } from '../shared/terrain.js';
 import { NAVES, ORDEM_CLASSES } from '../shared/naves.js';
+import { rumoLane } from './lugares.mjs';
 
 const FRENTE = { th: 1, tu: 0, b: false, f1: false, f2: false };
 const PARADO = { th: 0, tu: 0, b: false, f1: false, f2: false, p: false };
@@ -43,7 +44,7 @@ test('nave acelera até a velocidade da nave (raça, classe e tier) e flutua aci
     for (const classe of ORDEM_CLASSES) for (const n of NAVES[race][classe]) casos.push([race, classe, n.tier, n.velocidade]);
   }
   for (const [race, classe, tier, mps] of casos) {
-    const s = createShip(race, BASE.x, BASE.z, 0, classe, tier);
+    const s = createShip(race, BASE.x, BASE.z, rumoLane(), classe, tier);
     for (let i = 0; i < 90; i++) stepShip(s, FRENTE);
     const v = Math.hypot(s.vx, s.vz);
     const max = mps;
@@ -157,7 +158,7 @@ test('armas: canos paralelos saem lado a lado (Feixe Duplo) e o leque com os ân
 });
 
 test('lento: nave lenta voa a uma fração da velocidade máxima e depois volta', () => {
-  const s = createShip('shrewdo', BASE.x, BASE.z, 0);
+  const s = createShip('shrewdo', BASE.x, BASE.z, rumoLane());
   const max = velocidadeBase(s);
   const DUR = 2;
   const MULT = 0.6;

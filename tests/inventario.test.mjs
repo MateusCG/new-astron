@@ -11,7 +11,7 @@ import { World } from '../server/game.js';
 import { iniciar } from '../server/index.js';
 import { hpMaxDoNivel } from '../server/progressao.js';
 import { naveDe } from '../shared/naves.js';
-import { BASES, SERVICOS, OBJETIVOS } from '../shared/terrain.js';
+import { BASES, SERVICOS, PLATAFORMAS_POUSO } from '../shared/terrain.js';
 import { EQUIPAMENTOS, versaoEquip, precoEvoluirEquip } from '../shared/equipamentos.js';
 import { COMPARTIMENTO_MAX, ARMA_COPIAS_MAX, precoArma, armasAVenda } from '../shared/loja.js';
 import { PONTO_MAX, efeitoDosPontos, somaEquipamento } from '../shared/status.js';
@@ -27,7 +27,7 @@ const DURABILIDADE = 'e340001'; // Potenciador de Durabilidade
 const ENERGIA = 'e340004'; // Potenciador de Energia
 
 function mundo(opcoes = {}) {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false, ...opcoes });
+  const w = new World({ jungle: false, torretas: false, ...opcoes });
   w.mineradores.passo = () => {};
   return w;
 }
@@ -191,8 +191,8 @@ test('inventário: equipar vale em qualquer lugar, vivo; categoria, classe e ins
   const arm = novo(w, j, ARMADURA);
   const r = novo(w, j, REFORCO);
   const d = novo(w, j, DURABILIDADE);
-  // Longe da base, voando (até no objetivo A, na base do outro time...).
-  const a = OBJETIVOS.find((o) => o.tipo === 'A');
+  // Longe da base, voando (até na plataforma de pouso, na base do outro time...).
+  const a = PLATAFORMAS_POUSO[0];
   Object.assign(j.ship, { x: a.x + 40, z: a.z, vx: 30, pousado: false });
   assert.deepEqual(equipar(w, j, 'escudo', esc), { t: 'resultado', acao: 'equipar', item: 'escudo', ok: true });
   assert.equal(j.ship.maxEscudo, versaoEquip(ESCUDO, 1).maxEscudo);
@@ -291,9 +291,9 @@ test('inventário: vender dá metade do pago, só do compartimento, na própria 
   assert.deepEqual(vender(w, j, e), { t: 'resultado', acao: 'vender', item: e, ok: false, codigo: 'nao_pousado' });
   pousar(j, 'loja', 1 - j.time);
   assert.equal(vender(w, j, e).codigo, 'nao_pousado', 'Loja do outro time');
-  const obj = OBJETIVOS.find((o) => o.tipo === 'A');
+  const obj = PLATAFORMAS_POUSO[0];
   pousarEm(j, obj.x, obj.z);
-  assert.equal(vender(w, j, e).codigo, 'nao_pousado', 'objetivo A não é base');
+  assert.equal(vender(w, j, e).codigo, 'nao_pousado', 'plataforma de pouso não é base');
   // No anel da própria base vale (qualquer área de pouso dela).
   pousarEm(j, BASES[j.time].x, BASES[j.time].z);
   assert.equal(vender(w, j, fabrica.id).codigo, 'invalido', 'arma de fábrica não se vende');

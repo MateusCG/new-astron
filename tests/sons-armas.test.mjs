@@ -85,7 +85,7 @@ test('efeitos: toda textura da LISTA existe e todo PNG está na LISTA', () => {
 });
 
 test('servidor: serve som, modelo de arma e textura de efeito com o tipo certo', async () => {
-  const srv = await iniciar({ porta: 0, world: new World({ drones: 0, monstros: 0, elites: 0, torretas: false }) });
+  const srv = await iniciar({ porta: 0, world: new World({ jungle: false, torretas: false }) });
   try {
     const casos = [
       ['/sons/shot_ray.wav', 'audio/wav'],

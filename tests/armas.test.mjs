@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { World, ZONA_SEGURA } from '../server/game.js';
+import { World } from '../server/game.js';
 import {
   ARMAS,
   IDX_ARMA,
@@ -44,8 +44,8 @@ import {
   CATEGORIAS,
 } from '../shared/armas.js';
 import { NAVES, RACAS_JOGAVEIS, ORDEM_CLASSES, naveDe } from '../shared/naves.js';
-import { BASE } from '../shared/terrain.js';
 import { pontoLivre } from '../shared/obstaculos.js';
+import { CAMPO } from './lugares.mjs';
 
 const PARADO = { ...INPUT_VAZIO };
 const idx = (id) => IDX_ARMA['o' + id];
@@ -230,7 +230,7 @@ test('validação: arma de outra raça, de outra classe, de NPC ou não possuíd
 });
 
 test('validação: no servidor, o encaixe só aceita arma da raça e classe que o piloto possui', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
+  const w = new World({ jungle: false, torretas: false });
   const j = w.addPlayer('A', 'bellico', 'mobile');
   // Na própria base (troca livre).
   const outraClasse = idx('212002'); // Canhão de Magma em Leque: Bellico Assault
@@ -318,8 +318,8 @@ test('stepShip: segurar a tecla (Acelerador) acelera e gasta energia por segundo
 
 test('stepShip: teleporte salta para a frente, recuando até achar chão livre', () => {
   const a = idx('112021'); // Teleporte, Acron Mobile
-  const x0 = BASE.x;
-  const z0 = BASE.z - ZONA_SEGURA - 100;
+  const x0 = CAMPO.x;
+  const z0 = CAMPO.z;
   const s = createShip('acron', x0, z0, 0, 'mobile');
   s.encaixes = [a, s.encaixes[1]];
   const d = stepShip(s, { ...PARADO, f1: true, a });
@@ -328,11 +328,11 @@ test('stepShip: teleporte salta para a frente, recuando até achar chão livre',
   assert.equal(dist, 175);
   assert.ok(z0 - s.z > 100 && z0 - s.z <= dist + 3, `saltou ${z0 - s.z} m`);
   assert.ok(pontoLivre(s.x, s.z, 5), 'em chão livre');
-  // Contra a muralha não atravessa: fica onde dá.
+  // Contra a rocha da borda (z = -1060 no poço do Núcleo) não atravessa: fica onde dá.
   const t = createShip('acron', 0, -930, 0, 'mobile');
   const z = t.z;
   teleportar(t, 175);
-  assert.ok(t.z >= -1000 && (t.z === z || pontoLivre(t.x, t.z, 5)));
+  assert.ok(t.z >= -1060 && t.z < z && pontoLivre(t.x, t.z, 5), `parou em ${t.z.toFixed(0)}`);
 });
 
 test('stepShip: efeitos no alvo que mexem no movimento e no tiro (lento, paralisia, trava, desgoverno, recarga, energia)', () => {
@@ -384,9 +384,9 @@ test('stepShip: efeitos no alvo que mexem no movimento e no tiro (lento, paralis
 });
 
 test('predição: o stepShip do cliente (a partir do `me`) bate com o do servidor nas armas que mexem na nave', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false });
+  const w = new World({ jungle: false, torretas: false });
   const j = w.addPlayer('P', 'shrewdo', 'mobile');
-  j.ship = createShip('shrewdo', BASE.x, BASE.z - ZONA_SEGURA - 100, 0, 'mobile');
+  j.ship = createShip('shrewdo', CAMPO.x, CAMPO.z, 0, 'mobile');
   j.protegidoAte = 0;
   const acel = idx('312016');
   const rajada = idx('311006'); // Metralha Giratória: rajada de 3 com varredura

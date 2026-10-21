@@ -7,11 +7,11 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { World, ZONA_SEGURA } from '../server/game.js';
+import { World } from '../server/game.js';
 import { ARMAS, IDX_ARMA, WEAPONS, INPUT_VAZIO, createShip } from '../shared/sim.js';
 import { versaoArma, golpeDaArma } from '../shared/armas.js';
 import { INVISIVEL_VISTO_M } from '../server/golpes.js';
-import { BASE } from '../shared/terrain.js';
+import { CAMPO } from './lugares.mjs';
 
 const SEGUNDO = 30;
 const idx = (id) => IDX_ARMA['o' + id];
@@ -22,16 +22,16 @@ function rngFixo(semente = 1) {
 }
 
 /**
- * Mundo sem monstros nem mineradores, com os jogadores no corredor ao norte da
- * base 0, fora da zona segura. Cada item é [raça, classe, dx, dz] a partir de A; os
+ * Mundo sem monstros nem mineradores, com os jogadores no CAMPO (jungle do time 0,
+ * fora da zona segura). Cada item é [raça, classe, dx, dz] a partir de A; os
  * times alternam (A 0, B 1, C 0, D 1). Yaw 0 olha para -z. A nave sem `time` na
  * física troca de arma livre (como se tivesse equipado na base).
  */
 function arena(...lista) {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, torretas: false, rng: rngFixo() });
+  const w = new World({ jungle: false, torretas: false, rng: rngFixo() });
   w.mineradores.passo = () => {};
-  const x0 = BASE.x;
-  const z0 = BASE.z - ZONA_SEGURA - 150;
+  const x0 = CAMPO.x;
+  const z0 = CAMPO.z;
   const js = lista.map(([race, classe, dx, dz], i) => {
     const j = w.addPlayer('P' + i, race, classe);
     j.ship = createShip(race, x0 + dx, z0 + dz, 0, classe);
@@ -470,10 +470,11 @@ test('teleporte: o servidor salta junto com a predição e avisa o efeito', () =
   assert.ok(w.tirarEventos().some((e) => e.e === 'efeito' && e.kind === 'o112021'));
 });
 
-test('npc: o tiro de drone e de torreta segue com os números de antes', () => {
-  const w = new World({ drones: 1, monstros: 0, elites: 0, rng: rngFixo(3) });
-  const d = w.drones[0];
-  assert.deepEqual(d.ship.encaixes, [IDX_ARMA.laser, IDX_ARMA.plasma]);
+test('npc: o tiro de NPC e de torreta segue com os números de antes', () => {
+  const w = new World({ jungle: false, rng: rngFixo(3) });
+  const m = w.jungle.criarMonstro('armish', 0, -600);
+  assert.deepEqual(m.ship.encaixes, [IDX_ARMA.laser, IDX_ARMA.plasma], 'monstro sem raça jogável fica com os tiros de NPC');
+  assert.equal(m.danoMult, 1, 'o dano do monstro já vem no ataque da espécie');
   assert.equal(WEAPONS.laser.raio, 5);
   assert.equal(w.danoDoTiro({ kind: 'laser', mult: 0.5, drone: true }), 6);
 });

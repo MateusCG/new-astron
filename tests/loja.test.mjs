@@ -8,15 +8,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import WebSocket from 'ws';
-import { World, ZONA_SEGURA } from '../server/game.js';
+import { World } from '../server/game.js';
 import { iniciar } from '../server/index.js';
 import { hpMaxDoNivel } from '../server/progressao.js';
 import { createShip, IDX_ARMA, DT, armasIniciais, versaoArma } from '../shared/sim.js';
 import { naveDe } from '../shared/naves.js';
-import { BASE, SERVICOS, CORREDOR } from '../shared/terrain.js';
+import { SERVICOS, CORREDOR } from '../shared/terrain.js';
 import { ITENS, REPARO_CURA, ITEM_CARGA_MAX, armasAVenda, precoArma, itemDaLoja } from '../shared/loja.js';
 import { armasDisponiveis, WEAPONS, ARMAS } from '../shared/armas.js';
 import { versaoEquip, EQUIPAMENTOS, ORDEM_EQUIP } from '../shared/equipamentos.js';
+import { CAMPO } from './lugares.mjs';
 
 const SEGUNDO = 30;
 // O piloto dos testes é Bellico Assault: de fábrica o Feixe Bellico (Z) e a Vulcan
@@ -43,7 +44,7 @@ function pousar(j, servico, time = j.time) {
 }
 
 function mundo() {
-  const w = new World({ drones: 0, monstros: 0, elites: 0 });
+  const w = new World({ jungle: false });
   w.mineradores.passo = () => {};
   return w;
 }
@@ -139,7 +140,7 @@ test('loja: arma comprada vai num encaixe pela instância; nos dois, só com dua
 });
 
 test('loja: a posse sobrevive ao renascimento e zera na partida seguinte', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, duracaoPartidaS: 2, intervaloFimS: 1 });
+  const w = new World({ jungle: false, duracaoPartidaS: 2, intervaloFimS: 1 });
   const j = w.addPlayer('A', 'bellico');
   w.step();
   pousar(j, 'loja');
@@ -184,9 +185,9 @@ function danoDeUmLaser(equipDeB) {
   b.ouro = 1000;
   pousar(b, 'loja');
   for (const item of equipDeB) assert.equal(comprarEquipar(w, b, item).ok, true, item);
-  const z = BASE.z - ZONA_SEGURA - 120;
-  Object.assign(a.ship, createShip('acron', BASE.x, z, 0), { time: a.time, armas: a.ship.armas });
-  Object.assign(b.ship, { x: BASE.x, z: z - 20, y: a.ship.y, vx: 0, vz: 0, pousado: false });
+  const z = CAMPO.z;
+  Object.assign(a.ship, createShip('acron', CAMPO.x, z, 0), { time: a.time, armas: a.ship.armas });
+  Object.assign(b.ship, { x: CAMPO.x, z: z - 20, y: a.ship.y, vx: 0, vz: 0, pousado: false });
   a.protegidoAte = b.protegidoAte = 0;
   const hp = b.ship.hp;
   w.pushInput(a.id, { s: 1, f1: true });
@@ -311,7 +312,7 @@ test('loja: pedidos malformados são recusados sem quebrar nada', () => {
 });
 
 test('loja: pelo WebSocket, o pedido volta como resultado e lixo não derruba a conexão', async () => {
-  const world = new World({ drones: 0, monstros: 0, elites: 0 });
+  const world = new World({ jungle: false });
   const srv = await iniciar({ porta: 0, world });
   try {
     const ws = new WebSocket(`ws://localhost:${srv.porta}/ws`);

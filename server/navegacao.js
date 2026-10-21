@@ -1,13 +1,13 @@
 // Navegação dos monstros pelo mapa (só no servidor).
 //
-// Ir em linha reta até o jogador prende o monstro na primeira rocha: o M1 é um
-// deserto aberto cheio de mesas de pedra. Por isso o mapa vira uma grade de CELULA
-// metros, calculada uma vez a partir do relevo, com a mesma regra de rampa da nave
-// (MAX_SLOPE de shared/sim.js): de uma célula para a vizinha só se passa se a subida
-// não for íngreme demais, e descer é sempre livre. A altura é a de alturaSolida
-// (terreno ou construção), então rochas, muralha, cristais do minério e torres dos
-// objetivos entram do mesmo jeito, sem lista à parte do que é obstáculo. A torre do
-// objetivo B entra sempre de pé (alturaSolida com `todos`), mesmo que tenha caído
+// Ir em linha reta até o jogador prende o monstro na primeira rocha: a jungle do
+// mapa tem rochas, paredes em L e a mineradora no meio da lane. Por isso o mapa vira
+// uma grade de CELULA metros, calculada uma vez a partir do relevo, com a mesma
+// regra de rampa da nave (MAX_SLOPE de shared/sim.js): de uma célula para a vizinha
+// só se passa se a subida não for íngreme demais, e descer é sempre livre. A altura é a de alturaSolida
+// (terreno ou construção), então rochas, borda, mineradora e torres entram do mesmo
+// jeito, sem lista à parte do que é obstáculo. Torre que cai (a do buff de suporte,
+// as torretas) entra sempre de pé (alturaSolida com `todos`), mesmo que tenha caído
 // quando a grade foi montada: assim a grade não depende da hora em que foi feita.
 //
 // Sobre essa grade roda um Dijkstra com várias fontes (os jogadores caçáveis), que dá,
@@ -23,8 +23,8 @@
 //   ele alcança em linha livre (até OLHAR_CELULAS): a curva sai suave.
 // - A zona segura de cada base entra na grade como bloqueada, para nenhum caminho
 //   passar por dentro dela.
-// - A grade é retangular (MAP_HALF_X × MAP_HALF_Z): com células de 10 m são 300 × 200
-//   células, umas 60 mil, e a montagem (240 mil alturas) leva menos de meio
+// - A grade é retangular (MAP_HALF_X × MAP_HALF_Z): com células de 10 m são 300 × 224
+//   células, umas 67 mil, e a montagem (270 mil alturas) leva menos de meio
 //   segundo, uma vez por processo.
 
 import { MAP_HALF_X, MAP_HALF_Z, BASES } from '../shared/terrain.js';
@@ -199,8 +199,18 @@ export class MapaNavegacao {
     }
     this.custo = new Float32Array(total);
     for (let c = 0; c < total; c++) this.custo[c] = 1 + (CUSTO_BEIRA[beira[c]] ?? 0);
+    // Célula de campo aberto (o centro no chão de voo, fora da zona bloqueada): só
+    // nelas um caminho pode terminar (o destino pedido dentro de uma rocha ou de uma
+    // torre vai para a aberta mais perto).
+    this.aberta = new Uint8Array(total);
+    for (let c = 0; c < total; c++) {
+      const i = c % n;
+      const j = (c - i) / n;
+      if (!this.zona[c] && hf[2 * j * nf + 2 * i] < 1 && this.passa[c]) this.aberta[c] = 1;
+    }
     this.base = null;
     this.redeCache = null;
+    this.busca = null; // memória do A* (caminho), alocada na primeira busca
   }
 
   /** O ponto está na área bloqueada em volta de alguma base (zona segura)? */
@@ -391,7 +401,15 @@ export class MapaNavegacao {
    * Uma nave vai de (x1, z1) a (x2, z2) em linha reta sem bater em subida íngreme
    * nem entrar na zona segura?
    */
-  linhaLivre(x1, z1, x2, z2) {
+  linhaLivre(x1, z1, x2, z2, folga = 0) {
+    if (folga > 0) {
+      // Uma nave tem largura: além da linha do meio, as duas paralelas a `folga` m
+      // dela (a nave que passa raspando numa quina enrosca).
+      const d = Math.hypot(x2 - x1, z2 - z1) || 1;
+      const ox = (-(z2 - z1) / d) * folga;
+      const oz = ((x2 - x1) / d) * folga;
+      return this.linhaLivre(x1, z1, x2, z2) && this.linhaLivre(x1 + ox, z1 + oz, x2 + ox, z2 + oz) && this.linhaLivre(x1 - ox, z1 - oz, x2 - ox, z2 - oz);
+    }
     const d = Math.hypot(x2 - x1, z2 - z1);
     const passos = Math.max(1, Math.ceil(d / PASSO_LINHA));
     const passo = d / passos;
@@ -406,6 +424,101 @@ export class MapaNavegacao {
       hAnt = h;
     }
     return true;
+  }
+
+  /** A célula aberta mais perto de (x, z), até `raio` células em volta (-1 se nenhuma). */
+  celulaAberta(x, z, raio = 8) {
+    const i0 = Math.floor((x + MAP_HALF_X) / CELULA);
+    const j0 = Math.floor((z + MAP_HALF_Z) / CELULA);
+    let melhor = -1;
+    let melhorD = Infinity;
+    for (let dj = -raio; dj <= raio; dj++) {
+      for (let di = -raio; di <= raio; di++) {
+        const i = i0 + di;
+        const j = j0 + dj;
+        if (i < 0 || j < 0 || i >= this.nx || j >= this.nz || !this.aberta[j * this.nx + i]) continue;
+        const d = di * di + dj * dj;
+        if (d < melhorD) {
+          melhorD = d;
+          melhor = j * this.nx + i;
+        }
+      }
+    }
+    return melhor;
+  }
+
+  /**
+   * Caminho (A*) de (x1, z1) até (x2, z2) pela grade, com a regra de passagem e o
+   * custo das beiras do campo: a lista dos centros das células, do começo ao fim
+   * (sem a célula de partida), ou null se não há caminho. `extra` (opcional, um
+   * Float32Array com uma posição por célula) soma custo por célula: os computadores
+   * (server/bots.js) põem ali a área coberta pelas torres inimigas, e o caminho a
+   * contorna quando dá. O destino dentro de rocha ou construção vai para a célula
+   * aberta mais perto. Diferente do campo (um Dijkstra para o mapa todo, que serve a
+   * todos os monstros de uma vez), o A* só olha em volta da linha entre as pontas:
+   * para uma nave só e um destino só sai bem mais barato.
+   */
+  caminho(x1, z1, x2, z2, extra = null) {
+    const perto = this.celulaAberta(x1, z1, 3);
+    const ini = perto >= 0 ? perto : this.indice(x1, z1);
+    const fim = this.celulaAberta(x2, z2);
+    if (ini < 0 || fim < 0) return null;
+    if (ini === fim) return [this.centro(fim)];
+    const total = this.total;
+    if (!this.busca) {
+      this.busca = { g: new Float64Array(total), pai: new Int32Array(total), marca: new Uint32Array(total), vez: 0, heap: new Heap(4096) };
+    }
+    const b = this.busca;
+    b.vez++;
+    if (b.vez === 0xffffffff) {
+      b.marca.fill(0);
+      b.vez = 1;
+    }
+    const { g, pai, marca, vez } = b;
+    const heap = b.heap;
+    heap.n = 0;
+    const n = this.nx;
+    const fi = fim % n;
+    const fj = (fim - fi) / n;
+    const h = (c) => {
+      const i = c % n;
+      const dx = Math.abs(i - fi);
+      const dz = Math.abs((c - i) / n - fj);
+      return dx + dz + (Math.SQRT2 - 2) * Math.min(dx, dz);
+    };
+    marca[ini] = vez;
+    g[ini] = 0;
+    pai[ini] = -1;
+    heap.push(h(ini), ini);
+    const passa = this.passa;
+    const custo = this.custo;
+    let achou = false;
+    while (!heap.vazio) {
+      const c = heap.pop();
+      const gc = g[c];
+      if (heap.ultimaChave - h(c) > gc + 1e-3) continue; // entrada velha
+      if (c === fim) {
+        achou = true;
+        break;
+      }
+      const i = c % n;
+      const j = (c - i) / n;
+      const m = passa[c];
+      for (let k = 0; k < 8; k++) {
+        if (!(m & (1 << k))) continue;
+        const v = (j + VIZ_J[k]) * n + i + VIZ_I[k];
+        const nd = gc + COMPRIMENTO[k] * (custo[v] + (extra ? extra[v] : 0));
+        if (marca[v] === vez && nd >= g[v]) continue;
+        marca[v] = vez;
+        g[v] = nd;
+        pai[v] = c;
+        heap.push(nd + h(v), v);
+      }
+    }
+    if (!achou) return null;
+    const lista = [];
+    for (let c = fim; c !== ini && c >= 0; c = pai[c]) lista.push(this.centro(c));
+    return lista.reverse();
   }
 
   /**

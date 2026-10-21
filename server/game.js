@@ -1,5 +1,5 @@
-// Mundo do jogo no servidor: um mapa, as naves dos jogadores, os inimigos (PvE:
-// drones Arnosh e monstros Vorax) e os tiros. Roda em passo fixo de 30 Hz (DT de shared/sim.js) e manda o
+// Mundo do jogo no servidor: um mapa, as naves dos jogadores, os monstros da jungle
+// (server/jungle.js) e os tiros. Roda em passo fixo de 30 Hz (DT de shared/sim.js) e manda o
 // estado para os clientes a 15 Hz.
 //
 // Regra de ouro herdada do Sideral: o servidor decide tudo o que importa (posição,
@@ -26,16 +26,29 @@
 //
 // Partida 3 contra 3 (DESIGN-PARTIDA.md): times, cronômetro e placar ficam em
 // server/partida.js; os mineradores em server/mineradores.js; os bônus por tempo
-// dos mineradores em server/bonus.js. Aqui ficam só os ganchos: o jogador entra no
+// (de nave e de time) em server/bonus.js. Aqui ficam só os ganchos: o jogador entra no
 // time com menos gente e nasce na base dele; tiro de aliado atravessa aliado (sem
 // fogo amigo, nem nos mineradores); a zona segura só protege o time dono da base
-// (na base do outro time você leva dano normalmente). Drones e Vorax continuam sem
-// entrar em base nenhuma: as duas são território dos jogadores.
+// (na base do outro time você leva dano normalmente). Monstro nenhum entra em base
+// nenhuma: as duas são território dos jogadores.
 //
 // XP, nível e ouro por abate ficam em server/progressao.js (na morte, em #ferir); os
-// objetivos A, B e C em server/objetivos.js (no step, no tiro que bate na torre e
-// na morte do guardião), que ligam os bônus em this.bonus; os monstros elite
-// (Krakor e o guardião) em server/elites.js.
+// objetivos do mapa (torre do buff de suporte, plataformas de pouso e o Núcleo de
+// He-3) em server/objetivos.js (no step, no tiro que bate na torre e na morte do
+// Núcleo, que é uma entidade como os monstros), que ligam os bônus em this.bonus. A
+// jungle (server/jungle.js: acampamentos, buff de ataque, Medusa e sonda) tem
+// ganchos no step (jungle.passo), no dano (jungle.provocar: a raiva dos monstros),
+// na morte (jungle.aoMorrer: recarga do lugar e bônus do golpe final), na partida
+// (comecar/limpar) e no snapshot (entidades `monstro` e o `obj` de BA0, BA1, SONDA
+// e MEDUSA).
+//
+// Bônus (server/bonus.js): aplicados aqui. O dano em multDanoDe ('ataque' da nave e
+// 'medusa' do time); a velocidade e a energia do suporte na nave, a cada tick antes
+// dos comandos (#bonusDaNave: s.velMult e s.regenEn, que vão no `me` e o stepShip da
+// predição lê); o HP do suporte em #regen. #ferir anota quem levou e quem causou dano
+// (levouDanoTick, causouDanoTick: a 'sonda' fica suspensa em combate e a plataforma
+// de pouso cancela) e quem agrediu alguém de um time (agrediu: as torres sentinela
+// preferem esse alvo). Morrer limpa os bônus de nave.
 //
 // Combate entre jogadores (DESIGN-PARTIDA.md, "Combate"; números em
 // server/progressao.js): todo dano de jogador inimigo (tiro, dreno, mina, choque)
@@ -46,7 +59,7 @@
 //
 // Torretas do corredor (server/torretas.js) e a escolta armada dos mineradores
 // (server/escoltas.js): ganchos no step (andar e atirar), no tiro que bate numa
-// torreta (tiroNaTorreta, como a torre B), no dano em área (#area) e no snapshot
+// torreta (tiroNaTorreta, como a torre do buff de suporte), no dano em área (#area) e no snapshot
 // (`torretas`; a escolta é uma entidade como o minerador). Os tiros delas entram
 // por adicionarTiro, com `fonte` e `time` no evento para o cliente pintar.
 //
@@ -91,15 +104,13 @@
 // fila de comandos segue, e o cliente reconcilia o salto pelo `me`.
 
 import { DT, WEAPONS, createShip, sanitizeInput, stepShip, VEL_TOQUE, velocidadeBase, pousadaNaBase, BASE_CURA_FRAC } from '../shared/sim.js';
-import { BASE, BASES, CORREDOR } from '../shared/terrain.js';
-import { pontoAberto } from '../shared/obstaculos.js';
+import { BASE, BASES } from '../shared/terrain.js';
 import { racaJogavel, RACAS_JOGAVEIS, classeOuPadrao } from '../shared/naves.js';
-import { MapaNavegacao } from './navegacao.js';
 import { Partida, N_TIMES, MULT_FASE_FINAL, MAX_POR_TIME } from './partida.js';
 import { Mineradores } from './mineradores.js';
 import { Escoltas } from './escoltas.js';
 import { Torretas } from './torretas.js';
-import { Bonus, BONUS } from './bonus.js';
+import { Bonus } from './bonus.js';
 import { Objetivos } from './objetivos.js';
 import {
   novaProgressao,
@@ -112,25 +123,28 @@ import {
   ouroEncerrar,
   recompensaAssistencia,
   ASSISTENCIA_JANELA_S,
+  chaveRecompensa,
 } from './progressao.js';
 import { Servicos, novoEquipamento, prepararNave } from './servicos.js';
-import { KRAKOR, N_KRAKOR, novaElite, renascerElite, iaElite } from './elites.js';
+import { Jungle } from './jungle.js';
 import { Golpes, INVISIVEL_VISTO_M } from './golpes.js';
 import { RECALL_S, motivoRecall } from '../shared/recall.js';
 import { Bots, nomeDeBot } from './bots.js';
+import { Visao } from './visao.js';
 
 export const TICK_HZ = 30;
 const SNAP_CADA = 2; // ticks entre snapshots (15 Hz)
 const MAX_INPUTS_TICK = 4;
 const MAX_FILA = 30;
-const RESPAWN_TICKS = 3 * TICK_HZ; // drones; o do jogador cresce (tempoRenascer em server/progressao.js)
+const RESPAWN_TICKS = 3 * TICK_HZ; // padrão; o do jogador cresce (tempoRenascer em server/progressao.js) e os monstros renascem pela jungle
 const ASSISTENCIA_TICKS = ASSISTENCIA_JANELA_S * TICK_HZ;
 const REGEN_ESPERA_TICKS = 5 * TICK_HZ;
 // Nave de jogador: a regeneração é a da nave (shared/naves.js, do original). Voando,
 // regenHpVoo (HP/s, só as Bellico têm), contínua, mesmo levando dano; pousada e
 // parada, regenHpPousada (HP/s), depois de POUSO_REGEN_ESPERA_TICKS sem dano (levar
-// tiro interrompe por um instante). Monstros, mineradores e escoltas seguem as
-// frações do HP máximo: VOO_REGEN_HP sem levar dano há REGEN_ESPERA_TICKS.
+// tiro interrompe por um instante). Nave sem catálogo segue as frações do HP máximo:
+// VOO_REGEN_HP sem levar dano há REGEN_ESPERA_TICKS. Os monstros regeneram pela
+// jungle (server/jungle.js).
 const VOO_REGEN_HP = 0.03; // fração do HP máximo por segundo, voando (sem nave do catálogo)
 const POUSO_REGEN_HP = 0.08; // fração do HP máximo por segundo, pousada (sem nave do catálogo)
 const POUSO_REGEN_ESPERA_TICKS = 1 * TICK_HZ;
@@ -141,73 +155,14 @@ export const ESCUDO_ESPERA_S = 3;
 const ESCUDO_ESPERA_TICKS = ESCUDO_ESPERA_S * TICK_HZ;
 // Golpe crítico (potenciador Golpe Fatal): o dano do golpe direto sai × isto.
 export const CRITICO_MULT = 2;
-// Monstros do mundo aberto (3000 × 2000 m): Arnosh, Vorax (N_MONSTROS) e os Krakor,
-// elites (N_KRAKOR em server/elites.js). XP e ouro de cada tipo ficam em RECOMPENSA
-// (server/progressao.js).
-//
-// São PASSIVOS (pedido do Mateus): patrulham a "jungle" e só seguem e atacam quem os
-// atacou. Cada monstro guarda quem o feriu (`raiva`: id do jogador → tick até onde
-// lembra) e esquece RAIVA_S depois do último golpe recebido, quando o jogador morre
-// ou quando o próprio monstro morre. O guardião do objetivo C não é da jungle: segue
-// defendendo a arena de quem entra.
-const N_DRONES = 28;
-const RAIVA_S = 20;
 // Modo de teste: quanto cada botão dá.
 const TESTE_OURO = 1000;
 const TESTE_XP = 100;
-const RAIVA_TICKS = RAIVA_S * TICK_HZ;
-// visao: até onde o Arnosh provocado ainda persegue quem o atacou.
-const DRONE = { nome: 'Arnosh', hp: 90, visao: 400, alcance: 210, danoMult: 0.5 };
-// Arnosh patrulhando não entra na faixa do corredor (é dos mineradores): dá meia
-// volta a esta distância do meio dele. Caçando um jogador, entra.
-const DRONE_LIMITE_CORREDOR = CORREDOR.largura / 2 + 40;
-// Zona segura: em volta da base do PRÓPRIO time ninguém leva dano. Drones não
-// perseguem quem está em base nenhuma (nem entram nelas).
-export const ZONA_SEGURA = BASE.raio + 30;
-// Drone que chega a esta distância de uma base (patrulhando ou caçando) dá meia
-// volta para o mundo aberto: as bases são território dos jogadores.
-const DRONE_LIMITE_BASE = ZONA_SEGURA + 60;
+// Zona segura: em volta da base do PRÓPRIO time ninguém leva dano (o raio de BASES).
+// Monstro não persegue quem está em base nenhuma (nem entra nelas).
+export const ZONA_SEGURA = BASE.raio;
 const PROTECAO_TICKS = 3 * TICK_HZ; // invulnerável logo depois de nascer
 const RECALL_TICKS = Math.round(RECALL_S * TICK_HZ);
-
-// Monstros Vorax: caçadores que, provocados, vêm atrás de quem os atacou, de qualquer
-// canto do mapa, contornando as mesas de rocha (server/navegacao.js); sem raiva,
-// patrulham a jungle como os Arnosh. Atacam com as garras, de
-// perto, e não atiram. Mais lentos que qualquer nave de jogador (a mais lenta faz
-// ~50 m/s sem boost), para dar para fugir ou virar e brigar. Não entram na zona
-// segura: quem está na base fica a salvo e eles rondam a borda esperando. Quando
-// morrem, renascem longe de todo mundo e voltam a caçar, para sempre ter monstro
-// vindo.
-const N_MONSTROS = 12;
-const VORAX = {
-  nome: 'Vorax',
-  raca: 'mechan', // só para a física (stepShip); o tipo é que diz o que ele é
-  hp: 70,
-  velocidade: 42, // m/s
-  dano: 10, // por golpe de garra
-  alcance: 14, // m entre os centros para a garra pegar
-  intervaloS: 1.2, // s entre golpes do mesmo monstro
-  renascerS: 6,
-  distRenascer: 450, // m mínimos de qualquer jogador vivo ao renascer
-};
-const VORAX_INTERVALO_TICKS = Math.round(VORAX.intervaloS * TICK_HZ);
-const VORAX_RENASCER_TICKS = VORAX.renascerS * TICK_HZ;
-const VORAX_RECALCULO_TICKS = 15; // de quanto em quanto tempo o mapa de caça é refeito
-const VORAX_PERTO = 60; // m: daqui para dentro, com linha livre, vai direto no jogador
-const VORAX_AFASTAR = 16; // m: dois monstros mais perto que isso se empurram
-const VORAX_ESPACO = 9; // m: não encosta mais que isso numa nave (não fica dentro dela)
-const VORAX_MARGEM_ZONA = 5; // m além da zona segura que o monstro não cruza
-const VORAX_PRESO_TICKS = 1.5 * TICK_HZ; // parado esse tempo querendo andar: dá ré
-const VORAX_RE_TICKS = 0.6 * TICK_HZ;
-const LIMITE_VORAX = ZONA_SEGURA + VORAX_MARGEM_ZONA;
-
-// A grade de navegação depende só do terreno: monta uma vez por processo, na
-// primeira vez que aparece um monstro.
-let navegacao = null;
-function nav() {
-  navegacao ??= new MapaNavegacao({ raioBloqueio: LIMITE_VORAX });
-  return navegacao;
-}
 
 function limpaNome(n) {
   const s = String(n ?? '')
@@ -217,40 +172,29 @@ function limpaNome(n) {
   return s || 'Piloto';
 }
 
-function anguloEntre(a, b) {
-  let d = b - a;
-  while (d > Math.PI) d -= 2 * Math.PI;
-  while (d < -Math.PI) d += 2 * Math.PI;
-  return d;
-}
-
-/** A base mais perto do ponto. */
-function baseMaisPerto(s) {
-  let melhor = BASES[0];
-  for (const b of BASES) if (Math.hypot(s.x - b.x, s.z - b.z) < Math.hypot(s.x - melhor.x, s.z - melhor.z)) melhor = b;
-  return melhor;
-}
-
 export class World {
   /**
-   * @param {{ rng?: () => number, drones?: number, monstros?: number, elites?: number,
+   * @param {{ rng?: () => number, jungle?: boolean, temposJungle?: object,
    *   duracaoPartidaS?: number, intervaloFimS?: number, faseFinalS?: number, torretas?: boolean,
-   *   teste?: boolean }} [opcoes]
-   * drones = Arnosh, monstros = Vorax, elites = Krakor (os guardiões dos objetivos C
-   * sempre existem). torretas = false deixa as torretas de pé mas sem atirar (testes
-   * que brigam no meio do corredor). teste = mundo do modo de teste (um por piloto,
+   *   teste?: boolean, objetivos?: object }} [opcoes]
+   * jungle = false: mundo sem monstros (testes). temposJungle: troca os tempos de
+   * aparecer e voltar da jungle (TEMPOS_JUNGLE em server/jungle.js; os testes
+   * encurtam). torretas = false deixa as torretas de pé mas sem atirar (testes que
+   * brigam no meio da lane). teste = mundo do modo de teste (um por piloto,
    * server/index.js): partida sem relógio e os pedidos {t:'teste'} (pedidoTeste).
+   * objetivos = tempos dos objetivos (TEMPOS de server/objetivos.js) trocados, para
+   * os testes não esperarem minutos.
    */
   constructor({
     rng = Math.random,
-    drones = N_DRONES,
-    monstros = N_MONSTROS,
-    elites = N_KRAKOR,
+    jungle = true,
+    temposJungle,
     duracaoPartidaS,
     intervaloFimS,
     faseFinalS,
     torretas = true,
     teste = false,
+    objetivos,
   } = {}) {
     this.teste = teste;
     this.rng = rng;
@@ -258,132 +202,61 @@ export class World {
     this.tick = 0;
     this.nextId = 1;
     this.players = new Map();
-    this.drones = [];
-    this.monstros = [];
-    this.elites = []; // Krakor e guardiões
     this.bullets = [];
     this.minas = [];
     this.eventos = [];
-    // Mapa de caça dos Vorax: campo de caminhos até os jogadores caçáveis.
-    this.caca = { campo: null, alvos: [], ate: 0 };
     this.partida = new Partida({ duracaoS: teste ? Infinity : duracaoPartidaS, intervaloFimS, faseFinalS });
-    this.bonus = new Bonus();
+    this.bonus = new Bonus({ evento: (ev) => this.eventos.push(ev) });
     this.mineradores = new Mineradores({
-      bonus: this.bonus,
       novoId: () => this.#id(),
       entregar: (time, carga) => this.partida.somar(time, carga, this.tick),
       evento: (ev) => this.eventos.push(ev),
     });
     this.escoltas = new Escoltas(this);
-    for (let i = 0; i < drones; i++) this.drones.push(this.#novoDrone());
-    for (let i = 0; i < monstros; i++) this.monstros.push(this.#novoVorax());
-    for (let i = 0; i < elites; i++) {
-      const p = this.#pontoKrakor();
-      this.elites.push(novaElite('krakor', this.#id(), p.x, p.z, this.rng() * Math.PI * 2));
-    }
-    this.objetivos = new Objetivos(this);
+    this.jungle = new Jungle(this, {
+      ferir: (alvo, dano, autor, ev, opcoes) => this.#ferir(alvo, dano, autor, ev, opcoes),
+      podeAcertar: (b, alvo) => this.#podeAcertar(b, alvo),
+      naZonaSegura: (s) => this.#naZonaSegura(s),
+      ativo: jungle,
+      tempos: temposJungle,
+    });
+    this.objetivos = new Objetivos(this, {
+      ferir: (alvo, dano, autor, ev, opcoes) => this.#ferir(alvo, dano, autor, ev, opcoes),
+      tempos: objetivos,
+    });
     this.torretas = new Torretas(this);
     this.servicos = new Servicos(this);
     this.bots = new Bots(this, { zonaSegura: ZONA_SEGURA });
-    this.danoMultDrone = DRONE.danoMult; // tiro de drone tira menos (server/golpes.js lê)
+    // Visão do time (névoa de guerra): o snapshot de cada jogador só leva o que algum
+    // aliado enxerga (server/visao.js, aplicado em snapshotPara).
+    this.visao = new Visao(this);
     this.golpes = new Golpes(this, {
       ferir: (alvo, dano, autor, ev, opcoes) => this.#ferir(alvo, dano, autor, ev, opcoes),
       podeAcertar: (b, alvo) => this.#podeAcertar(b, alvo),
       protegido: (ent) => this.#protegido(ent),
     });
-    // O que a IA dos elites lê do mundo.
-    const players = this.players;
-    this.ctxElite = {
-      tick: 0,
-      rng: this.rng,
-      get jogadores() {
-        return players.values();
-      },
-      naZonaSegura: (s) => this.#naZonaSegura(s),
-      zonaSegura: ZONA_SEGURA,
-      provocado: (e, j) => this.#provocado(e, j),
-    };
   }
 
   #id() {
     return this.nextId++;
   }
 
-  /** Ponto sorteado no centro da base do time, e o yaw de quem olha para o corredor. */
+  /** Ponto sorteado no centro da base do time, e o yaw de quem olha para a lane. */
   #pontoNaBase(time) {
     const b = BASES[time];
     const a = this.rng() * Math.PI * 2;
     const r = this.rng() * 60;
-    // yaw 0 olha para -z: a base de baixo (+z) olha para o norte, a de cima para o sul.
-    const yaw = b.z > CORREDOR.zInicio ? 0 : Math.PI;
+    // yaw 0 olha para -z e -π/2 para +x: a base da esquerda (x < 0) olha para +x.
+    const yaw = b.x < 0 ? -Math.PI / 2 : Math.PI / 2;
     return { x: b.x + Math.cos(a) * r, z: b.z + Math.sin(a) * r, yaw };
   }
 
-  /** Nave nova do jogador na base do time dele, voltada para o corredor (a nave da classe e do tier dele). */
+  /** Nave nova do jogador na base do time dele, voltada para a lane (a nave da classe e do tier dele). */
   #naveNaBase(race, time, classe, tier = 0) {
     const p = this.#pontoNaBase(time);
     const ship = createShip(race, p.x, p.z, p.yaw, classe, tier);
     ship.time = time; // vai no `me`: a predição precisa para o pouso (pousoPermitido)
     return ship;
-  }
-
-  #novoDrone() {
-    const p = pontoAberto(this.rng);
-    const ship = createShip('mechan', p.x, p.z, this.rng() * Math.PI * 2);
-    ship.hp = ship.maxHp = DRONE.hp;
-    return { id: this.#id(), tipo: 'arnosh', drone: true, nome: DRONE.nome, ship, vivo: true, respawnTick: 0, giro: 0, ultimoDano: 0 };
-  }
-
-  /**
-   * Ponto do mundo aberto para um Vorax nascer: na parte do mapa ligada à saída da
-   * base (sem ilha cercada de rocha), e longe de todo jogador vivo, para ninguém ver
-   * monstro brotar do lado.
-   */
-  #pontoVorax(opcoes) {
-    const rede = nav().rede(BASE.x, BASE.z - LIMITE_VORAX - 50);
-    let reserva = null;
-    for (let t = 0; t < 300; t++) {
-      const p = pontoAberto(this.rng, opcoes);
-      const c = nav().indice(p.x, p.z);
-      if (c < 0 || !rede[c]) continue;
-      reserva = p;
-      let longe = true;
-      for (const j of this.players.values()) {
-        if (j.vivo && Math.hypot(j.ship.x - p.x, j.ship.z - p.z) < VORAX.distRenascer) longe = false;
-      }
-      if (longe) return p;
-    }
-    return reserva ?? pontoAberto(this.rng, opcoes);
-  }
-
-  /** Covil de um Krakor: como o ponto do Vorax, mas bem longe das bases e do corredor. */
-  #pontoKrakor() {
-    return this.#pontoVorax({ folgaBase: KRAKOR.folgaBase, folgaCorredor: KRAKOR.folgaCorredor });
-  }
-
-  #naveVorax() {
-    const p = this.#pontoVorax();
-    const ship = createShip(VORAX.raca, p.x, p.z, this.rng() * Math.PI * 2);
-    ship.hp = ship.maxHp = VORAX.hp;
-    return ship;
-  }
-
-  #novoVorax() {
-    return {
-      id: this.#id(),
-      tipo: 'vorax',
-      drone: true, // inimigo: o cliente pinta de vermelho e o tiro de drone não o acerta
-      nome: VORAX.nome,
-      ship: this.#naveVorax(),
-      vivo: true,
-      respawnTick: 0,
-      ultimoDano: 0,
-      ultimoGolpe: -VORAX_INTERVALO_TICKS,
-      alvo: 0,
-      ronda: this.rng() < 0.5 ? 1 : -1,
-      preso: 0,
-      re: 0,
-    };
   }
 
   /**
@@ -477,6 +350,7 @@ export class World {
     if (!j) return;
     this.players.delete(id);
     this.minas = this.minas.filter((m) => m.dono !== id); // as minas de quem saiu somem
+    this.bonus.limparNave(id);
     this.eventos.push({ e: 'saiu', id, nome: j.nome });
     // Saiu o último humano: os computadores saem junto (ninguém para jogar com eles).
     if (!j.ia && ![...this.players.values()].some((o) => !o.ia)) {
@@ -579,236 +453,9 @@ export class World {
     j.fila.push({ seq, inp: sanitizeInput(msg) });
   }
 
-  /** Os disparos de `ent` (stepShip ou a IA dos elites) viram golpes (server/golpes.js). */
+  /** Os disparos de `ent` (stepShip) viram golpes (server/golpes.js). */
   #atira(ent, disparos) {
     this.golpes.disparar(ent, disparos);
-  }
-
-  #iaDrone(d) {
-    const s = d.ship;
-    const b = baseMaisPerto(s);
-    if (Math.hypot(s.x - b.x, s.z - b.z) < DRONE_LIMITE_BASE) {
-      // Perto de uma base: dá as costas para ela e volta para o mundo aberto.
-      const diff = anguloEntre(s.yaw, Math.atan2(-(s.x - b.x), -(s.z - b.z)));
-      return { th: Math.abs(diff) > 1 ? 0.2 : 0.6, tu: Math.max(-1, Math.min(1, diff * 2.5)), b: false, f1: false, f2: false };
-    }
-    let alvo = null;
-    let melhor = DRONE.visao;
-    for (const j of this.players.values()) {
-      if (!j.vivo || this.#naZonaSegura(j.ship) || !this.#provocado(d, j)) continue;
-      const dist = Math.hypot(j.ship.x - s.x, j.ship.z - s.z);
-      if (dist < melhor) {
-        melhor = dist;
-        alvo = j;
-      }
-    }
-    if (!alvo && Math.abs(s.x - CORREDOR.x) < DRONE_LIMITE_CORREDOR) {
-      // Patrulhando na faixa do corredor: vira para o lado de onde veio.
-      const lado = Math.sign(s.x - CORREDOR.x) || 1;
-      const diff = anguloEntre(s.yaw, Math.atan2(-lado, 0));
-      return { th: Math.abs(diff) > 1 ? 0.2 : 0.6, tu: Math.max(-1, Math.min(1, diff * 2.5)), b: false, f1: false, f2: false };
-    }
-    if (alvo) {
-      const yawAlvo = Math.atan2(-(alvo.ship.x - s.x), -(alvo.ship.z - s.z));
-      const diff = anguloEntre(s.yaw, yawAlvo);
-      return {
-        th: melhor > 70 ? 0.75 : 0.1,
-        tu: Math.max(-1, Math.min(1, diff * 2.5)),
-        b: false,
-        f1: Math.abs(diff) < 0.18 && melhor < DRONE.alcance,
-        f2: false,
-      };
-    }
-    // Patrulha: anda devagar, mudando de rumo aos poucos; se parou, vira.
-    if (this.tick % 45 === d.id % 45) d.giro = (this.rng() * 2 - 1) * 0.6;
-    const vel = Math.hypot(s.vx, s.vz);
-    return { th: 0.45, tu: vel < 4 ? 1 : d.giro, b: false, f1: false, f2: false };
-  }
-
-  /**
-   * Refaz de tempos em tempos o mapa de caça: o caminho, contornando as rochas, de cada
-   * ponto do mapa até o jogador caçável mais próximo (vivo, fora da zona segura e que
-   * provocou algum Vorax). Sem ninguém assim, não há mapa: todos patrulham.
-   */
-  #atualizarCaca() {
-    if (this.caca.campo && this.tick < this.caca.ate) return;
-    this.caca.ate = this.tick + VORAX_RECALCULO_TICKS;
-    const alvos = [...this.players.values()].filter(
-      (j) => j.vivo && !this.#naZonaSegura(j.ship) && this.monstros.some((m) => m.vivo && this.#provocado(m, j)),
-    );
-    if (!alvos.length) {
-      // Ninguém provocou Vorax nenhum: sem campo (todos patrulham).
-      this.caca.campo = null;
-      this.caca.alvos = [];
-      return;
-    }
-    const paradas = this.monstros.filter((m) => m.vivo).map((m) => m.ship);
-    this.caca.campo = nav().campo(
-      alvos.map((j) => j.ship),
-      paradas,
-    );
-    this.caca.alvos = alvos;
-  }
-
-  #iaVorax(m) {
-    const s = m.ship;
-    const thMax = Math.min(1, VORAX.velocidade / velocidadeBase(s));
-    if (m.re > 0) {
-      // Preso numa quina: dá ré virando, e depois tenta de novo.
-      m.re--;
-      return { th: -0.6, tu: m.ronda, b: false, f1: false, f2: false };
-    }
-    const passo = this.caca.campo ? nav().proximoPonto(this.caca.campo, s.x, s.z) : null;
-    let alvo = passo && passo.origem >= 0 ? this.caca.alvos[passo.origem] : null;
-    if (alvo && (!alvo.vivo || !this.players.has(alvo.id) || this.#naZonaSegura(alvo.ship))) alvo = null;
-    let direto = false;
-    if (!alvo || !this.#provocado(m, alvo)) {
-      // O campo leva a quem provocou OUTRO monstro (ou a ninguém): este vai reto até
-      // quem o atacou, se houver.
-      alvo = this.#provocadorMaisPerto(m);
-      direto = true;
-    }
-    m.alvo = alvo?.id ?? 0;
-    // Sem raiva de ninguém: patrulha a jungle.
-    if (!alvo) return this.#patrulha(m, thMax);
-
-    let dx = alvo.ship.x - s.x;
-    let dz = alvo.ship.z - s.z;
-    let th = thMax;
-    const d = Math.hypot(dx, dz);
-    if (direto || (d < VORAX_PERTO && nav().linhaLivre(s.x, s.z, alvo.ship.x, alvo.ship.z))) {
-      // Vê o jogador (ou não tem caminho melhor): vai direto e, encostado, freia para
-      // ficar grudado nele.
-      if (d < VORAX.alcance * 0.7) th = 0;
-      else if (d < VORAX.alcance * 1.5) th = thMax * 0.5;
-    } else {
-      dx = passo.x - s.x;
-      dz = passo.z - s.z;
-    }
-
-    // Monstros perto um do outro se empurram, para cercar o jogador em vez de
-    // virarem um bolo só.
-    const len = Math.hypot(dx, dz) || 1;
-    let vx = dx / len;
-    let vz = dz / len;
-    for (const o of this.monstros) {
-      if (o === m || !o.vivo) continue;
-      const ox = s.x - o.ship.x;
-      const oz = s.z - o.ship.z;
-      const d = Math.hypot(ox, oz);
-      if (d > 0.01 && d < VORAX_AFASTAR) {
-        const k = ((VORAX_AFASTAR - d) / VORAX_AFASTAR) * 1.5;
-        vx += (ox / d) * k;
-        vz += (oz / d) * k;
-      }
-    }
-    const diff = anguloEntre(s.yaw, Math.atan2(-vx, -vz));
-    th *= Math.max(0.15, 1 - Math.abs(diff) / 1.6); // curva fechada: freia para virar
-
-    if (th >= thMax * 0.5 && Math.hypot(s.vx, s.vz) < 4) m.preso++;
-    else m.preso = 0;
-    if (m.preso > VORAX_PRESO_TICKS) {
-      m.preso = 0;
-      m.re = VORAX_RE_TICKS;
-      m.ronda = -m.ronda;
-    }
-    return { th, tu: Math.max(-1, Math.min(1, diff * 2.5)), b: false, f1: false, f2: false };
-  }
-
-  /** O monstro `ent` está com raiva do jogador `j` (foi atacado por ele há pouco)? */
-  #provocado(ent, j) {
-    const ate = ent.raiva?.get(j.id);
-    if (ate === undefined) return false;
-    if (ate > this.tick && j.vivo) return true;
-    ent.raiva.delete(j.id); // esqueceu (tempo passou ou o jogador morreu)
-    return false;
-  }
-
-  /** O jogador caçável mais perto de quem o monstro tem raiva, ou null. */
-  #provocadorMaisPerto(ent) {
-    let melhor = null;
-    let dist = Infinity;
-    for (const id of ent.raiva?.keys() ?? []) {
-      const j = this.players.get(id);
-      if (!j || !this.#provocado(ent, j) || this.#naZonaSegura(j.ship)) continue;
-      const d = Math.hypot(j.ship.x - ent.ship.x, j.ship.z - ent.ship.z);
-      if (d < dist) {
-        dist = d;
-        melhor = j;
-      }
-    }
-    return melhor;
-  }
-
-  /**
-   * Patrulha da jungle (Arnosh e Vorax sem raiva): anda devagar mudando de rumo aos
-   * poucos, dá meia volta perto das bases e da faixa do corredor (são dos jogadores
-   * e dos mineradores) e, parado, vira.
-   */
-  #patrulha(ent, thMax = 1) {
-    const s = ent.ship;
-    const b = baseMaisPerto(s);
-    let rumo = null;
-    if (Math.hypot(s.x - b.x, s.z - b.z) < DRONE_LIMITE_BASE) rumo = Math.atan2(-(s.x - b.x), -(s.z - b.z));
-    else if (Math.abs(s.x - CORREDOR.x) < DRONE_LIMITE_CORREDOR) rumo = Math.atan2(-(Math.sign(s.x - CORREDOR.x) || 1), 0);
-    if (rumo !== null) {
-      const diff = anguloEntre(s.yaw, rumo);
-      return { th: thMax * (Math.abs(diff) > 1 ? 0.2 : 0.6), tu: Math.max(-1, Math.min(1, diff * 2.5)), b: false, f1: false, f2: false };
-    }
-    if (this.tick % 45 === ent.id % 45) ent.giro = (this.rng() * 2 - 1) * 0.6;
-    const vel = Math.hypot(s.vx, s.vz);
-    return { th: thMax * 0.45, tu: vel < 4 ? 1 : ent.giro ?? 0, b: false, f1: false, f2: false };
-  }
-
-  /** Monstro não cruza a zona segura: se a física o pôs dentro, volta para a borda. */
-  #foraDaZona(s) {
-    const b = baseMaisPerto(s);
-    const rx = s.x - b.x;
-    const rz = s.z - b.z;
-    const r = Math.hypot(rx, rz);
-    if (r >= LIMITE_VORAX) return;
-    const ux = r > 1e-6 ? rx / r : 0;
-    const uz = r > 1e-6 ? rz / r : Math.sign(-b.z) || -1; // de dentro, sai pelo corredor
-    s.x = b.x + ux * LIMITE_VORAX;
-    s.z = b.z + uz * LIMITE_VORAX;
-    const vr = s.vx * ux + s.vz * uz;
-    if (vr < 0) {
-      s.vx -= vr * ux;
-      s.vz -= vr * uz;
-    }
-  }
-
-  /** O monstro não entra dentro da nave do jogador: fica a VORAX_ESPACO do centro. */
-  #naoEncostar(s) {
-    for (const j of this.players.values()) {
-      if (!j.vivo) continue;
-      const rx = s.x - j.ship.x;
-      const rz = s.z - j.ship.z;
-      const r = Math.hypot(rx, rz);
-      if (r >= VORAX_ESPACO || r < 1e-6) continue;
-      s.x = j.ship.x + (rx / r) * VORAX_ESPACO;
-      s.z = j.ship.z + (rz / r) * VORAX_ESPACO;
-    }
-  }
-
-  /** Golpe de garra no jogador mais perto ao alcance (nunca na zona segura). */
-  #garra(m) {
-    if (m.ship.emp > 0) return; // pulso EMP: sem garra enquanto durar
-    if (this.tick - m.ultimoGolpe < VORAX_INTERVALO_TICKS) return;
-    let alvo = null;
-    let melhor = VORAX.alcance;
-    for (const j of this.players.values()) {
-      if (!j.vivo || this.#naZonaSegura(j.ship) || Math.abs(j.ship.y - m.ship.y) > 8 || !this.#provocado(m, j)) continue;
-      const d = Math.hypot(j.ship.x - m.ship.x, j.ship.z - m.ship.z);
-      if (d < melhor) {
-        melhor = d;
-        alvo = j;
-      }
-    }
-    if (!alvo) return;
-    m.ultimoGolpe = this.tick;
-    const s = alvo.ship;
-    this.#ferir(alvo, VORAX.dano, m.id, { e: 'garra', id: m.id, x: s.x, y: s.y, z: s.z }, { tipoDano: 'fisico' });
   }
 
   #naZonaSegura(s) {
@@ -830,7 +477,7 @@ export class World {
     return this.#protegido(ent);
   }
 
-  /** O tiro `b` pode acertar `alvo`? Não acerta o dono, aliado nem (se de drone) drone, minerador ou escolta. */
+  /** O tiro `b` pode acertar `alvo`? Não acerta o dono, aliado nem (se de monstro: `drone`) monstro, minerador ou escolta. */
   #podeAcertar(b, alvo) {
     if (alvo.id === b.owner || !alvo.vivo) return false;
     if (b.time !== undefined && b.time === alvo.time) return false; // sem fogo amigo
@@ -847,32 +494,49 @@ export class World {
   #vivos() {
     return [
       ...this.players.values(),
-      ...this.drones,
-      ...this.monstros,
-      ...this.elites,
+      ...this.jungle.lista,
       ...this.mineradores.lista,
       ...this.escoltas.lista,
+      ...this.objetivos.entidades(),
     ].filter((e) => e.vivo);
   }
 
   /**
    * Multiplicador do dano causado pelo jogador `autorId` agora (1 para monstro,
    * drone ou quem já saiu), para um golpe do tipo `tipoDano` ('fisico', 'laser',
-   * 'eletrico'). Ponto único dos multiplicadores do atacante: o bônus 'furia' do
-   * time (objetivo C; vale no impacto, então só enquanto o bônus dura) e o poder do
-   * piloto naquele tipo (pontos e potenciadores: × (1 + status.poder[tipo])). Tiro,
-   * área, nova, mina, campo, dreno, torre B e torretas passam por aqui, uma vez por
-   * golpe.
+   * 'eletrico'). Ponto único dos multiplicadores do atacante: os bônus (o 'ataque'
+   * da nave e a 'medusa' do time, server/bonus.js; valem no impacto, então só
+   * enquanto duram) e o poder do piloto naquele tipo (pontos e potenciadores: ×
+   * (1 + status.poder[tipo])). Tiro, área, nova, mina, campo, dreno, torre de
+   * suporte, Núcleo e torretas passam por aqui, uma vez por golpe.
    */
+  /** Os monstros da jungle (vivos e os mortos até o lugar deles renascer). */
+  get monstros() {
+    return this.jungle.lista;
+  }
+
   multDanoDe(autorId, tipoDano) {
     const j = this.players.get(autorId);
     if (!j) return 1;
-    const furia = this.bonus.ativo(j.time, 'furia', this.tick) ? BONUS.furia.mult : 1;
-    return furia * (1 + (j.status?.poder[tipoDano] ?? 0));
+    return this.bonus.multDano(j, this.tick) * (1 + (j.status?.poder[tipoDano] ?? 0));
   }
 
   /**
-   * Dano de um tiro no impacto, sem os estados do alvo (torre B e torretas usam):
+   * Os bônus que mexem na nave (server/bonus.js), postos a cada tick antes dos
+   * comandos: a velocidade máxima (s.velMult = a do status × 'sonda' fora de combate
+   * × 'medusa') e a energia do 'suporte' (s.regenEn = a da nave e do status + o
+   * bônus). Os dois vão no `me`, e o stepShip da predição lê os mesmos números.
+   * j.baseNave é o que o status pôs (server/servicos.js, aplicarStatus).
+   */
+  #bonusDaNave(j) {
+    const b = j.baseNave;
+    if (!b) return;
+    j.ship.velMult = b.velMult * this.bonus.multVelocidade(j, this.tick);
+    j.ship.regenEn = b.regenEn + this.bonus.regenNave(j, this.tick).en;
+  }
+
+  /**
+   * Dano de um tiro no impacto, sem os estados do alvo (torre de suporte e torretas usam):
    * o do golpe × multiplicador do NPC × bônus do time e poder de quem atirou.
    */
   danoDoTiro(bala) {
@@ -893,13 +557,18 @@ export class World {
    */
   #ferir(alvo, dano, autor, ev, opcoes = {}) {
     if (!alvo.vivo) return; // já morreu neste tick (área e efeito no mesmo golpe)
-    // Monstro da jungle atacado por um jogador: passa a caçá-lo (ver RAIVA_S).
-    if (alvo.drone && this.players.has(autor)) (alvo.raiva ??= new Map()).set(autor, this.tick + RAIVA_TICKS);
+    // Monstro da jungle atacado por um jogador: passa a caçá-lo (server/jungle.js, RAIVA_S).
+    if (alvo.tipo === 'monstro') this.jungle.provocar(alvo, autor);
     if (this.#protegido(alvo)) {
       if (ev) this.eventos.push({ ...ev, alvo: alvo.id, dano: 0 });
       return;
     }
     const quem = this.players.get(autor);
+    // Alvo que só jogador fere (o Núcleo de He-3): tiro de monstro, torreta ou escolta bate e não tira nada.
+    if (alvo.soJogador && !quem) {
+      if (ev) this.eventos.push({ ...ev, alvo: alvo.id, dano: 0 });
+      return;
+    }
     const tipo = opcoes.tipoDano;
     // Golpe crítico do atacante (só golpe direto de arma; o sorteio é só do servidor).
     let crit = false;
@@ -927,6 +596,14 @@ export class World {
     }
     s.hp -= dano;
     alvo.ultimoDano = this.tick;
+    if (total > 0) {
+      // Combate (server/bonus.js e server/objetivos.js) e agressão (server/torretas.js).
+      if (alvo.tipo === 'jogador') alvo.levouDanoTick = this.tick;
+      if (quem && quem !== alvo) {
+        quem.causouDanoTick = this.tick;
+        if (alvo.time !== undefined && alvo.time !== quem.time) quem.agrediu = { tick: this.tick, time: alvo.time, x: alvo.ship.x, z: alvo.ship.z };
+      }
+    }
     // Dano de jogador inimigo (no escudo também): anota para a assistência.
     const atacante = alvo.tipo === 'jogador' && total > 0 ? quem : undefined;
     if (atacante && atacante.time !== alvo.time) alvo.danoPor.set(atacante.id, this.tick);
@@ -947,7 +624,7 @@ export class World {
       const s = tempoRenascer(alvo.nivel, this.partida.fracaoDecorrida(this.tick));
       alvo.respawnTick = this.tick + Math.round(s * TICK_HZ);
     } else {
-      alvo.respawnTick = this.tick + (alvo.renascerTicks ?? (alvo.tipo === 'vorax' ? VORAX_RENASCER_TICKS : RESPAWN_TICKS));
+      alvo.respawnTick = this.tick + (alvo.renascerTicks ?? RESPAWN_TICKS);
     }
     if (alvo.tipo === 'jogador') alvo.mortes++;
     if (alvo.tipo === 'minerador') alvo.carga = 0; // o minério que carregava se perde
@@ -955,19 +632,23 @@ export class World {
     if (matador?.id === alvo.id) matador = undefined;
     const morte = { e: 'morte', id: alvo.id, por: autor, tipo: alvo.tipo, x: alvo.ship.x, y: alvo.ship.y, z: alvo.ship.z };
     if (alvo.time !== undefined) morte.time = alvo.time;
+    if (alvo.esp) morte.esp = alvo.esp;
     this.eventos.push(morte);
+    const ouroAntes = matador?.ouro ?? 0;
     if (matador) {
-      // Ouro e XP pelo tipo do que morreu (RECOMPENSA: monstro, minerador, jogador).
+      // Ouro e XP pelo que morreu (RECOMPENSA: espécie do monstro, minerador, jogador).
       matador.abates++;
-      const ouroAntes = matador.ouro;
-      recompensar(matador, alvo.tipo, this.eventos);
+      recompensar(matador, chaveRecompensa(alvo), this.eventos);
       if (alvo.tipo === 'jogador') this.#abateDeJogador(alvo, matador, morte);
-      morte.ouro = matador.ouro - ouroAntes;
     }
+    // Jungle: recarga do lugar e bônus do golpe final (a Medusa paga o time inteiro).
+    if (alvo.tipo === 'monstro') this.jungle.aoMorrer(alvo, matador);
+    if (matador) morte.ouro = matador.ouro - ouroAntes;
     if (alvo.tipo === 'jogador') {
-      // Morrer (para quem for) zera a sequência e o registro de dano.
+      // Morrer (para quem for) zera a sequência, o registro de dano e os bônus de nave.
       alvo.sequencia = 0;
       alvo.danoPor.clear();
+      this.bonus.limparNave(alvo.id);
       morte.renasce = Math.round((alvo.respawnTick - this.tick) / TICK_HZ);
     }
     this.objetivos.aoMorrer(alvo, matador);
@@ -1032,6 +713,8 @@ export class World {
     const noChao = s.pousado && Math.hypot(s.vx, s.vz) < VEL_TOQUE;
     if (ent.tipo === 'jogador') {
       let porS = noChao ? (semDano > POUSO_REGEN_ESPERA_TICKS ? s.regenHpPousada : 0) : s.regenHpVoo;
+      // Bônus 'suporte' (server/bonus.js): fração do HP máximo por s, sempre.
+      porS += s.maxHp * this.bonus.regenNave(ent, this.tick).hpFrac;
       // Pousada e parada na própria base: conserta rápido (BASE_CURA_FRAC em shared/sim.js).
       if (pousadaNaBase(s)) porS += s.maxHp * BASE_CURA_FRAC;
       if (porS > 0) s.hp = Math.min(s.maxHp, s.hp + porS * DT);
@@ -1042,27 +725,15 @@ export class World {
     }
   }
 
+  /** Renasce o jogador na base do time (os monstros renascem pela jungle). */
   #respawn(ent) {
-    if (ent.tipo === 'vorax') {
-      ent.ship = this.#naveVorax();
-      ent.preso = ent.re = 0;
-    } else if (ent.tipo === 'guardiao') {
-      this.objetivos.renascerGuardiao(ent);
-    } else if (ent.elite) {
-      const p = this.#pontoKrakor();
-      renascerElite(ent, p.x, p.z, this.rng() * Math.PI * 2);
-    } else if (ent.drone) {
-      const novo = this.#novoDrone();
-      ent.ship = novo.ship;
-    } else {
-      const encInst = ent.ship.encInst; // as cópias que estavam no Z e no X continuam lá
-      ent.ship = this.#naveNaBase(ent.ship.race, ent.time, ent.classe, ent.tier);
-      if (encInst) ent.ship.encInst = [...encInst];
-      prepararNave(ent); // nave da linha, nível, pontos, equipamento e a posse de armas
-      ent.fila.length = 0;
-      ent.protegidoAte = this.tick + PROTECAO_TICKS;
-      ent.recall = null; // partida nova: quem canalizava já está na base
-    }
+    const encInst = ent.ship.encInst; // as cópias que estavam no Z e no X continuam lá
+    ent.ship = this.#naveNaBase(ent.ship.race, ent.time, ent.classe, ent.tier);
+    if (encInst) ent.ship.encInst = [...encInst];
+    prepararNave(ent); // nave da linha, nível, pontos, equipamento e a posse de armas
+    ent.fila.length = 0;
+    ent.protegidoAte = this.tick + PROTECAO_TICKS;
+    ent.recall = null; // partida nova: quem canalizava já está na base
     ent.vivo = true;
     ent.drenoTicks = 0;
     ent.st = {};
@@ -1086,6 +757,7 @@ export class World {
       if (vinhaDoFim) this.torretas.reiniciar(); // todas de pé, nível 1
       this.mineradores.comecar(this.tick);
       this.escoltas.comecar(this.tick);
+      this.jungle.comecar(this.tick); // monstros somem; o relógio da jungle recomeça
       // Depois da tela de fim, todo mundo volta para a base do time. (Na primeira
       // partida, quem entrou acabou de nascer lá.)
       if (vinhaDoFim) {
@@ -1114,6 +786,7 @@ export class World {
       this.torretas.reiniciar();
       this.mineradores.limpar();
       this.escoltas.limpar();
+      this.jungle.limpar();
     }
   }
 
@@ -1174,6 +847,7 @@ export class World {
         if (this.tick >= j.respawnTick) this.#respawn(j);
         continue;
       }
+      this.#bonusDaNave(j);
       const n = Math.min(MAX_INPUTS_TICK, j.fila.length);
       for (let k = 0; k < n; k++) {
         const { seq, inp } = j.fila.shift();
@@ -1186,29 +860,9 @@ export class World {
       if (j.vivo) this.#regen(j);
     }
 
-    for (const d of this.drones) {
-      if (!d.vivo) {
-        if (this.tick >= d.respawnTick) this.#respawn(d);
-        continue;
-      }
-      this.#atira(d, stepShip(d.ship, this.#iaDrone(d)));
-      this.#drenar(d);
-      if (d.vivo) this.#regen(d);
-    }
-
-    if (this.monstros.length) this.#atualizarCaca();
-    for (const m of this.monstros) {
-      if (!m.vivo) {
-        if (this.tick >= m.respawnTick) this.#respawn(m);
-        continue;
-      }
-      stepShip(m.ship, this.#iaVorax(m)); // não atira: o ataque é a garra
-      this.#naoEncostar(m.ship);
-      this.#foraDaZona(m.ship);
-      this.#garra(m);
-      this.#drenar(m);
-      this.#regen(m);
-    }
+    // Jungle: nascimentos pelo relógio e a IA dos monstros (server/jungle.js).
+    this.jungle.passo();
+    for (const m of this.jungle.lista) if (m.vivo) this.#drenar(m);
 
     // Mineradores e escoltas andam só com a partida em andamento (na tela de fim
     // ficam parados).
@@ -1218,19 +872,6 @@ export class World {
     }
     for (const m of this.mineradores.lista) if (m.vivo) this.#drenar(m);
     for (const e of this.escoltas.lista) if (e.vivo) this.#drenar(e);
-
-    this.ctxElite.tick = this.tick;
-    for (const e of this.elites) {
-      if (!e.vivo) {
-        if (this.tick >= e.respawnTick) this.#respawn(e);
-        continue;
-      }
-      const { inp, disparos } = iaElite(e, this.ctxElite);
-      const semCuspe = e.ship.emp > 0; // pulso EMP: o cuspe também para
-      this.#atira(e, [...stepShip(e.ship, inp), ...(semCuspe ? [] : disparos)]);
-      this.#drenar(e);
-      if (e.vivo) this.#regen(e);
-    }
 
     this.objetivos.step();
     this.torretas.passo(this.partida.emAndamento && this.torretasAtiram);
@@ -1245,11 +886,13 @@ export class World {
 
   /**
    * Entidades visíveis para todos (mesma lista para cada jogador). `tipo` diz o
-   * que desenhar ('jogador', 'arnosh', 'vorax', 'krakor', 'guardiao', 'minerador'
-   * ou 'escolta'); `drone` continua true para todo inimigo do PvE. Jogadores,
+   * que desenhar ('jogador', 'monstro', 'minerador', 'escolta' ou 'nucleo'; o
+   * monstro traz `esp`, a espécie de server/especies.js, e só vem vivo); `drone`
+   * continua true para todo inimigo do PvE e o Núcleo. Jogadores,
    * mineradores e escoltas trazem `time`; os mineradores também `carga` (minério no contêiner)
-   * e `minerando`. Jogador traz `nivel`, `classe` e `tier` (a nave a desenhar) e,
-   * com escudo equipado, `esc` (fração 0 a 1 do escudo).
+   * e `minerando`, e os da onda do Núcleo `nucleo: 1`. Jogador traz `nivel`, `classe` e
+   * `tier` (a nave a desenhar), com escudo equipado `esc` (fração 0 a 1 do escudo) e,
+   * com bônus de nave, `bn` (['ataque', 'suporte', 'sonda'], os ativos).
    */
   entidades() {
     const lista = [];
@@ -1285,20 +928,24 @@ export class World {
         ent.arm = e.ship.encaixes; // armas do Z e do X (o modelo na asa de cada uma)
         // Fração do escudo do equipamento, para a barra nos rótulos (sem escudo, não vem).
         if (e.ship.maxEscudo > 0) ent.esc = +Math.max(0, Math.min(1, e.ship.escudo / e.ship.maxEscudo)).toFixed(2);
+        // Bônus de nave ativos ('ataque', 'suporte', 'sonda'), para a aura.
+        const bn = Object.keys(this.bonus.paraNave(e.id, this.tick));
+        if (bn.length) ent.bn = bn;
       }
       if (e.recall) ent.recall = +Math.min(1, (this.tick - e.recall.inicio) / (e.recall.fim - e.recall.inicio)).toFixed(2);
       if (e.tipo === 'minerador') {
         ent.carga = e.carga;
         ent.minerando = e.estado === 'minerando';
+        if (e.nucleo) ent.nucleo = 1; // da onda do Núcleo (maior, brilhando He-3)
       }
+      if (e.tipo === 'monstro') ent.esp = e.esp;
       lista.push(ent);
     };
     for (const j of this.players.values()) add(j);
-    for (const d of this.drones) add(d);
-    for (const m of this.monstros) add(m);
+    for (const m of this.jungle.lista) if (m.vivo) add(m);
     for (const m of this.mineradores.lista) add(m);
     for (const e of this.escoltas.lista) add(e);
-    for (const e of this.elites) add(e);
+    for (const e of this.objetivos.entidades()) add(e); // o Núcleo de He-3 (tipo 'nucleo')
     return lista;
   }
 
@@ -1312,13 +959,15 @@ export class World {
     if (this.cacheObj?.tick !== this.tick) {
       this.cacheObj = {
         tick: this.tick,
-        obj: this.objetivos.estado(),
+        obj: { ...this.objetivos.estado(), ...(this.jungle?.estado() ?? {}) },
         torretas: this.torretas.estado(),
         minas: this.#minasSnap(),
         guiados: this.#guiadosSnap(),
         jogadores: this.#jogadoresSnap(),
       };
     }
+    // Visão do time: só o que algum aliado enxerga (server/visao.js); a camuflagem vem por cima.
+    ents = this.visao.entidades(j, ents);
     // Invisível (Camuflagem) sai da lista de quem é do outro time, salvo de perto.
     const ocultos = this.#ocultosPara(j);
     if (ocultos.size) ents = ents.filter((e) => !ocultos.has(e.id));
@@ -1329,7 +978,7 @@ export class World {
       vivo: j.vivo,
       renasceEm: j.vivo ? 0 : Math.max(0, +((j.respawnTick - this.tick) / TICK_HZ).toFixed(1)),
       time: j.time,
-      me: { ...j.ship, ...this.servicos.paraMe(j) },
+      me: { ...j.ship, ...this.servicos.paraMe(j), ...this.#bonusParaMe(j) },
       st: this.golpes.paraMe(j), // estados das armas no próprio jogador (s restantes), para o HUD
       ouro: j.ouro,
       abates: j.abates,
@@ -1342,12 +991,22 @@ export class World {
       obj: this.cacheObj.obj,
       torretas: this.cacheObj.torretas,
       melhorias: this.servicos.niveis[j.time], // níveis das melhorias dos mineradores do time
-      minas: this.cacheObj.minas,
-      guiados: this.cacheObj.guiados,
+      minas: this.visao.minas(j, this.cacheObj.minas),
+      guiados: this.visao.guiados(j, this.cacheObj.guiados),
       jogadores: this.cacheObj.jogadores,
       ents,
-      ev: eventos,
+      ev: this.visao.eventos(j, eventos),
     };
+  }
+
+  /**
+   * Bônus de nave no `me`: bonusNave = { ataque: s, suporte: s, sonda: s } (só os
+   * ativos) e, com a 'sonda' suspensa em combate, bonusSuspenso = ['sonda'].
+   */
+  #bonusParaMe(j) {
+    const bonusNave = this.bonus.paraNave(j.id, this.tick);
+    if (bonusNave.sonda && this.bonus.emCombate(j, this.tick)) return { bonusNave, bonusSuspenso: ['sonda'] };
+    return { bonusNave };
   }
 
   /** Ids dos jogadores invisíveis para `j` (do outro time e longe da nave dele). */
@@ -1375,6 +1034,7 @@ export class World {
       nv: m.nivel,
       p: m.g?.prof ?? 0,
       campo: m.campo || undefined,
+      atq: m.g?.atq, // campo de monstro (server/jungle.js)
       raio: +((m.campo ? m.g?.area : m.g?.gatilho) ?? 0).toFixed(1),
       x: +m.x.toFixed(2),
       y: +m.y.toFixed(2),
@@ -1387,7 +1047,7 @@ export class World {
   #guiadosSnap() {
     return this.bullets
       .filter((b) => b.g?.guia)
-      .map((b) => ({ id: b.id, kind: b.kind, nv: b.nivel, p: b.prof, x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2), vx: +b.vx.toFixed(2), vy: +b.vy.toFixed(2), vz: +b.vz.toFixed(2) }));
+      .map((b) => ({ id: b.id, kind: b.kind, nv: b.nivel, p: b.prof, ...(b.g.atq ? { atq: b.g.atq } : {}), x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2), vx: +b.vx.toFixed(2), vy: +b.vy.toFixed(2), vz: +b.vz.toFixed(2) }));
   }
 
   /** Esvazia a lista de eventos acumulados desde o último snapshot. */

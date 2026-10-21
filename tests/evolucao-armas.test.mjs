@@ -7,16 +7,17 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { World, ZONA_SEGURA } from '../server/game.js';
+import { World } from '../server/game.js';
 import { createShip, stepShip, IDX_ARMA, ARMAS, WEAPONS, INPUT_VAZIO, armasIniciais, versaoArma } from '../shared/sim.js';
-import { BASE, SERVICOS } from '../shared/terrain.js';
+import { SERVICOS } from '../shared/terrain.js';
 import { ARMA_NIVEL_MAX, precoEvoluirArma, itemDaLoja } from '../shared/loja.js';
+import { CAMPO } from './lugares.mjs';
 
 const SEGUNDO = 30;
 const PARADO = { ...INPUT_VAZIO };
 
 function mundo(opcoes = {}) {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, ...opcoes });
+  const w = new World({ jungle: false, ...opcoes });
   w.mineradores.passo = () => {};
   return w;
 }
@@ -98,9 +99,9 @@ test('evoluir arma: a versão nova muda o tiro (dano, energia e projéteis) no s
   const a = w.addPlayer('A', 'shrewdo');
   const b = w.addPlayer('B', 'acron');
   const [z] = armasIniciais('shrewdo');
-  const z0 = BASE.z - ZONA_SEGURA - 120;
-  a.ship = createShip('shrewdo', BASE.x, z0, 0);
-  b.ship = createShip('acron', BASE.x, z0 - 25, 0);
+  const z0 = CAMPO.z;
+  a.ship = createShip('shrewdo', CAMPO.x, z0, 0);
+  b.ship = createShip('acron', CAMPO.x, z0 - 25, 0);
   a.protegidoAte = b.protegidoAte = 0;
   a.inv = a.inv.map((x) => (x.chave === ARMAS[z] ? { ...x, nivel: 5 } : x));
   a.ship.niveis = { [z]: 5 };

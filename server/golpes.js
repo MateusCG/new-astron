@@ -91,7 +91,7 @@ export class Golpes {
 
   // ---------- Disparo ----------
 
-  /** Cria os golpes dos disparos de `ent` (de stepShip ou da IA dos elites). */
+  /** Cria os golpes dos disparos de `ent` (de stepShip). */
   disparar(ent, disparos) {
     if (!disparos.length) return;
     ent.ultimoTiro = this.tick;
@@ -120,7 +120,36 @@ export class Golpes {
 
   /** Quem atirou, como o golpe carrega: id, time, drone, multiplicador do NPC. */
   #fonte(ent) {
-    return { id: ent.id, time: ent.time, drone: !!ent.drone, mult: ent.danoMult ?? (ent.drone ? this.world.danoMultDrone : 1) };
+    return { id: ent.id, time: ent.time, drone: !!ent.drone, mult: ent.danoMult ?? 1 };
+  }
+
+  // ---------- Monstros (server/jungle.js) ----------
+
+  /**
+   * Golpe de monstro da jungle: `g` vem montado por server/jungle.js no mesmo formato
+   * dos golpes do catálogo (forma, dano, area, efeitos, tiros, vel, vida, guia,
+   * nova...), com `tipoDano` e `atq` (o nome do ataque, que vai nos eventos e no
+   * snapshot para o cliente desenhar) próprios; `kind` é o tiro de NPC ('laser' ou
+   * 'plasma'). O projétil sai de `ent` no rumo `yaw` (o teleguiado trava em `alvo`;
+   * o reto sobe ou desce até a altura dele); nova, mina e campo abrem em (x, z).
+   */
+  golpeDeMonstro(ent, kind, g, { yaw = ent.ship.yaw, alvo = null, x = ent.ship.x, z = ent.ship.z } = {}) {
+    ent.ultimoTiro = this.tick;
+    const f = { ...this.#fonte(ent), kind, nivel: 1 };
+    const s = ent.ship;
+    if (g.forma === 'projetil') {
+      for (const { off, ang } of g.tiros) {
+        const b = tiroFilho(g, this.#id(), s.x, s.y, s.z, yaw, off, ang);
+        this.#prepararTiro(b, f, g, yaw + ang);
+        if (alvo && g.guia) b.alvo = alvo.id;
+        else if (alvo) {
+          const d = Math.hypot(alvo.ship.x - b.x, alvo.ship.z - b.z);
+          if (d > 1) b.vy = ((alvo.ship.y - b.y) * (g.vel ?? 0)) / d;
+        }
+        this.#lancar(b, g);
+      }
+    } else if (g.forma === 'nova') this.#nova(f, g, x, s.y, z);
+    else if (g.forma === 'mina' || g.forma === 'campo') this.#mina(f, g, x, s.y, z);
   }
 
   /** Completa o tiro com quem atirou, a mira (trava o alvo ou aponta para ele) e o golpe. */
@@ -158,6 +187,7 @@ export class Golpes {
       vz: +b.vz.toFixed(2),
       vida: +b.vida.toFixed(2),
       ...(b.enc !== undefined ? { enc: b.enc } : {}),
+      ...(g.atq ? { atq: g.atq } : {}), // ataque de monstro (server/jungle.js)
     });
   }
 
@@ -199,7 +229,7 @@ export class Golpes {
       if (g?.cresce && b.raio < g.cresce.raio) b.raio = Math.min(g.cresce.raio, b.raio + g.cresce.vel * DT);
       const segue = stepBullet(b);
       if (w.objetivos.tiroNaTorre(b) || w.torretas.tiroNaTorreta(b)) {
-        // Bateu numa torre B ou numa torreta (sólidas): acaba ali.
+        // Bateu numa torre de suporte ou numa torreta (sólidas): acaba ali.
         this.#fimDoTiro(b, g, novos);
         return false;
       }
@@ -271,16 +301,16 @@ export class Golpes {
     const kind = fonte.kind;
     const como = { owner: fonte.owner ?? fonte.id, time: fonte.time, drone: fonte.drone };
     const autor = como.owner;
-    const tipoDano = WEAPONS[kind]?.tipoDano;
+    const tipoDano = g.tipoDano ?? WEAPONS[kind]?.tipoDano; // golpe de monstro traz o tipo próprio
     const dano = (g.dano ?? 0) * (fonte.mult ?? 1) * (fonte.drone ? 1 : w.multDanoDe(autor, tipoDano));
     const alvos = [];
     if (g.area > 0) {
       for (const a of w.vivosAgora()) if (naArea(a, x, y, z, g.area)) alvos.push(a);
-      w.eventos.push({ e: 'explosao', arma: kind, nv: fonte.nivel, p: g.prof, dono: autor, time: fonte.time, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), raio: g.area });
+      w.eventos.push({ e: 'explosao', arma: kind, nv: fonte.nivel, p: g.prof, dono: autor, time: fonte.time, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), raio: g.area, ...(g.atq ? { atq: g.atq } : {}) });
     } else if (direto) alvos.push(direto);
     for (const a of alvos) {
       if (g.inimigo && this.ctx.podeAcertar(como, a)) {
-        const ev = { e: 'acerto', kind, x: +a.ship.x.toFixed(2), y: +a.ship.y.toFixed(2), z: +a.ship.z.toFixed(2) };
+        const ev = { e: 'acerto', kind, x: +a.ship.x.toFixed(2), y: +a.ship.y.toFixed(2), z: +a.ship.z.toFixed(2), ...(g.atq ? { atq: g.atq } : {}) };
         if (a === direto && bala !== undefined) ev.bala = bala;
         if (dano > 0 || a === direto) this.ctx.ferir(a, dano, autor, ev, { tipoDano });
         if (a.vivo) this.#efeitosInimigo(g, a, autor, fonte);
@@ -469,7 +499,7 @@ export class Golpes {
   #nova(f, g, x, y, z) {
     const n = { id: this.#id(), owner: f.id, time: f.time, drone: f.drone, mult: f.mult, kind: f.kind, nivel: f.nivel, g, x, y, z, r: 0, atingidos: new Set() };
     this.novas.push(n);
-    this.world.eventos.push({ e: 'nova', id: n.id, dono: f.id, time: f.time, kind: f.kind, nv: f.nivel, p: g.prof, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), raio: g.nova.raio, vel: g.nova.vel });
+    this.world.eventos.push({ e: 'nova', id: n.id, dono: f.id, time: f.time, kind: f.kind, nv: f.nivel, p: g.prof, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), raio: g.nova.raio, vel: g.nova.vel, ...(g.atq ? { atq: g.atq } : {}) });
   }
 
   #passoNovas(vivos) {
@@ -478,13 +508,13 @@ export class Golpes {
       const g = n.g;
       n.r = g.nova.vel > 0 ? Math.min(g.nova.raio, n.r + g.nova.vel * DT) : g.nova.raio;
       const como = { owner: n.owner, time: n.time, drone: n.drone };
-      const tipoDano = WEAPONS[n.kind]?.tipoDano;
+      const tipoDano = g.tipoDano ?? WEAPONS[n.kind]?.tipoDano;
       const dano = (g.dano ?? 0) * (n.mult ?? 1) * (n.drone ? 1 : w.multDanoDe(n.owner, tipoDano));
       for (const a of vivos) {
         if (n.atingidos.has(a.id) || !a.vivo || !naArea(a, n.x, n.y, n.z, n.r)) continue;
         if (g.inimigo && this.ctx.podeAcertar(como, a)) {
           n.atingidos.add(a.id);
-          if (dano > 0) this.ctx.ferir(a, dano, n.owner, { e: 'acerto', kind: n.kind, x: +a.ship.x.toFixed(2), y: +a.ship.y.toFixed(2), z: +a.ship.z.toFixed(2) }, { tipoDano });
+          if (dano > 0) this.ctx.ferir(a, dano, n.owner, { e: 'acerto', kind: n.kind, x: +a.ship.x.toFixed(2), y: +a.ship.y.toFixed(2), z: +a.ship.z.toFixed(2), ...(g.atq ? { atq: g.atq } : {}) }, { tipoDano });
           if (a.vivo) this.#efeitosInimigo(g, a, n.owner, n);
         } else if (g.aliado && this.#aliado(como, a, true)) {
           n.atingidos.add(a.id);
@@ -577,9 +607,9 @@ export class Golpes {
 
   #acertoCampo(fonte, g, a) {
     const w = this.world;
-    const tipoDano = WEAPONS[fonte.kind]?.tipoDano;
+    const tipoDano = g.tipoDano ?? WEAPONS[fonte.kind]?.tipoDano;
     const dano = (g.dano ?? 0) * (fonte.mult ?? 1) * (fonte.drone ? 1 : w.multDanoDe(fonte.owner, tipoDano));
-    if (dano > 0) this.ctx.ferir(a, dano, fonte.owner, { e: 'acerto', kind: fonte.kind, x: +a.ship.x.toFixed(2), y: +a.ship.y.toFixed(2), z: +a.ship.z.toFixed(2) }, { tipoDano });
+    if (dano > 0) this.ctx.ferir(a, dano, fonte.owner, { e: 'acerto', kind: fonte.kind, x: +a.ship.x.toFixed(2), y: +a.ship.y.toFixed(2), z: +a.ship.z.toFixed(2), ...(g.atq ? { atq: g.atq } : {}) }, { tipoDano });
     if (a.vivo) this.#efeitosInimigo(g, a, fonte.owner, fonte);
   }
 

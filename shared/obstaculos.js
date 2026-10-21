@@ -1,67 +1,61 @@
 // Obstáculos sólidos do mapa (construções), compartilhados entre servidor e cliente.
 //
-// O terreno já é sólido por heightAt(); as construções não eram, e a nave
-// atravessava os hangares. Aqui fica a planta de cada construção (posição, tamanho,
-// giro e altura): a física usa para colidir nave e tiro, e o cenário
-// (public/js/cena.js) usa a MESMA lista para desenhar. Assim o que se vê é o que
-// bate. Decoração baixa (canos, pedras, placas no chão) continua sem colisão de
-// propósito: fica abaixo da altura de voo e a nave passa por cima.
+// As rochas já são sólidas por heightAt() (shared/terrain.js); as construções ficam
+// aqui: a planta de cada uma (posição, tamanho, giro e altura). A física usa para
+// colidir nave e tiro, a visão e o desenho usam a MESMA lista. Assim o que se vê é o
+// que bate. Decoração baixa e os pilares que descem das plataformas até a água ficam
+// sem colisão de propósito: estão abaixo da altura de voo.
 //
-// As duas bases são iguais, uma girada 180° em relação à outra (como o mapa todo):
-// a planta é escrita no referencial da base do time 0, com o corredor para o norte
-// (-z), e girada para a base do time 1. Cada base tem hangares no fundo, antenas e o
-// portal na boca do corredor; o vão do portal e a linha do centro (por onde passam
-// os mineradores e ficam as plataformas de serviço) ficam livres.
+// Construções:
+// - a mineradora de Hélio-3 no centro da lane (MINERADORA em shared/terrain.js):
+//   retângulo arredondado mais largo que a lane e alto demais para passar por cima;
+// - a torre de cada buff de suporte (BUFFS, `id` 'BS0'/'BS1'), que cai quando
+//   destruída e volta depois;
+// - as torres sentinela (TORRETAS), que caem e só voltam reconstruídas na Evolução.
+// As bases não têm peça sólida: o anel e as plataformas de serviço são áreas de
+// pouso (AREAS_POUSO, abaixo da altura de voo) e o portal warp flutua acima de
+// PORTAL_WARP.base, alto o bastante para a nave passar por baixo. O Núcleo de He-3
+// também não é sólido (flutua no poço; quem decide se colide é a regra dele).
 //
-// Fora das bases: os cristais do depósito de minério (o miolo é sólido; a coroa em
-// volta fica livre para os mineradores carregarem), as torres dos objetivos B e as
-// torretas de defesa nas bordas do corredor (TORRETAS em shared/terrain.js).
+// Formas: 'caixa' (retângulo girado em yaw; com `canto`, de cantos arredondados) e
+// 'cilindro'. Cada uma tem `topo` (altura absoluta do alto), `grupo` ('mineradora',
+// 'buff' ou 'torreta') e, nas torres, `time` e `id`.
 //
-// Formas: 'caixa' (retângulo girado em yaw, como os hangares) e 'cilindro'. Cada
-// uma tem `topo` (altura absoluta do alto), `grupo` ('base', 'minerio', 'objetivo'
-// ou 'torreta') e, nas bases e torretas, `time`.
-//
-// Construções que podem sumir: a torre de cada objetivo B é destruída na partida e
-// volta depois da recarga (server/objetivos.js); cada torreta é destruída e só
-// volta se o time a reconstruir na Evolução (server/torretas.js). Elas têm `id` (o
-// do objetivo, 'B1' ou 'B2', ou o da torreta, 'T0-1' a 'T1-4') e
-// definirObstaculoAtivo(id, false) a tira da física (alturaSolida, colisão de nave
-// e de tiro). O estado é do módulo, igual nos dois lados: o servidor muda quando a
-// construção cai ou volta, e o cliente aplica o que vem no snapshot (`obj` e
-// `torretas`), para a predição bater com o servidor. A grade de navegação dos
-// monstros, montada uma vez, pede alturaSolida(..., todos = true): considera tudo
-// sempre de pé (com a construção caída, o monstro só contorna uns 12 m a mais).
+// Construções que podem sumir têm `id`, e definirObstaculoAtivo(id, false) as tira da
+// física (alturaSolida, colisão de nave e de tiro). O estado é do módulo, igual nos
+// dois lados: o servidor muda quando a construção cai ou volta, e o cliente aplica o
+// que vem no snapshot, para a predição bater com o servidor. A grade de navegação
+// dos monstros, montada uma vez, pede alturaSolida(..., todos = true): considera tudo
+// sempre de pé.
 
-import { heightAt, noMapaAberto, BASES, CORREDOR, MINERIO, OBJETIVOS, TORRETAS, ARENA_C, MAP_HALF_X, MAP_HALF_Z, MURALHA } from './terrain.js';
+import {
+  heightAt,
+  noMapaAberto,
+  daBase as daBaseTerreno,
+  BASES,
+  LANE,
+  MINERADORA as PLANTA_MINERADORA,
+  TORRETAS,
+  BUFFS,
+  ABERTO,
+} from './terrain.js';
 
-/** Hangares em volta da plataforma, no fundo da base (longe do corredor). */
-export const HANGAR = { raio: 150, largura: 30, profundidade: 22, altura: 16, quantidade: 5 };
 /**
- * Portal na boca do corredor: duas colunas, viga por cima (a nave passa embaixo).
- * `dz` é a distância do centro da base, para o lado do corredor.
- */
-export const PORTAL = { dz: 160, vao: 56, colunaLarg: 5, colunaProf: 6, altura: 29 };
-/** Torres de antena dos dois lados da base (referencial da base do time 0). */
-export const ANTENAS = { pontos: [[-75, 45], [75, 45]], raio: 1.6, altura: 40 };
-/** Cristais do depósito de minério: um grande no centro e uma coroa de menores. */
-export const CRISTAIS = { centro: { raio: 8, altura: 20 }, coroa: { quantidade: 6, dist: 19, raio: 4.5, altura: 11 } };
-/** Torre dos objetivos B (destruí-la vai ser o objetivo). */
-export const TORRE_B = { raio: 6, altura: 32 };
-/**
- * Torreta do corredor: torre baixa e grossa. Mais alta que a altura de voo (o
- * canhão fica na altura das naves, HOVER, e o tiro de quem passa bate nela), mas
- * bem mais baixa que a torre B, para não tampar a visão do corredor.
+ * Torreta (torre sentinela): torre baixa e grossa, mais alta que a altura de voo (o
+ * canhão fica na altura das naves e o tiro de quem passa bate nela).
  */
 export const TORRETA = { raio: 4.5, altura: 16 };
-
+/** Torre do buff de suporte (o objetivo é destruí-la). */
+export const TORRE_SUPORTE = { raio: 7, altura: 30 };
 /**
- * Leva um ponto do referencial da base do time 0 (centro na origem, corredor para
- * -z) para o mundo, na base `b`. A base do time 1 é a do time 0 girada 180°.
+ * Portal warp de cada base: flutua acima de `base` metros (a nave passa por baixo) e
+ * não colide. `lx`/`lz` no referencial da base do time 0 (lane para +x): no fundo do
+ * bolsão, virado para a lane. Só referência para o desenho.
  */
-export function daBase(b, lx, lz) {
-  const s = b.time === 0 ? 1 : -1;
-  return { x: b.x + s * lx, z: b.z + s * lz };
-}
+export const PORTAL_WARP = { lx: -95, lz: 0, base: 30 };
+
+/** @deprecated Use daBase de shared/terrain.js (é a mesma função). */
+export const daBase = daBaseTerreno;
 
 function caixa(nome, extra, x, z, ang, largura, profundidade, altura, chao = heightAt(x, z)) {
   return { nome, ...extra, forma: 'caixa', x, z, chao, ang, meiaLarg: largura / 2, meiaProf: profundidade / 2, topo: chao + altura };
@@ -74,37 +68,12 @@ function cilindro(nome, extra, x, z, raio, altura) {
 
 function montar() {
   const lista = [];
-  for (const b of BASES) {
-    const extra = { grupo: 'base', time: b.time };
-    const giro = b.time === 0 ? 0 : Math.PI;
-    for (let i = 0; i < HANGAR.quantidade; i++) {
-      const a = Math.PI * 0.2 + (i / (HANGAR.quantidade - 1)) * Math.PI * 0.6;
-      const { x, z } = daBase(b, Math.cos(a) * HANGAR.raio, Math.sin(a) * HANGAR.raio);
-      // Mesmo giro que Object3D.lookAt(base) daria: a frente (+z local) olha a plataforma.
-      lista.push(caixa('hangar', extra, x, z, Math.atan2(b.x - x, b.z - z), HANGAR.largura, HANGAR.profundidade, HANGAR.altura));
-    }
-    const boca = daBase(b, 0, -PORTAL.dz);
-    const chaoPortal = heightAt(boca.x, boca.z);
-    for (const lado of [-1, 1]) {
-      const p = daBase(b, lado * PORTAL.vao, -PORTAL.dz);
-      lista.push(caixa('coluna-portal', extra, p.x, p.z, giro, PORTAL.colunaLarg, PORTAL.colunaProf, PORTAL.altura, chaoPortal));
-    }
-    for (const [lx, lz] of ANTENAS.pontos) {
-      const p = daBase(b, lx, lz);
-      lista.push(cilindro('antena', extra, p.x, p.z, ANTENAS.raio, ANTENAS.altura));
-    }
-  }
-  const min = { grupo: 'minerio' };
-  lista.push(cilindro('cristal', min, MINERIO.x, MINERIO.z, CRISTAIS.centro.raio, CRISTAIS.centro.altura));
-  const coroa = CRISTAIS.coroa;
-  for (let i = 0; i < coroa.quantidade; i++) {
-    // Começa no eixo x, para nenhum cristal ficar no eixo do corredor (x = 0).
-    const a = (i / coroa.quantidade) * Math.PI * 2;
-    const alt = coroa.altura * (0.8 + 0.4 * ((i * 7) % 5) / 4);
-    lista.push(cilindro('cristal', min, MINERIO.x + Math.cos(a) * coroa.dist, MINERIO.z + Math.sin(a) * coroa.dist, coroa.raio, alt));
-  }
-  for (const o of OBJETIVOS.filter((o) => o.tipo === 'B')) {
-    lista.push(cilindro('torre-objetivo', { grupo: 'objetivo', objetivo: o.id, id: o.id }, o.x, o.z, TORRE_B.raio, TORRE_B.altura));
+  const m = PLANTA_MINERADORA;
+  const mineradora = caixa('mineradora', { grupo: 'mineradora' }, m.x, m.z, 0, m.meiaX * 2, m.meiaZ * 2, m.topo);
+  mineradora.canto = m.canto;
+  lista.push(mineradora);
+  for (const b of BUFFS.filter((b) => b.tipo === 'suporte')) {
+    lista.push(cilindro('torre-suporte', { grupo: 'buff', time: b.time, id: b.id }, b.x, b.z, TORRE_SUPORTE.raio, TORRE_SUPORTE.altura));
   }
   for (const t of TORRETAS) {
     lista.push(cilindro('torreta', { grupo: 'torreta', time: t.time, id: t.id }, t.x, t.z, TORRETA.raio, TORRETA.altura));
@@ -117,8 +86,8 @@ function montar() {
 export const OBSTACULOS = montar();
 
 /**
- * Liga (ativo = true) ou desliga uma construção que pode sumir (a torre do objetivo
- * B ou a torreta de `id`). Desligada, ela não é mais sólida para nave nem tiro.
+ * Liga (ativo = true) ou desliga uma construção que pode sumir (a torre de suporte
+ * ou a torreta de `id`). Desligada, ela não é mais sólida para nave nem tiro.
  */
 export function definirObstaculoAtivo(id, ativo) {
   for (const o of OBSTACULOS) if (o.id === id) o.desligado = !ativo;
@@ -137,9 +106,13 @@ function dentro(o, x, z, folga) {
   // Leva o ponto para o referencial da caixa (inverso do giro em y do Three.js).
   const c = Math.cos(o.ang);
   const s = Math.sin(o.ang);
-  const lx = dx * c - dz * s;
-  const lz = dx * s + dz * c;
-  return Math.abs(lx) <= o.meiaLarg + folga && Math.abs(lz) <= o.meiaProf + folga;
+  const lx = Math.abs(dx * c - dz * s);
+  const lz = Math.abs(dx * s + dz * c);
+  if (!o.canto) return lx <= o.meiaLarg + folga && lz <= o.meiaProf + folga;
+  // Cantos arredondados: distância com sinal ao retângulo arredondado.
+  const qx = lx - (o.meiaLarg - o.canto);
+  const qz = lz - (o.meiaProf - o.canto);
+  return Math.hypot(Math.max(qx, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, qz), 0) - o.canto <= folga;
 }
 
 /**
@@ -164,21 +137,26 @@ export function pontoLivre(x, z, folga = 12) {
   return alturaSolida(x, z, folga) === heightAt(x, z);
 }
 
+/** Região dos poços (Núcleo e Medusa): dentro das paredes em L, |x| < 344 e |z| > 628. */
+export const POCOS = { meiaX: 344, zMin: 628 };
+
 /**
- * Ponto sorteado (com o `rng` de quem chama) no mundo aberto: chão livre, fora das
- * bases (com `folgaBase` além do raio), fora da faixa do corredor e longe dos
- * objetivos. É onde nascem os monstros do mundo aberto.
+ * Ponto sorteado (com o `rng` de quem chama) na jungle: chão livre, fora das bases
+ * (com `folgaBase` além do raio), fora da faixa da lane (com `folgaLane` além da
+ * beira) e fora dos poços dos objetivos épicos. É onde nascem os monstros do mundo
+ * aberto. `folgaCorredor` é o nome antigo de `folgaLane`.
  */
-export function pontoAberto(rng, { folgaBase = 150, folgaCorredor = 60 } = {}) {
-  const mx = MAP_HALF_X - MURALHA - 40;
-  const mz = MAP_HALF_Z - MURALHA - 40;
+export function pontoAberto(rng, { folgaBase = 150, folgaLane, folgaCorredor = 60 } = {}) {
+  const folga = folgaLane ?? folgaCorredor;
+  const mx = ABERTO.jungle.meiaX - 40;
+  const mz = ABERTO.jungle.meiaZ - 40;
   for (let t = 0; t < 1000; t++) {
     const x = (rng() * 2 - 1) * mx;
     const z = (rng() * 2 - 1) * mz;
-    if (Math.abs(x - CORREDOR.x) < CORREDOR.largura / 2 + folgaCorredor) continue;
+    if (Math.abs(z - LANE.z) < LANE.meiaLargura + folga) continue;
     if (BASES.some((b) => Math.hypot(x - b.x, z - b.z) < b.raio + folgaBase)) continue;
-    if (OBJETIVOS.some((o) => Math.hypot(x - o.x, z - o.z) < ARENA_C + 20)) continue;
+    if (Math.abs(x) < POCOS.meiaX && Math.abs(z) > POCOS.zMin) continue;
     if (pontoLivre(x, z)) return { x, z };
   }
-  return { x: -mx / 2, z: 0 };
+  return { x: -mx / 2, z: mz / 2 };
 }

@@ -1,34 +1,55 @@
 // HUD: painel inferior (escudo, HP, energia, nível e XP, ouro, velocidade), minimapa,
-// nomes sobre as naves, avisos de abate, a barra do pouso no objetivo A, a barra
-// do recall (volta à base), o "CARREGANDO" da troca de arma e a tela de
+// nomes sobre as naves, avisos de abate, a barra do pouso na plataforma de ouro, os
+// bônus da sua nave (ataque, suporte, sonda e o da Medusa do time, com o tempo), a
+// barra do recall (volta à base), o "CARREGANDO" da troca de arma e a tela de
 // "destruído". É DOM puro por cima do canvas.
 
 import * as THREE from 'three';
-import { paredeAt, MAP_HALF_X, MAP_HALF_Z, BASES, CORREDOR, MINERIO, ENTREGAS, SERVICOS, OBJETIVOS, TORRETAS } from '/shared/terrain.js';
+import {
+  paredeAt,
+  MAP_HALF_X,
+  MAP_HALF_Z,
+  BASES,
+  LANE,
+  MINERADORA,
+  DOCAS,
+  ENTREGAS,
+  SERVICOS,
+  TORRETAS,
+  ASTEROIDES,
+  ACAMPAMENTOS,
+} from '/shared/terrain.js';
 import { WEAPONS, ARMAS, TROCA_ARMA_S, armasIniciais, versaoArma } from '/shared/sim.js';
 import { iconeArma } from './armas.js';
 import { iconeItem } from './servicos.js';
 import { ITENS, ORDEM_ITENS } from '/shared/loja.js';
-import { relogio } from './objetivos.js';
+import { relogio, LUGARES_OBJETIVO, ICONE_OBJETIVO, NOME_OBJETIVO, POUSO_PLATAFORMA_S } from './objetivos.js';
+import { PONTO_MONSTRO } from './monstros.js';
 
 const $ = (s) => document.querySelector(s);
 
-// O minimapa mostra o retângulo inteiro (o canvas tem a mesma proporção do mapa).
-// Cores do guia visual: sua base em turquesa, a do outro time em vermelho, o
-// circuito do minério em azul, serviços na cor de cada um e objetivos em âmbar.
+// O minimapa mostra o retângulo inteiro (o que sobra do canvas é rocha da borda).
+// Cores do guia visual: sua base em turquesa, a do outro time em vermelho, o He-3
+// (mineradora e docas) em azul-gelo, serviços na cor de cada um e objetivos em âmbar
+// (cada um com a sua letra). Fundo na paleta do lago: água verde-azulada escura,
+// rocha em estratos quentes, asteroides em cinza claro apagado.
 const COR_MEU_TIME = '#00efc0';
 const COR_OUTRO_TIME = '#ff4a2a';
 const COR_INIMIGA = '#ff4a2a'; // monstros e tudo do outro time
 const COR_OBJETIVO = '#ffb627';
-const COR_CIRCUITO = '#4fb8ff';
 const COR_MINERIO = '#9fe8ff';
 const COR_SERVICO = { evolucao: '#a58bff', loja: '#ff6fd8' };
 const NOME_SERVICO = { evolucao: 'Evolução', loja: 'Loja' };
 const COR_APAGADA = '#8a7f6a'; // letra de objetivo em recarga
-// Tamanho do ponto de cada inimigo no minimapa: quanto mais perigoso, maior.
-const PONTO_INIMIGO = { vorax: 4.5, krakor: 6, guardiao: 7 };
-/** O que cada bônus faz, para o HUD (nomes de server/bonus.js). */
-export const NOME_BONUS = { mineracao: 'Mineração +1', velocidade: 'Velocidade', durabilidade: 'Durabilidade', furia: 'Fúria' };
+/** Letra de cada objetivo no minimapa. */
+const LETRA_OBJETIVO = { ataque: 'A', suporte: 'S', plataforma: '$', sonda: 'V', medusa: 'M', nucleo: 'N' };
+/** Bônus de nave (me.bonusNave) e de time (bonus[time]): nome e o que faz, para o HUD. */
+export const BONUS_NAVE = {
+  ataque: { nome: 'Ataque', efeito: '+20% de dano', icone: ICONE_OBJETIVO.ataque },
+  suporte: { nome: 'Suporte', efeito: '+2% de HP e +4 de energia por s', icone: ICONE_OBJETIVO.suporte },
+  sonda: { nome: 'Sonda', efeito: '+25% de velocidade (some em combate)', icone: ICONE_OBJETIVO.sonda },
+  medusa: { nome: 'Medusa', efeito: '+15% de dano e de velocidade (time)', icone: ICONE_OBJETIVO.medusa },
+};
 
 /** Aviso de cada efeito de arma na própria nave: [texto, tipo da notícia]. */
 const AVISOS_EFEITO = {
@@ -60,6 +81,7 @@ export class Hud {
     this.xpTxt = $('#xp .txt');
     this.nivel = $('#xp em');
     this.progObj = $('#prog-obj');
+    this.listaBonus = $('#bonus-nave');
     this.progRecall = $('#prog-recall');
     // "CARREGANDO" no meio da tela: uma linha por encaixe em recarga de troca.
     this.linhasCarregando = [0, 1].map((enc) => {
@@ -113,9 +135,10 @@ export class Hud {
         const [x, z] = this.#doMapa(i + 0.5, j + 0.5);
         const p = paredeAt(x, z);
         const k = (j * w + i) * 4;
-        img.data[k] = 40 + p * 90;
-        img.data[k + 1] = 22 + p * 50;
-        img.data[k + 2] = 14 + p * 25;
+        // Lago (campo aberto) verde-azulado escuro; rocha em estratos quentes, mais clara no alto.
+        img.data[k] = p === 0 ? 16 : 70 + p * 75;
+        img.data[k + 1] = p === 0 ? 58 : 54 + p * 62;
+        img.data[k + 2] = p === 0 ? 66 : 40 + p * 46;
         img.data[k + 3] = 255;
       }
     }
@@ -139,27 +162,23 @@ export class Hud {
       ctx.fillStyle = cor;
       ctx.fillRect(cx, cz, Math.max(1.5, larg * k), Math.max(1.5, prof * k));
     };
-    // Corredor (faixa azul apagada), entregas e minério.
-    ctx.globalAlpha = 0.35;
-    retangulo(CORREDOR.x, (CORREDOR.zInicio + CORREDOR.zFim) / 2, CORREDOR.largura, CORREDOR.zFim - CORREDOR.zInicio, COR_CIRCUITO);
+    // Campos de asteroides (passáveis, escondem) em cinza claro apagado.
+    ctx.globalAlpha = 0.3;
+    for (const a of ASTEROIDES) retangulo(a.x, a.z, a.largura, a.profundidade, '#b9c4b8');
+    // Lane (faixa clara apagada), entregas na cor do time dono, a mineradora e as docas de He-3.
+    ctx.globalAlpha = 0.12;
+    retangulo((LANE.xInicio + LANE.xFim) / 2, LANE.z, LANE.xFim - LANE.xInicio, LANE.largura, '#cfe9e4');
     ctx.globalAlpha = 1;
-    for (const e of ENTREGAS) retangulo(e.x, e.z, e.largura, e.profundidade, COR_CIRCUITO);
-    circulo(MINERIO.x, MINERIO.z, MINERIO.raio * 0.7, COR_MINERIO, true);
-    for (const b of BASES) circulo(b.x, b.z, b.raio, b.time === this.meuTime ? COR_MEU_TIME : COR_OUTRO_TIME, false);
+    const corTime = (t) => (t === this.meuTime ? COR_MEU_TIME : COR_OUTRO_TIME);
+    for (const e of ENTREGAS) retangulo(e.x, e.z, e.largura * 0.5, e.profundidade, corTime(e.time));
+    retangulo(MINERADORA.x, MINERADORA.z, MINERADORA.meiaX * 2, MINERADORA.meiaZ * 2, '#5d6866');
+    for (const d of DOCAS) circulo(d.x, d.z, 10, COR_MINERIO, true);
+    // Acampamentos: anel vermelho apagado (os monstros em si vêm pelo snapshot, na visão).
+    ctx.globalAlpha = 0.45;
+    for (const a of ACAMPAMENTOS) circulo(a.x, a.z, a.raio, COR_INIMIGA, false);
+    ctx.globalAlpha = 1;
+    for (const b of BASES) circulo(b.x, b.z, b.raio, corTime(b.time), false);
     for (const sv of SERVICOS) retangulo(sv.x, sv.z, sv.raio * 2.4, sv.raio * 2, COR_SERVICO[sv.servico]);
-    // Objetivos: a letra do tipo em âmbar.
-    ctx.font = 'bold 10px ui-monospace, monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    for (const o of OBJETIVOS) {
-      const [cx, cz] = this.#paraMapa(o.x, o.z);
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
-      ctx.beginPath();
-      ctx.arc(cx, cz, 6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = COR_OBJETIVO;
-      ctx.fillText(o.tipo, cx, cz + 0.5);
-    }
     return c;
   }
 
@@ -181,10 +200,18 @@ export class Hud {
   /**
    * Desenha o minimapa com o mapa fixo, o estado dos objetivos (`obj` do
    * snapshot) e das torretas (`torretas`), os outros (pontos) e você (seta).
+   * `nevoa` (canvas da grade de visão de nevoa.js, opcional) escurece o que o seu
+   * time não vê, esticada sobre o retângulo do mapa.
    */
-  minimapa(eu, ents, meuId, obj = [], torretas = []) {
+  minimapa(eu, ents, meuId, obj = {}, torretas = [], nevoa = null) {
     const ctx = this.ctx;
     ctx.drawImage(this.fundoMapa, 0, 0);
+    if (nevoa) {
+      const [x0, z0] = this.#paraMapa(-MAP_HALF_X, -MAP_HALF_Z);
+      const k = this.#escala();
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(nevoa, x0, z0, 2 * MAP_HALF_X * k, 2 * MAP_HALF_Z * k);
+    }
     this.#objetivosNoMapa(obj);
     this.#torretasNoMapa(torretas);
     for (const e of ents) {
@@ -210,9 +237,14 @@ export class Hud {
         ctx.fill();
         continue;
       }
-      // Quem é mais perigoso (Vorax, Krakor, guardião) num ponto maior que o Arnosh.
-      const t = PONTO_INIMIGO[e.tipo] ?? 3;
-      ctx.fillRect(x - t / 2, z - t / 2, t, t);
+      // O Núcleo já tem o ícone fixo; os monstros num ponto maior quanto mais perigosos.
+      if (e.tipo === 'nucleo') continue;
+      const t = e.tipo === 'monstro' ? (PONTO_MONSTRO[e.esp] ?? 3.5) : 3.5;
+      if (e.tipo === 'monstro') {
+        ctx.beginPath();
+        ctx.arc(x, z, t / 2, 0, Math.PI * 2);
+        ctx.fill();
+      } else ctx.fillRect(x - t / 2, z - t / 2, t, t);
     }
     if (eu) {
       const [x, z] = this.#paraMapa(eu.x, eu.z);
@@ -231,22 +263,22 @@ export class Hud {
   }
 
   /**
-   * Estado dos objetivos por cima da letra fixa: arco de progresso do A (na cor
-   * do time que está tomando; pisca se contestado), arco de vida da torre B e do
-   * guardião C, e em recarga a letra apagada, um anel na cor de quem tomou e os
-   * segundos que faltam.
+   * Objetivos no minimapa: a letra de cada um num círculo escuro (âmbar aceso;
+   * cinza-areia esperando ou em recarga, com os segundos que faltam embaixo e, na
+   * recarga, um anel na cor de quem tomou); arco vermelho com a vida (SN-4, torre,
+   * Medusa, Núcleo, sonda) quando ferido; na plataforma, o arco do pouso na cor do
+   * time pousado (âmbar piscando se contestado).
    */
   #objetivosNoMapa(obj) {
     const ctx = this.ctx;
     const corTime = (t) => (t === this.meuTime ? COR_MEU_TIME : COR_OUTRO_TIME);
     const pisca = Math.floor(performance.now() / 250) % 2 === 0;
-    ctx.font = 'bold 10px ui-monospace, monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    for (const r of obj) {
-      const o = OBJETIVOS.find((x) => x.id === r.id);
-      if (!o) continue;
+    for (const o of LUGARES_OBJETIVO) {
+      const r = obj?.[o.id];
       const [cx, cz] = this.#paraMapa(o.x, o.z);
+      const aceso = r?.estado === 'ativo';
       const arco = (frac, cor) => {
         ctx.beginPath();
         ctx.arc(cx, cz, 7.5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac);
@@ -254,22 +286,25 @@ export class Hud {
         ctx.lineWidth = 2;
         ctx.stroke();
       };
-      if (r.estado === 'recarga') {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-        ctx.beginPath();
-        ctx.arc(cx, cz, 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = COR_APAGADA;
-        ctx.fillText(o.tipo, cx, cz + 0.5);
-        if (r.time != null) arco(1, corTime(r.time));
-        ctx.font = '8px ui-monospace, monospace';
-        ctx.fillStyle = COR_APAGADA;
-        ctx.fillText(String(r.resta), cx, cz + 13);
-        ctx.font = 'bold 10px ui-monospace, monospace';
-      } else if (r.estado === 'contestado') {
-        if (pisca) arco(Math.max(0.05, r.prog), COR_OBJETIVO);
-      } else if (r.estado === 'tomando') {
-        arco(r.prog, corTime(r.quem));
+      ctx.fillStyle = aceso ? 'rgba(0, 0, 0, 0.6)' : 'rgba(0, 0, 0, 0.75)';
+      ctx.beginPath();
+      ctx.arc(cx, cz, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = 'bold 10px ui-monospace, monospace';
+      ctx.fillStyle = aceso ? COR_OBJETIVO : COR_APAGADA;
+      ctx.fillText(LETRA_OBJETIVO[o.tipo], cx, cz + 0.5);
+      if (!r) continue;
+      if (!aceso) {
+        if (r.estado === 'recarga' && r.time != null) arco(1, corTime(r.time));
+        if (r.volta != null && r.estado !== 'tomado') {
+          ctx.font = '8px ui-monospace, monospace';
+          ctx.fillStyle = COR_APAGADA;
+          ctx.fillText(String(Math.ceil(r.volta)), cx, cz + 13);
+        }
+      } else if (o.tipo === 'plataforma') {
+        if (r.contestado) {
+          if (pisca) arco(Math.max(0.05, (r.prog ?? 0) / POUSO_PLATAFORMA_S), COR_OBJETIVO);
+        } else if (r.quem != null) arco((r.prog ?? 0) / POUSO_PLATAFORMA_S, corTime(r.quem));
       } else if (r.vida != null && r.vida < 1) {
         arco(r.vida, COR_INIMIGA);
       }
@@ -389,12 +424,14 @@ export class Hud {
       ? ''
       : area.servico
         ? NOME_SERVICO[area.servico]
-        : area.objetivo
-          ? `Objetivo ${area.tipo}`
+        : area.plataforma
+          ? NOME_OBJETIVO.plataforma
           : 'Área de pouso';
     let html = '';
     if (pousada && area?.servico) html = painelAberto ? `${nome} · <kbd>L</kbd> decola` : `${nome} · <kbd>Enter</kbd> ou toque abre · <kbd>L</kbd> decola`;
-    else if (pousada) html = `${area?.objetivo ? nome + ' · ' : ''}Pousada · consertando · <kbd>L</kbd> decola`;
+    else if (pousada && area?.plataforma) html = `${nome} · sem tiro enquanto pousada · <kbd>L</kbd> decola`;
+    else if (pousada) html = 'Pousada · consertando · <kbd>L</kbd> decola';
+    else if (area?.plataforma) html = `${nome} · Pouse 6 s: ouro para o time · <kbd>L</kbd> pousa`;
     else if (area) html = `${nome} · <kbd>L</kbd> pousa`;
     if (this.avisoPouso.dataset.html !== html) {
       this.avisoPouso.innerHTML = html;
@@ -405,28 +442,29 @@ export class Hud {
   }
 
   /**
-   * Barra do objetivo A enquanto você está pousado na marcação: quanto falta
-   * (na cor do seu time), contestado, ou a recarga. `r` é o estado do servidor
-   * desse objetivo; null esconde.
+   * Barra da plataforma de ouro enquanto você está pousado nela: quanto falta (na
+   * cor do time pousado), contestado, ou a espera/recarga. `r` é o estado do
+   * servidor dessa plataforma (obj[P0|P1]); null esconde.
    */
   objetivoPouso(r) {
     let html = '';
     let frac = 0;
     let classe = '';
-    if (r?.estado === 'recarga') {
-      html = `Objetivo A em recarga · volta em ${relogio(r.resta)}`;
+    if (r?.estado === 'recarga' || r?.estado === 'espera') {
+      html = `Plataforma ${r.estado === 'espera' ? 'abre' : 'volta'} em ${relogio(r.volta)}`;
       classe = 'recarga';
-    } else if (r?.estado === 'contestado') {
-      html = 'Contestado · tem inimigo pousado na marcação';
-      frac = r.prog;
+    } else if (r?.contestado) {
+      html = 'Contestado · tem inimigo pousado na plataforma';
+      frac = (r.prog ?? 0) / POUSO_PLATAFORMA_S;
       classe = 'contestado';
-    } else if (r?.estado === 'tomando') {
+    } else if (r?.quem != null) {
       const meu = r.quem === this.meuTime;
-      html = meu ? `Tomando o objetivo A · ${r.falta.toFixed(1).replace('.', ',')} s` : 'O inimigo está tomando';
-      frac = r.prog;
+      const falta = Math.max(0, POUSO_PLATAFORMA_S - (r.prog ?? 0));
+      html = meu ? `Ouro para o time em ${falta.toFixed(1).replace('.', ',')} s` : 'O inimigo está coletando';
+      frac = (r.prog ?? 0) / POUSO_PLATAFORMA_S;
       classe = meu ? 'meu' : 'deles';
     } else if (r) {
-      html = 'Objetivo A · fique pousado';
+      html = 'Plataforma de ouro · fique pousado';
     }
     const el = this.progObj;
     el.hidden = !html;
@@ -437,6 +475,28 @@ export class Hud {
     }
     el.className = classe;
     el.querySelector('i').style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
+  }
+
+  /**
+   * Bônus ativos na sua nave (me.bonusNave = { ataque: s, ... }) e o do time
+   * (`time` = bonus[meuTime], { medusa: s }): um ícone âmbar com os segundos que
+   * faltam, empilhados à esquerda, em cima do painel. A sonda fica apagada enquanto suspensa em combate
+   * (`suspensos`, me.bonusSuspenso).
+   */
+  bonusNave(nave = {}, time = {}, suspensos = []) {
+    const itens = [...Object.entries(nave ?? {}), ...Object.entries(time ?? {})].filter(([nome]) => BONUS_NAVE[nome]);
+    const html = itens
+      .map(([nome, s]) => {
+        const b = BONUS_NAVE[nome];
+        const off = suspensos?.includes(nome);
+        return `<li class="${nome}${off ? ' suspenso' : ''}" title="${b.nome}: ${b.efeito}${off ? ' · suspenso em combate' : ''}"><svg viewBox="0 0 24 24" aria-hidden="true">${b.icone}</svg><span>${b.nome}</span><b>${Math.ceil(s)}s</b></li>`;
+      })
+      .join('');
+    if (this.listaBonus.dataset.html !== html) {
+      this.listaBonus.innerHTML = html;
+      this.listaBonus.dataset.html = html;
+    }
+    this.listaBonus.hidden = !html;
   }
 
   /**
@@ -605,6 +665,7 @@ export class Hud {
     this.mostrarAviso('');
     this.pouso(null, false);
     this.objetivoPouso(null);
+    this.bonusNave();
     this.recall(null);
     this.carregando(null);
     this.ping.textContent = '';

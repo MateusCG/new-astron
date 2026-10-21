@@ -70,28 +70,40 @@
 // troca o modelo quando o tier muda (Evolução), para você e para os outros; a linha
 // de quem aparece (outra raça e classe) baixa em segundo plano (carregarEmFundo).
 //
+// Mapa, monstros e objetivos (cena.js, monstros.js, objetivos.js): o cenário são os
+// modelos do lago de He-3, já no cache quando a cena é montada (tela de
+// carregamento); os monstros da jungle chegam como entidades { tipo: 'monstro', esp }
+// e são desenhados com os modelos do original; o Núcleo de He-3 é o modelo do
+// cenário e a entidade dele só leva o rótulo com a vida. O `obj` do snapshot
+// ({ id: estado }) acende, apaga e derruba as peças dos objetivos e escreve os
+// rótulos; o pulso do Núcleo, a chama e os tiros de cada ataque de monstro (`atq`)
+// saem pelos eventos. Os bônus de nave (`bn` de cada jogador e o `me.bonusNave`) e o
+// da Medusa (do time) viram anéis em volta das naves e ícones no HUD.
+//
+// Névoa de guerra (nevoa.js): o servidor só manda o que o seu time enxerga; o
+// cliente faz a mesma conta (shared/visao.js) com a sua nave, os aliados, as torres
+// de pé e a base, e desenha o que está fora da visão escurecido e sem cor (passo de
+// tela inteira: nevoa.desenhar no lugar de renderer.render) e escuro no minimapa.
+// Quem some da visão some do snapshot (e da tela); ao voltar é criado de novo, sem
+// interpolar do ponto antigo. Morte de jogador fora da visão vem sem lugar: só a
+// notícia, sem explosão. Os nomes vêm da lista `jogadores` (o placar de abates é público).
+//
 // ESC sai da partida e volta para a tela de entrada (nome, raça e classe como estavam),
 // para trocar de piloto sem recarregar a página. Sair desmonta tudo o que a
 // partida criou (conexão, laço de quadros, listeners, cena na GPU); só o renderer
 // WebGL fica, porque é reaproveitado na próxima entrada.
 
 import * as THREE from 'three';
-import { DT, RACES, WEAPONS, VEL_TOQUE, createBullet, stepShip, bulletHits, forward, pousoPermitido } from '/shared/sim.js';
+import { DT, RACES, WEAPONS, VEL_TOQUE, HOVER, createBullet, stepShip, bulletHits, forward, pousoPermitido } from '/shared/sim.js';
 import { golpeDaArma, golpePrevisivel, versaoArma } from '/shared/armas.js';
 import { CLASSES, ORDEM_CLASSES, RACAS_BLOQUEADAS, naveDe, linhaDe, classeValida, racaJogavel } from '/shared/naves.js';
-import { areaPouso } from '/shared/terrain.js';
+import { areaPouso, heightAt } from '/shared/terrain.js';
 import { alturaSolida } from '/shared/obstaculos.js';
 import { criarCena, liberarCena } from './cena.js';
+import { Nevoa } from './nevoa.js';
 import {
   criarNave,
   definirNave,
-  criarDrone,
-  criarVorax,
-  animarVorax,
-  criarKrakor,
-  animarKrakor,
-  criarGuardiao,
-  animarGuardiao,
   criarMinerador,
   animarMinerador,
   criarEscolta,
@@ -104,8 +116,9 @@ import { Sons, SONS_INTERFACE } from './sons.js';
 import { PainelVolume } from './volume.js';
 import { Efeitos, COR_TIME } from './efeitos.js';
 import { Controles } from './controles.js';
-import { Hud, NOME_BONUS } from './hud.js';
-import { ObjetivosNaTela } from './objetivos.js';
+import { Hud, BONUS_NAVE } from './hud.js';
+import { ObjetivosNaTela, LUGARES_OBJETIVO, NOME_OBJETIVO } from './objetivos.js';
+import { criarMonstro, animarMonstro, criarMarcadorNucleo, EXPLOSAO_MONSTRO, ROTULO_MONSTRO } from './monstros.js';
 import { TorretasNaTela } from './torretas.js';
 import { Rede } from './rede.js';
 import { mostrarPrevia, pararPrevia } from './vitrine.js';
@@ -143,15 +156,17 @@ const MOTIVO_RECALL = {
     velocidade: 'Freie antes: a volta à base pede a nave quase parada',
   },
 };
-// Modelo de cada tipo de inimigo (o tipo vem do servidor em cada entidade).
-const MODELO_INIMIGO = { vorax: criarVorax, krakor: criarKrakor, guardiao: criarGuardiao };
-// O que o bônus de cada objetivo faz, para a notícia de quem tomou.
-const EFEITO_BONUS = {
-  mineracao: 'cada minerador traz +1 de minério',
-  velocidade: 'mineradores mais rápidos',
-  durabilidade: 'mineradores mais resistentes',
-  furia: 'naves do time com +20% de dano',
+// O que cada objetivo dá a quem o toma, para a notícia (números de server/bonus.js e server/objetivos.js).
+const GANHO_OBJETIVO = {
+  ataque: ['derrotou o SN-4', 'bônus de ataque (+20% de dano)'],
+  suporte: ['derrubou a torre de suporte', 'bônus de suporte (vida e energia)'],
+  sonda: ['destruiu a sonda errante', 'bônus de velocidade (+25%)'],
+  medusa: ['derrotou a Medusa Anciã', 'o time ganha +15% de dano e de velocidade'],
+  nucleo: ['tomou o Núcleo de He-3', 'onda de mineradores do Núcleo'],
 };
+// Mais que isto para dentro da planta, a câmera estaria dentro da casca do modelo de
+// rocha (que fica até 4 m para fora da planta): a câmera confere uma volta deste raio.
+const CAMERA_FOLGA_ROCHA = 5;
 const CAMERAS = [
   { dist: 22, alt: 8, olhar: 14 },
   { dist: 34, alt: 13, olhar: 18 },
@@ -475,7 +490,7 @@ async function iniciar(nome, race, classe, teste = false) {
     const r = carga.resumo();
     console.info(
       `Carregamento: pronto em ${(r.ms / 1000).toFixed(1)} s (arquivos ${((r.msArquivos ?? 0) / 1000).toFixed(1)} s, placa ${((r.msGpu ?? 0) / 1000).toFixed(1)} s):`,
-      `${r.naves} naves, ${r.armas} armas, ${r.texturas} texturas, ${r.sons} sons`,
+      `${r.mapa} modelos do mapa, ${r.monstros} de monstros, ${r.naves} naves, ${r.armas} armas, ${r.texturas} texturas, ${r.sons} sons`,
     );
     window.__carregamento = r;
     return jogo;
@@ -499,8 +514,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
   document.querySelector('#jogo').append(renderer.domElement);
 
   const camera = new THREE.PerspectiveCamera(65, 1, 0.5, 5000);
-  const { scene, atualizar: atualizarCena, definirObjetivo } = criarCena({ meuTime });
+  const { scene, atualizar: atualizarCena, definirObjetivo, definirMineracao } = criarCena({ meuTime });
   const efeitos = new Efeitos(scene);
+  const nevoa = new Nevoa({ renderer, scene, meuTime }); // névoa de guerra (visão do time)
   const controles = new Controles(document.body);
   const hud = new Hud({ meuTime });
   const placar = new Placar({ meuTime });
@@ -586,7 +602,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
   let extra = { ouro: 0, abates: 0, mortes: 0, nivel: 1, xp: 0, xpProx: 0 };
   let meuNome = ''; // nick que o servidor guardou (vem na sua entidade do snapshot)
   let ganhoOuro = 0; // ouro ganho no último snapshot (para a notícia de abate)
-  let bonusAtivos = {}; // bônus por time do último snapshot (aura da fúria nas naves)
+  let bonusAtivos = {}; // bônus por time do último snapshot (o da Medusa: anel nas naves do time)
+  let meusBonus = []; // bônus de nave da sua nave (me.bonusNave), para o anel
+  let ultimoObj = {}; // obj do último snapshot (minimapa)
   const minhaNave = criarNave(race, { aliado: true, classe, tier: 0 });
   scene.add(minhaNave);
 
@@ -623,7 +641,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     const apertouPouso = inp.p && !pred.pAnt;
     if (apertouPouso && !pred.pousado && !pousoPermitido(pred)) {
       hud.noticia(
-        areaPouso(pred.x, pred.z) ? 'Esta plataforma é do outro time' : 'Só dá para pousar na sua base e nos objetivos A',
+        areaPouso(pred.x, pred.z) ? 'Esta plataforma é do outro time' : 'Só dá para pousar na sua base e nas plataformas de pouso',
         'ruim',
       );
     }
@@ -658,12 +676,17 @@ function montarJogo(rede, boas, renderer, race, classe) {
     snaps.push({ t: performance.now(), ents: m.ents });
     while (snaps.length > 30) snaps.shift();
     for (const e of m.ents) nomes.set(e.id, e.nome);
+    for (const p of m.jogadores ?? []) nomes.set(p.id, p.nome); // névoa: quem não está à vista também tem nome
     const euNoSnap = m.ents.find((e) => e.id === meuId);
     recallLocal = euNoSnap?.recall !== undefined ? { frac: euNoSnap.recall, t: performance.now() } : null;
     placar.atualizar(m.partida, m.bonus);
     times.atualizar(m.jogadores);
     bonusAtivos = m.bonus ?? {};
-    // Antes da predição: a torre B caída já sai da física daqui em diante.
+    meusBonus = Object.keys(m.me?.bonusNave ?? {});
+    hud.bonusNave(m.me?.bonusNave, bonusAtivos[meuTime], m.me?.bonusSuspenso);
+    ultimoObj = m.obj ?? {};
+    definirMineracao(m.ents.filter((e) => e.tipo === 'minerador' && e.minerando).length);
+    // Antes da predição: a torre de suporte caída já sai da física daqui em diante.
     for (const t of objetivos.atualizar(m.obj)) {
       efeitos.explosao(t.x, t.y, t.z, 6, '#ff9a3a');
       efeitos.explosao(t.x, t.y + 12, t.z, 3, '#ffb627');
@@ -737,7 +760,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
       const time = e.id === meuId ? meuTime : snaps.at(-1)?.ents.find((x) => x.id === e.id)?.time;
       const cor = time === meuTime ? COR_TIME.meu : COR_TIME.outro;
       if (e.de) efeitos.feixeRecall(e.de.x, e.de.y, e.de.z, cor);
-      efeitos.feixeRecall(e.x, e.y, e.z, cor);
+      if (e.x !== undefined) efeitos.feixeRecall(e.x, e.y, e.z, cor); // névoa: a ponta escondida não vem
     }
     if (e.id !== meuId) return;
     if (e.estado === 'inicio') hud.noticia(`Voltando à base em ${e.s} s · sem tiro, sem boost, quase parado`, 'bom');
@@ -747,6 +770,26 @@ function montarJogo(rede, boas, renderer, race, classe) {
       const porque = MOTIVO_RECALL.cancelado[e.motivo];
       hud.noticia(porque ? `Volta à base cancelada: ${porque}` : 'Volta à base cancelada', porque ? 'ruim' : '');
     } else if (e.estado === 'recusado') hud.noticia(MOTIVO_RECALL.recusado[e.motivo] ?? 'Não dá para voltar à base agora', 'ruim');
+  }
+
+  /** Notícia de um evento 'objetivo' (apareceu, tomado, coletou, cancelou). */
+  function noticiaObjetivo(e) {
+    const tipo = LUGARES_OBJETIVO.find((o) => o.id === e.id)?.tipo;
+    if (!tipo) return;
+    const nome = NOME_OBJETIVO[tipo];
+    const meu = e.time === meuTime;
+    if (e.acao === 'apareceu') {
+      hud.noticia(tipo === 'plataforma' ? `${nome} aberta: pouse 6 s para o time ganhar ouro` : `${nome} apareceu`);
+    } else if (e.acao === 'tomado') {
+      const [como, ganho] = GANHO_OBJETIVO[tipo] ?? ['tomou', ''];
+      const quem = e.por === meuId ? 'Você' : (e.quem ?? (meu ? 'Seu time' : 'O inimigo'));
+      hud.noticia(`${quem} ${como} · ${meu ? 'seu time' : 'inimigo'}${ganho ? `: ${ganho}` : ''}`, meu ? 'bom' : 'ruim');
+    } else if (e.acao === 'coletou') {
+      if (meu) hud.noticia(`${nome}: +${e.ouro} de ouro para cada um do time${e.quem ? ` (${e.quem} +${e.ouroPouso})` : ''}`, 'bom');
+      else hud.noticia(`O inimigo coletou a ${nome.toLowerCase()}`, 'ruim');
+    } else if (e.acao === 'cancelou' && meu) {
+      hud.noticia(`Pouso na ${nome.toLowerCase()} cancelado: ${e.motivo === 'dano' ? 'levou dano' : 'saiu da plataforma'}`, 'ruim');
+    }
   }
 
   function tratarEventos(ev) {
@@ -759,7 +802,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
     for (const e of ev) {
       if (e.e === 'tiro' && e.fonte) {
         // Torreta ou escolta: tiro na cor do time de quem atirou, e o canhão vira.
-        const b = { id: e.id, kind: e.kind, x: e.x, y: e.y, z: e.z, vx: e.vx, vy: e.vy, vz: e.vz, vida: 2.5 };
+        // O da torre sentinela é um míssil teleguiado (a curva vem de `guiados`).
+        const b = { id: e.id, kind: e.guiado ? 'missil' : e.kind, x: e.x, y: e.y, z: e.z, vx: e.vx, vy: e.vy, vz: e.vz, vida: e.vida ?? 2.5 };
         efeitos.tiro(b, false, e.time === meuTime ? COR_TIME.meu : COR_TIME.outro);
         if (e.fonte === 'torreta') torretas.disparou(e.dono, e.vx, e.vz);
         const escolta = outras.get(e.dono)?.obj;
@@ -772,10 +816,25 @@ function montarJogo(rede, boas, renderer, race, classe) {
         if (proprio && p === 0 && golpePrevisivel(golpeDaArma(e.kind, e.nv ?? 1, 0))) continue;
         const dono = proprio ? { obj: minhaNave } : outras.get(e.dono);
         const daBoca = p === 0 && e.enc !== undefined && dono?.obj?.visible !== false ? bocaDaArma(dono?.obj, e.enc, boca) : null;
-        efeitos.tiro({ id: e.id, kind: e.kind, nv: e.nv, p, x: e.x, y: e.y, z: e.z, vx: e.vx, vy: e.vy, vz: e.vz, vida: e.vida ?? 2.5 }, !!dono?.drone, null, daBoca);
+        efeitos.tiro({ id: e.id, kind: e.kind, atq: e.atq, nv: e.nv, p, x: e.x, y: e.y, z: e.z, vx: e.vx, vy: e.vy, vz: e.vz, vida: e.vida ?? 2.5 }, !!dono?.drone, null, daBoca);
         if (proprio && p === 0) continue; // clarão e som já saíram na predição
         if (p === 0 && daBoca) efeitos.armas.clarao(e.kind, daBoca.x, daBoca.y, daBoca.z, e.nv);
         tocarUmaVez(`t${e.dono}:${e.kind}:${p}`, somDaArma(e.kind, e.nv, p), e.x, e.z);
+      } else if (e.e === 'nova' && e.atq) {
+        // Onda do SN-4 em volta dele: anel no vermelho de perigo.
+        efeitos.anelArea(e.x, e.y, e.z, e.raio, COR_TIME.outro);
+        tocarUmaVez(`n${e.id}`, 'n2_explo', e.x, e.z, 0.6);
+      } else if (e.e === 'chama') {
+        efeitos.chama(e);
+      } else if (e.e === 'pulso') {
+        // Pulso do Núcleo de He-3: anel na altura de voo, abrindo até o raio.
+        efeitos.pulsoNucleo(e.x, HOVER, e.z, e.raio, e.forca);
+        tocarUmaVez(`p${e.id}`, 'n2_explo', e.x, e.z, 0.8);
+      } else if (e.e === 'explosao' && e.atq) {
+        // Bala explosiva do Xerxes e o resto de área de monstro: explosão laranja e o anel vermelho.
+        efeitos.explosao(e.x, e.y, e.z, 2.5, '#ff9a3a');
+        if (e.raio > 0) efeitos.anelArea(e.x, e.y, e.z, e.raio, COR_TIME.outro);
+        tocarUmaVez(`x${Math.round(e.x / 20)}:${Math.round(e.z / 20)}`, 'n2_explo', e.x, e.z, 0.5);
       } else if (e.e === 'nova') {
         efeitos.armas.nova(e.kind, e.nv, e.p, e.x, e.y, e.z, e.raio, e.vel);
         if (!(e.dono === meuId && !e.p)) tocarUmaVez(`n${e.id}`, somDaArma(e.kind, e.nv, e.p), e.x, e.z);
@@ -797,6 +856,11 @@ function montarJogo(rede, boas, renderer, race, classe) {
       } else if (e.e === 'explosao' && e.arma === 'mina') {
         efeitos.explosao(e.x, e.y + 1.5, e.z, 3, '#ff9a3a');
         efeitos.anelArea(e.x, e.y + 1.5, e.z, e.raio, e.time === meuTime ? COR_TIME.meu : COR_TIME.outro);
+      } else if (e.e === 'acerto' && (e.atq || e.kind === 'pulso')) {
+        // Golpe de monstro (vermelho de perigo) ou do pulso do Núcleo (azul-gelo).
+        efeitos.removerTiro(e.bala);
+        efeitos.explosao(e.x, e.y, e.z, 0.8, e.kind === 'pulso' ? '#9fe8ff' : '#ff4a2a');
+        if (e.alvo === meuId && e.dano > 0) hud.levarDano();
       } else if (e.e === 'acerto') {
         efeitos.removerTiro(e.bala);
         if (WEAPONS[e.kind] && !WEAPONS[e.kind].npc) {
@@ -804,14 +868,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
           tocarUmaVez(`a${e.kind}:${e.alvo}`, somImpacto(e.kind), e.x, e.z, 0.8);
         } else efeitos.explosao(e.x, e.y, e.z, 0.7, '#ffd080');
         if (e.alvo === meuId && e.dano > 0) hud.levarDano();
-      } else if (e.e === 'garra') {
-        // Golpe de garra de um Vorax: faísca vermelha (cor de perigo) em quem levou.
-        efeitos.explosao(e.x, e.y, e.z, 0.8, '#ff4a2a');
-        if (e.alvo === meuId && e.dano > 0) hud.levarDano();
       } else if (e.e === 'fim') {
         efeitos.removerTiro(e.bala);
       } else if (e.e === 'morte' && e.tipo === 'minerador') {
-        efeitos.explosao(e.x, e.y, e.z, 3, '#ff9a3a');
+        efeitos.explosao(e.x, e.y, e.z, outras.get(e.id)?.nucleo ? 6 : 3, '#ff9a3a');
         const por = nomes.get(e.por) ?? '?';
         if (e.time === meuTime) hud.noticia(`${por} destruiu um minerador do seu time`, 'ruim');
         else if (e.por === meuId) hud.noticia(`Você destruiu um minerador inimigo${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
@@ -840,13 +900,18 @@ function montarJogo(rede, boas, renderer, race, classe) {
         hud.noticia('Nova partida: o time que minerar mais vence', 'bom');
       } else if (e.e === 'morte') {
         const tipo = e.tipo ?? outras.get(e.id)?.tipo;
-        efeitos.explosao(e.x, e.y, e.z, tipo === 'guardiao' ? 9 : tipo === 'krakor' ? 6 : 4, '#ff9a3a');
-        somNoMundo(tipo === 'jogador' || tipo === 'guardiao' || tipo === 'krakor' ? 'h_explo' : 'n2_explo', e.x, e.z);
+        // Fora da visão (névoa) a morte de jogador vem sem lugar: só a notícia.
+        if (e.x !== undefined) {
+          const tam = tipo === 'nucleo' ? 12 : (EXPLOSAO_MONSTRO[e.esp] ?? 4);
+          efeitos.explosao(e.x, e.y, e.z, tam, tipo === 'nucleo' ? '#9fe8ff' : '#ff9a3a');
+          somNoMundo(tipo === 'jogador' || tam >= 5 ? 'h_explo' : 'n2_explo', e.x, e.z);
+        }
         const quem = nomes.get(e.id) ?? '?';
         const matador = e.por === meuId ? 'Você' : (nomes.get(e.por) ?? '?');
         if (e.id === meuId) hud.noticia(`Você foi destruído por ${nomes.get(e.por) ?? '?'}`, 'ruim');
         else if (e.por === meuId && outras.get(e.id)?.drone) {
-          hud.noticia(`Você destruiu ${tipo === 'guardiao' ? 'o' : 'um'} ${quem}${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
+          const chefe = ['sn4', 'medusa', 'sonda'].includes(e.esp) || tipo === 'nucleo';
+          hud.noticia(`Você destruiu ${chefe ? 'o' : 'um'} ${quem}${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
         } else if (e.por === meuId) hud.noticia(`Você abateu ${quem}${e.ouro > 0 ? ` · +${e.ouro} ouro` : ''}`, 'bom');
         else if (!outras.get(e.id)?.drone) hud.noticia(`${matador} abateu ${quem}`, e.time === meuTime ? 'ruim' : '');
         // Combate entre jogadores: sequência encerrada, assistência e sequência nova.
@@ -871,11 +936,14 @@ function montarJogo(rede, boas, renderer, race, classe) {
         if (e.id === meuId) hud.noticia(`Nave nova: ${e.nave}`, 'bom');
         else hud.noticia(`${e.nome} trocou de nave: ${e.nave}`, e.time === meuTime ? 'bom' : 'ruim');
       } else if (e.e === 'objetivo') {
-        const meu = e.time === meuTime;
-        const como = { A: 'pousou no', B: 'derrubou a torre do', C: 'derrotou o guardião do' }[e.tipo];
-        const quem = e.quem ? `${e.quem} ${como} objetivo ${e.tipo}` : `Objetivo ${e.tipo} tomado`;
-        const ganhos = [e.bonus, e.bonusNaves].filter(Boolean).map((b) => `${NOME_BONUS[b]} (${EFEITO_BONUS[b]})`);
-        hud.noticia(`${quem} · ${meu ? 'seu time' : 'inimigo'}: ${ganhos.join(' e ')} por ${e.segundos}s`, meu ? 'bom' : 'ruim');
+        noticiaObjetivo(e);
+      } else if (e.e === 'bonusNave' && e.id === meuId) {
+        const b = BONUS_NAVE[e.nome];
+        hud.noticia(`Bônus de ${b?.nome.toLowerCase() ?? e.nome}: ${b?.efeito ?? ''} por ${Math.round(e.s)} s`, 'bom');
+      } else if (e.e === 'ondaNucleo') {
+        const n = e.ids?.length ?? 3;
+        if (e.time === meuTime) hud.noticia(`Onda do Núcleo: ${n} mineradores de He-3 saíram da sua base (50 de minério cada)`, 'bom');
+        else hud.noticia(`Onda do Núcleo inimiga: ${n} mineradores de He-3 a caminho da doca deles`, 'ruim');
       } else if (e.e === 'melhoria' && e.time === meuTime && e.melhoria === MELHORIA_TORRETAS.id) {
         hud.noticia(`${e.id === meuId ? 'Você' : e.nome} evoluiu as torretas do time: nível ${e.nivel}`, 'bom');
       } else if (e.e === 'melhoria' && e.time === meuTime) {
@@ -913,6 +981,14 @@ function montarJogo(rede, boas, renderer, race, classe) {
   rede.aoFechar = () => hud.mostrarAviso('Conexão perdida. Aperte Esc ou recarregue a página.');
 
   const lerp = (a, b, k) => a + (b - a) * k;
+  /**
+   * Altura do que é sólido em volta do ponto, para a câmera: o modelo da rocha fica
+   * até 4 m para fora da planta (heightAt), então olha uma volta de CAMERA_FOLGA_ROCHA.
+   */
+  const solidoCamera = (x, z) => {
+    const f = CAMERA_FOLGA_ROCHA;
+    return Math.max(alturaSolida(x, z, f), heightAt(x + f, z), heightAt(x - f, z), heightAt(x, z + f), heightAt(x, z - f));
+  };
   const lerpAng = (a, b, k) => {
     let d = b - a;
     while (d > Math.PI) d -= 2 * Math.PI;
@@ -1008,7 +1084,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
         inv: !!estadosArmas.invisivel && vivo,
         invul: estadosArmas.invulneravel > 0 && vivo,
       };
-      efeitos.estadoNave(minhaNave, { ...meusEfeitos, fx: vivo ? eu?.fx : [], furia: vivo && !!bonusAtivos[meuTime]?.furia }, dt, tempo);
+      const bonusMeus = vivo ? [...meusBonus, ...(bonusAtivos[meuTime]?.medusa ? ['medusa'] : [])] : [];
+      efeitos.estadoNave(minhaNave, { ...meusEfeitos, fx: vivo ? eu?.fx : [], bonus: bonusMeus }, dt, tempo);
       hud.efeitosProprios(meusEfeitos);
       sons.ouvinte(x, z, minhaNave.rotation.y);
       // Volta à base: a barra corre entre um snapshot e outro com RECALL_S.
@@ -1024,6 +1101,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     const poses = posesOutras();
     const presentes = new Set();
     const rotulos = [];
+    let sonda = null; // posição da sonda viva (o rótulo do objetivo vai junto)
     for (const e of poses) {
       if (e.id === meuId) {
         meuNome = e.nome ?? meuNome;
@@ -1035,15 +1113,16 @@ function montarJogo(rede, boas, renderer, race, classe) {
       const aliado = !e.drone && e.time === meuTime;
       if (!o) {
         const obj =
-          MODELO_INIMIGO[e.tipo]?.() ??
-          (e.tipo === 'minerador'
-            ? criarMinerador({ aliado })
-            : e.tipo === 'escolta'
-              ? criarEscolta({ aliado })
-              : e.drone
-                ? criarDrone()
-                : criarNave(e.race, { aliado, classe: e.classe, tier: e.tier }));
-        o = { obj, drone: e.drone, tipo: e.tipo, aliado };
+          e.tipo === 'monstro'
+            ? criarMonstro(e.esp)
+            : e.tipo === 'nucleo'
+              ? criarMarcadorNucleo()
+              : e.tipo === 'minerador'
+                ? criarMinerador({ aliado, nucleo: !!e.nucleo })
+                : e.tipo === 'escolta'
+                  ? criarEscolta({ aliado })
+                  : criarNave(e.race, { aliado, classe: e.classe, tier: e.tier });
+        o = { obj, drone: e.drone, tipo: e.tipo, aliado, nucleo: !!e.nucleo };
         scene.add(o.obj);
         outras.set(e.id, o);
         // Piloto de outra raça ou classe: a linha, as armas e os sons dele em segundo plano.
@@ -1058,24 +1137,28 @@ function montarJogo(rede, boas, renderer, race, classe) {
       o.obj.visible = e.vivo;
       o.pos = o.obj.position;
       if (!e.vivo) continue;
-      o.obj.position.set(e.x, e.y + (e.pousado ? 0 : Math.sin(tempo * 2 + e.id) * 0.25), e.z);
+      const bicho = e.tipo === 'monstro' || e.tipo === 'nucleo';
+      o.obj.position.set(e.x, e.y + (e.pousado || bicho ? 0 : Math.sin(tempo * 2 + e.id) * 0.25), e.z);
       o.obj.rotation.y = e.yaw;
       o.obj.userData.corpo.rotation.z = e.roll;
-      if (e.tipo === 'vorax') animarVorax(o.obj, tempo, e.id);
-      else if (e.tipo === 'krakor') animarKrakor(o.obj, tempo, e.id);
-      else if (e.tipo === 'guardiao') animarGuardiao(o.obj, tempo);
-      else if (e.drone) o.obj.userData.corpo.rotation.y = Math.sin(tempo * 3 + e.id) * 0.15;
-      if (e.tipo === 'minerador') animarMinerador(o.obj, e, tempo, e.id);
+      if (e.tipo === 'monstro') {
+        animarMonstro(o.obj, tempo, dt, e.id);
+        if (e.esp === 'sonda') sonda = o.obj.position;
+      } else if (e.tipo === 'minerador') animarMinerador(o.obj, e, tempo, e.id);
       else if (e.tipo === 'escolta') animarEscolta(o.obj, tempo, dt, e.id);
-      else atualizarMotor(o.obj, e.boost, tempo, e.pousado);
-      const furia = e.tipo === 'jogador' && !!bonusAtivos[e.time]?.furia;
-      efeitos.estadoNave(o.obj, { dreno: !!e.dreno, lento: !!e.lento, emp: !!e.emp, fx: e.fx, furia }, dt, tempo);
+      else if (!bicho) atualizarMotor(o.obj, e.boost, tempo, e.pousado);
+      const bonus = e.tipo === 'jogador' ? [...(e.bn ?? []), ...(bonusAtivos[e.time]?.medusa ? ['medusa'] : [])] : [];
+      efeitos.estadoNave(o.obj, { dreno: !!e.dreno, lento: !!e.lento, emp: !!e.emp, fx: e.fx, bonus }, dt, tempo);
       efeitos.recall(o.obj, e.recall ?? null, aliado ? COR_TIME.meu : COR_TIME.outro, dt, tempo);
       // Radar desligado (Canhão Antirradar): sem rótulo de quem não é do seu time.
       if (aliado || !(estadosArmas.cego > 0)) {
-        rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos: o.obj.position, nivel: e.nivel, piloto: e.tipo === 'jogador', esc: e.esc });
+        // Monstro grande: o rótulo sobe até o alto dele (a Medusa é desenhada mais alta).
+        let pos = o.obj.position;
+        if (e.tipo === 'monstro' && ROTULO_MONSTRO[e.esp]) pos = (o.posRotulo ??= new THREE.Vector3()).copy(pos).setY(pos.y + ROTULO_MONSTRO[e.esp]);
+        rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos, nivel: e.nivel, piloto: e.tipo === 'jogador', esc: e.esc });
       }
     }
+    objetivos.seguir('SONDA', sonda);
     // Torretas: queda, subida e a cabeça atrás do alvo (posição desenhada dele).
     torretas.quadro(dt, tempo, (id) => (id === meuId ? (vivo ? foco : null) : outras.get(id)?.obj.position ?? null));
     rotulos.push(...torretas.rotulos());
@@ -1116,7 +1199,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
         const px = lerp(foco.x, desejada.x, k);
         const pz = lerp(foco.z, desejada.z, k);
         const py = lerp(foco.y + 2, desejada.y, k);
-        if (alturaSolida(px, pz) + 2 > py) {
+        if (solidoCamera(px, pz) + 2 > py) {
           const kk = Math.max(0.25, (i - 1) / 8);
           desejada.set(lerp(foco.x, desejada.x, kk), lerp(foco.y + 2, desejada.y, kk) + 3, lerp(foco.z, desejada.z, kk));
           break;
@@ -1127,7 +1210,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
       if (camera.position.lengthSq() === 0 || saltoCamera) camera.position.copy(desejada);
       saltoCamera = false;
       camera.position.lerp(desejada, 1 - Math.exp(-8 * dt));
-      const chao = alturaSolida(camera.position.x, camera.position.z) + 2;
+      const chao = solidoCamera(camera.position.x, camera.position.z) + 2;
       if (camera.position.y < chao) camera.position.y = chao;
       // Quanto mais de cima, mais a câmera mira na própria nave (senão ela some
       // embaixo do painel); por baixo, mira à frente como no modo normal.
@@ -1152,7 +1235,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
       // Plataforma do outro time não oferece pouso.
       hud.pouso(vivo && pousoPermitido(pred) ? area : null, vivo && pred.pousado, painel.aberto);
       // Pousada na marcação de um objetivo A: barra do progresso.
-      hud.objetivoPouso(area?.objetivo && pred.pousado ? objetivos.estado.get(area.objetivo) : null);
+      hud.objetivoPouso(area?.plataforma && pred.pousado ? objetivos.estado.get(area.plataforma) : null);
       // Painel da Loja/Evolução abrindo: o som de abrir.
       if (painel.aberto && !painelEstava) sons.tocarInterface(SONS_INTERFACE.painel);
       painelEstava = painel.aberto;
@@ -1162,8 +1245,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
         vivo ? { x: foco.x, z: foco.z, yaw: minhaNave.rotation.y } : null,
         estadosArmas.cego > 0 ? entsMapa.filter((e) => e.id === meuId || (!e.drone && e.time === meuTime)) : entsMapa,
         meuId,
-        [...objetivos.estado.values()],
+        ultimoObj,
         torretas.estados(),
+        nevoa.canvasMapa,
       );
     }
     if (!vivo && renasceAte) {
@@ -1172,7 +1256,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
     }
     hud.rotulosNaves(rotulos, camera, innerWidth, innerHeight);
     objetivos.desenhar(camera, innerWidth, innerHeight);
-    renderer.render(scene, camera);
+    // Névoa: a grade da visão do time (sua nave, aliados, torres, base) e a cena desenhada com ela.
+    nevoa.atualizar(dt, { eu: vivo && pred ? { id: meuId, x: foco.x, z: foco.z } : null, ents: snaps.at(-1)?.ents, torretas: torretas.estados() });
+    nevoa.desenhar(renderer, scene, camera);
     idQuadro = requestAnimationFrame(quadro);
   }
 
@@ -1181,7 +1267,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
    * (carregamento.js): shaders e texturas de tudo o que a nave pode usar.
    */
   function aquecer(carga) {
-    return aquecerGpu({ renderer, scene, camera, efeitos, focar: (p) => atualizarCena(0, p), race, classe, meuTime, tela: carga.tela, carga });
+    return aquecerGpu({ renderer, scene, camera, efeitos, focar: (p) => atualizarCena(0, p), race, classe, meuTime, tela: carga.tela, carga, alvo: nevoa.alvoCena });
   }
 
   /** Começa o laço de quadros (e com ele a predição e os comandos). */
@@ -1214,6 +1300,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     torretas,
     efeitos,
     minhaNave,
+    nevoa,
   };
 
   /**
@@ -1240,6 +1327,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     torretas.limpar();
     renderer.domElement.remove();
     efeitos.liberar();
+    nevoa.liberar();
     liberarCena(scene);
     renderer.renderLists.dispose();
     if (window.__astron?.scene === scene) window.__astron = null;

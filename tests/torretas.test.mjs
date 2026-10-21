@@ -1,4 +1,4 @@
-// Torretas do corredor (server/torretas.js, TORRETAS em shared/terrain.js) e o
+// Torres sentinela da lane (server/torretas.js, TORRETAS em shared/terrain.js) e o
 // nível/reconstrução delas na Evolução (server/servicos.js, shared/evolucao.js):
 // posição no mapa, tiro só em inimigo, dano só de jogador inimigo, queda (física e
 // recompensa), Evolução e partida nova.
@@ -7,9 +7,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World } from '../server/game.js';
 import { TORRETA, linhaDeTiro } from '../server/torretas.js';
+import { VISAO_TORRETA } from '../shared/visao.js';
 import { RECOMPENSA, xpParaNivel } from '../server/progressao.js';
 import { createShip, createBullet, WEAPONS, HOVER, SHIP_RADIUS, IDX_ARMA, versaoArma } from '../shared/sim.js';
-import { TORRETAS, TORRETA_LADO, BASES, CORREDOR, MINERIO, ROTAS, SERVICOS, heightAt } from '../shared/terrain.js';
+import { TORRETAS, TORRETA_LADO, BASES, LANE, MINERADORA, ROTAS, SERVICOS, heightAt } from '../shared/terrain.js';
 import { OBSTACULOS, TORRETA as PLANTA, alturaSolida, obstaculoAtivo } from '../shared/obstaculos.js';
 import { FAIXA_MINERADOR } from '../server/mineradores.js';
 import { MELHORIA_TORRETAS, PRECO_RECONSTRUIR, TORRETA_HP_POR_NIVEL, TORRETA_DANO_POR_NIVEL, TORRETA_NIVEL_MAX } from '../shared/evolucao.js';
@@ -18,7 +19,7 @@ const SEGUNDO = 30;
 
 /** Mundo sem monstros, com um jogador em cada time, partida já começada. */
 function mundo(opcoes = {}) {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, ...opcoes });
+  const w = new World({ jungle: false, ...opcoes });
   const a = w.addPlayer('A', 'bellico'); // time 0
   const b = w.addPlayer('B', 'bellico'); // time 1
   a.protegidoAte = b.protegidoAte = 0;
@@ -43,25 +44,25 @@ function pousar(j, servico, time = j.time) {
 const torreta = (w, id) => w.torretas.torreta(id);
 const tirosDeTorreta = (ev) => ev.filter((e) => e.e === 'tiro' && e.fonte === 'torreta');
 
-test('torretas: quatro por time, duas de cada lado, fora da estrada, na metade do time e simétricas', () => {
+test('torretas: quatro por time, duas de cada lado, fora da lane, na metade do time e simétricas', () => {
   assert.equal(TORRETAS.length, 8);
   for (const time of [0, 1]) {
     const minhas = TORRETAS.filter((t) => t.time === time);
     assert.equal(minhas.length, 4);
-    assert.equal(minhas.filter((t) => t.x < CORREDOR.x).length, 2, 'duas de cada lado');
+    assert.equal(minhas.filter((t) => t.z < LANE.z).length, 2, 'duas de cada lado');
     const b = BASES[time];
     for (const t of minhas) {
-      assert.ok(Math.abs(t.x - CORREDOR.x) > CORREDOR.largura / 2 + PLANTA.raio, `${t.id} fora da estrada`);
-      assert.ok(Math.abs(t.x - CORREDOR.x) - PLANTA.raio - SHIP_RADIUS > FAIXA_MINERADOR + 10, `${t.id} longe da faixa dos mineradores`);
-      // Entre a base (fora da zona dela) e o minério, do lado do time.
-      assert.ok(Math.sign(t.z - MINERIO.z) === Math.sign(b.z - MINERIO.z), `${t.id} na metade do time`);
-      assert.ok(Math.abs(t.z - MINERIO.z) > MINERIO.raio + 100 && Math.abs(t.z - b.z) > b.raio, `${t.id} entre a base e o minério`);
+      assert.ok(Math.abs(t.z - LANE.z) > LANE.meiaLargura + PLANTA.raio, `${t.id} fora da lane`);
+      assert.ok(Math.abs(t.z - LANE.z) - PLANTA.raio - SHIP_RADIUS > FAIXA_MINERADOR + 10, `${t.id} longe da faixa dos mineradores`);
+      // Entre a base (fora da zona dela) e a mineradora, do lado do time.
+      assert.ok(Math.sign(t.x - MINERADORA.x) === Math.sign(b.x - MINERADORA.x), `${t.id} na metade do time`);
+      assert.ok(Math.abs(t.x - MINERADORA.x) > MINERADORA.meiaX + 100 && Math.abs(t.x - b.x) > b.raio, `${t.id} entre a base e a mineradora`);
       const g = TORRETAS.find((o) => o.time !== time && o.x === -t.x && o.z === -t.z);
       assert.ok(g, `${t.id} tem gêmea girada 180°`);
       assert.equal(g.id.slice(3), t.id.slice(3), 'mesmo número');
     }
   }
-  assert.equal(TORRETA_LADO, CORREDOR.largura / 2 + 12);
+  assert.equal(TORRETA_LADO, 171);
 });
 
 test('torretas: são sólidas (planta única) e não bloqueiam a rota dos mineradores', () => {
@@ -75,8 +76,8 @@ test('torretas: são sólidas (planta única) e não bloqueiam a rota dos minera
     for (let i = 0; i + 1 < rota.length; i++) {
       for (let k = 0; k <= 10; k++) {
         for (const lado of [-1, 1]) {
-          const x = rota[i].x + lado * FAIXA_MINERADOR + (rota[i + 1].x - rota[i].x) * (k / 10);
-          const z = rota[i].z + (rota[i + 1].z - rota[i].z) * (k / 10);
+          const x = rota[i].x + (rota[i + 1].x - rota[i].x) * (k / 10);
+          const z = rota[i].z + lado * FAIXA_MINERADOR + (rota[i + 1].z - rota[i].z) * (k / 10);
           const livre = OBSTACULOS.filter((o) => o.grupo === 'torreta').every((o) => Math.hypot(o.x - x, o.z - z) > o.raio + SHIP_RADIUS + 10);
           assert.ok(livre, `rota do time ${time} passa longe das torretas em (${x}, ${z.toFixed(0)})`);
         }
@@ -94,7 +95,7 @@ test('torretas: linha de tiro bate em construção e passa livre no aberto', () 
 
 test('torretas: atiram no inimigo no alcance e não no aliado', () => {
   const { w, a, b } = mundo();
-  const t = torreta(w, 'T0-4'); // (62, 220)
+  const t = torreta(w, 'T0-4'); // (-427,5, 171)
   // Só o aliado perto: nenhuma torreta do time 0 atira.
   colocar(a, t.x - 40, t.z + 10);
   colocar(b, 0, -900);
@@ -122,7 +123,7 @@ test('torretas: atiram no inimigo no alcance e não no aliado', () => {
   assert.equal(snap.viva, true);
 
   // Fora do alcance, nada.
-  colocar(b, t.x + TORRETA.alcance + 120, t.z); // para fora do corredor, longe das quatro
+  colocar(b, 300, -900); // a mais de 560 m das quatro do time 0
   for (let i = 0; i < SEGUNDO; i++) w.step();
   w.tirarEventos();
   for (let i = 0; i < 2 * SEGUNDO; i++) w.step();
@@ -288,7 +289,7 @@ test('evolução: reconstruir a torreta destruída do próprio time, com o níve
 });
 
 test('torretas: a partida nova põe todas de pé, inteiras e no nível 1', () => {
-  const w = new World({ drones: 0, monstros: 0, elites: 0, duracaoPartidaS: 2, intervaloFimS: 1 });
+  const w = new World({ jungle: false, duracaoPartidaS: 2, intervaloFimS: 1 });
   const a = w.addPlayer('A', 'bellico');
   w.addPlayer('B', 'bellico');
   w.step();
@@ -307,4 +308,126 @@ test('torretas: a partida nova põe todas de pé, inteiras e no nível 1', () =>
     assert.ok(obstaculoAtivo(x.id));
   }
   assert.deepEqual(w.torretas.nivel, [1, 1]);
+});
+
+// ---------- Torres sentinela do mapa do Stage 6: robustas, 560 m, teleguiadas ----------
+
+/** Roda até a primeira bala de torreta do time 0 sair; devolve a bala (ou null). */
+function primeiroMissil(w, maxS = 3) {
+  for (let i = 0; i < maxS * SEGUNDO; i++) {
+    w.step();
+    const m = w.bullets.find((x) => typeof x.owner === 'string' && x.time === 0);
+    if (m) return m;
+  }
+  return null;
+}
+
+test('torretas: 1400 de HP no nível 1 e alcance de 560 m, o maior do jogo (o mesmo da visão delas)', () => {
+  const { w } = mundo({ torretas: false });
+  assert.equal(TORRETA.hp, 1400);
+  assert.equal(TORRETA.alcance, 560);
+  assert.equal(TORRETA.alcance, VISAO_TORRETA);
+  assert.equal(w.torretas.hpMax(0), 1400);
+  assert.equal(torreta(w, 'T0-1').hp, 1400);
+  assert.ok(TORRETA.alcance > 548, 'mais que a Lâmina Giratória');
+});
+
+test('torretas: atiram a 540 m e não a 600 m', () => {
+  const { w, a, b } = mundo();
+  const t = torreta(w, 'T0-4'); // (-427,5, 171)
+  colocar(a, BASES[0].x, BASES[0].z);
+  colocar(b, t.x, t.z + 600);
+  assert.equal(primeiroMissil(w), null, '600 m: fora');
+  colocar(b, t.x, t.z + 540);
+  const m = primeiroMissil(w);
+  assert.ok(m, '540 m: atira');
+  assert.equal(m.owner, 'T0-4');
+  assert.equal(m.alvo, b.id, 'trava no alvo');
+});
+
+test('torretas: o míssil é teleguiado (curva atrás do alvo que foge de lado) e vai nos guiados', () => {
+  const { w, a, b } = mundo();
+  colocar(a, BASES[0].x, BASES[0].z);
+  colocar(b, -600, 560, -Math.PI / 2); // olhando para +x
+  const hp = b.ship.hp;
+  w.tirarEventos();
+  const m = primeiroMissil(w);
+  assert.ok(m);
+  const ev = w.tirarEventos().find((e) => e.e === 'tiro' && e.id === m.id);
+  assert.deepEqual([ev.fonte, ev.time, ev.guiado, ev.alvo], ['torreta', 0, true, b.id]);
+  assert.ok(w.snapshotPara(a, [], []).guiados.some((g) => g.id === m.id), 'o cliente corrige a curva pelos guiados');
+  const rumo0 = Math.atan2(m.vx, m.vz);
+  let curvou = 0;
+  let seq = 0;
+  for (let i = 0; i < 4 * SEGUNDO && w.bullets.includes(m); i++) {
+    w.pushInput(b.id, { s: ++seq, th: 1 }); // foge de lado
+    w.step();
+    curvou = Math.max(curvou, Math.abs(Math.atan2(Math.sin(Math.atan2(m.vx, m.vz) - rumo0), Math.cos(Math.atan2(m.vx, m.vz) - rumo0))));
+  }
+  assert.ok(curvou > 0.05, `curvou ${curvou.toFixed(3)} rad`);
+  assert.ok(b.ship.hp < hp, 'acertou quem fugia');
+});
+
+test('torretas: a mineradora tampa a visão (não atiram em quem está atrás dela)', () => {
+  const { w, a, b } = mundo();
+  colocar(a, BASES[0].x, BASES[0].z);
+  colocar(b, 80, -20); // atrás da mineradora para as torres T0-3 e T0-4 (a ~530-540 m)
+  assert.ok(Math.hypot(80 - torreta(w, 'T0-4').x, -20 - torreta(w, 'T0-4').z) < TORRETA.alcance);
+  assert.equal(primeiroMissil(w), null);
+});
+
+test('torretas: o míssil bate na rocha quando o alvo se esconde atrás dela', () => {
+  const { w, a, b } = mundo();
+  colocar(a, BASES[0].x, BASES[0].z);
+  colocar(b, -600, 560);
+  const m = primeiroMissil(w);
+  assert.ok(m);
+  colocar(b, -697.5, 800); // atrás da rocha do quadrante (Q0S)
+  const hp = b.ship.hp;
+  w.tirarEventos();
+  for (let i = 0; i < 4 * SEGUNDO && w.bullets.includes(m); i++) w.step();
+  assert.equal(w.bullets.includes(m), false, 'o míssil acabou');
+  assert.ok(w.tirarEventos().some((e) => e.e === 'fim' && e.bala === m.id), 'bateu (fim, sem acerto)');
+  assert.equal(b.ship.hp, hp, 'o alvo escondido não levou');
+});
+
+test('torretas: preferem quem agrediu um aliado no alcance nos últimos 3 s; depois, o mais perto', () => {
+  const { w, a, b } = mundo();
+  const c = w.addPlayer('C', 'bellico'); // time 0 (empate vai para o 0)
+  const d = w.addPlayer('D', 'bellico'); // time 1
+  colocar(c, BASES[0].x, BASES[0].z);
+  assert.equal(d.time, 1);
+  d.protegidoAte = 0;
+  const t = torreta(w, 'T0-4');
+  colocar(a, t.x + 60, t.z + 300);
+  colocar(b, t.x, t.z + 120); // o mais perto
+  colocar(d, t.x, t.z + 400);
+  w.step();
+  // Sem agressão: o mais perto.
+  for (let i = 0; i < 2 * SEGUNDO && !t.alvo; i++) w.step();
+  assert.equal(t.alvo, b.id);
+  // O D agride o aliado A (o #ferir anota): vira o alvo.
+  d.agrediu = { tick: w.tick, time: 0, x: a.ship.x, z: a.ship.z };
+  for (let i = 0; i < 2 * SEGUNDO && t.alvo !== d.id; i++) w.step();
+  assert.equal(t.alvo, d.id, 'quem agrediu o aliado');
+  // Agressão fora do alcance da torre não conta.
+  d.agrediu = { tick: w.tick, time: 0, x: t.x + 2000, z: t.z };
+  for (let i = 0; i < 2 * SEGUNDO && t.alvo !== b.id; i++) w.step();
+  assert.equal(t.alvo, b.id);
+  // Passados os 3 s, volta ao mais perto.
+  d.agrediu = { tick: w.tick, time: 0, x: a.ship.x, z: a.ship.z };
+  for (let i = 0; i < (TORRETA.agressaoS + 1.5) * SEGUNDO; i++) w.step();
+  assert.equal(t.alvo, b.id);
+});
+
+test('torretas: bater na torre conta como agredir um aliado dela', () => {
+  const { w, b } = mundo({ torretas: false });
+  const t = torreta(w, 'T0-2');
+  const s = createShip('bellico', t.x - 40, t.z, -Math.PI / 2);
+  const bala = createBullet(s, 'plasma', w.nextId++, b.id);
+  Object.assign(bala, { time: b.time, mult: 1 });
+  w.bullets.push(bala);
+  for (let i = 0; i < SEGUNDO && w.bullets.includes(bala); i++) w.step();
+  assert.ok(t.hp < w.torretas.hpMax(0));
+  assert.deepEqual([b.agrediu.time, b.agrediu.x, b.agrediu.z], [0, t.x, t.z]);
 });
