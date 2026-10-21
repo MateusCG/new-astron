@@ -3770,6 +3770,10 @@ body.dano::after {
   --cor-tipo: var(--en);
 }
 
+.atributo[data-atributo='durabilidade'] {
+  --cor-tipo: var(--hp);
+}
+
 .atributo {
   display: grid;
   grid-template-columns: 40px 1fr auto;

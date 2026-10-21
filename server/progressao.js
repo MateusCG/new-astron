@@ -155,10 +155,11 @@ export function statusDoJogador(j) {
     pontos: j.pontos,
     equipados: equipadosDoInv(j.inv, j.equipado),
     energiaBase: naveDoJogador(j)?.energia ?? NAVE_SEM_CLASSE.energia,
+    hpBase: naveDoJogador(j)?.hp ?? NAVE_SEM_CLASSE.hp,
   });
 }
 
-/** HP máximo da nave do jogador: o da nave no nível, mais o HP a mais do status (armadura e potenciadores). */
+/** HP máximo da nave do jogador: o da nave no nível, mais o HP a mais do status (Durabilidade, armadura e potenciadores). */
 export function hpMaxDoJogador(j, status = statusDoJogador(j)) {
   const hp = hpMaxDoNivel(naveDoJogador(j)?.hp ?? NAVE_SEM_CLASSE.hp, j.nivel);
   return Math.round(hp + status.hpExtra);

@@ -308,9 +308,10 @@ test('computador: distribui os pontos ao subir de nível e monta escudo, armadur
   bot.ouro = 4000;
   rodar(w, h, 40);
   const p = bot.pontos;
-  assert.equal(p.energia + p.fisico + p.eletrico + p.laser, 40, 'gastou os 10 por nível');
+  assert.equal(p.durabilidade + p.energia + p.fisico + p.eletrico + p.laser, 40, 'gastou os 10 por nível');
   assert.equal(p.energia, 12, '30% na Energia');
-  assert.ok(p.laser + p.fisico === 28, 'o resto no poder das armas dele');
+  assert.equal(p.durabilidade, 8, '20% na Durabilidade');
+  assert.ok(p.laser + p.fisico === 20, 'o resto no poder das armas dele');
   const naNave = [bot.equipado.escudo, bot.equipado.armadura, ...bot.equipado.pot];
   assert.ok(naNave.every((id) => bot.inv.some((x) => x.id === id && x.tipo === 'equip')), 'escudo, armadura e dois potenciadores do inventário na nave');
   assert.ok(bot.inv.filter((x) => x.tipo === 'equip').every((x) => naNave.includes(x.id)), 'nada comprado ficou parado no compartimento');

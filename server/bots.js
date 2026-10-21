@@ -78,7 +78,7 @@
 // ({t:'comprar'}, {t:'equipar'}, {t:'evoluirItem'}). Guarda ouro para a nave quando já
 // tem o nível dela; fora a nave, só vai comprar com ouro que valha a viagem
 // (IA.compraMin, mais IA.compraPorNivel por nível). A cada nível, distribui os pontos livres ({t:'pontos'}) entre o
-// poder do tipo de dano das armas e a Energia (IA.fracaoEnergia).
+// poder do tipo de dano das armas, a Energia (IA.fracaoEnergia) e a Durabilidade (IA.fracaoDurabilidade).
 //
 // Para não parecer máquina: demora um pouco para reagir a um alvo novo (IA.reacaoS),
 // erra a mira um pouco (menos com o nível) e cada um tem a sua agressividade
@@ -228,6 +228,7 @@ export const IA = {
   compraPorNivel: 30, // ...e mais isto por nível
   kitsDesejados: 2,
   fracaoEnergia: 0.3, // dos pontos do piloto, esta fração vai na Energia; o resto no poder das armas
+  fracaoDurabilidade: 0.2, // e esta na Durabilidade (HP)
   potenciadorVida: 'e340001', // Potenciador de Durabilidade: o segundo potenciador de todo computador
 };
 
@@ -1298,20 +1299,23 @@ export class Bots {
   }
 
   /**
-   * Pontos livres do piloto: Energia até IA.fracaoEnergia do total, o resto no
-   * poder do tipo de dano das armas dele; atributo no máximo (99), o que sobrar vai
-   * nos outros. Pelo mesmo pedido do cliente ({t:'pontos'}).
+   * Pontos livres do piloto: Energia até IA.fracaoEnergia do total, Durabilidade até
+   * IA.fracaoDurabilidade, o resto no poder do tipo de dano das armas dele; atributo
+   * no máximo (99), o que sobrar vai nos outros. Pelo mesmo pedido do cliente
+   * ({t:'pontos'}).
    */
   #distribuirPontos(j) {
     const livres = pontosLivres(j.nivel, j.pontos);
     if (!livres) return;
     const p = j.pontos;
-    const total = p.energia + p.fisico + p.eletrico + p.laser + livres;
+    const total = ORDEM_ATRIBUTOS.reduce((s, a) => s + p[a], livres);
     const energia = Math.min(livres, Math.max(0, Math.round(IA.fracaoEnergia * total) - p.energia));
+    const durabilidade = Math.min(livres - energia, Math.max(0, Math.round(IA.fracaoDurabilidade * total) - p.durabilidade));
     const poder = this.#tipoDasArmas(j);
     const pedidos = [
       ['energia', energia],
-      [poder, livres - energia],
+      ['durabilidade', durabilidade],
+      [poder, livres - energia - durabilidade],
       ...['energia', poder, ...ORDEM_ATRIBUTOS].map((a) => [a, PONTO_MAX]), // sobra (atributo cheio)
     ];
     for (const [atributo, qtd] of pedidos) {

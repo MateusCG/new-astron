@@ -74,7 +74,8 @@
 //                        e parado na própria base ('nao_pousado'); na V8, 'limite';
 //                        sem ouro, 'ouro_insuficiente'; qualquer nível do piloto
 //                       {t:'pontos', atributo, qtd}   põe pontos livres do piloto num
-//                        atributo: 'energia' | 'fisico' | 'eletrico' | 'laser' (Op.);
+//                        atributo: 'durabilidade' (HP) | 'energia' | 'fisico' |
+//                        'eletrico' | 'laser' (Op.);
 //                        qtd inteiro 1 a 99 (padrão 1), põe o que couber nos livres
 //                        e no máximo de 99 do atributo; vale em qualquer lugar, vivo
 //                        ou morto; 'sem_pontos' sem livres, 'maximo' com o atributo
@@ -188,8 +189,8 @@
 //         cdItens {reparo, energia} (s de recarga), tier (nave da linha comprada,
 //         0 a 4; zera a cada partida); maxHp e maxEn já com a nave, o nível, os
 //         pontos e o equipamento
-//   me (STATUS e INVENTÁRIO; tudo zera a cada partida): pontos = {energia, fisico,
-//         eletrico, laser} distribuídos, pontosLivres (10 por nível menos os
+//   me (STATUS e INVENTÁRIO; tudo zera a cada partida): pontos = {durabilidade,
+//         energia, fisico, eletrico, laser} distribuídos, pontosLivres (10 por nível menos os
 //         gastos), inv = [{id, tipo: 'arma' | 'equip', chave, nivel (1 a 8), pago,
 //         fabrica?}] o inventário por instância (id inteiro único do piloto;
 //         chave 'o311001' da arma ou 'e330010' do equipamento; pago = ouro gasto

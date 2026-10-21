@@ -65,7 +65,7 @@ const pontos = (w, j, atributo, qtd) => w.pedido(j.id, { t: 'pontos', atributo, 
 test('pontos: 10 por nível, máximo 99 em cada, põe o que couber e vale em qualquer lugar', () => {
   const w = mundo();
   const j = w.addPlayer('A', 'shrewdo', 'functional');
-  assert.deepEqual(w.snapshotPara(j, [], []).me.pontos, { energia: 0, fisico: 0, eletrico: 0, laser: 0 });
+  assert.deepEqual(w.snapshotPara(j, [], []).me.pontos, { durabilidade: 0, energia: 0, fisico: 0, eletrico: 0, laser: 0 });
   assert.equal(w.snapshotPara(j, [], []).me.pontosLivres, 10, 'no nível 1 já há 10');
 
   assert.deepEqual(pontos(w, j, 'eletrico'), { t: 'resultado', acao: 'pontos', item: 'eletrico', ok: true }, 'qtd padrão 1');
@@ -114,6 +114,27 @@ test('pontos: Energia sobe a energia máxima e a regeneração; o poder vai para
   assert.ok(Math.abs(me.status.poder.eletrico - 0.78) < 1e-9, 'Shrewdo Functional: 2,6% por ponto');
   assert.equal(me.status.poder.laser, 0);
   assert.equal(me.pontosLivres, 8, '60 do nível 6 menos 52');
+});
+
+test('pontos: Durabilidade sobe o HP máximo e a regeneração de HP em voo e pousada', () => {
+  const w = mundo();
+  const j = w.addPlayer('A', 'acron', 'assault');
+  const nave = naveDe('acron', 'assault', 0);
+  const hp0 = j.ship.maxHp; // nível 1: os 10 pontos dele
+  const voo0 = j.ship.regenHpVoo;
+  const pousada0 = j.ship.regenHpPousada;
+  j.ship.hp = 50;
+  assert.equal(pontos(w, j, 'durabilidade', 10).ok, true);
+  const ef = efeitoDosPontos('acron', 'assault', j.pontos, nave.energia, nave.hp);
+  assert.ok(ef.hp > 0 && ef.regenHp > 0);
+  assert.equal(j.ship.maxHp, Math.round(hp0 + ef.hp));
+  assert.ok(Math.abs(j.ship.regenHpVoo - (voo0 + ef.regenHp)) < 1e-9);
+  assert.ok(Math.abs(j.ship.regenHpPousada - (pousada0 + ef.regenHp)) < 1e-9);
+  assert.ok(Math.abs(j.ship.hp - (50 + j.ship.maxHp - hp0)) < 1e-9, 'só soma a diferença, não enche');
+  const me = w.snapshotPara(j, [], []).me;
+  assert.equal(me.pontos.durabilidade, 10);
+  assert.equal(me.maxHp, j.ship.maxHp);
+  assert.equal(me.pontosLivres, 0);
 });
 
 test('inventário: comprar vai para o compartimento, sem equipar; arma até duas cópias, equipamento repete', () => {
@@ -397,7 +418,7 @@ test('inventário: volta a cada renascimento (escudo cheio) e tudo zera na parti
   assert.deepEqual(j.ship.nivEnc, [1, 1]);
   assert.deepEqual(j.ship.encInst, j.inv.map((x) => x.id), 'as de fábrica novas nos encaixes');
   assert.deepEqual(j.equipado, { escudo: null, armadura: null, pot: [null, null] });
-  assert.deepEqual(j.pontos, { energia: 0, fisico: 0, eletrico: 0, laser: 0 });
+  assert.deepEqual(j.pontos, { durabilidade: 0, energia: 0, fisico: 0, eletrico: 0, laser: 0 });
   assert.equal(j.ship.maxEscudo, 0);
   assert.equal(j.ship.escudo, 0);
   assert.equal(j.ship.maxHp, hpMaxDoNivel(naveDe('acron', 'assault', 0).hp, 1));
@@ -454,7 +475,7 @@ test('inventário: pelo WebSocket, pontos, equipar, vender e evoluirItem voltam 
     ws.send(JSON.stringify({ t: 'equipar', slot: 'escudo', inst: id }));
     const snap = await esperar((m) => m.t === 'snap' && m.me.equipado?.escudo === id);
     const me = snap.me;
-    assert.deepEqual(me.pontos, { energia: 0, fisico: 0, eletrico: 0, laser: 4 });
+    assert.deepEqual(me.pontos, { durabilidade: 0, energia: 0, fisico: 0, eletrico: 0, laser: 4 });
     assert.equal(me.pontosLivres, 6);
     assert.equal(me.compMax, COMPARTIMENTO_MAX);
     assert.deepEqual(me.inv.at(-1), { id, tipo: 'equip', chave: ESCUDO, nivel: 2, pago: EQUIPAMENTOS[ESCUDO].preco + precoEvoluirEquip(ESCUDO, 1) });

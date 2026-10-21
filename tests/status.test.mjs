@@ -29,9 +29,9 @@ import { naveDe } from '../shared/naves.js';
 const perto = (a, b, msg) => assert.ok(Math.abs(a - b) < 1e-6, `${msg ?? ''} ${a} != ${b}`);
 const PILOT = '/home/mateus/Documentos/old-astron/reference/game_data_decoded/cfg/pilotparameter.txt';
 
-test('pontos: 10 por nível, 99 no máximo em cada um dos quatro atributos', () => {
-  assert.deepEqual(ORDEM_ATRIBUTOS, ['energia', 'fisico', 'eletrico', 'laser']);
-  assert.deepEqual(ORDEM_ATRIBUTOS.map((a) => ATRIBUTOS[a].nome), ['Energia', 'Ph.', 'El.', 'Op.']);
+test('pontos: 10 por nível, 99 no máximo em cada um dos cinco atributos', () => {
+  assert.deepEqual(ORDEM_ATRIBUTOS, ['durabilidade', 'energia', 'fisico', 'eletrico', 'laser']);
+  assert.deepEqual(ORDEM_ATRIBUTOS.map((a) => ATRIBUTOS[a].nome), ['HP', 'Energia', 'Ph.', 'El.', 'Op.']);
   assert.equal(PONTOS_POR_NIVEL, 10);
   assert.equal(PONTO_MAX, 99);
   assert.equal(pontosTotais(1), 10);
@@ -42,12 +42,13 @@ test('pontos: 10 por nível, 99 no máximo em cada um dos quatro atributos', () 
   assert.equal(pontosLivres(3, { energia: 5, fisico: 10, eletrico: 0, laser: 2 }), 13);
   assert.equal(pontosLivres(1, { energia: 50 }), 0, 'nunca negativo');
   assert.equal(pontosLivres(2, null), 20);
-  assert.deepEqual(normalizarPontos({ energia: 150, fisico: -3, eletrico: 2.5, laser: '4', outro: 9 }), { energia: 99, fisico: 0, eletrico: 0, laser: 0 });
+  assert.deepEqual(normalizarPontos({ energia: 150, fisico: -3, eletrico: 2.5, laser: '4', outro: 9 }), { durabilidade: 0, energia: 99, fisico: 0, eletrico: 0, laser: 0 });
+  assert.equal(pontosLivres(3, { durabilidade: 7, energia: 5 }), 18, 'a Durabilidade gasta pontos como os outros');
 });
 
 test('pontos: distribuir põe o que cabe e recusa com o código certo', () => {
   let r = distribuirPontos(1, pontosVazios(), 'eletrico', 4);
-  assert.deepEqual(r, { ok: true, pontos: { energia: 0, fisico: 0, eletrico: 4, laser: 0 }, qtd: 4 });
+  assert.deepEqual(r, { ok: true, pontos: { durabilidade: 0, energia: 0, fisico: 0, eletrico: 4, laser: 0 }, qtd: 4 });
   r = distribuirPontos(1, r.pontos, 'laser', 99);
   assert.equal(r.qtd, 6, 'só os 6 livres');
   assert.deepEqual(distribuirPontos(1, r.pontos, 'laser'), { ok: false, codigo: 'sem_pontos' });
@@ -68,13 +69,19 @@ test('pontos: tabela do original por raça e classe (igual ao pilotparameter.txt
     const m = texto.match(new RegExp(`!${n}\\.[^\\n]*\\n\\{([^}]*)\\}`));
     return Object.fromEntries([...m[1].matchAll(/(\d+)\s*=\s*([\d.]+)/g)].map((x) => [x[1], Number(x[2])]));
   };
+  const hp = bloco(2);
   const he = bloco(3);
   const phy = bloco(4);
   const opt = bloco(5);
   const elec = bloco(6);
+  const regenHp = bloco(7);
   const regen = bloco(8);
+  const pctHp = bloco(9);
   const pct = bloco(10);
   for (const [rc, t] of Object.entries(PILOT_PARAMETER)) {
+    assert.equal(t.hp, hp[rc], rc);
+    assert.equal(t.regenHpMs, regenHp[rc], rc);
+    assert.equal(t.hpPct, pctHp[rc], rc);
     assert.equal(t.he, he[rc], rc);
     assert.equal(t.fisico, phy[rc], rc);
     assert.equal(t.laser, opt[rc], rc);
@@ -97,10 +104,30 @@ test('pontos: números conferidos com os prints (Shrewdo Functional)', () => {
   perto(e.energia, 1375 * 0.3);
   perto(e.regenEn, 5.0 * 0.3 / 0.5);
   // Raça ou classe sem tabela: ponto não vale nada.
-  assert.deepEqual(efeitoDosPontos('mechan', 'assault', { energia: 50, laser: 50 }, 100), { energia: 0, regenEn: 0, poder: { fisico: 0, laser: 0, eletrico: 0 } });
+  assert.deepEqual(efeitoDosPontos('mechan', 'assault', { energia: 50, laser: 50 }, 100), { hp: 0, regenHp: 0, energia: 0, regenEn: 0, poder: { fisico: 0, laser: 0, eletrico: 0 } });
   // A energia base em % usa a nave do piloto (naves.js).
   const nave = naveDe('acron', 'assault', 0);
   perto(efeitoDosPontos('acron', 'assault', { energia: 10 }, nave.energia).energia, 10 * (11 * 0.3 + 0.03 * nave.energia));
+});
+
+test('pontos: Durabilidade dá HP (Skill HP + 3% do HP base) e regeneração de HP, linear como no original', () => {
+  const t = porPonto('bellico', 'assault');
+  assert.deepEqual([t.hp, t.hpPct, t.regenHpMs], [40, 0.03, 0.0001]);
+  const nave = naveDe('bellico', 'assault', 0);
+  const um = efeitoDosPontos('bellico', 'assault', { durabilidade: 1 }, 0, nave.hp);
+  perto(um.hp, 40 * 0.2 + 0.03 * nave.hp);
+  // "Recovery +0,1" por ponto no original (0,0001/ms), na escala do HP do jogo (× 0,2).
+  perto(um.regenHp, 0.1 * 0.2);
+  const dois = efeitoDosPontos('bellico', 'assault', { durabilidade: 2 }, 0, nave.hp);
+  perto(dois.hp, 2 * um.hp);
+  perto(dois.regenHp, 2 * um.regenHp);
+  // Não mexe na energia nem no poder, e a Energia não mexe no HP.
+  assert.equal(um.energia, 0);
+  assert.equal(efeitoDosPontos('bellico', 'assault', { energia: 5 }, 100, nave.hp).hp, 0);
+  // No status vira hpExtra e regenHpExtra.
+  const st = statusDoPiloto({ race: 'bellico', classe: 'assault', pontos: { durabilidade: 10 }, hpBase: nave.hp });
+  perto(st.hpExtra, 10 * um.hp);
+  perto(st.regenHpExtra, 10 * um.regenHp);
 });
 
 test('status: soma pontos, escudo, armadura e os dois potenciadores num objeto só', () => {

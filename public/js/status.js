@@ -3,8 +3,9 @@
 //
 // Em cima, o piloto (nick e nível, raça, classe e nave) e as linhas de ouro,
 // experiência, escudo, durabilidade (HP) e energia, cada uma com o atual / máximo.
-// Embaixo, a distribuição de pontos: PONTOS_POR_NIVEL a cada nível, para Energia,
-// Físico, Elétrico e Operacional (o laser do jogo novo; Ph., El. e Op. no original),
+// Embaixo, a distribuição de pontos: PONTOS_POR_NIVEL a cada nível, para Durabilidade
+// (HP máximo e regeneração de HP), Energia, Físico, Elétrico e Operacional (o laser
+// do jogo novo; Ph., El. e Op. no original),
 // no máximo PONTO_MAX em cada: aqui os nomes vão por extenso, que a janela é larga e
 // a sigla confundia. As linhas dos três tipos trazem, como no original, o poder (%)
 // das armas dos encaixes Z e X que são daquele tipo e a resistência da nave a ele.
@@ -14,7 +15,7 @@
 // me.pontosLivres) e o status somado (me.status). Não há devolver ponto. Passar o
 // mouse (ou tocar) numa linha mostra o detalhe dela, como o original: o que os pontos
 // dão agora e com +1 ponto, calculado por shared/status.js (porPonto,
-// efeitoDosPontos) com a energia base da nave.
+// efeitoDosPontos) com a energia e o HP base da nave.
 //
 // O jogo não pausa; com a janela aberta não sai tiro (main.js lê `aberto`). Os
 // números mudam a todo snapshot (regeneração), então a janela é montada uma vez e
@@ -39,7 +40,7 @@ import { classeTipo, celulaArma } from './equipamento.js';
 const QTDS = [1, 10];
 
 /** Nome por extenso de cada atributo na janela (o original usa Ph., El. e Op.). */
-export const NOME_ATRIBUTO = { energia: 'Energia', fisico: 'Físico', eletrico: 'Elétrico', laser: 'Operacional' };
+export const NOME_ATRIBUTO = { durabilidade: 'Durabilidade', energia: 'Energia', fisico: 'Físico', eletrico: 'Elétrico', laser: 'Operacional' };
 
 /** Mensagem de cada código de recusa do pedido {t:'pontos'}. */
 const MENSAGEM = {
@@ -58,10 +59,11 @@ function lerEstado({ me, nivel, xp, xpProx, ouro, nome }) {
   const classe = me?.classe ?? null;
   const tier = me?.tier ?? 0;
   const energiaBase = naveDe(race, classe, tier)?.energia ?? 0;
+  const hpBase = naveDe(race, classe, tier)?.hp ?? 0;
   const pontos = normalizarPontos(me?.pontos ?? pontosVazios());
   const niv = nivel ?? 1;
   // O servidor manda o status já somado (pontos e equipamento); sem ele, a mesma conta daqui.
-  const status = me?.status ?? statusDoPiloto({ race, classe, pontos, equipados: equipadosDoInv(me?.inv, me?.equipado), energiaBase });
+  const status = me?.status ?? statusDoPiloto({ race, classe, pontos, equipados: equipadosDoInv(me?.inv, me?.equipado), energiaBase, hpBase });
   return {
     nome: nome ?? '',
     race,
@@ -81,6 +83,7 @@ function lerEstado({ me, nivel, xp, xpProx, ouro, nome }) {
     livres: Number.isInteger(me?.pontosLivres) ? me.pontosLivres : pontosLivres(niv, pontos),
     status,
     energiaBase,
+    hpBase,
     encaixes: me?.encaixes ?? [],
     nivEnc: me?.nivEnc ?? [1, 1], // versão da arma de cada encaixe (por instância)
   };
@@ -193,11 +196,11 @@ export class PainelStatus {
     const linha = (k, nome, barra = true) =>
       `<div class="linha-st ${k}"><span>${nome}</span><b class="v-${k}"></b>${barra ? `<i class="barrinha"><i class="b-${k}"></i></i>` : ''}</div>`;
     const atributo = (a) => {
-      const tipo = a === 'energia' ? '' : classeTipo(a);
-      const meio =
-        a === 'energia'
-          ? `<span class="nome-at">Energia</span><span class="efeito-at"></span>`
-          : `<table class="mini-tipos"><tr><th class="nome-at">${NOME_ATRIBUTO[a]}</th><th>Arma <kbd>Z</kbd></th><th>Arma <kbd>X</kbd></th><th>Resist.</th></tr><tr class="valores"></tr></table>`;
+      const simples = a === 'energia' || a === 'durabilidade'; // sem a tabela dos tipos de dano
+      const tipo = simples ? '' : classeTipo(a);
+      const meio = simples
+        ? `<span class="nome-at">${a === 'durabilidade' ? 'Durabilidade (HP)' : 'Energia'}</span><span class="efeito-at"></span>`
+        : `<table class="mini-tipos"><tr><th class="nome-at">${NOME_ATRIBUTO[a]}</th><th>Arma <kbd>Z</kbd></th><th>Arma <kbd>X</kbd></th><th>Resist.</th></tr><tr class="valores"></tr></table>`;
       return `<div class="atributo ${tipo}" data-atributo="${a}">
         <b class="qtd"></b>
         <div class="meio">${meio}<span class="linha-pontos"><i class="barra-pontos"><i></i></i><small></small></span></div>
@@ -264,7 +267,7 @@ export class PainelStatus {
 
     this.#texto(c.livres, String(s.livres), 'livres');
     c.livres.parentElement.classList.toggle('tem', s.livres > 0);
-    const efeito = efeitoDosPontos(s.race, s.classe, s.pontos, s.energiaBase);
+    const efeito = efeitoDosPontos(s.race, s.classe, s.pontos, s.energiaBase, s.hpBase);
     for (const a of ORDEM_ATRIBUTOS) {
       const at = c.atributos[a];
       const n = s.pontos[a];
@@ -273,7 +276,9 @@ export class PainelStatus {
       this.#texto(at.max, `${n}/${PONTO_MAX}`, `m${a}`);
       const pode = s.livres > 0 && n < PONTO_MAX;
       for (const b of at.botoes) b.disabled = !pode;
-      if (a === 'energia') {
+      if (a === 'durabilidade') {
+        this.#texto(at.efeito, `+${num(efeito.hp, 1)} HP · +${num(efeito.regenHp, 2)}/s`, 'efHp');
+      } else if (a === 'energia') {
         this.#texto(at.efeito, `+${num(efeito.energia, 1)} · +${num(efeito.regenEn, 1)}/s`, 'efEn');
       } else {
         const cel = [0, 1].map((enc) => celulaArma(s.encaixes[enc], s.nivEnc?.[enc] ?? 1, a, s.status.poder)).join('');
@@ -287,7 +292,7 @@ export class PainelStatus {
       st.velMult && st.velMult !== 1 ? `Velocidade ${st.velMult > 1 ? '+' : ''}${pct(st.velMult - 1)}` : '',
       st.acelMult && st.acelMult !== 1 ? `Aceleração ${st.acelMult > 1 ? '+' : ''}${pct(st.acelMult - 1)}` : '',
       st.regenEscudo > 0 ? `Escudo +${num(st.regenEscudo, 1)}/s` : '',
-      st.regenHpExtra > 0 ? `Conserto +${num(st.regenHpExtra, 1)} HP/s` : '',
+      st.regenHpExtra > 0 ? `Conserto +${num(st.regenHpExtra, 2)} HP/s` : '',
     ].filter(Boolean);
     this.#texto(c.extras, extras.join(' · '), 'extras');
     c.extras.hidden = !extras.length;
@@ -317,9 +322,15 @@ export class PainelStatus {
   #textoDetalhe(a) {
     const s = this.estado;
     const n = s.pontos[a];
-    const agora = efeitoDosPontos(s.race, s.classe, s.pontos, s.energiaBase);
-    const mais = n < PONTO_MAX ? efeitoDosPontos(s.race, s.classe, { ...s.pontos, [a]: n + 1 }, s.energiaBase) : null;
+    const agora = efeitoDosPontos(s.race, s.classe, s.pontos, s.energiaBase, s.hpBase);
+    const mais = n < PONTO_MAX ? efeitoDosPontos(s.race, s.classe, { ...s.pontos, [a]: n + 1 }, s.energiaBase, s.hpBase) : null;
     const st = s.status;
+    if (a === 'durabilidade') {
+      return `<strong>Durabilidade · ${n} ponto${n === 1 ? '' : 's'}</strong>
+        <p>HP máximo +${num(agora.hp, 1)}</p>
+        <p>Recuperação +${num(agora.regenHp, 2)} HP/s</p>
+        ${mais ? `<p class="mais-um">Com +1 ponto: HP +${num(mais.hp, 1)}, recuperação +${num(mais.regenHp, 2)} HP/s</p>` : '<p class="mais-um">No máximo</p>'}`;
+    }
     if (a === 'energia') {
       return `<strong>Energia · ${n} ponto${n === 1 ? '' : 's'}</strong>
         <p>Energia máxima +${num(agora.energia, 1)}</p>

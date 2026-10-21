@@ -1,9 +1,10 @@
 // Pontos do piloto e a soma de tudo o que mexe nos números da nave (a janela STATUS).
 //
-// Pontos: a cada nível o piloto ganha PONTOS_POR_NIVEL para distribuir entre quatro
+// Pontos: a cada nível o piloto ganha PONTOS_POR_NIVEL para distribuir entre cinco
 // atributos (ATRIBUTOS), no máximo PONTO_MAX em cada. Como na janela CHARACTER do
-// original: Energia (energia máxima e regeneração), Ph. (poder físico), El. (poder
-// elétrico) e Op. (poder operacional, que é o laser do jogo novo). Não há devolver;
+// original: Durabilidade (HP máximo e regeneração de HP), Energia (energia máxima e
+// regeneração), Ph. (poder físico), El. (poder elétrico) e Op. (poder operacional,
+// que é o laser do jogo novo). Não há devolver;
 // zeram na partida nova junto com o nível.
 //
 // Quanto cada ponto vale depende da raça e da classe: é a tabela pilotparameter.txt
@@ -16,8 +17,13 @@
 //   energia base 450 e 50 pontos ganha 50 × (14 + 0,03 × 450) = 1375; aqui, 1375 × 0,3.
 // - Regeneração de energia: 0,0001 por ms por ponto no original (+0,1/s), com a conta
 //   da regeneração das naves (× 1000 × FATOR_ENERGIA ÷ FATOR_RECARGA).
-// As linhas de HP da tabela (Skill HP, HpRegen, HP Percent) não entram: o jogo novo não
-// tem atributo de durabilidade (o HP sobe com o nível e com a armadura).
+// - Durabilidade: a mesma conta da Energia com as linhas de HP da tabela: por ponto,
+//   o HP fixo da raça e classe (Skill HP) × FATOR_ESCALA_HP mais HP_PCT (3%) do HP
+//   BASE da nave no jogo (o da linha, sem o nível e sem a armadura). No original o
+//   detalhe da linha diz "Durability 100 enhanced" com 1 ponto e 200 com 2: linear.
+// - Regeneração de HP: 0,0001 por ms por ponto no original ("Recovery +0,1"), com a
+//   conta da regeneração de HP das naves (× 1000 × FATOR_ESCALA_HP). Soma no conserto
+//   em voo e no pousado (regenHpExtra, como o dos potenciadores).
 //
 // statusDoPiloto junta os pontos com o escudo, a armadura e os dois potenciadores
 // equipados (shared/equipamentos.js) num objeto só, o contrato que o servidor usa
@@ -40,7 +46,7 @@
 //
 // Determinístico, sem sorte e sem relógio: servidor e cliente chegam ao mesmo número.
 
-import { FATOR_ENERGIA, FATOR_RECARGA, MS_POR_S } from './naves.js';
+import { FATOR_ENERGIA, FATOR_ESCALA_HP, FATOR_RECARGA, MS_POR_S } from './naves.js';
 import { RESIST_MAX, equipamento, nivelEquipValido, podeUsar, ORDEM_TIPOS_DANO } from './equipamentos.js';
 
 export const PONTOS_POR_NIVEL = 10; // pontos ganhos a cada nível (no nível 1 já há 10)
@@ -48,11 +54,14 @@ export const PONTO_MAX = 99; // máximo em cada atributo
 export const FATOR_PODER_PONTO = 0.01; // % do original por ponto → fração
 export const FATOR_ENERGIA_PONTO = FATOR_ENERGIA; // energia fixa por ponto do original → jogo
 export const FATOR_REGEN_EN_PONTO = (MS_POR_S * FATOR_ENERGIA) / FATOR_RECARGA; // por ms do original → por s do jogo
+export const FATOR_HP_PONTO = FATOR_ESCALA_HP; // HP fixo por ponto do original → jogo
+export const FATOR_REGEN_HP_PONTO = MS_POR_S * FATOR_ESCALA_HP; // HP por ms do original → HP por s do jogo
 export const RECARGA_MAX = 0.5; // a recarga nunca fica mais que 2× mais rápida
 export const CRITICO_MAX = 1;
 
-/** Os quatro atributos, na ordem da janela: nome curto (o da interface) e por extenso. */
+/** Os cinco atributos, na ordem da janela: nome curto (o da interface) e por extenso. */
 export const ATRIBUTOS = Object.freeze({
+  durabilidade: { id: 'durabilidade', nome: 'HP', descricao: 'Durabilidade: HP máximo e regeneração de HP' },
   energia: { id: 'energia', nome: 'Energia', descricao: 'Energia máxima e regeneração de energia' },
   fisico: { id: 'fisico', nome: 'Ph.', descricao: 'Poder físico: dano das armas físicas' },
   eletrico: { id: 'eletrico', nome: 'El.', descricao: 'Poder elétrico: dano das armas elétricas' },
@@ -63,35 +72,37 @@ export const ORDEM_ATRIBUTOS = Object.keys(ATRIBUTOS);
 /**
  * pilotparameter.txt do original, só as linhas que os atributos usam. Chave "RC": R =
  * raça (1 Acron, 2 Bellico, 3 Shrewdo), C = classe (2 Assault, 3 Mobile, 4
- * Functional). he = energia fixa por ponto (!3.Skill HE); fisico/laser/eletrico = %
- * de poder por ponto (!4 Phy, !5 Opt, !6 Elec); regenEnMs = regeneração de energia
- * por ms por ponto (!8); hePct = fração da energia base por ponto (!10 HE Percent).
+ * Functional). hp = HP fixo por ponto (!2.Skill HP); he = energia fixa por ponto
+ * (!3.Skill HE); fisico/laser/eletrico = % de poder por ponto (!4 Phy, !5 Opt, !6
+ * Elec); regenHpMs = regeneração de HP por ms por ponto (!7); regenEnMs = regeneração
+ * de energia por ms por ponto (!8); hpPct = fração do HP base por ponto (!9 HP
+ * Percent); hePct = fração da energia base por ponto (!10 HE Percent).
  */
 export const PILOT_PARAMETER = Object.freeze({
-  12: { he: 11, fisico: 2.6, laser: 3.0, eletrico: 2.2, regenEnMs: 0.0001, hePct: 0.03 },
-  13: { he: 12, fisico: 2.0, laser: 2.4, eletrico: 2.8, regenEnMs: 0.0001, hePct: 0.03 },
-  14: { he: 15, fisico: 2.0, laser: 2.6, eletrico: 2.4, regenEnMs: 0.0001, hePct: 0.03 },
-  22: { he: 10, fisico: 3.0, laser: 2.6, eletrico: 2.0, regenEnMs: 0.0001, hePct: 0.03 },
-  23: { he: 10, fisico: 2.6, laser: 2.4, eletrico: 2.4, regenEnMs: 0.0001, hePct: 0.03 },
-  24: { he: 14, fisico: 2.6, laser: 2.2, eletrico: 2.4, regenEnMs: 0.0001, hePct: 0.03 },
-  32: { he: 10, fisico: 2.9, laser: 2.9, eletrico: 2.2, regenEnMs: 0.0001, hePct: 0.03 },
-  33: { he: 10, fisico: 2.2, laser: 2.2, eletrico: 2.4, regenEnMs: 0.0001, hePct: 0.03 },
-  34: { he: 14, fisico: 2.4, laser: 2.4, eletrico: 2.6, regenEnMs: 0.0001, hePct: 0.03 },
+  12: { hp: 32, he: 11, fisico: 2.6, laser: 3.0, eletrico: 2.2, regenHpMs: 0.0001, regenEnMs: 0.0001, hpPct: 0.03, hePct: 0.03 },
+  13: { hp: 20, he: 12, fisico: 2.0, laser: 2.4, eletrico: 2.8, regenHpMs: 0.0001, regenEnMs: 0.0001, hpPct: 0.03, hePct: 0.03 },
+  14: { hp: 24, he: 15, fisico: 2.0, laser: 2.6, eletrico: 2.4, regenHpMs: 0.0001, regenEnMs: 0.0001, hpPct: 0.03, hePct: 0.03 },
+  22: { hp: 40, he: 10, fisico: 3.0, laser: 2.6, eletrico: 2.0, regenHpMs: 0.0001, regenEnMs: 0.0001, hpPct: 0.03, hePct: 0.03 },
+  23: { hp: 25, he: 10, fisico: 2.6, laser: 2.4, eletrico: 2.4, regenHpMs: 0.0001, regenEnMs: 0.0001, hpPct: 0.03, hePct: 0.03 },
+  24: { hp: 30, he: 14, fisico: 2.6, laser: 2.2, eletrico: 2.4, regenHpMs: 0.0001, regenEnMs: 0.0001, hpPct: 0.03, hePct: 0.03 },
+  32: { hp: 32, he: 10, fisico: 2.9, laser: 2.9, eletrico: 2.2, regenHpMs: 0.0001, regenEnMs: 0.0001, hpPct: 0.03, hePct: 0.03 },
+  33: { hp: 20, he: 10, fisico: 2.2, laser: 2.2, eletrico: 2.4, regenHpMs: 0.0001, regenEnMs: 0.0001, hpPct: 0.03, hePct: 0.03 },
+  34: { hp: 24, he: 14, fisico: 2.4, laser: 2.4, eletrico: 2.6, regenHpMs: 0.0001, regenEnMs: 0.0001, hpPct: 0.03, hePct: 0.03 },
 });
 const CODIGO_RACA = { acron: 1, bellico: 2, shrewdo: 3 };
 const CODIGO_CLASSE = { assault: 2, mobile: 3, functional: 4 };
 /** Raça ou classe sem tabela (Mechan, monstros): ponto não vale nada. */
-const SEM_PARAMETRO = Object.freeze({ he: 0, fisico: 0, laser: 0, eletrico: 0, regenEnMs: 0, hePct: 0 });
+const SEM_PARAMETRO = Object.freeze({ hp: 0, he: 0, fisico: 0, laser: 0, eletrico: 0, regenHpMs: 0, regenEnMs: 0, hpPct: 0, hePct: 0 });
 
 const r4 = (x) => Math.round(x * 1e4) / 1e4;
 const tres = (v = 0) => ({ fisico: v, laser: v, eletrico: v });
 
 /** Pontos zerados (começo da partida). */
 export function pontosVazios() {
-  return { energia: 0, fisico: 0, eletrico: 0, laser: 0 };
+  return { durabilidade: 0, energia: 0, fisico: 0, eletrico: 0, laser: 0 };
 }
 
-/** Pontos válidos: os quatro atributos, inteiros de 0 a PONTO_MAX (lixo vira 0). */
+/** Pontos válidos: os cinco atributos, inteiros de 0 a PONTO_MAX (lixo vira 0). */
 export function normalizarPontos(pontos) {
   const out = pontosVazios();
   for (const a of ORDEM_ATRIBUTOS) {
@@ -132,21 +143,25 @@ export function distribuirPontos(nivel, pontos, atributo, qtd = 1) {
 
 /**
  * Quanto vale UM ponto de cada atributo para a raça e a classe, nas unidades do
- * original: { he, hePct, regenEnMs, fisico, laser, eletrico } (poder em %).
+ * original: { hp, hpPct, regenHpMs, he, hePct, regenEnMs, fisico, laser, eletrico }
+ * (poder em %).
  */
 export function porPonto(race, classe) {
   return PILOT_PARAMETER[`${CODIGO_RACA[race]}${CODIGO_CLASSE[classe]}`] ?? SEM_PARAMETRO;
 }
 
 /**
- * O que os pontos dão, na escala do jogo: { energia (máxima a mais), regenEn (por s a
- * mais), poder: { fisico, laser, eletrico } (fração a mais) }. energiaBase = energia
- * máxima da nave no jogo (naveDe(...).energia), para a parte em % (HE Percent).
+ * O que os pontos dão, na escala do jogo: { hp (máximo a mais), regenHp (HP por s a
+ * mais), energia (máxima a mais), regenEn (por s a mais), poder: { fisico, laser,
+ * eletrico } (fração a mais) }. energiaBase e hpBase = energia máxima e HP da nave no
+ * jogo (naveDe(...).energia e .hp), para as partes em % (HE Percent e HP Percent).
  */
-export function efeitoDosPontos(race, classe, pontos, energiaBase = 0) {
+export function efeitoDosPontos(race, classe, pontos, energiaBase = 0, hpBase = 0) {
   const t = porPonto(race, classe);
   const p = normalizarPontos(pontos);
   return {
+    hp: r4(p.durabilidade * (t.hp * FATOR_HP_PONTO + t.hpPct * (hpBase || 0))),
+    regenHp: r4(p.durabilidade * t.regenHpMs * FATOR_REGEN_HP_PONTO),
     energia: r4(p.energia * (t.he * FATOR_ENERGIA_PONTO + t.hePct * (energiaBase || 0))),
     regenEn: r4(p.energia * t.regenEnMs * FATOR_REGEN_EN_PONTO),
     poder: { fisico: r4(p.fisico * t.fisico * FATOR_PODER_PONTO), laser: r4(p.laser * t.laser * FATOR_PODER_PONTO), eletrico: r4(p.eletrico * t.eletrico * FATOR_PODER_PONTO) },
@@ -253,13 +268,15 @@ export function somaEquipamento(equipados, classe) {
 /**
  * O status do piloto: pontos + escudo + armadura + potenciadores, num objeto só (ver
  * o topo do arquivo). equipados = [[chave, nível], ...] o que está na nave (ver
- * somaEquipamento); energiaBase = energia máxima da nave no jogo (para o % da
- * Energia). Tudo opcional: sem nada, statusVazio().
+ * somaEquipamento); energiaBase e hpBase = energia máxima e HP da nave no jogo (para
+ * o % da Energia e da Durabilidade). Tudo opcional: sem nada, statusVazio().
  */
-export function statusDoPiloto({ race, classe, pontos, equipados, energiaBase = 0 } = {}) {
+export function statusDoPiloto({ race, classe, pontos, equipados, energiaBase = 0, hpBase = 0 } = {}) {
   const st = statusVazio();
   for (const [k, nv] of itensValidos(equipados, classe)) for (const ef of equipamento(k).versoes[nv - 1].efeitos) somarEfeito(st, ef);
-  const p = efeitoDosPontos(race, classe, pontos, energiaBase);
+  const p = efeitoDosPontos(race, classe, pontos, energiaBase, hpBase);
+  st.hpExtra += p.hp;
+  st.regenHpExtra += p.regenHp;
   st.enExtra += p.energia;
   st.regenEnExtra += p.regenEn;
   for (const t of ORDEM_TIPOS_DANO) st.poder[t] += p.poder[t];
