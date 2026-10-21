@@ -203,10 +203,23 @@ export const ESPECIES_MONSTRO = Object.freeze(['armish', 'chrometic', 'xerxes', 
 /** Os modelos dos monstros e os efeitos da Medusa (sangue e bolhas, decoração). */
 export const MODELOS_MONSTRO = Object.freeze([...ESPECIES_MONSTRO, 'medusa-sangue', 'medusa-bolha']);
 
-/** URLs do que o mapa e os monstros usam: { mapa: [{ nome, url }], monstros: [{ nome, url }] }. */
+/** Pasta das texturas PBR compartilhadas do mapa (padrão mid-poly PBR). */
+export const PASTA_TEXTURAS_MAPA = '/texturas/mapa/';
+
+/**
+ * Conjuntos de texturas PBR do mapa: o material `pbr_<conjunto>[_variação]` de um glb
+ * ganha as três imagens do conjunto (cor, metal/rugosidade do glTF e normal). Hoje um só,
+ * `painel`: o atlas de chapas metálicas 2 × 2 (ver public/texturas/mapa/LISTA.md).
+ */
+export const TEXTURAS_PBR_MAPA = Object.freeze({
+  painel: Object.freeze({ cor: 'painel_cor.webp', mr: 'painel_mr.webp', normal: 'painel_normal.webp' }),
+});
+
+/** URLs do que o mapa e os monstros usam: { mapa: [{ nome, url }], monstros: [{ nome, url }], texturas: [url] }. */
 export function insumosDoMapa() {
   return {
     mapa: MODELOS_MAPA.map((nome) => ({ nome, url: `${PASTA_MODELOS_MAPA}${nome}.glb` })),
     monstros: MODELOS_MONSTRO.map((nome) => ({ nome, url: `${PASTA_MODELOS_MONSTRO}${nome}.glb` })),
+    texturas: Object.values(TEXTURAS_PBR_MAPA).flatMap((c) => Object.values(c).map((f) => `${PASTA_TEXTURAS_MAPA}${f}`)),
   };
 }
