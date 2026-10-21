@@ -17,6 +17,25 @@
 // monstro sozinho não volta); SN-4 aos 1:30, volta 4:00 depois; sonda aos 3:00, volta
 // 2:00 depois; Medusa aos 5:00, volta 5:00 depois. Partida nova recomeça o relógio.
 //
+// Ondas (DEGRAUS_JUNGLE): a quantidade de monstros dos acampamentos cresce com a
+// partida, pelo tempo RESTANTE do relógio que o jogador vê: até 15:00 restantes a
+// composição normal (×1); de 15:00 restantes ×2; de 10:00 ×3; de 5:00 até o fim ×4
+// (não passa disso). Multiplica cada espécie da COMPOSICAO (4 Armish → 8 → 12 → 16;
+// 1 Grande Xerxes + 2 Xerxes → 2 + 4...), nos 8 acampamentos dos dois territórios;
+// o SN-4, a Medusa e a sonda não multiplicam. Quando o degrau sobe:
+// - acampamento vivo recebe NA HORA os que faltam para a quantidade nova (reforço;
+//   se o grupo está com raiva de alguém, o reforço chega com a mesma raiva);
+// - acampamento em recarga volta já com a quantidade nova, e o que ainda não
+//   apareceu (antes dos 0:45) nasce com a quantidade do momento;
+// - o renascimento continua só quando o acampamento INTEIRO (reforço incluído) morre.
+// Sem relógio (modo de teste, `semTempo`) conta o tempo da jungle desde o começo
+// (comecar), como se a partida tivesse DURACAO_PARTIDA_S: no modo de teste os
+// degraus vêm aos 5, 10 e 15 minutos de mundo. Partida nova volta a ×1.
+// Lugares (lugaresAcampamento): os da composição normal são os fixos de LUGARES; os
+// a mais vão em anéis em volta do centro do acampamento, o primeiro lugar livre
+// (sem encostar nos outros, ESPACO_LUGAR além dos raios, e sem rocha nem
+// construção), no referencial do time 0 e girados 180° para o time 1, sempre iguais.
+//
 // Comportamento (o mesmo para todos, salvo a sonda):
 // - PASSIVOS: patrulham devagar em volta do ponto deles e só atacam quem os atacou.
 //   Atacar um monstro provoca o grupo inteiro (o acampamento), e a raiva dura RAIVA_S
@@ -51,10 +70,11 @@ import { DT, HOVER, SHIP_RADIUS, createShip, stepShip, velocidadeBase } from '..
 import { ACAMPAMENTOS, BUFFS, MEDUSA, BASES, heightAt, trajetoSonda } from '../shared/terrain.js';
 import { bloqueiaVisao } from '../shared/visao.js';
 import { MISSIL_CONE } from '../shared/armas.js';
-import { alturaSolida } from '../shared/obstaculos.js';
+import { alturaSolida, pontoLivre } from '../shared/obstaculos.js';
 import { MapaNavegacao } from './navegacao.js';
 import { ESPECIES, TERRITORIO_COMUM, alcanceMaximo } from './especies.js';
 import { ganharXp } from './progressao.js';
+import { DURACAO_PARTIDA_S } from './partida.js';
 import { BONUS, BONUS_NAVE } from './bonus.js';
 
 const TICK_HZ = Math.round(1 / DT);
@@ -67,6 +87,23 @@ export const TEMPOS_JUNGLE = {
   sonda: { primeiroS: 180, voltaS: 120 },
   medusa: { primeiroS: 300, voltaS: 300 },
 };
+/**
+ * Ondas da jungle: de `restanteS` segundos restantes de partida para baixo, os
+ * acampamentos têm `mult` vezes a composição (em ordem crescente de mult).
+ */
+export const DEGRAUS_JUNGLE = [
+  { restanteS: 900, mult: 2 }, // 15:00 restantes (5 min de partida)
+  { restanteS: 600, mult: 3 }, // 10:00
+  { restanteS: 300, mult: 4 }, // 5:00 até o fim
+];
+/** m além da soma dos raios entre dois lugares do acampamento (maior que AFASTAR: não nascem se empurrando). */
+export const ESPACO_LUGAR = 8;
+/** Lugares a mais: anéis de PASSO_ANEL m em volta do centro, pontos a cada PASSO_ARCO m no anel, até ANEL_MAX m. */
+const PASSO_ANEL = 6;
+const PASSO_ARCO = 4;
+const ANEL_MAX = 140;
+/** m de chão livre além do raio do monstro em volta do lugar. */
+const FOLGA_ROCHA_LUGAR = 3;
 /** s de raiva depois do último golpe recebido. */
 export const RAIVA_S = 20;
 /** Atacar um monstro provoca o acampamento inteiro (sugestão da pesquisa). */
@@ -204,14 +241,73 @@ function mesclarTempos(pedidos = {}) {
   return t;
 }
 
+/** Multiplicador dos acampamentos com `restanteS` segundos de partida pela frente (pelos `degraus`). */
+export function multJungle(restanteS, degraus = DEGRAUS_JUNGLE) {
+  let mult = 1;
+  for (const d of degraus) if (restanteS <= d.restanteS + 1e-9) mult = Math.max(mult, d.mult);
+  return mult;
+}
+
+/** As espécies do acampamento (id no referencial do time 0) com a composição multiplicada por `mult`. */
+export function especiesAcampamento(id0, mult = 1) {
+  const base = COMPOSICAO[id0];
+  return Array.from({ length: base.length * mult }, (_, i) => base[i % base.length]);
+}
+
+// Lugares de cada acampamento do time 0, em m do centro, na ordem das espécies de
+// especiesAcampamento: crescem sob demanda (o lugar i nunca muda, então o reforço
+// cai sempre nos mesmos pontos e a lista de ×2 é o começo da de ×4).
+const LUGARES_CACHE = new Map();
+
+/**
+ * Os `n` primeiros lugares (absolutos) do acampamento `a` (de ACAMPAMENTOS). Os da
+ * composição normal são os fixos (LUGARES); os outros, o primeiro ponto livre em
+ * anéis em volta do centro: longe dos outros (raios + ESPACO_LUGAR), com o corpo
+ * livre de rocha e construção. Calculado no acampamento do time 0 e girado 180°
+ * para o do time 1 (o mapa é simétrico assim).
+ */
+export function lugaresAcampamento(a, n) {
+  const id0 = idNoTime0(a);
+  const a0 = ACAMPAMENTOS.find((x) => x.id === id0);
+  const base = COMPOSICAO[id0];
+  let offs = LUGARES_CACHE.get(id0);
+  if (!offs) {
+    offs = LUGARES[a0.tipo].slice(0, base.length).map(([x, z], i) => ({ x, z, r: ESPECIES[base[i]].raio }));
+    LUGARES_CACHE.set(id0, offs);
+  }
+  while (offs.length < n) {
+    const r = ESPECIES[base[offs.length % base.length]].raio;
+    offs.push(lugarLivre(a0, offs, r) ?? { x: 0, z: 0, r });
+  }
+  const s = a.time === 0 ? 1 : -1;
+  return offs.slice(0, n).map((o) => ({ x: a.x + s * o.x, z: a.z + s * o.z }));
+}
+
+/** O primeiro ponto dos anéis em volta do acampamento `a0` (time 0) onde cabe um monstro de raio `r`. */
+function lugarLivre(a0, ocupados, r) {
+  for (let R = 0; R <= ANEL_MAX; R += PASSO_ANEL) {
+    const n = R === 0 ? 1 : Math.ceil((2 * Math.PI * R) / PASSO_ARCO);
+    for (let k = 0; k < n; k++) {
+      const ang = (k / n) * Math.PI * 2;
+      const x = +(Math.cos(ang) * R).toFixed(2);
+      const z = +(Math.sin(ang) * R).toFixed(2);
+      if (ocupados.some((o) => Math.hypot(o.x - x, o.z - z) < o.r + r + ESPACO_LUGAR)) continue;
+      const ax = a0.x + x;
+      const az = a0.z + z;
+      if (!pontoLivre(ax, az, r + FOLGA_ROCHA_LUGAR) || !corpoLivre(ax, az, r + FOLGA_ROCHA_LUGAR)) continue;
+      return { x, z, r };
+    }
+  }
+  return null;
+}
+
 /** Os lugares de nascimento do mapa (acampamentos, buffs de ataque, Medusa, sonda). */
 function montarCovis() {
   const covis = [];
   for (const a of ACAMPAMENTOS) {
-    const especies = COMPOSICAO[idNoTime0(a)];
-    const s = a.time === 0 ? 1 : -1; // o do time 1 é girado 180°
-    const lugares = LUGARES[a.tipo].map(([lx, lz]) => ({ x: a.x + s * lx, z: a.z + s * lz }));
-    covis.push({ id: a.id, tipo: 'acampamento', time: a.time, x: a.x, z: a.z, raio: a.raio, especies, lugares });
+    // especies e lugares crescem com o degrau da partida (Jungle#ajustarOnda).
+    const especies = especiesAcampamento(idNoTime0(a));
+    covis.push({ id: a.id, tipo: 'acampamento', time: a.time, x: a.x, z: a.z, raio: a.raio, especies, lugares: lugaresAcampamento(a, especies.length), acampamento: a, mult: 1 });
   }
   for (const b of BUFFS) {
     if (b.tipo !== 'ataque') continue;
@@ -242,15 +338,21 @@ export class Jungle {
    * @param {{ ferir: Function, podeAcertar: Function, naZonaSegura: Function,
    *   ativo?: boolean, tempos?: object }} ctx os privados do World que a jungle usa
    *   (ferir passa por zona segura, status, escudo, morte e recompensa). ativo =
-   *   false: mundo sem monstros (testes). tempos: troca TEMPOS_JUNGLE (testes).
+   *   false: mundo sem monstros (testes). tempos: troca TEMPOS_JUNGLE (testes); com
+   *   `tempos.degraus`, troca DEGRAUS_JUNGLE (o `temposJungle` do World leva junto).
    */
   constructor(world, { ferir, podeAcertar, naZonaSegura, ativo = true, tempos } = {}) {
     this.world = world;
     this.ctx = { ferir, podeAcertar, naZonaSegura };
-    this.tempos = mesclarTempos(tempos);
+    const { degraus = DEGRAUS_JUNGLE, ...resto } = tempos ?? {};
+    this.tempos = mesclarTempos(resto);
+    this.degraus = degraus;
     this.covis = ativo ? montarCovis() : [];
     /** Monstros que existem agora (vivos e os mortos até o lugar deles renascer). */
     this.lista = [];
+    /** Tick em que o relógio da jungle começou (comecar) e o multiplicador dos acampamentos agora. */
+    this.inicioTick = 0;
+    this.mult = 1;
   }
 
   get tick() {
@@ -272,6 +374,9 @@ export class Jungle {
   /** Partida nova: somem os monstros dos lugares e o relógio de cada lugar recomeça de `tick` (os avulsos ficam). */
   comecar(tick = this.tick) {
     this.lista = this.lista.filter((m) => !m.covil);
+    this.inicioTick = tick;
+    this.mult = this.multAgora(tick); // partida nova: ×1
+    this.#definirMult(this.mult);
     for (const c of this.covis) {
       Object.assign(c, { membros: [], estado: 'espera', ponta: 0, ultimoTime: null });
       c.proxTick = tick + ticks(this.tempos[c.tipo].primeiroS);
@@ -281,7 +386,53 @@ export class Jungle {
   /** Servidor vazio: nenhum monstro dos lugares e nada para nascer até a próxima partida. */
   limpar() {
     this.lista = this.lista.filter((m) => !m.covil);
+    this.mult = 1;
+    this.#definirMult(1);
     for (const c of this.covis) Object.assign(c, { membros: [], estado: 'espera', proxTick: Infinity, ponta: 0, ultimoTime: null });
+  }
+
+  /**
+   * Segundos que faltam na partida para as ondas: o do relógio da partida; sem
+   * relógio (modo de teste) ou fora do andamento, DURACAO_PARTIDA_S menos o tempo
+   * da jungle desde o começo.
+   */
+  restanteS(tick = this.tick) {
+    const p = this.world.partida;
+    if (p?.emAndamento && !p.semTempo) return p.restante(tick);
+    return DURACAO_PARTIDA_S - Math.max(0, (tick - this.inicioTick) * DT);
+  }
+
+  /** Multiplicador dos acampamentos no `tick` (DEGRAUS_JUNGLE). */
+  multAgora(tick = this.tick) {
+    return multJungle(this.restanteS(tick), this.degraus);
+  }
+
+  /** Troca a composição dos acampamentos para `mult` (não cria nem tira monstro). */
+  #definirMult(mult) {
+    for (const c of this.covis) {
+      if (c.tipo !== 'acampamento' || c.mult === mult) continue;
+      c.mult = mult;
+      c.especies = especiesAcampamento(idNoTime0(c.acampamento), mult);
+      c.lugares = lugaresAcampamento(c.acampamento, c.especies.length);
+    }
+  }
+
+  /**
+   * O degrau subiu: composição nova, e cada acampamento vivo recebe na hora os que
+   * faltam (com a raiva que o grupo tiver). Os que esperam nascem já com ela.
+   */
+  #ajustarOnda(mult) {
+    this.mult = mult;
+    this.#definirMult(mult);
+    for (const c of this.covis) {
+      if (c.tipo !== 'acampamento' || c.estado !== 'ativo') continue;
+      const vivo = c.membros.find((m) => m.vivo);
+      for (let i = c.membros.length; i < c.especies.length; i++) {
+        const novo = this.#criarNoLugar(c, i);
+        if (vivo) for (const [id, ate] of vivo.raiva) novo.raiva.set(id, ate);
+        c.membros.push(novo);
+      }
+    }
   }
 
   /** A Medusa está viva? */
@@ -343,11 +494,7 @@ export class Jungle {
 
   #nascer(c) {
     this.lista = this.lista.filter((m) => !c.membros.includes(m)); // os mortos da vez passada saem
-    c.membros = c.especies.map((esp, i) => {
-      const p = c.lugares[i] ?? { x: c.x, z: c.z };
-      const yaw = yawPara(p.x, p.z, 0, 0); // olhando para o centro do mapa
-      return this.criarMonstro(esp, p.x, p.z, { covil: c, yaw });
-    });
+    c.membros = c.especies.map((_, i) => this.#criarNoLugar(c, i));
     c.estado = 'ativo';
     c.proxTick = Infinity;
     if (c.tipo !== 'acampamento') {
@@ -357,11 +504,21 @@ export class Jungle {
     if (c.tipo === 'sonda') c.ponta = 1 - c.ponta; // a próxima nasce na outra ponta
   }
 
+  /** O monstro `i` do lugar `c` (espécie e ponto da vez), olhando para o centro do mapa. */
+  #criarNoLugar(c, i) {
+    const p = c.lugares[i] ?? { x: c.x, z: c.z };
+    return this.criarMonstro(c.especies[i], p.x, p.z, { covil: c, yaw: yawPara(p.x, p.z, 0, 0) });
+  }
+
   // ---------- Passo ----------
 
   /** Um passo: nascimentos pelo relógio e a IA de cada monstro vivo. */
   passo() {
     const t = this.tick;
+    if (this.covis.length) {
+      const mult = this.multAgora(t);
+      if (mult !== this.mult) this.#ajustarOnda(mult);
+    }
     for (const c of this.covis) {
       if (c.estado === 'ativo' || t < c.proxTick) continue;
       if (c.tipo === 'sonda' && !this.sondaLiberada()) continue; // espera a Medusa e o Núcleo

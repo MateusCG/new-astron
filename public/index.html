@@ -127,6 +127,19 @@
         <div class="time outro"><span class="nome-time">Inimigo</span><b>0</b><ul class="bonus"></ul></div>
         <div class="fase-final" hidden title="Fase final: minério entregue vale o dobro">MINÉRIO ×2</div>
       </section>
+      <!-- Barra do time (companheiros.js): um card por piloto do seu time; o de nave
+           Functional abre a caixinha do teleporte. Os cards entram por JS. -->
+      <section id="companheiros" hidden aria-label="Seu time">
+        <ol class="cards"></ol>
+        <div class="caixa-tele" role="dialog" aria-label="Teleporte até o companheiro" hidden>
+          <p class="titulo">Teleportar até <b class="alvo"></b>?</p>
+          <p class="motivo" hidden></p>
+          <div class="botoes">
+            <button type="button" class="sim">Teleportar</button>
+            <button type="button" class="nao">Cancelar</button>
+          </div>
+        </div>
+      </section>
       <ul id="feed"></ul>
       <div id="rotulos-obj"></div>
       <div id="rotulos"></div>

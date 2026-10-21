@@ -4437,3 +4437,341 @@ body.dano::after {
     animation: none;
   }
 }
+
+/* ---------- Barra do time (alto e centro, companheiros.js) ----------
+   Um card por piloto do seu time, entre o minimapa (esquerda) e o placar (direita):
+   chapa escura, miniatura da nave, nick com os abates de jogador à direita e a vida
+   numa linha fina vermelha embaixo. O seu com a borda --neon e brilho; abatido,
+   apagado e em cinza. O de um companheiro Functional é clicável (símbolo do portal
+   no canto) e abre a caixinha do teleporte embaixo dele. */
+#companheiros {
+  --larg-card: 204px;
+  position: absolute;
+  top: 12px;
+  left: calc((100% - var(--lateral)) / 2);
+  transform: translateX(-50%);
+}
+
+#companheiros .cards {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#companheiros li {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  width: var(--larg-card);
+  padding: 4px 8px 4px 4px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(24, 48, 46, 0.92), rgba(8, 20, 19, 0.9));
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+  transition: opacity 0.2s, border-color 0.15s;
+}
+
+#companheiros li.voce {
+  border-color: var(--neon);
+  box-shadow:
+    0 0 0 1px rgba(0, 239, 192, 0.25),
+    0 0 10px rgba(0, 239, 192, 0.35),
+    0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+#companheiros li.morto {
+  opacity: 0.45;
+}
+
+#companheiros li.morto .mini {
+  filter: grayscale(1);
+}
+
+#companheiros .mini {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 32px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: radial-gradient(ellipse at 50% 65%, rgba(0, 239, 192, 0.14), rgba(0, 0, 0, 0.35) 70%);
+}
+
+#companheiros .mini img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#companheiros .sem-mini {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: var(--neon);
+  stroke-width: 2.5;
+  opacity: 0.6;
+}
+
+#companheiros .info {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+#companheiros .linha {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+#companheiros .nome {
+  overflow: hidden;
+  font: 600 14px/1.15 system-ui, sans-serif;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+#companheiros li.voce .nome {
+  color: var(--neon);
+}
+
+#companheiros .selo-ia {
+  flex: none;
+  padding: 0 3px;
+  border: 1px solid var(--neon-escuro);
+  border-radius: 3px;
+  color: var(--neon);
+  font: 700 11px/14px ui-monospace, monospace;
+}
+
+#companheiros .abates {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  font: 700 14px ui-monospace, monospace;
+}
+
+#companheiros .abates svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  opacity: 0.6;
+}
+
+#companheiros .vida {
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgba(255, 90, 60, 0.18);
+}
+
+#companheiros .vida i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--hp);
+  box-shadow: 0 0 4px rgba(255, 90, 60, 0.6);
+  transition: width 0.15s linear;
+}
+
+/* Portal: só no card de companheiro Functional, discreto até o mouse chegar. */
+#companheiros .portal {
+  display: none;
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 16px;
+  height: 16px;
+  padding: 1px;
+  border: 1px solid var(--neon-escuro);
+  border-radius: 50%;
+  background: #0c1a19;
+  fill: none;
+  stroke: var(--neon);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.8;
+}
+
+#companheiros li.tele {
+  cursor: pointer;
+}
+
+#companheiros li.tele .portal {
+  display: block;
+}
+
+#companheiros li.tele:hover,
+#companheiros li.tele.aberto {
+  border-color: var(--neon);
+  background: linear-gradient(180deg, rgba(44, 74, 70, 0.95), rgba(10, 28, 26, 0.92));
+}
+
+#companheiros li.tele:hover .portal,
+#companheiros li.tele.aberto .portal {
+  opacity: 1;
+  filter: drop-shadow(0 0 3px var(--neon));
+}
+
+/* Caixinha do teleporte: chapa escura com a borda --neon, embaixo do card. */
+#companheiros .caixa-tele {
+  position: absolute;
+  top: calc(100% + 6px);
+  width: max(var(--larg-card), 200px);
+  padding: 8px 10px 10px;
+  border: 1px solid var(--neon);
+  border-radius: 6px;
+  background: rgba(8, 20, 19, 0.95);
+  box-shadow:
+    0 0 10px rgba(0, 239, 192, 0.25),
+    0 4px 16px rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+  animation: surge 0.12s ease-out;
+}
+
+#companheiros .caixa-tele .titulo {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+
+#companheiros .caixa-tele .titulo b {
+  color: var(--neon);
+}
+
+#companheiros .caixa-tele .motivo {
+  margin: -2px 0 6px;
+  color: #ff8a70;
+  font-size: 13px;
+}
+
+#companheiros .caixa-tele .botoes {
+  display: flex;
+  gap: 6px;
+}
+
+#companheiros .caixa-tele button {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 5px;
+  background: #0f1e1d;
+  color: var(--texto);
+  font: 600 14px system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#companheiros .caixa-tele .sim {
+  border-color: var(--neon);
+  background: var(--neon);
+  color: #032b22;
+  font-weight: 700;
+}
+
+#companheiros .caixa-tele .sim:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+#companheiros .caixa-tele .nao:hover {
+  border-color: var(--neon-escuro);
+}
+
+/* Tela média: cards mais estreitos, ainda com a miniatura. */
+@media (max-width: 1100px) {
+  #companheiros {
+    --larg-card: 156px;
+  }
+
+  #companheiros .mini {
+    width: 40px;
+    height: 24px;
+  }
+}
+
+/* Coluna à esquerda, embaixo do minimapa e dos botões do HUD (abaixo do painel do
+   modo de teste, se houver): um card embaixo do outro, sem miniatura, e a caixinha
+   ao lado. Vale no celular (não cabe no alto) e com a janela lateral aberta numa
+   tela de até 1760 px (entre o minimapa e o placar, que abre espaço para a janela,
+   não sobra lugar para três cards). */
+@media (max-width: 1760px) {
+  #hud:has(.janela-lateral:not([hidden])) #companheiros {
+    --larg-card: 156px;
+    top: 168px;
+    left: 12px;
+    transform: none;
+  }
+
+  #hud:has(.janela-lateral:not([hidden])) #companheiros .cards {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  #hud:has(.janela-lateral:not([hidden])) #companheiros .mini {
+    display: none;
+  }
+
+  #hud:has(.janela-lateral:not([hidden])) #companheiros li {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 6px 8px;
+  }
+
+  #hud:has(.janela-lateral:not([hidden])) #companheiros .caixa-tele {
+    top: 0;
+    left: calc(var(--larg-card) + 6px) !important;
+  }
+
+  #hud:has(#painel-teste:not([hidden])):has(.janela-lateral:not([hidden])) #companheiros {
+    top: 280px;
+  }
+}
+
+@media (max-width: 760px) {
+  #companheiros {
+    --larg-card: 140px;
+    top: 168px;
+    left: 12px;
+    transform: none;
+  }
+
+  #companheiros .cards {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  #companheiros .mini {
+    display: none;
+  }
+
+  #companheiros li {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 6px 8px;
+  }
+
+  #companheiros .caixa-tele {
+    top: 0;
+    left: calc(var(--larg-card) + 6px) !important;
+  }
+
+  #hud:has(#painel-teste:not([hidden])) #companheiros {
+    top: 280px;
+  }
+}
+
+@media (max-width: 520px) {
+  #companheiros,
+  #hud:has(.janela-lateral:not([hidden])) #companheiros {
+    top: 128px;
+  }
+}

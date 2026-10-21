@@ -54,6 +54,14 @@
 // vai junto num quadro, sem atravessar o mapa (o renascimento usa o mesmo caminho).
 // A barra do HUD corre com RECALL_S entre um snapshot e outro.
 //
+// Barra do time (companheiros.js): no alto e no centro, um card por piloto do seu
+// time (nick e abates de jogador da lista `jogadores`; vida e nave das `ents`, onde o
+// seu time sempre vem). Clicar no card de um companheiro de nave Functional abre a
+// caixinha do teleporte, que manda {t:'teleportar', alvo}; o servidor salta a nave na
+// hora para junto dele e manda o evento 'teleporte', que marca o próximo snapshot
+// como salto (saltoForcado): a reconciliação começa do lugar novo, sem suavizar, e a
+// câmera vai junto, mesmo que o salto seja curto. ESC fecha a caixinha primeiro.
+//
 // Torretas do corredor (torretas.js): o snapshot traz o estado delas (`torretas`);
 // caída sai da física da predição (definirObstaculoAtivo) e tomba no cenário. Tiro de
 // torreta e de escolta vem pelo evento 'tiro' com `fonte` e `time` e sai na cor do
@@ -128,6 +136,7 @@ import { MenuArmas } from './armas.js';
 import { Placar } from './placar.js';
 import { PainelTeste } from './teste.js';
 import { PainelTimes } from './times.js';
+import { BarraTime } from './companheiros.js';
 import { EscolhaTimes } from './escolha-times.js';
 import { PainelServicos } from './servicos.js';
 import { PainelStatus } from './status.js';
@@ -151,6 +160,7 @@ const MOTIVO_RECALL = {
     tiro: 'você apertou o gatilho',
     boost: 'você deu boost',
     velocidade: 'a nave passou de quase parada',
+    teleporte: 'você se teleportou',
   },
   recusado: {
     na_base: 'Você já está na base',
@@ -550,6 +560,14 @@ function montarJogo(rede, boas, renderer, race, classe) {
     aoAbrir: () => status.fechar(),
   });
   const times = new PainelTimes({ meuId, meuTime, signal: controles.parar.signal }); // só consulta
+  // Barra do time no alto (companheiros.js): cards dos aliados e o teleporte até o Functional.
+  const barraTime = new BarraTime({
+    meuId,
+    meuTime,
+    enviar: (m) => rede.enviar(m),
+    noticia: (texto, tipo) => hud.noticia(texto, tipo),
+    signal: controles.parar.signal,
+  });
   // Os sons de todas as armas já vieram (decodificados) na tela de carregamento.
   mostrarEstadoSom();
 
@@ -613,6 +631,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
   let renasceAte = 0; // performance.now() em que a nave renasce (do renasceEm do servidor)
   let localSeq = 0;
   let saltoCamera = false; // a nave saltou (recall, renascimento): câmera vai junto
+  let saltoForcado = false; // evento 'teleporte' seu: o próximo snapshot é salto, mesmo curto
   let recallLocal = null; // { frac, t }: progresso da própria volta à base no último snapshot
   let estadosArmas = {}; // estados das armas em você (snapshot `st`): cego, invisível, invulnerável...
   let painelEstava = false; // o painel da Loja/Evolução estava aberto no quadro anterior (som de abrir)
@@ -673,6 +692,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     recallLocal = euNoSnap?.recall !== undefined ? { frac: euNoSnap.recall, t: performance.now() } : null;
     placar.atualizar(m.partida, m.bonus);
     times.atualizar(m.jogadores);
+    barraTime.atualizar(m.jogadores, m.ents, m.vivo);
     bonusAtivos = m.bonus ?? {};
     meusBonus = Object.keys(m.me?.bonusNave ?? {});
     hud.bonusNave(m.me?.bonusNave, bonusAtivos[meuTime], m.me?.bonusSuspenso);
@@ -705,6 +725,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
       renasceAte = performance.now() + (m.renasceEm ?? 0) * 1000;
       vivo = false;
       pendentes = [];
+      saltoForcado = false;
       pred = m.me;
       // Morta, a predição não roda e `ant` ficaria na última pose viva: a câmera,
       // que interpola ant → pred pela fração do tick, pularia entre as duas a cada
@@ -732,8 +753,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
     const dx = antes.x - pred.x;
     const dy = antes.y - pred.y;
     const dz = antes.z - pred.z;
-    if (Math.hypot(dx, dy, dz) > SALTO_M) {
-      // Salto (recall): começa do lugar novo, sem arrastar a nave pelo caminho.
+    if (saltoForcado || Math.hypot(dx, dy, dz) > SALTO_M) {
+      // Salto (recall, teleporte): começa do lugar novo, sem arrastar a nave pelo caminho.
+      saltoForcado = false;
       erro.set(0, 0, 0);
       ant = pose(pred);
       camYaw = pred.yaw;
@@ -762,6 +784,24 @@ function montarJogo(rede, boas, renderer, race, classe) {
       const porque = MOTIVO_RECALL.cancelado[e.motivo];
       hud.noticia(porque ? `Volta à base cancelada: ${porque}` : 'Volta à base cancelada', porque ? 'ruim' : '');
     } else if (e.estado === 'recusado') hud.noticia(MOTIVO_RECALL.recusado[e.motivo] ?? 'Não dá para voltar à base agora', 'ruim');
+  }
+
+  /**
+   * Teleporte até o companheiro (evento 'teleporte'): feixe de luz na saída e na
+   * chegada, na cor do time; o seu marca o snapshot como salto e avisa.
+   */
+  function eventoTeleporte(e) {
+    const cor = e.time === meuTime ? COR_TIME.meu : COR_TIME.outro;
+    // Ponta de saída: a sua pela predição (ainda no lugar antigo); a dos outros, pela nave desenhada.
+    const de = e.id === meuId ? (vivo ? pred : null) : outras.get(e.id)?.obj?.position;
+    if (de) efeitos.feixeRecall(de.x, de.y, de.z, cor);
+    efeitos.feixeRecall(e.x, e.y, e.z, cor);
+    somNoMundo('up2', e.x, e.z);
+    const alvo = e.alvo === meuId ? 'você' : (nomes.get(e.alvo) ?? 'o companheiro');
+    if (e.id === meuId) {
+      saltoForcado = true;
+      hud.noticia(`Teleportado até ${alvo}`, 'bom');
+    } else if (e.time === meuTime) hud.noticia(`${nomes.get(e.id) ?? '?'} se teleportou até ${alvo}`, 'bom');
   }
 
   /** Notícia de um evento 'objetivo' (apareceu, tomado, coletou, cancelou). */
@@ -884,6 +924,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
         else hud.noticia(`${por} destruiu um minerador inimigo`, 'bom');
       } else if (e.e === 'recall') {
         eventoRecall(e);
+      } else if (e.e === 'teleporte') {
+        eventoTeleporte(e);
       } else if (e.e === 'morte' && e.tipo === 'escolta') {
         efeitos.explosao(e.x, e.y, e.z, 3.5, '#ff9a3a');
         const por = nomes.get(e.por) ?? '?';
@@ -967,6 +1009,11 @@ function montarJogo(rede, boas, renderer, race, classe) {
   rede.aoReceber = (m) => {
     if (m.t === 'snap') aoSnapshot(m);
     else if (m.t === 'resultado' && m.acao === 'teste') painelTeste?.resultado(m);
+    else if (m.t === 'resultado' && m.acao === 'teleportar') {
+      // Deu certo: o evento 'teleporte' avisa (e toca); recusado, a notícia e o "não".
+      barraTime.resultado(m);
+      if (!m.ok) sons.tocarInterface(SONS_INTERFACE.erro);
+    }
     else if (m.t === 'resultado' && (m.acao === 'pontos' || m.acao === 'equipar' || m.acao === 'vender' || m.acao === 'evoluirItem')) {
       if (m.acao === 'pontos') status.resultado(m);
       else inventario.resultado(m);
@@ -1340,6 +1387,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     controles.destruir();
     menuArmas.el.hidden = true;
     times.fechar();
+    barraTime.limpar();
     status.fechar();
     inventario.fechar();
     painelTeste?.fechar();
@@ -1358,10 +1406,11 @@ function montarJogo(rede, boas, renderer, race, classe) {
   }
 
   /**
-   * ESC com a janela dos times, o STATUS, o INVENTÁRIO ou o painel da Loja/Evolução
-   * aberto: fecha só ele. Devolve se fechou.
+   * ESC com a caixinha do teleporte (barra do time), a janela dos times, o STATUS,
+   * o INVENTÁRIO ou o painel da Loja/Evolução aberto: fecha só ele. Devolve se fechou.
    */
   function fecharPainel() {
+    if (barraTime.fecharCaixa()) return true; // a caixinha do teleporte, antes de tudo
     if (inventario.fecharCaixa()) return true; // a caixinha do item fecha antes da janela
     for (const janela of [times, status, inventario]) {
       if (janela.aberto) {

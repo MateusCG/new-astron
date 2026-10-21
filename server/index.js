@@ -104,6 +104,17 @@
 //                        pousado e parado na plataforma do serviço da própria base;
 //                        usar e equipar valem em qualquer lugar; tudo validado em
 //                        server/servicos.js)
+//                       {t:'teleportar', alvo}   salta na hora (sem recarga) para junto
+//                        do companheiro `alvo` (id de jogador) de nave Functional
+//                        (classe 'functional'): o servidor valida e põe a nave num
+//                        ponto livre em volta dele (atrás primeiro), na altura de voo,
+//                        parada e decolada, olhando para onde ele olha; recall em
+//                        andamento cancela (motivo 'teleporte'). Resposta {t:'resultado',
+//                        acao:'teleportar', item: alvo, ok, codigo?}: 'sem_partida'
+//                        (partida fora do andamento, salvo no modo de teste), 'morto'
+//                        (quem pede), 'invalido' (alvo não inteiro, que não existe, você
+//                        mesmo ou do outro time), 'alvo_morto', 'nao_functional'; deu
+//                        certo, o evento 'teleporte' (server/game.js, pedidoTeleporte)
 //                       {t:'ia', ...}   não vale mais: os computadores se escolhem só na
 //                        entrada (iaMeu, iaInimigo); a resposta é sempre {t:'resultado',
 //                        acao:'ia', item: acao, ok: false, codigo:'invalido'}. O nick do
@@ -155,10 +166,11 @@
 //                        renascer, 0 viva: cresce com o nível e com a partida)
 //                       {t:'resultado', acao, item, ok, codigo?}   resposta (só a quem
 //                       pediu) de comprar/evoluir/melhorar/reconstruir/usar/pontos/equipar/
-//                       vender/evoluirItem; codigo = 'nao_pousado' | 'ouro_insuficiente' |
+//                       vender/evoluirItem/teleportar; codigo = 'nao_pousado' | 'ouro_insuficiente' |
 //                       'nivel_insuficiente' | 'ja_possui' | 'limite' | 'invalido' |
 //                       'sem_item' | 'recarga' | 'cheio' (item ou compartimento) |
-//                       'equipado' | 'sem_pontos' | 'maximo'
+//                       'equipado' | 'sem_pontos' | 'maximo' (e no teleportar
+//                       'sem_partida' | 'morto' | 'alvo_morto' | 'nao_functional')
 //                       {t:'pong', c}
 //   VISÃO DO TIME (névoa de guerra, server/visao.js): o snapshot de cada jogador só
 //         leva o que algum aliado enxerga (naves de jogador vivas 550 m, mineradores e
@@ -197,9 +209,14 @@
 //         de dano); regenEn, regenHpVoo e regenHpPousada já somam os extras
 //   melhorias: {quantidade, durabilidade, defesa, velocidade}   níveis comprados
 //         das melhorias dos mineradores do time de quem recebe (zeram a cada partida)
-//   jogadores: [{id, nome, time, nivel, ia?, abates, mortes, vivo}]   todos os
+//   jogadores: [{id, nome, time, nivel, ia?, abates, abatesJog, mortes, vivo}]   todos os
 //         jogadores da partida, humanos e computadores (ia: true), para a janela de
-//         times (só consulta)
+//         times (só consulta) e a barra do time no alto da tela; abates conta tudo o
+//         que o piloto derrubou (monstro, minerador...), abatesJog só os jogadores do
+//         outro time (zera na partida nova). Lista pública: sem HP, posição nem nave.
+//         A barra do time tira a vida (hp/maxHp), a raça, a classe e o tier dos
+//         ALIADOS das `ents`, onde o próprio time sempre vem (vivo ou morto); a vida
+//         de inimigo só chega por lá quando o time o enxerga, como antes
 //   partida: {n, estado, fase, restante, semTempo, placar:[t0, t1], vencedor, novaEm}
 //            (semTempo: modo de teste, a partida não acaba e restante vem 0)
 //         estado = 'esperando' | 'andamento' | 'fim'; fase = 'normal' | 'final'
@@ -355,11 +372,16 @@
 //         {e:'faseFinal', mult, restante}   começou a fase final (minério × mult)
 //         {e:'partida', n}   começou a partida n (placar zerado)
 //         {e:'fimPartida', vencedor, placar}
+//         {e:'teleporte', id, alvo, time, x, y, z}   a nave id saltou para junto do
+//                                    companheiro alvo (Functional), chegando em x/y/z
+//                                    ({t:'teleportar'}); o seu time sempre recebe, o
+//                                    outro só se enxerga a chegada (sem a origem). O
+//                                    cliente de quem saltou corta a suavização
 //         {e:'recall', id, estado, motivo?, s?, de?, x?, y?, z?}   volta à base:
 //                                    estado 'inicio' (s = segundos de canalização) |
 //                                    'recusado' | 'cancelado' (motivo 'na_base' |
 //                                    'tiro' | 'boost' | 'velocidade' | 'dano' |
-//                                    'cancelou') | 'chegou' (de = de onde saiu,
+//                                    'cancelou' | 'teleporte') | 'chegou' (de = de onde saiu,
 //                                    x/y/z = onde apareceu na base)
 
 import http from 'node:http';
@@ -492,6 +514,9 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
         // Computador só se escolhe na entrada: dentro da partida a janela Times é consulta.
         const item = typeof msg.acao === 'string' ? msg.acao.slice(0, 16) : '';
         ws.send(JSON.stringify({ t: 'resultado', acao: 'ia', item, ok: false, codigo: 'invalido' }));
+      } else if (msg?.t === 'teleportar' && jogador) {
+        // Teleporte até o companheiro Functional: o World valida e responde só a quem pediu.
+        ws.send(JSON.stringify(mundo.pedidoTeleporte(jogador.id, msg)));
       } else if (msg?.t === 'teste' && jogador) {
         // Modo de teste (ouro, XP, nível): só o mundo de teste aceita.
         ws.send(JSON.stringify(mundo.pedidoTeste(jogador.id, msg)));

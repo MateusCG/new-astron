@@ -110,9 +110,21 @@
 // em #ferir. Terminada, a nave vai para um ponto da base do time como no
 // renascimento, mas é a mesma nave (vida, energia, nível e equipamento ficam); a
 // fila de comandos segue, e o cliente reconcilia o salto pelo `me`.
+//
+// Teleporte até o companheiro ({t:'teleportar', alvo}, pedidoTeleporte): o piloto
+// clica no card de um aliado de nave Functional na barra do time e a nave salta na
+// hora para junto dele, sem recarga (pedido do Mateus: "imediatamente"; a nave
+// Functional é o ponto de reunião do time). O servidor valida tudo (quem pede vivo,
+// partida em andamento ou modo de teste, alvo do mesmo time, outro piloto, vivo e
+// Functional) e põe a nave num ponto livre em volta do companheiro (#pontoJuntoA:
+// atrás dele primeiro, chão livre como o teleporte das armas, pontoLivre), na altura
+// de voo, parada e decolada, olhando para onde ele olha; recall em andamento cancela.
+// Como no recall, é a mesma nave e a fila de comandos segue: o cliente reconcilia
+// pelo `me` e o evento 'teleporte' corta a suavização da predição e da câmera.
 
-import { DT, WEAPONS, createShip, sanitizeInput, stepShip, VEL_TOQUE, velocidadeBase, pousadaNaBase, BASE_CURA_FRAC } from '../shared/sim.js';
-import { BASE, BASES } from '../shared/terrain.js';
+import { DT, WEAPONS, createShip, sanitizeInput, stepShip, VEL_TOQUE, velocidadeBase, pousadaNaBase, BASE_CURA_FRAC, forward, HOVER, TELEPORTE_FOLGA } from '../shared/sim.js';
+import { BASE, BASES, heightAt } from '../shared/terrain.js';
+import { pontoLivre } from '../shared/obstaculos.js';
 import { racaJogavel, RACAS_JOGAVEIS, classeOuPadrao } from '../shared/naves.js';
 import { Partida, N_TIMES, MULT_FASE_FINAL, MAX_POR_TIME, computadoresDaEntrada } from './partida.js';
 import { Mineradores } from './mineradores.js';
@@ -172,6 +184,12 @@ const TESTE_XP = 100;
 export const ZONA_SEGURA = BASE.raio;
 const PROTECAO_TICKS = 3 * TICK_HZ; // invulnerável logo depois de nascer
 const RECALL_TICKS = Math.round(RECALL_S * TICK_HZ);
+// Teleporte até o companheiro Functional: distâncias (m) do companheiro tentadas em
+// ordem (perto, sem encostar: duas naves de SHIP_RADIUS com folga), em
+// TELEPORTE_DIRECOES rumos a partir de trás dele. Sem lugar livre, vai para o ponto
+// dele (onde uma nave já está voando). Sem recarga: o pedido é "na hora".
+export const TELEPORTE_ALIADO_DIST = [16, 26, 10];
+const TELEPORTE_DIRECOES = 8;
 
 function limpaNome(n) {
   const s = String(n ?? '')
@@ -388,8 +406,10 @@ export class World {
   }
 
   /**
-   * Jogadores da partida para a janela de times: [{id, nome, time, nivel, ia?,
-   * abates, mortes, vivo}] (camuflado entra também: não diz onde ele está).
+   * Jogadores da partida para a janela de times e a barra do time: [{id, nome,
+   * time, nivel, ia?, abates, abatesJog, mortes, vivo}] (camuflado entra também:
+   * não diz onde ele está). Lista PÚBLICA: nada de HP, posição nem nave aqui (a vida
+   * e a nave dos aliados vêm das entidades do próprio time, que o time sempre vê).
    */
   #jogadoresSnap() {
     return [...this.players.values()].map((j) => ({
@@ -399,6 +419,7 @@ export class World {
       nivel: j.nivel,
       ...(j.ia ? { ia: true } : {}),
       abates: j.abates,
+      abatesJog: j.abatesJog,
       mortes: j.mortes,
       vivo: j.vivo,
     }));
@@ -433,6 +454,62 @@ export class World {
       else while (j.nivel < NIVEL_MAX) ganharXp(j, xpParaNivel(j.nivel) - j.xp, this.eventos);
     } else return resposta(false, 'invalido');
     return resposta(true);
+  }
+
+  /**
+   * Teleporte até o companheiro ({t:'teleportar', alvo}): o jogador `id` salta para
+   * junto do aliado `alvo` (id de jogador) de nave Functional. Responde só a quem
+   * pediu: {t:'resultado', acao:'teleportar', item: alvo, ok, codigo?}, com codigo
+   * 'sem_partida' (fora do andamento, salvo no modo de teste), 'morto' (quem pede
+   * está morto), 'invalido' (alvo que não é inteiro, não existe, é ele mesmo ou é do
+   * outro time), 'alvo_morto' ou 'nao_functional'. Deu certo: evento 'teleporte'.
+   */
+  pedidoTeleporte(id, msg) {
+    const j = this.players.get(id);
+    const alvoId = Number.isInteger(msg?.alvo) ? msg.alvo : null;
+    const alvo = alvoId === null ? null : this.players.get(alvoId);
+    let codigo = null;
+    if (!j || !alvo || alvo === j || alvo.time !== j.time) codigo = 'invalido';
+    else if (!this.partida.emAndamento && !this.teste) codigo = 'sem_partida';
+    else if (!j.vivo) codigo = 'morto';
+    else if (!alvo.vivo) codigo = 'alvo_morto';
+    else if ((alvo.ship.classe ?? alvo.classe) !== 'functional') codigo = 'nao_functional';
+    if (!codigo) this.#teleportarAte(j, alvo);
+    return { t: 'resultado', acao: 'teleportar', item: alvoId, ok: !codigo, ...(codigo ? { codigo } : {}) };
+  }
+
+  /**
+   * Põe a nave de `j` junto de `alvo`: parada, decolada, na altura de voo, olhando
+   * para onde ele olha. Mesma nave (vida, energia, armas e efeitos ficam).
+   */
+  #teleportarAte(j, alvo) {
+    if (j.recall) this.#pararRecall(j, 'teleporte');
+    const s = j.ship;
+    const p = this.#pontoJuntoA(alvo.ship);
+    Object.assign(s, { x: p.x, z: p.z, y: heightAt(p.x, p.z) + HOVER, yaw: alvo.ship.yaw, vx: 0, vz: 0, roll: 0, pousado: false, boost: false });
+    this.eventos.push({ e: 'teleporte', id: j.id, alvo: alvo.id, time: j.time, x: +s.x.toFixed(2), y: +s.y.toFixed(2), z: +s.z.toFixed(2) });
+  }
+
+  /**
+   * Ponto livre (fora de rocha, construção e muralha: pontoLivre com a folga do
+   * teleporte das armas) em volta da nave `a`: cada distância de TELEPORTE_ALIADO_DIST
+   * em TELEPORTE_DIRECOES rumos, começando por trás dela e abrindo para os lados.
+   * Sem nenhum, o ponto dela.
+   */
+  #pontoJuntoA(a) {
+    const f = forward(a.yaw);
+    const atras = Math.atan2(-f.z, -f.x);
+    const passo = (2 * Math.PI) / TELEPORTE_DIRECOES;
+    for (const d of TELEPORTE_ALIADO_DIST) {
+      for (let k = 0; k < TELEPORTE_DIRECOES; k++) {
+        // 0, +1, -1, +2, -2...: atrás primeiro, depois cada vez mais para os lados.
+        const giro = Math.ceil(k / 2) * (k % 2 ? 1 : -1) * passo;
+        const x = a.x + Math.cos(atras + giro) * d;
+        const z = a.z + Math.sin(atras + giro) * d;
+        if (pontoLivre(x, z, TELEPORTE_FOLGA)) return { x, z };
+      }
+    }
+    return { x: a.x, z: a.z };
   }
 
   /**
@@ -647,6 +724,8 @@ export class World {
     if (matador) {
       // Ouro e XP pelo que morreu (RECOMPENSA: espécie do monstro, minerador, jogador).
       matador.abates++;
+      // Abate de jogador do outro time: o número do card na barra do time.
+      if (alvo.tipo === 'jogador' && alvo.time !== matador.time) matador.abatesJog++;
       recompensar(matador, chaveRecompensa(alvo), this.eventos);
       if (alvo.tipo === 'jogador') this.#abateDeJogador(alvo, matador, morte);
     }

@@ -45,7 +45,7 @@
 // Cada piloto conta os abates de jogador seguidos sem morrer (`sequencia`); quem
 // derruba alguém com sequência de SEQUENCIA_MIN ou mais ganha bônus de ouro por
 // encerrá-la (ouroEncerrar). Sequência e o registro de dano zeram ao morrer e na
-// partida nova (novoCombate).
+// partida nova (novoCombate), que também zera os abates de jogador (abatesJog).
 
 import { NAVE_SEM_CLASSE } from '../shared/sim.js';
 import { naveDe, CLASSE_PADRAO } from '../shared/naves.js';
@@ -110,11 +110,13 @@ export function recompensaAssistencia() {
 
 /**
  * Estado de combate de um jogador: sequência de abates e, por atacante (id), o
- * tick do último dano que levou dele (para a assistência). Zera ao morrer e na
- * partida nova.
+ * tick do último dano que levou dele (para a assistência), que zeram ao morrer e na
+ * partida nova; e abatesJog, os abates de JOGADOR inimigo da partida (o `abates`
+ * conta tudo, monstros e mineradores inclusive), que só zera na partida nova: é o
+ * número do card do piloto na barra do time (public/js/companheiros.js).
  */
 export function novoCombate() {
-  return { sequencia: 0, danoPor: new Map() };
+  return { sequencia: 0, danoPor: new Map(), abatesJog: 0 };
 }
 
 /** Campos de progressão de um jogador que acabou de entrar (ou da partida nova): nível, XP e pontos. */
