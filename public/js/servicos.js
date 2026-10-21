@@ -64,6 +64,7 @@ import { linhaDe, CLASSES } from '/shared/naves.js';
 import {
   MELHORIAS_MINERADOR,
   ORDEM_MELHORIAS,
+  mineradoresDoTime,
   MELHORIA_TORRETAS,
   TORRETA_NIVEL_MAX,
   PRECO_RECONSTRUIR,
@@ -661,7 +662,8 @@ export class PainelServicos {
       return this.#cartao({
         icone: iconeEvolucao(id),
         nome: m.nome,
-        efeito: `${m.efeito} por nível`,
+        // Na quantidade, quantos o time tem agora (a base é 10; a melhoria soma).
+        efeito: id === 'quantidade' ? `${m.efeito} por nível (o time tem ${mineradoresDoTime(n)})` : `${m.efeito} por nível`,
         preco: n >= max ? null : m.precos[n],
         selo,
         estado,

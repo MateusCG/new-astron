@@ -31,9 +31,10 @@
 // O botão de som (tela inicial e HUD) abre a janela de volume (volume.js), com uma
 // barra para a música e outra para os efeitos; aberta, não sai tiro.
 //
-// Times (times.js, tecla P ou o botão do HUD): as vagas dos dois times pela lista
-// `jogadores` do snapshot, com "+ Computador" nas vagas livres e o ✕ nos
-// computadores; os pedidos {t:'ia'} vão direto pela rede e o servidor decide.
+// Times: quantos computadores no seu time e no inimigo se escolhe na tela inicial
+// (escolha-times.js), e vai no {t:'entrar'} (iaMeu, iaInimigo). Na partida, a janela
+// Times (times.js, tecla P ou o botão do HUD) é só consulta: as vagas dos dois times
+// pela lista `jogadores` do snapshot.
 //
 // Loja e Evolução (servicos.js): pousado e parado na plataforma da própria base, o
 // painel abre sozinho; os pedidos vão direto pela rede e a resposta chega como
@@ -59,16 +60,16 @@
 // time de quem atirou.
 //
 // Tela de carregamento (carregamento.js): depois do Decolar, conecta e, ao mesmo
-// tempo, baixa tudo o que a sua nave pode usar (as 5 naves da linha, as armas na asa
-// da raça e da classe, as texturas dos efeitos de todas as versões, os sons e as
-// miniaturas da Evolução) e a nave de quem já está na partida; depois monta a cena e
-// aquece a placa de vídeo (shaders e texturas) com ela ainda coberta. Só então o laço
-// de quadros começa: até lá a nave espera parada na base (zona segura) e nenhum
+// tempo, baixa TUDO o que pode aparecer na partida (as naves de todas as raças,
+// classes e tiers, as armas na asa de todas, as texturas dos efeitos de todas as
+// versões, todos os sons e as miniaturas da Evolução); depois monta a cena e aquece a
+// placa de vídeo (shaders, texturas e geometrias) com ela ainda coberta. Só então o
+// laço de quadros começa: até lá a nave espera parada na base (zona segura) e nenhum
 // comando sai. ESC na tela cancela e volta para a entrada.
 //
 // Naves (nave.js): cada jogador traz raça, classe e tier no snapshot, e definirNave
-// troca o modelo quando o tier muda (Evolução), para você e para os outros; a linha
-// de quem aparece (outra raça e classe) baixa em segundo plano (carregarEmFundo).
+// troca o modelo quando o tier muda (Evolução), para você e para os outros; o modelo
+// de qualquer piloto que aparecer já veio na tela de carregamento.
 //
 // Mapa, monstros e objetivos (cena.js, monstros.js, objetivos.js): o cenário são os
 // modelos do lago de He-3, já no cache quando a cena é montada (tela de
@@ -118,6 +119,7 @@ import { Efeitos, COR_TIME } from './efeitos.js';
 import { Controles } from './controles.js';
 import { Hud, BONUS_NAVE } from './hud.js';
 import { ObjetivosNaTela, LUGARES_OBJETIVO, NOME_OBJETIVO } from './objetivos.js';
+import { criarLimitador } from './quadros.js';
 import { criarMonstro, animarMonstro, criarMarcadorNucleo, EXPLOSAO_MONSTRO, ROTULO_MONSTRO } from './monstros.js';
 import { TorretasNaTela } from './torretas.js';
 import { Rede } from './rede.js';
@@ -126,10 +128,11 @@ import { MenuArmas } from './armas.js';
 import { Placar } from './placar.js';
 import { PainelTeste } from './teste.js';
 import { PainelTimes } from './times.js';
+import { EscolhaTimes } from './escolha-times.js';
 import { PainelServicos } from './servicos.js';
 import { PainelStatus } from './status.js';
 import { PainelInventario } from './inventario.js';
-import { TelaCarregamento, Carregamento, aquecerGpu, carregarEmFundo } from './carregamento.js';
+import { TelaCarregamento, Carregamento, aquecerGpu } from './carregamento.js';
 import { MELHORIAS_MINERADOR, MELHORIA_TORRETAS } from '/shared/evolucao.js';
 import { RECALL_S } from '/shared/recall.js';
 import { TORRETAS } from '/shared/terrain.js';
@@ -338,6 +341,8 @@ function montarEntrada() {
   });
   mostrarEstadoSom();
 
+  const escolhaTimes = new EscolhaTimes(document.querySelector('#escolha-times'));
+
   const nome = document.querySelector('#nome');
   nome.value = lerLocal('astron.nome') ?? '';
   document.querySelector('#form-entrada').addEventListener('submit', async (e) => {
@@ -359,7 +364,7 @@ function montarEntrada() {
     // A prévia para: a vitrine desenha as miniaturas da Evolução no carregamento.
     pararPrevia();
     try {
-      jogoAtual = await iniciar(nome.value, racaEscolhida, classeEscolhida, document.querySelector('#modo-teste').checked);
+      jogoAtual = await iniciar(nome.value, racaEscolhida, classeEscolhida, document.querySelector('#modo-teste').checked, escolhaTimes.pedido);
       document.querySelector('#entrada').hidden = true;
       telaCarregamento?.esconder();
     } catch (err) {
@@ -464,33 +469,27 @@ function criarRenderer() {
  * fecha a conexão para a nave não ficar parada no mundo. Devolve { sair } para
  * desmontar a partida.
  */
-async function iniciar(nome, race, classe, teste = false) {
+async function iniciar(nome, race, classe, teste = false, ia = null) {
   const renderer = criarRenderer();
   telaCarregamento ??= new TelaCarregamento();
   telaCarregamento.mostrar(race, classe);
   const carga = new Carregamento({ race, classe, sons, tela: telaCarregamento });
   cargaAtual = carga;
   const rede = new Rede();
-  // Snapshots que chegam enquanto carrega: o último diz quem já está na partida.
-  let ultimoSnap = null;
-  rede.aoReceber = (m) => {
-    if (m.t === 'snap') ultimoSnap = m;
-  };
   let jogo = null;
   try {
-    const entrou = rede.entrar(nome, race, classe, teste).then((boas) => {
+    const entrou = rede.entrar(nome, race, classe, teste, ia).then((boas) => {
       carga.conectado(boas);
       return boas;
     });
     const [boas] = await carga.esperar(Promise.all([entrou, carga.carregar()]));
-    await carga.esperar(carga.outrosPilotos(() => ultimoSnap, boas.id));
     jogo = montarJogo(rede, boas, renderer, race, classe);
     await carga.esperar(jogo.aquecer(carga));
     jogo.comecar();
     const r = carga.resumo();
     console.info(
       `Carregamento: pronto em ${(r.ms / 1000).toFixed(1)} s (arquivos ${((r.msArquivos ?? 0) / 1000).toFixed(1)} s, placa ${((r.msGpu ?? 0) / 1000).toFixed(1)} s):`,
-      `${r.mapa} modelos do mapa, ${r.monstros} de monstros, ${r.naves} naves, ${r.armas} armas, ${r.texturas} texturas, ${r.sons} sons`,
+      `${r.mapa} modelos do mapa, ${r.monstros} de monstros, ${r.naves} naves, ${r.armas} armas (${r.modelosArma} modelos), ${r.texturas} texturas, ${r.sons} sons`,
     );
     window.__carregamento = r;
     return jogo;
@@ -550,15 +549,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
     signal: controles.parar.signal,
     aoAbrir: () => status.fechar(),
   });
-  const times = new PainelTimes({
-    meuId,
-    meuTime,
-    enviar: (m) => rede.enviar(m),
-    noticia: (texto, tipo) => hud.noticia(texto, tipo),
-    signal: controles.parar.signal,
-  });
-  // Os sons das suas armas já vieram na tela de carregamento; os dos outros pilotos
-  // vêm em segundo plano quando eles aparecem (carregarEmFundo).
+  const times = new PainelTimes({ meuId, meuTime, signal: controles.parar.signal }); // só consulta
+  // Os sons de todas as armas já vieram (decodificados) na tela de carregamento.
   mostrarEstadoSom();
 
   /** Som de arma (disparo ou impacto) no ponto, com a variação de tom da metralhadora. */
@@ -799,6 +791,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
       tocados.add(chave);
       somNoMundo(nome, x, z, volume);
     };
+    // Golpe final crítico: o "CRÍTICO" sai junto do ouro e do XP (evento 'ganho'), não duas vezes.
+    const critFinal = new Set();
+    for (const e of ev) if (e.e === 'ganho' && e.crit) critFinal.add(e.id);
     for (const e of ev) {
       if (e.e === 'tiro' && e.fonte) {
         // Torreta ou escolta: tiro na cor do time de quem atirou, e o canhão vira.
@@ -868,6 +863,17 @@ function montarJogo(rede, boas, renderer, race, classe) {
           tocarUmaVez(`a${e.kind}:${e.alvo}`, somImpacto(e.kind), e.x, e.z, 0.8);
         } else efeitos.explosao(e.x, e.y, e.z, 0.7, '#ffd080');
         if (e.alvo === meuId && e.dano > 0) hud.levarDano();
+        // Seu golpe crítico: "CRÍTICO" sobe do alvo.
+        if (e.crit && e.por === meuId && !critFinal.has(e.alvo)) {
+          hud.flutuante(e.x, e.y + 1, e.z, [{ txt: 'CRÍTICO', classe: 'crit' }]);
+        }
+      } else if (e.e === 'ganho') {
+        // Monstro que você abateu: o ouro e o XP que o servidor deu sobem do lugar da morte.
+        const linhas = [];
+        if (e.crit) linhas.push({ txt: 'CRÍTICO', classe: 'crit' });
+        if (e.ouro > 0) linhas.push({ txt: `+${e.ouro} ouro`, classe: 'ouro' });
+        if (e.xp > 0) linhas.push({ txt: `+${e.xp} XP`, classe: 'xp' });
+        hud.flutuante(e.x, e.y + 7 + (ROTULO_MONSTRO[e.esp] ?? 0), e.z, linhas);
       } else if (e.e === 'fim') {
         efeitos.removerTiro(e.bala);
       } else if (e.e === 'morte' && e.tipo === 'minerador') {
@@ -967,11 +973,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
       // Vender e evoluir mexem no ouro: o som da compra; o resto, o clique.
       const ouro = m.acao === 'vender' || m.acao === 'evoluirItem';
       sons.tocarInterface(!m.ok ? SONS_INTERFACE.erro : ouro ? SONS_INTERFACE.compra : SONS_INTERFACE.clique);
-    } else if (m.t === 'resultado' && m.acao === 'ia') {
-      times.resultado(m);
-      sons.tocarInterface(m.ok ? SONS_INTERFACE.clique : SONS_INTERFACE.erro);
-    }
-    else if (m.t === 'resultado') {
+    } else if (m.t === 'resultado') {
       painel.resultado(m);
       // Som da resposta: compra/uso que deu certo, ou o "não" da Loja.
       if (m.acao === 'usar' && m.ok) sons.tocarInterface(m.item === 'reparo' ? SONS_INTERFACE.reparo : SONS_INTERFACE.energia);
@@ -1035,8 +1037,15 @@ function montarJogo(rede, boas, renderer, race, classe) {
   let ativo = true;
   let idQuadro = 0;
 
+  // 30 quadros por segundo, qualquer que seja o monitor (public/js/quadros.js).
+  const limitador = criarLimitador();
+
   function quadro(agora) {
     if (!ativo) return;
+    if (!limitador.deveDesenhar(agora)) {
+      idQuadro = requestAnimationFrame(quadro);
+      return;
+    }
     const dt = Math.min(0.1, (agora - ultimo) / 1000);
     ultimo = agora;
     tempo += dt;
@@ -1125,8 +1134,6 @@ function montarJogo(rede, boas, renderer, race, classe) {
         o = { obj, drone: e.drone, tipo: e.tipo, aliado, nucleo: !!e.nucleo };
         scene.add(o.obj);
         outras.set(e.id, o);
-        // Piloto de outra raça ou classe: a linha, as armas e os sons dele em segundo plano.
-        if (e.tipo === 'jogador') carregarEmFundo(e.race, e.classe, sons);
       }
       // Comprou a próxima nave na Evolução: o modelo troca (carrega se for novo); as
       // armas dele penduram nas asas.
@@ -1255,6 +1262,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
       hud.mostrarAviso(`Nave destruída · renascendo na base em ${Math.ceil(falta - 1e-3)}s`);
     }
     hud.rotulosNaves(rotulos, camera, innerWidth, innerHeight);
+    hud.desenharFlutuantes(camera, innerWidth, innerHeight);
     objetivos.desenhar(camera, innerWidth, innerHeight);
     // Névoa: a grade da visão do time (sua nave, aliados, torres, base) e a cena desenhada com ela.
     nevoa.atualizar(dt, { eu: vivo && pred ? { id: meuId, x: foco.x, z: foco.z } : null, ents: snaps.at(-1)?.ents, torretas: torretas.estados() });
@@ -1264,16 +1272,31 @@ function montarJogo(rede, boas, renderer, race, classe) {
 
   /**
    * Aquece a placa de vídeo com a cena montada, ainda atrás da tela de carregamento
-   * (carregamento.js): shaders e texturas de tudo o que a nave pode usar.
+   * (carregamento.js): shaders, texturas e geometrias de tudo o que a partida pode
+   * desenhar, pelo mesmo caminho do quadro (a névoa).
    */
   function aquecer(carga) {
-    return aquecerGpu({ renderer, scene, camera, efeitos, focar: (p) => atualizarCena(0, p), race, classe, meuTime, tela: carga.tela, carga, alvo: nevoa.alvoCena });
+    return aquecerGpu({
+      renderer,
+      scene,
+      camera,
+      efeitos,
+      focar: (p) => atualizarCena(0, p),
+      race,
+      classe,
+      meuTime,
+      tela: carga.tela,
+      carga,
+      alvo: nevoa.alvoCena,
+      desenhar: () => nevoa.desenhar(renderer, scene, camera),
+    });
   }
 
   /** Começa o laço de quadros (e com ele a predição e os comandos). */
   function comecar() {
     if (!ativo || idQuadro) return;
     ultimo = performance.now();
+    limitador.reiniciar();
     idQuadro = requestAnimationFrame(quadro);
   }
 
@@ -1289,6 +1312,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
       return snaps.at(-1)?.ents ?? [];
     },
     meuTime,
+    renderer,
     scene,
     camera,
     menuArmas,

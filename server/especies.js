@@ -75,7 +75,7 @@ export const ESPECIES = {
     ataques: [{ atq: 'missil', forma: 'guiado', kind: 'plasma', tipoDano: 'fisico', dano: 5, tiros: 3, leque: 0.25, intervaloS: 2, alcance: 240, vel: 110, giro: 1.2 }],
   },
   sn4: {
-    nome: 'SN-4', hp: 2000, velocidade: 15, raio: 13, tamanho: 30, xp: 150, ouro: 100, territorio: TERRITORIO_CHEFE, chefe: true,
+    nome: 'SN-4', hp: 2000, velocidade: 15, raio: 26, tamanho: 60, xp: 150, ouro: 100, territorio: TERRITORIO_CHEFE, chefe: true,
     ataques: [
       { atq: 'missil_cruzador', forma: 'guiado', kind: 'plasma', tipoDano: 'fisico', dano: 4, tiros: 4, leque: 0.2, intervaloS: 3, alcance: 320, vel: 120, giro: 2.5 },
       { atq: 'onda_feixe', forma: 'nova', kind: 'laser', tipoDano: 'laser', dano: 25, intervaloS: 8, alcance: 70, velOnda: 140 },

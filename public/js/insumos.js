@@ -1,6 +1,8 @@
-// O que cada nave usa dos arquivos do original (modelos, texturas e sons), para a tela
+// O que a partida usa dos arquivos do original (modelos, texturas e sons), para a tela
 // de carregamento (carregamento.js) baixar tudo ANTES da partida e nada carregar no
-// meio dela (trocar de arma, evoluir a arma, comprar a nave seguinte).
+// meio dela: nem o que a sua nave usa (trocar de arma, evoluir a arma, comprar a nave
+// seguinte), nem o que os OUTROS pilotos e os computadores trazem (qualquer raça,
+// classe, nave e arma; ver insumosDaPartida).
 //
 // Puro: sem Three.js, sem DOM e sem rede, só os catálogos de shared/. Por isso os
 // imports são relativos ('../../shared/...'): no navegador eles caem no mesmo
@@ -12,8 +14,8 @@
 // carregamento acompanha sozinha.
 
 import { WEAPONS, ARMAS, armasDisponiveis, visualEfeito } from '../../shared/armas.js';
-import { linhaDe } from '../../shared/naves.js';
-import { SONS_INTERFACE } from './sons.js';
+import { linhaDe, RACAS_JOGAVEIS, ORDEM_CLASSES } from '../../shared/naves.js';
+import { SONS_INTERFACE, SONS_ARMA } from './sons.js';
 
 /** Pasta das texturas dos efeitos de arma do original. */
 export const PASTA_TEXTURAS_EFEITO = '/texturas/efeitos/';
@@ -111,6 +113,52 @@ export function insumosDaNave(race, classe) {
   return { naves, armas, texturas: [...texturas], sons: [...sons] };
 }
 
+/**
+ * Tudo o que pode aparecer na partida, para a tela de carregamento baixar de uma vez:
+ * as naves de TODAS as raças jogáveis, classes e tiers (os outros pilotos e os
+ * computadores podem vir com qualquer uma e comprar a seguinte no meio da partida),
+ * os modelos da asa de todas as armas, as texturas dos efeitos de todas as armas em
+ * todas as versões e todos os sons (os das armas de todos, os dos tiros de NPC, os
+ * de interface e os padrões de SONS_ARMA). A raça e a classe do piloto vêm primeiro
+ * em cada lista (o que ele mais usa fica pronto antes). São ~18 MB: o Mateus prefere
+ * esperar na entrada a ter o jogo travando quando um piloto novo aparece.
+ * Mesma forma de insumosDaNave; as naves trazem também `race` e `classe`.
+ */
+export function insumosDaPartida(race, classe) {
+  const propria = insumosDaNave(race, classe);
+  const naves = propria.naves.map((n) => ({ ...n, race, classe }));
+  const urls = new Set(naves.map((n) => n.url));
+  for (const r of RACAS_JOGAVEIS) {
+    for (const c of ORDEM_CLASSES) {
+      for (const n of linhaDe(r, c)) {
+        const url = '/' + n.modelo;
+        if (urls.has(url)) continue;
+        urls.add(url);
+        naves.push({ tier: n.tier, nome: n.nome, url, race: r, classe: c });
+      }
+    }
+  }
+  const armas = [...propria.armas];
+  const kinds = new Set(armas.map((a) => a.kind));
+  ARMAS.forEach((kind, idx) => {
+    if (WEAPONS[kind].npc || kinds.has(kind)) return;
+    kinds.add(kind);
+    armas.push({ idx, kind, nome: WEAPONS[kind].nome, modelos: modelosDaArma(kind) });
+  });
+  const texturas = new Set(propria.texturas);
+  const sons = new Set(propria.sons);
+  for (const { kind } of armas) for (const t of texturasDaArma(kind)) texturas.add(t);
+  // Sons de todas as armas, as de NPC também (torres, escoltas e drones atiram com elas).
+  for (const kind of ARMAS) for (const s of sonsDaArma(kind)) sons.add(s);
+  for (const s of Object.values(SONS_ARMA)) sons.add(s);
+  return { naves, armas, texturas: [...texturas], sons: [...sons] };
+}
+
+/** Os arquivos dos modelos da asa de uma lista de armas, sem repetição (peças compartilhadas baixam uma vez). */
+export function modelosDasArmas(armas) {
+  return [...new Set(armas.flatMap((a) => a.modelos))];
+}
+
 // ---------- Mapa e monstros ----------
 //
 // Os modelos do cenário (public/modelos/mapa/, feitos no Blender pela frente Cenário)
@@ -142,10 +190,6 @@ export const MODELOS_MAPA = Object.freeze([
   'nucleo',
   'torre-suporte',
   'torre-suporte-caida',
-  'asteroide-1',
-  'asteroide-2',
-  'asteroide-3',
-  'asteroide-4',
   'coral',
   'alga',
   'cristais-he3',

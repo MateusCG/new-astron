@@ -228,7 +228,11 @@ export function criarAgua({ ceu, solDir, pontosHe3 = [], extras = [] }) {
   material.uniforms.uDist.value = mapaDeDistancia(extras);
   const agua = new THREE.Mesh(geo, material);
   agua.position.y = NIVEL_AGUA;
-  agua.renderOrder = 1; // depois dos opacos (fundo, rochas)
+  // Primeira dos transparentes (os opacos, fundo e rochas, já vêm antes): depois dela
+  // as nuvens de gás (nuvens.js, −1) e os tiros e efeitos (0). Nenhum deles escreve
+  // profundidade, então o que vem depois pinta por cima: com a água depois, um tiro
+  // ou brilho sobre o lago saía apagado pelo alfa dela.
+  agua.renderOrder = -2;
   agua.frustumCulled = false;
   agua.userData.material = material;
   return agua;

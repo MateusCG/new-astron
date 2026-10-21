@@ -44,7 +44,33 @@
           <button type="submit" class="decolar">Decolar</button>
           <p id="erro-entrada" role="alert"></p>
         </div>
-        <aside class="comandos" aria-label="Comandos">
+        <aside class="comandos" aria-label="Times e comandos">
+          <!-- Computadores no seu time e no inimigo, escolhidos antes de decolar
+               (escolha-times.js); as vagas entram por JS. -->
+          <section id="escolha-times" aria-labelledby="escolha-times-titulo">
+            <h2 id="escolha-times-titulo">Times <small>3 contra 3</small></h2>
+            <div class="lados">
+              <div class="lado meu" data-lado="meu">
+                <p class="titulo-lado"><b>Seu time</b><span class="resumo"></span></p>
+                <div class="linha-lado">
+                  <div class="vagas" role="group" aria-label="Vagas do seu time"></div>
+                  <div class="passo-ia" role="group" aria-label="Computadores no seu time">
+                    <button type="button" data-delta="-1" aria-label="Um computador a menos no seu time">−</button><b class="qtd">0</b><button type="button" data-delta="1" aria-label="Um computador a mais no seu time">+</button>
+                  </div>
+                </div>
+              </div>
+              <div class="lado inimigo" data-lado="inimigo">
+                <p class="titulo-lado"><b>Inimigo</b><span class="resumo"></span></p>
+                <div class="linha-lado">
+                  <div class="vagas" role="group" aria-label="Vagas do time inimigo"></div>
+                  <div class="passo-ia" role="group" aria-label="Computadores no time inimigo">
+                    <button type="button" data-delta="-1" aria-label="Um computador a menos no time inimigo">−</button><b class="qtd">0</b><button type="button" data-delta="1" aria-label="Um computador a mais no time inimigo">+</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p class="nota-times">Gente tem prioridade na vaga: com a partida já rolando, os computadores só completam o que falta. Na partida, <kbd>P</kbd> mostra os times.</p>
+          </section>
           <h2>Comandos</h2>
           <dl>
             <div><dt><kbd>W</kbd><kbd>S</kbd></dt><dd>Acelera e dá ré</dd></div>
@@ -53,15 +79,15 @@
             <div><dt><kbd>Z</kbd><kbd>X</kbd></dt><dd>Atiram (uma arma em cada)</dd></div>
             <div><dt><kbd>Q</kbd></dt><dd>Troca a arma do Z</dd></div>
             <div><dt><kbd>E</kbd></dt><dd>Troca a arma do X</dd></div>
-            <div><dt><kbd>L</kbd></dt><dd>Pousa e decola (na Loja e na Evolução, abre o painel)</dd></div>
+            <div><dt><kbd>L</kbd></dt><dd>Pousa e decola (abre Loja e Evolução)</dd></div>
             <div><dt><kbd>R</kbd></dt><dd>Kit de reparo</dd></div>
             <div><dt><kbd>F</kbd></dt><dd>Célula de energia</dd></div>
             <div><dt><kbd>B</kbd></dt><dd>Volta à base (6 s quase parado)</dd></div>
             <div><dt><kbd>V</kbd></dt><dd>Troca a câmera</dd></div>
-            <div><dt><kbd>T</kbd><kbd>G</kbd></dt><dd>Câmera mais de cima ou de baixo (ou a roda do mouse)</dd></div>
+            <div><dt><kbd>T</kbd><kbd>G</kbd></dt><dd>Altura da câmera (ou a roda do mouse)</dd></div>
             <div><dt><kbd>C</kbd></dt><dd>Status e pontos</dd></div>
             <div><dt><kbd>I</kbd></dt><dd>Inventário</dd></div>
-            <div><dt><kbd>P</kbd></dt><dd>Times e computador</dd></div>
+            <div><dt><kbd>P</kbd></dt><dd>Times (consulta)</dd></div>
             <div><dt><kbd>M</kbd></dt><dd>Liga e desliga o som</dd></div>
             <div><dt><kbd>Esc</kbd></dt><dd>Fecha a janela ou sai da partida</dd></div>
           </dl>
@@ -104,6 +130,7 @@
       <ul id="feed"></ul>
       <div id="rotulos-obj"></div>
       <div id="rotulos"></div>
+      <div id="flutuantes" aria-hidden="true"></div>
       <p id="aviso" hidden></p>
       <ul id="bonus-nave" hidden aria-label="Bônus da nave"></ul>
       <div id="prog-obj" hidden><span class="txt"></span><span class="barra"><i></i></span></div>
@@ -131,7 +158,7 @@
         <button type="button" id="som-hud" class="botao-volume" title="Volume (M liga e desliga o som)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som"></span></button>
         <button type="button" id="status-hud" class="botao-hud" title="Status e pontos do piloto (C)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="3.5" /><path d="M5 20c.8-4 3.3-6 7-6s6.2 2 7 6" /><path d="M18 3.5v4M16 5.5h4" /></svg><span>Status</span><kbd>C</kbd></button>
         <button type="button" id="inventario-hud" class="botao-hud" title="Inventário da nave (I)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="7" height="7" rx="1.2" /><rect x="13.5" y="4" width="7" height="7" rx="1.2" /><rect x="3.5" y="14" width="7" height="7" rx="1.2" /><rect x="13.5" y="14" width="7" height="7" rx="1.2" /></svg><span>Inventário</span><kbd>I</kbd></button>
-        <button type="button" id="times-hud" class="botao-hud" title="Times e computadores (P)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3" /><path d="M2.5 19c.6-3.4 2.6-5 5.5-5s4.9 1.6 5.5 5" /><circle cx="16.5" cy="9" r="2.4" /><path d="M15 14.2c.5-.1 1-.2 1.5-.2 2.4 0 4 1.3 4.6 4.4" /></svg><span>Times</span><kbd>P</kbd></button>
+        <button type="button" id="times-hud" class="botao-hud" title="Quem está em cada time (P)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3" /><path d="M2.5 19c.6-3.4 2.6-5 5.5-5s4.9 1.6 5.5 5" /><circle cx="16.5" cy="9" r="2.4" /><path d="M15 14.2c.5-.1 1-.2 1.5-.2 2.4 0 4 1.3 4.6 4.4" /></svg><span>Times</span><kbd>P</kbd></button>
       </div>
 
       <footer id="painel">
@@ -189,7 +216,7 @@
               <ul></ul>
             </section>
           </div>
-          <p class="dica">Cada computador tem um papel: o 1º fica na lane com os mineradores, o 2º farma a jungle e os buffs, o 3º embosca nos asteroides; Medusa e Núcleo, só em grupo<span class="so-teclado"> · <kbd>P</kbd> abre e fecha</span></p>
+          <p class="dica">Os computadores se escolhem na tela inicial, antes de decolar. Cada um tem um papel: o 1º fica na lane com os mineradores, o 2º farma a jungle e os buffs, o 3º embosca nas nuvens de gás; Medusa e Núcleo, só em grupo<span class="so-teclado"> · <kbd>P</kbd> abre e fecha</span></p>
         </section>
       </div>
 

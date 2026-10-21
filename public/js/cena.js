@@ -21,9 +21,10 @@
 // - os objetivos: torres de suporte (de pé, apagadas em 'espera', caídas em
 //   'recarga'), plataformas de pouso de ouro (feixe de luz com alguém pousado), o
 //   Núcleo de He-3 (anéis e lascas girando, mais rápido com menos vida);
-// - campos de asteroides (pedaços flutuando e girando devagar, espalhados com
-//   semente fixa: todo jogador vê igual) e a decoração do lago (pedras que furam a
-//   água, ruínas, corais, algas e cristais no fundo), simétrica pela rotação de 180°.
+// - as nuvens de gás e poeira da jungle (nuvens.js, nos retângulos de ASTEROIDES:
+//   tufos virados para a câmera, sorteados com semente fixa, todo jogador vê igual)
+//   e a decoração do lago (pedras que furam a água, ruínas, corais, algas e
+//   cristais no fundo), simétrica pela rotação de 180°.
 //
 // Cor de time é relativa a quem olha (criarCena({ meuTime })): o seu time em
 // turquesa, o outro em vermelho. Paleta do planeta da PROPOSTA-VISUAL.md (céu de
@@ -47,7 +48,6 @@ import {
   ENTREGAS,
   SERVICOS,
   AREAS_POUSO,
-  ASTEROIDES,
   ACAMPAMENTOS,
   BUFFS,
   PLATAFORMAS_POUSO,
@@ -55,8 +55,9 @@ import {
   LANE,
   daBase,
 } from '/shared/terrain.js';
-import { PORTAL_WARP, OBSTACULOS } from '/shared/obstaculos.js';
+import { PORTAL_WARP, OBSTACULOS, ESCALA_TORRE_SUPORTE } from '/shared/obstaculos.js';
 import { criarAgua, TEMPO_AGUA } from './agua.js';
+import { criarNuvens } from './nuvens.js';
 import { instanciaMapa, partesDoModelo, pintar, neon, materialDoMapa, modeloMapaPronto } from './mapa-modelos.js';
 
 export const CORES = {
@@ -100,11 +101,11 @@ const PORTAL_BOIA_S = 9;
  * quem está longe ver.
  */
 const FEIXE_PLATAFORMA = { raio: 3.2, altura: 80, base: 7 };
-/** Asteroides por campo e a receita da LISTA.md (pesos dos tipos 1 a 4). */
-const ASTEROIDES_POR_CAMPO = 26;
-const PESO_ASTEROIDE = [5, 4, 1, 2];
-const SEMENTE_ASTEROIDES = 4242;
 const SEMENTE_DECORACAO = 6161;
+/** Gotículas em volta da câmera: tamanho e opacidade, e como ficam dentro de uma nuvem de gás. */
+const POEIRA_TAMANHO = 0.3;
+const POEIRA_OPACIDADE = 0.35;
+const POEIRA_DENTRO = { tamanho: 0.55, opacidade: 0.6, cor: new THREE.Color('#d9c8ad') };
 /** Núcleo: velocidade dos anéis (rad/s) parado, vivo e a mais com a vida acabando. */
 const NUCLEO_GIRO_PARADO = 0.08;
 const NUCLEO_GIRO_VIVO = 0.5;
@@ -184,7 +185,7 @@ function criarPoeira() {
   for (let i = 0; i < n * 3; i++) pos[i] = (rnd() * 2 - 1) * 80;
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const mat = new THREE.PointsMaterial({ color: CORES.poeira, size: 0.3, transparent: true, opacity: 0.35, depthWrite: false });
+  const mat = new THREE.PointsMaterial({ color: CORES.poeira, size: POEIRA_TAMANHO, transparent: true, opacity: POEIRA_OPACIDADE, depthWrite: false });
   const pts = new THREE.Points(geo, mat);
   pts.frustumCulled = false;
   return pts;
@@ -430,7 +431,13 @@ function montarBase(g, b, meuTime) {
 
 // ---------- Objetivos ----------
 
-/** Torres de suporte (BS0/BS1): de pé e caída, uma de cada vez. */
+/**
+ * Torres de suporte (BS0/BS1): de pé e caída, uma de cada vez. Os modelos foram
+ * feitos para a planta antiga (raio 7, 30 m) e são esticados por igual com
+ * ESCALA_TORRE_SUPORTE a partir do pivô no chão de voo, para casar com a planta de
+ * TORRE_SUPORTE: o fuste, que já descia até o fundo, passa a enterrar no fundo do
+ * lago (y −62 × escala), e o toco da caída continua abaixo da altura de voo.
+ */
 function montarTorres(g) {
   const torres = new Map();
   for (const b of BUFFS.filter((b) => b.tipo === 'suporte')) {
@@ -438,7 +445,11 @@ function montarTorres(g) {
     const giro = b.time === 0 ? 0 : Math.PI;
     const dePe = por(g, 'torre-suporte', b.x, heightAt(b.x, b.z), b.z, giro);
     const caida = por(g, 'torre-suporte-caida', b.x, heightAt(b.x, b.z), b.z, giro);
-    for (const m of [dePe, caida]) if (m) pintar(m, 'neon_objetivo', ambar);
+    for (const m of [dePe, caida]) {
+      if (!m) continue;
+      m.scale.setScalar(ESCALA_TORRE_SUPORTE);
+      pintar(m, 'neon_objetivo', ambar);
+    }
     if (caida) caida.visible = false;
     torres.set(b.id, { dePe, caida, ambar, nucleo: no(dePe, 'suporte_nucleo'), estado: 'espera' });
   }
@@ -484,73 +495,7 @@ function montarNucleo(g) {
   };
 }
 
-// ---------- Asteroides e decoração ----------
-
-/** Sorteia o tipo (0 a 3) pelos pesos da receita. */
-function tipoAsteroide(r) {
-  const total = PESO_ASTEROIDE.reduce((a, b) => a + b, 0);
-  let x = r * total;
-  for (let i = 0; i < PESO_ASTEROIDE.length; i++) {
-    x -= PESO_ASTEROIDE[i];
-    if (x < 0) return i;
-  }
-  return 0;
-}
-
-/**
- * Campos de asteroides: ~26 pedaços por campo (receita da LISTA.md), mais densos no
- * miolo, flutuando de 4 a 42 m e girando devagar. Um InstancedMesh por malha de cada
- * tipo; a cada quadro só as matrizes mudam. Devolve animar(t).
- */
-function montarAsteroides(g) {
-  const rnd = mulberry32(SEMENTE_ASTEROIDES);
-  const pedras = [[], [], [], []];
-  for (const a of ASTEROIDES) {
-    for (let k = 0; k < ASTEROIDES_POR_CAMPO; k++) {
-      // Metade com viés para o miolo (média de dois sorteios), metade uniforme.
-      const miolo = rnd() < 0.55;
-      const u = miolo ? (rnd() + rnd()) / 2 - 0.5 : rnd() - 0.5;
-      const v = miolo ? (rnd() + rnd()) / 2 - 0.5 : rnd() - 0.5;
-      pedras[tipoAsteroide(rnd())].push({
-        x: a.x + u * a.largura * 0.92,
-        z: a.z + v * a.profundidade * 0.92,
-        y: 4 + rnd() * 38,
-        giro: rnd() * Math.PI * 2,
-        incl: (rnd() * 2 - 1) * 0.6,
-        escala: 0.7 + rnd() * 0.6,
-        vel: (0.02 + rnd() * 0.06) * (rnd() < 0.5 ? -1 : 1),
-        fase: rnd() * Math.PI * 2,
-      });
-    }
-  }
-  const malhas = [];
-  pedras.forEach((lista, t) => {
-    if (!lista.length) return;
-    for (const { geometria, material } of partesDoModelo(`asteroide-${t + 1}`)) {
-      const inst = new THREE.InstancedMesh(geometria, material, lista.length);
-      inst.castShadow = true;
-      inst.receiveShadow = true;
-      inst.frustumCulled = false;
-      g.add(inst);
-      malhas.push({ inst, lista });
-    }
-  });
-  const m = new THREE.Matrix4();
-  const q = new THREE.Quaternion();
-  const e = new THREE.Euler();
-  const p = new THREE.Vector3();
-  const s = new THREE.Vector3();
-  return (t) => {
-    for (const { inst, lista } of malhas) {
-      lista.forEach((a, i) => {
-        q.setFromEuler(e.set(a.incl, a.giro + a.vel * t, a.incl * 0.4));
-        p.set(a.x, a.y + Math.sin(t * 0.35 + a.fase), a.z);
-        inst.setMatrixAt(i, m.compose(p, q, s.setScalar(a.escala)));
-      });
-      inst.instanceMatrix.needsUpdate = true;
-    }
-  };
-}
+// ---------- Decoração ----------
 
 /** O ponto serve para decoração? Campo aberto com folga, longe de base, lane, acampamento e objetivo. */
 function lugarLivre(x, z, { folga = 30, foraDaLane = true } = {}) {
@@ -648,7 +593,6 @@ export function criarCena({ meuTime = 0 } = {}) {
   const torres = montarTorres(mapa);
   const plataformas = montarPlataformas(mapa);
   const nucleo = montarNucleo(mapa);
-  const animarAsteroides = montarAsteroides(mapa);
   const deco = montarDecoracao(mapa);
 
   // A água por cima de tudo o que é do fundo: brilho de He-3 sobre a mineradora, o
@@ -666,6 +610,11 @@ export function criarCena({ meuTime = 0 } = {}) {
   scene.add(agua);
   const poeira = criarPoeira();
   scene.add(poeira);
+  // Nuvens de gás e poeira nos campos que escondem; a névoa de guerra (nevoa.js)
+  // entrega a grade dela por scene.userData.usarNevoa.
+  const nuvens = criarNuvens({ solDir: SOL_DIR, tempo: TEMPO_AGUA });
+  scene.add(nuvens.grupo);
+  scene.userData.usarNevoa = nuvens.usarNevoa;
 
   scene.add(new THREE.HemisphereLight(HEMI_CEU, HEMI_CHAO, HEMI_INTENSIDADE));
   const sol = new THREE.DirectionalLight(SOL_COR, SOL_INTENSIDADE);
@@ -750,7 +699,11 @@ export function criarCena({ meuTime = 0 } = {}) {
       nucleo.ambar.emissiveIntensity = ativo ? 0.9 : OBJ_APAGADO;
     }
 
-    animarAsteroides(tempo);
+    // Dentro de uma nuvem as gotículas viram poeira do gás: mais densas e maiores.
+    const dentro = nuvens.atualizar(dt, foco);
+    poeira.material.opacity = POEIRA_OPACIDADE + (POEIRA_DENTRO.opacidade - POEIRA_OPACIDADE) * dentro;
+    poeira.material.size = POEIRA_TAMANHO + (POEIRA_DENTRO.tamanho - POEIRA_TAMANHO) * dentro;
+    poeira.material.color.copy(CORES.poeira).lerp(POEIRA_DENTRO.cor, dentro);
   }
 
   /**

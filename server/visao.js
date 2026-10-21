@@ -24,6 +24,8 @@
 //     vai;
 //   - 'recall' de outro time: só o 'chegou', sem a ponta (de onde saiu ou aonde
 //     chegou) que o time não vê;
+//   - eventos privados (PRIVADOS, campo `para`: o 'ganho' do abate de monstro) só
+//     para o próprio jogador, nunca para o time;
 //   - eventos de jogo sem lugar (entrou, saiu, partida, nivel, nave, melhoria,
 //     objetivo, entrega, torreta...) e os que não têm x/z vão para todos.
 // - construções, torretas, `obj`, placar e a lista de jogadores não passam por aqui:
@@ -59,10 +61,13 @@ const PUBLICOS = new Set([
   'renasceu',
 ]);
 
+/** Eventos de um jogador só (campo `para`): vão a ele e a mais ninguém ('ganho': ouro e XP do monstro que ele abateu). */
+const PRIVADOS = new Set(['ganho']);
+
 /** Campos de um evento que nomeiam uma entidade envolvida (autor ou alvo), por tipo de evento. */
 const ENVOLVIDOS = {
   tiro: ['dono', 'alvo'], // alvo: a trava do míssil da torre sentinela
-  acerto: ['alvo'],
+  acerto: ['alvo', 'por'], // por: quem deu o golpe crítico
   explosao: ['dono'],
   nova: ['dono'],
   efeito: ['id'],
@@ -193,7 +198,7 @@ export class Visao {
     if (!eventos?.length) return eventos;
     this.#preparar();
     const c = this.cacheEventos[j.time];
-    if (!c) return eventos;
+    if (!c) return eventos.filter((e) => !PRIVADOS.has(e.e) || e.para === j.id);
     if (c.de !== eventos) {
       c.de = eventos;
       c.lista = eventos.map((e) => this.#eventoParaTime(e, j.time));
@@ -201,7 +206,9 @@ export class Visao {
     const saida = [];
     for (let i = 0; i < eventos.length; i++) {
       const e = eventos[i];
-      if (this.#envolve(e, j.id)) saida.push(e);
+      if (PRIVADOS.has(e.e)) {
+        if (e.para === j.id) saida.push(e);
+      } else if (this.#envolve(e, j.id)) saida.push(e);
       else if (c.lista[i]) saida.push(c.lista[i]);
     }
     return saida;
@@ -231,6 +238,7 @@ export class Visao {
   /** O que o `time` recebe deste evento: ele mesmo, uma cópia sem a parte escondida, ou null. */
   #eventoParaTime(e, time) {
     if (PUBLICOS.has(e.e)) return e;
+    if (PRIVADOS.has(e.e)) return null; // só o dono, em eventos()
     const olhos = this.olhosPorTime[time] ?? [];
     const anunciados = this.anunciados[time];
     if (e.e === 'tiro') {

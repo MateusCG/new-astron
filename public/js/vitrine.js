@@ -12,6 +12,7 @@
 
 import * as THREE from 'three';
 import { criarNave, definirNave, modeloDaNave } from './nave.js';
+import { criarLimitador } from './quadros.js';
 
 const MINIATURA = { largura: 192, altura: 112 };
 
@@ -72,9 +73,16 @@ export function mostrarPrevia(container, race, classe, tier = 0) {
   if (!previa.quadro) previa.quadro = requestAnimationFrame(girar);
 }
 
+// A prévia gira a 30 fps, como o jogo (public/js/quadros.js).
+const limitador = criarLimitador();
+
 function girar(agora) {
   const p = palco;
   if (!previa || !p) return;
+  if (!limitador.deveDesenhar(agora)) {
+    previa.quadro = requestAnimationFrame(girar);
+    return;
+  }
   const { container, nave } = previa;
   const w = container.clientWidth;
   const h = container.clientHeight;

@@ -22,6 +22,7 @@ import {
 import { WEAPONS, ARMAS, TROCA_ARMA_S, armasIniciais, versaoArma } from '/shared/sim.js';
 import { iconeArma } from './armas.js';
 import { iconeItem } from './servicos.js';
+import { CORES_NUVEM } from './nuvens.js';
 import { ITENS, ORDEM_ITENS } from '/shared/loja.js';
 import { relogio, LUGARES_OBJETIVO, ICONE_OBJETIVO, NOME_OBJETIVO, POUSO_PLATAFORMA_S } from './objetivos.js';
 import { PONTO_MONSTRO } from './monstros.js';
@@ -32,7 +33,8 @@ const $ = (s) => document.querySelector(s);
 // Cores do guia visual: sua base em turquesa, a do outro time em vermelho, o He-3
 // (mineradora e docas) em azul-gelo, serviços na cor de cada um e objetivos em âmbar
 // (cada um com a sua letra). Fundo na paleta do lago: água verde-azulada escura,
-// rocha em estratos quentes, asteroides em cinza claro apagado.
+// rocha em estratos quentes, as nuvens de gás (campos que escondem) em manchas
+// claras de borda suave, na cor da poeira iluminada da nuvem.
 const COR_MEU_TIME = '#00efc0';
 const COR_OUTRO_TIME = '#ff4a2a';
 const COR_INIMIGA = '#ff4a2a'; // monstros e tudo do outro time
@@ -40,6 +42,9 @@ const COR_OBJETIVO = '#ffb627';
 const COR_MINERIO = '#9fe8ff';
 const COR_SERVICO = { evolucao: '#a58bff', loja: '#ff6fd8' };
 const NOME_SERVICO = { evolucao: 'Evolução', loja: 'Loja' };
+const FLUTUANTE_S = 1.5; // vida do texto que sobe do monstro abatido
+const FLUTUANTE_SOBE_PX = 70; // quanto ele sobe na tela nesse tempo
+const FLUTUANTES_MAX = 24;
 const COR_APAGADA = '#8a7f6a'; // letra de objetivo em recarga
 /** Letra de cada objetivo no minimapa. */
 const LETRA_OBJETIVO = { ataque: 'A', suporte: 'S', plataforma: '$', sonda: 'V', medusa: 'M', nucleo: 'N' };
@@ -115,6 +120,9 @@ export class Hud {
     this.avisoPouso = $('#pouso');
     this.feed = $('#feed');
     this.rotulos = $('#rotulos');
+    // Números que sobem do mundo (ouro e XP do monstro abatido, "CRÍTICO"): ver flutuante().
+    this.camadaFlutuantes = $('#flutuantes');
+    this.flutuantes = [];
     this.mapa = $('#minimapa');
     this.ctx = this.mapa.getContext('2d');
     this.fundoMapa = this.#desenharFundo();
@@ -162,9 +170,31 @@ export class Hud {
       ctx.fillStyle = cor;
       ctx.fillRect(cx, cz, Math.max(1.5, larg * k), Math.max(1.5, prof * k));
     };
-    // Campos de asteroides (passáveis, escondem) em cinza claro apagado.
-    ctx.globalAlpha = 0.3;
-    for (const a of ASTEROIDES) retangulo(a.x, a.z, a.largura, a.profundidade, '#b9c4b8');
+    // Nuvens de gás (passáveis, escondem): manchas de borda suave, com o miolo um
+    // pouco mais denso, no retângulo do campo (a mesma conta do jogo).
+    const rgb = [1, 3, 5].map((i) => parseInt(CORES_NUVEM.luz.slice(i, i + 2), 16)).join(', ');
+    for (const a of ASTEROIDES) {
+      const [x0, z0] = this.#paraMapa(a.x - a.largura / 2, a.z - a.profundidade / 2);
+      const w = a.largura * k;
+      const h = a.profundidade * k;
+      ctx.globalAlpha = 0.16;
+      ctx.fillStyle = `rgb(${rgb})`;
+      ctx.beginPath();
+      ctx.roundRect(x0, z0, w, h, Math.min(w, h) * 0.4);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      const r = Math.min(w, h) * 0.55;
+      const n = Math.max(2, Math.round(h / (r * 0.9)));
+      for (let i = 0; i < n; i++) {
+        const cx = x0 + w / 2 + (i % 2 ? 1 : -1) * w * 0.12;
+        const cz = z0 + (h * (i + 0.5)) / n;
+        const g = ctx.createRadialGradient(cx, cz, 0, cx, cz, r);
+        g.addColorStop(0, `rgba(${rgb}, 0.32)`);
+        g.addColorStop(1, `rgba(${rgb}, 0)`);
+        ctx.fillStyle = g;
+        ctx.fillRect(cx - r, cz - r, r * 2, r * 2);
+      }
+    }
     // Lane (faixa clara apagada), entregas na cor do time dono, a mineradora e as docas de He-3.
     ctx.globalAlpha = 0.12;
     retangulo((LANE.xInicio + LANE.xFim) / 2, LANE.z, LANE.xFim - LANE.xInicio, LANE.largura, '#cfe9e4');
@@ -653,6 +683,52 @@ export class Hud {
   }
 
   /**
+   * Texto que sobe de um ponto do mundo e some em FLUTUANTE_S (o ouro e o XP do
+   * monstro que você abateu, o "CRÍTICO" do seu golpe). `linhas`: [{ txt, classe }]
+   * (classe 'ouro', 'xp' ou 'crit', as cores em jogo.css). Os valores vêm sempre do
+   * servidor (evento 'ganho' e o `crit` do 'acerto'); aqui é só o desenho.
+   */
+  flutuante(x, y, z, linhas) {
+    if (!linhas.length) return;
+    // Muitos de uma vez (metralhadora crítica): o mais velho sai.
+    while (this.flutuantes.length >= FLUTUANTES_MAX) this.flutuantes.shift().el.remove();
+    const el = document.createElement('div');
+    el.className = 'flutuante';
+    for (const { txt, classe } of linhas) {
+      const l = document.createElement('span');
+      l.className = classe;
+      l.textContent = txt;
+      el.append(l);
+    }
+    this.camadaFlutuantes.append(el);
+    this.flutuantes.push({ el, p: new THREE.Vector3(x, y, z), t0: performance.now() });
+  }
+
+  /** Posiciona os flutuantes na tela a cada quadro: seguem o ponto do mundo, sobem e apagam. */
+  desenharFlutuantes(camera, largura, altura) {
+    if (!this.flutuantes.length) return;
+    const agora = performance.now();
+    this.flutuantes = this.flutuantes.filter((f) => {
+      const k = (agora - f.t0) / 1000 / FLUTUANTE_S;
+      if (k >= 1) {
+        f.el.remove();
+        return false;
+      }
+      this.v.copy(f.p).project(camera);
+      if (this.v.z > 1) {
+        f.el.style.opacity = '0';
+        return true;
+      }
+      // Sobe rápido no começo e freia; aparece num estalo e apaga no último terço.
+      const sobe = FLUTUANTE_SOBE_PX * (1 - (1 - k) * (1 - k));
+      const escala = k < 0.12 ? 0.7 + (0.3 * k) / 0.12 : 1;
+      f.el.style.opacity = String(k < 0.66 ? 1 : (1 - k) / 0.34);
+      f.el.style.transform = `translate(${((this.v.x + 1) / 2) * largura}px, ${((1 - this.v.y) / 2) * altura - sobe}px) translate(-50%, -100%) scale(${escala})`;
+      return true;
+    });
+  }
+
+  /**
    * Esconde o HUD e apaga o que é da partida (rótulos, feed, avisos, clarão de
    * dano). O HTML do HUD é fixo na página: sem limpar, quem sai e entra de novo
    * veria nomes e notícias da partida anterior.
@@ -661,6 +737,8 @@ export class Hud {
     $('#hud').hidden = true;
     this.rotulos.replaceChildren();
     this.tags.clear();
+    this.camadaFlutuantes.replaceChildren();
+    this.flutuantes = [];
     this.feed.replaceChildren();
     this.mostrarAviso('');
     this.pouso(null, false);

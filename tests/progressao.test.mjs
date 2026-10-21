@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World } from '../server/game.js';
-import { xpParaNivel, ganharXp, hpMaxDoNivel, RECOMPENSA, NIVEL_MAX, HP_POR_NIVEL, XP_OBJETIVO } from '../server/progressao.js';
+import { xpParaNivel, ganharXp, hpMaxDoNivel, RECOMPENSA, NIVEL_MAX, HP_POR_NIVEL, XP_OBJETIVO, OURO_POR_SEGUNDO } from '../server/progressao.js';
 import { ESPECIES } from '../server/especies.js';
 import { ZONA_SEGURA } from '../server/game.js';
 import { createShip } from '../shared/sim.js';
@@ -61,7 +61,7 @@ test('progressão: ganhar XP sobe de nível, avisa e dá +3% de HP máximo por n
 });
 
 test('progressão: abater um Armish dá XP e ouro, e o snapshot leva nível e XP', () => {
-  const w = new World({ jungle: false, rng: rngFixo(11) });
+  const w = new World({ jungle: false, rng: rngFixo(11), ouroPorSegundo: 0 }); // só o ouro do abate
   const j = w.addPlayer('Caçador', 'acron');
   j.ship = createShip('acron', FORA.x, FORA.z, 0);
   j.protegidoAte = Infinity;
@@ -157,4 +157,131 @@ test('monstros: o evento de morte de um monstro traz a espécie e o ouro de quem
   assert.equal(morte.tipo, 'monstro');
   assert.equal(morte.esp, 'xerxes');
   assert.equal(morte.ouro, RECOMPENSA.xerxes.ouro);
+});
+
+/** Mundo sem nada que dê ouro além do passivo (sem jungle, mineradores, escoltas, torretas nem cérebro de computador). */
+function mundoParado(opcoes = {}) {
+  const w = new World({ jungle: false, torretas: false, ...opcoes });
+  w.mineradores.passo = () => {};
+  w.escoltas.passo = () => {};
+  w.bots.passo = () => {};
+  return w;
+}
+
+test('ouro passivo: +OURO_POR_SEGUNDO a cada segundo inteiro de partida, para gente, computador e morto', () => {
+  assert.equal(OURO_POR_SEGUNDO, 1);
+  const w = mundoParado();
+  const a = w.addPlayer('A', 'acron');
+  const bot = w.adicionarBot(1);
+  assert.ok(bot.ia, 'é um computador');
+  w.step(); // a partida começa neste tick
+  assert.equal(w.partida.estado, 'andamento');
+  const [oa, ob] = [a.ouro, bot.ouro];
+  a.vivo = false; // morto também ganha
+  a.respawnTick = Infinity;
+  for (let i = 0; i < 29; i++) w.step();
+  assert.equal(a.ouro, oa, 'antes de fechar o segundo, nada');
+  w.step();
+  assert.equal(a.ouro, oa + OURO_POR_SEGUNDO);
+  assert.equal(bot.ouro, ob + OURO_POR_SEGUNDO);
+  for (let i = 0; i < 10 * 30; i++) w.step();
+  assert.equal(a.ouro, oa + 11 * OURO_POR_SEGUNDO, 'conta inteira, sem fração perdida no passo de 1/30 s');
+  assert.equal(bot.ouro, ob + 11 * OURO_POR_SEGUNDO);
+  assert.ok(Number.isInteger(a.ouro));
+});
+
+test('ouro passivo: só com a partida em andamento (nada na tela de fim) e a partida inteira paga cada segundo', () => {
+  const w = mundoParado({ duracaoPartidaS: 3, intervaloFimS: 4 });
+  const a = w.addPlayer('A', 'acron');
+  for (let i = 0; i < 3 * 30 + 1; i++) w.step();
+  assert.equal(w.partida.estado, 'fim');
+  assert.equal(a.ouro, 3 * OURO_POR_SEGUNDO, 'os 3 segundos da partida, o último inclusive');
+  for (let i = 0; i < 3 * 30; i++) w.step();
+  assert.equal(w.partida.estado, 'fim');
+  assert.equal(a.ouro, 3 * OURO_POR_SEGUNDO, 'na tela de fim não conta');
+  for (let i = 0; i < 2 * 30; i++) w.step();
+  assert.equal(w.partida.estado, 'andamento', 'começou outra');
+  assert.ok(a.ouro < 3 * OURO_POR_SEGUNDO, 'a partida nova zerou o ouro e recomeçou a contar');
+});
+
+test('ouro passivo: o modo de teste também conta', () => {
+  const w = mundoParado({ teste: true });
+  const a = w.addPlayer('A', 'acron');
+  for (let i = 0; i < 5 * 30 + 1; i++) w.step();
+  assert.equal(a.ouro, 5 * OURO_POR_SEGUNDO);
+});
+
+/** O jogador mira e atira no monstro até ele morrer; devolve os eventos do caminho. */
+function abaterColetando(w, j, m, segundos = 15) {
+  const eventos = [];
+  let seq = j.ack;
+  for (let t = 0; t < 30 * segundos && m.vivo; t++) {
+    const yaw = Math.atan2(-(m.ship.x - j.ship.x), -(m.ship.z - j.ship.z));
+    let d = yaw - j.ship.yaw;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    while (d < -Math.PI) d += 2 * Math.PI;
+    w.pushInput(j.id, { s: ++seq, f1: true, tu: Math.max(-1, Math.min(1, d * 3)) });
+    w.step();
+    eventos.push(...w.tirarEventos());
+  }
+  return eventos;
+}
+
+test('monstros: o ouro e o XP do abate vão só para quem matou, no lugar da morte (evento ganho)', () => {
+  const w = new World({ jungle: false, torretas: false, rng: rngFixo(11) });
+  const j = w.addPlayer('Caçador', 'acron');
+  const outro = w.addPlayer('Outro', 'shrewdo');
+  const aliado = w.addPlayer('Aliado', 'bellico');
+  assert.equal(aliado.time, j.time, 'o terceiro cai no time do primeiro');
+  assert.notEqual(outro.time, j.time);
+  j.ship = createShip('acron', FORA.x, FORA.z, 0);
+  j.protegidoAte = Infinity;
+  for (const o of [aliado, outro]) {
+    o.ship = createShip(o.ship.race, FORA.x + 20, FORA.z + 10, 0); // perto: veem a morte
+    o.protegidoAte = Infinity;
+  }
+  const m = w.jungle.criarMonstro('armish', FORA.x, FORA.z - 40);
+  const eventos = abaterColetando(w, j, m);
+  assert.equal(m.vivo, false);
+  const morte = eventos.find((e) => e.e === 'morte' && e.id === m.id);
+  const ganhos = w.snapshotPara(j, [], eventos).ev.filter((e) => e.e === 'ganho');
+  assert.equal(ganhos.length, 1);
+  assert.equal(ganhos[0].para, j.id);
+  assert.equal(ganhos[0].id, m.id);
+  assert.equal(ganhos[0].esp, 'armish');
+  assert.equal(ganhos[0].ouro, RECOMPENSA.armish.ouro);
+  assert.equal(ganhos[0].xp, RECOMPENSA.armish.xp);
+  assert.ok(Math.hypot(ganhos[0].x - morte.x, ganhos[0].z - morte.z) < 0.01, 'no lugar da morte');
+  for (const o of [aliado, outro]) {
+    const ev = w.snapshotPara(o, [], eventos).ev;
+    assert.ok(ev.some((e) => e.e === 'morte' && e.id === m.id), `${o.nome} vê a morte`);
+    assert.ok(!ev.some((e) => e.e === 'ganho'), `${o.nome} não recebe o ganho de outro`);
+  }
+});
+
+test('monstros: no nível máximo o ganho traz só o ouro (XP 0)', () => {
+  const w = new World({ jungle: false, torretas: false, rng: rngFixo(11) });
+  const j = w.addPlayer('Veterano', 'acron');
+  j.ship = createShip('acron', FORA.x, FORA.z, 0);
+  j.protegidoAte = Infinity;
+  ganharXp(j, 1e6, w.eventos);
+  const m = w.jungle.criarMonstro('armish', FORA.x, FORA.z - 40);
+  const ganho = w.snapshotPara(j, [], abaterColetando(w, j, m)).ev.find((e) => e.e === 'ganho');
+  assert.equal(ganho.ouro, RECOMPENSA.armish.ouro);
+  assert.equal(ganho.xp, 0);
+});
+
+test('monstros: golpe crítico vai a quem bateu com `por` e o ganho do golpe final leva crit', () => {
+  const w = new World({ jungle: false, torretas: false, rng: () => 0 });
+  const j = w.addPlayer('Caçador', 'acron');
+  j.ship = createShip('acron', FORA.x, FORA.z, 0);
+  j.protegidoAte = Infinity;
+  j.status = { ...j.status, critico: 1 }; // todo golpe direto é crítico
+  const m = w.jungle.criarMonstro('armish', FORA.x, FORA.z - 40);
+  const ev = w.snapshotPara(j, [], abaterColetando(w, j, m)).ev;
+  assert.equal(m.vivo, false);
+  const crits = ev.filter((e) => e.e === 'acerto' && e.alvo === m.id && e.crit);
+  assert.ok(crits.length > 0, 'acertos críticos no monstro');
+  assert.ok(crits.every((e) => e.por === j.id));
+  assert.equal(ev.find((e) => e.e === 'ganho').crit, true);
 });

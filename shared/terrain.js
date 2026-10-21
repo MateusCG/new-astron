@@ -68,10 +68,26 @@ export const BASE = BASES[0];
 export const BOLSAO = { xMin: 1125, xMax: 1440, meiaZ: 180 };
 
 /**
- * Lane: faixa |z| ≤ 90 entre as bocas das bases. Sem pista nem regra própria: é por
- * onde os mineradores voam e onde ficam as torres sentinela. `largura` é em z.
+ * Largura da lane (em z): acompanha o vão do arco da entrega na boca da base
+ * (entrega.glb, ~143 m de ponta a ponta, com os dois pilares nas pontas). Olhando da
+ * base para a lane, a lane é o que passa por dentro do arco. Decisão do Mateus
+ * (out/2026; antes eram 180 m). O bolsão das bases (ABERTO.lane, BOLSAO) continua
+ * com |z| ≤ 180.
  */
-export const LANE = { z: 0, meiaLargura: 90, largura: 180, xInicio: -BOLSAO.xMin, xFim: BOLSAO.xMin };
+export const LARGURA_LANE = 140;
+
+/**
+ * Lane: faixa |z| ≤ 70 entre as bocas das bases. Sem pista nem regra própria: é por
+ * onde os mineradores voam; as torres sentinela ficam dos lados, fora dela.
+ * `largura` é em z.
+ */
+export const LANE = {
+  z: 0,
+  meiaLargura: LARGURA_LANE / 2,
+  largura: LARGURA_LANE,
+  xInicio: -BOLSAO.xMin,
+  xFim: BOLSAO.xMin,
+};
 /** @deprecated O corredor vertical do mapa antigo virou a LANE horizontal; use LANE. */
 export const CORREDOR = LANE;
 
@@ -136,13 +152,21 @@ function comGirados(lista, girarItem) {
 const girarPonto = (o) => ({ ...o, id: idGirado(o.id), time: 1 - o.time, ...girar(o.x, o.z) });
 
 /**
+ * Distância do eixo da lane às torres, em meias-larguras da lane: 1,9 é a proporção
+ * do desenho (171 m com a lane de 180 m). Com a lane de 140 m, a torre fica a
+ * 133 m do eixo; mesmo com o raio da torre sólida (TORRETA em shared/obstaculos.js,
+ * 9 m), sobram mais de 50 m de água entre ela e a beira da lane.
+ */
+export const TORRETA_LADO_POR_LANE = 1.9;
+
+/**
  * Torres sentinela: 4 por time, fora da lane (na faixa entre a lane e a jungle),
  * duas de cada lado dela. `nome` é do ponto de vista de quem é do time, olhando da
  * base para a mineradora (à esquerda = -z na metade do time 0). As do time 1 são as
  * do time 0 giradas 180°, com o mesmo número: T0-1 ↔ T1-1. A construção sólida fica
  * em shared/obstaculos.js; vida, tiro e reconstrução em server/torretas.js.
  */
-export const TORRETA_LADO = 171; // m do eixo da lane
+export const TORRETA_LADO = LANE.meiaLargura * TORRETA_LADO_POR_LANE; // m do eixo da lane
 export const TORRETA_DIST = [492.5, 852.5]; // m do centro da base, rumo à mineradora
 export const TORRETAS = BASES.flatMap((b) =>
   TORRETA_DIST.flatMap((d, i) =>

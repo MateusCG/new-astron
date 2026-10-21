@@ -62,9 +62,9 @@ Rocha e mineradora cortam a linha de visão. Quem está num campo de asteroides 
 
 ## Mineradores
 
-- **[feito]** Saem da base de cada time de tempos em tempos (até 3 por time), **voam em linha reta** da entrega até a **doca** do time na mineradora (sem estrada), carregam e voltam: **+10 de minério** por entrega. Ida de ~40 s, ciclo de ~75 s (umas 15 viagens por minerador numa partida) (`server/mineradores.js`).
+- **[feito]** **10 por time** (`MINERADORES_POR_TIME`), saindo da base em fila, um a cada **7,5 s** (o ciclo dividido pelos 10: ficam espalhados pela lane); **voam em linha reta** da entrega até a **doca** do time na mineradora (sem estrada), carregam e voltam: **+10 de minério** por entrega. Ida de ~40 s, ciclo de ~75 s (umas 15 viagens por minerador numa partida). **Fila:** nenhum encosta no da frente na mesma faixa; com um minerando na doca, o próximo espera parado atrás e quem sai da doca vai de lado para a faixa da volta. Destruído, o substituto sai 20 s depois. Sem ninguém atrapalhar, ~8 entregas por minuto: **~1760 de minério por time** em 20 minutos (era ~530 com três) (`server/mineradores.js`).
 - **[feito]** **Podem ser destruídos** pelos jogadores do outro time (o minério que carregavam se perde; quem destrói ganha 40 de ouro). Na própria base são protegidos como os jogadores.
-- **[feito]** **Escolta armada** (`server/escoltas.js`, números em `ESCOLTA`): uma por time, anda com os mineradores pela mesma rota e atira como torre giratória no inimigo mais perto a até 110 m (jogadores, mineradores e escoltas do outro time). Destruída: 50 XP e 45 de ouro, e volta 30 s depois.
+- **[feito]** **Escolta armada** (`server/escoltas.js`, números em `ESCOLTA`): **três por time**, saindo em fila (8 s entre uma e outra), cada uma acompanhando um minerador diferente (frente, meio e fim do comboio), pela mesma rota, e atira como torre giratória no inimigo mais perto a até 110 m (jogadores, mineradores e escoltas do outro time). Destruída: 50 XP e 45 de ouro, e a reposição sai 30 s depois.
 - **[feito]** Melhoráveis na Evolução, para o time inteiro: mais mineradores, durabilidade, defesa e velocidade (ver "Loja e Evolução").
 - **[feito]** **Onda do Núcleo:** ver "Núcleo de He-3".
 
@@ -99,7 +99,7 @@ Rocha e mineradora cortam a linha de visão. Quem está num campo de asteroides 
 | Bazit | pequeno do centro | 240 | 3 feixes laser paralelos, 200 m | 35 / 28 |
 | Grande Xerxes | grande do centro | 900 | chama larga (110 m, área 15 m) | 90 / 70 |
 | Anti | grande do centro | 900 | 3 mísseis físicos de curva leve, 240 m | 90 / 70 |
-| **SN-4** (chefe do Stage 5) | buff de ataque | 2000 | 4 mísseis teleguiados (320 m), onda em volta (70 m), campo elétrico que deixa lento | 150 / 100 |
+| **SN-4** (chefe do Stage 5, **2× o modelo original**: 60 m, raio de acerto 26 m; não entra na rocha) | buff de ataque | 2000 | 4 mísseis teleguiados (320 m), onda em volta (70 m), campo elétrico que deixa lento | 150 / 100 |
 | **Ancient Medusa** | chefe épico | 12000 (+10 HP/s) | pedras gigantes, leque de 10 raios com desgoverno, armadilhas que impedem o tiro | 220 / 150 **para cada piloto do time** |
 | **Sonda errante** (A-Fly IV) | neutra | 300 | nenhum: foge | 40 / 35 |
 
@@ -122,6 +122,7 @@ Bônus (`server/bonus.js`): por nave (`ativarNave`; morrer limpa) `'ataque'`, `'
 - **[feito]** **XP e nível** ao destruir monstros, mineradores e jogadores inimigos, e ao tomar buffs e objetivos. Começa no nível 1, vai até o 25 (`NIVEL_MAX`); para passar do nível n são `60 + 20 × (n − 1)` XP (`xpParaNivel` em `server/progressao.js`). Cada nível dá +3% do HP máximo da nave. Subir de nível: notícia e anel de luz na nave.
 - **[feito]** **Pontos do piloto** (pedido do Mateus, out/2026, como a janela CHARACTER do original): **10 pontos por nível** (`10 × nível`, 250 no 25), distribuídos na janela STATUS (tecla C) entre **Energia, Ph. (físico), El. (elétrico) e Op. (laser)**, até **99 em cada**, em qualquer lugar e sem devolver. Os valores por ponto são os do original (`pilotparameter.txt`) por raça e classe: cada ponto de Ph./El./Op. dá ~2 a 3% de poder às armas daquele tipo de dano; cada ponto de Energia dá energia máxima (fixa + 3% da energia da nave) e regeneração. Zeram com o nível na partida nova (`shared/status.js`).
 - **[feito]** **Ouro** pelas mesmas fontes. XP e ouro por tipo em `RECOMPENSA` (os monstros pela espécie, ver "Jungle do Stage 6"): minerador 40 / 40, escolta 50 / 45, torreta 80 / 70 (+25 de ouro para cada colega de time), jogador 100 / 50.
+- **[feito]** **Ouro passivo** (como no Dota 2 e no LoL): **+1 de ouro por segundo** de partida em andamento para cada piloto, computadores e mortos inclusive (`OURO_POR_SEGUNDO`); nada na espera nem na tela de fim; o modo de teste também conta. São 1200 de ouro por partida de 20 minutos.
 - **[feito]** Ouro, XP e nível são **da partida** (como num MOBA): zeram quando começa a seguinte.
 - **[feito]** **Assistência e sequência de abates** em abate de jogador, e **renascimento** que demora mais com o nível e com o tempo de partida: ver "Combate".
 - **[feito]** **Evolução da nave**: a cada 5 níveis (5, 10, 15, 20) o piloto pode comprar a **próxima nave da linha** da raça e da classe, pagando ouro. Ver "Raças, classes e naves" e "Loja e Evolução".
@@ -223,7 +224,7 @@ Usar item vale em qualquer lugar; com a vida (ou a energia) cheia, o servidor re
 
 | Melhoria | Por nível | Preços por nível |
 |---|---|---|
-| Mais mineradores | +1 minerador ao mesmo tempo | 200, 350 |
+| Mais mineradores | +2 mineradores ao mesmo tempo (10 → 12 → 14) | 200, 350 |
 | Casco de carga (durabilidade) | +25% de HP | 120, 200, 300 |
 | Blindagem de carga (defesa) | −15% de dano recebido | 120, 200, 300 |
 | Motor de carga (velocidade) | +10% de velocidade | 120, 200, 300 |

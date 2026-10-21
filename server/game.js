@@ -90,11 +90,19 @@
 // para os golpes. Monstro e minerador atiram sempre no nível 1.
 //
 // Computador (server/bots.js): jogador sem socket, marcado com `ia` (o cérebro).
-// Entra pelo pedido {t:'ia'} de quem está na partida (pedidoIa), no time pedido,
-// respeitando MAX_POR_TIME; a cada tick a IA põe um comando na fila dele (Bots.passo)
-// e daí em diante ele é um jogador como outro qualquer. Humano que chega com os dois
-// times cheios fica com a vaga de um computador; quando sai o último humano, os
-// computadores saem junto (e a partida volta a esperar).
+// Quantos, se escolhe na tela inicial, ANTES de decolar: a entrada traz iaMeu (0 a
+// 2) e iaInimigo (0 a 3), saneados em computadoresDaEntrada (server/partida.js), e
+// addPlayer completa as vagas logo depois de pôr o humano no time dele. Os números
+// são o MÍNIMO de vagas ocupadas que ele quer: o seu time com pelo menos 1 + iaMeu
+// (você conta) e o outro com pelo menos iaInimigo, contando gente e computador. Com
+// a partida já rodando, o servidor só ACRESCENTA computadores até chegar nisso: não
+// tira ninguém (os computadores que outro piloto escolheu ficam), não passa de
+// MAX_POR_TIME e gente que já está no time ocupa a vaga antes do computador. Dentro
+// da partida não se põe nem se tira computador (o pedido {t:'ia'} é recusado em
+// server/index.js). A cada tick a IA põe um comando na fila dele (Bots.passo) e daí
+// em diante ele é um jogador como outro qualquer. Humano que chega com os dois
+// times cheios fica com a vaga de um computador (gente tem prioridade); quando sai
+// o último humano, os computadores saem junto (e a partida volta a esperar).
 //
 // Recall (shared/recall.js): o campo r do comando é um pulso; a borda de subida
 // (j.rAnt) começa ou cancela a canalização no passo daquele comando, e os mesmos
@@ -106,7 +114,7 @@
 import { DT, WEAPONS, createShip, sanitizeInput, stepShip, VEL_TOQUE, velocidadeBase, pousadaNaBase, BASE_CURA_FRAC } from '../shared/sim.js';
 import { BASE, BASES } from '../shared/terrain.js';
 import { racaJogavel, RACAS_JOGAVEIS, classeOuPadrao } from '../shared/naves.js';
-import { Partida, N_TIMES, MULT_FASE_FINAL, MAX_POR_TIME } from './partida.js';
+import { Partida, N_TIMES, MULT_FASE_FINAL, MAX_POR_TIME, computadoresDaEntrada } from './partida.js';
 import { Mineradores } from './mineradores.js';
 import { Escoltas } from './escoltas.js';
 import { Torretas } from './torretas.js';
@@ -124,6 +132,7 @@ import {
   recompensaAssistencia,
   ASSISTENCIA_JANELA_S,
   chaveRecompensa,
+  OURO_POR_SEGUNDO,
 } from './progressao.js';
 import { Servicos, novoEquipamento, prepararNave } from './servicos.js';
 import { Jungle } from './jungle.js';
@@ -176,14 +185,15 @@ export class World {
   /**
    * @param {{ rng?: () => number, jungle?: boolean, temposJungle?: object,
    *   duracaoPartidaS?: number, intervaloFimS?: number, faseFinalS?: number, torretas?: boolean,
-   *   teste?: boolean, objetivos?: object }} [opcoes]
+   *   teste?: boolean, objetivos?: object, ouroPorSegundo?: number }} [opcoes]
    * jungle = false: mundo sem monstros (testes). temposJungle: troca os tempos de
    * aparecer e voltar da jungle (TEMPOS_JUNGLE em server/jungle.js; os testes
    * encurtam). torretas = false deixa as torretas de pé mas sem atirar (testes que
    * brigam no meio da lane). teste = mundo do modo de teste (um por piloto,
    * server/index.js): partida sem relógio e os pedidos {t:'teste'} (pedidoTeste).
    * objetivos = tempos dos objetivos (TEMPOS de server/objetivos.js) trocados, para
-   * os testes não esperarem minutos.
+   * os testes não esperarem minutos. ouroPorSegundo troca o ouro passivo
+   * (OURO_POR_SEGUNDO; 0 nos testes que contam o ouro de um abate exato).
    */
   constructor({
     rng = Math.random,
@@ -195,8 +205,10 @@ export class World {
     torretas = true,
     teste = false,
     objetivos,
+    ouroPorSegundo = OURO_POR_SEGUNDO,
   } = {}) {
     this.teste = teste;
+    this.ouroPorSegundo = ouroPorSegundo;
     this.rng = rng;
     this.torretasAtiram = torretas;
     this.tick = 0;
@@ -265,13 +277,30 @@ export class World {
    * socket nele), ou null se os dois times estão cheios (o servidor responde
    * 'partida_cheia'). Quem valida a raça é o servidor (server/index.js recusa raça
    * bloqueada ou inválida antes); aqui, raça sem naves vira a primeira jogável e
-   * classe inválida vira CLASSE_PADRAO.
+   * classe inválida vira CLASSE_PADRAO. `pedido` = {iaMeu, iaInimigo} da entrada
+   * (como veio da rede; saneado aqui): os computadores que completam os times (ver
+   * completarComBots).
    */
-  addPlayer(nome, race, classe) {
+  addPlayer(nome, race, classe, pedido = {}) {
     let time = this.partida.escolherTime(this.#tamanhos());
     if (time === null) time = this.#cederVagaDeBot();
     if (time === null) return null;
-    return this.#novoJogador(limpaNome(nome), race, classe, time);
+    const j = this.#novoJogador(limpaNome(nome), race, classe, time);
+    const { iaMeu, iaInimigo } = computadoresDaEntrada(pedido);
+    this.completarComBots(time, 1 + iaMeu);
+    this.completarComBots((time + 1) % N_TIMES, iaInimigo);
+    return j;
+  }
+
+  /**
+   * Acrescenta computadores no `time` até ele ter `alvo` jogadores (gente e
+   * computador), sem passar de MAX_POR_TIME e sem tirar ninguém. Devolve quantos
+   * entraram.
+   */
+  completarComBots(time, alvo) {
+    let n = 0;
+    while (this.#tamanhos()[time] < Math.min(alvo, MAX_POR_TIME) && this.adicionarBot(time)) n++;
+    return n;
   }
 
   /** Jogadores (humanos e computadores) em cada time. */
@@ -356,31 +385,6 @@ export class World {
     if (!j.ia && ![...this.players.values()].some((o) => !o.ia)) {
       for (const o of [...this.players.values()]) this.removePlayer(o.id);
     }
-  }
-
-  /**
-   * Pedido de computador ({t:'ia'}) do jogador `id`: acao 'adicionar' com lado
-   * 'meu' ou 'inimigo' (relativo a quem pede) põe um no time ('cheio' com
-   * MAX_POR_TIME); acao 'remover' com o id de um computador o tira. Responde como a
-   * Loja: {t:'resultado', acao:'ia', item: acao, ok, codigo?}.
-   */
-  pedidoIa(id, msg) {
-    const j = this.players.get(id);
-    const acao = typeof msg?.acao === 'string' ? msg.acao.slice(0, 16) : '';
-    const resposta = (ok, codigo) => ({ t: 'resultado', acao: 'ia', item: acao, ok, ...(codigo ? { codigo } : {}) });
-    if (!j) return resposta(false, 'invalido');
-    if (acao === 'adicionar') {
-      if (msg.lado !== 'meu' && msg.lado !== 'inimigo') return resposta(false, 'invalido');
-      const time = msg.lado === 'meu' ? j.time : (j.time + 1) % N_TIMES;
-      return this.adicionarBot(time) ? resposta(true) : resposta(false, 'cheio');
-    }
-    if (acao === 'remover') {
-      const alvo = this.players.get(Number(msg.id));
-      if (!alvo?.ia) return resposta(false, 'invalido');
-      this.removePlayer(alvo.id);
-      return resposta(true);
-    }
-    return resposta(false, 'invalido');
   }
 
   /**
@@ -611,7 +615,11 @@ export class World {
     if (ev) {
       const e = { ...ev, alvo: alvo.id, dano: +total.toFixed(1) };
       if (noEscudo > 0) e.escudo = +noEscudo.toFixed(1);
-      if (crit) e.crit = true;
+      if (crit) {
+        // Crítico: quem bateu (`por`) recebe o acerto onde quer que ele caia, para o "CRÍTICO" na tela.
+        e.crit = true;
+        e.por = autor;
+      }
       this.eventos.push(e);
     }
     if (alvo.ship.hp > 0) return;
@@ -635,6 +643,7 @@ export class World {
     if (alvo.esp) morte.esp = alvo.esp;
     this.eventos.push(morte);
     const ouroAntes = matador?.ouro ?? 0;
+    const xpAntes = matador?.xpGanho ?? 0;
     if (matador) {
       // Ouro e XP pelo que morreu (RECOMPENSA: espécie do monstro, minerador, jogador).
       matador.abates++;
@@ -644,6 +653,14 @@ export class World {
     // Jungle: recarga do lugar e bônus do golpe final (a Medusa paga o time inteiro).
     if (alvo.tipo === 'monstro') this.jungle.aoMorrer(alvo, matador);
     if (matador) morte.ouro = matador.ouro - ouroAntes;
+    // Monstro abatido: o ouro e o XP que o matador ganhou dele (a Medusa paga pelo
+    // golpe final) sobem do lugar da morte só na tela dele (evento privado 'ganho',
+    // server/visao.js), com o crítico do golpe final.
+    if (matador && alvo.tipo === 'monstro') {
+      const ganho = { e: 'ganho', para: matador.id, id: alvo.id, esp: alvo.esp, x: +alvo.ship.x.toFixed(2), y: +alvo.ship.y.toFixed(2), z: +alvo.ship.z.toFixed(2), ouro: matador.ouro - ouroAntes, xp: (matador.xpGanho ?? 0) - xpAntes };
+      if (crit) ganho.crit = true;
+      if (ganho.ouro > 0 || ganho.xp > 0 || crit) this.eventos.push(ganho);
+    }
     if (alvo.tipo === 'jogador') {
       // Morrer (para quem for) zera a sequência, o registro de dano e os bônus de nave.
       alvo.sequencia = 0;
@@ -833,9 +850,23 @@ export class World {
     this.eventos.push({ e: 'recall', id: j.id, estado: 'chegou', de, x: s.x, y: s.y, z: s.z });
   }
 
+  /**
+   * Ouro passivo (server/progressao.js): a cada segundo inteiro de partida em
+   * andamento, OURO_POR_SEGUNDO para cada jogador, computadores e mortos inclusive.
+   * Contado pelos ticks desde o começo (TICK_HZ por segundo): sempre inteiro, sem
+   * fração acumulada no passo de 1/30 s.
+   */
+  #ouroPassivo() {
+    if (!this.partida.emAndamento || !this.ouroPorSegundo) return;
+    const decorridos = this.tick - this.partida.inicioTick;
+    if (decorridos <= 0 || decorridos % TICK_HZ !== 0) return;
+    for (const j of this.players.values()) j.ouro += this.ouroPorSegundo;
+  }
+
   /** Avança o mundo um passo. */
   step() {
     this.tick++;
+    this.#ouroPassivo(); // antes do relógio: o último segundo da partida também paga
     this.#passoPartida();
     this.bots.passo(); // o comando de cada computador entra na fila dele
 

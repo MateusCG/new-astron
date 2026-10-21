@@ -5,10 +5,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World, ZONA_SEGURA } from '../server/game.js';
 import { createShip } from '../shared/sim.js';
-import { BASES } from '../shared/terrain.js';
+import { BASES, BUFFS, heightAt } from '../shared/terrain.js';
 import { bloqueiaVisao } from '../shared/visao.js';
 import { ESPECIES, alcanceMaximo } from '../server/especies.js';
-import { RAIVA_S } from '../server/jungle.js';
+import { RAIVA_S, corpoLivre } from '../server/jungle.js';
 import { CAMPO } from './lugares.mjs';
 
 function rngFixo(semente = 1) {
@@ -187,4 +187,40 @@ test('monstros: a Medusa alterna os ataques um de cada vez; o SN-4 solta míssei
   assert.ok(outro.w.minas.some((m) => m.dono === sn.id && m.campo && m.g.atq === 'campo_eletrico'), 'campo elétrico no chão');
   const snap = outro.w.snapshotPara(outro.j, outro.w.entidades(), []);
   assert.ok(snap.minas.some((m) => m.atq === 'campo_eletrico'));
+});
+
+test('monstros: o SN-4 tem o dobro do tamanho, cabe no buff de ataque e não entra na rocha', () => {
+  // O raio de acerto dobrou junto com o modelo (13 → 26 m; o glb tem 30 m e é desenhado 2×).
+  assert.equal(ESPECIES.sn4.raio, 26);
+  assert.equal(ESPECIES.sn4.tamanho, 60);
+  for (const b of BUFFS.filter((x) => x.tipo === 'ataque')) assert.ok(corpoLivre(b.x, b.z, ESPECIES.sn4.raio), `o SN-4 cabe no ${b.id}`);
+
+  // Um lugar no território do BA0 com o corpo livre mas a menos de 40 m da rocha, e o
+  // rumo da rocha mais perto.
+  const ba = BUFFS.find((x) => x.id === 'BA0');
+  const r = ESPECIES.sn4.raio;
+  let lugar = null;
+  for (let dx = -170; dx <= 170 && !lugar; dx += 5) {
+    for (let dz = -170; dz <= 170 && !lugar; dz += 5) {
+      const x = ba.x + dx;
+      const z = ba.z + dz;
+      if (Math.hypot(dx, dz) <= 170 && corpoLivre(x, z, r) && !corpoLivre(x, z, r + 12)) lugar = { x, z };
+    }
+  }
+  assert.ok(lugar, 'achou um lugar perto da rocha');
+  let rumo = 0;
+  for (let a = 0; a < 64; a++) {
+    const ang = (a / 64) * Math.PI * 2;
+    if (heightAt(lugar.x + Math.cos(ang) * (r + 12), lugar.z + Math.sin(ang) * (r + 12)) > 0.5) rumo = ang;
+  }
+  // A "casa" dele do outro lado da rocha: ele vai reto para lá e esbarra.
+  const { w } = mundo();
+  const sn = w.jungle.criarMonstro('sn4', lugar.x, lugar.z, { territorio: 1000 });
+  sn.casa = { x: lugar.x + Math.cos(rumo) * 200, z: lugar.z + Math.sin(rumo) * 200 };
+  let andou = 0;
+  rodar(w, 8, () => {
+    assert.ok(corpoLivre(sn.ship.x, sn.ship.z, r), `casco na rocha em (${sn.ship.x.toFixed(0)}, ${sn.ship.z.toFixed(0)})`);
+    andou = Math.max(andou, Math.hypot(sn.ship.x - lugar.x, sn.ship.z - lugar.z));
+  });
+  assert.ok(andou > 1, 'chegou a andar (a regra freia, não congela)');
 });

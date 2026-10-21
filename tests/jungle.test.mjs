@@ -19,7 +19,7 @@ function rngFixo(semente = 1) {
 const JA = { primeiroS: 0 };
 /** Mundo com a partida andando (um jogador de cada time) e os tempos da jungle trocados. */
 function mundo(tempos = {}) {
-  const w = new World({ rng: rngFixo(3), torretas: false, temposJungle: tempos });
+  const w = new World({ rng: rngFixo(3), torretas: false, temposJungle: tempos, ouroPorSegundo: 0 }); // conta o ouro exato dos abates
   const a = w.addPlayer('A', 'bellico');
   const b = w.addPlayer('B', 'acron');
   for (const j of [a, b]) j.protegidoAte = 0;

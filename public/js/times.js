@@ -1,33 +1,23 @@
-// Janela dos times (#times, tecla P ou o botão TIMES do HUD): as três vagas de cada
-// time, com quem está em cada uma (nick, nível, abates e mortes; os computadores
-// com o selo IA), e o computador para jogar com você ou contra você.
+// Janela dos times (#times, tecla P ou o botão TIMES do HUD), só de CONSULTA: as
+// três vagas de cada time, com quem está em cada uma (nick, nível, abates e mortes,
+// vivo ou abatido; os computadores com o selo IA) e as vagas livres.
 //
-// Vaga livre mostra "+ Computador": o pedido {t:'ia', acao:'adicionar', lado} vai
-// para o servidor, que decide (pode recusar com 'cheio' se outro jogador ocupou a
-// vaga antes). Computador tem o "×" para tirar ({t:'ia', acao:'remover', id}). O
-// servidor manda a lista no snapshot (`jogadores`); aqui só se desenha e se pede.
-// Como as outras janelas, o jogo não pausa, mas não sai tiro com ela aberta.
+// Quantos computadores jogam com você e contra você se escolhe ANTES de decolar, na
+// tela inicial (escolha-times.js, campos iaMeu e iaInimigo do {t:'entrar'}); dentro
+// da partida não se põe nem se tira computador (o servidor recusa o {t:'ia'}). O
+// servidor manda a lista no snapshot (`jogadores`); aqui só se desenha. Como as
+// outras janelas, o jogo não pausa, mas não sai tiro com ela aberta.
 
 // Vagas por time: o mesmo MAX_POR_TIME de server/partida.js (quem manda é o servidor).
 const MAX_POR_TIME = 3;
 
-const MENSAGEM = {
-  cheio: 'Esse time já tem 3 jogadores',
-  invalido: 'Não deu para mexer nesse computador',
-};
-
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 export class PainelTimes {
-  /**
-   * @param {{ meuId: number, meuTime: number, enviar: (m: object) => void,
-   *   noticia: (texto: string, tipo?: string) => void, signal: AbortSignal }} opcoes
-   */
-  constructor({ meuId, meuTime, enviar, noticia, signal }) {
+  /** @param {{ meuId: number, meuTime: number, signal: AbortSignal }} opcoes */
+  constructor({ meuId, meuTime, signal }) {
     this.meuId = meuId;
     this.meuTime = meuTime;
-    this.enviar = enviar;
-    this.noticia = noticia;
     this.el = document.querySelector('#times');
     this.colunas = { meu: this.el.querySelector('.meu ul'), inimigo: this.el.querySelector('.inimigo ul') };
     this.jogadores = [];
@@ -38,8 +28,6 @@ export class PainelTimes {
         const b = e.target.closest('button');
         if (!b) return;
         if (b.classList.contains('fechar')) this.fechar();
-        else if (b.dataset.lado) this.enviar({ t: 'ia', acao: 'adicionar', lado: b.dataset.lado });
-        else if (b.dataset.tirar) this.enviar({ t: 'ia', acao: 'remover', id: Number(b.dataset.tirar) });
         b.blur(); // o foco no botão não pode prender as teclas do jogo
       },
       { signal },
@@ -86,12 +74,6 @@ export class PainelTimes {
     if (this.aberto) this.#desenhar();
   }
 
-  /** Resposta do servidor a um pedido {t:'ia'}. */
-  resultado(m) {
-    if (m.ok) this.noticia(m.item === 'adicionar' ? 'Computador entrou na partida' : 'Computador saiu da partida', 'bom');
-    else this.noticia(MENSAGEM[m.codigo] ?? 'Pedido recusado', 'ruim');
-  }
-
   #desenhar(forcar = false) {
     const chave = JSON.stringify(this.jogadores);
     if (!forcar && chave === this.chave) return; // nada mudou: não mexe no DOM
@@ -103,11 +85,7 @@ export class PainelTimes {
         .filter((j) => j.time === time)
         .sort((a, b) => (b.id === this.meuId) - (a.id === this.meuId) || !!a.ia - !!b.ia || a.id - b.id);
       const linhas = lista.map((j) => this.#linha(j));
-      for (let k = lista.length; k < MAX_POR_TIME; k++) {
-        linhas.push(
-          `<li class="vaga"><button type="button" data-lado="${lado}" title="Pôr um computador ${lado === 'meu' ? 'no seu time' : 'no time inimigo'}">+ Computador</button></li>`,
-        );
-      }
+      for (let k = lista.length; k < MAX_POR_TIME; k++) linhas.push('<li class="vaga">Vaga livre</li>');
       this.colunas[lado].innerHTML = linhas.join('');
       this.el.querySelector(`.${lado} .conta`).textContent = `${lista.length}/${MAX_POR_TIME}`;
     }
@@ -117,12 +95,10 @@ export class PainelTimes {
     const voce = j.id === this.meuId;
     const nome = j.ia ? j.nome.replace(/ \(IA\)$/, '') : j.nome;
     const selo = j.ia ? '<span class="selo-ia">IA</span>' : voce ? '<span class="selo-voce">VOCÊ</span>' : '';
-    const tirar = j.ia ? `<button type="button" class="tirar" data-tirar="${j.id}" title="Tirar ${esc(j.nome)}" aria-label="Tirar ${esc(j.nome)}">✕</button>` : '';
     return `<li class="${voce ? 'voce' : ''}${j.vivo ? '' : ' morto'}">
       <span class="nome">${esc(nome)}</span>${selo}
       <span class="nv">NV ${j.nivel}</span>
       <span class="km" title="Abates / mortes">${j.abates}/${j.mortes}</span>
-      ${tirar}
     </li>`;
   }
 }

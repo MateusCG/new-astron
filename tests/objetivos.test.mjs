@@ -22,7 +22,7 @@ const RAPIDO = {
 
 /** Mundo sem monstros e sem mineradores andando, com A e C no time 0 e B no 1. */
 function mundo(opcoes = {}) {
-  const w = new World({ jungle: false, torretas: false, objetivos: RAPIDO, ...opcoes });
+  const w = new World({ jungle: false, torretas: false, objetivos: RAPIDO, ouroPorSegundo: 0, ...opcoes }); // conta o ouro exato dos objetivos
   const a = w.addPlayer('A', 'bellico');
   const b = w.addPlayer('B', 'acron');
   const c = w.addPlayer('C', 'shrewdo');

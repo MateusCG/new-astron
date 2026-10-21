@@ -7,9 +7,19 @@
 // modelo da nave em public/modelos/) em /vendor/addons/.
 //
 // Protocolo (JSON):
-//   cliente → servidor  {t:'entrar', nome, race, classe, teste?}   teste: true = modo de
-//                        teste, num mundo só seu (partida sem relógio; MAX_MUNDOS_TESTE
-//                        ao mesmo tempo, senão {t:'erro', codigo:'teste_cheio'})
+//   cliente → servidor  {t:'entrar', nome, race, classe, teste?, iaMeu?, iaInimigo?}
+//                        teste: true = modo de teste, num mundo só seu (partida sem
+//                        relógio; MAX_MUNDOS_TESTE ao mesmo tempo, senão {t:'erro',
+//                        codigo:'teste_cheio'}); iaMeu (0 a 2) e iaInimigo (0 a 3) =
+//                        computadores escolhidos na tela inicial (inteiros; fora do
+//                        limite vai para o limite, o que não é número vira 0:
+//                        computadoresDaEntrada em server/partida.js). São o mínimo de
+//                        vagas ocupadas: logo depois de entrar, o servidor completa o
+//                        seu time até 1 + iaMeu e o outro até iaInimigo com
+//                        computadores, contando gente e computador que já estão lá;
+//                        só acrescenta (não tira ninguém, nem os computadores de outro
+//                        piloto), nunca passa de 3 por time e gente ocupa a vaga antes
+//                        (no modo de teste, no mundo dele)
 //                       (race = 'acron' | 'bellico' | 'shrewdo'; 'mechan' ainda sem
 //                        naves é recusada com 'raca_bloqueada', outra coisa com
 //                        'raca_invalida'; classe = 'assault' | 'mobile' |
@@ -94,13 +104,11 @@
 //                        pousado e parado na plataforma do serviço da própria base;
 //                        usar e equipar valem em qualquer lugar; tudo validado em
 //                        server/servicos.js)
-//                       {t:'ia', acao, lado?, id?}   computador: acao 'adicionar' com
-//                        lado 'meu' | 'inimigo' (relativo a quem pede) põe um jogador do
-//                        computador naquele time ('cheio' com 3); acao 'remover' com o id
-//                        de um computador o tira (de humano, 'invalido'); resposta
-//                        {t:'resultado', acao:'ia', item: acao, ok, codigo?}. O nick dele
-//                        é sempre "NOME (IA)" (server/bots.js). Humano que entra com a
-//                        partida cheia fica com a vaga de um computador.
+//                       {t:'ia', ...}   não vale mais: os computadores se escolhem só na
+//                        entrada (iaMeu, iaInimigo); a resposta é sempre {t:'resultado',
+//                        acao:'ia', item: acao, ok: false, codigo:'invalido'}. O nick do
+//                        computador é sempre "NOME (IA)" (server/bots.js). Humano que
+//                        entra com a partida cheia fica com a vaga de um computador.
 //                       {t:'ping', c}
 //   servidor → cliente  {t:'bemvindo', id, tickHz, time, teste}   time = 0 (base de baixo) ou 1
 //                       {t:'erro', codigo}   codigo 'partida_cheia' (3 em cada time),
@@ -191,7 +199,7 @@
 //         das melhorias dos mineradores do time de quem recebe (zeram a cada partida)
 //   jogadores: [{id, nome, time, nivel, ia?, abates, mortes, vivo}]   todos os
 //         jogadores da partida, humanos e computadores (ia: true), para a janela de
-//         times
+//         times (só consulta)
 //   partida: {n, estado, fase, restante, semTempo, placar:[t0, t1], vencedor, novaEm}
 //            (semTempo: modo de teste, a partida não acaba e restante vem 0)
 //         estado = 'esperando' | 'andamento' | 'fim'; fase = 'normal' | 'final'
@@ -308,7 +316,14 @@
 //                                    num alvo (um por alvo; bala = o tiro que bateu
 //                                    direto; dano = o total, escudo + HP; escudo = a
 //                                    parte que o escudo do equipamento segurou; crit =
-//                                    golpe crítico, dano dobrado)
+//                                    golpe crítico, dano dobrado; com crit vem também
+//                                    por = id de quem bateu, que sempre recebe o evento)
+//         {e:'ganho', para, id, esp, x, y, z, ouro, xp, crit?}   PRIVADO (só o jogador
+//                                    `para` recebe): o ouro e o XP que ele ganhou ao
+//                                    abater o monstro id (espécie esp) no lugar x, y, z
+//                                    (a Medusa conta o que ela paga a ele); xp = 0 no
+//                                    nível máximo; crit = o golpe final foi crítico.
+//                                    O cliente faz os números subirem do lugar
 //         {e:'explosao', arma, nv, p, dono, time, x, y, z, raio, mina?}   área de um
 //                                    golpe (impacto com área, fim da vida, mina; raio
 //                                    0 = mina que atirou e sumiu)
@@ -458,7 +473,8 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
           mundo = new World({ teste: true });
           mundos.set(mundo, new Map());
         }
-        jogador = mundo.addPlayer(msg.nome, msg.race, msg.classe);
+        // Os computadores da tela inicial vêm junto; o World sanea e completa os times.
+        jogador = mundo.addPlayer(msg.nome, msg.race, msg.classe, { iaMeu: msg.iaMeu, iaInimigo: msg.iaInimigo });
         if (!jogador) {
           // Os dois times cheios: código estável que o cliente traduz na tela de entrada.
           ws.send(JSON.stringify({ t: 'erro', codigo: 'partida_cheia' }));
@@ -473,8 +489,9 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
         // Loja, Evolução, pontos e equipamento: o servidor valida tudo e responde só a quem pediu.
         ws.send(JSON.stringify(mundo.pedido(jogador.id, msg)));
       } else if (msg?.t === 'ia' && jogador) {
-        // Computador no seu time ou no outro (ou tirar um): o servidor decide e responde.
-        ws.send(JSON.stringify(mundo.pedidoIa(jogador.id, msg)));
+        // Computador só se escolhe na entrada: dentro da partida a janela Times é consulta.
+        const item = typeof msg.acao === 'string' ? msg.acao.slice(0, 16) : '';
+        ws.send(JSON.stringify({ t: 'resultado', acao: 'ia', item, ok: false, codigo: 'invalido' }));
       } else if (msg?.t === 'teste' && jogador) {
         // Modo de teste (ouro, XP, nível): só o mundo de teste aceita.
         ws.send(JSON.stringify(mundo.pedidoTeste(jogador.id, msg)));

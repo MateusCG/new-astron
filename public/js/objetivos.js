@@ -18,19 +18,22 @@
 
 import * as THREE from 'three';
 import { BUFFS, PLATAFORMAS_POUSO, NUCLEO, MEDUSA, heightAt } from '/shared/terrain.js';
-import { definirObstaculoAtivo } from '/shared/obstaculos.js';
+import { definirObstaculoAtivo, TORRE_SUPORTE } from '/shared/obstaculos.js';
 
 /** Segundos pousado na plataforma para o time ganhar o ouro (server/objetivos.js). */
 export const POUSO_PLATAFORMA_S = 6;
 const DIST_ROTULO = 1000; // m: mais longe que isso o rótulo some
 const DIST_ESMAECE = 750;
 
+/** Rótulo da torre de suporte: acima do núcleo âmbar do alto do modelo (que passa da planta). */
+const ALT_ROTULO_SUPORTE = TORRE_SUPORTE.altura + 14;
+
 /**
  * Os objetivos, onde ficam e a que altura vai o rótulo (m acima do chão de voo).
  * `tipo` escolhe o ícone e os textos.
  */
 export const LUGARES_OBJETIVO = [
-  ...BUFFS.map((b) => ({ id: b.id, tipo: b.tipo, x: b.x, z: b.z, alt: b.tipo === 'ataque' ? 44 : 42 })),
+  ...BUFFS.map((b) => ({ id: b.id, tipo: b.tipo, x: b.x, z: b.z, alt: b.tipo === 'ataque' ? 44 : ALT_ROTULO_SUPORTE })),
   ...PLATAFORMAS_POUSO.map((p) => ({ id: p.id, tipo: 'plataforma', x: p.x, z: p.z, alt: 16 })),
   // A sonda anda em volta da mineradora (pela coluna central); parada, o rótulo fica em cima dela.
   { id: 'SONDA', tipo: 'sonda', x: 0, z: 0, alt: 112 },
@@ -118,7 +121,7 @@ export class ObjetivosNaTela {
         definirObstaculoAtivo(id, !caida);
         if (caida && antes && antes.estado !== 'recarga') {
           const o = this.rotulos.get(id).o;
-          cairam.push({ id, x: o.x, y: heightAt(o.x, o.z) + 16, z: o.z });
+          cairam.push({ id, x: o.x, y: heightAt(o.x, o.z) + TORRE_SUPORTE.altura / 2, z: o.z });
         }
       }
       this.definirObjetivo(id, r);

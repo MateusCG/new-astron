@@ -36,6 +36,21 @@ export const N_TIMES = 2;
 export const FASE_FINAL_S = 180; // últimos 3 minutos: minério vale mais
 export const MULT_FASE_FINAL = 2; // minério entregue na fase final vale o dobro
 
+// Computadores escolhidos na tela inicial (entrada {t:'entrar', iaMeu, iaInimigo}):
+// no seu time cabem até 2 (você ocupa uma das 3 vagas), no outro até 3.
+export const IA_MEU_MAX = MAX_POR_TIME - 1;
+export const IA_INIMIGO_MAX = MAX_POR_TIME;
+
+/**
+ * Sanea o pedido de computadores da entrada (vem da rede): inteiro de 0 ao máximo
+ * de cada lado; o que não é número (texto, null, NaN, ausente) vira 0.
+ * @returns {{ iaMeu: number, iaInimigo: number }}
+ */
+export function computadoresDaEntrada(msg) {
+  const limpa = (v, max) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(max, Math.floor(v))) : 0);
+  return { iaMeu: limpa(msg?.iaMeu, IA_MEU_MAX), iaInimigo: limpa(msg?.iaInimigo, IA_INIMIGO_MAX) };
+}
+
 export class Partida {
   /** @param {{ duracaoS?: number, intervaloFimS?: number, faseFinalS?: number }} [opcoes] */
   constructor({ duracaoS = DURACAO_PARTIDA_S, intervaloFimS = INTERVALO_FIM_S, faseFinalS = FASE_FINAL_S } = {}) {

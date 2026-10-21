@@ -11,13 +11,20 @@
 //   mais mineradores ao mesmo tempo, durabilidade, defesa e velocidade. Cada uma
 //   tem níveis com preço crescente e um limite. Qualquer piloto do time pode pagar
 //   o próximo nível; o servidor põe o efeito em world.mineradores.melhorias[time].
+//   Cada time começa com MINERADORES_POR_TIME (10) ao mesmo tempo; a "quantidade"
+//   SOMA em cima disso, MIN_EXTRA_POR_NIVEL (2) por nível (10 → 12 → 14): +1 em
+//   cima de 10 seria só +10% e não pagaria o preço. O teto (14) ainda cabe na doca:
+//   cada um ocupa a doca 5 s de um ciclo de ~75 s (server/mineradores.js), então até
+//   uns 15 por time não formam fila longa.
 // - Torretas do time (as quatro do corredor, server/torretas.js): o nível vale para
 //   as quatro de uma vez (MELHORIA_TORRETAS: mais HP e mais dano por nível, do 1
 //   ao TORRETA_NIVEL_MAX) e cada torreta destruída pode ser reconstruída
 //   (PRECO_RECONSTRUIR, preço fixo; volta inteira, com o nível atual do time).
 //   Como nos mineradores, qualquer piloto do time paga e vale para o time.
 
-export const MIN_EXTRA_POR_NIVEL = 1; // minerador a mais ao mesmo tempo
+/** Mineradores de cada time ao mesmo tempo, sem melhoria (server/mineradores.js lê daqui). */
+export const MINERADORES_POR_TIME = 10;
+export const MIN_EXTRA_POR_NIVEL = 2; // mineradores a mais ao mesmo tempo, por nível
 export const MIN_HP_POR_NIVEL = 0.25; // +25% de HP do minerador
 export const MIN_DEFESA_POR_NIVEL = 0.15; // fração do dano que o minerador deixa de levar
 export const MIN_VEL_POR_NIVEL = 0.1; // +10% de velocidade do minerador
@@ -27,7 +34,7 @@ export const MIN_VEL_POR_NIVEL = 0.1; // +10% de velocidade do minerador
  * ganho por nível. id é o `melhoria` de {t:'melhorar', melhoria}.
  */
 export const MELHORIAS_MINERADOR = {
-  quantidade: { id: 'quantidade', nome: 'Mais mineradores', precos: [200, 350], efeito: `+${MIN_EXTRA_POR_NIVEL} minerador ao mesmo tempo` },
+  quantidade: { id: 'quantidade', nome: 'Mais mineradores', precos: [200, 350], efeito: `+${MIN_EXTRA_POR_NIVEL} mineradores ao mesmo tempo` },
   durabilidade: { id: 'durabilidade', nome: 'Casco de carga', precos: [120, 200, 300], efeito: `+${MIN_HP_POR_NIVEL * 100}% de HP` },
   defesa: { id: 'defesa', nome: 'Blindagem de carga', precos: [120, 200, 300], efeito: `-${MIN_DEFESA_POR_NIVEL * 100}% de dano recebido` },
   velocidade: { id: 'velocidade', nome: 'Motor de carga', precos: [120, 200, 300], efeito: `+${MIN_VEL_POR_NIVEL * 100}% de velocidade` },
@@ -37,6 +44,11 @@ export const ORDEM_MELHORIAS = ['quantidade', 'durabilidade', 'defesa', 'velocid
 /** A melhoria de minerador com este id, ou null. */
 export function melhoriaMinerador(id) {
   return typeof id === 'string' && Object.hasOwn(MELHORIAS_MINERADOR, id) ? MELHORIAS_MINERADOR[id] : null;
+}
+
+/** Quantos mineradores o time tem ao mesmo tempo com `nivel` da melhoria "quantidade". */
+export function mineradoresDoTime(nivel = 0) {
+  return MINERADORES_POR_TIME + MIN_EXTRA_POR_NIVEL * nivel;
 }
 
 /** Níveis de melhoria de um time no começo da partida (todos 0). */

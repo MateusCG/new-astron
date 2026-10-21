@@ -12,6 +12,10 @@
 //   sem ossos); a sonda zumbe mais rápido; a Medusa "respira" (a cúpula estica) e
 //   fica com o centro a MEDUSA_CENTRO m (a física põe todo monstro na altura de voo;
 //   ela é desenhada mais alta, com os tentáculos chegando na água).
+// - O SN-4 (chefe do buff de ataque) é desenhado ESCALA_MONSTRO.sn4 = 2× o glb (60 m
+//   de comprimento), casando com o raio de acerto dobrado do servidor
+//   (server/especies.js); o centro sobe para CENTRO_MONSTRO.sn4, para a quilha não
+//   entrar na água (NIVEL_AGUA) com o casco dobrado.
 // - Em volta da Medusa nascem, crescem e somem as manchas de sangue e as bolhas do
 //   original (BOSS_BLOOD e BOSS_BUBBLE do effectevent.txt), só decoração.
 // - O perigo continua no vermelho da interface: rótulo, barra e ponto do minimapa
@@ -22,16 +26,20 @@ import { HOVER } from '/shared/sim.js';
 import { PASTA_MODELOS_MONSTRO, ESPECIES_MONSTRO } from './insumos.js';
 
 /** Tamanho do ponto de cada espécie no minimapa (px): quanto mais perigoso, maior. */
-export const PONTO_MONSTRO = { sonda: 3, armish: 3.5, chrometic: 3.5, xerxes: 4, bazit: 4, great_xerxes: 5.5, anti: 5.5, sn4: 6.5, medusa: 8 };
+export const PONTO_MONSTRO = { sonda: 3, armish: 3.5, chrometic: 3.5, xerxes: 4, bazit: 4, great_xerxes: 5.5, anti: 5.5, sn4: 7.5, medusa: 8 };
 /** Tamanho da explosão da morte de cada espécie (efeitos.explosao). */
-export const EXPLOSAO_MONSTRO = { sonda: 2, armish: 2.5, chrometic: 2.5, xerxes: 3, bazit: 3, great_xerxes: 5, anti: 5, sn4: 7, medusa: 10 };
+export const EXPLOSAO_MONSTRO = { sonda: 2, armish: 2.5, chrometic: 2.5, xerxes: 3, bazit: 3, great_xerxes: 5, anti: 5, sn4: 12, medusa: 10 };
 /**
  * Quanto o rótulo (nome e barra) de cada espécie sobe além do de uma nave: os
  * grandes têm o alto bem acima do centro (a Medusa, desenhada mais alta, mais ainda).
  */
-export const ROTULO_MONSTRO = { sonda: 0, armish: 0, chrometic: 0, xerxes: 1, bazit: 2, great_xerxes: 5, anti: 1, sn4: 10, medusa: 32 };
+export const ROTULO_MONSTRO = { sonda: 0, armish: 0, chrometic: 0, xerxes: 1, bazit: 2, great_xerxes: 5, anti: 1, sn4: 34, medusa: 32 };
 /** Altura do centro da Medusa acima do chão de voo (m). */
 export const MEDUSA_CENTRO = 18;
+/** Escala do glb por espécie (1 nas que não estão aqui): o SN-4 é o dobro do original. */
+export const ESCALA_MONSTRO = { sn4: 2 };
+/** Altura do centro acima do chão de voo (m) das espécies desenhadas fora da altura de voo (HOVER). */
+export const CENTRO_MONSTRO = { medusa: MEDUSA_CENTRO, sn4: 16 };
 /** Balanço de cada espécie: subida e descida (m), frequência (rad/s) e balanço lateral (rad). */
 const BALANCO = {
   sonda: { sobe: 0.6, freq: 6, rola: 0.15 },
@@ -41,7 +49,7 @@ const BALANCO = {
   great_xerxes: { sobe: 1.2, freq: 1.8, rola: 0.08 },
   bazit: { sobe: 0.8, freq: 2.4, rola: 0.14 },
   anti: { sobe: 0.6, freq: 1.4, rola: 0.05 },
-  sn4: { sobe: 1.0, freq: 0.9, rola: 0.04 },
+  sn4: { sobe: 2.0, freq: 0.7, rola: 0.03 }, // o dobro do tamanho: balança mais alto e mais devagar
   medusa: { sobe: 1.5, freq: 0.7, rola: 0.03 },
 };
 /** Efeitos em volta da Medusa: até quantos ao mesmo tempo, a cada quanto nasce um, e o raio (m). */
@@ -109,6 +117,7 @@ function montar(raiz, modelo) {
     casco = new THREE.Mesh(GEO_LUGAR, matLugar);
     casco.scale.set(3, 2, 4);
   }
+  casco.scale.multiplyScalar(ESCALA_MONSTRO[raiz.userData.esp] ?? 1);
   corpo.add(casco);
   raiz.userData.casco = casco;
 }
@@ -123,7 +132,7 @@ export function criarMonstro(esp) {
   const corpo = new THREE.Group();
   raiz.add(corpo);
   raiz.userData = { corpo, esp, casco: null, fxMedusa: [], accFx: 0 };
-  if (esp === 'medusa') corpo.position.y = MEDUSA_CENTRO - HOVER;
+  if (CENTRO_MONSTRO[esp]) corpo.position.y = CENTRO_MONSTRO[esp] - HOVER;
   const pronto = prontos.get(esp);
   montar(raiz, pronto ?? null);
   if (!pronto && ESPECIES_MONSTRO.includes(esp)) {
@@ -134,13 +143,19 @@ export function criarMonstro(esp) {
   return raiz;
 }
 
-/** Uma mancha de sangue ou bolha nova em volta da Medusa (cresce e some). */
-function nascerFxMedusa(raiz) {
-  const sangue = Math.random() < 0.5;
-  const modelo = prontos.get(sangue ? 'medusa-sangue' : 'medusa-bolha');
-  if (!modelo) return;
+// Sangue e bolhas da Medusa: cada um tem material próprio (esmaece sozinho) e
+// transparente (outro shader, nas duas faces), então saem de uma reserva e voltam
+// para ela ao sumir, em vez de clonar e liberar a cada 0,35 s; a tela de
+// carregamento monta um de cada (prepararFxMedusa) para o shader já estar pronto.
+const reservaFxMedusa = { 'medusa-sangue': [], 'medusa-bolha': [] };
+
+/** Um efeito da Medusa da reserva (ou clonado do modelo), com material próprio transparente. */
+function pegarFxMedusa(nome) {
+  const guardado = reservaFxMedusa[nome].pop();
+  if (guardado) return guardado;
+  const modelo = prontos.get(nome);
+  if (!modelo) return null;
   const m = modelo.clone(true);
-  // Material próprio para esmaecer sem mexer nos outros.
   m.traverse((o) => {
     if (!o.isMesh) return;
     o.material = o.material.clone();
@@ -148,6 +163,15 @@ function nascerFxMedusa(raiz) {
     o.material.depthWrite = false;
     o.castShadow = false;
   });
+  m.userData.fxMedusa = nome;
+  return m;
+}
+
+/** Uma mancha de sangue ou bolha nova em volta da Medusa (cresce e some); `sangue` escolhe, senão sorteia. */
+function nascerFxMedusa(raiz, sangue = Math.random() < 0.5) {
+  const m = pegarFxMedusa(sangue ? 'medusa-sangue' : 'medusa-bolha');
+  if (!m) return;
+  m.traverse((o) => o.isMesh && (o.material.opacity = 1));
   const raio = (sangue ? MEDUSA_FX.raioSangue : MEDUSA_FX.raioBolha) * Math.sqrt(Math.random());
   const ang = Math.random() * Math.PI * 2;
   m.position.set(Math.cos(ang) * raio, (Math.random() - 0.4) * 22, Math.sin(ang) * raio);
@@ -163,11 +187,17 @@ function nascerFxMedusa(raiz) {
   });
 }
 
+/** Põe um sangue e uma bolha na Medusa (aquecimento da placa de vídeo, carregamento.js). */
+export function prepararFxMedusa(raiz) {
+  nascerFxMedusa(raiz, true);
+  nascerFxMedusa(raiz, false);
+}
+
 /** Anima o monstro (chamar a cada quadro): balanço da espécie e, na Medusa, a respiração e os efeitos. */
 export function animarMonstro(raiz, t, dt, fase = 0) {
   const ud = raiz.userData;
   const b = BALANCO[ud.esp] ?? BALANCO.armish;
-  const base = ud.esp === 'medusa' ? MEDUSA_CENTRO - HOVER : 0;
+  const base = CENTRO_MONSTRO[ud.esp] ? CENTRO_MONSTRO[ud.esp] - HOVER : 0;
   ud.corpo.position.y = base + Math.sin(t * b.freq + fase) * b.sobe;
   ud.corpo.rotation.z = Math.sin(t * b.freq * 0.5 + fase * 1.7) * b.rola;
   if (ud.esp !== 'medusa' || !ud.casco) return;
@@ -184,7 +214,7 @@ export function animarMonstro(raiz, t, dt, fase = 0) {
     const k2 = f.vida / f.dur;
     if (k2 >= 1) {
       f.m.parent?.remove(f.m);
-      f.m.traverse((o) => o.isMesh && o.material.dispose());
+      reservaFxMedusa[f.m.userData.fxMedusa]?.push(f.m);
       return false;
     }
     f.m.scale.setScalar(f.escala * (1 + f.cresce * k2));

@@ -35,6 +35,16 @@
 // pulsando; a chama do Xerxes é um cone de fogo (evento 'chama'), a onda do SN-4 um
 // anel que abre, o campo elétrico um disco azulado no chão. O pulso do Núcleo de He-3
 // é um anel azul-gelo (puxando para o vermelho quanto mais forte) que abre até o raio.
+//
+// Desempenho (nada de travada quando a luta começa): o que vem e vai a cada tiro
+// (faísca, fumaça do míssil, clarão, anel de área, chama, pulso, feixe do recall, anel
+// de nível) sai de RESERVAS e volta para elas ao sumir, com material e geometria já
+// prontos; os tiros de NPC e de monstro dividem um material por cor; e as geometrias
+// são de tamanho 1, escaladas (a chama, o pulso, o campo elétrico). Assim a partida
+// não cria geometria nem material a cada tiro e não libera nenhum no meio dela: o
+// Three.js apaga o programa de shader quando o último material dele é liberado, e o
+// próximo efeito igual compilaria de novo. As reservas já nascem cheias na tela de
+// carregamento (preencherReservas, chamado pelo aquecimento da placa de vídeo).
 
 import * as THREE from 'three';
 import { stepBullet, WEAPONS } from '/shared/sim.js';
@@ -156,6 +166,34 @@ const RECALL_COLUNA_ALTURA = 46;
 const RECALL_ANEIS = 3;
 const RECALL_ANEL_SOBE = 22;
 const RECALL_FEIXE_S = 0.7;
+// Quantos de cada efeito passageiro já nascem prontos na tela de carregamento (a
+// reserva cresce sozinha se a partida pedir mais). Uma briga de 6 naves com mísseis
+// passa de cem faíscas e baforadas de fumaça ao mesmo tempo.
+const RESERVA_INICIAL = { brilho: 160, fumaca: 120, faiscas: 12, anelArea: 12, anelNivel: 4, chama: 8, pulsoAnel: 4, pulsoCasca: 4, feixe: 4 };
+// Faíscas de uma explosão: 14 por tamanho, até este tanto (o buffer da reserva é deste tamanho).
+const FAISCAS_MAX = 128;
+
+/**
+ * Cone da chama do monstro em tamanho 1 (boca na origem, abrindo até z = -1, raio 1
+ * na ponta larga), com a cor dos vértices: mais claro e quente perto da boca,
+ * apagando na ponta. A lufada escala (raio, raio, alcance).
+ */
+function geometriaChama() {
+  const geo = new THREE.ConeGeometry(1, 1, 14, 1, true);
+  geo.rotateX(Math.PI / 2);
+  geo.translate(0, 0, -0.5);
+  const pos = geo.attributes.position;
+  const cores = new Float32Array(pos.count * 3);
+  const quente = new THREE.Color('#ffd28a');
+  const c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const k = Math.min(1, -pos.getZ(i));
+    c.copy(quente).lerp(COR_CHAMA_MONSTRO, Math.min(1, k * 1.6)).multiplyScalar(0.6 * (1 - k * 0.85));
+    cores.set([c.r, c.g, c.b], i * 3);
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(cores, 3));
+  return geo;
+}
 
 function spriteAditivo(cor, tamanho) {
   const s = new THREE.Sprite(
@@ -165,17 +203,32 @@ function spriteAditivo(cor, tamanho) {
   return s;
 }
 
+// Geometria de cada anel de bônus, uma para todas as naves (nunca liberada: é pequena
+// e volta em toda partida).
+const GEO_BONUS = new Map();
+function geoBonus(def) {
+  if (!GEO_BONUS.has(def)) {
+    GEO_BONUS.set(
+      def,
+      def.jeito === 'arcos'
+        ? new THREE.TorusGeometry(def.raio, 0.2, 4, 24, Math.PI * 0.45)
+        : new THREE.TorusGeometry(def.raio, def.jeito === 'lento' ? 0.24 : 0.18, 4, 64),
+    );
+  }
+  return GEO_BONUS.get(def);
+}
+
 /** Anel de um bônus: toro fino deitado em volta da nave (três arcos na sonda), aditivo. */
 function anelBonus(def) {
   const mat = new THREE.MeshBasicMaterial({ color: def.cor, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
   const g = new THREE.Group();
   if (def.jeito === 'arcos') {
     for (let i = 0; i < 3; i++) {
-      const arco = new THREE.Mesh(new THREE.TorusGeometry(def.raio, 0.2, 4, 24, Math.PI * 0.45), mat);
+      const arco = new THREE.Mesh(geoBonus(def), mat);
       arco.rotation.z = (i * Math.PI * 2) / 3;
       g.add(arco);
     }
-  } else g.add(new THREE.Mesh(new THREE.TorusGeometry(def.raio, def.jeito === 'lento' ? 0.24 : 0.18, 4, 64), mat));
+  } else g.add(new THREE.Mesh(geoBonus(def), mat));
   g.rotation.x = Math.PI / 2;
   g.userData.mat = mat;
   return g;
@@ -190,18 +243,20 @@ export class Efeitos {
     for (const geo of this.geoBarra.values()) geo.dispose();
     this.geoBarra.clear();
     this.atualizarMinas([]);
-    for (const f of this.feixes) {
-      this.scene.remove(f.m);
-      f.m.material.dispose();
+    this.esquecer();
+    // As reservas e os materiais por cor só se liberam aqui, saindo da partida.
+    for (const lista of this.reservas.values()) {
+      for (const o of lista) {
+        o.material.dispose();
+        if (o.userData.reserva === 'faiscas') o.geometry.dispose();
+      }
     }
-    this.feixes = [];
-    for (const c of [...this.chamas, ...this.pulsos]) {
-      this.scene.remove(c.m);
-      c.m.material.dispose();
-    }
-    this.chamas = [];
-    this.pulsos = [];
-    for (const r of [this.geoMina, this.geoEspinho, this.geoLuzMina, this.matMina, this.geoMissil, this.geoNarizMissil, this.matMissil, this.geoAnel, this.geoColuna, this.geoAnelRecall, this.geoPedra, this.geoBola, this.geoAnelTiro]) {
+    this.reservas.clear();
+    for (const m of this.matsPorCor.values()) m.dispose();
+    this.matsPorCor.clear();
+    for (const g of this.geoPulso.values()) g.dispose();
+    this.geoPulso.clear();
+    for (const r of [this.geoMina, this.geoEspinho, this.geoLuzMina, this.matMina, this.geoMissil, this.geoNarizMissil, this.matMissil, this.geoAnel, this.geoColuna, this.geoAnelRecall, this.geoPedra, this.geoBola, this.geoAnelTiro, this.geoChama, this.geoCascaPulso, this.geoAnelNivel, this.geoDiscoCampo, this.geoBordaCampo, this.matDiscoCampo, this.matBordaCampo]) {
       r.dispose();
     }
   }
@@ -217,14 +272,14 @@ export class Efeitos {
     for (const t of this.tiros.values()) this.scene.remove(t.g);
     this.tiros.clear();
     for (const p of this.particulas) {
-      this.scene.remove(p.flash, p.pts);
-      p.pts.geometry.dispose();
+      this.#devolver(p.flash);
+      this.#devolver(p.pts);
     }
-    for (const a of this.aneisArea) this.scene.remove(a.anel);
-    for (const f of this.feixes) this.scene.remove(f.m);
-    for (const p of [...this.fumacas, ...this.auras]) this.scene.remove(p.s);
-    for (const a of this.aneis) a.obj.remove(a.anel);
-    for (const c of [...this.chamas, ...this.pulsos]) this.scene.remove(c.m);
+    for (const a of this.aneisArea) this.#devolver(a.anel);
+    for (const f of this.feixes) this.#devolver(f.m);
+    for (const p of [...this.fumacas, ...this.auras]) this.#devolver(p.s);
+    for (const a of this.aneis) this.#devolver(a.anel);
+    for (const c of [...this.chamas, ...this.pulsos]) this.#devolver(c.m);
     this.chamas = [];
     this.pulsos = [];
     this.particulas = [];
@@ -274,7 +329,119 @@ export class Efeitos {
     this.geoPedra = new THREE.IcosahedronGeometry(1, 0);
     this.geoBola = new THREE.IcosahedronGeometry(1, 1);
     this.geoAnelTiro = new THREE.TorusGeometry(1, 0.18, 4, 20);
+    // Geometrias de tamanho 1 (a malha escala): chama, pulso, anel de nível, campo elétrico.
+    this.geoChama = geometriaChama();
+    this.geoCascaPulso = new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+    this.geoPulso = new Map(); // grossura do anel do pulso (em degraus) -> TorusGeometry
+    this.geoAnelNivel = new THREE.TorusGeometry(1, 0.035, 4, 48);
+    this.geoDiscoCampo = new THREE.CircleGeometry(1, 40);
+    this.geoBordaCampo = new THREE.RingGeometry(0.94, 1, 48);
+    const aditivo = { blending: THREE.AdditiveBlending, transparent: true, depthWrite: false };
+    this.matDiscoCampo = new THREE.MeshBasicMaterial({ color: COR_CAMPO_MONSTRO, ...aditivo, opacity: 0.25, side: THREE.DoubleSide });
+    this.matBordaCampo = new THREE.MeshBasicMaterial({ color: COR_PERIGO, ...aditivo, opacity: 0.8, side: THREE.DoubleSide });
+    this.matsPorCor = new Map(); // materiais dos tiros de NPC e de monstro, um por cor e jeito
+    // Reservas dos efeitos passageiros (#pegar/#devolver) e como nasce cada um.
+    this.reservas = new Map();
+    this.fabricas = {
+      brilho: () => new THREE.Sprite(new THREE.SpriteMaterial({ map: brilho(), ...aditivo })),
+      fumaca: () => new THREE.Sprite(new THREE.SpriteMaterial({ map: brilho(), depthWrite: false, transparent: true })),
+      faiscas: () => {
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(FAISCAS_MAX * 3), 3).setUsage(THREE.DynamicDrawUsage));
+        const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: '#ffd28a', size: 1, ...aditivo }));
+        pts.frustumCulled = false; // as faíscas se espalham: a esfera do primeiro uso não vale para o próximo
+        return pts;
+      },
+      anelArea: () => {
+        const m = new THREE.Mesh(this.geoAnel, new THREE.MeshBasicMaterial({ ...aditivo, side: THREE.DoubleSide }));
+        m.rotation.x = -Math.PI / 2;
+        return m;
+      },
+      anelNivel: () => {
+        const m = new THREE.Mesh(this.geoAnelNivel, new THREE.MeshBasicMaterial({ color: COR_NIVEL, ...aditivo }));
+        m.rotation.x = Math.PI / 2;
+        return m;
+      },
+      chama: () => new THREE.Mesh(this.geoChama, new THREE.MeshBasicMaterial({ vertexColors: true, ...aditivo, side: THREE.DoubleSide })),
+      pulsoAnel: () => {
+        const m = new THREE.Mesh(this.#geoPulso(0), new THREE.MeshBasicMaterial({ ...aditivo }));
+        m.rotation.x = Math.PI / 2;
+        return m;
+      },
+      pulsoCasca: () => new THREE.Mesh(this.geoCascaPulso, new THREE.MeshBasicMaterial({ ...aditivo, side: THREE.DoubleSide })),
+      feixe: () => new THREE.Mesh(this.geoColuna, new THREE.MeshBasicMaterial({ ...aditivo, vertexColors: true, side: THREE.DoubleSide })),
+    };
     this.armas = new VisualArmas(scene);
+  }
+
+  /**
+   * Um efeito passageiro da reserva `tipo` (ou um novo, da fábrica), visível. Volta
+   * com #devolver quando some: nem material nem geometria novos a cada tiro, e nada
+   * liberado no meio da partida.
+   */
+  #pegar(tipo) {
+    const o = this.reservas.get(tipo)?.pop() ?? this.fabricas[tipo]();
+    o.userData.reserva = tipo;
+    o.visible = true;
+    return o;
+  }
+
+  /** Tira o efeito de onde estiver e guarda na reserva dele. */
+  #devolver(o) {
+    o.parent?.remove(o);
+    const tipo = o.userData.reserva;
+    if (!this.reservas.has(tipo)) this.reservas.set(tipo, []);
+    this.reservas.get(tipo).push(o);
+  }
+
+  /** Brilho solto da reserva (faísca, clarão, partícula de aura; `aditivo` false: fumaça cinza). */
+  #brilhoSolto(cor, tamanho, aditivo = true, opacidade = 1) {
+    const s = this.#pegar(aditivo ? 'brilho' : 'fumaca');
+    s.material.color.set(cor);
+    s.material.opacity = opacidade;
+    s.scale.setScalar(tamanho);
+    return s;
+  }
+
+  /**
+   * Enche as reservas (RESERVA_INICIAL) na tela de carregamento, com tudo dentro de
+   * `grupo` (o do aquecimento: entra no quadro de aquecimento e sai junto).
+   */
+  preencherReservas(grupo) {
+    for (const [tipo, n] of Object.entries(RESERVA_INICIAL)) {
+      const lista = this.reservas.get(tipo) ?? [];
+      this.reservas.set(tipo, lista);
+      for (let i = lista.length; i < n; i++) {
+        const o = this.fabricas[tipo]();
+        o.userData.reserva = tipo;
+        if (o.isPoints) o.geometry.setDrawRange(0, 1);
+        grupo.add(o);
+        lista.push(o);
+      }
+    }
+  }
+
+  /** Material de tiro de NPC ou de monstro por cor e jeito (dividido por todos os tiros iguais). */
+  #matPorCor(jeito, cor) {
+    const c = cor instanceof THREE.Color ? cor : new THREE.Color(cor);
+    const chave = `${jeito}|${c.getHexString()}`;
+    let m = this.matsPorCor.get(chave);
+    if (!m) {
+      const aditivo = { color: c, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false };
+      if (jeito === 'brilho') m = new THREE.SpriteMaterial({ map: brilho(), ...aditivo });
+      else if (jeito === 'aditivo') m = new THREE.MeshBasicMaterial(aditivo);
+      else if (jeito === 'pedra') m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.95, flatShading: true });
+      else m = new THREE.MeshBasicMaterial({ color: c });
+      this.matsPorCor.set(chave, m);
+    }
+    return m;
+  }
+
+  /** Anel do pulso do Núcleo com a grossura da força `k` (0 a 1, em 5 degraus). */
+  #geoPulso(k) {
+    const degrau = Math.round(k * 4) / 4;
+    if (!this.geoPulso.has(degrau)) this.geoPulso.set(degrau, new THREE.TorusGeometry(1, 0.02 + 0.03 * degrau, 4, 64));
+    return this.geoPulso.get(degrau);
   }
 
   /**
@@ -327,14 +494,14 @@ export class Efeitos {
 
   /** Feixe curto de luz na cor `cor` onde a nave do recall sumiu ou apareceu. */
   feixeRecall(x, y, z, cor) {
-    const m = new THREE.Mesh(
-      this.geoColuna,
-      new THREE.MeshBasicMaterial({ color: cor, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, vertexColors: true, side: THREE.DoubleSide }),
-    );
+    const m = this.#pegar('feixe');
+    m.material.color.set(cor);
+    m.material.opacity = 1;
+    m.scale.set(1, 1, 1);
     m.position.set(x, y - 6, z);
     this.scene.add(m);
     this.feixes.push({ m, vida: 0 });
-    const s = spriteAditivo(cor, 18);
+    const s = this.#brilhoSolto(cor, 18);
     s.position.set(x, y, z);
     this.scene.add(s);
     this.auras.push({ s, subida: 0, vida: 0, dur: 0.5, tamanho: 18 });
@@ -343,16 +510,13 @@ export class Efeitos {
   /** Anel de luz de "subiu de nível" em volta da nave (grupo do Three.js). */
   anelNivel(obj) {
     for (const atraso of [0, 0.25]) {
-      const anel = new THREE.Mesh(
-        new THREE.TorusGeometry(1, 0.035, 4, 48),
-        new THREE.MeshBasicMaterial({ color: COR_NIVEL, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }),
-      );
-      anel.rotation.x = Math.PI / 2;
+      const anel = this.#pegar('anelNivel');
       anel.visible = false;
       obj.add(anel);
       this.aneis.push({ obj, anel, vida: -atraso });
     }
-    const clarao = spriteAditivo(COR_NIVEL, 8);
+    const clarao = this.#brilhoSolto(COR_NIVEL, 8);
+    clarao.position.set(0, 0, 0);
     obj.add(clarao);
     this.aneis.push({ obj, anel: clarao, vida: 0, clarao: true });
   }
@@ -498,7 +662,7 @@ export class Efeitos {
   }
 
   #particula(cor, tamanho, subida, dur, espalha = 4.5) {
-    const s = spriteAditivo(cor, tamanho);
+    const s = this.#brilhoSolto(cor, tamanho);
     s.position.set(
       this.v.x + (Math.random() * 2 - 1) * espalha,
       this.v.y + (Math.random() * 2 - 1) * 1.5,
@@ -514,17 +678,14 @@ export class Efeitos {
    */
   anelArea(x, y, z, raio, cor) {
     for (const atraso of [0, 0.08]) {
-      const anel = new THREE.Mesh(
-        this.geoAnel,
-        new THREE.MeshBasicMaterial({ color: cor, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, side: THREE.DoubleSide }),
-      );
-      anel.rotation.x = -Math.PI / 2;
+      const anel = this.#pegar('anelArea');
+      anel.material.color.set(cor);
       anel.position.set(x, y, z);
       anel.visible = false;
       this.scene.add(anel);
       this.aneisArea.push({ anel, raio, vida: -atraso });
     }
-    const clarao = spriteAditivo(cor, raio * 0.6);
+    const clarao = this.#brilhoSolto(cor, raio * 0.6);
     clarao.position.set(x, y, z);
     this.scene.add(clarao);
     this.aneisArea.push({ anel: clarao, raio, vida: 0, clarao: true });
@@ -544,25 +705,22 @@ export class Efeitos {
       let v = this.minas.get(m.id);
       if (!v && m.campo && m.atq) {
         // Campo elétrico de monstro: disco azulado no chão com a borda vermelha de perigo.
+        // Geometrias de raio 1 e materiais divididos por todos os campos (escala no raio).
         const g = new THREE.Group();
         const raio = Math.max(3, m.raio ?? 10);
-        const disco = new THREE.Mesh(
-          new THREE.CircleGeometry(raio, 40),
-          new THREE.MeshBasicMaterial({ color: COR_CAMPO_MONSTRO, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.25, depthWrite: false, side: THREE.DoubleSide }),
-        );
+        const disco = new THREE.Mesh(this.geoDiscoCampo, this.matDiscoCampo);
         disco.rotation.x = -Math.PI / 2;
+        disco.scale.set(raio, raio, 1);
         disco.position.y = 0.3;
-        const borda = new THREE.Mesh(
-          new THREE.RingGeometry(raio * 0.94, raio, 48),
-          new THREE.MeshBasicMaterial({ color: COR_PERIGO, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }),
-        );
+        const borda = new THREE.Mesh(this.geoBordaCampo, this.matBordaCampo);
         borda.rotation.x = -Math.PI / 2;
+        borda.scale.set(raio, raio, 1);
         borda.position.y = 0.4;
-        const brilhoCampo = spriteAditivo(COR_CAMPO_MONSTRO, raio * 0.8);
-        brilhoCampo.position.y = 1.5;
+        const brilhoCampo = this.#brilhoSolto(COR_CAMPO_MONSTRO, raio * 0.8);
+        brilhoCampo.position.set(0, 1.5, 0);
         g.add(disco, borda, brilhoCampo);
         this.scene.add(g);
-        v = { g, luz: null, brilho: brilhoCampo, decal: borda, campo: true, fase: Math.random() * Math.PI * 2, proprios: [disco, borda] };
+        v = { g, luz: null, brilho: brilhoCampo, decal: borda, campo: true, fase: Math.random() * Math.PI * 2 };
         this.minas.set(m.id, v);
       }
       if (!v && m.campo) {
@@ -571,8 +729,8 @@ export class Efeitos {
         const decal = campo.userData.miolo;
         g.add(campo);
         const cor = m.time === meuTime ? COR_TIME.meu : COR_TIME.outro;
-        const brilhoCampo = spriteAditivo(cor, 4);
-        brilhoCampo.position.y = 1.5;
+        const brilhoCampo = this.#brilhoSolto(cor, 4);
+        brilhoCampo.position.set(0, 1.5, 0);
         g.add(brilhoCampo);
         this.scene.add(g);
         v = { g, luz: null, brilho: brilhoCampo, decal, campo: true, fase: Math.random() * Math.PI * 2 };
@@ -599,8 +757,8 @@ export class Efeitos {
         const luz = new THREE.Mesh(this.geoLuzMina, new THREE.MeshStandardMaterial({ color: cor, emissive: cor, emissiveIntensity: 1, flatShading: true }));
         luz.position.y = 0.85;
         g.add(luz);
-        const brilhoMina = spriteAditivo(cor, 5);
-        brilhoMina.position.y = 1;
+        const brilhoMina = this.#brilhoSolto(cor, 5);
+        brilhoMina.position.set(0, 1, 0);
         g.add(brilhoMina);
         this.scene.add(g);
         v = { g, luz, brilho: brilhoMina, fase: Math.random() * Math.PI * 2 };
@@ -612,12 +770,10 @@ export class Efeitos {
     for (const [id, v] of this.minas) {
       if (vistas.has(id)) continue;
       this.scene.remove(v.g);
+      // A luz da mina pulsa sozinha (material próprio); o programa dela fica com as
+      // outras luzes neon (naves, torres), então liberar não recompila nada.
       v.luz?.material.dispose();
-      v.brilho.material.dispose();
-      for (const p of v.proprios ?? []) {
-        p.geometry.dispose();
-        p.material.dispose();
-      }
+      this.#devolver(v.brilho);
       this.minas.delete(id);
     }
   }
@@ -672,7 +828,7 @@ export class Efeitos {
     const forma = FORMA_TIRO[b.kind] ?? FORMA_TIRO.laser;
     const g = new THREE.Group();
     if (forma.barra) {
-      const nucleo = new THREE.Mesh(this.#barra(forma), new THREE.MeshBasicMaterial({ color: cor.clone().lerp(new THREE.Color('#fff'), 0.5) }));
+      const nucleo = new THREE.Mesh(this.#barra(forma), this.#matPorCor('solido', cor.clone().lerp(COR_BRANCO, 0.5)));
       g.add(nucleo);
     }
     if (forma.corpo) {
@@ -684,9 +840,7 @@ export class Efeitos {
       nariz.position.z = 1.6;
       g.add(casco, nariz);
     }
-    const s = new THREE.Sprite(
-      new THREE.SpriteMaterial({ map: brilho(), color: cor, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }),
-    );
+    const s = new THREE.Sprite(this.#matPorCor('brilho', cor));
     s.scale.setScalar(forma.brilho);
     if (forma.corpo) s.position.z = -1.5; // a chama fica atrás do casco
     g.add(s);
@@ -705,7 +859,7 @@ export class Efeitos {
     const g = new THREE.Group();
     let animar = null;
     if (f.forma === 'pedra') {
-      const pedra = new THREE.Mesh(this.geoPedra, new THREE.MeshStandardMaterial({ color: f.cor, roughness: 0.95, flatShading: true }));
+      const pedra = new THREE.Mesh(this.geoPedra, this.#matPorCor('pedra', f.cor));
       pedra.scale.setScalar(f.raio);
       g.add(pedra);
       animar = (dt) => {
@@ -713,17 +867,17 @@ export class Efeitos {
         pedra.rotation.y += dt * 3;
       };
     } else if (f.forma === 'anel') {
-      const anel = new THREE.Mesh(this.geoAnelTiro, new THREE.MeshBasicMaterial({ color: f.cor, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
+      const anel = new THREE.Mesh(this.geoAnelTiro, this.#matPorCor('aditivo', f.cor));
       anel.scale.setScalar(f.raio);
       g.add(anel);
       animar = (dt, t) => anel.scale.setScalar(f.raio * (0.85 + 0.25 * Math.sin(t * 30)));
     } else if (f.forma === 'bola' || f.forma === 'orbe') {
-      const bola = new THREE.Mesh(this.geoBola, new THREE.MeshBasicMaterial({ color: f.cor }));
+      const bola = new THREE.Mesh(this.geoBola, this.#matPorCor('solido', f.cor));
       bola.scale.setScalar(f.raio);
       g.add(bola);
       if (f.forma === 'orbe') animar = (dt, t) => bola.scale.setScalar(f.raio * (0.8 + 0.35 * Math.sin(t * 9)));
     } else if (f.forma === 'barra') {
-      g.add(new THREE.Mesh(this.#barra(f), new THREE.MeshBasicMaterial({ color: new THREE.Color(f.cor).lerp(new THREE.Color('#fff'), 0.35) })));
+      g.add(new THREE.Mesh(this.#barra(f), this.#matPorCor('solido', new THREE.Color(f.cor).lerp(COR_BRANCO, 0.35))));
     } else if (f.forma === 'missil') {
       const casco = new THREE.Mesh(this.geoMissil, this.matMissil);
       casco.rotation.x = Math.PI / 2;
@@ -732,7 +886,7 @@ export class Efeitos {
       nariz.position.z = 1.6;
       g.add(casco, nariz);
     }
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: brilho(), color: COR_PERIGO, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    const s = new THREE.Sprite(this.#matPorCor('brilho', COR_PERIGO));
     s.scale.setScalar(f.brilho);
     if (f.forma === 'missil') s.position.z = -1.5;
     g.add(s);
@@ -747,29 +901,13 @@ export class Efeitos {
    * rumo `yaw`, até `alcance` m, aberto `abertura` rad (ou `area` m do eixo).
    */
   chama({ x, y, z, yaw, alcance, abertura, area }) {
-    const raio = area ?? Math.tan(abertura ?? 0.5) * alcance;
-    const geo = new THREE.ConeGeometry(Math.max(2, raio), alcance, 14, 1, true);
-    geo.rotateX(Math.PI / 2);
-    geo.translate(0, 0, -alcance / 2);
-    // Mais claro e quente perto da boca, apagando na ponta larga.
-    const pos = geo.attributes.position;
-    const cores = new Float32Array(pos.count * 3);
-    const quente = new THREE.Color('#ffd28a');
-    const c = new THREE.Color();
-    for (let i = 0; i < pos.count; i++) {
-      const k = Math.min(1, -pos.getZ(i) / alcance);
-      c.copy(quente).lerp(COR_CHAMA_MONSTRO, Math.min(1, k * 1.6)).multiplyScalar(0.6 * (1 - k * 0.85));
-      cores.set([c.r, c.g, c.b], i * 3);
-    }
-    geo.setAttribute('color', new THREE.BufferAttribute(cores, 3));
-    const m = new THREE.Mesh(
-      geo,
-      new THREE.MeshBasicMaterial({ vertexColors: true, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, side: THREE.DoubleSide }),
-    );
+    const raio = Math.max(2, area ?? Math.tan(abertura ?? 0.5) * alcance);
+    const m = this.#pegar('chama');
     m.position.set(x, y, z);
-    m.rotation.y = yaw;
+    m.rotation.set(0, yaw, 0);
+    m.scale.set(raio, raio, alcance);
     this.scene.add(m);
-    this.chamas.push({ m, vida: 0 });
+    this.chamas.push({ m, vida: 0, raio, alcance });
   }
 
   /**
@@ -780,18 +918,14 @@ export class Efeitos {
   pulsoNucleo(x, y, z, raio, forca = 1) {
     const k = Math.max(0, Math.min(1, (forca - 1) / 1.5));
     const cor = COR_PULSO.clone().lerp(COR_PULSO_FORTE, k);
-    const anel = new THREE.Mesh(
-      new THREE.TorusGeometry(1, 0.02 + 0.03 * k, 4, 64),
-      new THREE.MeshBasicMaterial({ color: cor, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }),
-    );
-    anel.rotation.x = Math.PI / 2;
+    const anel = this.#pegar('pulsoAnel');
+    anel.geometry = this.#geoPulso(k);
+    anel.material.color.copy(cor);
     anel.position.set(x, y, z);
     this.scene.add(anel);
     this.pulsos.push({ m: anel, vida: 0, raio, anel: true });
-    const casca = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2),
-      new THREE.MeshBasicMaterial({ color: cor, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, side: THREE.DoubleSide }),
-    );
+    const casca = this.#pegar('pulsoCasca');
+    casca.material.color.copy(cor);
     casca.position.set(x, y - 10, z);
     this.scene.add(casca);
     this.pulsos.push({ m: casca, vida: 0, raio, anel: false, forca: 0.18 + 0.12 * k });
@@ -802,11 +936,8 @@ export class Efeitos {
    * a cor do rastro do original (`cor`), luz aditiva naquela cor.
    */
   #fumaca(x, y, z, cor = null) {
-    const s = new THREE.Sprite(
-      new THREE.SpriteMaterial({ map: brilho(), color: cor ?? COR_FUMACA, depthWrite: false, transparent: true, opacity: 0.7, blending: cor ? THREE.AdditiveBlending : THREE.NormalBlending }),
-    );
+    const s = this.#brilhoSolto(cor ?? COR_FUMACA, 2, !!cor, 0.7);
     s.position.set(x, y, z);
-    s.scale.setScalar(2);
     this.scene.add(s);
     this.fumacas.push({ s, vida: 0 });
   }
@@ -822,27 +953,24 @@ export class Efeitos {
 
   /** Clarão rápido + fagulhas. tamanho 1 = faísca de acerto, ~4 = explosão de nave. */
   explosao(x, y, z, tamanho = 1, cor = '#ffb050') {
-    const flash = new THREE.Sprite(
-      new THREE.SpriteMaterial({ map: brilho(), color: new THREE.Color(cor), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }),
-    );
+    const flash = this.#brilhoSolto(cor, tamanho * 6 * 0.4);
     flash.position.set(x, y, z);
     this.scene.add(flash);
-    const n = Math.round(14 * tamanho);
-    const pos = new Float32Array(n * 3);
+    const n = Math.min(FAISCAS_MAX, Math.round(14 * tamanho));
+    const pts = this.#pegar('faiscas');
+    const atr = pts.geometry.attributes.position;
     const vel = [];
     for (let i = 0; i < n; i++) {
-      pos.set([x, y, z], i * 3);
+      atr.array.set([x, y, z], i * 3);
       const v = new THREE.Vector3(Math.random() * 2 - 1, Math.random() * 1.6 - 0.3, Math.random() * 2 - 1)
         .normalize()
         .multiplyScalar((8 + Math.random() * 18) * Math.sqrt(tamanho));
       vel.push(v);
     }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const pts = new THREE.Points(
-      geo,
-      new THREE.PointsMaterial({ color: '#ffd28a', size: 0.5 + tamanho * 0.25, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }),
-    );
+    atr.needsUpdate = true;
+    pts.geometry.setDrawRange(0, n);
+    pts.material.size = 0.5 + tamanho * 0.25;
+    pts.material.opacity = 1;
     this.scene.add(pts);
     this.particulas.push({ flash, pts, vel, vida: 0, dur: 0.35 + tamanho * 0.25, tamanho });
   }
@@ -911,8 +1039,7 @@ export class Efeitos {
       a.vida += dt;
       const k = a.vida / ANEL_AREA_S;
       if (k >= 1) {
-        this.scene.remove(a.anel);
-        a.anel.material.dispose();
+        this.#devolver(a.anel);
         return false;
       }
       if (k < 0) return true;
@@ -931,13 +1058,12 @@ export class Efeitos {
       c.vida += dt;
       const k = c.vida / CHAMA_S;
       if (k >= 1) {
-        this.scene.remove(c.m);
-        c.m.geometry.dispose();
-        c.m.material.dispose();
+        this.#devolver(c.m);
         return false;
       }
       c.m.material.opacity = (k < 0.2 ? k / 0.2 : 1 - (k - 0.2) / 0.8) * (0.75 + 0.25 * Math.random());
-      c.m.scale.set(0.8 + 0.3 * k, 0.8 + 0.3 * k, 0.9 + 0.1 * k);
+      const abre = c.raio * (0.8 + 0.3 * k);
+      c.m.scale.set(abre, abre, c.alcance * (0.9 + 0.1 * k));
       return true;
     });
 
@@ -945,9 +1071,7 @@ export class Efeitos {
       p.vida += dt;
       const k = p.vida / PULSO_S;
       if (k >= 1) {
-        this.scene.remove(p.m);
-        p.m.geometry.dispose();
-        p.m.material.dispose();
+        this.#devolver(p.m);
         return false;
       }
       const sai = 1 - (1 - k) * (1 - k);
@@ -966,8 +1090,7 @@ export class Efeitos {
       f.vida += dt;
       const k = f.vida / RECALL_FEIXE_S;
       if (k >= 1) {
-        this.scene.remove(f.m);
-        f.m.material.dispose();
+        this.#devolver(f.m);
         return false;
       }
       // Sobe alto num instante e afina até sumir.
@@ -981,8 +1104,7 @@ export class Efeitos {
       p.vida += dt;
       const k = p.vida / FUMACA_DUR;
       if (k >= 1) {
-        this.scene.remove(p.s);
-        p.s.material.dispose();
+        this.#devolver(p.s);
         return false;
       }
       p.s.position.y += 1.5 * dt;
@@ -995,9 +1117,7 @@ export class Efeitos {
       a.vida += dt;
       const k = a.vida / ANEL_NIVEL_S;
       if (k >= 1) {
-        a.obj.remove(a.anel);
-        a.anel.geometry?.dispose();
-        a.anel.material.dispose();
+        this.#devolver(a.anel);
         return false;
       }
       if (k < 0) return true;
@@ -1018,8 +1138,7 @@ export class Efeitos {
       p.vida += dt;
       const k = p.vida / p.dur;
       if (k >= 1) {
-        this.scene.remove(p.s);
-        p.s.material.dispose();
+        this.#devolver(p.s);
         return false;
       }
       p.s.position.y += p.subida * dt;
@@ -1032,8 +1151,8 @@ export class Efeitos {
       p.vida += dt;
       const k = p.vida / p.dur;
       if (k >= 1) {
-        this.scene.remove(p.flash, p.pts);
-        p.pts.geometry.dispose();
+        this.#devolver(p.flash);
+        this.#devolver(p.pts);
         return false;
       }
       p.flash.scale.setScalar(p.tamanho * 6 * (0.4 + k * 1.6));

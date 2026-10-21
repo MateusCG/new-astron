@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { heightAt, noMapaAberto, BASE, BASES, LANE, MINERADORA, BUFFS, daBase as daBaseTerreno } from '../shared/terrain.js';
-import { OBSTACULOS, TORRE_SUPORTE, PORTAL_WARP, POCOS, alturaSolida, daBase, pontoAberto, pontoLivre, definirObstaculoAtivo, obstaculoAtivo } from '../shared/obstaculos.js';
+import { OBSTACULOS, TORRE_SUPORTE, ESCALA_TORRE_SUPORTE, TORRETA, PORTAL_WARP, POCOS, alturaSolida, daBase, pontoAberto, pontoLivre, definirObstaculoAtivo, obstaculoAtivo } from '../shared/obstaculos.js';
 import { DT, createShip, stepShip, createBullet, stepBullet, SHIP_RADIUS, HOVER } from '../shared/sim.js';
 
 const FRENTE = { th: 1, tu: 0, b: false, f1: false, f2: false, p: false };
@@ -35,10 +35,24 @@ test('obstáculos: a mineradora, as torres de suporte e as torretas estão na pl
     assert.ok(t, `torre ${b.id}`);
     assert.deepEqual([t.x, t.z, t.raio, t.topo - t.chao], [b.x, b.z, TORRE_SUPORTE.raio, TORRE_SUPORTE.altura]);
   }
-  assert.equal(TORRE_SUPORTE.raio, 7);
-  assert.equal(TORRE_SUPORTE.altura, 30);
+  // O dobro do primeiro desenho (raio 7, 30 m), e o modelo esticado por igual.
+  assert.equal(TORRE_SUPORTE.raio, 14);
+  assert.equal(TORRE_SUPORTE.altura, 60);
+  assert.equal(ESCALA_TORRE_SUPORTE, 2);
+  assert.equal(TORRE_SUPORTE.altura / 30, ESCALA_TORRE_SUPORTE, 'mesma escala na altura e na largura');
   assert.ok(PORTAL_WARP.base >= 30, 'o portal flutua acima da altura de voo');
   assert.equal(daBase, daBaseTerreno);
+});
+
+test('obstáculos: as torres (sentinela e de suporte) ficam inteiras no campo aberto, sem encostar em rocha', () => {
+  for (const o of OBSTACULOS.filter((o) => o.forma === 'cilindro')) {
+    for (let a = 0; a < 360; a += 15) {
+      const x = o.x + Math.cos((a * Math.PI) / 180) * (o.raio + 5);
+      const z = o.z + Math.sin((a * Math.PI) / 180) * (o.raio + 5);
+      assert.ok(noMapaAberto(x, z) && heightAt(x, z) === 0, `${o.id} encosta em rocha em (${x.toFixed(0)}, ${z.toFixed(0)})`);
+    }
+  }
+  assert.equal(TORRETA.raio, 9, 'o dobro da primeira (4,5 m)');
 });
 
 test('obstáculos: simétricos por rotação de 180°', () => {

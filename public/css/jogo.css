@@ -394,7 +394,7 @@ input:focus {
 }
 
 .comandos h2 {
-  margin: 4px 0 8px;
+  margin: 4px 0 6px;
   font: 700 16px system-ui, sans-serif;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -404,17 +404,186 @@ input:focus {
 .comandos dl {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
-  gap: 4px 20px;
-  font-size: 16px;
+  gap: 2px 20px;
+  font-size: 15px;
 }
 
 .comandos dl > div {
   display: grid;
-  grid-template-columns: 62px minmax(0, 1fr);
+  grid-template-columns: 58px minmax(0, 1fr);
   align-items: baseline;
   gap: 10px;
-  padding: 4px 0;
+  padding: 3px 0;
   border-bottom: 1px solid rgba(44, 74, 70, 0.6);
+}
+
+/* Times da tela inicial (escolha-times.js), acima dos comandos: duas caixas lado a
+   lado, seu time em turquesa e o inimigo em vermelho, cada uma com as 3 vagas
+   ("VOCÊ" cheia em neon, "IA" acesa na cor do time, livre tracejada) e o −/+ com a
+   conta em mono. Clicar numa vaga também escolhe. */
+#escolha-times {
+  margin-bottom: 12px;
+}
+
+#escolha-times h2 small {
+  margin-left: 6px;
+  font: 600 13px ui-monospace, monospace;
+  letter-spacing: 0.06em;
+  color: var(--texto);
+  opacity: 0.55;
+  text-transform: none;
+}
+
+#escolha-times .lados {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
+  gap: 10px;
+}
+
+#escolha-times .lado {
+  --cor-lado: var(--neon);
+  --cor-lado-fraca: var(--neon-escuro);
+  --fundo-lado: rgba(0, 239, 192, 0.12);
+  padding: 7px 10px 9px;
+  border: 1px solid var(--chapa-clara);
+  border-left: 3px solid var(--cor-lado);
+  border-radius: 6px;
+  background: #0f1e1d;
+}
+
+#escolha-times .lado.inimigo {
+  --cor-lado: var(--inimigo);
+  --cor-lado-fraca: rgba(255, 74, 42, 0.45);
+  --fundo-lado: rgba(255, 74, 42, 0.14);
+}
+
+#escolha-times .titulo-lado {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 6px;
+}
+
+#escolha-times .titulo-lado b {
+  color: var(--cor-lado);
+  font: 700 14px system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+#escolha-times .resumo {
+  font-size: 14px;
+  opacity: 0.75;
+  white-space: nowrap;
+}
+
+#escolha-times .linha-lado {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#escolha-times .vagas {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+#escolha-times .vaga {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  height: 30px;
+  padding: 0 4px;
+  border: 1px dashed var(--cor-lado-fraca);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--texto);
+  font: 700 13px ui-monospace, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+#escolha-times .vaga:hover,
+#escolha-times .vaga:focus-visible {
+  border-style: solid;
+  border-color: var(--cor-lado);
+  opacity: 1;
+}
+
+#escolha-times .vaga.ia {
+  border: 1px solid var(--cor-lado);
+  background: var(--fundo-lado);
+  color: var(--cor-lado);
+  opacity: 1;
+}
+
+#escolha-times .vaga.voce {
+  border: 0;
+  background: var(--neon);
+  color: #032b22;
+  opacity: 1;
+  cursor: default;
+}
+
+#escolha-times .passo-ia {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#escolha-times .passo-ia button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--cor-lado-fraca);
+  border-radius: 5px;
+  background: #0b1716;
+  color: var(--cor-lado);
+  font: 700 18px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#escolha-times .passo-ia button:hover:not(:disabled),
+#escolha-times .passo-ia button:focus-visible {
+  border-color: var(--cor-lado);
+}
+
+#escolha-times .passo-ia button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+#escolha-times .qtd {
+  min-width: 18px;
+  color: var(--cor-lado);
+  font: 700 18px ui-monospace, monospace;
+  text-align: center;
+}
+
+#escolha-times .nota-times {
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  line-height: 1.35;
+  opacity: 0.6;
+}
+
+#escolha-times .nota-times kbd {
+  color: var(--neon);
+}
+
+@media (pointer: coarse) {
+  #escolha-times .vaga,
+  #escolha-times .passo-ia button {
+    height: 44px;
+  }
+
+  #escolha-times .passo-ia button {
+    width: 44px;
+  }
 }
 
 .comandos dt {
@@ -449,6 +618,62 @@ input:focus {
 
 .opcoes-entrada .botao-som {
   margin: 0;
+}
+
+/* Tela baixa (1366×768, 1280×720): a tela inicial aperta o alto para caber sem
+   rolar (título, margens, prévia da nave e Decolar menores). */
+@media (max-height: 860px) and (min-width: 761px) {
+  #entrada {
+    padding: 8px 16px;
+  }
+
+  #form-entrada {
+    padding: 10px 28px 14px;
+  }
+
+  h1 {
+    font-size: 36px;
+  }
+
+  .sub {
+    margin-bottom: 6px;
+  }
+
+  .rotulo-racas {
+    margin: 10px 0 6px;
+  }
+
+  #previa-nave .palco {
+    height: 128px;
+  }
+
+  .decolar {
+    margin-top: 12px;
+    padding: 10px;
+  }
+}
+
+/* 1280×720: as linhas dos comandos e os times apertam mais um pouco. */
+@media (max-height: 760px) and (min-width: 761px) {
+  h1 {
+    font-size: 32px;
+  }
+
+  .comandos dl > div {
+    padding: 1px 0;
+  }
+
+  #escolha-times {
+    margin-bottom: 6px;
+  }
+
+  #escolha-times .lado {
+    padding: 5px 10px 7px;
+  }
+
+  .opcoes-entrada {
+    margin-top: 6px;
+  }
 }
 
 @media (max-width: 760px) {
@@ -843,6 +1068,51 @@ kbd {
   position: absolute;
   inset: 0;
   overflow: hidden;
+}
+
+/* Ouro e XP que sobem do monstro abatido e o "CRÍTICO" do seu golpe (hud.flutuante):
+   mono, com contorno escuro para ler sobre a água clara, por cima dos rótulos. */
+#flutuantes {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.flutuante {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  justify-items: center;
+  gap: 0;
+  font: 700 20px/1.15 ui-monospace, monospace;
+  white-space: nowrap;
+  transform-origin: 50% 100%;
+  text-shadow:
+    0 0 2px #000,
+    0 1px 3px #000,
+    0 0 10px rgba(0, 0, 0, 0.6);
+  will-change: transform, opacity;
+}
+
+.flutuante .ouro {
+  color: var(--ouro);
+  font-size: 22px;
+}
+
+.flutuante .xp {
+  color: var(--xp);
+}
+
+.flutuante .crit {
+  color: #ff9a3a;
+  font: 800 19px/1.15 system-ui, sans-serif;
+  letter-spacing: 0.14em;
+  text-shadow:
+    0 0 2px #000,
+    0 1px 3px #000,
+    0 0 12px rgba(255, 120, 40, 0.75);
 }
 
 .rotulo {
@@ -2702,9 +2972,10 @@ body.dano::after {
   cursor: pointer;
 }
 
-/* Janela dos times (P): as três vagas de cada time lado a lado (uma embaixo da
-   outra no celular). Seu time em turquesa, o inimigo em vermelho; o computador
-   com o selo IA e o ✕ para tirar; vaga livre com "+ Computador" tracejado. */
+/* Janela dos times (P), só de consulta: as três vagas de cada time lado a lado
+   (uma embaixo da outra no celular). Seu time em turquesa, o inimigo em vermelho;
+   o computador com o selo IA; vaga livre tracejada e apagada, sem botão (os
+   computadores se escolhem na tela inicial). */
 #times {
   pointer-events: auto;
 }
@@ -2815,51 +3086,16 @@ body.dano::after {
   opacity: 0.75;
 }
 
-#times .tirar {
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--chapa-clara);
-  border-radius: 5px;
-  background: transparent;
-  color: var(--texto);
-  font-size: 15px;
-  cursor: pointer;
-}
-
-#times .tirar:hover {
-  border-color: #ff8a70;
-  color: #ff8a70;
-}
-
 #times li.vaga {
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
-#times .vaga button {
-  width: 100%;
-  min-height: 34px;
+  justify-content: center;
   border: 1px dashed var(--neon-escuro);
-  border-radius: 6px;
   background: transparent;
-  color: var(--neon);
-  font: 600 16px system-ui, sans-serif;
-  cursor: pointer;
+  font-size: 14.5px;
+  opacity: 0.55;
 }
 
-#times .inimigo .vaga button {
+#times .inimigo li.vaga {
   border-color: rgba(255, 74, 42, 0.45);
-  color: #ff8a70;
-}
-
-#times .vaga button:hover {
-  border-style: solid;
-  background: rgba(0, 239, 192, 0.06);
-}
-
-#times .inimigo .vaga button:hover {
-  background: rgba(255, 74, 42, 0.08);
 }
 
 #times .dica {
@@ -2875,14 +3111,8 @@ body.dano::after {
 }
 
 @media (pointer: coarse) {
-  #times li,
-  #times .vaga button {
+  #times li {
     min-height: 44px;
-  }
-
-  #times .tirar {
-    width: 40px;
-    height: 40px;
   }
 
   #times .dica .so-teclado {

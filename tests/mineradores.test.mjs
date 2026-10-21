@@ -4,7 +4,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World } from '../server/game.js';
-import { MINERADOR, MINERADOR_NUCLEO } from '../server/mineradores.js';
+import { MINERADOR, MINERADOR_NUCLEO, FILA_ESPACO } from '../server/mineradores.js';
+import { MINERADORES_POR_TIME } from '../shared/evolucao.js';
 import { createShip, createBullet, WEAPONS } from '../shared/sim.js';
 import { BASES, ENTREGAS, DOCAS, ROTAS, heightAt } from '../shared/terrain.js';
 import { alturaSolida } from '../shared/obstaculos.js';
@@ -69,20 +70,78 @@ test('mineradores: fazem o ciclo base → doca → entrega e somam 10 no placar,
   assert.equal(typeof ent.minerando, 'boolean');
 });
 
-test('mineradores: saem em intervalos, no máximo MINERADOR.maxAtivos por time', () => {
+test('mineradores: saem em fila (um a cada MINERADOR.saidaS) até os 10 do time', () => {
   const { w } = mundo();
   const conta = (t) => w.mineradores.lista.filter((m) => m.time === t).length;
+  assert.equal(MINERADOR.maxAtivos, MINERADORES_POR_TIME);
+  assert.equal(MINERADORES_POR_TIME, 10);
   assert.equal(conta(0), 1, 'o primeiro sai no começo da partida');
-  for (let i = 0; i < (MINERADOR.intervaloS - 1) * SEGUNDO; i++) w.step();
+  for (let i = 0; i < (MINERADOR.saidaS - 1) * SEGUNDO; i++) w.step();
   assert.equal(conta(0), 1);
   for (let i = 0; i < 2 * SEGUNDO; i++) w.step();
-  assert.equal(conta(0), 2, 'o segundo sai depois do intervalo');
+  assert.equal(conta(0), 2, 'o segundo sai depois do espaço da saída');
   let maximo = 0;
-  for (let i = 0; i < 6 * MINERADOR.intervaloS * SEGUNDO; i++) {
+  for (let i = 0; i < (MINERADOR.saidaS * MINERADORES_POR_TIME + 30) * SEGUNDO; i++) {
     w.step();
     maximo = Math.max(maximo, conta(0), conta(1));
   }
   assert.equal(maximo, MINERADOR.maxAtivos);
+  assert.equal(conta(0), 10);
+  assert.equal(conta(1), 10);
+});
+
+test('mineradores: os 10 não se empilham; na doca um minera e o próximo espera na fila', () => {
+  const { w } = mundo();
+  w.escoltas.passo = () => {};
+  // Um segura o da frente na ida: a doca fica ocupada mais tempo e o de trás tem de esperar.
+  let segurou = false;
+  let esperou = 0;
+  let menorMesmoSentido = Infinity;
+  let menor = Infinity;
+  const entregas = [0, 0];
+  for (let i = 0; i < 240 * SEGUNDO; i++) {
+    w.step();
+    for (const t of [0, 1]) {
+      const ms = w.mineradores.lista.filter((m) => m.vivo && m.time === t);
+      const naDoca = ms.filter((m) => m.estado === 'minerando');
+      assert.ok(naDoca.length <= 1, `dois minerando na doca do time ${t} ao mesmo tempo`);
+      if (t === 0 && naDoca.length && !segurou) {
+        naDoca[0].mineraAte += 15 * SEGUNDO; // doca ocupada por 20 s
+        segurou = true;
+      }
+      for (let a = 0; a < ms.length; a++) {
+        for (let b = a + 1; b < ms.length; b++) {
+          const p = ms[a];
+          const q = ms[b];
+          const d = Math.hypot(p.ship.x - q.ship.x, p.ship.z - q.ship.z);
+          menor = Math.min(menor, d);
+          if (p.estado === q.estado && p.estado !== 'minerando') menorMesmoSentido = Math.min(menorMesmoSentido, d);
+          if (t === 0 && (p.estado === 'minerando') !== (q.estado === 'minerando') && p.estado !== 'volta' && q.estado !== 'volta' && d < FILA_ESPACO + 15 && Math.hypot(p.ship.vx, p.ship.vz) + Math.hypot(q.ship.vx, q.ship.vz) < 2) esperou++;
+        }
+      }
+    }
+    for (const e of w.tirarEventos()) if (e.e === 'entrega') entregas[e.time]++;
+  }
+  assert.ok(menor > 12, `dois do mesmo time a ${menor.toFixed(1)} m (quem sai da doca vai de lado para a faixa da volta)`);
+  assert.ok(menorMesmoSentido > 20, `dois do mesmo time no mesmo sentido a ${menorMesmoSentido.toFixed(1)} m`);
+  assert.ok(esperou > 3 * SEGUNDO, `o de trás esperou parado atrás da doca (${(esperou / SEGUNDO).toFixed(1)} s)`);
+  // Sem segurar ninguém, o time 1 entrega em ritmo: ~8 por minuto com os 10 na lane.
+  assert.ok(entregas[1] >= 18, `entregas do time 1 em 4 min: ${entregas[1]}`);
+  assert.ok(entregas[0] > 0 && entregas[0] <= entregas[1], 'o time 0, com a doca presa, entregou menos');
+});
+
+test('mineradores: destruído, o substituto sai MINERADOR.intervaloS depois', () => {
+  const { w } = mundo();
+  for (let i = 0; i < (MINERADOR.saidaS * MINERADORES_POR_TIME + 5) * SEGUNDO; i++) w.step();
+  const conta = () => w.mineradores.lista.filter((m) => m.vivo && m.time === 0).length;
+  assert.equal(conta(), 10);
+  w.mineradores.lista.find((m) => m.time === 0).vivo = false;
+  w.step();
+  assert.equal(conta(), 9);
+  for (let i = 0; i < (MINERADOR.intervaloS - 1) * SEGUNDO; i++) w.step();
+  assert.equal(conta(), 9, 'ainda no intervalo');
+  for (let i = 0; i < 2 * SEGUNDO; i++) w.step();
+  assert.equal(conta(), 10, 'o substituto saiu');
 });
 
 test('mineradores: linha reta da entrega à doca, nos tempos documentados (ida ~40 s, primeira entrega ~79 s, ciclo ~75 s)', () => {

@@ -39,6 +39,35 @@ function spriteBrilho(cor, tamanho) {
   return s;
 }
 
+// Peças que se repetem em toda nave, minerador e escolta (geometrias de primitivas,
+// materiais de cor fixa, o brilho dos motores): uma por página, divididas por todos.
+// Naves, mineradores e escoltas somem e voltam da tela o tempo todo (névoa de guerra);
+// sem isso cada volta criava ~20 geometrias e ~8 materiais novos (subindo para a
+// placa no quadro em que aparece). Só o que anima sozinho (o feixe da mineração, o
+// brilho do He-3) tem material próprio.
+const pecas = new Map();
+function peca(chave, criar) {
+  let p = pecas.get(chave);
+  if (!p) pecas.set(chave, (p = criar()));
+  return p;
+}
+const caixa = (x, y, z) => peca(`caixa ${x} ${y} ${z}`, () => new THREE.BoxGeometry(x, y, z));
+const cilindro = (...a) => peca(`cilindro ${a.join(' ')}`, () => new THREE.CylinderGeometry(...a));
+const octaedro = (r) => peca(`octaedro ${r}`, () => new THREE.OctahedronGeometry(r, 0));
+const matPadrao = (chave, opcoes) => peca(`mat ${chave}`, () => new THREE.MeshStandardMaterial({ flatShading: true, ...opcoes }));
+
+/** Sprite de brilho de motor com o material dividido por cor (a opacidade é fixa; o tamanho anima no objeto). */
+function motorBrilho(cor, tamanho, opacidade) {
+  const mat = peca(`motor ${cor.getHexString()} ${opacidade}`, () => {
+    const m = new THREE.SpriteMaterial({ map: brilho(), color: cor, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true });
+    m.opacity = opacidade;
+    return m;
+  });
+  const s = new THREE.Sprite(mat);
+  s.scale.setScalar(tamanho);
+  return s;
+}
+
 /** Neon do time relativo a quem olha (mesmos tons das bases em cena.js). */
 export const COR_TIME = { aliado: new THREE.Color('#00efc0'), inimigo: new THREE.Color('#ff3b2a') };
 
@@ -50,10 +79,10 @@ function matNeon(cor) {
 // Naves de jogador: os 45 modelos do Astro-N original (public/modelos/naves/<raça>/
 // <classe>/<id>.glb, um por nave de shared/naves.js), escolhidos pela raça, pela
 // classe e pelo tier da nave. A tela de carregamento (carregamento.js) baixa antes
-// da partida as 5 da linha do piloto e as armas da raça e da classe dele; as dos
-// outros pilotos vêm quando eles aparecem (criarNave/definirNave pedem; até chegar,
-// a nave é um losango neon do time no lugar) e o resto da linha deles em segundo
-// plano. Cada arquivo é baixado e preparado uma vez só por página (cache por URL,
+// da partida TODAS as naves e todas as armas da asa (as suas e as de quem mais
+// aparecer); se mesmo assim um modelo faltar (falha de rede), criarNave/definirNave
+// pedem de novo e, até chegar, a nave é um losango neon do time no lugar. Cada
+// arquivo é baixado e preparado uma vez só por página (cache por URL,
 // que sobrevive a sair e entrar de novo) e todas as naves daquele modelo dividem a
 // mesma geometria e o mesmo material; cada nave é só um Mesh novo.
 //
@@ -415,8 +444,7 @@ function montarCasco(raiz, modelo, race) {
   // Motores: brilho na cor da raça em cada bocal (encaixes *_propulsion).
   const motores = [];
   for (const p of propulsores) {
-    const chama = spriteBrilho(cor.clone().lerp(new THREE.Color('#fff2c0'), 0.15), 2.6);
-    chama.material.opacity = 0.75;
+    const chama = motorBrilho(cor.clone().lerp(new THREE.Color('#fff2c0'), 0.15), 2.6, 0.75);
     chama.position.copy(p).add(new THREE.Vector3(0, 0, 0.6));
     motores.push(chama);
     casco.add(chama);
@@ -433,7 +461,7 @@ function montarCasco(raiz, modelo, race) {
     [-1.6, comp * 0.18],
     [1.6, comp * 0.18],
   ]) {
-    const perna = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, Math.max(0.1, altura), 5), matEscuro());
+    const perna = new THREE.Mesh(cilindro(0.12, 0.12, +Math.max(0.1, altura).toFixed(2), 5), matEscuro());
     perna.position.set(x, fundo - altura / 2, z);
     const pe = new THREE.Mesh(GEO_PE, matEscuro());
     pe.position.set(x, -1.45, z);
@@ -465,32 +493,28 @@ const ESCALA_NUCLEO = 1.7;
 export function criarMinerador({ aliado = true, nucleo = false } = {}) {
   const corTime = aliado ? COR_TIME.aliado : COR_TIME.inimigo;
   const g = new THREE.Group();
-  const casco = new THREE.MeshStandardMaterial({ color: '#9aa5a3', metalness: 0.4, roughness: 0.6, flatShading: true });
-  const escuro = new THREE.MeshStandardMaterial({ color: '#2b3233', metalness: 0.4, roughness: 0.6, flatShading: true });
-  const neonTime = matNeon(corTime);
+  const casco = matPadrao('casco', { color: '#9aa5a3', metalness: 0.4, roughness: 0.6 });
+  const escuro = matEscuro();
+  const neonTime = neonDoTime(aliado);
 
-  const corpo = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.2, 4.6), casco);
-  const cabine = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.2, 1.1, 1.4, 4),
-    new THREE.MeshStandardMaterial({ color: '#0b2a33', emissive: '#00b3ff', emissiveIntensity: 0.5, roughness: 0.3, flatShading: true }),
-  );
+  const corpo = new THREE.Mesh(caixa(2.4, 1.2, 4.6), casco);
+  const cabine = new THREE.Mesh(cilindro(0.2, 1.1, 1.4, 4), matPadrao('cabine', { color: '#0b2a33', emissive: '#00b3ff', emissiveIntensity: 0.5, roughness: 0.3 }));
   cabine.rotation.set(-Math.PI / 2, Math.PI / 4, 0);
   cabine.position.set(0, 0.1, -2.9);
   g.add(corpo, cabine);
   // Faixas do time dos dois lados do casco.
   for (const lado of [-1, 1]) {
-    const faixa = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.25, 4.2), neonTime);
+    const faixa = new THREE.Mesh(caixa(0.1, 0.25, 4.2), neonTime);
     faixa.position.set(lado * 1.22, 0.1, 0);
     g.add(faixa);
   }
 
   const motores = [];
   for (const lado of [-1, 1]) {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 2.2, 6), escuro);
+    const m = new THREE.Mesh(cilindro(0.4, 0.5, 2.2, 6), escuro);
     m.rotation.x = -Math.PI / 2;
     m.position.set(lado * 1.6, -0.2, 1.4);
-    const chama = spriteBrilho(corTime.clone().lerp(new THREE.Color('#ffffff'), 0.3), 1.6);
-    chama.material.opacity = 0.7;
+    const chama = motorBrilho(corTime.clone().lerp(new THREE.Color('#ffffff'), 0.3), 1.6, 0.7);
     chama.position.set(lado * 1.6, -0.2, 2.7);
     motores.push(chama);
     g.add(m, chama);
@@ -498,23 +522,24 @@ export function criarMinerador({ aliado = true, nucleo = false } = {}) {
 
   // Moldura do contêiner (sempre) e o minério dentro (só cheio).
   for (const [x, z] of [[-0.95, -1.1], [0.95, -1.1], [-0.95, 1.5], [0.95, 1.5]]) {
-    const coluna = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.3, 0.18), escuro);
+    const coluna = new THREE.Mesh(caixa(0.18, 1.3, 0.18), escuro);
     coluna.position.set(x, 1.25, z);
     g.add(coluna);
   }
-  const tampa = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.15, 2.8), escuro);
+  const tampa = new THREE.Mesh(caixa(2.1, 0.15, 2.8), escuro);
   tampa.position.set(0, 1.95, 0.2);
   g.add(tampa);
   // Minério: cristais azul-gelo (como os do depósito) sobre um bloco azul mais
-  // fundo; brilho moderado, senão o ACES puxa o azul-gelo para o branco.
-  const azul = new THREE.MeshStandardMaterial({ color: '#9fe8ff', emissive: '#9fe8ff', emissiveIntensity: 0.6, roughness: 0.3, flatShading: true });
-  const azulFundo = new THREE.MeshStandardMaterial({ color: '#2f7fb8', emissive: '#4fb8ff', emissiveIntensity: 0.5, roughness: 0.4, flatShading: true });
+  // fundo; brilho moderado, senão o ACES puxa o azul-gelo para o branco (o do
+  // minerador do Núcleo brilha mais).
+  const azul = matPadrao(nucleo ? 'cristal-nucleo' : 'cristal', { color: '#9fe8ff', emissive: '#9fe8ff', emissiveIntensity: nucleo ? 1 : 0.6, roughness: 0.3 });
+  const azulFundo = matPadrao('bloco', { color: '#2f7fb8', emissive: '#4fb8ff', emissiveIntensity: 0.5, roughness: 0.4 });
   const carga = new THREE.Group();
-  const bloco = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1, 2.4), azulFundo);
+  const bloco = new THREE.Mesh(caixa(1.7, 1, 2.4), azulFundo);
   bloco.position.set(0, 1.1, 0.2);
   carga.add(bloco);
   for (const [x, z, k] of [[-0.5, -0.4, 0.5], [0.45, 0.6, 0.6], [0, 1.1, 0.4]]) {
-    const cristal = new THREE.Mesh(new THREE.OctahedronGeometry(k, 0), azul);
+    const cristal = new THREE.Mesh(octaedro(k), azul);
     cristal.scale.y = 1.8;
     cristal.position.set(x, 1.6 + k * 0.6, z);
     carga.add(cristal);
@@ -527,8 +552,9 @@ export function criarMinerador({ aliado = true, nucleo = false } = {}) {
   });
 
   // Feixe de mineração: cone aditivo do casco até o chão (a nave paira a 10 m).
+  // Material próprio: pulsa com a fase de cada minerador.
   const feixe = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.35, 1.6, 9, 8, 1, true),
+    cilindro(0.35, 1.6, 9, 8, 1, true),
     new THREE.MeshBasicMaterial({ color: '#9fe8ff', transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
   );
   feixe.position.y = -5.1;
@@ -538,7 +564,6 @@ export function criarMinerador({ aliado = true, nucleo = false } = {}) {
   let he3 = null;
   if (nucleo) {
     g.scale.setScalar(ESCALA_NUCLEO);
-    azul.emissiveIntensity = 1;
     he3 = spriteBrilho(new THREE.Color('#9fe8ff'), 11);
     he3.material.opacity = 0.5;
     he3.position.y = 1.5;
@@ -575,38 +600,34 @@ export function animarMinerador(m, { carga, minerando }, t, fase = 0) {
 export function criarEscolta({ aliado = true } = {}) {
   const corTime = aliado ? COR_TIME.aliado : COR_TIME.inimigo;
   const g = new THREE.Group();
-  const casco = new THREE.MeshStandardMaterial({ color: '#9aa5a3', metalness: 0.4, roughness: 0.6, flatShading: true });
-  const escuro = new THREE.MeshStandardMaterial({ color: '#2b3233', metalness: 0.4, roughness: 0.6, flatShading: true });
-  const neonTime = matNeon(corTime);
+  const casco = matPadrao('casco', { color: '#9aa5a3', metalness: 0.4, roughness: 0.6 });
+  const escuro = matEscuro();
+  const neonTime = neonDoTime(aliado);
 
-  const corpo = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1, 5.4), casco);
-  const proa = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 1.2, 1.8, 4), casco);
+  const corpo = new THREE.Mesh(caixa(2.6, 1, 5.4), casco);
+  const proa = new THREE.Mesh(cilindro(0.2, 1.2, 1.8, 4), casco);
   proa.rotation.set(-Math.PI / 2, Math.PI / 4, 0);
   proa.position.set(0, 0, -3.5);
-  const cabine = new THREE.Mesh(
-    new THREE.BoxGeometry(1.2, 0.5, 1.4),
-    new THREE.MeshStandardMaterial({ color: '#0b2a33', emissive: '#00b3ff', emissiveIntensity: 0.5, roughness: 0.3, flatShading: true }),
-  );
+  const cabine = new THREE.Mesh(caixa(1.2, 0.5, 1.4), matPadrao('cabine', { color: '#0b2a33', emissive: '#00b3ff', emissiveIntensity: 0.5, roughness: 0.3 }));
   cabine.position.set(0, 0.7, -1.6);
   g.add(corpo, proa, cabine);
   for (const lado of [-1, 1]) {
-    const faixa = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.25, 4.8), neonTime);
+    const faixa = new THREE.Mesh(caixa(0.1, 0.25, 4.8), neonTime);
     faixa.position.set(lado * 1.32, 0.05, 0.1);
     // Asinha curta com a ponta na cor do time (lê como "caça" ao lado do minerador).
-    const asa = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.18, 1.6), escuro);
+    const asa = new THREE.Mesh(caixa(1.6, 0.18, 1.6), escuro);
     asa.position.set(lado * 2, -0.15, 1);
-    const ponta = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.25, 1.2), neonTime);
+    const ponta = new THREE.Mesh(caixa(0.25, 0.25, 1.2), neonTime);
     ponta.position.set(lado * 2.85, -0.15, 1);
     g.add(faixa, asa, ponta);
   }
 
   const motores = [];
   for (const lado of [-1, 1]) {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.48, 2, 6), escuro);
+    const m = new THREE.Mesh(cilindro(0.38, 0.48, 2, 6), escuro);
     m.rotation.x = -Math.PI / 2;
     m.position.set(lado * 1.1, -0.1, 2.9);
-    const chama = spriteBrilho(corTime.clone().lerp(new THREE.Color('#ffffff'), 0.3), 1.6);
-    chama.material.opacity = 0.7;
+    const chama = motorBrilho(corTime.clone().lerp(new THREE.Color('#ffffff'), 0.3), 1.6, 0.7);
     chama.position.set(lado * 1.1, -0.1, 4.1);
     motores.push(chama);
     g.add(m, chama);
@@ -615,15 +636,15 @@ export function criarEscolta({ aliado = true } = {}) {
   // Torre: base redonda, cabeça e dois canos para a frente (-z).
   const torre = new THREE.Group();
   torre.position.set(0, 0.6, 0.6);
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.9, 0.35, 8), escuro);
-  const cabeca = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.55, 1.3), casco);
+  const base = new THREE.Mesh(cilindro(0.75, 0.9, 0.35, 8), escuro);
+  const cabeca = new THREE.Mesh(caixa(1.2, 0.55, 1.3), casco);
   cabeca.position.y = 0.45;
   torre.add(base, cabeca);
   for (const lado of [-1, 1]) {
-    const cano = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 2.2, 6), escuro);
+    const cano = new THREE.Mesh(cilindro(0.11, 0.13, 2.2, 6), escuro);
     cano.rotation.x = Math.PI / 2;
     cano.position.set(lado * 0.3, 0.45, -1.6);
-    const boca = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), neonTime);
+    const boca = new THREE.Mesh(caixa(0.2, 0.2, 0.2), neonTime);
     boca.position.set(lado * 0.3, 0.45, -2.7);
     torre.add(cano, boca);
   }

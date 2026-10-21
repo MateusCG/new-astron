@@ -1,13 +1,17 @@
 // Escolta armada dos mineradores (DESIGN-PARTIDA.md, "Mineradores"), só no servidor.
 //
-// Cada time tem ESCOLTA.maxAtivos escolta(s): uma mini-nave armada que sai da base
-// como os mineradores (de ESCOLTA.intervaloS em intervalos, contado a partir de
-// quando abriu a vaga; a primeira sai ESCOLTA.primeiraS depois do começo da
-// partida, logo atrás do primeiro minerador) e anda com eles pela lane, sem
-// minerar:
-// - Com minerador do time no mapa, acompanha o mais exposto (o mais longe da própria
-//   base), do lado de fora da lane (ESCOLTA.lado m para fora da faixa dele) e um
-//   pouco atrás; quando ele para no depósito, ela para do lado.
+// Cada time tem ESCOLTA.maxAtivos (3) escoltas: mini-naves armadas que saem da base
+// como os mineradores (a primeira ESCOLTA.primeiraS depois do começo da partida,
+// logo atrás do primeiro minerador, e as outras de ESCOLTA.saidaS em ESCOLTA.saidaS
+// enquanto há vaga; a destruída é reposta ESCOLTA.intervaloS depois de abrir a
+// vaga) e andam com eles pela lane, sem minerar:
+// - Com minerador do time no mapa, cada uma acompanha um: os mineradores em ordem do
+//   mais exposto (o mais longe da própria base) ao menos, e a escolta k de n pega o
+//   da posição k·(mineradores)/n; com os 10 na lane, uma fica na frente do comboio,
+//   uma no meio e uma no fim. Com menos mineradores que escoltas, as que repetem o
+//   mesmo ficam mais atrás (ESCOLTA.fila m cada), sem empilhar. Fica do lado de fora
+//   da lane (ESCOLTA.lado m para fora da faixa dele) e um pouco atrás; quando ele
+//   para no depósito, ela para do lado.
 // - Sem minerador, faz a ronda da rota dos mineradores (ROTAS[time], faixa de cada
 //   sentido, como eles), da base até a coroa do minério e de volta.
 // - Atira como uma torre giratória (não precisa virar a nave): no inimigo mais perto
@@ -34,8 +38,9 @@ import { linhaDeTiro, alvosDoTime } from './torretas.js';
 export const ESCOLTA = {
   nome: 'Escolta',
   raca: 'shrewdo', // só para a física (stepShip), como o minerador
-  maxAtivos: 1, // por time, ao mesmo tempo
-  intervaloS: 30, // entre uma saída e outra (depois de destruída)
+  maxAtivos: 3, // por time, ao mesmo tempo
+  saidaS: 8, // entre uma saída e a seguinte enquanto há vaga
+  intervaloS: 30, // da vaga aberta (escolta destruída) até sair a reposição
   primeiraS: 3, // s depois do começo da partida (logo atrás do primeiro minerador)
   hp: 220, // o minerador tem 120
   velocidade: 45, // m/s: mais que o minerador (30), para alcançá-lo e trocar de lado
@@ -45,6 +50,7 @@ export const ESCOLTA = {
   kind: 'laser', // forma do projétil (a cor vem do time no cliente)
   lado: 14, // m para fora da lane, ao lado do minerador
   atras: 6, // m atrás do minerador
+  fila: 18, // m a mais para trás de cada escolta que acompanha o mesmo minerador
 };
 const CADENCIA_TICKS = Math.round(ESCOLTA.cadenciaS / DT);
 const VIDA_TIRO = (ESCOLTA.alcance * 1.4) / WEAPONS[ESCOLTA.kind].vel; // s
@@ -103,40 +109,41 @@ export class Escoltas {
         // Sem vaga: o intervalo só começa a contar quando abrir uma.
         this.proximaSaida[b.time] = Math.max(this.proximaSaida[b.time], tick + Math.round(ESCOLTA.intervaloS / DT));
       } else if (tick >= this.proximaSaida[b.time]) {
+        // Com vaga sobrando, a próxima sai logo atrás; se esta encheu o time, a
+        // linha de cima empurra para o intervalo da reposição.
         this.lista.push(this.#nova(b.time));
-        this.proximaSaida[b.time] = tick + Math.round(ESCOLTA.intervaloS / DT);
+        this.proximaSaida[b.time] = tick + Math.round(ESCOLTA.saidaS / DT);
       }
     }
-    for (const e of this.lista) {
-      this.#mover(e);
-      this.#atirar(e, tick);
+    for (const b of BASES) {
+      const doTime = this.lista.filter((e) => e.time === b.time);
+      const minas = this.#mineradoresPorExposicao(b.time);
+      doTime.forEach((e, k) => {
+        // Escolta k de n acompanha o minerador da posição k·m/n (espalhadas pelo
+        // comboio); as que caem no mesmo vão para trás, uma atrás da outra.
+        const i = Math.floor((k * minas.length) / doTime.length);
+        const repetidas = doTime.slice(0, k).filter((_, k2) => Math.floor((k2 * minas.length) / doTime.length) === i).length;
+        this.#mover(e, minas[i] ?? null, repetidas);
+      });
     }
+    for (const e of this.lista) this.#atirar(e, tick);
   }
 
-  /** Minerador do time mais longe da base (o mais exposto), ou null. */
-  #protegido(time) {
+  /** Mineradores vivos do time, do mais exposto (mais longe da própria base) ao menos. */
+  #mineradoresPorExposicao(time) {
     const b = BASES[time];
-    let melhor = null;
-    let dist = -1;
-    for (const m of this.world.mineradores.lista) {
-      if (!m.vivo || m.time !== time) continue;
-      const d = Math.hypot(m.ship.x - b.x, m.ship.z - b.z);
-      if (d > dist) {
-        dist = d;
-        melhor = m;
-      }
-    }
-    return melhor;
+    const dist = (m) => Math.hypot(m.ship.x - b.x, m.ship.z - b.z);
+    return this.world.mineradores.lista.filter((m) => m.vivo && m.time === time).sort((p, q) => dist(q) - dist(p));
   }
 
-  #mover(e) {
+  /** Move a escolta `e` junto do minerador `m` (null: ronda); `repetidas` = quantas já acompanham o mesmo. */
+  #mover(e, m, repetidas = 0) {
     const s = e.ship;
     if (s.emp > 0) {
       stepShip(s, PARADO); // pulso EMP: motor desligado, para aos poucos
       return;
     }
     const vMax = velocidadeBase(s) * (s.velMult ?? 1);
-    const m = this.#protegido(e.time);
     let vx;
     let vz;
     let olhar = null; // yaw para parar olhando (lado do minerador parado)
@@ -146,8 +153,9 @@ export class Escoltas {
       const ms = m.ship;
       const f = forward(ms.yaw);
       const lado = Math.sign(ms.z - LANE.z) || 1;
-      const px = ms.x - f.x * ESCOLTA.atras;
-      const pz = ms.z + lado * ESCOLTA.lado - f.z * ESCOLTA.atras;
+      const atras = ESCOLTA.atras + repetidas * ESCOLTA.fila;
+      const px = ms.x - f.x * atras;
+      const pz = ms.z + lado * ESCOLTA.lado - f.z * atras;
       vx = ms.vx + (px - s.x) * SEGUIR;
       vz = ms.vz + (pz - s.z) * SEGUIR;
       olhar = ms.yaw;

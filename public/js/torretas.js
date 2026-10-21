@@ -16,8 +16,8 @@
 //   vida, só nas de pé.
 
 import * as THREE from 'three';
-import { TORRETAS } from '/shared/terrain.js';
-import { OBSTACULOS, definirObstaculoAtivo } from '/shared/obstaculos.js';
+import { TORRETAS, FUNDO_LAGO, NIVEL_AGUA } from '/shared/terrain.js';
+import { OBSTACULOS, TORRETA, definirObstaculoAtivo } from '/shared/obstaculos.js';
 import { HOVER } from '/shared/sim.js';
 
 const COR_TIME = { meu: new THREE.Color('#00efc0'), outro: new THREE.Color('#ff3b2a') };
@@ -26,6 +26,18 @@ const SUBIDA_S = 1.2; // s da torreta reconstruída subindo do chão
 const GIRO_CABECA = 4; // rad/s: quanto a cabeça gira por segundo atrás do alvo
 const ALTURA_PE = 2.4; // m do toco que fica de pé (abaixo da altura de voo)
 const ALTURA_ROTULO = 14; // m acima do chão (o HUD soma mais 6)
+// Pilar que sustenta a torreta: desce do pé até o fundo do lago, abrindo um pouco
+// (a torre não flutua: está apoiada no fundo, como os pilares da mineradora). Fica
+// todo abaixo do chão de voo, então não entra na física. Entra uns metros no fundo
+// para não mostrar fresta, e tem uma cinta de metal na linha d'água e uma sapata larga.
+const PILAR_ENTERRA = 3; // m abaixo de FUNDO_LAGO
+const PILAR_ABRE = 1.18; // raio do pé do pilar em relação ao do alto
+const SAPATA = { raio: 1.5, altura: 4 }; // raio em relação ao da torreta
+const CINTA = { raio: 1.06, altura: 1.6 }; // na linha d'água (NIVEL_AGUA)
+// Canos: proporção do desenho de raio 4,5 m (engrossam com a torreta, mas o
+// comprimento fica perto da planta, para a ponta não sair muito do cilindro sólido).
+const RAIO_DESENHO = 4.5;
+const CANO_COMP = 7;
 
 function matMetal(cor, extra = {}) {
   return new THREE.MeshStandardMaterial({ color: cor, metalness: 0.3, roughness: 0.65, flatShading: true, ...extra });
@@ -39,15 +51,26 @@ function matNeon(cor) {
 const yawPara = (x, z, ax, az) => Math.atan2(-(ax - x), -(az - z));
 
 /**
- * Modelo de uma torreta na origem (pé no chão, y = 0), canos para -z.
+ * Modelo de uma torreta na origem (pé no chão de voo, y = 0, e o pilar até o fundo
+ * do lago), canos para -z.
  * userData: corpo (o que tomba), cabeca (gira em y), destrocos, neon (materiais).
  */
-export function criarTorreta({ aliado = true, raio = 4.5, altura = 16 } = {}) {
+export function criarTorreta({ aliado = true, raio = TORRETA.raio, altura = TORRETA.altura } = {}) {
   const cor = aliado ? COR_TIME.meu : COR_TIME.outro;
   const metal = matMetal('#5d6866');
   const escuro = matMetal('#3a4442');
   const neon = matNeon(cor);
   const g = new THREE.Group();
+
+  // Pilar até o fundo do lago (com a torreta caída também: é a fundação).
+  const yFundo = FUNDO_LAGO - PILAR_ENTERRA;
+  const pilar = new THREE.Mesh(new THREE.CylinderGeometry(raio, raio * PILAR_ABRE, -yFundo, 6), escuro);
+  pilar.position.y = yFundo / 2;
+  const cinta = new THREE.Mesh(new THREE.CylinderGeometry(raio * CINTA.raio, raio * CINTA.raio, CINTA.altura, 6), metal);
+  cinta.position.y = NIVEL_AGUA;
+  const sapata = new THREE.Mesh(new THREE.CylinderGeometry(raio * SAPATA.raio * 0.8, raio * SAPATA.raio, SAPATA.altura, 6), escuro);
+  sapata.position.y = FUNDO_LAGO + SAPATA.altura / 2 - 1;
+  g.add(pilar, cinta, sapata);
 
   // Pé: toco sextavado que fica mesmo com a torreta caída.
   const pe = new THREE.Mesh(new THREE.CylinderGeometry(raio * 0.92, raio, ALTURA_PE, 6), escuro);
@@ -69,13 +92,15 @@ export function criarTorreta({ aliado = true, raio = 4.5, altura = 16 } = {}) {
   const tampa = new THREE.Mesh(new THREE.CylinderGeometry(raio * 0.3, raio * 0.58, 1.2, 8), metal);
   tampa.position.y = 3.8;
   cabeca.add(carcaca, tampa);
+  const k = raio / RAIO_DESENHO;
+  const grosso = Math.sqrt(k); // canos engrossam menos que a torre, para não virar tubo
   for (const lado of [-1, 1]) {
-    const cano = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.4, 5.2, 6), metal);
+    const cano = new THREE.Mesh(new THREE.CylinderGeometry(0.32 * grosso, 0.4 * grosso, CANO_COMP, 6), metal);
     cano.rotation.x = Math.PI / 2;
-    cano.position.set(lado * 0.95, 1, -raio * 0.55 - 2.2);
-    const boca = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.5, 6), neon);
+    cano.position.set(lado * 0.95 * k, 1, -raio * 0.55 - CANO_COMP / 2 + 0.4);
+    const boca = new THREE.Mesh(new THREE.CylinderGeometry(0.42 * grosso, 0.42 * grosso, 0.5, 6), neon);
     boca.rotation.x = Math.PI / 2;
-    boca.position.set(lado * 0.95, 1, -raio * 0.55 - 4.7);
+    boca.position.set(lado * 0.95 * k, 1, -raio * 0.55 - CANO_COMP + 0.4);
     cabeca.add(cano, boca);
   }
   const mastro = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, altura - HOVER - 4.6, 5), escuro);
@@ -97,7 +122,7 @@ export function criarTorreta({ aliado = true, raio = 4.5, altura = 16 } = {}) {
     destrocos.add(lasca);
   }
   // O cano solto no chão, para a silhueta caída dizer "torreta".
-  const canoSolto = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.4, 5.2, 6), metal);
+  const canoSolto = new THREE.Mesh(new THREE.CylinderGeometry(0.32 * grosso, 0.4 * grosso, CANO_COMP, 6), metal);
   canoSolto.rotation.set(Math.PI / 2, 0, 0.6);
   canoSolto.position.set(raio + 2.5, 0.4, -1);
   destrocos.add(canoSolto);

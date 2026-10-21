@@ -52,16 +52,15 @@ degraus (como a física: degrau de 30% do topo e rampa de 16 m); da água para b
 | `plataforma-servico.glb` | Plataforma da Evolução e da Loja: deque r 23, anel `neon_servico` r 20 | 46 × −62…1,2 × 46 | 866 | centro, topo em y = 0 | `SERVICOS` com y = piso (1,2). O ícone do serviço continua desenhado pelo cliente |
 | `plataforma-pouso.glb` | Plataforma de pouso do ouro (P0/P1): deque r 32, anel âmbar r 28, quatro setas para o centro e o nó **`emissor`** no centro (de onde sai o feixe com alguém pousado) | 64 × −62…1,2 × 64 | 1.018 | centro, topo em y = 0 | P0 (−495, 1, −445,5), P1 (495, 1, 445,5) |
 | `nucleo.glb` | **Núcleo de He-3** (ver abaixo) | 138 × −62…71 × 138 | 3.144 | centro do poço, y = 0 | (0, 0, −877). Cristal centrado em y = 18 (a entidade do servidor) |
-| `torre-suporte.glb` | Torre do buff de suporte (cilindro r 7, topo 30): fuste sextavado com três faixas âmbar, colar, capitel e o nó **`suporte_nucleo`** (octaedro âmbar com anel, a 30,5 m: pulsar/girar) | 17 × −62…34 × 19 | 320 | centro, y = 0 | BS0 (−855, 0, 909), BS1 (855, 0, −909). Planta: até 2,6 m para fora |
-| `torre-suporte-caida.glb` | A mesma torre derrubada: toco quebrado (até 2,4 m acima do voo, sem colisão), destroços e uma faixa âmbar caída | 30 × −62…2,2 × 26 | 266 | idem | troca com a de pé quando `definirObstaculoAtivo('BS0', false)` |
+| `torre-suporte.glb` | Torre do buff de suporte (cilindro r 7, topo 30): fuste sextavado com três faixas âmbar, colar, capitel e o nó **`suporte_nucleo`** (octaedro âmbar com anel, a 30,5 m: pulsar/girar) | 17 × −62…34 × 19 | 320 | centro, y = 0 | BS0 (−855, 0, 909), BS1 (855, 0, −909). **No jogo vai com escala 2** (`ESCALA_TORRE_SUPORTE`, planta `TORRE_SUPORTE` r 14, topo 60; o fuste enterra no fundo). Planta: até 2,6 m para fora (5,2 m na escala 2) |
+| `torre-suporte-caida.glb` | A mesma torre derrubada: toco quebrado (até 2,4 m acima do voo, sem colisão), destroços e uma faixa âmbar caída | 30 × −62…2,2 × 26 | 266 | idem | troca com a de pé quando `definirObstaculoAtivo('BS0', false)`. Escala 2 como a de pé (o toco fica a 4,8 m, abaixo do voo) |
 | `entrega.glb` | Arco da entrega dos mineradores na boca da base: viga flutuante a 40–49 m com fendas e luminárias `neon_time`, dois pilares flutuantes e duas boias na água (até 2,2 m) | 6,4 × −20…49 × 143 | 676 | centro da entrega, y = 0 | time 0: (−1110, 0, 0) giro 0; time 1: (1110, 0, 0) giro π |
-| `asteroide-1.glb` … `asteroide-4.glb` | Pedaços flutuantes dos campos de asteroides: 1 = pedra de ~8 m, 2 = lasca comprida de ~20 m, 3 = rochedo de ~29 m com veio de He-3, 4 = aglomerado de lascas achatadas com um cristal | 8 / 22 / 29 / 18 m | 80 / 80 / 436 / 349 | **centro do pedaço** (não a base) | espalhar dentro de `ASTEROIDES` (sugestão abaixo) |
 | `coral.glb`, `alga.glb`, `cristais-he3.glb` | Decoração do fundo: coral ramificado (~13 m), tufo de algas (fita dos dois lados, ~20 m), aglomerado de cristais de He-3 (~10 m) | — | 720 / 60 / 174 | **base no fundo** | y = `FUNDO_LAGO` − 3 (−63), espalhados (a montagem usou 70) |
 | `pedra-lago-1.glb` | Pedra que sobe do fundo e fura a água (topo +1,5 a 2,5 m: espuma em volta, abaixo do voo) | 37 × −64…2,5 × 33 | 174 | centro, y = 0 | pontos livres da região aberta (não na lane) |
 | `pedra-lago-2.glb` | Pedra inteira embaixo d'água (topo −22) | 48 × −64…−22 × 42 | 218 | idem | idem |
 | `ruina-submersa.glb` | Anel de pilares quebrados no fundo, com cristais no meio (lembrança do templo do Stage 6) | 67 × −63…−29 × 70 | 601 | centro, y = 0 | um ou dois pontos de cada lado (a montagem usou (∓420, ±640)) |
 
-Total: 27 arquivos, ~880 KB (limite do contrato: 6 MB).
+Total: 23 arquivos, ~815 KB (limite do contrato: 6 MB).
 
 ### Mineradora (`mineradora.glb`)
 
@@ -99,8 +98,9 @@ Nós, todos com o **pivô no centro do cristal (0, 18, 0)** para girar no lugar:
 - `nucleo_estabilizadores` (pivô na origem): quatro agulhas flutuando a 50 m do centro, de 38 a ~70 m de altura,
   apontando para o cristal (feixes âmbar delas até o cristal ficam bonitos no pulso).
 
-## Campos de asteroides (sugestão de espalhamento)
+## Campos que escondem: nuvens de gás, sem modelo
 
-Por campo (`ASTEROIDES`), ~26 pedaços com semente fixa: tipo 1/2/3/4 com pesos 5/4/1/2, posição dentro de 92% do
-retângulo, altura 4–42 m, giro em y ao acaso, inclinação em x até ±0,6 rad, escala 0,7–1,3; girar devagar
-(0,02–0,08 rad/s) e boiar ±1 m. Mais denso no miolo que nas beiradas, para o "mato" ler de longe.
+Os campos de `ASTEROIDES` (passáveis, escondem quem está dentro) eram pedaços flutuantes de rocha
+(`asteroide-1.glb` … `asteroide-4.glb`); viraram **nuvens de gás e poeira** feitas em código
+(`public/js/nuvens.js`: tufos instanciados virados para a câmera, textura gerada na hora). Os quatro `.glb` saíram
+da pasta e da tela de carregamento; as fontes `.blend` continuam em `new-astron-progresso/mapa-stage6/blender/`.

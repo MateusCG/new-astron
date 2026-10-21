@@ -10,7 +10,7 @@ import { TORRETA, linhaDeTiro } from '../server/torretas.js';
 import { VISAO_TORRETA } from '../shared/visao.js';
 import { RECOMPENSA, xpParaNivel } from '../server/progressao.js';
 import { createShip, createBullet, WEAPONS, HOVER, SHIP_RADIUS, IDX_ARMA, versaoArma } from '../shared/sim.js';
-import { TORRETAS, TORRETA_LADO, BASES, LANE, MINERADORA, ROTAS, SERVICOS, heightAt } from '../shared/terrain.js';
+import { TORRETAS, TORRETA_LADO, TORRETA_LADO_POR_LANE, BASES, LANE, MINERADORA, ROTAS, SERVICOS, heightAt } from '../shared/terrain.js';
 import { OBSTACULOS, TORRETA as PLANTA, alturaSolida, obstaculoAtivo } from '../shared/obstaculos.js';
 import { FAIXA_MINERADOR } from '../server/mineradores.js';
 import { MELHORIA_TORRETAS, PRECO_RECONSTRUIR, TORRETA_HP_POR_NIVEL, TORRETA_DANO_POR_NIVEL, TORRETA_NIVEL_MAX } from '../shared/evolucao.js';
@@ -62,7 +62,12 @@ test('torretas: quatro por time, duas de cada lado, fora da lane, na metade do t
       assert.equal(g.id.slice(3), t.id.slice(3), 'mesmo número');
     }
   }
-  assert.equal(TORRETA_LADO, 171);
+  // Mesma proporção do desenho (171 m com a lane de 180 m), com a lane de 140 m.
+  assert.equal(TORRETA_LADO, LANE.meiaLargura * TORRETA_LADO_POR_LANE);
+  assert.ok(Math.abs(TORRETA_LADO / LANE.largura - 171 / 180) < 1e-9);
+  assert.equal(TORRETA_LADO, 133);
+  assert.equal(PLANTA.raio, 9);
+  assert.ok(TORRETA_LADO - PLANTA.raio - LANE.meiaLargura > 50, 'mais de 50 m de água entre a torre e a beira da lane');
 });
 
 test('torretas: são sólidas (planta única) e não bloqueiam a rota dos mineradores', () => {
@@ -95,7 +100,7 @@ test('torretas: linha de tiro bate em construção e passa livre no aberto', () 
 
 test('torretas: atiram no inimigo no alcance e não no aliado', () => {
   const { w, a, b } = mundo();
-  const t = torreta(w, 'T0-4'); // (-427,5, 171)
+  const t = torreta(w, 'T0-4'); // (-427,5, 133)
   // Só o aliado perto: nenhuma torreta do time 0 atira.
   colocar(a, t.x - 40, t.z + 10);
   colocar(b, 0, -900);
@@ -334,7 +339,7 @@ test('torretas: 1400 de HP no nível 1 e alcance de 560 m, o maior do jogo (o me
 
 test('torretas: atiram a 540 m e não a 600 m', () => {
   const { w, a, b } = mundo();
-  const t = torreta(w, 'T0-4'); // (-427,5, 171)
+  const t = torreta(w, 'T0-4'); // (-427,5, 133)
   colocar(a, BASES[0].x, BASES[0].z);
   colocar(b, t.x, t.z + 600);
   assert.equal(primeiroMissil(w), null, '600 m: fora');

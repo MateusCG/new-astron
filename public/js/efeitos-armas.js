@@ -18,8 +18,10 @@
 // nova = anel deitado crescendo + casca esférica clara; mina e campo = decalque no
 // chão girando devagar.
 //
-// Desempenho: geometrias e materiais compartilhados por textura e cor (só o que
-// some aos poucos, como clarão e impacto, ganha material próprio, liberado no fim);
+// Desempenho: geometrias e materiais compartilhados por textura e cor; o que some aos
+// poucos (clarão, impacto, área, nova, a carga do canhão) ganha material próprio, que
+// sai de uma reserva e volta para ela no fim (nunca é liberado no meio da partida: o
+// Three.js apagaria o programa de shader e o próximo efeito igual compilaria de novo);
 // texturas baixadas uma vez (cache por nome), todas as da nave já na tela de
 // carregamento (carregamento.js; quais são sai de insumos.js, que também guarda as
 // sequências de quadros e as texturas de casco); sequências de quadros só nos
@@ -102,6 +104,9 @@ export class VisualArmas {
     this.scene = scene;
     this.mats = new Map(); // 'textura|cor' -> material compartilhado (aditivo)
     this.efeitos = []; // passageiros: clarão, impacto, área, nova
+    // Reservas dos materiais próprios: 'sprite' e 'malha' (aditivos com textura) e
+    // 'casca' (a casca da nova, sem textura: outro shader, então outra reserva).
+    this.reservas = { sprite: [], malha: [], casca: [] };
     // Plano deitado de 1×1 m, comprido no eixo z (o rumo depois do lookAt).
     this.geoDeitado = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
     // Plano em pé, comprido no eixo z: a "cruz" que aparece de lado.
@@ -135,6 +140,10 @@ export class VisualArmas {
     this.mats.clear();
     for (const e of this.efeitos) this.#tirar(e);
     this.efeitos = [];
+    for (const lista of Object.values(this.reservas)) {
+      for (const m of lista) m.dispose();
+      lista.length = 0;
+    }
     for (const g of [this.geoDeitado, this.geoEmPe, this.geoCasca, this.geoBarra, this.geoMissil, this.geoNariz, this.matMissil]) g.dispose();
   }
 
@@ -166,7 +175,7 @@ export class VisualArmas {
       g.add(barra);
     } else if (cat === 'canhao' && tex) {
       // Carga do canhão: sprite com os quadros do original girando.
-      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: texturaEfeito(tex), color: BRANCO, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
+      const s = new THREE.Sprite(this.#matProprio(tex, BRANCO, true));
       s.scale.setScalar(tam.comp);
       g.add(s);
       g.userData.anima = { mat: s.material, quadros: quadros(tex), t: 0 };
@@ -199,7 +208,7 @@ export class VisualArmas {
   /** Avança a animação de um projétil (quadros da carga, giro da hélice, onda crescendo). */
   animarProjetil(t, dt) {
     const a = t.g.userData.anima;
-    if (a) {
+    if (a?.mat) {
       a.t += dt;
       a.mat.map = a.quadros[Math.floor(a.t * QUADROS_POR_S) % a.quadros.length];
     }
@@ -210,9 +219,11 @@ export class VisualArmas {
     }
   }
 
-  /** Libera o material próprio de um projétil que saiu de cena. */
+  /** Devolve à reserva o material próprio de um projétil que saiu de cena. */
   soltarProjetil(g) {
-    if (g.userData.anima) g.userData.anima.mat.dispose();
+    const a = g.userData.anima;
+    if (a?.mat) this.#guardar(a.mat);
+    if (a) a.mat = null;
   }
 
   /** Efeito passageiro na cena: some sozinho em `dur` s (atualizar). */
@@ -224,14 +235,43 @@ export class VisualArmas {
   #tirar(e) {
     this.scene.remove(e.obj);
     e.obj.traverse?.((o) => {
-      if (o.userData.proprio) o.material.dispose();
+      if (o.userData.proprio) this.#guardar(o.material);
     });
   }
 
-  /** Material próprio (some aos poucos): aditivo, com a textura e a cor. */
+  /** Guarda um material próprio na reserva dele (pelo `userData.reserva`). */
+  #guardar(m) {
+    this.reservas[m.userData.reserva]?.push(m);
+  }
+
+  /**
+   * Material próprio (some aos poucos): aditivo, com a textura e a cor, da reserva
+   * (troca só a textura, a cor e a opacidade; o shader é o mesmo de todos).
+   */
   #matProprio(textura, cor = BRANCO, sprite = false) {
-    const opcoes = { map: textura ? texturaEfeito(textura) : brilho(), color: cor, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false };
-    return sprite ? new THREE.SpriteMaterial(opcoes) : new THREE.MeshBasicMaterial({ ...opcoes, side: THREE.DoubleSide });
+    const tipo = sprite ? 'sprite' : 'malha';
+    let m = this.reservas[tipo].pop();
+    if (!m) {
+      const opcoes = { map: brilho(), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false };
+      m = sprite ? new THREE.SpriteMaterial(opcoes) : new THREE.MeshBasicMaterial({ ...opcoes, side: THREE.DoubleSide });
+      m.userData.reserva = tipo;
+    }
+    m.map = textura ? texturaEfeito(textura) : brilho();
+    m.color.copy(cor);
+    m.opacity = 1;
+    return m;
+  }
+
+  /** Material da casca da nova (sem textura), da reserva. */
+  #matCasca(cor) {
+    let m = this.reservas.casca.pop();
+    if (!m) {
+      m = new THREE.MeshBasicMaterial({ blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
+      m.userData.reserva = 'casca';
+    }
+    m.color.copy(cor);
+    m.opacity = 0.16;
+    return m;
   }
 
   /** Clarão na boca da arma (efeito 'd' do original, ou um brilho na cor da arma). */
@@ -322,7 +362,7 @@ export class VisualArmas {
       m.scale.set(2, 1, 2); // o grupo cresce até o raio; o plano é o diâmetro
       grupo.add(m);
     }
-    const casca = new THREE.Mesh(this.geoCasca, new THREE.MeshBasicMaterial({ color: cor, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0.16 }));
+    const casca = new THREE.Mesh(this.geoCasca, this.#matCasca(cor));
     casca.userData.proprio = true;
     casca.scale.set(1, 0.45, 1);
     grupo.add(casca);

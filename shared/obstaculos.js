@@ -42,11 +42,19 @@ import {
 
 /**
  * Torreta (torre sentinela): torre baixa e grossa, mais alta que a altura de voo (o
- * canhão fica na altura das naves e o tiro de quem passa bate nela).
+ * canhão fica na altura das naves e o tiro de quem passa bate nela). Raio de 9 m
+ * (o dobro do primeiro desenho, por decisão do Mateus, out/2026).
+ * Embaixo do chão de voo, o pilar desce até o fundo do lago (só desenho).
  */
-export const TORRETA = { raio: 4.5, altura: 16 };
-/** Torre do buff de suporte (o objetivo é destruí-la). */
-export const TORRE_SUPORTE = { raio: 7, altura: 30 };
+export const TORRETA = { raio: 9, altura: 16 };
+/**
+ * Torre do buff de suporte (o objetivo é destruí-la): o dobro do primeiro desenho
+ * em largura e altura (era raio 7 e 30 m; decisão do Mateus, out/2026). O modelo
+ * (torre-suporte.glb, feito para 7 × 30) é desenhado com ESCALA_TORRE_SUPORTE.
+ */
+export const TORRE_SUPORTE = { raio: 14, altura: 60 };
+/** Escala do modelo da torre de suporte (de pé e caída) sobre o .glb, feito para raio 7 e 30 m. */
+export const ESCALA_TORRE_SUPORTE = TORRE_SUPORTE.raio / 7;
 /**
  * Portal warp de cada base: flutua acima de `base` metros (a nave passa por baixo) e
  * não colide. `lx`/`lz` no referencial da base do time 0 (lane para +x): no fundo do

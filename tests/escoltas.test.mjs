@@ -69,7 +69,36 @@ test('escolta: sai da base depois do começo e anda pela lane junto com os miner
   }
   assert.ok(maisPerto > DOCAS[0].x - 120, `chegou perto da doca (x ${maisPerto.toFixed(0)})`);
   assert.ok(pertoDoMinerador > 25 * SEGUNDO, `andou colada no minerador (${(pertoDoMinerador / SEGUNDO).toFixed(0)} s)`);
-  assert.equal(w.escoltas.lista.filter((e) => e.time === 0).length, ESCOLTA.maxAtivos, 'uma por time');
+  assert.equal(w.escoltas.lista.filter((e) => e.time === 0).length, ESCOLTA.maxAtivos, 'três por time');
+});
+
+test('escolta: as três saem em fila e se espalham pelo comboio dos 10 mineradores, sem empilhar', () => {
+  const { w } = mundo();
+  esperarEscolta(w);
+  assert.equal(w.escoltas.lista.filter((e) => e.time === 0).length, 1, 'a primeira sai sozinha');
+  for (let i = 0; i < ESCOLTA.saidaS * SEGUNDO; i++) w.step();
+  assert.equal(w.escoltas.lista.filter((e) => e.time === 0).length, 2, 'a segunda sai ESCOLTA.saidaS depois');
+  let menor = Infinity;
+  let espalhadas = 0;
+  for (let i = 0; i < 90 * SEGUNDO; i++) {
+    w.step();
+    if (i < 30 * SEGUNDO) continue; // as três saíram da base e alcançaram o lugar
+    for (const t of [0, 1]) {
+      const es = w.escoltas.lista.filter((e) => e.vivo && e.time === t);
+      assert.equal(es.length, ESCOLTA.maxAtivos);
+      let maior = 0;
+      for (let a = 0; a < es.length; a++) {
+        for (let b = a + 1; b < es.length; b++) {
+          const d = Math.hypot(es[a].ship.x - es[b].ship.x, es[a].ship.z - es[b].ship.z);
+          menor = Math.min(menor, d);
+          maior = Math.max(maior, d);
+        }
+      }
+      if (maior > 300) espalhadas++;
+    }
+  }
+  assert.ok(menor > 15, `duas escoltas do mesmo time a ${menor.toFixed(1)} m`);
+  assert.ok(espalhadas > 60 * SEGUNDO, 'frente e fim do comboio longe uma da outra');
 });
 
 test('escolta: sem minerador, faz a ronda da rota (vai à doca e volta)', () => {
@@ -128,7 +157,7 @@ test('escolta: destruída paga quem destruiu e a próxima sai depois do interval
   const { w, a, b } = mundo();
   w.mineradores.passo = () => {};
   w.mineradores.limpar();
-  esperarEscolta(w, 6); // e sai da base (lá dentro é protegida)
+  esperarEscolta(w, (ESCOLTA.maxAtivos - 1) * ESCOLTA.saidaS + 6); // as três saíram e a primeira já saiu da base (lá dentro é protegida)
   const e = escoltaDo(w, 1);
   e.ship.emp = 30; // parada, para o tiro de A pegar
   e.ship.hp = 10;
@@ -143,8 +172,9 @@ test('escolta: destruída paga quem destruiu e a próxima sai depois do interval
   assert.equal(e.vivo, false);
   assert.equal(a.ouro - ouro, RECOMPENSA.escolta.ouro);
   assert.ok(w.tirarEventos().some((ev) => ev.e === 'morte' && ev.tipo === 'escolta' && ev.time === 1 && ev.por === a.id));
+  const vivas = () => w.escoltas.lista.filter((x) => x.vivo && x.time === 1).length;
   for (let i = 0; i < (ESCOLTA.intervaloS - 1) * SEGUNDO; i++) w.step();
-  assert.equal(escoltaDo(w, 1), undefined, 'ainda no intervalo');
+  assert.equal(vivas(), ESCOLTA.maxAtivos - 1, 'ainda no intervalo');
   for (let i = 0; i < 2 * SEGUNDO; i++) w.step();
-  assert.ok(escoltaDo(w, 1), 'a próxima saiu');
+  assert.equal(vivas(), ESCOLTA.maxAtivos, 'a reposição saiu');
 });

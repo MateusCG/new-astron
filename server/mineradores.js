@@ -14,16 +14,27 @@
 // vai não atravessar quem volta. Os dois times usam metades diferentes da lane (cada
 // um atraca na doca do seu lado), então não se cruzam.
 //
-// Saem da base de MINERADOR.intervaloS em intervalos, até MINERADOR.maxAtivos por
-// time. O destruído não volta: o próximo sai da base depois do intervalo, contado
-// a partir de quando abriu a vaga.
+// Saem da base em fila, um a cada MINERADOR.saidaS, até MINERADOR.maxAtivos por time
+// (MINERADORES_POR_TIME = 10 de shared/evolucao.js, mais a melhoria "quantidade").
+// O espaço da saída (7,5 s, ~225 m a 30 m/s) é o ciclo (~75 s) dividido pelos 10:
+// eles ficam espalhados pela lane e cada um chega à doca depois de o da frente sair
+// dela (minerando 5 s). O destruído não volta: o substituto sai da base
+// MINERADOR.intervaloS depois de abrir a vaga.
+//
+// Fila (FILA_ESPACO): nenhum minerador encosta no da frente do mesmo time que vai no
+// mesmo sentido (mesma faixa, mesma direção); com um na doca minerando, o próximo
+// espera atrás dele, parado, e só atraca quando ele sai. Os do Núcleo, mais lentos,
+// não seguram a fila dos normais pela lane (cada tipo faz fila com o seu), mas a
+// doca é uma só: todo mundo espera quem está minerando nela. Na entrega não há fila:
+// a carga conta ao passar pela faixa, sem parar.
 //
 // Tempos (medidos em tests/mineradores.test.mjs, sem melhoria, 30 m/s): da base à
 // doca são ~1200 m, uns 40 s; minerando 5 s; da doca à entrega ~1030 m, uns 34 s. A
 // primeira entrega sai ~79 s depois da saída e cada volta seguinte (entrega → doca →
 // entrega) leva ~75 s. Numa partida de 20 minutos cada minerador que sobrevive faz
-// umas 15 viagens: ~45 entregas por time com os três, ~450 de minério, mais o dobro
-// do que entra nos 3 minutos da fase final.
+// umas 15 viagens: com os 10, ~150 entregas por time, ~1500 de minério, e ~1760 no
+// placar com o dobro da fase final (com três eram ~530). A onda do Núcleo (150) pesa
+// bem menos no placar do que pesava.
 //
 // Onda do Núcleo (server/objetivos.js chama ondaDoNucleo quando um time toma o
 // Núcleo de He-3): saem da base, NA HORA, MINERADOR_NUCLEO.quantos mineradores
@@ -51,13 +62,15 @@
 
 import { createShip, stepShip, velocidadeBase, DT } from '../shared/sim.js';
 import { BASES, ROTAS, ENTREGAS } from '../shared/terrain.js';
+import { MINERADORES_POR_TIME } from '../shared/evolucao.js';
 
 /** Números de balanceamento do minerador (sem melhoria). */
 export const MINERADOR = {
   nome: 'Minerador',
   raca: 'shrewdo', // só para a física (stepShip): a raça mais rápida, para sobrar acelerador
-  maxAtivos: 3, // por time, ao mesmo tempo
-  intervaloS: 20, // entre uma saída e outra da base
+  maxAtivos: MINERADORES_POR_TIME, // por time, ao mesmo tempo (10; a Evolução soma)
+  saidaS: 7.5, // entre uma saída e a seguinte enquanto há vaga (ciclo ~75 s / 10)
+  intervaloS: 20, // da vaga aberta (minerador destruído) até sair o substituto
   hp: 120,
   velocidade: 30, // m/s (a nave de jogador mais lenta faz ~50)
   carga: 10, // minério por viagem
@@ -73,6 +86,10 @@ export const FAIXA_MINERADOR = 15;
  * SHIP_RADIUS = 4,5 m), quantos saem e o espaço entre eles na fila da saída.
  */
 export const MINERADOR_NUCLEO = { quantos: 3, hpMult: 4, velMult: 0.7, carga: 50, mineracaoS: 8, raio: 7, espaco: 25 };
+/** Fila: m que um minerador guarda do da frente na mesma faixa (e de quem está na doca). */
+export const FILA_ESPACO = 35;
+const FILA_LARGURA = 10; // m de lado: mais que isto, está na outra faixa (não é o da frente)
+const FILA_RUMO = 0.5; // cosseno: só conta quem vai no mesmo sentido (até ~60° de diferença)
 const CHEGOU = 12; // m: perto assim de um ponto da rota, segue para o próximo
 const FREIA_DIST = 40; // m antes da doca: começa a frear para parar nela
 
@@ -130,6 +147,7 @@ export class Mineradores {
     const n = nucleo ? MINERADOR_NUCLEO : null;
     return {
       maxAtivos: MINERADOR.maxAtivos + (m.maxAtivos ?? 0),
+      saidaTicks: Math.round(MINERADOR.saidaS / DT),
       intervaloTicks: Math.round(MINERADOR.intervaloS / DT),
       hp: MINERADOR.hp * (m.hpMult ?? 1) * (n?.hpMult ?? 1),
       velocidade: MINERADOR.velocidade * (m.velocidadeMult ?? 1) * (n?.velMult ?? 1),
@@ -208,12 +226,41 @@ export class Mineradores {
         // Sem vaga: o intervalo só começa a contar quando abrir uma.
         this.proximaSaida[b.time] = Math.max(this.proximaSaida[b.time], tick + a.intervaloTicks);
       } else if (tick >= this.proximaSaida[b.time]) {
+        // Com vaga sobrando, o próximo sai logo atrás (saidaS); se esta saída
+        // encheu o time, a linha de cima empurra para o intervalo da reposição.
         this.lista.push(this.#novo(b.time, a));
-        this.proximaSaida[b.time] = tick + a.intervaloTicks;
+        this.proximaSaida[b.time] = tick + a.saidaTicks;
       }
     }
     for (const m of this.lista) this.#mover(m, this.atributos(m.time, tick, !!m.nucleo), tick);
     if (this.lista.some((m) => m.sumiu)) this.lista = this.lista.filter((m) => !m.sumiu);
+  }
+
+  /**
+   * Fila: fração do acelerador que sobra para `m` pelo minerador do mesmo time à
+   * frente dele (mesmo sentido, mesma faixa): 1 longe, cai a 0 a FILA_ESPACO. O da
+   * frente conta se é do mesmo tipo (normal ou do Núcleo) e no mesmo estado, ou se
+   * está minerando (a doca é uma só).
+   */
+  #folgaDaFila(m) {
+    const s = m.ship;
+    const fx = -Math.sin(s.yaw);
+    const fz = -Math.cos(s.yaw);
+    let folga = 1;
+    for (const o of this.lista) {
+      if (o === m || !o.vivo || o.time !== m.time) continue;
+      const naDoca = o.estado === 'minerando';
+      if (!naDoca && (o.estado !== m.estado || !!o.nucleo !== !!m.nucleo)) continue;
+      const dx = o.ship.x - s.x;
+      const dz = o.ship.z - s.z;
+      const frente = dx * fx + dz * fz;
+      if (frente <= 0 || frente > FILA_ESPACO * 2) continue;
+      if (Math.abs(dx * fz - dz * fx) > FILA_LARGURA) continue;
+      // Quem está na doca já virou para a volta; nos outros, só o que vai no mesmo rumo.
+      if (!naDoca && -Math.sin(o.ship.yaw) * fx + -Math.cos(o.ship.yaw) * fz < FILA_RUMO) continue;
+      folga = Math.min(folga, Math.max(0, (frente - FILA_ESPACO) / FILA_ESPACO));
+    }
+    return folga;
   }
 
   #mover(m, a, tick) {
@@ -249,14 +296,15 @@ export class Mineradores {
       }
     }
     if (m.estado === 'minerando') {
-      // Parado na doca, virando para a volta.
-      const volta = pontoRota(m.time, ultimo - 1, false);
+      // Parado na doca, virando para a faixa da volta ao lado dela: sai de lado
+      // primeiro, para não passar raspando no próximo da fila, que espera atrás.
+      const volta = pontoRota(m.time, ultimo, false);
       const diff = anguloEntre(s.yaw, yawPara(s.x, s.z, volta.x, volta.z));
       stepShip(s, { th: 0, tu: Math.max(-1, Math.min(1, diff * 2.5)), b: false, f1: false, f2: false, p: false, a: 0 });
       if (tick >= m.mineraAte) {
         m.carga = a.carga;
         m.estado = 'volta';
-        m.ponto = ultimo - 1;
+        m.ponto = ultimo;
       }
       return;
     }
@@ -267,6 +315,7 @@ export class Mineradores {
 
     const diff = anguloEntre(s.yaw, yawPara(s.x, s.z, alvo.x, alvo.z));
     th *= Math.max(0.15, 1 - Math.abs(diff) / 1.6); // curva fechada: freia para virar
+    th *= this.#folgaDaFila(m); // fila: freia atrás do da frente e para a FILA_ESPACO dele
     stepShip(s, { th, tu: Math.max(-1, Math.min(1, diff * 2.5)), b: false, f1: false, f2: false, p: false, a: 0 });
 
     const e = ENTREGAS[m.time];

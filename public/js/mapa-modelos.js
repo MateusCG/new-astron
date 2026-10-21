@@ -102,7 +102,7 @@ export function instanciaMapa(nome, { sombra = true } = {}) {
   return c;
 }
 
-/** Geometria e material de cada malha do modelo (para InstancedMesh: asteroides, decoração). */
+/** Geometria e material de cada malha do modelo (para InstancedMesh: decoração). */
 export function partesDoModelo(nome) {
   const m = prontos.get(nome);
   if (!m) return [];

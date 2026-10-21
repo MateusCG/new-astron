@@ -1,6 +1,7 @@
-// Jogadores do computador (server/bots.js): entrada e saída pelo pedido {t:'ia'},
-// limite de 3 por time, vaga cedida a humano, nick "NOME (IA)" e se ele joga de
-// verdade no mapa do Stage 6, sempre pelos mesmos comandos de um jogador: navega
+// Jogadores do computador (server/bots.js): entrada pela escolha da tela inicial
+// (iaMeu e iaInimigo no {t:'entrar'}, só completando as vagas que faltam; o {t:'ia'}
+// na partida é recusado), limite de 3 por time, vaga cedida a humano, nick
+// "NOME (IA)" e se ele joga de verdade no mapa do Stage 6, sempre pelos mesmos comandos de um jogador: navega
 // sem enroscar, faz o papel dele (lane, jungle, roamer), respeita as torres
 // inimigas, vai aos chefes em grupo, recua com pouca vida, só vê o que o time vê, e
 // uma partida inteira de computadores contra computadores roda sem erro.
@@ -8,7 +9,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World } from '../server/game.js';
 import { NOMES, SUFIXO_IA, IA } from '../server/bots.js';
-import { MAX_POR_TIME } from '../server/partida.js';
+import WebSocket from 'ws';
+import { iniciar } from '../server/index.js';
+import { MAX_POR_TIME, IA_MEU_MAX, IA_INIMIGO_MAX, computadoresDaEntrada } from '../server/partida.js';
 import { TORRETA } from '../server/torretas.js';
 import { BASES, DOCAS, ACAMPAMENTOS, BUFFS, PLATAFORMAS_POUSO, NUCLEO, MEDUSA, ASTEROIDES, emAsteroides } from '../shared/terrain.js';
 import { enxerga } from '../shared/visao.js';
@@ -69,11 +72,9 @@ function sobTorreInimiga(w, j) {
 
 const NICK = new RegExp(`^(${NOMES.join('|')}) \\(IA\\)$`);
 
-test('computador: entra no time pedido com nick "NOME (IA)", sem repetir nome', () => {
-  const { w, h } = mundoComHumano();
-  assert.equal(w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'meu' }).ok, true);
-  assert.equal(w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'inimigo' }).ok, true);
-  assert.equal(w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'inimigo' }).ok, true);
+test('computador: entra pela escolha da tela inicial (iaMeu, iaInimigo) com nick "NOME (IA)", sem repetir nome', () => {
+  const w = new World({ rng: rngFixo() });
+  const h = w.addPlayer('Humano', 'acron', 'assault', { iaMeu: 1, iaInimigo: 2 });
   const bots = [...w.players.values()].filter((j) => j.ia);
   assert.equal(bots.length, 3);
   assert.deepEqual(bots.map((b) => b.time).sort(), [h.time, 1 - h.time, 1 - h.time].sort());
@@ -82,30 +83,119 @@ test('computador: entra no time pedido com nick "NOME (IA)", sem repetir nome', 
     assert.ok(b.nome.endsWith(SUFIXO_IA));
   }
   assert.equal(new Set(bots.map((b) => b.nome)).size, 3, 'nomes diferentes');
+  // Sem pedido (cliente antigo), ninguém entra junto.
+  const w2 = new World({ rng: rngFixo() });
+  w2.addPlayer('Sozinho', 'acron', 'assault');
+  assert.equal(w2.players.size, 1);
   // O humano não consegue se passar por computador: o parêntese sai do nick.
   assert.equal(w.addPlayer('JOAO (IA)', 'acron', 'assault').nome, 'JOAO IA');
 });
 
-test('computador: no máximo 3 por time (contando os humanos), e só computador se tira', () => {
-  const { w, h } = mundoComHumano();
-  for (let k = 0; k < MAX_POR_TIME - 1; k++) assert.equal(w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'meu' }).ok, true);
-  assert.deepEqual(w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'meu' }), { t: 'resultado', acao: 'ia', item: 'adicionar', ok: false, codigo: 'cheio' });
-  for (let k = 0; k < MAX_POR_TIME; k++) assert.equal(w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'inimigo' }).ok, true);
-  assert.equal(w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'inimigo' }).codigo, 'cheio');
-  assert.equal(w.players.size, 2 * MAX_POR_TIME);
-  assert.equal(w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'outro' }).codigo, 'invalido');
-  // Tirar: só computador.
-  assert.equal(w.pedidoIa(h.id, { t: 'ia', acao: 'remover', id: h.id }).codigo, 'invalido');
-  const bot = [...w.players.values()].find((j) => j.ia);
-  assert.equal(w.pedidoIa(h.id, { t: 'ia', acao: 'remover', id: bot.id }).ok, true);
-  assert.equal(w.players.has(bot.id), false);
-  assert.equal(w.pedidoIa(999, { t: 'ia', acao: 'adicionar', lado: 'meu' }).codigo, 'invalido', 'quem não está na partida não pede');
+test('computador: iaMeu e iaInimigo da entrada são saneados (inteiros, 0 a 2 no seu time, 0 a 3 no outro)', () => {
+  assert.deepEqual(computadoresDaEntrada({ iaMeu: 2, iaInimigo: 3 }), { iaMeu: 2, iaInimigo: 3 });
+  assert.equal(IA_MEU_MAX, MAX_POR_TIME - 1, 'você ocupa uma vaga do seu time');
+  assert.equal(IA_INIMIGO_MAX, MAX_POR_TIME);
+  assert.deepEqual(computadoresDaEntrada({ iaMeu: 9, iaInimigo: 99 }), { iaMeu: IA_MEU_MAX, iaInimigo: IA_INIMIGO_MAX }, 'acima do limite vai ao limite');
+  assert.deepEqual(computadoresDaEntrada({ iaMeu: -3, iaInimigo: 1.8 }), { iaMeu: 0, iaInimigo: 1 }, 'negativo vira 0, quebrado vira inteiro');
+  for (const lixo of ['2', null, NaN, Infinity, -Infinity, true, {}, [1], undefined]) {
+    assert.deepEqual(computadoresDaEntrada({ iaMeu: lixo, iaInimigo: lixo }), { iaMeu: 0, iaInimigo: 0 }, String(lixo));
+  }
+  assert.deepEqual(computadoresDaEntrada(undefined), { iaMeu: 0, iaInimigo: 0 });
+  assert.deepEqual(computadoresDaEntrada('bobagem'), { iaMeu: 0, iaInimigo: 0 });
+  // No mundo: o pedido exagerado só enche os dois times, nunca passa de 3.
+  const w = new World({ rng: rngFixo() });
+  const h = w.addPlayer('Humano', 'acron', 'assault', { iaMeu: 50, iaInimigo: 50 });
+  const tam = [0, 0];
+  for (const j of w.players.values()) tam[j.time]++;
+  assert.deepEqual(tam, [MAX_POR_TIME, MAX_POR_TIME]);
+  assert.equal([...w.players.values()].filter((j) => j.ia && j.time === h.time).length, IA_MEU_MAX);
+});
+
+test('computador: com a partida rodando, a entrada só completa as vagas que faltam (não tira ninguém, gente conta, até 3)', () => {
+  const w = new World({ rng: rngFixo(), jungle: false });
+  const tamanhos = () => {
+    const t = [{ gente: 0, ia: 0 }, { gente: 0, ia: 0 }];
+    for (const j of w.players.values()) t[j.time][j.ia ? 'ia' : 'gente']++;
+    return t;
+  };
+  const a = w.addPlayer('A', 'acron', 'assault', { iaMeu: 2, iaInimigo: 0 });
+  assert.equal(a.time, 0);
+  assert.deepEqual(tamanhos(), [{ gente: 1, ia: 2 }, { gente: 0, ia: 0 }]);
+  w.step();
+  assert.equal(w.partida.estado, 'andamento');
+  // B pede zero computadores: cai no time vazio e os dois computadores de A ficam.
+  const b = w.addPlayer('B', 'bellico', 'mobile', { iaMeu: 0, iaInimigo: 0 });
+  assert.equal(b.time, 1);
+  assert.deepEqual(tamanhos(), [{ gente: 1, ia: 2 }, { gente: 1, ia: 0 }], 'não tira os computadores de outro piloto');
+  // C pede 1 no time dele (o de B): B já ocupa essa vaga, então nenhum entra; o
+  // outro time já tem 3, então os 3 inimigos pedidos já estão lá.
+  const c = w.addPlayer('C', 'shrewdo', 'functional', { iaMeu: 1, iaInimigo: 3 });
+  assert.equal(c.time, 1);
+  assert.deepEqual(tamanhos(), [{ gente: 1, ia: 2 }, { gente: 2, ia: 0 }], 'gente conta como vaga ocupada');
+  // D pede 2 no time dele: o time fica com 3 só de gente, sem computador.
+  const d = w.addPlayer('D', 'acron', 'mobile', { iaMeu: 2, iaInimigo: 0 });
+  assert.equal(d.time, 1);
+  assert.deepEqual(tamanhos(), [{ gente: 1, ia: 2 }, { gente: 3, ia: 0 }]);
+  // E chega com tudo cheio: fica com a vaga de um computador (gente tem prioridade),
+  // e o pedido dele não tira ninguém para pôr computador.
+  const e = w.addPlayer('E', 'acron', 'assault', { iaMeu: 2, iaInimigo: 3 });
+  assert.equal(e.time, 0);
+  assert.deepEqual(tamanhos(), [{ gente: 2, ia: 1 }, { gente: 3, ia: 0 }]);
+});
+
+test('computador: no modo de teste os computadores da entrada entram no mundo do piloto', () => {
+  const w = new World({ rng: rngFixo(), teste: true, jungle: false });
+  const h = w.addPlayer('Testador', 'acron', 'assault', { iaMeu: 2, iaInimigo: 1 });
+  const bots = [...w.players.values()].filter((j) => j.ia);
+  assert.equal(bots.filter((b) => b.time === h.time).length, 2);
+  assert.equal(bots.filter((b) => b.time !== h.time).length, 1);
+});
+
+test("computador: pela rede, a entrada traz os computadores e o pedido {t:'ia'} dentro da partida é recusado", async () => {
+  const srv = await iniciar({ porta: 0, world: new World({ rng: rngFixo(), jungle: false, torretas: false }) });
+  const abrir = () =>
+    new Promise((ok) => {
+      const ws = new WebSocket(`ws://localhost:${srv.porta}/ws`);
+      const msgs = [];
+      ws.on('message', (d) => msgs.push(JSON.parse(d)));
+      ws.on('open', () => ok({ ws, msgs }));
+    });
+  const esperar = async (msgs, filtro) => {
+    for (let i = 0; i < 150; i++) {
+      const m = msgs.find(filtro);
+      if (m) return m;
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    throw new Error('tempo esgotado');
+  };
+  try {
+    const a = await abrir();
+    // Fora do limite: o servidor põe no limite (2 no seu time).
+    a.ws.send(JSON.stringify({ t: 'entrar', nome: 'Piloto', race: 'acron', classe: 'assault', iaMeu: 7, iaInimigo: 1 }));
+    const boas = await esperar(a.msgs, (m) => m.t === 'bemvindo');
+    assert.equal(srv.world.players.size, 4);
+    const snap = await esperar(a.msgs, (m) => m.t === 'snap' && m.jogadores?.length === 4);
+    assert.equal(snap.jogadores.filter((j) => j.ia && j.time === boas.time).length, 2);
+    assert.equal(snap.jogadores.filter((j) => j.ia && j.time !== boas.time).length, 1);
+    // Dentro da partida não se põe nem se tira computador.
+    a.ws.send(JSON.stringify({ t: 'ia', acao: 'adicionar', lado: 'inimigo' }));
+    const r = await esperar(a.msgs, (m) => m.t === 'resultado' && m.acao === 'ia');
+    assert.deepEqual(r, { t: 'resultado', acao: 'ia', item: 'adicionar', ok: false, codigo: 'invalido' });
+    const bot = snap.jogadores.find((j) => j.ia);
+    a.ws.send(JSON.stringify({ t: 'ia', acao: 'remover', id: bot.id }));
+    await esperar(a.msgs, (m) => m.t === 'resultado' && m.acao === 'ia' && m.item === 'remover');
+    assert.equal(srv.world.players.size, 4, 'ninguém entrou nem saiu');
+    assert.ok(srv.world.players.has(bot.id));
+    a.ws.close();
+  } finally {
+    await srv.fechar();
+  }
 });
 
 test('computador: humano que chega com a partida cheia fica com a vaga de um computador', () => {
   const { w, h } = mundoComHumano();
-  for (let k = 0; k < MAX_POR_TIME - 1; k++) w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'meu' });
-  for (let k = 0; k < MAX_POR_TIME; k++) w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'inimigo' });
+  for (let k = 0; k < MAX_POR_TIME - 1; k++) w.adicionarBot(h.time);
+  for (let k = 0; k < MAX_POR_TIME; k++) w.adicionarBot(1 - h.time);
   const novo = w.addPlayer('Amigo', 'bellico', 'mobile');
   assert.ok(novo, 'entrou');
   // O time com menos humanos (o do outro lado, que só tinha computadores) cede a vaga.
@@ -120,8 +210,8 @@ test('computador: humano que chega com a partida cheia fica com a vaga de um com
 
 test('computador: sai junto com o último humano, e a partida volta a esperar', () => {
   const { w, h } = mundoComHumano({ jungle: false });
-  w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'meu' });
-  w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'inimigo' });
+  w.adicionarBot(h.time);
+  w.adicionarBot(1 - h.time);
   rodar(w, h, 1);
   assert.equal(w.partida.estado, 'andamento');
   const outro = w.addPlayer('Outro', 'acron', 'assault');
@@ -135,7 +225,7 @@ test('computador: sai junto com o último humano, e a partida volta a esperar', 
 
 test('computador: o snapshot lista os jogadores dos dois times, com os computadores marcados', () => {
   const { w, h } = mundoComHumano({ jungle: false });
-  w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'inimigo' });
+  w.adicionarBot(1 - h.time);
   w.step();
   const snap = w.snapshotPara(h, w.entidades(), []);
   assert.equal(snap.jogadores.length, 2);
@@ -153,7 +243,7 @@ test('computador: o snapshot lista os jogadores dos dois times, com os computado
 test('computador: joga pelos comandos de jogador e caça os monstros da jungle', () => {
   // Os acampamentos aparecem logo (na partida de verdade, aos 0:45).
   const { w, h } = mundoComHumano({ temposJungle: { acampamento: { primeiroS: 1 } } });
-  w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'meu' });
+  w.adicionarBot(h.time);
   const bot = [...w.players.values()].find((j) => j.ia);
   const eventos = rodar(w, h, 60);
   assert.ok(bot.ack > 0, 'os comandos dele passam pela fila, como os da rede');
@@ -165,7 +255,7 @@ test('computador: joga pelos comandos de jogador e caça os monstros da jungle',
 
 test('computador: com nível e ouro, pousa na Evolução e compra a próxima nave', () => {
   const { w, h } = mundoComHumano({ jungle: false });
-  w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'meu' });
+  w.adicionarBot(h.time);
   const bot = [...w.players.values()].find((j) => j.ia);
   bot.nivel = 5;
   bot.ouro = 2000;
@@ -182,7 +272,7 @@ test('computador: com nível e ouro, pousa na Evolução e compra a próxima nav
 
 test('computador: com nível e sem torre cobrindo a doca deles, a lane vai lá e derruba os mineradores do outro time', () => {
   const { w, h } = mundoComHumano({ jungle: false, torretas: false });
-  w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'meu' });
+  w.adicionarBot(h.time);
   const bot = [...w.players.values()].find((j) => j.ia);
   bot.nivel = 8;
   const eventos = rodar(w, h, 90);
@@ -193,7 +283,7 @@ test('computador: com nível e sem torre cobrindo a doca deles, a lane vai lá e
 
 test('computador: com a vida baixa, volta para a base e conserta', () => {
   const { w, h } = mundoComHumano({ jungle: false });
-  w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'meu' });
+  w.adicionarBot(h.time);
   const bot = [...w.players.values()].find((j) => j.ia);
   rodar(w, h, 1);
   // Longe da base e quase sem vida.
@@ -212,7 +302,7 @@ test('computador: com a vida baixa, volta para a base e conserta', () => {
 
 test('computador: distribui os pontos ao subir de nível e monta escudo, armadura e potenciadores', () => {
   const { w, h } = mundoComHumano({ jungle: false });
-  w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado: 'meu' });
+  w.adicionarBot(h.time);
   const bot = [...w.players.values()].find((j) => j.ia);
   bot.nivel = 4; // sem nave nova para comprar: o ouro vai para a Loja
   bot.ouro = 4000;
@@ -229,7 +319,7 @@ test('computador: distribui os pontos ao subir de nível e monta escudo, armadur
 
 test('computador: entra no nível 1 com a primeira nave e só compra a próxima com o nível dela (o ouro, o servidor cobra: naves.test.mjs)', () => {
   const { w, h } = mundoComHumano({ jungle: false });
-  for (const lado of ['meu', 'meu', 'inimigo', 'inimigo']) w.pedidoIa(h.id, { t: 'ia', acao: 'adicionar', lado });
+  for (const time of [h.time, h.time, 1 - h.time, 1 - h.time]) w.adicionarBot(time);
   const bots = [...w.players.values()].filter((j) => j.ia);
   assert.equal(bots.length, 4);
   for (const b of bots) {
@@ -340,16 +430,28 @@ test('computador: no alcance da torre inimiga e com pouca vida, sai dele primeir
   passar(w, 1);
   // Encostado na torre T1-1 do outro time, quase sem vida.
   const t = w.torretas.lista.find((x) => x.time === 1 && Math.abs(x.x) < 500);
-  Object.assign(j.ship, { x: t.x - 120, z: t.z, vx: 0, vz: 0 });
-  j.ship.hp = j.ship.maxHp * 0.25;
-  assert.ok(sobTorreInimiga(w, j));
-  let saiu = false;
-  passar(w, 15, () => {
-    if (!sobTorreInimiga(w, j)) saiu = true;
-    return !saiu && j.vivo;
-  });
-  assert.ok(saiu, 'saiu do alcance da torre');
-  assert.ok(j.vivo, 'vivo');
+  // Com a lane estreita (140 m), as torres do outro lado dela também cobrem o ponto, e
+  // as quatro juntas derrubam 25% de vida antes de qualquer rota sair do alcance: o
+  // teste é da decisão (sair primeiro), então ficam de pé só as do mesmo lado.
+  try {
+    for (const o of w.torretas.lista) {
+      if (o.time !== 1 || Math.sign(o.z) === Math.sign(t.z)) continue;
+      Object.assign(o, { viva: false, hp: 0 });
+      definirObstaculoAtivo(o.id, false);
+    }
+    Object.assign(j.ship, { x: t.x - 120, z: t.z, vx: 0, vz: 0 });
+    j.ship.hp = j.ship.maxHp * 0.25;
+    assert.ok(sobTorreInimiga(w, j));
+    let saiu = false;
+    passar(w, 15, () => {
+      if (!sobTorreInimiga(w, j)) saiu = true;
+      return !saiu && j.vivo;
+    });
+    assert.ok(saiu, 'saiu do alcance da torre');
+    assert.ok(j.vivo, 'vivo');
+  } finally {
+    w.torretas.reiniciar();
+  }
 });
 
 test('computador: o time vai junto à Medusa (reúne e só ataca com o grupo); sozinho, não vai', () => {

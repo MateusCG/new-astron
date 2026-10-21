@@ -11,9 +11,9 @@
 //   (chame no primeiro clique ou tecla). Antes disso `carregar()` já busca os arquivos
 //   (só os bytes); a decodificação acontece quando o contexto existir.
 // - Carregamento com cache: cada som é buscado uma vez por página. A tela de
-//   carregamento (carregamento.js) pede antes da partida os sons das armas da raça e
-//   da classe e os de interface, e espera cada um ficar pronto (buscado e decodificado);
-//   o resto (armas dos outros pilotos) vem em segundo plano ou sob demanda. Som que
+//   carregamento (carregamento.js) pede antes da partida TODOS os sons (armas de
+//   todos os pilotos, tiros de NPC e interface) e espera cada um ficar pronto (buscado
+//   e decodificado): nada decodifica no meio da partida. Som que
 //   falhou (404, arquivo corrompido) fica marcado e nunca quebra o jogo: `tocar` só não
 //   faz nada. Som pedido que ainda não chegou também não toca (tiro com som atrasado
 //   engana mais do que tiro mudo), mas o pedido já dispara o carregamento para a

@@ -9,7 +9,7 @@ import { MINERADOR } from '../server/mineradores.js';
 import { createShip, WEAPONS } from '../shared/sim.js';
 import { SERVICOS } from '../shared/terrain.js';
 import { naveDe } from '../shared/naves.js';
-import { MELHORIAS_MINERADOR, MIN_DEFESA_POR_NIVEL, MIN_HP_POR_NIVEL } from '../shared/evolucao.js';
+import { MELHORIAS_MINERADOR, MIN_DEFESA_POR_NIVEL, MIN_HP_POR_NIVEL, MIN_EXTRA_POR_NIVEL, MINERADORES_POR_TIME, mineradoresDoTime } from '../shared/evolucao.js';
 
 const SEGUNDO = 30;
 
@@ -81,13 +81,15 @@ test('evolução: melhoria de mineradores vale para o time todo, avisa e para no
   assert.equal(w.snapshotPara(c, [], []).melhorias.durabilidade, precos.length);
   assert.equal(w.snapshotPara(b, [], []).melhorias.durabilidade, 0);
 
-  // Mais mineradores: sai mais um do que o normal.
+  // Mais mineradores: a quantidade soma MIN_EXTRA_POR_NIVEL em cima dos 10 do time.
   b.ouro = 0;
   assert.equal(melhorar(w, b, 'quantidade').codigo, 'ouro_insuficiente');
   assert.equal(melhorar(w, a, 'quantidade').ok, true);
-  for (let i = 0; i < SEGUNDO * MINERADOR.intervaloS * (MINERADOR.maxAtivos + 1) + 10; i++) w.step();
+  assert.equal(w.mineradores.atributos(a.time, w.tick).maxAtivos, mineradoresDoTime(1));
+  assert.equal(mineradoresDoTime(1), MINERADORES_POR_TIME + MIN_EXTRA_POR_NIVEL);
+  for (let i = 0; i < SEGUNDO * MINERADOR.saidaS * (mineradoresDoTime(1) + 1) + 10; i++) w.step();
   const doTime = (t) => w.mineradores.lista.filter((m) => m.vivo && m.time === t).length;
-  assert.equal(doTime(a.time), MINERADOR.maxAtivos + 1);
+  assert.equal(doTime(a.time), MINERADOR.maxAtivos + MIN_EXTRA_POR_NIVEL);
   assert.equal(doTime(b.time), MINERADOR.maxAtivos);
 });
 

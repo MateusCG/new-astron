@@ -14,6 +14,12 @@
 // 18 com os abates. NIVEL_MAX (25, como pediu o Mateus) fecha a conta; lá a barra
 // fica cheia.
 //
+// Ouro passivo (como no Dota 2 e no League of Legends): com a partida em andamento,
+// cada jogador (gente e computador, vivo ou morto) ganha OURO_POR_SEGUNDO a cada
+// segundo inteiro de partida (World.#ouroPassivo, contado pelo tick desde o começo,
+// sem fração). Na espera e na tela de fim, nada; no modo de teste conta também. Numa
+// partida de 20 minutos são 1200 de ouro por piloto só disso.
+//
 // XP, nível, pontos e ouro são da partida: zeram quando começa a seguinte (World,
 // #passoPartida).
 //
@@ -50,6 +56,8 @@ import { ESPECIES } from './especies.js';
 
 export const NIVEL_MAX = 25;
 export const HP_POR_NIVEL = 0.03; // fração do HP da nave por nível acima do 1
+/** Ouro que cada jogador ganha por segundo de partida em andamento (ouro passivo). */
+export const OURO_POR_SEGUNDO = 1;
 export const XP_OBJETIVO = 60; // a quem toma um objetivo A ou B
 /** XP e ouro por abate, pelo tipo do que morreu. */
 export const RECOMPENSA = {
@@ -160,6 +168,9 @@ export function hpMaxDoJogador(j, status = statusDoJogador(j)) {
  */
 export function ganharXp(j, xp, eventos) {
   let subiu = 0;
+  // XP que conta no nível (no máximo não conta): somado em xpGanho, de onde o World
+  // tira quanto o piloto ganhou num abate (o evento 'ganho', server/game.js).
+  if (j.nivel < NIVEL_MAX) j.xpGanho = (j.xpGanho ?? 0) + xp;
   j.xp += xp;
   while (j.nivel < NIVEL_MAX && j.xp >= xpParaNivel(j.nivel)) {
     j.xp -= xpParaNivel(j.nivel);

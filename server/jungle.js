@@ -51,6 +51,7 @@ import { DT, HOVER, SHIP_RADIUS, createShip, stepShip, velocidadeBase } from '..
 import { ACAMPAMENTOS, BUFFS, MEDUSA, BASES, heightAt, trajetoSonda } from '../shared/terrain.js';
 import { bloqueiaVisao } from '../shared/visao.js';
 import { MISSIL_CONE } from '../shared/armas.js';
+import { alturaSolida } from '../shared/obstaculos.js';
 import { MapaNavegacao } from './navegacao.js';
 import { ESPECIES, TERRITORIO_COMUM, alcanceMaximo } from './especies.js';
 import { ganharXp } from './progressao.js';
@@ -115,6 +116,13 @@ const VEL_ONDA_PADRAO = 120; // m/s da onda em volta (nova)
 const SONDA_PAUSA_TICKS = ticks(4); // pausa nas pontas do trajeto
 const SONDA_FUGA_TICKS = ticks(6); // foge por isto depois do último golpe
 const SONDA_PASSEIO = 0.5; // fração da velocidade passeando (fugindo, vai no máximo)
+// Corpo grande (raio maior que o da nave, SHIP_RADIUS): o stepShip só engorda as
+// paredes pelo raio da nave, então um chefe largo (o SN-4 tem 26 m) entraria com
+// metade do casco na rocha. Depois do passo, o monstro grande que saiu de um lugar
+// com o corpo livre e foi para um onde ele bate na rocha volta para onde estava
+// (parado; a ré de quando fica preso resolve a quina).
+const CORPO_PONTOS = 12; // pontos na borda do corpo conferidos contra a rocha
+const CORPO_ROCHA = 0.5; // m: chão acima disto na borda = rocha
 const SONDA_OLHAR = 30; // m adiante e atrás no trajeto para decidir o lado da fuga
 
 // A grade de navegação depende só do terreno: uma por processo, na primeira vez que
@@ -134,6 +142,16 @@ function anguloEntre(a, b) {
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const yawPara = (x, z, ax, az) => Math.atan2(-(ax - x), -(az - z));
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+
+/** O corpo de raio `r` centrado em (x, z) cabe sem encostar em rocha nem construção? */
+export function corpoLivre(x, z, r) {
+  if (alturaSolida(x, z, r) > heightAt(x, z) + CORPO_ROCHA) return false;
+  for (let i = 0; i < CORPO_PONTOS; i++) {
+    const a = (i / CORPO_PONTOS) * Math.PI * 2;
+    if (heightAt(x + Math.cos(a) * r, z + Math.sin(a) * r) > CORPO_ROCHA) return false;
+  }
+  return true;
+}
 
 /** Id do acampamento no referencial do time 0 (o do time 1 girado: 0 ↔ 1, N ↔ S). */
 export function idNoTime0(a) {
@@ -429,7 +447,13 @@ export class Jungle {
       destino = this.#patrulha(m);
       fracVel = PATRULHA_VEL;
     }
+    const antes = { x: s.x, z: s.z };
     stepShip(s, this.#dirigir(m, destino, alvo, fracVel));
+    if (s.raio > SHIP_RADIUS && (s.x !== antes.x || s.z !== antes.z) && !corpoLivre(s.x, s.z, s.raio) && corpoLivre(antes.x, antes.z, s.raio)) {
+      s.x = antes.x;
+      s.z = antes.z;
+      s.vx = s.vz = 0;
+    }
     if (alvo) this.#atacar(m, alvo);
   }
 

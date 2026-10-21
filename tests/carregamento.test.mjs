@@ -3,6 +3,9 @@
 // armas da raça e da classe com os modelos da asa, as texturas e os sons de TODAS as
 // versões e dos subprojéteis) e todo arquivo da lista tem de existir: um nome errado
 // viraria download falho na entrada ou, pior, um arquivo baixando no meio da partida.
+// A lista da partida (insumosDaPartida) vai além: TUDO o que outro piloto ou um
+// computador pode trazer (todas as naves, armas, texturas e sons), porque baixar isso
+// quando ele aparece travava o jogo (medida de out/2026).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync } from 'node:fs';
@@ -10,6 +13,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   insumosDaNave,
+  insumosDaPartida,
+  modelosDasArmas,
   insumosDoMapa,
   texturasDaArma,
   sonsDaArma,
@@ -23,7 +28,7 @@ import {
 import { ESPECIES } from '../server/especies.js';
 import { RACAS_JOGAVEIS, ORDEM_CLASSES, linhaDe } from '../shared/naves.js';
 import { WEAPONS, ARMAS, armasDisponiveis } from '../shared/armas.js';
-import { SONS_INTERFACE } from '../public/js/sons.js';
+import { SONS_INTERFACE, SONS_ARMA } from '../public/js/sons.js';
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const existe = (rel) => existsSync(path.join(PUBLIC, rel));
@@ -108,4 +113,76 @@ test('carregamento: todos os modelos do mapa e dos monstros entram na lista, e t
 test('carregamento: toda espécie do servidor tem modelo (a esp do protocolo é o nome do glb)', () => {
   assert.deepEqual(new Set(ESPECIES_MONSTRO), new Set(Object.keys(ESPECIES)));
   for (const esp of ESPECIES_MONSTRO) assert.ok(existe(`modelos/monstros/${esp}.glb`), esp);
+});
+
+// ---------- Lista da partida: tudo o que pode aparecer ----------
+
+for (const race of RACAS_JOGAVEIS) {
+  for (const classe of ORDEM_CLASSES) {
+    test(`carregamento: a partida de ${race} ${classe} baixa as naves, armas, texturas e sons de TODOS os pilotos`, () => {
+      const ins = insumosDaPartida(race, classe);
+      const propria = insumosDaNave(race, classe);
+      // As 45 naves (toda raça jogável, classe e tier), a linha do piloto primeiro, sem repetir.
+      const todas = RACAS_JOGAVEIS.flatMap((r) => ORDEM_CLASSES.flatMap((c) => linhaDe(r, c).map((n) => '/' + n.modelo)));
+      assert.equal(ins.naves.length, todas.length);
+      assert.deepEqual(new Set(ins.naves.map((n) => n.url)), new Set(todas));
+      assert.deepEqual(
+        ins.naves.slice(0, propria.naves.length).map((n) => n.url),
+        propria.naves.map((n) => n.url),
+      );
+      for (const n of ins.naves) {
+        assert.ok(existe(n.url), n.url);
+        // Cada nave sabe de que linha é (a tela de carregamento pede pelo trio).
+        assert.equal('/' + linhaDe(n.race, n.classe)[n.tier].modelo, n.url);
+      }
+      // Toda arma de jogador do catálogo, as do piloto primeiro.
+      const kinds = ARMAS.filter((k) => !WEAPONS[k].npc);
+      assert.deepEqual(new Set(ins.armas.map((a) => a.kind)), new Set(kinds));
+      assert.equal(ins.armas.length, kinds.length);
+      assert.deepEqual(
+        ins.armas.slice(0, propria.armas.length).map((a) => a.kind),
+        propria.armas.map((a) => a.kind),
+      );
+      // Todo modelo da asa, toda textura e todo som que alguma arma usa.
+      const modelos = modelosDasArmas(ins.armas);
+      assert.equal(new Set(modelos).size, modelos.length);
+      for (const k of kinds) {
+        for (const m of WEAPONS[k].modelo ?? []) if (m) assert.ok(modelos.includes(m), `${k}: ${m}`);
+        for (const t of texturasDaArma(k)) assert.ok(ins.texturas.includes(t), `${k}: textura ${t}`);
+      }
+      for (const k of ARMAS) for (const so of sonsDaArma(k)) assert.ok(ins.sons.includes(so), `${k}: som ${so}`);
+      for (const so of [...Object.values(SONS_INTERFACE), ...SONS_GERAIS, ...Object.values(SONS_ARMA)]) assert.ok(ins.sons.includes(so), so);
+      // Tudo existe e nada repete.
+      for (const m of modelos) assert.ok(existe(`modelos/armas/${m}.glb`), m);
+      for (const t of ins.texturas) assert.ok(existe(`texturas/efeitos/${t}.png`), t);
+      for (const so of ins.sons) assert.ok(existe(`sons/${so}.wav`), so);
+      assert.equal(new Set(ins.texturas).size, ins.texturas.length);
+      assert.equal(new Set(ins.sons).size, ins.sons.length);
+    });
+  }
+}
+
+test('carregamento: a lista da partida é a mesma para qualquer piloto (só a ordem muda)', () => {
+  const chaves = (ins) => ({
+    naves: new Set(ins.naves.map((n) => n.url)),
+    armas: new Set(ins.armas.map((a) => a.kind)),
+    texturas: new Set(ins.texturas),
+    sons: new Set(ins.sons),
+  });
+  const base = chaves(insumosDaPartida('acron', 'assault'));
+  for (const race of RACAS_JOGAVEIS) for (const classe of ORDEM_CLASSES) assert.deepEqual(chaves(insumosDaPartida(race, classe)), base, `${race} ${classe}`);
+});
+
+test('carregamento: toda nave da pasta de modelos está na lista da partida', () => {
+  const naPasta = [];
+  for (const race of readdirSync(path.join(PUBLIC, 'modelos/naves'))) {
+    const dirRaca = path.join(PUBLIC, 'modelos/naves', race);
+    if (!existsSync(dirRaca) || !RACAS_JOGAVEIS.includes(race)) continue;
+    for (const classe of readdirSync(dirRaca)) {
+      for (const f of readdirSync(path.join(dirRaca, classe))) if (f.endsWith('.glb')) naPasta.push(`/modelos/naves/${race}/${classe}/${f}`);
+    }
+  }
+  const lista = new Set(insumosDaPartida('shrewdo', 'functional').naves.map((n) => n.url));
+  assert.ok(naPasta.length >= 45);
+  for (const url of naPasta) assert.ok(lista.has(url), url);
 });

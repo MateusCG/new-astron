@@ -5,9 +5,9 @@
 // partir do que ele já sabe dos aliados (a sua nave prevista, as naves, mineradores
 // e escoltas do seu time no último snapshot, as torres sentinela de pé e a base) e
 // desenha o mapa fora da visão escurecido e sem cor, sem esconder o terreno, como a
-// névoa de guerra dos MOBAs. Dentro dos campos de asteroides que o time não vê, uma
-// névoa própria (poeira azulada que se mexe devagar): é ali que alguém pode estar
-// escondido.
+// névoa de guerra dos MOBAs. Os campos que escondem (as nuvens de gás e poeira,
+// nuvens.js) que o time não vê ficam mais grossos e escuros, e o chão embaixo deles
+// ganha um véu de gás que se mexe devagar: é ali que alguém pode estar escondido.
 //
 // Como:
 // - Grade de visibilidade do mapa inteiro, em células de CELULA m (150 × 112),
@@ -18,12 +18,17 @@
 //   visibilidade das células abertas vaza ESPALHAR_ROCHA células para dentro da
 //   rocha, para a parede ao lado da nave aparecer acesa.
 // - A grade vai para uma textura (R = visto, suavizado no tempo em SUAVE_S; G =
-//   campo de asteroides) e um passo de tela inteira (pós-processo) reconstrói o
+//   campo de nuvem) e um passo de tela inteira (pós-processo) reconstrói o
 //   ponto do mundo de cada pixel pela profundidade e mistura a cor de "fora da
 //   visão". Assim a névoa vale para qualquer material da cena (terreno, água,
 //   rochas, modelos do Cenário) sem mexer em nenhum deles. Ponto abaixo da água
 //   (fundo do lago visto pela água transparente) é levado ao plano da água pelo raio
 //   da câmera, para a borda da névoa ficar no lugar certo na superfície.
+// - A nuvem de gás é transparente e não tem profundidade: o pixel dela teria a
+//   névoa do que está atrás (a água). Por isso ela mesma lê a textura da grade
+//   (scene.userData.usarNevoa) e se escurece pelo que o time vê no lugar dela, e
+//   baixa o alfa do alvo da cena pela transmitância; aqui o alfa diz quanto do
+//   pixel é o fundo, e só essa parte recebe a névoa do fundo.
 // - O tone mapping e a conversão de cor saem no passo da névoa (a cena é
 //   desenhada linear num alvo HalfFloat com MSAA e a profundidade numa textura).
 // - Minimapa: `canvasMapa` é a mesma grade (escuro fora da visão), que o HUD
@@ -38,6 +43,7 @@
 import * as THREE from 'three';
 import { MAP_HALF_X, MAP_HALF_Z, MINERADORA, NIVEL_AGUA, TORRETAS, emAsteroides, noMapaAberto, sdRetanguloArredondado } from '/shared/terrain.js';
 import { VISAO_RAIO, VISAO_TORRETA, VISAO_MINERADOR, VISAO_ASTEROIDE_PERTO, olho, olhosDaBase, bloqueiaVisao } from '/shared/visao.js';
+import { CORES_NUVEM } from './nuvens.js';
 
 /** Lado da célula da grade (m). */
 export const CELULA = 20;
@@ -56,16 +62,18 @@ const NEBLINA_LONGE = 2.6;
 const FORA_LUZ = 0.32;
 const FORA_COR = 0.15;
 // Cores da névoa, do ambiente do lago (frias, dessaturadas, nunca preto puro): o tom
-// que a sombra da névoa puxa e a poeira dos asteroides escondidos.
+// que a sombra da névoa puxa e o véu de gás no chão das nuvens escondidas (o meio
+// entre a sombra e a luz da nuvem: entre os tufos se vê nuvem rala, não um buraco
+// escuro).
 const COR_NEVOA = new THREE.Color('#1c2c33');
-const COR_POEIRA = new THREE.Color('#8fa6b2');
+const COR_GAS = new THREE.Color(CORES_NUVEM.sombra).lerp(new THREE.Color(CORES_NUVEM.luz), 0.5);
 const PERTO2 = VISAO_ASTEROIDE_PERTO * VISAO_ASTEROIDE_PERTO;
 
 /** Centro da célula (i, k) no mundo. */
 const centroX = (i) => -MAP_HALF_X + (i + 0.5) * CELULA;
 const centroZ = (k) => -MAP_HALF_Z + (k + 0.5) * CELULA;
 
-// Planta fixa da grade: o que é sólido (rocha ou mineradora) e o campo de asteroides de cada célula.
+// Planta fixa da grade: o que é sólido (rocha ou mineradora) e o campo de nuvem (que esconde) de cada célula.
 const SOLIDO = new Uint8Array(NX * NZ);
 const CAMPO = new Array(NX * NZ).fill(null);
 for (let k = 0; k < NZ; k++) {
@@ -162,7 +170,7 @@ const FRAGMENTO = `
   uniform float foraCor;
   uniform float forca;
   uniform vec3 corNevoa;
-  uniform vec3 corPoeira;
+  uniform vec3 corGas;
   varying vec2 vUv;
 
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -174,7 +182,10 @@ const FRAGMENTO = `
   }
 
   void main() {
-    vec3 c = texture2D(tCor, vUv).rgb;
+    vec4 cena = texture2D(tCor, vUv);
+    vec3 c = cena.rgb;
+    // Quanto do pixel é o fundo (o resto é nuvem de gás, que já se escureceu sozinha).
+    float fundo = clamp(cena.a, 0.0, 1.0);
     float prof = texture2D(tProf, vUv).x;
     if (prof < 1.0) {
       vec4 vista = projInv * vec4(vUv * 2.0 - 1.0, prof * 2.0 - 1.0, 1.0);
@@ -189,14 +200,16 @@ const FRAGMENTO = `
       v += texture2D(tNevoa, uvN + vec2(0.0, passoGrade.y)).r;
       v += texture2D(tNevoa, uvN - vec2(0.0, passoGrade.y)).r;
       v = smoothstep(0.12, 0.88, v / 6.0);
-      float ast = texture2D(tNevoa, uvN).g;
+      v = 1.0 - (1.0 - v) * fundo;
+      float gas = texture2D(tNevoa, uvN).g;
       float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
       vec3 fora = mix(vec3(lum), c, foraCor) * foraLuz + corNevoa * 0.04;
-      // Campo de asteroides que o time não vê: poeira que se mexe devagar.
+      // Chão de nuvem que o time não vê: véu de gás que se mexe devagar (onde a
+      // nuvem é rala e o fundo aparece).
       float n = ruido(p.xz * 0.018 + vec2(tempo * 0.07, -tempo * 0.05)) * 0.6 + ruido(p.xz * 0.06 - tempo * 0.11) * 0.4;
       // A borda do campo também se mexe, para não parecer uma placa.
-      ast = smoothstep(0.25, 0.75, ast + (n - 0.5) * 0.45);
-      fora = mix(fora, corPoeira * (0.22 + 0.22 * n) + fora * 0.4, ast * 0.75);
+      gas = smoothstep(0.25, 0.75, gas + (n - 0.5) * 0.45) * fundo;
+      fora = mix(fora, corGas * (0.34 + 0.22 * n) + fora * 0.3, gas * 0.8);
       c = mix(c, mix(fora, c, v), forca);
     }
     gl_FragColor = vec4(c, 1.0);
@@ -218,7 +231,8 @@ export class Nevoa {
     this.tempo = 0;
     this.primeira = true;
 
-    // Textura da grade: R = visto (suavizado), G = campo de asteroides (fixo).
+    // Textura da grade: R = visto (suavizado), G = campo de nuvem (fixo). As nuvens
+    // (nuvens.js) leem o R dela para se escurecerem fora da visão.
     this.dados = new Uint8Array(NX * NZ * 4);
     for (let c = 0; c < NX * NZ; c++) {
       this.dados[c * 4 + 1] = CAMPO[c] ? 255 : 0;
@@ -263,7 +277,7 @@ export class Nevoa {
         foraCor: { value: FORA_COR },
         forca: { value: 1 }, // 0 desliga o desenho da névoa (depuração e comparação)
         corNevoa: { value: COR_NEVOA },
-        corPoeira: { value: COR_POEIRA },
+        corGas: { value: COR_GAS },
       },
     });
     this.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.material);
@@ -271,6 +285,8 @@ export class Nevoa {
     this.cenaQuad = new THREE.Scene();
     this.cenaQuad.add(this.quad);
     this.camQuad = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+    scene.userData.usarNevoa?.(this.textura);
 
     // A neblina do horizonte acompanha o raio de visão.
     if (scene.fog?.isFog) {

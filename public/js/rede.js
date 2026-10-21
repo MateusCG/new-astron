@@ -20,9 +20,10 @@ export class Rede {
 
   /**
    * Conecta e entra no jogo. Resolve quando chega o 'bemvindo'. `teste` pede o modo
-   * de teste (um mundo só seu, sem relógio).
+   * de teste (um mundo só seu, sem relógio). `ia` = {iaMeu, iaInimigo}, os
+   * computadores escolhidos na tela inicial (o servidor sanea e completa os times).
    */
-  entrar(nome, race, classe, teste = false) {
+  entrar(nome, race, classe, teste = false, ia = null) {
     return new Promise((ok, falha) => {
       let decidido = false; // a promessa só resolve ou falha uma vez
       const desistir = (codigo) => {
@@ -39,7 +40,7 @@ export class Rede {
         desistir('sem_conexao');
         return;
       }
-      this.ws.onopen = () => this.enviar({ t: 'entrar', nome, race, classe, ...(teste ? { teste: true } : {}) });
+      this.ws.onopen = () => this.enviar({ t: 'entrar', nome, race, classe, ...(teste ? { teste: true } : {}), ...(ia ? { iaMeu: ia.iaMeu, iaInimigo: ia.iaInimigo } : {}) });
       this.ws.onerror = () => desistir('sem_conexao');
       this.ws.onclose = () => (decidido ? this.aoFechar() : desistir('conexao_fechada'));
       this.ws.onmessage = (e) => {

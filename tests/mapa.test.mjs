@@ -41,8 +41,9 @@ import {
   AREAS_POUSO,
   MAP_HALF_X,
   MAP_HALF_Z,
+  LARGURA_LANE,
 } from '../shared/terrain.js';
-import { alturaSolida, pontoLivre, OBSTACULOS, POCOS } from '../shared/obstaculos.js';
+import { alturaSolida, pontoLivre, OBSTACULOS, POCOS, TORRE_SUPORTE } from '../shared/obstaculos.js';
 import { createShip, stepShip, MAX_SLOPE, SHIP_RADIUS, ALTURA_POUSADO, HOVER } from '../shared/sim.js';
 import { FAIXA_MINERADOR } from '../server/mineradores.js';
 
@@ -117,8 +118,11 @@ test('mapa: contrato (tamanho, bases, lane, mineradora, docas, entregas, serviç
   ]);
   assert.equal(BASE, BASES[0]);
   assert.deepEqual(ABERTO, { jungle: { meiaX: 1080, meiaZ: 1060 }, lane: { meiaX: 1440, meiaZ: 180 }, canto: 40 });
-  assert.equal(LANE.meiaLargura, 90);
-  assert.equal(LANE.largura, 180);
+  // A lane acompanha o vão do arco da entrega (140 m).
+  assert.equal(LANE.largura, LARGURA_LANE);
+  assert.equal(LANE.largura, 140);
+  assert.equal(LANE.meiaLargura, 70);
+  for (const e of ENTREGAS) assert.ok(e.profundidade <= LANE.largura, 'a entrega cabe na lane');
   assert.equal(CORREDOR, LANE, 'apelido antigo');
   assert.deepEqual([LANE.xInicio, LANE.xFim], [-BOLSAO.xMin, BOLSAO.xMin]);
   assert.deepEqual([MINERADORA.x, MINERADORA.z, MINERADORA.meiaX, MINERADORA.meiaZ], [0, 0, 70, 115]);
@@ -337,7 +341,7 @@ test('mapa: acampamentos, buffs, plataformas e asteroides ficam em campo aberto 
   }
   for (const b of BUFFS) {
     // A torre do buff de suporte é sólida de propósito; em volta dela, campo livre.
-    const r0 = b.tipo === 'suporte' ? 20 : 0;
+    const r0 = b.tipo === 'suporte' ? TORRE_SUPORTE.raio + 10 : 0;
     for (const r of [r0, 40]) for (const [x, z] of circulo(b.x, b.z, Math.max(r, 1))) assert.ok(pontoLivre(x, z, 8), `${b.id} em (${x.toFixed(0)}, ${z.toFixed(0)})`);
   }
   for (const p of PLATAFORMAS_POUSO) {
