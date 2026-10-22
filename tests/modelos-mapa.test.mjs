@@ -50,8 +50,10 @@ test('modelos do mapa: nenhuma peça passa do teto de triângulos do tipo dela',
   }
 });
 
-test('modelos do mapa: as plataformas e a mineradora estão no padrão PBR', () => {
-  for (const nome of ['plataforma-base', 'plataforma-servico', 'plataforma-pouso', 'mineradora']) assert.ok(ehPbr(lerGlb(nome)), nome);
+const PBR = ['plataforma-base', 'plataforma-servico', 'plataforma-pouso', 'mineradora', 'torre-suporte', 'torre-suporte-caida', 'torreta'];
+
+test('modelos do mapa: as plataformas, a mineradora e as torres estão no padrão PBR', () => {
+  for (const nome of PBR) assert.ok(ehPbr(lerGlb(nome)), nome);
 });
 
 test('modelos do mapa: glb PBR traz normais, UV e Draco, e só materiais conhecidos', () => {
@@ -84,4 +86,19 @@ test('modelos do mapa: a mineradora mantém as docas de cada time, o He-3 e os n
   for (const m of ['neon_doca_0', 'neon_doca_1', 'neon_he3']) assert.ok(mats.has(m), m);
   const nos = new Set(j.nodes.map((n) => n.name));
   for (const n of ['mineradora', 'mineradora_casco', 'mineradora_conves', 'mineradora_he3', 'mineradora_fundo']) assert.ok(nos.has(n), n);
+});
+
+test('modelos do mapa: as torres trazem os nós que o cliente mexe, com o pivô no lugar', () => {
+  const no = (j, nome) => j.nodes.find((n) => n.name === nome);
+  const sup = lerGlb('torre-suporte');
+  assert.deepEqual(no(sup, 'suporte_nucleo')?.translation?.map(Math.round), [0, 80, 0], 'a cabeça da antena gira no eixo, em cima do mastro');
+  assert.ok(sup.materials.some((m) => m.name === 'neon_objetivo'));
+  assert.ok(lerGlb('torre-suporte-caida').materials.some((m) => m.name === 'neon_objetivo'));
+  const t = lerGlb('torreta');
+  const corpo = no(t, 'torreta_corpo');
+  const cabeca = no(t, 'torreta_cabeca');
+  assert.ok(corpo && no(t, 'torreta_destrocos') && no(t, 'torreta_base'));
+  assert.ok(corpo.children?.map((i) => t.nodes[i]).includes(cabeca), 'a cabeça tomba junto com o corpo');
+  assert.deepEqual(cabeca.translation?.map(Math.round), [0, 9, 0], 'a cabeça gira no eixo, logo abaixo da altura de voo');
+  assert.ok(t.materials.some((m) => m.name === 'neon_time'));
 });

@@ -4,135 +4,53 @@
 //
 // - A posição e o tamanho saem da planta única (TORRETAS em shared/terrain.js e a
 //   construção 'torreta' de shared/obstaculos.js), a mesma da física.
+// - O modelo é o torreta.glb do mapa (mid-poly PBR, feito para TORRETA: r 9 × 16 m;
+//   public/modelos/mapa/LISTA.md), baixado na tela de carregamento. Nós: a base
+//   (pilar até o fundo do lago e o pé de 2,4 m, sempre de pé), `torreta_corpo` (o que
+//   tomba), `torreta_cabeca` (gira em y, canos para −z na altura de voo) e
+//   `torreta_destrocos` (no pé e na água, só com ela caída).
 // - Caída (viva false), sai da física com definirObstaculoAtivo (o mesmo que o
 //   servidor faz), para a predição da nave passar por onde ela estava sem tranco; no
-//   cenário o corpo tomba e afunda, e ficam o pé baixo e destroços (até 2,5 m, a
-//   nave passa por cima). Reconstruída, o corpo sobe do chão.
-// - Cor do time relativa a quem olha (IDENTIDADE-VISUAL.md): neon turquesa nas do
-//   seu time, vermelho nas do outro, como as bases. Metal cinza, facetado.
+//   cenário o corpo tomba e afunda, e ficam o pé baixo e os destroços. Reconstruída,
+//   o corpo sobe do chão.
+// - Cor do time relativa a quem olha (IDENTIDADE-VISUAL.md): o `neon_time` de cada
+//   cópia é pintado de turquesa nas do seu time e de vermelho nas do outro, como as
+//   bases; esse material é da torreta, então o sensor pulsa mexendo nele, e caída
+//   ela quase apaga.
 // - A cabeça gira para o alvo (`alvo` do snapshot, posição tirada das entidades) e
 //   vira na hora para o rumo do tiro (evento 'tiro' com fonte 'torreta').
 // - Rótulo: o mesmo das naves (hud.rotulosNaves), "Torreta NV n" com a barra de
 //   vida, só nas de pé.
 
 import * as THREE from 'three';
-import { TORRETAS, FUNDO_LAGO, NIVEL_AGUA } from '/shared/terrain.js';
-import { OBSTACULOS, TORRETA, definirObstaculoAtivo } from '/shared/obstaculos.js';
+import { TORRETAS } from '/shared/terrain.js';
+import { OBSTACULOS, definirObstaculoAtivo } from '/shared/obstaculos.js';
 import { HOVER } from '/shared/sim.js';
+import { instanciaMapa, pintar, neon } from './mapa-modelos.js';
 
 const COR_TIME = { meu: new THREE.Color('#00efc0'), outro: new THREE.Color('#ff3b2a') };
 const QUEDA_S = 0.9; // s do tombo até sobrarem os destroços
 const SUBIDA_S = 1.2; // s da torreta reconstruída subindo do chão
 const GIRO_CABECA = 4; // rad/s: quanto a cabeça gira por segundo atrás do alvo
-const ALTURA_PE = 2.4; // m do toco que fica de pé (abaixo da altura de voo)
 const ALTURA_ROTULO = 14; // m acima do chão (o HUD soma mais 6)
-// Pilar que sustenta a torreta: desce do pé até o fundo do lago, abrindo um pouco
-// (a torre não flutua: está apoiada no fundo, como os pilares da mineradora). Fica
-// todo abaixo do chão de voo, então não entra na física. Entra uns metros no fundo
-// para não mostrar fresta, e tem uma cinta de metal na linha d'água e uma sapata larga.
-const PILAR_ENTERRA = 3; // m abaixo de FUNDO_LAGO
-const PILAR_ABRE = 1.18; // raio do pé do pilar em relação ao do alto
-const SAPATA = { raio: 1.5, altura: 4 }; // raio em relação ao da torreta
-const CINTA = { raio: 1.06, altura: 1.6 }; // na linha d'água (NIVEL_AGUA)
-// Canos: proporção do desenho de raio 4,5 m (engrossam com a torreta, mas o
-// comprimento fica perto da planta, para a ponta não sair muito do cilindro sólido).
-const RAIO_DESENHO = 4.5;
-const CANO_COMP = 7;
-
-function matMetal(cor, extra = {}) {
-  return new THREE.MeshStandardMaterial({ color: cor, metalness: 0.3, roughness: 0.65, flatShading: true, ...extra });
-}
-
-function matNeon(cor) {
-  return new THREE.MeshStandardMaterial({ color: cor, emissive: cor, emissiveIntensity: 1, flatShading: true });
-}
+const NEON_CAIDA = 0.08; // luz do time quase apagada na torreta caída
 
 /** Yaw (convenção de shared/sim.js) de quem olha de (x, z) para (ax, az). */
 const yawPara = (x, z, ax, az) => Math.atan2(-(ax - x), -(az - z));
 
 /**
- * Modelo de uma torreta na origem (pé no chão de voo, y = 0, e o pilar até o fundo
- * do lago), canos para -z.
- * userData: corpo (o que tomba), cabeca (gira em y), destrocos, neon (materiais).
+ * Cópia do modelo de torreta na origem (pé no chão de voo, y = 0), canos para −z, ou
+ * null se o modelo ainda não chegou.
+ * userData: corpo (o que tomba), cabeca (gira em y), destrocos, neon (o material do time).
  */
-export function criarTorreta({ aliado = true, raio = TORRETA.raio, altura = TORRETA.altura } = {}) {
-  const cor = aliado ? COR_TIME.meu : COR_TIME.outro;
-  const metal = matMetal('#5d6866');
-  const escuro = matMetal('#3a4442');
-  const neon = matNeon(cor);
-  const g = new THREE.Group();
-
-  // Pilar até o fundo do lago (com a torreta caída também: é a fundação).
-  const yFundo = FUNDO_LAGO - PILAR_ENTERRA;
-  const pilar = new THREE.Mesh(new THREE.CylinderGeometry(raio, raio * PILAR_ABRE, -yFundo, 6), escuro);
-  pilar.position.y = yFundo / 2;
-  const cinta = new THREE.Mesh(new THREE.CylinderGeometry(raio * CINTA.raio, raio * CINTA.raio, CINTA.altura, 6), metal);
-  cinta.position.y = NIVEL_AGUA;
-  const sapata = new THREE.Mesh(new THREE.CylinderGeometry(raio * SAPATA.raio * 0.8, raio * SAPATA.raio, SAPATA.altura, 6), escuro);
-  sapata.position.y = FUNDO_LAGO + SAPATA.altura / 2 - 1;
-  g.add(pilar, cinta, sapata);
-
-  // Pé: toco sextavado que fica mesmo com a torreta caída.
-  const pe = new THREE.Mesh(new THREE.CylinderGeometry(raio * 0.92, raio, ALTURA_PE, 6), escuro);
-  pe.position.y = ALTURA_PE / 2;
-  g.add(pe);
-
-  const corpo = new THREE.Group();
-  const torre = new THREE.Mesh(new THREE.CylinderGeometry(raio * 0.72, raio * 0.86, HOVER - 1 - ALTURA_PE, 6), metal);
-  torre.position.y = ALTURA_PE + (HOVER - 1 - ALTURA_PE) / 2;
-  const faixa = new THREE.Mesh(new THREE.CylinderGeometry(raio * 0.76, raio * 0.76, 0.6, 6), neon);
-  faixa.position.y = HOVER - 2;
-  corpo.add(torre, faixa);
-
-  // Cabeça giratória na altura das naves: carcaça, dois canos e o sensor no alto.
-  const cabeca = new THREE.Group();
-  cabeca.position.y = HOVER - 1;
-  const carcaca = new THREE.Mesh(new THREE.CylinderGeometry(raio * 0.58, raio * 0.66, 3.2, 8), escuro);
-  carcaca.position.y = 1.6;
-  const tampa = new THREE.Mesh(new THREE.CylinderGeometry(raio * 0.3, raio * 0.58, 1.2, 8), metal);
-  tampa.position.y = 3.8;
-  cabeca.add(carcaca, tampa);
-  const k = raio / RAIO_DESENHO;
-  const grosso = Math.sqrt(k); // canos engrossam menos que a torre, para não virar tubo
-  for (const lado of [-1, 1]) {
-    const cano = new THREE.Mesh(new THREE.CylinderGeometry(0.32 * grosso, 0.4 * grosso, CANO_COMP, 6), metal);
-    cano.rotation.x = Math.PI / 2;
-    cano.position.set(lado * 0.95 * k, 1, -raio * 0.55 - CANO_COMP / 2 + 0.4);
-    const boca = new THREE.Mesh(new THREE.CylinderGeometry(0.42 * grosso, 0.42 * grosso, 0.5, 6), neon);
-    boca.rotation.x = Math.PI / 2;
-    boca.position.set(lado * 0.95 * k, 1, -raio * 0.55 - CANO_COMP + 0.4);
-    cabeca.add(cano, boca);
-  }
-  const mastro = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, altura - HOVER - 4.6, 5), escuro);
-  mastro.position.y = 4.4 + (altura - HOVER - 4.6) / 2;
-  const sensor = new THREE.Mesh(new THREE.OctahedronGeometry(0.9, 0), neon);
-  sensor.position.y = altura - HOVER + 0.2;
-  cabeca.add(mastro, sensor);
-  corpo.add(cabeca);
-  g.add(corpo);
-
-  // Destroços: lascas escuras deitadas em volta do pé (só com ela caída).
-  const destrocos = new THREE.Group();
-  for (let k = 0; k < 6; k++) {
-    const a = (k / 6) * Math.PI * 2 + 0.5;
-    const r = raio + 1.2 + (k % 3) * 1.6;
-    const lasca = new THREE.Mesh(new THREE.BoxGeometry(1.4 + (k % 2), 1 + (k % 3) * 0.3, 2.6 + (k % 3)), k % 2 ? escuro : metal);
-    lasca.position.set(Math.cos(a) * r, 0.5, Math.sin(a) * r);
-    lasca.rotation.set(0.3 * (k % 2), a, 0.25);
-    destrocos.add(lasca);
-  }
-  // O cano solto no chão, para a silhueta caída dizer "torreta".
-  const canoSolto = new THREE.Mesh(new THREE.CylinderGeometry(0.32 * grosso, 0.4 * grosso, CANO_COMP, 6), metal);
-  canoSolto.rotation.set(Math.PI / 2, 0, 0.6);
-  canoSolto.position.set(raio + 2.5, 0.4, -1);
-  destrocos.add(canoSolto);
+export function criarTorreta({ aliado = true } = {}) {
+  const g = instanciaMapa('torreta');
+  if (!g) return null;
+  const cor = neon(aliado ? COR_TIME.meu : COR_TIME.outro, 1);
+  pintar(g, 'neon_time', cor);
+  const destrocos = g.getObjectByName('torreta_destrocos');
   destrocos.visible = false;
-  g.add(destrocos);
-
-  g.traverse((o) => {
-    if (o.isMesh) o.castShadow = o.receiveShadow = true;
-  });
-  g.userData = { corpo, cabeca, destrocos, sensor };
+  g.userData = { corpo: g.getObjectByName('torreta_corpo'), cabeca: g.getObjectByName('torreta_cabeca'), destrocos, neon: cor };
   return g;
 }
 
@@ -148,7 +66,8 @@ export class TorretasNaTela {
     const planta = new Map(OBSTACULOS.filter((o) => o.grupo === 'torreta').map((o) => [o.id, o]));
     for (const t of TORRETAS) {
       const o = planta.get(t.id);
-      const obj = criarTorreta({ aliado: t.time === meuTime, raio: o.raio, altura: o.topo - o.chao });
+      const obj = criarTorreta({ aliado: t.time === meuTime });
+      if (!obj) continue;
       obj.position.set(t.x, o.chao, t.z);
       // Em repouso, olha para o lado do minério (para onde vem quem ataca).
       const yaw = t.z > 0 ? 0 : Math.PI;
@@ -205,7 +124,7 @@ export class TorretasNaTela {
    */
   quadro(dt, tempo, posicao) {
     for (const [id, it] of this.lista) {
-      const { corpo, cabeca, destrocos, sensor } = it.obj.userData;
+      const { corpo, cabeca, destrocos, neon } = it.obj.userData;
       if (it.anim) {
         it.anim.t += dt;
         if (it.anim.tipo === 'queda') {
@@ -227,7 +146,10 @@ export class TorretasNaTela {
         corpo.visible = false;
         destrocos.visible = true;
       }
-      if (!it.viva) continue;
+      if (!it.viva) {
+        neon.emissiveIntensity = NEON_CAIDA;
+        continue;
+      }
       // Mira: o alvo do servidor; sem alvo, varre devagar em volta do repouso.
       const p = it.alvo ? posicao(it.alvo) : null;
       const quer = p ? yawPara(it.t.x, it.t.z, p.x, p.z) : it.yawRepouso + Math.sin(tempo * 0.4 + it.t.x) * 0.6;
@@ -236,8 +158,8 @@ export class TorretasNaTela {
       while (d < -Math.PI) d += 2 * Math.PI;
       it.yaw += Math.max(-GIRO_CABECA * dt, Math.min(GIRO_CABECA * dt, d));
       cabeca.rotation.y = it.yaw;
-      // Sensor: aceso firme mirando alguém, pulsando devagar em repouso.
-      sensor.material.emissiveIntensity = p ? 1.2 : 0.7 + 0.3 * Math.sin(tempo * 2 + id.length);
+      // Sensor (e o neon da torreta): aceso firme mirando alguém, pulsando devagar em repouso.
+      neon.emissiveIntensity = p ? 1.2 : 0.7 + 0.3 * Math.sin(tempo * 2 + id.length);
     }
   }
 

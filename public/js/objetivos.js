@@ -25,8 +25,8 @@ export const POUSO_PLATAFORMA_S = 6;
 const DIST_ROTULO = 1000; // m: mais longe que isso o rótulo some
 const DIST_ESMAECE = 750;
 
-/** Rótulo da torre de suporte: acima do núcleo âmbar do alto do modelo (que passa da planta). */
-const ALT_ROTULO_SUPORTE = TORRE_SUPORTE.altura + 14;
+/** Rótulo da torre de suporte: acima da antena do alto do modelo (que vai até ~92 m, passando da planta). */
+const ALT_ROTULO_SUPORTE = TORRE_SUPORTE.altura + 36;
 
 /**
  * Os objetivos, onde ficam e a que altura vai o rótulo (m acima do chão de voo).

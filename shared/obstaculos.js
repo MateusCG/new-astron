@@ -50,11 +50,11 @@ export const TORRETA = { raio: 9, altura: 16 };
 /**
  * Torre do buff de suporte (o objetivo é destruí-la): o dobro do primeiro desenho
  * em largura e altura (era raio 7 e 30 m; decisão do Mateus, out/2026). O modelo
- * (torre-suporte.glb, feito para 7 × 30) é desenhado com ESCALA_TORRE_SUPORTE.
+ * (torre-suporte.glb, mid-poly PBR, feito para 14 × 60) é desenhado com ESCALA_TORRE_SUPORTE.
  */
 export const TORRE_SUPORTE = { raio: 14, altura: 60 };
-/** Escala do modelo da torre de suporte (de pé e caída) sobre o .glb, feito para raio 7 e 30 m. */
-export const ESCALA_TORRE_SUPORTE = TORRE_SUPORTE.raio / 7;
+/** Escala do modelo da torre de suporte (de pé e caída) sobre o .glb, feito para raio 14 e 60 m. */
+export const ESCALA_TORRE_SUPORTE = TORRE_SUPORTE.raio / 14;
 /**
  * Portal warp de cada base: flutua acima de `base` metros (a nave passa por baixo) e
  * não colide. `lx`/`lz` no referencial da base do time 0 (lane para +x): no fundo do
