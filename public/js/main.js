@@ -692,7 +692,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     recallLocal = euNoSnap?.recall !== undefined ? { frac: euNoSnap.recall, t: performance.now() } : null;
     placar.atualizar(m.partida, m.bonus);
     times.atualizar(m.jogadores);
-    barraTime.atualizar(m.jogadores, m.ents, m.vivo);
+    barraTime.atualizar(m.jogadores, m.ents, m.vivo, m.me?.en);
     bonusAtivos = m.bonus ?? {};
     meusBonus = Object.keys(m.me?.bonusNave ?? {});
     hud.bonusNave(m.me?.bonusNave, bonusAtivos[meuTime], m.me?.bonusSuspenso);

@@ -114,15 +114,17 @@
 // Teleporte até o companheiro ({t:'teleportar', alvo}, pedidoTeleporte): o piloto
 // clica no card de um aliado de nave Functional na barra do time e a nave salta na
 // hora para junto dele, sem recarga (pedido do Mateus: "imediatamente"; a nave
-// Functional é o ponto de reunião do time). O servidor valida tudo (quem pede vivo,
-// partida em andamento ou modo de teste, alvo do mesmo time, outro piloto, vivo e
-// Functional) e põe a nave num ponto livre em volta do companheiro (#pontoJuntoA:
+// Functional é o ponto de reunião do time), pagando em energia o custo do original
+// (custoTeleporte em shared/sim.js: cresce com o nível e com a diferença de nível
+// entre os dois). O servidor valida tudo (quem pede vivo, partida em andamento ou
+// modo de teste, alvo do mesmo time, outro piloto, vivo e Functional, energia que
+// pague o salto), desconta a energia e põe a nave num ponto livre em volta do companheiro (#pontoJuntoA:
 // atrás dele primeiro, chão livre como o teleporte das armas, pontoLivre), na altura
 // de voo, parada e decolada, olhando para onde ele olha; recall em andamento cancela.
 // Como no recall, é a mesma nave e a fila de comandos segue: o cliente reconcilia
 // pelo `me` e o evento 'teleporte' corta a suavização da predição e da câmera.
 
-import { DT, WEAPONS, createShip, sanitizeInput, stepShip, VEL_TOQUE, velocidadeBase, pousadaNaBase, BASE_CURA_FRAC, forward, HOVER, TELEPORTE_FOLGA } from '../shared/sim.js';
+import { DT, WEAPONS, createShip, sanitizeInput, stepShip, VEL_TOQUE, velocidadeBase, pousadaNaBase, BASE_CURA_FRAC, forward, HOVER, TELEPORTE_FOLGA, custoTeleporte } from '../shared/sim.js';
 import { BASE, BASES, heightAt } from '../shared/terrain.js';
 import { pontoLivre } from '../shared/obstaculos.js';
 import { racaJogavel, RACAS_JOGAVEIS, classeOuPadrao } from '../shared/naves.js';
@@ -462,7 +464,9 @@ export class World {
    * pediu: {t:'resultado', acao:'teleportar', item: alvo, ok, codigo?}, com codigo
    * 'sem_partida' (fora do andamento, salvo no modo de teste), 'morto' (quem pede
    * está morto), 'invalido' (alvo que não é inteiro, não existe, é ele mesmo ou é do
-   * outro time), 'alvo_morto' ou 'nao_functional'. Deu certo: evento 'teleporte'.
+   * outro time), 'alvo_morto', 'nao_functional' ou 'sem_energia' (com o `custo`, a
+   * energia que faltou pagar: custoTeleporte). Deu certo: desconta a energia e
+   * manda o evento 'teleporte'.
    */
   pedidoTeleporte(id, msg) {
     const j = this.players.get(id);
@@ -474,13 +478,20 @@ export class World {
     else if (!j.vivo) codigo = 'morto';
     else if (!alvo.vivo) codigo = 'alvo_morto';
     else if ((alvo.ship.classe ?? alvo.classe) !== 'functional') codigo = 'nao_functional';
-    if (!codigo) this.#teleportarAte(j, alvo);
-    return { t: 'resultado', acao: 'teleportar', item: alvoId, ok: !codigo, ...(codigo ? { codigo } : {}) };
+    const custo = codigo ? 0 : custoTeleporte(j.nivel, alvo.nivel);
+    if (!codigo && j.ship.en < custo) codigo = 'sem_energia';
+    if (!codigo) {
+      j.ship.en -= custo;
+      this.#teleportarAte(j, alvo);
+    }
+    const extra = codigo === 'sem_energia' ? { codigo, custo: Math.ceil(custo) } : codigo ? { codigo } : {};
+    return { t: 'resultado', acao: 'teleportar', item: alvoId, ok: !codigo, ...extra };
   }
 
   /**
    * Põe a nave de `j` junto de `alvo`: parada, decolada, na altura de voo, olhando
-   * para onde ele olha. Mesma nave (vida, energia, armas e efeitos ficam).
+   * para onde ele olha. Mesma nave (vida, armas e efeitos ficam; a energia já veio
+   * descontada do custo).
    */
   #teleportarAte(j, alvo) {
     if (j.recall) this.#pararRecall(j, 'teleporte');

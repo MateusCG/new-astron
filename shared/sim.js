@@ -23,7 +23,7 @@
 
 import { heightAt, areaPouso, topoPouso, BASES } from './terrain.js';
 import { alturaSolida, pontoLivre } from './obstaculos.js';
-import { naveDe, classeOuPadrao, CLASSE_PADRAO } from './naves.js';
+import { naveDe, classeOuPadrao, CLASSE_PADRAO, FATOR_ENERGIA } from './naves.js';
 import {
   WEAPONS,
   ARMAS,
@@ -130,6 +130,23 @@ export const NAVE_SEM_CLASSE = { hp: 250, energia: 60, velocidade: 52.25 }; // v
 export const AREA_ALTURA = 12; // m de diferença de altura até onde a área ainda pega
 export const TELEPORTE_PASSO = 10; // m: o teleporte recua isto até achar lugar livre
 export const TELEPORTE_FOLGA = SHIP_RADIUS + 3; // m de chão livre em volta do destino
+
+// Teleporte até o companheiro Functional (server/game.js, pedidoTeleporte): gasta
+// energia como no original (CGameInterface::OnPartyUserListTeleport confere antes de
+// pedir e CGameSocket::LGPartyAttachSuccess desconta): 100 × (1 + nível/30) mais 10
+// por nível de diferença com o companheiro, para cima ou para baixo, na escala de
+// energia do jogo (FATOR_ENERGIA, a mesma das armas). Sem energia bastante, recusa
+// ("Not enough energy. Level gap with the counterpart consumes energy").
+export const TELEPORTE_EN_BASE = 100; // energia do original no nível 0
+export const TELEPORTE_EN_NIVEIS = 30; // a base cresce 100% a cada tantos níveis do piloto
+export const TELEPORTE_EN_POR_NIVEL = 10; // energia do original por nível de diferença
+
+/** Energia que o teleporte até o companheiro custa (nível de quem salta e do companheiro). */
+export function custoTeleporte(nivel, nivelAlvo) {
+  const n = Number.isFinite(nivel) ? nivel : 1;
+  const dif = Math.abs(n - (Number.isFinite(nivelAlvo) ? nivelAlvo : n));
+  return FATOR_ENERGIA * (TELEPORTE_EN_BASE * (1 + n / TELEPORTE_EN_NIVEIS) + TELEPORTE_EN_POR_NIVEL * dif);
+}
 
 // Troca de arma: trocar a arma de um encaixe fora da própria base põe AQUELE
 // encaixe em recarga de troca por TROCA_ARMA_S (s.troca1 no Z, s.troca2 no X): sem

@@ -4654,6 +4654,17 @@ body.dano::after {
   color: var(--neon);
 }
 
+/* Custo do salto, na cor da barra de energia. */
+#companheiros .caixa-tele .custo {
+  margin: -2px 0 6px;
+  color: var(--texto);
+  font-size: 13px;
+}
+
+#companheiros .caixa-tele .custo b {
+  color: var(--en);
+}
+
 #companheiros .caixa-tele .motivo {
   margin: -2px 0 6px;
   color: #ff8a70;
