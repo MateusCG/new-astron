@@ -48,6 +48,7 @@ const LIMPAR_ANUNCIADOS_TICKS = 150;
 const PUBLICOS = new Set([
   'entrou',
   'saiu',
+  'preparacao',
   'partida',
   'fimPartida',
   'faseFinal',

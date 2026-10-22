@@ -44,7 +44,7 @@ function pousar(j, servico, time = j.time) {
 }
 
 function mundo() {
-  const w = new World({ jungle: false });
+  const w = new World({ preparacaoS: 0, jungle: false });
   w.mineradores.passo = () => {};
   return w;
 }
@@ -140,7 +140,7 @@ test('loja: arma comprada vai num encaixe pela instância; nos dois, só com dua
 });
 
 test('loja: a posse sobrevive ao renascimento e zera na partida seguinte', () => {
-  const w = new World({ jungle: false, duracaoPartidaS: 2, intervaloFimS: 1 });
+  const w = new World({ preparacaoS: 0, jungle: false, duracaoPartidaS: 2, intervaloFimS: 1 });
   const j = w.addPlayer('A', 'bellico');
   w.step();
   pousar(j, 'loja');
@@ -312,7 +312,7 @@ test('loja: pedidos malformados são recusados sem quebrar nada', () => {
 });
 
 test('loja: pelo WebSocket, o pedido volta como resultado e lixo não derruba a conexão', async () => {
-  const world = new World({ jungle: false });
+  const world = new World({ preparacaoS: 0, jungle: false });
   const srv = await iniciar({ porta: 0, world });
   try {
     const ws = new WebSocket(`ws://localhost:${srv.porta}/ws`);

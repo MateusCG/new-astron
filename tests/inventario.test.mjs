@@ -27,7 +27,7 @@ const DURABILIDADE = 'e340001'; // Potenciador de Durabilidade
 const ENERGIA = 'e340004'; // Potenciador de Energia
 
 function mundo(opcoes = {}) {
-  const w = new World({ jungle: false, torretas: false, ...opcoes });
+  const w = new World({ preparacaoS: 0, jungle: false, torretas: false, ...opcoes });
   w.mineradores.passo = () => {};
   return w;
 }

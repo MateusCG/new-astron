@@ -26,7 +26,7 @@ const matar = (w, m, j) => w.jungle.ctx.ferir(m, 1e9, j.id, null, {});
 const DEGRAUS_CURTOS = [{ restanteS: 15, mult: 2 }, { restanteS: 10, mult: 3 }, { restanteS: 5, mult: 4 }];
 
 function mundo({ duracaoPartidaS = 20, tempos = {}, ...resto } = {}) {
-  const w = new World({ rng: rngFixo(3), torretas: false, ouroPorSegundo: 0, duracaoPartidaS, temposJungle: { degraus: DEGRAUS_CURTOS, ...tempos }, ...resto });
+  const w = new World({ preparacaoS: 0, rng: rngFixo(3), torretas: false, ouroPorSegundo: 0, duracaoPartidaS, temposJungle: { degraus: DEGRAUS_CURTOS, ...tempos }, ...resto });
   const a = w.addPlayer('A', 'bellico');
   const b = w.addPlayer('B', 'acron');
   for (const j of [a, b]) j.protegidoAte = 0;
@@ -123,7 +123,7 @@ test('ondas: partida nova volta a ×1', () => {
 });
 
 test('ondas: no modo de teste (sem relógio) conta o tempo de mundo da jungle', () => {
-  const w = new World({ rng: rngFixo(2), teste: true, torretas: false, temposJungle: { acampamento: { primeiroS: 0 } } });
+  const w = new World({ preparacaoS: 0, rng: rngFixo(2), teste: true, torretas: false, temposJungle: { acampamento: { primeiroS: 0 } } });
   w.addPlayer('T', 'acron');
   w.step();
   assert.ok(w.partida.semTempo);

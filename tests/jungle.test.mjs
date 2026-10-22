@@ -19,7 +19,7 @@ function rngFixo(semente = 1) {
 const JA = { primeiroS: 0 };
 /** Mundo com a partida andando (um jogador de cada time) e os tempos da jungle trocados. */
 function mundo(tempos = {}) {
-  const w = new World({ rng: rngFixo(3), torretas: false, temposJungle: tempos, ouroPorSegundo: 0 }); // conta o ouro exato dos abates
+  const w = new World({ preparacaoS: 0, rng: rngFixo(3), torretas: false, temposJungle: tempos, ouroPorSegundo: 0 }); // conta o ouro exato dos abates
   const a = w.addPlayer('A', 'bellico');
   const b = w.addPlayer('B', 'acron');
   for (const j of [a, b]) j.protegidoAte = 0;
@@ -224,7 +224,7 @@ test('jungle: a sonda foge de quem a ataca, pelo trajeto, para longe dele', () =
 });
 
 test('jungle: partida nova tira os monstros e recomeça o relógio; servidor vazio para tudo', () => {
-  const w = new World({ rng: rngFixo(5), duracaoPartidaS: 3, intervaloFimS: 1, temposJungle: { acampamento: { primeiroS: 1 } } });
+  const w = new World({ preparacaoS: 0, rng: rngFixo(5), duracaoPartidaS: 3, intervaloFimS: 1, temposJungle: { acampamento: { primeiroS: 1 } } });
   const a = w.addPlayer('A', 'acron');
   passos(w, 1.2);
   assert.ok(w.monstros.length > 0);

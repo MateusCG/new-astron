@@ -371,11 +371,14 @@ export class Objetivos {
     const w = this.world;
     const tick = w.tick;
     const andamento = this.#andamento;
+    // Na preparação o relógio dos objetivos já tem hora marcada (inicioTick): a
+    // contagem até aparecer inclui o que falta dela.
+    const relogio = andamento || w.partida.emPreparacao;
     const r = {};
     for (const t of this.suportes) {
       const e = { time: t.time };
       if (t.caida) Object.assign(e, { estado: 'recarga', volta: restaS(t.voltaTick, tick), vida: 0 });
-      else if (!andamento || !this.#suporteAceso(t)) Object.assign(e, { estado: 'espera', volta: andamento ? restaS(this.#naPartida(this.tempos.suporte.primeiroS), tick) : 0, vida: 1 });
+      else if (!andamento || !this.#suporteAceso(t)) Object.assign(e, { estado: 'espera', volta: relogio ? restaS(this.#naPartida(this.tempos.suporte.primeiroS), tick) : 0, vida: 1 });
       else Object.assign(e, { estado: 'ativo', vida: +(t.hp / SUPORTE.hp).toFixed(3) });
       r[t.id] = e;
     }
@@ -385,7 +388,7 @@ export class Objetivos {
         Object.assign(e, { estado: 'ativo', prog: +(p.prog * DT).toFixed(1), quem: p.quem });
         if (p.contestado) e.contestado = true;
       } else {
-        const volta = p.voltaTick || (andamento ? this.#naPartida(this.tempos.plataforma.primeiroS) : tick);
+        const volta = p.voltaTick || (relogio ? this.#naPartida(this.tempos.plataforma.primeiroS) : tick);
         Object.assign(e, { estado: p.voltaTick ? 'recarga' : 'espera', volta: restaS(volta, tick) });
       }
       r[p.id] = e;
@@ -394,7 +397,7 @@ export class Objetivos {
     const e = { time: n.timeTomou, aparicao: n.aparicao };
     if (n.vivo) Object.assign(e, { estado: 'ativo', vida: +(Math.max(0, n.ship.hp) / n.ship.maxHp).toFixed(3) });
     else {
-      const prox = andamento ? this.#proximaAparicao() : { t: tick };
+      const prox = relogio ? this.#proximaAparicao() : { t: tick };
       if (!prox) e.estado = 'tomado';
       else Object.assign(e, { estado: n.aparicao === 0 ? 'espera' : 'recarga', volta: restaS(prox.t, tick) });
     }

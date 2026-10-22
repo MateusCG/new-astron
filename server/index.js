@@ -112,7 +112,7 @@
 //                        parada e decolada, olhando para onde ele olha; recall em
 //                        andamento cancela (motivo 'teleporte'). Resposta {t:'resultado',
 //                        acao:'teleportar', item: alvo, ok, codigo?}: 'sem_partida'
-//                        (partida fora do andamento, salvo no modo de teste), 'morto'
+//                        (fora da preparação e do andamento, salvo no modo de teste), 'morto'
 //                        (quem pede), 'invalido' (alvo não inteiro, que não existe, você
 //                        mesmo ou do outro time), 'alvo_morto', 'nao_functional',
 //                        'sem_energia' (com `custo`, arredondado para cima). Custa
@@ -223,11 +223,13 @@
 //         A barra do time tira a vida (hp/maxHp), a raça, a classe e o tier dos
 //         ALIADOS das `ents`, onde o próprio time sempre vem (vivo ou morto); a vida
 //         de inimigo só chega por lá quando o time o enxerga, como antes
-//   partida: {n, estado, fase, restante, semTempo, placar:[t0, t1], vencedor, novaEm}
+//   partida: {n, estado, fase, restante, inicioEm, semTempo, placar:[t0, t1], vencedor, novaEm}
 //            (semTempo: modo de teste, a partida não acaba e restante vem 0)
-//         estado = 'esperando' | 'andamento' | 'fim'; fase = 'normal' | 'final'
-//         (últimos 3 min: minério entregue vale o dobro); restante e novaEm em s;
-//         vencedor = time, -1 empate, null jogando
+//         estado = 'esperando' | 'preparacao' | 'andamento' | 'fim'; fase = 'normal' | 'final'
+//         (últimos 3 min: minério entregue vale o dobro); restante, inicioEm e novaEm
+//         em s; preparacao = os 3 min antes dos 20 (sem mineradores, jungle, objetivos,
+//         tiro de torreta nem ouro passivo; inicioEm = s até começar, restante = a
+//         duração inteira); vencedor = time, -1 empate, null jogando
 //   bonus: {0: {medusa: s}, 1: {...}}   bônus de TIME ativos (s que faltam; medusa =
 //         +15% de dano e +15% de velocidade das naves do time, server/bonus.js)
 //   obj:  {[id]: estado}   objetivos do mapa, por id (server/objetivos.js: BS0, BS1,
@@ -376,7 +378,8 @@
 //                                    placar (carga = o que entrou, já dobrado na fase
 //                                    final; nucleo = 1 no da onda do Núcleo)
 //         {e:'faseFinal', mult, restante}   começou a fase final (minério × mult)
-//         {e:'partida', n}   começou a partida n (placar zerado)
+//         {e:'preparacao', n, s}   abriu a partida n (placar zerado) na preparação: começa em s
+//         {e:'partida', n}   começou a partida n (acabou a preparação: os 20 minutos)
 //         {e:'fimPartida', vencedor, placar}
 //         {e:'teleporte', id, alvo, time, x, y, z}   a nave id saltou para junto do
 //                                    companheiro alvo (Functional), chegando em x/y/z

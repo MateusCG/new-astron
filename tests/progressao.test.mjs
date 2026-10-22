@@ -61,7 +61,7 @@ test('progressão: ganhar XP sobe de nível, avisa e dá +3% de HP máximo por n
 });
 
 test('progressão: abater um Armish dá XP e ouro, e o snapshot leva nível e XP', () => {
-  const w = new World({ jungle: false, rng: rngFixo(11), ouroPorSegundo: 0 }); // só o ouro do abate
+  const w = new World({ preparacaoS: 0, jungle: false, rng: rngFixo(11), ouroPorSegundo: 0 }); // só o ouro do abate
   const j = w.addPlayer('Caçador', 'acron');
   j.ship = createShip('acron', FORA.x, FORA.z, 0);
   j.protegidoAte = Infinity;
@@ -78,7 +78,7 @@ test('progressão: abater um Armish dá XP e ouro, e o snapshot leva nível e XP
 });
 
 test('progressão: abates sobem o nível e a nave renasce com o HP do nível', () => {
-  const w = new World({ jungle: false, torretas: false });
+  const w = new World({ preparacaoS: 0, jungle: false, torretas: false });
   const a = w.addPlayer('A', 'acron');
   const b = w.addPlayer('B', 'shrewdo');
   a.ship = createShip('acron', FORA.x, FORA.z, 0);
@@ -101,7 +101,7 @@ test('progressão: abates sobem o nível e a nave renasce com o HP do nível', (
 });
 
 test('progressão: ouro, XP e nível zeram quando começa a partida seguinte', () => {
-  const w = new World({ jungle: false, duracaoPartidaS: 1, intervaloFimS: 1 });
+  const w = new World({ preparacaoS: 0, jungle: false, duracaoPartidaS: 1, intervaloFimS: 1 });
   const j = w.addPlayer('Veterano', 'bellico');
   w.step();
   ganharXp(j, xpParaNivel(1) + xpParaNivel(2) + 10, w.eventos);
@@ -136,7 +136,7 @@ test('monstros: cada espécie tem o XP e o ouro dela, e quem é mais forte paga 
 });
 
 test('monstros: o evento de morte de um monstro traz a espécie e o ouro de quem matou', () => {
-  const w = new World({ jungle: false, rng: rngFixo(5) });
+  const w = new World({ preparacaoS: 0, jungle: false, rng: rngFixo(5) });
   const j = w.addPlayer('Caçador', 'bellico');
   j.ship = createShip('bellico', FORA.x, FORA.z, 0);
   j.protegidoAte = Infinity;
@@ -161,7 +161,7 @@ test('monstros: o evento de morte de um monstro traz a espécie e o ouro de quem
 
 /** Mundo sem nada que dê ouro além do passivo (sem jungle, mineradores, escoltas, torretas nem cérebro de computador). */
 function mundoParado(opcoes = {}) {
-  const w = new World({ jungle: false, torretas: false, ...opcoes });
+  const w = new World({ preparacaoS: 0, jungle: false, torretas: false, ...opcoes });
   w.mineradores.passo = () => {};
   w.escoltas.passo = () => {};
   w.bots.passo = () => {};
@@ -228,7 +228,7 @@ function abaterColetando(w, j, m, segundos = 15) {
 }
 
 test('monstros: o ouro e o XP do abate vão só para quem matou, no lugar da morte (evento ganho)', () => {
-  const w = new World({ jungle: false, torretas: false, rng: rngFixo(11) });
+  const w = new World({ preparacaoS: 0, jungle: false, torretas: false, rng: rngFixo(11) });
   const j = w.addPlayer('Caçador', 'acron');
   const outro = w.addPlayer('Outro', 'shrewdo');
   const aliado = w.addPlayer('Aliado', 'bellico');
@@ -260,7 +260,7 @@ test('monstros: o ouro e o XP do abate vão só para quem matou, no lugar da mor
 });
 
 test('monstros: no nível máximo o ganho traz só o ouro (XP 0)', () => {
-  const w = new World({ jungle: false, torretas: false, rng: rngFixo(11) });
+  const w = new World({ preparacaoS: 0, jungle: false, torretas: false, rng: rngFixo(11) });
   const j = w.addPlayer('Veterano', 'acron');
   j.ship = createShip('acron', FORA.x, FORA.z, 0);
   j.protegidoAte = Infinity;
@@ -272,7 +272,7 @@ test('monstros: no nível máximo o ganho traz só o ouro (XP 0)', () => {
 });
 
 test('monstros: golpe crítico vai a quem bateu com `por` e o ganho do golpe final leva crit', () => {
-  const w = new World({ jungle: false, torretas: false, rng: () => 0 });
+  const w = new World({ preparacaoS: 0, jungle: false, torretas: false, rng: () => 0 });
   const j = w.addPlayer('Caçador', 'acron');
   j.ship = createShip('acron', FORA.x, FORA.z, 0);
   j.protegidoAte = Infinity;

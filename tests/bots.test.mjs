@@ -29,7 +29,7 @@ function rngFixo(semente = 7) {
 
 /** Humano parado na base (o computador só existe com alguém na partida). */
 function mundoComHumano(opcoes = {}) {
-  const w = new World({ rng: rngFixo(), ...opcoes });
+  const w = new World({ preparacaoS: 0, rng: rngFixo(), ...opcoes });
   const h = w.addPlayer('Humano', 'acron', 'assault');
   return { w, h };
 }
@@ -47,7 +47,7 @@ function rodar(w, h, s) {
 
 /** Mundo só de computadores: `n0` no time 0 e `n1` no time 1 (a partida começa com eles). */
 function mundoDeBots(n0, n1, opcoes = {}) {
-  const w = new World({ rng: rngFixo(), ...opcoes });
+  const w = new World({ preparacaoS: 0, rng: rngFixo(), ...opcoes });
   const bots = [];
   for (let k = 0; k < Math.max(n0, n1); k++) {
     if (k < n0) bots.push(w.adicionarBot(0));
@@ -73,7 +73,7 @@ function sobTorreInimiga(w, j) {
 const NICK = new RegExp(`^(${NOMES.join('|')}) \\(IA\\)$`);
 
 test('computador: entra pela escolha da tela inicial (iaMeu, iaInimigo) com nick "NOME (IA)", sem repetir nome', () => {
-  const w = new World({ rng: rngFixo() });
+  const w = new World({ preparacaoS: 0, rng: rngFixo() });
   const h = w.addPlayer('Humano', 'acron', 'assault', { iaMeu: 1, iaInimigo: 2 });
   const bots = [...w.players.values()].filter((j) => j.ia);
   assert.equal(bots.length, 3);
@@ -84,7 +84,7 @@ test('computador: entra pela escolha da tela inicial (iaMeu, iaInimigo) com nick
   }
   assert.equal(new Set(bots.map((b) => b.nome)).size, 3, 'nomes diferentes');
   // Sem pedido (cliente antigo), ninguém entra junto.
-  const w2 = new World({ rng: rngFixo() });
+  const w2 = new World({ preparacaoS: 0, rng: rngFixo() });
   w2.addPlayer('Sozinho', 'acron', 'assault');
   assert.equal(w2.players.size, 1);
   // O humano não consegue se passar por computador: o parêntese sai do nick.
@@ -103,7 +103,7 @@ test('computador: iaMeu e iaInimigo da entrada são saneados (inteiros, 0 a 2 no
   assert.deepEqual(computadoresDaEntrada(undefined), { iaMeu: 0, iaInimigo: 0 });
   assert.deepEqual(computadoresDaEntrada('bobagem'), { iaMeu: 0, iaInimigo: 0 });
   // No mundo: o pedido exagerado só enche os dois times, nunca passa de 3.
-  const w = new World({ rng: rngFixo() });
+  const w = new World({ preparacaoS: 0, rng: rngFixo() });
   const h = w.addPlayer('Humano', 'acron', 'assault', { iaMeu: 50, iaInimigo: 50 });
   const tam = [0, 0];
   for (const j of w.players.values()) tam[j.time]++;
@@ -112,7 +112,7 @@ test('computador: iaMeu e iaInimigo da entrada são saneados (inteiros, 0 a 2 no
 });
 
 test('computador: com a partida rodando, a entrada só completa as vagas que faltam (não tira ninguém, gente conta, até 3)', () => {
-  const w = new World({ rng: rngFixo(), jungle: false });
+  const w = new World({ preparacaoS: 0, rng: rngFixo(), jungle: false });
   const tamanhos = () => {
     const t = [{ gente: 0, ia: 0 }, { gente: 0, ia: 0 }];
     for (const j of w.players.values()) t[j.time][j.ia ? 'ia' : 'gente']++;
@@ -144,7 +144,7 @@ test('computador: com a partida rodando, a entrada só completa as vagas que fal
 });
 
 test('computador: no modo de teste os computadores da entrada entram no mundo do piloto', () => {
-  const w = new World({ rng: rngFixo(), teste: true, jungle: false });
+  const w = new World({ preparacaoS: 0, rng: rngFixo(), teste: true, jungle: false });
   const h = w.addPlayer('Testador', 'acron', 'assault', { iaMeu: 2, iaInimigo: 1 });
   const bots = [...w.players.values()].filter((j) => j.ia);
   assert.equal(bots.filter((b) => b.time === h.time).length, 2);
@@ -152,7 +152,7 @@ test('computador: no modo de teste os computadores da entrada entram no mundo do
 });
 
 test("computador: pela rede, a entrada traz os computadores e o pedido {t:'ia'} dentro da partida é recusado", async () => {
-  const srv = await iniciar({ porta: 0, world: new World({ rng: rngFixo(), jungle: false, torretas: false }) });
+  const srv = await iniciar({ porta: 0, world: new World({ preparacaoS: 0, rng: rngFixo(), jungle: false, torretas: false }) });
   const abrir = () =>
     new Promise((ok) => {
       const ws = new WebSocket(`ws://localhost:${srv.porta}/ws`);
@@ -203,7 +203,7 @@ test('computador: humano que chega com a partida cheia fica com a vaga de um com
   assert.equal(w.players.size, 2 * MAX_POR_TIME);
   assert.equal([...w.players.values()].filter((j) => j.time === novo.time && j.ia).length, MAX_POR_TIME - 1);
   // Só humanos: aí a partida está cheia de verdade.
-  const w2 = new World({ rng: rngFixo() });
+  const w2 = new World({ preparacaoS: 0, rng: rngFixo() });
   for (let k = 0; k < 2 * MAX_POR_TIME; k++) assert.ok(w2.addPlayer(`P${k}`, 'acron', 'assault'));
   assert.equal(w2.addPlayer('Sobra', 'acron', 'assault'), null);
 });
@@ -487,7 +487,7 @@ test('computador: o time vai junto à Medusa (reúne e só ataca com o grupo); s
 });
 
 test('computador: só vê o inimigo que o time vê (escondido no campo de asteroides, não; fora dele, sim)', () => {
-  const w = new World({ rng: rngFixo(), jungle: false, torretas: false });
+  const w = new World({ preparacaoS: 0, rng: rngFixo(), jungle: false, torretas: false });
   const bot = w.adicionarBot(0);
   const h = w.addPlayer('Humano', 'acron', 'assault');
   assert.equal(h.time, 1);

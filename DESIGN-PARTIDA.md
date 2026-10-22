@@ -8,13 +8,14 @@ Documento de referência do modo de jogo principal. Toda tarefa de jogabilidade 
 
 ## Resumo
 
-- **[feito]** **Partida de 20 minutos** (`DURACAO_PARTIDA_S` = 1200), **dois times de 3 jogadores** (`server/partida.js`). O cronômetro começa quando entra o primeiro jogador; com os dois times cheios, quem chega é recusado (`partida_cheia`). Sem fogo amigo. A zona segura de cada base só protege o time dono dela.
+- **[feito]** **Partida de 20 minutos** (`DURACAO_PARTIDA_S` = 1200), **dois times de 3 jogadores** (`server/partida.js`). O cronômetro começa quando entra o primeiro jogador, com a **preparação** antes; com os dois times cheios, quem chega é recusado (`partida_cheia`). Sem fogo amigo. A zona segura de cada base só protege o time dono dela.
+- **[feito]** **Preparação de 3 minutos** (`PREPARACAO_S` = 180) antes dos 20 minutos, em toda partida (a primeira e as seguintes): contagem regressiva no placar com a faixa "PREPARAÇÃO" (`partida.estado` `'preparacao'`, `partida.inicioEm`; eventos `preparacao` e, no fim dela, `partida`). É para explorar o mapa e se preparar: **nada acontece** (nenhum minerador ou escolta sai, a jungle não nasce, os objetivos esperam, as torretas não atiram, não há ouro passivo nem fase final). Só as naves dos pilotos voam (e podem se enfrentar), a Loja e a Evolução atendem e o teleporte até o companheiro vale. Os tempos do ritmo abaixo contam do fim da preparação. O modo de teste não tem preparação. Os computadores esperam na base.
 - **[feito]** **Vence o time que mais minerou Hélio-3 (He-3)**: o que conta é o minério que os **mineradores** (mini-naves controladas pelo jogo) entregam na base. Empate é possível. Depois da tela de fim (15 s) começa outra partida do zero.
 - **[feito]** **Fase final**: nos últimos 3 minutos (17:00 a 20:00; `FASE_FINAL_S` = 180) o **minério entregue vale o dobro** (`MULT_FASE_FINAL` = 2). O snapshot traz `partida.fase` (`'normal'` ou `'final'`), o evento `faseFinal` anuncia a virada e o placar mostra "MINÉRIO ×2".
 - Os jogadores não mineram: eles **protegem os próprios mineradores, destroem os do outro time**, farmam a **jungle** (XP, nível e ouro), tomam **buffs e objetivos épicos** e gastam o ouro na **Evolução** e na **Loja** da base.
 - **[feito]** **Névoa de guerra (visão do time):** cada time só vê o que algum aliado enxerga (ver "Visão").
 
-**Ritmo:** 0:00–3:00 jungle e lane; 0:45 acampamentos; 1:30 buffs; 2:00 plataformas de pouso; 3:00 sonda errante; 5:00 Ancient Medusa; 8:00 Núcleo de He-3 (pico de disputa); 15:00 segundo Núcleo; 17:00–20:00 fase final.
+**Ritmo** (contado do fim da preparação de 3 minutos): 0:00–3:00 jungle e lane; 0:45 acampamentos; 1:30 buffs; 2:00 plataformas de pouso; 3:00 sonda errante; 5:00 Ancient Medusa; 8:00 Núcleo de He-3 (pico de disputa); 15:00 segundo Núcleo; 17:00–20:00 fase final.
 
 ## Mapa: o lago de He-3 (vista de cima; −z é "em cima" no desenho)
 

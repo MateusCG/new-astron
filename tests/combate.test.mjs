@@ -36,7 +36,7 @@ function rngFixo(semente = 1) {
  * todas as armas (ship.armas indefinido).
  */
 function arena(n, opcoes = {}) {
-  const w = new World({ jungle: false, torretas: false, rng: rngFixo(), ...opcoes });
+  const w = new World({ preparacaoS: 0, jungle: false, torretas: false, rng: rngFixo(), ...opcoes });
   w.mineradores.passo = () => {};
   const js = [];
   for (let i = 0; i < n; i++) {

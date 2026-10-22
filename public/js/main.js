@@ -133,7 +133,7 @@ import { TorretasNaTela } from './torretas.js';
 import { Rede } from './rede.js';
 import { mostrarPrevia, pararPrevia } from './vitrine.js';
 import { MenuArmas } from './armas.js';
-import { Placar } from './placar.js';
+import { Placar, relogio } from './placar.js';
 import { PainelTeste } from './teste.js';
 import { PainelTimes } from './times.js';
 import { BarraTime } from './companheiros.js';
@@ -944,8 +944,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
       } else if (e.e === 'faseFinal') {
         placar.faseFinal();
         hud.noticia(`Fase final: minério entregue vale ×${e.mult} até o fim`, 'bom');
-      } else if (e.e === 'partida' && e.n > 1) {
-        hud.noticia('Nova partida: o time que minerar mais vence', 'bom');
+      } else if (e.e === 'preparacao') {
+        hud.noticia(`Preparação: a partida começa em ${relogio(e.s)} · explore o mapa e se prepare`, 'bom');
+      } else if (e.e === 'partida') {
+        hud.noticia('A partida começou: mineradores e jungle em campo · o time que minerar mais vence', 'bom');
       } else if (e.e === 'morte') {
         const tipo = e.tipo ?? outras.get(e.id)?.tipo;
         // Fora da visão (névoa) a morte de jogador vem sem lugar: só a notícia.

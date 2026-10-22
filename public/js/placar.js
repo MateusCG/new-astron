@@ -6,6 +6,9 @@
 // o bônus de time que ele tem agora (o da Medusa Anciã: ícone âmbar, a cor dos
 // objetivos, que é de onde os bônus vêm) com a contagem regressiva. Na fase final (últimos 3
 // minutos, `partida.fase === 'final'`) aparece a faixa "MINÉRIO ×2" embaixo de tudo.
+// Na preparação (os 3 minutos antes dos 20, `partida.estado === 'preparacao'`), o
+// relógio conta o que falta para a partida começar (`inicioEm`) e a faixa diz
+// "PREPARAÇÃO".
 
 import { ICONE_OBJETIVO } from './objetivos.js';
 
@@ -36,6 +39,7 @@ export class Placar {
     this.outro = this.el.querySelector('.time.outro');
     this.tempo = this.el.querySelector('.relogio');
     this.faixaFinal = this.el.querySelector('.fase-final');
+    this.faixaPrep = this.el.querySelector('.preparacao');
     this.fim = $('#fim-partida');
     this.ultimo = '';
     this.el.hidden = false;
@@ -51,9 +55,11 @@ export class Placar {
     this.outro.querySelector('b').textContent = partida.placar[this.outroTime];
     // Modo de teste: a partida não tem relógio.
     if (partida.semTempo) this.tempo.textContent = 'TESTE';
+    else if (partida.estado === 'preparacao') this.tempo.textContent = relogio(partida.inicioEm);
     else this.tempo.textContent = partida.estado === 'andamento' ? relogio(partida.restante) : partida.estado === 'fim' ? 'FIM' : '--:--';
     this.tempo.classList.toggle('acabando', !partida.semTempo && partida.estado === 'andamento' && partida.restante <= 60);
     this.faixaFinal.hidden = partida.fase !== 'final';
+    this.faixaPrep.hidden = partida.estado !== 'preparacao';
     this.#bonus(this.meu.querySelector('.bonus'), bonus[this.meuTime]);
     this.#bonus(this.outro.querySelector('.bonus'), bonus[this.outroTime]);
     this.#telaFim(partida);

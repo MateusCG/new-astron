@@ -204,8 +204,8 @@ function limpaNome(n) {
 export class World {
   /**
    * @param {{ rng?: () => number, jungle?: boolean, temposJungle?: object,
-   *   duracaoPartidaS?: number, intervaloFimS?: number, faseFinalS?: number, torretas?: boolean,
-   *   teste?: boolean, objetivos?: object, ouroPorSegundo?: number }} [opcoes]
+   *   duracaoPartidaS?: number, intervaloFimS?: number, faseFinalS?: number, preparacaoS?: number,
+   *   torretas?: boolean, teste?: boolean, objetivos?: object, ouroPorSegundo?: number }} [opcoes]
    * jungle = false: mundo sem monstros (testes). temposJungle: troca os tempos de
    * aparecer e voltar da jungle (TEMPOS_JUNGLE em server/jungle.js; os testes
    * encurtam). torretas = false deixa as torretas de pé mas sem atirar (testes que
@@ -214,6 +214,8 @@ export class World {
    * objetivos = tempos dos objetivos (TEMPOS de server/objetivos.js) trocados, para
    * os testes não esperarem minutos. ouroPorSegundo troca o ouro passivo
    * (OURO_POR_SEGUNDO; 0 nos testes que contam o ouro de um abate exato).
+   * preparacaoS troca a contagem antes dos 20 minutos (PREPARACAO_S de
+   * server/partida.js; 0 começa a partida na hora, como fazem os testes).
    */
   constructor({
     rng = Math.random,
@@ -222,6 +224,7 @@ export class World {
     duracaoPartidaS,
     intervaloFimS,
     faseFinalS,
+    preparacaoS,
     torretas = true,
     teste = false,
     objetivos,
@@ -237,7 +240,7 @@ export class World {
     this.bullets = [];
     this.minas = [];
     this.eventos = [];
-    this.partida = new Partida({ duracaoS: teste ? Infinity : duracaoPartidaS, intervaloFimS, faseFinalS });
+    this.partida = new Partida({ duracaoS: teste ? Infinity : duracaoPartidaS, intervaloFimS, faseFinalS, preparacaoS });
     this.bonus = new Bonus({ evento: (ev) => this.eventos.push(ev) });
     this.mineradores = new Mineradores({
       novoId: () => this.#id(),
@@ -474,7 +477,7 @@ export class World {
     const alvo = alvoId === null ? null : this.players.get(alvoId);
     let codigo = null;
     if (!j || !alvo || alvo === j || alvo.time !== j.time) codigo = 'invalido';
-    else if (!this.partida.emAndamento && !this.teste) codigo = 'sem_partida';
+    else if (!this.partida.emAndamento && !this.partida.emPreparacao && !this.teste) codigo = 'sem_partida';
     else if (!j.vivo) codigo = 'morto';
     else if (!alvo.vivo) codigo = 'alvo_morto';
     else if ((alvo.ship.classe ?? alvo.classe) !== 'functional') codigo = 'nao_functional';
@@ -848,36 +851,20 @@ export class World {
   }
 
   /**
-   * Relógio da partida: começa com o primeiro jogador; no fim de uma, espera a tela
-   * de resultado e começa outra do zero (placar, bônus e mineradores zerados, todo
-   * mundo renasce na base do time).
+   * Relógio da partida: abre com o primeiro jogador; no fim de uma, espera a tela
+   * de resultado e abre outra do zero (placar, bônus e mineradores zerados, todo
+   * mundo renasce na base do time). Partida aberta começa na preparação
+   * (PREPARACAO_S): o mapa fica vazio (sem mineradores, escoltas e jungle) até ela
+   * acabar; o relógio deles já é marcado para o fim dela.
    */
   #passoPartida() {
-    const vinhaDoFim = this.partida.estado === 'fim';
+    const antes = this.partida.estado;
     const virou = this.partida.passo(this.tick, this.players.size);
-    if (virou === 'comecou') {
-      this.bonus.limpar();
-      if (vinhaDoFim) this.minas = [];
-      if (vinhaDoFim) this.golpes.limpar();
-      if (vinhaDoFim) this.objetivos.reiniciar();
-      if (vinhaDoFim) this.servicos.reiniciar(); // melhorias dos mineradores dos dois times
-      if (vinhaDoFim) this.torretas.reiniciar(); // todas de pé, nível 1
-      this.mineradores.comecar(this.tick);
-      this.escoltas.comecar(this.tick);
-      this.jungle.comecar(this.tick); // monstros somem; o relógio da jungle recomeça
-      // Depois da tela de fim, todo mundo volta para a base do time. (Na primeira
-      // partida, quem entrou acabou de nascer lá.)
-      if (vinhaDoFim) {
-        for (const j of this.players.values()) {
-          if (j.fila.length) j.ack = j.fila[j.fila.length - 1].seq; // descarta sem travar a predição
-          // Ouro, XP, nível, pontos, o inventário (volta às duas armas de fábrica;
-          // os ids seguem crescendo), o que está na nave, itens e a nave comprada
-          // (tier) são da partida (como num MOBA): zeram na seguinte. A raça e a
-          // classe ficam (são escolha da entrada).
-          Object.assign(j, novaProgressao(), novoCombate(), novoEquipamento(j.ship.race, j.invProx), { ouro: 0 });
-          this.#respawn(j);
-        }
-      }
+    // Partida nova: na preparação, ou no 'comecou' direto quando ela é 0.
+    if (virou === 'preparacao' || (virou === 'comecou' && antes !== 'preparacao')) this.#abrirPartida(antes === 'fim');
+    if (virou === 'preparacao') {
+      this.eventos.push({ e: 'preparacao', n: this.partida.numero, s: Math.round(this.partida.inicioEm(this.tick)) });
+    } else if (virou === 'comecou') {
       this.eventos.push({ e: 'partida', n: this.partida.numero });
     } else if (virou === 'faseFinal') {
       this.eventos.push({ e: 'faseFinal', mult: MULT_FASE_FINAL, restante: Math.round(this.partida.restante(this.tick)) });
@@ -894,6 +881,37 @@ export class World {
       this.mineradores.limpar();
       this.escoltas.limpar();
       this.jungle.limpar();
+    }
+  }
+
+  /**
+   * Partida nova aberta (preparação ou andamento direto): bônus zerados, mapa sem
+   * mineradores, escoltas e monstros dos lugares, com o relógio deles marcado para
+   * quando os 20 minutos começam (inicioTick: os mineradores só andam no andamento e
+   * a jungle só nasce depois dele). Vindo da tela de fim, também objetivos,
+   * melhorias, torretas e a progressão de todo mundo, que renasce na base do time.
+   * (Na primeira partida, quem entrou acabou de nascer lá.)
+   */
+  #abrirPartida(vinhaDoFim) {
+    const inicio = this.partida.inicioTick;
+    this.bonus.limpar();
+    this.mineradores.comecar(inicio);
+    this.escoltas.comecar(inicio);
+    this.jungle.comecar(inicio); // monstros somem; o relógio da jungle recomeça
+    if (!vinhaDoFim) return;
+    this.minas = [];
+    this.golpes.limpar();
+    this.objetivos.reiniciar();
+    this.servicos.reiniciar(); // melhorias dos mineradores dos dois times
+    this.torretas.reiniciar(); // todas de pé, nível 1
+    for (const j of this.players.values()) {
+      if (j.fila.length) j.ack = j.fila[j.fila.length - 1].seq; // descarta sem travar a predição
+      // Ouro, XP, nível, pontos, o inventário (volta às duas armas de fábrica;
+      // os ids seguem crescendo), o que está na nave, itens e a nave comprada
+      // (tier) são da partida (como num MOBA): zeram na seguinte. A raça e a
+      // classe ficam (são escolha da entrada).
+      Object.assign(j, novaProgressao(), novoCombate(), novoEquipamento(j.ship.race, j.invProx), { ouro: 0 });
+      this.#respawn(j);
     }
   }
 

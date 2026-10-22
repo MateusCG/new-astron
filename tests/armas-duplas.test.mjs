@@ -16,7 +16,7 @@ const LAMINA = 'o112003'; // Lâmina Giratória Reforçada: Acron Assault, um pr
 const ESCUDO = 'e330010'; // Escudo Neutron Op. (todas as classes)
 
 function mundo() {
-  const w = new World({ jungle: false, torretas: false });
+  const w = new World({ preparacaoS: 0, jungle: false, torretas: false });
   w.mineradores.passo = () => {};
   return w;
 }

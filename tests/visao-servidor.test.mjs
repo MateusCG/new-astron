@@ -20,7 +20,7 @@ function rngFixo(semente = 1) {
  * onde o teste liga).
  */
 function mundo(n = 2, opcoes = {}) {
-  const w = new World({ jungle: false, rng: rngFixo(), torretas: false, ...opcoes });
+  const w = new World({ preparacaoS: 0, jungle: false, rng: rngFixo(), torretas: false, ...opcoes });
   w.mineradores.passo = () => {};
   w.escoltas.passo = () => {};
   const js = [];
@@ -220,7 +220,7 @@ test('visão: minas inimigas só pela posição; as do time sempre', () => {
 });
 
 test('visão: o modo de teste também usa a névoa', () => {
-  const w = new World({ teste: true, jungle: false, rng: rngFixo() });
+  const w = new World({ preparacaoS: 0, teste: true, jungle: false, rng: rngFixo() });
   const j = w.addPlayer('Teste', 'acron');
   w.step();
   const d = w.jungle.criarMonstro('armish', 900, 700);
@@ -230,7 +230,7 @@ test('visão: o modo de teste também usa a névoa', () => {
 });
 
 test('visão: custo do filtro com 6 jogadores e os monstros do mapa', () => {
-  const w = new World({ rng: rngFixo(3) });
+  const w = new World({ preparacaoS: 0, rng: rngFixo(3) });
   const js = [];
   for (let i = 0; i < 6; i++) js.push(w.addPlayer('P' + i, 'shrewdo'));
   for (let i = 0; i < 30; i++) w.step();

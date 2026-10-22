@@ -8,7 +8,7 @@ import { NIVEL_MAX, xpParaNivel } from '../server/progressao.js';
 // Modo de teste: um mundo só do piloto, com a partida sem relógio e os pedidos de
 // ouro e XP para testar a progressão da nave (pedido do Mateus).
 
-const mundoTeste = () => new World({ teste: true, jungle: false, torretas: false });
+const mundoTeste = () => new World({ preparacaoS: 0, teste: true, jungle: false, torretas: false });
 
 test('teste: a partida do mundo de teste não acaba nem entra na fase final', () => {
   const w = mundoTeste();
@@ -46,14 +46,14 @@ test('teste: ouro, XP, nível e nível máximo pelos pedidos do modo de teste', 
 });
 
 test('teste: na partida de verdade os pedidos de teste são recusados', () => {
-  const w = new World({ jungle: false, torretas: false });
+  const w = new World({ preparacaoS: 0, jungle: false, torretas: false });
   const j = w.addPlayer('A', 'shrewdo');
   assert.equal(w.pedidoTeste(j.id, { acao: 'ouro' }).codigo, 'invalido');
   assert.equal(j.ouro, 0);
 });
 
 test('teste: entrar em modo de teste cria um mundo só seu, separado da partida', async () => {
-  const srv = await iniciar({ porta: 0, world: new World({ jungle: false, torretas: false }) });
+  const srv = await iniciar({ porta: 0, world: new World({ preparacaoS: 0, jungle: false, torretas: false }) });
   const abrir = () =>
     new Promise((ok) => {
       const ws = new WebSocket(`ws://localhost:${srv.porta}/ws`);

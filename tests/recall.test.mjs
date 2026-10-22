@@ -12,7 +12,7 @@ import { RECALL_S, RECALL_VEL_MAX } from '../shared/recall.js';
 const SEGUNDO = 30;
 
 function mundo() {
-  const w = new World({ jungle: false, torretas: false });
+  const w = new World({ preparacaoS: 0, jungle: false, torretas: false });
   w.mineradores.passo = () => {};
   return w;
 }

@@ -17,7 +17,7 @@ const SEGUNDO = 30;
 const PARADO = { ...INPUT_VAZIO };
 
 function mundo(opcoes = {}) {
-  const w = new World({ jungle: false, ...opcoes });
+  const w = new World({ preparacaoS: 0, jungle: false, ...opcoes });
   w.mineradores.passo = () => {};
   return w;
 }

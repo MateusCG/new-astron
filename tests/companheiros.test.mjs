@@ -23,7 +23,7 @@ function rngFixo(semente = 1) {
  * já começada.
  */
 function mundo(pilotos, opcoes = {}) {
-  const w = new World({ jungle: false, torretas: false, rng: rngFixo(), ouroPorSegundo: 0, ...opcoes });
+  const w = new World({ preparacaoS: 0, jungle: false, torretas: false, rng: rngFixo(), ouroPorSegundo: 0, ...opcoes });
   w.mineradores.passo = () => {};
   w.escoltas.passo = () => {};
   const js = pilotos.map(([nome, classe]) => w.addPlayer(nome, 'bellico', classe));
@@ -119,7 +119,7 @@ test('teleporte: recusa alvo de outro time, alvo não Functional, alvo morto, a 
 });
 
 test('teleporte: só com a partida em andamento (ou no modo de teste) e cancela o recall', () => {
-  const w = new World({ jungle: false, torretas: false, rng: rngFixo() });
+  const w = new World({ preparacaoS: 0, jungle: false, torretas: false, rng: rngFixo() });
   w.mineradores.passo = () => {};
   const a = w.addPlayer('A', 'bellico', 'assault');
   w.addPlayer('B', 'bellico', 'assault');
@@ -139,7 +139,7 @@ test('teleporte: só com a partida em andamento (ou no modo de teste) e cancela 
   assert.equal(rec?.motivo, 'teleporte');
 
   // Modo de teste: mundo só seu, com os computadores do pedido.
-  const t = new World({ teste: true, jungle: false, torretas: false, rng: rngFixo() });
+  const t = new World({ preparacaoS: 0, teste: true, jungle: false, torretas: false, rng: rngFixo() });
   const eu = t.addPlayer('Eu', 'acron', 'assault', { iaMeu: 2 });
   t.step();
   const aliado = [...t.players.values()].find((j) => j !== eu && j.time === eu.time);

@@ -85,7 +85,7 @@ test('troca: dentro da própria base é livre; na base do outro time, não', () 
 });
 
 test('troca: nave nova começa sem recarga de troca, e o `me` leva troca1/troca2', () => {
-  const w = new World({ jungle: false });
+  const w = new World({ preparacaoS: 0, jungle: false });
   w.mineradores.passo = () => {};
   const j = w.addPlayer('A', 'acron');
   const me = w.snapshotPara(j, [], []).me;
@@ -94,7 +94,7 @@ test('troca: nave nova começa sem recarga de troca, e o `me` leva troca1/troca2
 });
 
 test('troca: a predição (stepShip no cliente) bate com o servidor', () => {
-  const w = new World({ jungle: false });
+  const w = new World({ preparacaoS: 0, jungle: false });
   w.mineradores.passo = () => {};
   const j = w.addPlayer('A', 'acron');
   j.ship = naveFora(j.time);

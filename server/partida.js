@@ -2,11 +2,19 @@
 // cronômetro de 20 minutos e placar de minério. Vence quem tiver mais minério
 // entregue pelos mineradores quando o tempo acaba (empate é possível).
 //
-// Ciclo: 'esperando' (servidor vazio) → 'andamento' → 'fim' (tela de resultado por
-// INTERVALO_FIM_S) → 'andamento' de novo, com placar zerado. O cronômetro só
-// começa quando entra o primeiro jogador: com o servidor vazio não há partida
-// rodando à toa, e quem chega não cai numa partida já pela metade sem ninguém. Se
-// todo mundo sair, a partida volta a 'esperando' (o próximo começa do zero).
+// Ciclo: 'esperando' (servidor vazio) → 'preparacao' → 'andamento' → 'fim' (tela de
+// resultado por INTERVALO_FIM_S) → 'preparacao' de novo, com placar zerado. O
+// cronômetro só começa quando entra o primeiro jogador: com o servidor vazio não há
+// partida rodando à toa, e quem chega não cai numa partida já pela metade sem
+// ninguém. Se todo mundo sair, a partida volta a 'esperando' (o próximo começa do
+// zero).
+//
+// Preparação (pedido do Mateus): toda partida abre com PREPARACAO_S (3 minutos) de
+// contagem regressiva antes dos 20 minutos. É para explorar o mapa, comprar e se
+// posicionar: nenhum minerador sai, a jungle não nasce, os objetivos esperam, as
+// torretas ficam quietas e o ouro passivo não corre. Os 20 minutos (e o relógio dos
+// objetivos, decorrido) só começam quando ela acaba: inicioTick já aponta para esse
+// tick. Sem relógio (modo de teste) não há preparação.
 //
 // O tempo é contado em ticks do mundo (passo fixo), como todo o resto do servidor.
 // Este módulo só guarda o estado e decide as viradas; quem reage a elas (tirar os
@@ -35,6 +43,7 @@ export const MAX_POR_TIME = 3;
 export const N_TIMES = 2;
 export const FASE_FINAL_S = 180; // últimos 3 minutos: minério vale mais
 export const MULT_FASE_FINAL = 2; // minério entregue na fase final vale o dobro
+export const PREPARACAO_S = 180; // contagem antes dos 20 minutos: explorar e se preparar
 
 // Computadores escolhidos na tela inicial (entrada {t:'entrar', iaMeu, iaInimigo}):
 // no seu time cabem até 2 (você ocupa uma das 3 vagas), no outro até 3.
@@ -52,9 +61,11 @@ export function computadoresDaEntrada(msg) {
 }
 
 export class Partida {
-  /** @param {{ duracaoS?: number, intervaloFimS?: number, faseFinalS?: number }} [opcoes] */
-  constructor({ duracaoS = DURACAO_PARTIDA_S, intervaloFimS = INTERVALO_FIM_S, faseFinalS = FASE_FINAL_S } = {}) {
+  /** @param {{ duracaoS?: number, intervaloFimS?: number, faseFinalS?: number, preparacaoS?: number }} [opcoes] */
+  constructor({ duracaoS = DURACAO_PARTIDA_S, intervaloFimS = INTERVALO_FIM_S, faseFinalS = FASE_FINAL_S, preparacaoS = PREPARACAO_S } = {}) {
     this.duracaoTicks = Math.round(duracaoS / DT);
+    // Sem relógio, sem preparação (o modo de teste começa na hora).
+    this.preparacaoTicks = Number.isFinite(this.duracaoTicks) ? Math.max(0, Math.round(preparacaoS / DT)) : 0;
     this.intervaloTicks = Math.round(intervaloFimS / DT);
     // Sem fase final se ela ocuparia a partida inteira (0 = desligada).
     const faseTicks = Math.round(faseFinalS / DT);
@@ -64,7 +75,7 @@ export class Partida {
     this.estado = 'esperando';
     this.placar = [0, 0];
     this.vencedor = null; // time vencedor, -1 = empate, null = ainda jogando
-    this.inicioTick = 0; // tick em que a partida começou
+    this.inicioTick = 0; // tick em que a partida começou (na preparação, em que vai começar)
     this.fimTick = 0; // tick em que o cronômetro zera
     this.novaTick = 0; // tick em que começa a próxima partida (no estado 'fim')
   }
@@ -82,20 +93,33 @@ export class Partida {
     return melhor;
   }
 
-  /** Começa uma partida nova agora (placar zerado). */
+  /**
+   * Abre uma partida nova agora (placar zerado): a preparação, ou o andamento direto
+   * se ela for 0. Os 20 minutos contam de quando a preparação acaba.
+   */
   comecar(tick) {
     this.numero++;
-    this.estado = 'andamento';
+    this.estado = this.preparacaoTicks > 0 ? 'preparacao' : 'andamento';
     this.placar = [0, 0];
     this.vencedor = null;
-    this.inicioTick = tick;
-    this.fimTick = tick + this.duracaoTicks;
+    this.inicioTick = tick + this.preparacaoTicks;
+    this.fimTick = this.inicioTick + this.duracaoTicks;
     this.novaTick = 0;
     this.faseFinalAnunciada = false;
   }
 
   get emAndamento() {
     return this.estado === 'andamento';
+  }
+
+  /** Na contagem antes dos 20 minutos (só as naves andam). */
+  get emPreparacao() {
+    return this.estado === 'preparacao';
+  }
+
+  /** Segundos que faltam para a preparação acabar (0 fora dela). */
+  inicioEm(tick) {
+    return this.emPreparacao ? Math.max(0, (this.inicioTick - tick) * DT) : 0;
   }
 
   /** Fase da partida no `tick`: 'final' nos últimos FASE_FINAL_S do andamento, senão 'normal'. */
@@ -120,9 +144,10 @@ export class Partida {
   }
 
   /**
-   * Avança o relógio da partida. Devolve o que virou neste tick: 'comecou' (entrou o
-   * primeiro jogador ou acabou a tela de fim), 'faseFinal' (entrou nos últimos
-   * FASE_FINAL_S), 'fim' (tempo esgotado), 'vazia' (todo mundo saiu) ou null.
+   * Avança o relógio da partida. Devolve o que virou neste tick: 'preparacao' (entrou
+   * o primeiro jogador ou acabou a tela de fim: partida nova na contagem), 'comecou'
+   * (acabou a preparação, ou partida nova sem preparação), 'faseFinal' (entrou nos
+   * últimos FASE_FINAL_S), 'fim' (tempo esgotado), 'vazia' (todo mundo saiu) ou null.
    */
   passo(tick, jogadores) {
     if (jogadores === 0) {
@@ -134,6 +159,11 @@ export class Partida {
     }
     if (this.estado === 'esperando' || (this.estado === 'fim' && tick >= this.novaTick)) {
       this.comecar(tick);
+      return this.emPreparacao ? 'preparacao' : 'comecou';
+    }
+    if (this.emPreparacao) {
+      if (tick < this.inicioTick) return null;
+      this.estado = 'andamento';
       return 'comecou';
     }
     if (this.estado === 'andamento' && tick >= this.fimTick) {
@@ -172,14 +202,16 @@ export class Partida {
     return !Number.isFinite(this.duracaoTicks);
   }
 
-  /** Segundos que faltam na partida (0 fora do andamento). */
+  /** Segundos que faltam na partida (0 fora do andamento; a duração inteira na preparação). */
   restante(tick) {
+    if (this.emPreparacao) return this.duracaoTicks * DT;
     return this.emAndamento ? Math.max(0, (this.fimTick - tick) * DT) : 0;
   }
 
   /**
-   * Estado para o snapshot: `{ n, estado, fase, restante, semTempo, placar, vencedor, novaEm }`
-   * (fase 'normal' ou 'final'; tempos em segundos inteiros, arredondados para cima).
+   * Estado para o snapshot: `{ n, estado, fase, restante, inicioEm, semTempo, placar, vencedor, novaEm }`
+   * (fase 'normal' ou 'final'; inicioEm = s até acabar a preparação; tempos em
+   * segundos inteiros, arredondados para cima).
    */
   paraSnapshot(tick) {
     return {
@@ -187,6 +219,7 @@ export class Partida {
       estado: this.estado,
       fase: this.fase(tick),
       restante: this.semTempo ? 0 : Math.ceil(this.restante(tick) - 1e-9),
+      inicioEm: Math.max(0, Math.ceil(this.inicioEm(tick) - 1e-9)),
       semTempo: this.semTempo,
       placar: [...this.placar],
       vencedor: this.vencedor,

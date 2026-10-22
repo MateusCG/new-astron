@@ -35,7 +35,7 @@ const PUBLICO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'p
 const SEGUNDO = 30;
 
 function mundo(opcoes = {}) {
-  const w = new World({ jungle: false, torretas: false, ...opcoes });
+  const w = new World({ preparacaoS: 0, jungle: false, torretas: false, ...opcoes });
   w.mineradores.passo = () => {};
   return w;
 }

@@ -28,7 +28,7 @@ function rngFixo(semente = 1) {
  * física troca de arma livre (como se tivesse equipado na base).
  */
 function arena(...lista) {
-  const w = new World({ jungle: false, torretas: false, rng: rngFixo() });
+  const w = new World({ preparacaoS: 0, jungle: false, torretas: false, rng: rngFixo() });
   w.mineradores.passo = () => {};
   const x0 = CAMPO.x;
   const z0 = CAMPO.z;
@@ -471,7 +471,7 @@ test('teleporte: o servidor salta junto com a predição e avisa o efeito', () =
 });
 
 test('npc: o tiro de NPC e de torreta segue com os números de antes', () => {
-  const w = new World({ jungle: false, rng: rngFixo(3) });
+  const w = new World({ preparacaoS: 0, jungle: false, rng: rngFixo(3) });
   const m = w.jungle.criarMonstro('armish', 0, -600);
   assert.deepEqual(m.ship.encaixes, [IDX_ARMA.laser, IDX_ARMA.plasma], 'monstro sem raça jogável fica com os tiros de NPC');
   assert.equal(m.danoMult, 1, 'o dano do monstro já vem no ataque da espécie');

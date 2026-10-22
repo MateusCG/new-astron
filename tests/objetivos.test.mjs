@@ -22,7 +22,7 @@ const RAPIDO = {
 
 /** Mundo sem monstros e sem mineradores andando, com A e C no time 0 e B no 1. */
 function mundo(opcoes = {}) {
-  const w = new World({ jungle: false, torretas: false, objetivos: RAPIDO, ouroPorSegundo: 0, ...opcoes }); // conta o ouro exato dos objetivos
+  const w = new World({ preparacaoS: 0, jungle: false, torretas: false, objetivos: RAPIDO, ouroPorSegundo: 0, ...opcoes }); // conta o ouro exato dos objetivos
   const a = w.addPlayer('A', 'bellico');
   const b = w.addPlayer('B', 'acron');
   const c = w.addPlayer('C', 'shrewdo');
@@ -63,7 +63,7 @@ const obj = (w, j, id) => w.snapshotPara(j, [], []).obj[id];
 test('objetivos: os A/B/C antigos saíram e o obj traz BS0, BS1, P0, P1 e NUCLEO à espera', () => {
   assert.deepEqual(OBJETIVOS, []);
   assert.deepEqual(TEMPOS, { suporte: { primeiroS: 90, voltaS: 240 }, plataforma: { primeiroS: 120, recargaS: 150, pousoS: 6 }, nucleo: { aparicoesS: [480, 900] } });
-  const w = new World({ jungle: false });
+  const w = new World({ preparacaoS: 0, jungle: false });
   const a = w.addPlayer('A', 'bellico');
   w.step();
   const o = w.snapshotPara(a, [], []).obj;
@@ -297,7 +297,7 @@ test('objetivos: fora de briga o Núcleo recupera vida', () => {
 });
 
 test('objetivos: a partida nova volta tudo à espera, com as torres de pé', () => {
-  const w = new World({ jungle: false, torretas: false, objetivos: RAPIDO, duracaoPartidaS: 5, intervaloFimS: 1 });
+  const w = new World({ preparacaoS: 0, jungle: false, torretas: false, objetivos: RAPIDO, duracaoPartidaS: 5, intervaloFimS: 1 });
   const a = w.addPlayer('A', 'bellico');
   passos(w, 2.2);
   w.objetivos.suportes[0].hp = 1;

@@ -871,7 +871,8 @@ kbd {
 }
 
 /* Fase final (últimos 3 minutos): faixa âmbar "MINÉRIO ×2" na largura do placar. */
-#placar .fase-final {
+#placar .fase-final,
+#placar .preparacao {
   grid-column: 1 / -1;
   margin-top: -2px;
   padding: 1px 0;
@@ -883,12 +884,20 @@ kbd {
   text-shadow: 0 0 6px rgba(255, 182, 39, 0.6);
 }
 
-#placar .fase-final[hidden] {
+/* Preparação (antes dos 20 minutos): a mesma faixa, no neon do HUD. */
+#placar .preparacao {
+  border-top-color: rgba(0, 239, 192, 0.35);
+  color: var(--neon);
+  text-shadow: 0 0 6px rgba(0, 239, 192, 0.6);
+}
+
+#placar .fase-final[hidden],
+#placar .preparacao[hidden] {
   display: none;
 }
 
 /* Com a faixa, o placar fica mais alto: as notícias descem junto. */
-#placar:has(.fase-final:not([hidden])) ~ #feed {
+#placar:has(.fase-final:not([hidden]), .preparacao:not([hidden])) ~ #feed {
   top: 126px;
 }
 
@@ -2803,7 +2812,7 @@ body.dano::after {
   #feed {
     top: 80px;
   }
-  #placar:has(.fase-final:not([hidden])) ~ #feed {
+  #placar:has(.fase-final:not([hidden]), .preparacao:not([hidden])) ~ #feed {
     top: 98px;
   }
   #ping {

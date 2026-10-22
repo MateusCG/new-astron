@@ -18,7 +18,7 @@ function rngFixo(semente = 1) {
 
 /** Mundo sem os lugares de nascimento, com um jogador parado em (x, z). */
 function mundo(x = CAMPO.x, z = CAMPO.z, race = 'bellico') {
-  const w = new World({ jungle: false, torretas: false, rng: rngFixo(7) });
+  const w = new World({ preparacaoS: 0, jungle: false, torretas: false, rng: rngFixo(7) });
   const j = w.addPlayer('Alvo', race);
   j.ship = createShip(race, x, z, 0);
   j.protegidoAte = 0;
