@@ -21,7 +21,7 @@ const TETOS = [
 ];
 
 /** Materiais que um glb PBR pode trazer (o cliente acha cada um pelo nome). */
-const MATERIAIS_PBR = /^(pbr_[a-z0-9_]+|neon_(time|servico|objetivo|luz|he3|doca_[01])|portal_time)$/;
+const MATERIAIS_PBR = /^(pbr_[a-z0-9_]+|neon_(time|servico|objetivo|luz|he3|doca_[01])|portal_time|he3_escuro)$/;
 
 function lerGlb(nome) {
   const b = readFileSync(path.join(PASTA, `${nome}.glb`));
@@ -50,8 +50,8 @@ test('modelos do mapa: nenhuma peça passa do teto de triângulos do tipo dela',
   }
 });
 
-test('modelos do mapa: as plataformas estão no padrão PBR', () => {
-  for (const nome of ['plataforma-base', 'plataforma-servico', 'plataforma-pouso']) assert.ok(ehPbr(lerGlb(nome)), nome);
+test('modelos do mapa: as plataformas e a mineradora estão no padrão PBR', () => {
+  for (const nome of ['plataforma-base', 'plataforma-servico', 'plataforma-pouso', 'mineradora']) assert.ok(ehPbr(lerGlb(nome)), nome);
 });
 
 test('modelos do mapa: glb PBR traz normais, UV e Draco, e só materiais conhecidos', () => {
@@ -76,4 +76,12 @@ test('modelos do mapa: os anéis e o emissor que a cena pinta continuam nas plat
   assert.ok(mats('plataforma-servico').has('neon_servico'));
   assert.ok(mats('plataforma-pouso').has('neon_objetivo'));
   assert.ok(lerGlb('plataforma-pouso').nodes.some((n) => n.name === 'emissor'));
+});
+
+test('modelos do mapa: a mineradora mantém as docas de cada time, o He-3 e os nós do contrato', () => {
+  const j = lerGlb('mineradora');
+  const mats = new Set(j.materials.map((m) => m.name));
+  for (const m of ['neon_doca_0', 'neon_doca_1', 'neon_he3']) assert.ok(mats.has(m), m);
+  const nos = new Set(j.nodes.map((n) => n.name));
+  for (const n of ['mineradora', 'mineradora_casco', 'mineradora_conves', 'mineradora_he3', 'mineradora_fundo']) assert.ok(nos.has(n), n);
 });
