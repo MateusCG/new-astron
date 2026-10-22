@@ -432,11 +432,12 @@ test('computador: no alcance da torre inimiga e com pouca vida, sai dele primeir
   // Encostado na torre T1-1 do outro time, quase sem vida.
   const t = w.torretas.lista.find((x) => x.time === 1 && Math.abs(x.x) < 500);
   // Com a lane estreita (140 m), as torres do outro lado dela também cobrem o ponto, e
-  // as quatro juntas derrubam 25% de vida antes de qualquer rota sair do alcance: o
-  // teste é da decisão (sair primeiro), então ficam de pé só as do mesmo lado.
+  // as quatro juntas derrubam 25% de vida antes de qualquer rota sair do alcance (e o
+  // dano delas cresce a cada tiro seguido): o teste é da decisão (sair primeiro),
+  // então fica de pé só a torre em que ele está encostado.
   try {
     for (const o of w.torretas.lista) {
-      if (o.time !== 1 || Math.sign(o.z) === Math.sign(t.z)) continue;
+      if (o.time !== 1 || o === t) continue;
       Object.assign(o, { viva: false, hp: 0 });
       definirObstaculoAtivo(o.id, false);
     }

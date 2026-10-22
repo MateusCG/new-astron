@@ -436,3 +436,48 @@ test('torretas: bater na torre conta como agredir um aliado dela', () => {
   assert.ok(t.hp < w.torretas.hpMax(0));
   assert.deepEqual([b.agrediu.time, b.agrediu.x, b.agrediu.z], [0, t.x, t.z]);
 });
+
+test('torretas: dano progressivo, cada tiro seguido no mesmo alvo bate mais forte, e trocar de alvo zera', () => {
+  const { w, a, b } = mundo();
+  const t = torreta(w, 'T0-4');
+  colocar(a, BASES[0].x, BASES[0].z);
+  colocar(b, t.x - 40, t.z - 10);
+  /** Danos dos mísseis que a T0-4 dispara em `n` segundos (o alvo não morre). */
+  const danos = (n) => {
+    const lista = [];
+    for (let i = 0; i < n * SEGUNDO; i++) {
+      const antes = new Set(w.bullets);
+      w.step();
+      b.ship.hp = b.ship.maxHp;
+      for (const x of w.bullets) if (!antes.has(x) && x.owner === t.id) lista.push(x.dano);
+    }
+    return lista;
+  };
+  const base = w.torretas.dano(0);
+  const d = danos(TORRETA.cadenciaS * 8 + 0.5);
+  assert.ok(d.length >= 8, `${d.length} tiros`);
+  const esperado = d.map((_, i) => base * (1 + TORRETA.rampa * Math.min(i, TORRETA.rampaMax)));
+  assert.deepEqual(d.map((x) => +x.toFixed(6)), esperado.map((x) => +x.toFixed(6)));
+  assert.equal(+(d[1] / d[0]).toFixed(6), 1.4, 'o 2º bate 40% mais');
+  assert.equal(+(d[TORRETA.rampaMax + 1] / d[0]).toFixed(6), 3, 'teto: ×3');
+  // Sai do alcance e volta: recomeça do dano base.
+  colocar(b, 300, -900);
+  danos(2);
+  colocar(b, t.x - 40, t.z - 10);
+  assert.equal(+danos(1.5)[0].toFixed(6), +base.toFixed(6), 'série zerada');
+  // O alvo muda para outro inimigo: o primeiro tiro nele é o dano base.
+  w.addPlayer('C', 'bellico'); // time 0 (empate vai para o 0)
+  const c = w.addPlayer('D', 'bellico'); // time 1
+  assert.equal(c.time, 1);
+  c.protegidoAte = 0;
+  colocar(c, t.x - 40, t.z - 10);
+  colocar(b, t.x - 60, t.z - 300);
+  b.agrediu = null;
+  const antes = new Set(w.bullets);
+  const tiros = [];
+  for (let i = 0; i < 2 * SEGUNDO && !tiros.length; i++) {
+    w.step();
+    for (const x of w.bullets) if (!antes.has(x) && x.owner === t.id && x.alvo === c.id) tiros.push(x.dano);
+  }
+  assert.equal(+tiros[0].toFixed(6), +base.toFixed(6), 'alvo novo, série nova');
+});

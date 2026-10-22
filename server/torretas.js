@@ -23,6 +23,12 @@
 //   apontado para o alvo e curva até ele (TORRETA.giro rad/s); sobe e desce com ele.
 //   Rocha e construção no caminho o derrubam (stepBullet), e ele acerta o que estiver
 //   no caminho, como qualquer tiro. Vai na lista `guiados` do snapshot.
+// - Dano progressivo (pedido do Mateus, como nas torres do Dota 2 e do League of
+//   Legends): cada tiro seguido no MESMO alvo bate mais forte, +TORRETA.rampa do dano
+//   do nível por tiro, até TORRETA.rampaMax tiros a mais (o 1º tiro é o dano base, o
+//   2º ×1,4, o 3º ×1,8 ... do 6º em diante ×3). Trocar de alvo ou ficar sem ninguém
+//   na mira zera a série: ficar debaixo da torre custa cada vez mais caro, e quem sai
+//   e volta recomeça do começo. A série conta o tiro disparado (o dano vai no míssil).
 // - Só jogador do outro time machuca a torreta: tiro (qualquer projétil), mina e
 //   onda de choque. Tiro de aliado, de monstro, de minerador ou de escolta bate
 //   nela e some (é sólida). A escolta não mira torreta (ver server/escoltas.js):
@@ -62,6 +68,8 @@ export const TORRETA = {
   giro: 3, // rad/s que o míssil vira atrás do alvo
   raioTiro: 3, // m de raio de acerto do míssil
   agressaoS: 3, // s: quem feriu um aliado da torre há menos que isso vira o alvo preferido
+  rampa: 0.4, // dano a mais (fração do dano do nível) a cada tiro seguido no mesmo alvo
+  rampaMax: 5, // tiros a mais que ainda sobem o dano: do 6º tiro seguido em diante, ×3
   kind: 'laser', // forma do projétil para o golpe (shared/armas.js); a cor vem do time no cliente
   ouroTime: 25, // para cada outro piloto do time de quem a destruiu
 };
@@ -133,6 +141,8 @@ export class Torretas {
         obraPor: null,
         prontaEm: 0, // tick do próximo tiro
         alvo: 0, // id do alvo na mira (0 = nenhum)
+        serie: 0, // tiros seguidos já disparados no alvo atual (dano progressivo)
+        serieAlvo: 0, // id de quem recebe a série
       };
     });
     this.reiniciar();
@@ -143,9 +153,13 @@ export class Torretas {
     return Math.round(TORRETA.hp * efeitosTorretas(this.nivel[time]).hp);
   }
 
-  /** Dano de um tiro das torretas do time no nível atual. */
-  dano(time) {
-    return TORRETA.dano * efeitosTorretas(this.nivel[time]).dano;
+  /**
+   * Dano de um tiro das torretas do time no nível atual; `serie` = tiros seguidos
+   * já disparados no mesmo alvo (cada um soma TORRETA.rampa, até TORRETA.rampaMax).
+   */
+  dano(time, serie = 0) {
+    const rampa = 1 + TORRETA.rampa * Math.min(Math.max(0, serie), TORRETA.rampaMax);
+    return TORRETA.dano * efeitosTorretas(this.nivel[time]).dano * rampa;
   }
 
   /** A torreta de id, ou undefined. */
@@ -163,6 +177,8 @@ export class Torretas {
       t.hp = this.hpMax(t.time);
       t.prontaEm = 0;
       t.alvo = 0;
+      t.serie = 0;
+      t.serieAlvo = 0;
       definirObstaculoAtivo(t.id, true);
     }
   }
@@ -180,13 +196,19 @@ export class Torretas {
       }
       if (!atirar) {
         t.alvo = 0;
+        t.serieAlvo = 0;
         continue;
       }
       if (w.tick < t.prontaEm) continue;
       const alvo = this.#escolherAlvo(t);
       t.alvo = alvo?.id ?? 0;
-      if (!alvo) continue;
+      if (!alvo) {
+        t.serieAlvo = 0; // ninguém na mira: a próxima série começa do dano base
+        continue;
+      }
       t.prontaEm = w.tick + CADENCIA_TICKS;
+      if (alvo.id === t.serieAlvo) t.serie++;
+      else Object.assign(t, { serie: 0, serieAlvo: alvo.id });
       this.#atirar(t, alvo);
     }
   }
@@ -221,12 +243,12 @@ export class Torretas {
     return melhor;
   }
 
-  /** O golpe do míssil das torretas do `time` (o tiro do NPC com a curva e o dano do nível). */
-  #golpe(time) {
+  /** O golpe do míssil das torretas do `time` (o tiro do NPC com a curva e o dano do nível e da série). */
+  #golpe(time, serie) {
     const base = golpeDaArma(TORRETA.kind, 1, 0);
     return {
       ...base,
-      dano: this.dano(time),
+      dano: this.dano(time, serie),
       vel: TORRETA.velTiro,
       vida: VIDA_TIRO,
       raio: TORRETA.raioTiro,
@@ -245,7 +267,7 @@ export class Torretas {
     const k = (PLANTA.raio + 1.5) / TORRETA.velTiro;
     const x = t.x + vx * k;
     const z = t.z + vz * k;
-    const g = this.#golpe(t.time);
+    const g = this.#golpe(t.time, t.serie);
     const b = {
       id: w.nextId++,
       owner: t.id,
@@ -337,6 +359,7 @@ export class Torretas {
     t.hp = 0;
     t.viva = false;
     t.alvo = 0;
+    t.serieAlvo = 0;
     definirObstaculoAtivo(t.id, false);
     recompensar(atirador, 'torreta', w.eventos);
     for (const j of w.players.values()) {

@@ -73,7 +73,8 @@ Rocha e mineradora cortam a linha de visão. Quem está num campo de asteroides 
 
 **[feito]** As torretas de defesa (`server/torretas.js`; posições em `TORRETAS`, construção sólida em `shared/obstaculos.js`). Pedido do MD: **mais robustas, o maior alcance do jogo e tiro teleguiado**.
 
-- **Tiro:** **míssil teleguiado** (16 de dano a cada 1,2 s, 180 m/s, curva de 3 rad/s; vai na lista `guiados` e pode bater em rocha e na mineradora), alcance **560 m**. Só mira quem o time dela enxerga, nunca camuflado. **Prioridade:** o mais perto entre quem agrediu um aliado (ou a própria torre) dentro do alcance nos últimos 3 s; sem ninguém assim, o mais perto. Alvos: jogadores, mineradores e escoltas do outro time (monstros não).
+- **Tiro:** **míssil teleguiado** (16 de dano no primeiro tiro, a cada 1,2 s, 180 m/s, curva de 3 rad/s; vai na lista `guiados` e pode bater em rocha e na mineradora), alcance **560 m**. Só mira quem o time dela enxerga, nunca camuflado. **Prioridade:** o mais perto entre quem agrediu um aliado (ou a própria torre) dentro do alcance nos últimos 3 s; sem ninguém assim, o mais perto. Alvos: jogadores, mineradores e escoltas do outro time (monstros não).
+- **[feito]** **Dano progressivo** (como as torres do Dota 2 e do LoL): cada tiro seguido no **mesmo alvo** bate mais forte, **+40% do dano por tiro** (`TORRETA.rampa`) até **×3** no 6º tiro em diante (`TORRETA.rampaMax` = 5): 16, 22,4, 28,8, 35,2, 41,6 e 48 no nível 1 (uns 7 s para derrubar uma nave nível 1 de ~170 de HP, eram 13). Trocar de alvo ou ficar sem ninguém na mira zera a série; quem sai do alcance e volta recomeça do dano base.
 - **Vida:** 1400 no nível 1 (+35% por nível, até o 3). Dano só de jogador do outro time.
 - **Destruída:** cai (sai da física), dá 80 XP e 70 de ouro a quem deu o último tiro e 25 de ouro a cada colega; **não renasce sozinha**: o time reconstrói na Evolução (200 de ouro). Partida nova: todas de pé, nível 1.
 
