@@ -11,9 +11,9 @@ repo: `new-astron-progresso/mapa-stage6/blender/` e `.../tmp/cenario/` (`cenario
 - glTF binário, **Y para cima, 1 unidade = 1 m**, no referencial do jogo (x para a direita do desenho, z para baixo do
   desenho). Pivô na origem do mapa ou do objeto, **y = 0 = chão de voo** (a nave voa a 10 m), salvo nota.
 - Dois padrões (IDENTIDADE-VISUAL.md, "Padrão dos modelos"):
-  - **mid-poly PBR** (o padrão das peças novas; hoje as três plataformas, a mineradora, as torres, o minerador e a escolta): normais e UV, **Draco**, materiais
+  - **mid-poly PBR** (o padrão das peças novas; hoje as três plataformas, a mineradora, as torres, o minerador, a escolta e o portal warp): normais e UV, **Draco**, materiais
     `pbr_*` que o cliente liga nas texturas compartilhadas de `public/texturas/mapa/` (o glb não traz imagem),
-    sombreado liso com quinas vivas por ângulo. Fontes: `plataformas_pbr.py`, `mineradora_pbr.py`, `torres_pbr.py`, `naves_servidor_pbr.py` e `texturas_pbr.py`;
+    sombreado liso com quinas vivas por ângulo. Fontes: `plataformas_pbr.py`, `mineradora_pbr.py`, `torres_pbr.py`, `naves_servidor_pbr.py`, `base_warp_pbr.py` e `texturas_pbr.py`;
   - **low-poly facetado** (as peças antigas, até serem refeitas): os arquivos **não trazem normais** de propósito
     (ficam ~4× menores); o `GLTFLoader` liga `flatShading` sozinho quando falta a normal. Sem textura nem UV: cor +
     emissivo.
@@ -59,7 +59,7 @@ degraus (como a física: degrau de 30% do topo e rampa de 16 m); da água para b
 | `borda-horizonte.glb` | Planalto e montanhas de fundo em volta do mapa inteiro (até ±3300 × ±3000), começando escondido atrás da borda (saia a 92 m) e subindo a ~330 m | 6630 × 92…334 × 5970 | 5.488 | origem do mapa | uma peça, giro 0 |
 | `fundo-lago.glb` | Leito do lago no mapa inteiro, ondulado entre −68 e −60 (simétrico pela rotação de 180°) | 3200 × −68…−60 × 2400 | 2.400 | origem do mapa | uma peça, giro 0 |
 | `mineradora.glb` | **PBR.** **Mineradora de Hélio-3** com um hangar aberto de cada lado (ver abaixo) | 312 × −75…135 × 408 (com as pernas e os cristais do fundo; o casco na linha d'água é 147,6 × 237,6) | 38.233 | centro da mineradora, y = 0 | (0, 0, 0), giro 0. Planta (`MINERADORA` 70 × 115, canto 24): 0,05 a 3,95 m; fora da planta, nada entre 2,5 e 30 m |
-| `base-warp.glb` | **Portal warp** da base do time 0 (ver abaixo), virado para +x | 80 × 31…224 × 156 | 3.068 | ponto do `PORTAL_WARP` (local −95, 0 da base), y = 0 | time 0: (−1375, 0, 0) giro 0; time 1: (1375, 0, 0) giro π. Peça mais baixa a 31 m (acima de `PORTAL_WARP.base` = 30): sem colisão |
+| `base-warp.glb` | **PBR.** **Portal warp** da base do time 0 (ver abaixo), virado para +x | 77 × 31…223 × 153 | 9.660 | ponto do `PORTAL_WARP` (local −95, 0 da base), y = 0 | time 0: (−1375, 0, 0) giro 0; time 1: (1375, 0, 0) giro π. Peça mais baixa a 31 m (acima de `PORTAL_WARP.base` = 30): sem colisão |
 | `plataforma-base.glb` | **PBR.** Anel de pouso da base: deque flutuante r 70 em chapas, aro de 64 blocos (até 1 m) com faixa `neon_time` e balizas `neon_luz`, 4 torres de controle na borda (até 3,5 m), anel `neon_time` r 64 (quatro arcos) e r 14, o **H** `neon_time` no centro (pernas ao longo de x, lido de quem vem da lane), setas e luzes de aproximação nas diagonais, casco cônico até −10,2 com nervuras, janelas e propulsores, 4 pilares até o fundo | 141 × −62…3,5 × 141 | 14.614 | centro, **topo do deque em y = 0** | (∓1280, 1,7, 0): y = `heightAt + piso` da área de pouso |
 | `plataforma-servico.glb` | **PBR.** Plataforma da Evolução e da Loja: deque r 23, aro com faixa `neon_servico`, 3 torres, anel `neon_servico` r 20 e tracejado branco; o **centro fica livre** (o cliente desenha o ícone e o nome do serviço no chão), 3 pilares | 47 × −62…3,5 × 47 | 8.648 | centro, topo em y = 0 | `SERVICOS` com y = piso (1,2) |
 | `plataforma-pouso.glb` | **PBR.** Plataforma de pouso do ouro (P0/P1): deque r 32, aro com faixa `neon_objetivo`, 4 torres, anel âmbar r 28 (quatro arcos), quatro setas âmbar para o centro e o nó **`emissor`** no centro (prato com anel âmbar, de onde sai o feixe com alguém pousado), 3 pilares | 65 × −62…3,5 × 65 | 10.812 | centro, topo em y = 0 | P0 (−495, 1, −445,5), P1 (495, 1, 445,5) |
@@ -109,11 +109,15 @@ cornijas, contrafortes chanfrados com luz `neon_luz`, guarda-corpos nos tetos do
 
 ### Portal warp (`base-warp.glb`)
 
-Ilha de rocha flutuante (topo a 86 m) com o anel do portal em pé (centro a 124 m, raio 46, virado para +x),
-12 nós de reforço com fendas `neon_time`, 5 aletas em cunha com a luz do time nas quinas, dois mastros; embaixo da ilha,
-4 emissores antigravidade, 6 tubos que descem e se juntam numa **ponta de broca** (até 31 m) e duas agulhas penduradas.
-Nós: `portal` (anel, nós, aletas), `portal_membrana` (o disco, `portal_time`: animar redemoinho), `ilha`, `pendurados`.
-Sugestões: a ilha boiar ±1,5 m bem devagar; um feixe fino da ponta da broca até a água na cor do time.
+Mid-poly PBR (`base_warp_pbr.py`). Anel do portal em pé (centro a 124 m, raio 46, virado para +x): núcleo contínuo
+escuro com o lábio de luz `neon_time` por dentro, 12 blocos de armadura chanfrados com a chapa e a fenda do time nas
+duas faces, 12 nós de reforço com fendas, 5 aletas em cunha com o gume aceso e dois mastros com luzes no alto. Embaixo,
+a **estação flutuante** (no lugar da ilha de rocha; o deque a 86 m, de x −40 a 36 e z ±76, como a ilha): deque em
+chapas com balizas, o berço do anel, três postos com cúpula e faixa do time, casco em degraus com a faixa do time que
+afina até 56 m, 4 emissores antigravidade, 6 tubos que descem e se juntam no colar e na **ponta de broca** (até 31,2 m)
+e duas agulhas penduradas. Nós: `portal` (anel, nós, aletas, mastros), `portal_membrana` (o disco, `portal_time`: o
+cliente desenha o redemoinho), `ilha` (a estação), `pendurados`. O cliente boia o conjunto ±1,5 m bem devagar e põe um
+feixe fino da ponta da broca até a água na cor do time.
 
 ### Núcleo de He-3 (`nucleo.glb`)
 

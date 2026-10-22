@@ -51,7 +51,7 @@ test('modelos do mapa: nenhuma peça passa do teto de triângulos do tipo dela',
   }
 });
 
-const PBR = ['plataforma-base', 'plataforma-servico', 'plataforma-pouso', 'mineradora', 'torre-suporte', 'torre-suporte-caida', 'torreta', 'minerador', 'escolta'];
+const PBR = ['plataforma-base', 'plataforma-servico', 'plataforma-pouso', 'mineradora', 'torre-suporte', 'torre-suporte-caida', 'torreta', 'minerador', 'escolta', 'base-warp'];
 
 test('modelos do mapa: as plataformas, a mineradora e as torres estão no padrão PBR', () => {
   for (const nome of PBR) assert.ok(ehPbr(lerGlb(nome)), nome);
@@ -113,4 +113,15 @@ test('modelos do mapa: o minerador e a escolta trazem o neon do time e os nós q
   const torre = no(e, 'escolta_torre');
   assert.deepEqual(torre?.translation?.map((v) => Math.round(v * 10) / 10), [0, 0.6, 0.6], 'a torre gira no eixo dela');
   assert.ok(e.materials.some((x) => x.name === 'neon_time'));
+});
+
+test('modelos do mapa: o portal warp traz a membrana do redemoinho, o neon do time e os nós do contrato', () => {
+  const j = lerGlb('base-warp');
+  const nos = new Set(j.nodes.map((n) => n.name));
+  for (const n of ['base-warp', 'portal', 'portal_membrana', 'ilha', 'pendurados']) assert.ok(nos.has(n), n);
+  const mats = new Set(j.materials.map((m) => m.name));
+  assert.ok(mats.has('portal_time') && mats.has('neon_time'));
+  // Tudo acima de PORTAL_WARP.base (30 m): a nave passa por baixo.
+  const minY = Math.min(...j.meshes.flatMap((m) => m.primitives.map((p) => j.accessors[p.attributes.POSITION].min[1])));
+  assert.ok(minY > 30, `peça mais baixa a ${minY} m`);
 });
