@@ -93,6 +93,17 @@ Rocha e mineradora cortam a linha de visão. Quem está num campo de asteroides 
 | Perto do centro, em cima | 1 **Grande Xerxes** + 2 **Xerxes** |
 | Perto do centro, embaixo | 1 **Anti** + 2 **Bazit** |
 
+**[feito]** **Ondas** (`DEGRAUS_JUNGLE` em `server/jungle.js`): os acampamentos crescem pelo tempo restante da partida, e o **ouro de cada monstro de acampamento sobe junto** (pedido do Mateus; pelo degrau da hora do abate, a XP não muda; o SN-4, a Medusa e a sonda não multiplicam nem a quantidade nem o ouro):
+
+| Tempo restante | Quantidade | Ouro por monstro | Ex.: Armish |
+|---|---|---|---|
+| 20:00 a 15:01 | ×1 | ×1 | 18 |
+| 15:00 a 10:01 | ×2 | ×1,5 | 27 |
+| 10:00 a 5:01 | ×3 | ×2 | 36 |
+| 5:00 até o fim | ×4 | ×2,5 | 45 |
+
+O ouro sobe mais devagar que a quantidade para o fim da partida não virar só farm: limpar um acampamento inteiro no ×4 paga 10 vezes o do começo (seria 16 com o ouro também ×4).
+
 | Espécie | Papel | HP | Ataque | XP / ouro |
 |---|---|---|---|---|
 | Armish | pequeno da base | 160 | pedra (físico), 4 a cada 1,4 s, 170 m | 20 / 18 |

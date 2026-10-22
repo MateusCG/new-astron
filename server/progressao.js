@@ -194,10 +194,13 @@ export function chaveRecompensa(alvo) {
   return alvo.tipo === 'monstro' ? alvo.esp : alvo.tipo;
 }
 
-/** Dá ao jogador o XP e o ouro do abate de algo do tipo `tipo`. */
-export function recompensar(j, tipo, eventos) {
+/**
+ * Dá ao jogador o XP e o ouro do abate de algo do tipo `tipo`; `multOuro` multiplica
+ * só o ouro (o dos acampamentos cresce com as ondas da jungle), arredondado.
+ */
+export function recompensar(j, tipo, eventos, multOuro = 1) {
   const r = RECOMPENSA[tipo];
   if (!r) return 0;
-  j.ouro += r.ouro;
+  j.ouro += Math.round(r.ouro * multOuro);
   return ganharXp(j, r.xp, eventos);
 }

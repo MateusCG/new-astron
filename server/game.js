@@ -736,11 +736,12 @@ export class World {
     const ouroAntes = matador?.ouro ?? 0;
     const xpAntes = matador?.xpGanho ?? 0;
     if (matador) {
-      // Ouro e XP pelo que morreu (RECOMPENSA: espécie do monstro, minerador, jogador).
+      // Ouro e XP pelo que morreu (RECOMPENSA: espécie do monstro, minerador, jogador;
+      // o ouro dos acampamentos sobe com as ondas da jungle).
       matador.abates++;
       // Abate de jogador do outro time: o número do card na barra do time.
       if (alvo.tipo === 'jogador' && alvo.time !== matador.time) matador.abatesJog++;
-      recompensar(matador, chaveRecompensa(alvo), this.eventos);
+      recompensar(matador, chaveRecompensa(alvo), this.eventos, alvo.tipo === 'monstro' ? this.jungle.multOuro(alvo) : 1);
       if (alvo.tipo === 'jogador') this.#abateDeJogador(alvo, matador, morte);
     }
     // Jungle: recarga do lugar e bônus do golpe final (a Medusa paga o time inteiro).

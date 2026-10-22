@@ -2,7 +2,8 @@
 // partida (×1 até 15:00 restantes, ×2, ×3 e ×4 a partir de 5:00), com reforço na hora
 // no acampamento vivo, renascimento e primeira aparição com a quantidade do momento;
 // o SN-4, a Medusa e a sonda não multiplicam; partida nova volta a ×1; modo de teste
-// pelo tempo de mundo; lugares sem sobreposição, sem rocha e girados 180° no time 1.
+// pelo tempo de mundo; lugares sem sobreposição, sem rocha e girados 180° no time 1;
+// o ouro de cada monstro de acampamento sobe com o degrau (×1,5, ×2 e ×2,5).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World } from '../server/game.js';
@@ -10,7 +11,7 @@ import { DT } from '../shared/sim.js';
 import { ACAMPAMENTOS } from '../shared/terrain.js';
 import { pontoLivre } from '../shared/obstaculos.js';
 import {
-  COMPOSICAO, DEGRAUS_JUNGLE, ESPACO_LUGAR, corpoLivre, especiesAcampamento, idNoTime0, lugaresAcampamento, multJungle,
+  COMPOSICAO, DEGRAUS_JUNGLE, ESPACO_LUGAR, corpoLivre, especiesAcampamento, idNoTime0, lugaresAcampamento, multJungle, ouroJungle,
 } from '../server/jungle.js';
 import { ESPECIES } from '../server/especies.js';
 
@@ -23,7 +24,7 @@ const passos = (w, s) => {
 };
 const matar = (w, m, j) => w.jungle.ctx.ferir(m, 1e9, j.id, null, {});
 /** Degraus encurtados para uma partida de 20 s: ×2 aos 15 s restantes, ×3 aos 10, ×4 aos 5. */
-const DEGRAUS_CURTOS = [{ restanteS: 15, mult: 2 }, { restanteS: 10, mult: 3 }, { restanteS: 5, mult: 4 }];
+const DEGRAUS_CURTOS = [{ restanteS: 15, mult: 2, ouro: 1.5 }, { restanteS: 10, mult: 3, ouro: 2 }, { restanteS: 5, mult: 4, ouro: 2.5 }];
 
 function mundo({ duracaoPartidaS = 20, tempos = {}, ...resto } = {}) {
   const w = new World({ preparacaoS: 0, rng: rngFixo(3), torretas: false, ouroPorSegundo: 0, duracaoPartidaS, temposJungle: { degraus: DEGRAUS_CURTOS, ...tempos }, ...resto });
@@ -37,9 +38,10 @@ const contagem = (w) => Object.fromEntries(ACAMPAMENTOS.map((a) => [a.id, w.jung
 const esperado = (mult) => Object.fromEntries(ACAMPAMENTOS.map((a) => [a.id, COMPOSICAO[idNoTime0(a)].length * mult]));
 
 test('ondas: os degraus do pedido, pelo tempo restante', () => {
-  assert.deepEqual(DEGRAUS_JUNGLE, [{ restanteS: 900, mult: 2 }, { restanteS: 600, mult: 3 }, { restanteS: 300, mult: 4 }]);
-  for (const [r, m] of [[1200, 1], [960, 1], [900.5, 1], [900, 2], [601, 2], [600, 3], [301, 3], [300, 4], [60, 4], [0, 4]]) {
+  assert.deepEqual(DEGRAUS_JUNGLE, [{ restanteS: 900, mult: 2, ouro: 1.5 }, { restanteS: 600, mult: 3, ouro: 2 }, { restanteS: 300, mult: 4, ouro: 2.5 }]);
+  for (const [r, m, o] of [[1200, 1, 1], [960, 1, 1], [900.5, 1, 1], [900, 2, 1.5], [601, 2, 1.5], [600, 3, 2], [301, 3, 2], [300, 4, 2.5], [60, 4, 2.5], [0, 4, 2.5]]) {
     assert.equal(multJungle(r), m, `${r} s restantes`);
+    assert.equal(ouroJungle(r), o, `ouro com ${r} s restantes`);
   }
   assert.deepEqual(especiesAcampamento('JB0N', 4), Array(16).fill('armish'));
   const centro = especiesAcampamento('JC0N', 2);
@@ -181,4 +183,34 @@ test('ondas: jungle cheia (×4) e provocada continua leve no passo do mundo', (t
   const ms = (performance.now() - t0) / n;
   t.diagnostic(`${w.monstros.length} monstros: ${ms.toFixed(2)} ms por passo (com 2 snapshots)`);
   assert.ok(ms < 15, `${ms.toFixed(2)} ms por passo`);
+});
+
+test('ondas: o ouro de cada monstro de acampamento sobe com o degrau; SN-4 e XP não mudam', () => {
+  const todosJa = { acampamento: { primeiroS: 0, voltaS: 60 }, ataque: { primeiroS: 0 } };
+  const { w, a } = mundo({ tempos: todosJa });
+  w.step();
+  /** Ouro e XP que o A ganha matando um vivo da espécie `esp` agora. */
+  const abate = (esp) => {
+    const m = w.monstros.find((x) => x.vivo && x.esp === esp);
+    const ouro = a.ouro;
+    const xp = a.xpGanho ?? 0;
+    matar(w, m, a);
+    w.step();
+    return { ouro: a.ouro - ouro, xp: (a.xpGanho ?? 0) - xp };
+  };
+  const base = ESPECIES.armish.ouro;
+  const ganhos = [];
+  for (const espera of [0, 5.05, 5, 5]) {
+    passos(w, espera);
+    ganhos.push(abate('armish'));
+  }
+  assert.deepEqual(ganhos.map((g) => g.ouro), [base, base * 1.5, base * 2, base * 2.5].map(Math.round));
+  assert.ok(ganhos.every((g) => g.xp === ESPECIES.armish.xp || g.xp === 0), 'a XP não multiplica');
+  assert.equal(abate('sn4').ouro, ESPECIES.sn4.ouro, 'o SN-4 paga o ouro de sempre');
+  // O evento 'ganho' (o ouro que sobe da morte) leva o valor multiplicado.
+  const m = w.monstros.find((x) => x.vivo && x.esp === 'chrometic');
+  w.tirarEventos();
+  matar(w, m, a);
+  const ganho = w.tirarEventos().find((e) => e.e === 'ganho' && e.id === m.id);
+  assert.equal(ganho.ouro, Math.round(ESPECIES.chrometic.ouro * 2.5));
 });

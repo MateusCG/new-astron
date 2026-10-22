@@ -28,6 +28,11 @@
 // - acampamento em recarga volta já com a quantidade nova, e o que ainda não
 //   apareceu (antes dos 0:45) nasce com a quantidade do momento;
 // - o renascimento continua só quando o acampamento INTEIRO (reforço incluído) morre.
+// O ouro de cada monstro de acampamento sobe junto (pedido do Mateus): ×1,5 com
+// 15:00 restantes, ×2 com 10:00 e ×2,5 com 5:00 (o `ouro` de cada degrau), pelo
+// degrau da hora do abate (não do nascimento). Mais devagar que a quantidade, para o
+// acampamento inteiro não render 16 vezes mais no fim: limpar um acampamento ×4 paga
+// 10 vezes o do começo. A XP não muda.
 // Sem relógio (modo de teste, `semTempo`) conta o tempo da jungle desde o começo
 // (comecar), como se a partida tivesse DURACAO_PARTIDA_S: no modo de teste os
 // degraus vêm aos 5, 10 e 15 minutos de mundo. Partida nova volta a ×1.
@@ -89,12 +94,13 @@ export const TEMPOS_JUNGLE = {
 };
 /**
  * Ondas da jungle: de `restanteS` segundos restantes de partida para baixo, os
- * acampamentos têm `mult` vezes a composição (em ordem crescente de mult).
+ * acampamentos têm `mult` vezes a composição (em ordem crescente de mult) e cada
+ * monstro deles paga `ouro` vezes o ouro da espécie.
  */
 export const DEGRAUS_JUNGLE = [
-  { restanteS: 900, mult: 2 }, // 15:00 restantes (5 min de partida)
-  { restanteS: 600, mult: 3 }, // 10:00
-  { restanteS: 300, mult: 4 }, // 5:00 até o fim
+  { restanteS: 900, mult: 2, ouro: 1.5 }, // 15:00 restantes (5 min de partida)
+  { restanteS: 600, mult: 3, ouro: 2 }, // 10:00
+  { restanteS: 300, mult: 4, ouro: 2.5 }, // 5:00 até o fim
 ];
 /** m além da soma dos raios entre dois lugares do acampamento (maior que AFASTAR: não nascem se empurrando). */
 export const ESPACO_LUGAR = 8;
@@ -246,6 +252,13 @@ export function multJungle(restanteS, degraus = DEGRAUS_JUNGLE) {
   let mult = 1;
   for (const d of degraus) if (restanteS <= d.restanteS + 1e-9) mult = Math.max(mult, d.mult);
   return mult;
+}
+
+/** Multiplicador do ouro de cada monstro de acampamento com `restanteS` segundos de partida pela frente. */
+export function ouroJungle(restanteS, degraus = DEGRAUS_JUNGLE) {
+  let ouro = 1;
+  for (const d of degraus) if (restanteS <= d.restanteS + 1e-9) ouro = Math.max(ouro, d.ouro ?? 1);
+  return ouro;
 }
 
 /** As espécies do acampamento (id no referencial do time 0) com a composição multiplicada por `mult`. */
@@ -405,6 +418,14 @@ export class Jungle {
   /** Multiplicador dos acampamentos no `tick` (DEGRAUS_JUNGLE). */
   multAgora(tick = this.tick) {
     return multJungle(this.restanteS(tick), this.degraus);
+  }
+
+  /**
+   * Quanto o ouro do abate do monstro `m` vale agora: o `ouro` do degrau, nos de
+   * acampamento; 1 no SN-4, na Medusa, na sonda e nos avulsos.
+   */
+  multOuro(m, tick = this.tick) {
+    return m?.covil?.tipo === 'acampamento' ? ouroJungle(this.restanteS(tick), this.degraus) : 1;
   }
 
   /** Troca a composição dos acampamentos para `mult` (não cria nem tira monstro). */
