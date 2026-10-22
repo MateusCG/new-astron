@@ -432,11 +432,9 @@ function montarBase(g, b, meuTime) {
 // ---------- Objetivos ----------
 
 /**
- * Torres de suporte (BS0/BS1): de pé e caída, uma de cada vez. Os modelos foram
- * feitos para a planta antiga (raio 7, 30 m) e são esticados por igual com
- * ESCALA_TORRE_SUPORTE a partir do pivô no chão de voo, para casar com a planta de
- * TORRE_SUPORTE: o fuste, que já descia até o fundo, passa a enterrar no fundo do
- * lago (y −62 × escala), e o toco da caída continua abaixo da altura de voo.
+ * Torres de suporte (BS0/BS1): de pé e caída, uma de cada vez. Os modelos (mid-poly
+ * PBR) já vêm no tamanho de TORRE_SUPORTE (ESCALA_TORRE_SUPORTE = 1, pivô no chão de
+ * voo); o toco da caída fica abaixo da altura de voo.
  */
 function montarTorres(g) {
   const torres = new Map();
@@ -667,7 +665,7 @@ export function criarCena({ meuTime = 0 } = {}) {
       b.neon.emissiveIntensity = 0.85 + 0.15 * Math.sin(tempo * 2 + b.base.time);
     }
 
-    // Torres de suporte: o octaedro do alto gira e pulsa enquanto a torre está acesa.
+    // Torres de suporte: a antena do alto gira e o âmbar pulsa enquanto a torre está acesa.
     for (const t of torres.values()) {
       if (t.estado !== 'ativo') continue;
       t.ambar.emissiveIntensity = 0.8 + 0.2 * Math.sin(tempo * 3);

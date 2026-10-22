@@ -38,8 +38,8 @@ test('obstáculos: a mineradora, as torres de suporte e as torretas estão na pl
   // O dobro do primeiro desenho (raio 7, 30 m), e o modelo esticado por igual.
   assert.equal(TORRE_SUPORTE.raio, 14);
   assert.equal(TORRE_SUPORTE.altura, 60);
-  assert.equal(ESCALA_TORRE_SUPORTE, 2);
-  assert.equal(TORRE_SUPORTE.altura / 30, ESCALA_TORRE_SUPORTE, 'mesma escala na altura e na largura');
+  assert.equal(ESCALA_TORRE_SUPORTE, 1, 'o modelo já vem no tamanho da planta');
+  assert.equal(TORRE_SUPORTE.altura / 60, ESCALA_TORRE_SUPORTE, 'mesma escala na altura e na largura');
   assert.ok(PORTAL_WARP.base >= 30, 'o portal flutua acima da altura de voo');
   assert.equal(daBase, daBaseTerreno);
 });

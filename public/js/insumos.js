@@ -190,6 +190,7 @@ export const MODELOS_MAPA = Object.freeze([
   'nucleo',
   'torre-suporte',
   'torre-suporte-caida',
+  'torreta',
   'coral',
   'alga',
   'cristais-he3',
