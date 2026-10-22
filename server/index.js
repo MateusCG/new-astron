@@ -105,7 +105,7 @@
 //                        pousado e parado na plataforma do serviço da própria base;
 //                        usar e equipar valem em qualquer lugar; tudo validado em
 //                        server/servicos.js)
-//                       {t:'teleportar', alvo}   salta na hora (sem recarga) para junto
+//                       {t:'teleportar', alvo}   salta na hora (sem recarga, com custo de energia) para junto
 //                        do companheiro `alvo` (id de jogador) de nave Functional
 //                        (classe 'functional'): o servidor valida e põe a nave num
 //                        ponto livre em volta dele (atrás primeiro), na altura de voo,
@@ -114,8 +114,12 @@
 //                        acao:'teleportar', item: alvo, ok, codigo?}: 'sem_partida'
 //                        (partida fora do andamento, salvo no modo de teste), 'morto'
 //                        (quem pede), 'invalido' (alvo não inteiro, que não existe, você
-//                        mesmo ou do outro time), 'alvo_morto', 'nao_functional'; deu
-//                        certo, o evento 'teleporte' (server/game.js, pedidoTeleporte)
+//                        mesmo ou do outro time), 'alvo_morto', 'nao_functional',
+//                        'sem_energia' (com `custo`, arredondado para cima). Custa
+//                        energia como no original (custoTeleporte em shared/sim.js:
+//                        0,3 × (100 × (1 + nível/30) + 10 × |nível − nível do alvo|));
+//                        deu certo, desconta e manda o evento 'teleporte'
+//                        (server/game.js, pedidoTeleporte)
 //                       {t:'ia', ...}   não vale mais: os computadores se escolhem só na
 //                        entrada (iaMeu, iaInimigo); a resposta é sempre {t:'resultado',
 //                        acao:'ia', item: acao, ok: false, codigo:'invalido'}. O nick do
@@ -171,7 +175,8 @@
 //                       'nivel_insuficiente' | 'ja_possui' | 'limite' | 'invalido' |
 //                       'sem_item' | 'recarga' | 'cheio' (item ou compartimento) |
 //                       'equipado' | 'sem_pontos' | 'maximo' (e no teleportar
-//                       'sem_partida' | 'morto' | 'alvo_morto' | 'nao_functional')
+//                       'sem_partida' | 'morto' | 'alvo_morto' | 'nao_functional' |
+//                       'sem_energia', este com `custo`)
 //                       {t:'pong', c}
 //   VISÃO DO TIME (névoa de guerra, server/visao.js): o snapshot de cada jogador só
 //         leva o que algum aliado enxerga (naves de jogador vivas 550 m, mineradores e

@@ -15,12 +15,16 @@
 // Functional fica clicável, com o símbolo do portal no canto. O clique abre uma
 // caixinha embaixo dele com "Teleportar" e "Cancelar"; Teleportar manda
 // {t:'teleportar', alvo: id} e o servidor decide (vivo, mesmo time, Functional,
-// partida em andamento) e põe a nave junto dele na hora. A resposta chega como
+// partida em andamento, energia) e põe a nave junto dele na hora. O salto custa
+// energia como no original (custoTeleporte, shared/sim.js: cresce com o seu nível e
+// com a diferença de nível entre vocês); a caixinha mostra o custo e apaga o
+// Teleportar enquanto a energia não paga. A resposta chega como
 // {t:'resultado', acao:'teleportar'} (resultado()). ESC fecha a caixinha antes de
 // qualquer outra coisa (main.js, fecharPainel). Clique não atira (o tiro é só de
 // teclado) e os botões soltam o foco, para o Espaço não apertá-los.
 
 import { miniatura } from './vitrine.js';
+import { custoTeleporte } from '/shared/sim.js';
 
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
@@ -31,7 +35,11 @@ const MOTIVO_TELEPORTE = {
   alvo_morto: 'O companheiro foi abatido',
   nao_functional: 'Só dá para teleportar até uma nave Functional',
   invalido: 'Não dá para teleportar até esse piloto',
+  sem_energia: 'Energia insuficiente para o teleporte',
 };
+
+/** Texto da falta de energia, com o custo (a diferença de nível encarece o salto). */
+const faltaEnergia = (custo) => `Energia insuficiente: o teleporte custa ${custo} (a diferença de nível com o companheiro encarece)`;
 
 // Símbolo do portal (anéis abertos com a seta para dentro), em traço.
 const ICONE_PORTAL =
@@ -59,6 +67,7 @@ export class BarraTime {
     this.pilotos = new Map(); // id -> o último estado mostrado (para a caixinha)
     this.alvo = null; // id do companheiro com a caixinha aberta
     this.euVivo = true;
+    this.minhaEn = Infinity; // energia da sua nave (me.en); sem ela, o servidor decide
     this.el.hidden = false;
     // Clique num card de Functional abre a caixinha; no mesmo card, fecha.
     this.lista.addEventListener(
@@ -95,11 +104,13 @@ export class BarraTime {
 
   /**
    * Snapshot: `jogadores` (lista pública) e `ents` (entidades visíveis; as do seu
-   * time sempre vêm). `euVivo` = a sua nave está viva (para a caixinha).
+   * time sempre vêm). `euVivo` = a sua nave está viva e `minhaEn` = a energia dela
+   * (me.en), para a caixinha.
    */
-  atualizar(jogadores, ents, euVivo = true) {
+  atualizar(jogadores, ents, euVivo = true, minhaEn = Infinity) {
     if (!Array.isArray(jogadores)) return;
     this.euVivo = euVivo;
+    this.minhaEn = Number.isFinite(minhaEn) ? minhaEn : Infinity;
     const porId = new Map((ents ?? []).map((e) => [e.id, e]));
     // Você primeiro, depois as pessoas, depois os computadores (como na janela Times).
     const meus = jogadores
@@ -114,6 +125,7 @@ export class BarraTime {
         nome: j.ia ? j.nome.replace(/ \(IA\)$/, '') : j.nome,
         ia: !!j.ia,
         abates: j.abatesJog ?? 0,
+        nivel: j.nivel,
         vivo: ent ? ent.vivo !== false && j.vivo !== false : j.vivo !== false,
         frac: ent && ent.maxHp > 0 ? Math.max(0, Math.min(1, ent.hp / ent.maxHp)) : j.vivo === false ? 0 : 1,
         race: ent?.race,
@@ -197,15 +209,28 @@ export class BarraTime {
     for (const c of this.cards.values()) c.li.classList.toggle('aberto', Number(c.li.dataset.id) === id);
   }
 
-  /** Teleportar apagado (com o motivo) enquanto você ou o companheiro estão abatidos. */
+  /**
+   * Custo em energia na caixinha, e Teleportar apagado (com o motivo) enquanto você
+   * ou o companheiro estão abatidos ou a sua energia não paga o salto.
+   */
   #estadoCaixa() {
     const p = this.pilotos.get(this.alvo);
-    const motivo = !this.euVivo ? MOTIVO_TELEPORTE.morto : !p?.vivo ? MOTIVO_TELEPORTE.alvo_morto : '';
+    const custo = custoTeleporte(this.pilotos.get(this.meuId)?.nivel, p?.nivel);
+    const motivo = !this.euVivo
+      ? MOTIVO_TELEPORTE.morto
+      : !p?.vivo
+        ? MOTIVO_TELEPORTE.alvo_morto
+        : this.minhaEn < custo
+          ? MOTIVO_TELEPORTE.sem_energia
+          : '';
     const sim = this.caixa.querySelector('.sim');
     sim.disabled = !!motivo;
+    const c = this.caixa.querySelector('.custo b');
+    const txt = String(Math.ceil(custo));
+    if (c.textContent !== txt) c.textContent = txt;
     const m = this.caixa.querySelector('.motivo');
     m.hidden = !motivo;
-    m.textContent = motivo;
+    if (m.textContent !== motivo) m.textContent = motivo;
   }
 
   /** Fecha a caixinha do teleporte. Devolve se ela estava aberta (o ESC para aqui). */
@@ -221,7 +246,8 @@ export class BarraTime {
   /** Resposta do servidor ao {t:'teleportar'}: só a recusa vira notícia (o salto já diz que deu certo). */
   resultado(m) {
     if (m.ok) return;
-    this.noticia(MOTIVO_TELEPORTE[m.codigo] ?? 'Não deu para teleportar agora', 'ruim');
+    const texto = m.codigo === 'sem_energia' && Number.isFinite(m.custo) ? faltaEnergia(m.custo) : MOTIVO_TELEPORTE[m.codigo];
+    this.noticia(texto ?? 'Não deu para teleportar agora', 'ruim');
   }
 
   /** Sai da partida: some com a barra e esvazia. */

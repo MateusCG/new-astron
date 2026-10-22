@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World, TELEPORTE_ALIADO_DIST } from '../server/game.js';
-import { createShip, HOVER, TELEPORTE_FOLGA } from '../shared/sim.js';
+import { createShip, HOVER, TELEPORTE_FOLGA, custoTeleporte } from '../shared/sim.js';
 import { heightAt } from '../shared/terrain.js';
 import { pontoLivre } from '../shared/obstaculos.js';
 import { CAMPO } from './lugares.mjs';
@@ -38,6 +38,11 @@ function colocar(j, x, z, yaw = 0) {
   j.protegidoAte = 0;
 }
 
+/** Energia de sobra para o salto (a Assault de fábrica, com 23, não paga os 31 do nível 1). */
+function abastecer(j, en = 500) {
+  j.ship.maxEn = j.ship.en = en;
+}
+
 const matar = (w, alvo, autor) => w.jungle.ctx.ferir(alvo, 1e9, autor?.id ?? 0, null, {});
 const teleportar = (w, j, alvo) => w.pedidoTeleporte(j.id, { t: 'teleportar', alvo });
 
@@ -48,6 +53,7 @@ test('teleporte: vai na hora para junto do aliado Functional, parado, decolado e
   assert.equal(a.time, c.time);
   colocar(c, CAMPO.x, CAMPO.z, 0.7);
   colocar(a, CAMPO.x + 400, CAMPO.z + 300);
+  abastecer(a);
   Object.assign(a.ship, { vx: 30, vz: -12, pousado: true, boost: true });
   const hp = (a.ship.hp = a.ship.maxHp - 40);
   w.tirarEventos();
@@ -64,6 +70,7 @@ test('teleporte: vai na hora para junto do aliado Functional, parado, decolado e
   assert.equal(a.ship.boost, false);
   assert.equal(a.ship.yaw, c.ship.yaw, 'olha para onde o companheiro olha');
   assert.equal(a.ship.hp, hp, 'a mesma nave: a vida fica');
+  assert.ok(Math.abs(a.ship.en - (500 - custoTeleporte(1, 1))) < 1e-9, 'pagou o salto em energia');
   // Começa por trás dele: o ponto fica no lado oposto ao nariz do companheiro.
   const nariz = { x: -Math.sin(c.ship.yaw), z: -Math.cos(c.ship.yaw) };
   assert.ok((a.ship.x - c.ship.x) * nariz.x + (a.ship.z - c.ship.z) * nariz.z < 0, 'atrás do companheiro');
@@ -122,6 +129,7 @@ test('teleporte: só com a partida em andamento (ou no modo de teste) e cancela 
   w.step();
   colocar(c, CAMPO.x, CAMPO.z);
   colocar(a, CAMPO.x, CAMPO.z + 300);
+  abastecer(a);
   a.recall = { inicio: w.tick, fim: w.tick + 1000 };
   w.tirarEventos();
   assert.equal(w.pedidoTeleporte(a.id, { alvo: c.id }).ok, true);
@@ -138,6 +146,7 @@ test('teleporte: só com a partida em andamento (ou no modo de teste) e cancela 
   aliado.classe = aliado.ship.classe = 'functional';
   colocar(aliado, CAMPO.x, CAMPO.z);
   aliado.ia = null; // parado: o teste não depende da IA
+  abastecer(eu);
   assert.equal(t.pedidoTeleporte(eu.id, { alvo: aliado.id }).ok, true);
 });
 
@@ -151,6 +160,7 @@ test('teleporte: aliado encostado na rocha ou sem lugar em volta, a nave nunca c
       if (!pontoLivre(x, z, TELEPORTE_FOLGA) || pontoLivre(x + 16, z, TELEPORTE_FOLGA)) continue;
       colocar(c, x, z, Math.PI / 2); // olhando para -x: o primeiro rumo (atrás, +x) está bloqueado
       colocar(a, CAMPO.x, CAMPO.z + 300);
+      abastecer(a);
       assert.equal(teleportar(w, a, c.id).ok, true);
       const igual = a.ship.x === c.ship.x && a.ship.z === c.ship.z;
       assert.ok(igual || pontoLivre(a.ship.x, a.ship.z, TELEPORTE_FOLGA), `junto de (${x}, ${z})`);
@@ -227,12 +237,46 @@ test('teleporte: o evento vai ao time de quem saltou; o outro time só recebe se
   colocar(c, CAMPO.x, CAMPO.z);
   colocar(a, CAMPO.x, CAMPO.z + 300);
   colocar(b, 950, -500);
+  abastecer(a);
   w.step();
   w.tirarEventos();
-  teleportar(w, a, c.id);
+  assert.equal(teleportar(w, a, c.id).ok, true);
   const ev = w.tirarEventos();
   const doTime = w.snapshotPara(c, w.entidades(), ev).ev;
   assert.ok(doTime.some((e) => e.e === 'teleporte' && e.id === a.id), 'aliado recebe');
   const inimigo = w.snapshotPara(b, w.entidades(), ev).ev;
   assert.ok(!inimigo.some((e) => e.e === 'teleporte'), 'inimigo longe não recebe');
+});
+
+test('teleporte: custa energia como no original, mais caro com o nível e com a diferença de nível', () => {
+  // 0,3 × (100 × (1 + nível/30) + 10 × |diferença|): a energia do original na escala do jogo.
+  assert.ok(Math.abs(custoTeleporte(1, 1) - 0.3 * (100 * (1 + 1 / 30))) < 1e-9);
+  assert.ok(Math.abs(custoTeleporte(15, 15) - 45) < 1e-9, 'nível 15, mesmo nível: 0,3 × 150');
+  assert.ok(Math.abs(custoTeleporte(15, 5) - 75) < 1e-9, '10 níveis de diferença: +30');
+  assert.ok(Math.abs(custoTeleporte(5, 15) - custoTeleporte(5, -5)) < 1e-9, 'para cima ou para baixo, mesma conta');
+  assert.ok(custoTeleporte(25, 25) > custoTeleporte(1, 1), 'quem tem nível alto paga mais');
+});
+
+test('teleporte: sem energia bastante recusa com o custo, sem mexer na nave; com ela, desconta o custo', () => {
+  const { w, js } = mundo([['A', 'functional'], ['B', 'assault'], ['C', 'functional']]);
+  const [a, , c] = js;
+  colocar(c, CAMPO.x, CAMPO.z);
+  colocar(a, CAMPO.x + 300, CAMPO.z);
+  a.nivel = 12;
+  c.nivel = 3;
+  const custo = custoTeleporte(12, 3);
+  abastecer(a, 200);
+  a.ship.en = custo - 0.5;
+  const antes = { x: a.ship.x, z: a.ship.z, en: a.ship.en };
+  w.tirarEventos();
+
+  const r = teleportar(w, a, c.id);
+  assert.deepEqual(r, { t: 'resultado', acao: 'teleportar', item: c.id, ok: false, codigo: 'sem_energia', custo: Math.ceil(custo) });
+  assert.deepEqual({ x: a.ship.x, z: a.ship.z, en: a.ship.en }, antes, 'a nave não saiu nem gastou');
+  assert.ok(!w.tirarEventos().some((e) => e.e === 'teleporte'));
+
+  a.ship.en = custo; // exatamente o custo: paga (o original compara custo <= energia)
+  assert.equal(teleportar(w, a, c.id).ok, true);
+  assert.ok(Math.abs(a.ship.en) < 1e-9, 'gastou tudo');
+  assert.ok(Math.hypot(a.ship.x - c.ship.x, a.ship.z - c.ship.z) < 30, 'chegou junto dele');
 });
