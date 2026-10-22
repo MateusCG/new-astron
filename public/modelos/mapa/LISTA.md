@@ -10,8 +10,15 @@ repo: `new-astron-progresso/mapa-stage6/blender/` e `.../tmp/cenario/` (`cenario
 
 - glTF binário, **Y para cima, 1 unidade = 1 m**, no referencial do jogo (x para a direita do desenho, z para baixo do
   desenho). Pivô na origem do mapa ou do objeto, **y = 0 = chão de voo** (a nave voa a 10 m), salvo nota.
-- Facetado: os arquivos **não trazem normais** de propósito (ficam ~4× menores); o `GLTFLoader` liga `flatShading`
-  sozinho quando falta a normal. Sem textura nem UV: cor + emissivo.
+- Dois padrões (IDENTIDADE-VISUAL.md, "Padrão dos modelos"):
+  - **mid-poly PBR** (o padrão das peças novas; hoje as três plataformas): normais e UV, **Draco**, materiais
+    `pbr_*` que o cliente liga nas texturas compartilhadas de `public/texturas/mapa/` (o glb não traz imagem),
+    sombreado liso com quinas vivas por ângulo. Fontes: `plataformas_pbr.py` e `texturas_pbr.py`;
+  - **low-poly facetado** (as peças antigas, até serem refeitas): os arquivos **não trazem normais** de propósito
+    (ficam ~4× menores); o `GLTFLoader` liga `flatShading` sozinho quando falta a normal. Sem textura nem UV: cor +
+    emissivo.
+- Teto de triângulos por tipo de peça (plataformas e torres 15 mil, rochas e bordas 20 mil, decoração 2 mil, qualquer
+  peça 50 mil), conferido em `tests/modelos-mapa.test.mjs`.
 - Materiais por nome (o cliente acha pelo nome e troca o que precisar):
 
 | Material | Cor | O que é |
@@ -27,6 +34,10 @@ repo: `new-astron-progresso/mapa-stage6/blender/` e `.../tmp/cenario/` (`cenario
 | `he3_escuro` | `#2f7fb8` | Faces escuras dos cristais de He-3 (sem emissivo) |
 | `neon_objetivo` | `#ffb627` | Âmbar dos objetivos (núcleo, torre de suporte, plataforma de pouso) |
 | `neon_servico` | `#a58bff` (padrão) | Anel das plataformas de serviço: o cliente pinta violeta `#a58bff` na Evolução e magenta `#ff6fd8` na Loja |
+| `neon_luz` | `#ffe2b8` | Luz quente fixa (balizas do aro, luzes de aproximação, janelas brancas) |
+| `pbr_painel`, `pbr_painel_escuro`, `pbr_painel_claro` | fator `#e2e8e8`, `#8a9696`, `#f2f6f6`; metal 0,3 | Chapa metálica do padrão PBR: o cliente liga o atlas `painel` (cor × fator, metal/rugosidade, relevo). Deque, casco e pilares, aro e torres |
+| `pbr_tinta` | `#dfe4e1`, rugosidade 0,7 | Sinalização branca (anéis, tracejados, marcas radiais), sem textura |
+| `pbr_vidro` | `#0d1416`, rugosidade 0,25 | Visor das torres e miolo dos propulsores |
 
 Todos os materiais saem `doubleSided` (o padrão do exportador). Malha fechada pode virar `FrontSide` no cliente para
 economizar, conferindo no print (a borda e as faixas de neon são abertas).
@@ -48,9 +59,9 @@ degraus (como a física: degrau de 30% do topo e rampa de 16 m); da água para b
 | `fundo-lago.glb` | Leito do lago no mapa inteiro, ondulado entre −68 e −60 (simétrico pela rotação de 180°) | 3200 × −68…−60 × 2400 | 2.400 | origem do mapa | uma peça, giro 0 |
 | `mineradora.glb` | **Mineradora de Hélio-3** (ver abaixo) | 264 × −75…134 × 344 (com as pernas e os cristais do fundo; o casco é 143 × 233) | 9.121 | centro da mineradora, y = 0 | (0, 0, 0), giro 0. Planta (`MINERADORA` 70 × 115, canto 24): 0,0 a 3,95 m |
 | `base-warp.glb` | **Portal warp** da base do time 0 (ver abaixo), virado para +x | 80 × 31…224 × 156 | 3.068 | ponto do `PORTAL_WARP` (local −95, 0 da base), y = 0 | time 0: (−1375, 0, 0) giro 0; time 1: (1375, 0, 0) giro π. Peça mais baixa a 31 m (acima de `PORTAL_WARP.base` = 30): sem colisão |
-| `plataforma-base.glb` | Anel de pouso da base: deque flutuante r 70, anel `neon_time` r 64 e r 14, balizas de 1,2 m, pilares até o fundo | 140 × −62…1,2 × 140 | 1.186 | centro, **topo do deque em y = 0** | (∓1280, 1,7, 0): y = `heightAt + piso` da área de pouso |
-| `plataforma-servico.glb` | Plataforma da Evolução e da Loja: deque r 23, anel `neon_servico` r 20 | 46 × −62…1,2 × 46 | 866 | centro, topo em y = 0 | `SERVICOS` com y = piso (1,2). O ícone do serviço continua desenhado pelo cliente |
-| `plataforma-pouso.glb` | Plataforma de pouso do ouro (P0/P1): deque r 32, anel âmbar r 28, quatro setas para o centro e o nó **`emissor`** no centro (de onde sai o feixe com alguém pousado) | 64 × −62…1,2 × 64 | 1.018 | centro, topo em y = 0 | P0 (−495, 1, −445,5), P1 (495, 1, 445,5) |
+| `plataforma-base.glb` | **PBR.** Anel de pouso da base: deque flutuante r 70 em chapas, aro de 64 blocos (até 1 m) com faixa `neon_time` e balizas `neon_luz`, 4 torres de controle na borda (até 3,5 m), anel `neon_time` r 64 (quatro arcos) e r 14, o **H** `neon_time` no centro (pernas ao longo de x, lido de quem vem da lane), setas e luzes de aproximação nas diagonais, casco cônico até −10,2 com nervuras, janelas e propulsores, 4 pilares até o fundo | 141 × −62…3,5 × 141 | 14.614 | centro, **topo do deque em y = 0** | (∓1280, 1,7, 0): y = `heightAt + piso` da área de pouso |
+| `plataforma-servico.glb` | **PBR.** Plataforma da Evolução e da Loja: deque r 23, aro com faixa `neon_servico`, 3 torres, anel `neon_servico` r 20 e tracejado branco; o **centro fica livre** (o cliente desenha o ícone e o nome do serviço no chão), 3 pilares | 47 × −62…3,5 × 47 | 8.648 | centro, topo em y = 0 | `SERVICOS` com y = piso (1,2) |
+| `plataforma-pouso.glb` | **PBR.** Plataforma de pouso do ouro (P0/P1): deque r 32, aro com faixa `neon_objetivo`, 4 torres, anel âmbar r 28 (quatro arcos), quatro setas âmbar para o centro e o nó **`emissor`** no centro (prato com anel âmbar, de onde sai o feixe com alguém pousado), 3 pilares | 65 × −62…3,5 × 65 | 10.812 | centro, topo em y = 0 | P0 (−495, 1, −445,5), P1 (495, 1, 445,5) |
 | `nucleo.glb` | **Núcleo de He-3** (ver abaixo) | 138 × −62…71 × 138 | 3.144 | centro do poço, y = 0 | (0, 0, −877). Cristal centrado em y = 18 (a entidade do servidor) |
 | `torre-suporte.glb` | Torre do buff de suporte (cilindro r 7, topo 30): fuste sextavado com três faixas âmbar, colar, capitel e o nó **`suporte_nucleo`** (octaedro âmbar com anel, a 30,5 m: pulsar/girar) | 17 × −62…34 × 19 | 320 | centro, y = 0 | BS0 (−855, 0, 909), BS1 (855, 0, −909). **No jogo vai com escala 2** (`ESCALA_TORRE_SUPORTE`, planta `TORRE_SUPORTE` r 14, topo 60; o fuste enterra no fundo). Planta: até 2,6 m para fora (5,2 m na escala 2) |
 | `torre-suporte-caida.glb` | A mesma torre derrubada: toco quebrado (até 2,4 m acima do voo, sem colisão), destroços e uma faixa âmbar caída | 30 × −62…2,2 × 26 | 266 | idem | troca com a de pé quando `definirObstaculoAtivo('BS0', false)`. Escala 2 como a de pé (o toco fica a 4,8 m, abaixo do voo) |
@@ -60,7 +71,7 @@ degraus (como a física: degrau de 30% do topo e rampa de 16 m); da água para b
 | `pedra-lago-2.glb` | Pedra inteira embaixo d'água (topo −22) | 48 × −64…−22 × 42 | 218 | idem | idem |
 | `ruina-submersa.glb` | Anel de pilares quebrados no fundo, com cristais no meio (lembrança do templo do Stage 6) | 67 × −63…−29 × 70 | 601 | centro, y = 0 | um ou dois pontos de cada lado (a montagem usou (∓420, ±640)) |
 
-Total: 23 arquivos, ~815 KB (limite do contrato: 6 MB).
+Total: 23 arquivos, ~1,2 MB, mais ~95 KB das texturas compartilhadas (alvo do padrão PBR: uns 5 MB para o mapa inteiro).
 
 ### Mineradora (`mineradora.glb`)
 

@@ -110,6 +110,14 @@ test('carregamento: todos os modelos do mapa e dos monstros entram na lista, e t
   for (const nome of ['medusa-sangue', 'medusa-bolha']) assert.ok(monstros.some((m) => m.nome === nome), nome);
 });
 
+test('carregamento: as texturas PBR do mapa existem e toda imagem da pasta está num conjunto', () => {
+  const { texturas } = insumosDoMapa();
+  assert.ok(texturas.length >= 3);
+  for (const url of texturas) assert.ok(existe(url), url);
+  const naPasta = readdirSync(path.join(PUBLIC, 'texturas/mapa')).filter((f) => f.endsWith('.webp'));
+  assert.deepEqual(new Set(naPasta.map((f) => `/texturas/mapa/${f}`)), new Set(texturas));
+});
+
 test('carregamento: toda espécie do servidor tem modelo (a esp do protocolo é o nome do glb)', () => {
   assert.deepEqual(new Set(ESPECIES_MONSTRO), new Set(Object.keys(ESPECIES)));
   for (const esp of ESPECIES_MONSTRO) assert.ok(existe(`modelos/monstros/${esp}.glb`), esp);

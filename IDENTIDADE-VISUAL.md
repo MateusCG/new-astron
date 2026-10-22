@@ -4,10 +4,10 @@ Guia obrigatório para qualquer coisa que entre no jogo: cenário, nave, inimigo
 
 ## Conceito
 
-**Ficção científica industrial, low-poly facetado, em planetas hostis ao entardecer.**
+**Ficção científica industrial, mid-poly hard-surface com materiais PBR, em planetas hostis ao entardecer.**
 
 - A referência é o AstroN (naves voando baixo por cânions, lagos e bases, painel metálico verde-azulado). É **inspiração, não cópia**: nada de sprites, modelos, logos ou nomes tirados do jogo original. **Exceção, por decisão do Mateus (out/2026):** entram do AstroN original as **45 naves de jogador com classe** das raças Acron, Bellico e Shrewdo (`public/modelos/naves/<raca>/<classe>/<id>.glb`, low-poly de ~170 a ~740 triângulos, com a textura própria de cada uma; as faces do avesso de algumas são corrigidas ao carregar, `orientarFaces` em `nave.js`), os **modelos das armas** (`public/modelos/armas/`), as **texturas dos efeitos de tiro** (`public/texturas/efeitos/`) e os **sons** (`public/sons/`), cada pasta com a sua `LISTA.md`. **Também por decisão do Mateus (out/2026, mapa do Stage 6):** entram os **modelos dos monstros do Stage 6** e do **SN-4** (chefe do Stage 5), com a textura própria (`public/modelos/monstros/<esp>.glb`, com `LISTA.md`). Outra coisa do jogo original só entra com a mesma decisão explícita.
-- Fora as naves de jogador, as armas penduradas nelas, os efeitos de tiro, os sons e os monstros, tudo é **feito em código** (primitivas do Three.js, shaders e ruído) **ou modelado por nós no Blender** (os modelos do mapa em `public/modelos/mapa/`, gerados por script `bpy`, low-poly facetado, só cor + emissivo, sem textura; fontes e scripts em `~/Documentos/new-astron-progresso/mapa-stage6/`; o Stage 6 do original foi só referência de forma e clima), sem texturas fotográficas. O estilo low-poly é escolha estética e de desempenho: roda no navegador e no celular.
+- Fora as naves de jogador, as armas penduradas nelas, os efeitos de tiro, os sons e os monstros, tudo é **feito em código** (primitivas do Three.js, shaders e ruído) **ou modelado por nós no Blender** (os modelos do mapa em `public/modelos/mapa/`, gerados por script `bpy`; fontes e scripts em `~/Documentos/new-astron-progresso/mapa-stage6/`; o Stage 6 do original foi só referência de forma e clima), sem texturas fotográficas. **Desde out/2026 (decisão do Mateus) o padrão dos modelos novos é o _sci-fi mid-poly PBR_** (ver "Padrão dos modelos" em Regras do 3D): mais polígonos que antes, chapas, frestas e desgaste no relevo de texturas compartilhadas geradas por nós, dentro de um teto de triângulos por tipo de peça, porque continua rodando no navegador e no celular. As peças low-poly facetadas que ainda não foram refeitas continuam valendo até serem trocadas.
 - Três camadas de cor em toda cena:
   1. **Ambiente** quente e dessaturado (rocha, areia, céu);
   2. **Tecnologia** em cinza-metal com **neon turquesa**;
@@ -136,7 +136,8 @@ O mapa segue `DESIGN-PARTIDA.md` e `shared/terrain.js`; o visual é inspirado no
 | **Núcleo de He-3** | cristal `#9fe8ff` + anéis âmbar | Bipirâmide de cristal com três anéis de contenção, lascas orbitando, prato emissor e quatro agulhas flutuantes; gira mais rápido quanto menos vida | Objetivo épico (poço de cima) |
 | Pulso do Núcleo | azul-gelo, puxando para o vermelho com a força | Anel e cúpula que abrem até o raio (80 m) | Área que machuca |
 | Torre do buff de suporte | metal + âmbar | O modelo em escala 2 (`ESCALA_TORRE_SUPORTE`: r 14 × 60 m, enterrado no fundo do lago, rótulo a 74 m), com núcleo âmbar: apagada esperando, acesa ativa, o modelo caído em recarga | Destrua para o buff de suporte |
-| Plataforma de pouso (ouro) | âmbar | Plataforma flutuante; com alguém pousado, feixe de luz na cor do time de quem pousou (âmbar piscando se contestado), começando 7 m acima do deque | Pouse 6 s: ouro para o time |
+| Anel de pouso da base, Evolução e Loja | chapas PBR + `neon_time` / `neon_servico` | Deque flutuante em chapas metálicas (relevo de frestas, rebites, grades e escotilhas), aro de blocos chanfrados com faixa de luz, torres de controle na borda, casco cônico com nervuras, janelas e propulsores, pilares até o fundo. No anel da base, o **H** do time no centro (só o H, nenhum texto) com o anel r 14, setas de aproximação nas diagonais e o anel r 64 em arcos; nas de serviço o centro fica livre para o ícone e o nome | Pousa, conserta, compra |
+| Plataforma de pouso (ouro) | âmbar + chapas PBR | Plataforma flutuante no mesmo padrão do anel da base, setas âmbar para o centro e o prato emissor no meio; com alguém pousado, feixe de luz na cor do time de quem pousou (âmbar piscando se contestado), começando 7 m acima do deque | Pouse 6 s: ouro para o time |
 | Rochas, paredes em L e borda | estratos `#b59a74` / `#9c8062` / `#765c45` / `#4f3d2e`, molhada `#33302a` | Paredes em estratos saindo da água; a borda continua em montanhas até o horizonte | Bloqueio total |
 | Nuvens de gás e poeira | luz `#e8d6ba`, sombra `#61788a`, He-3 `#9fe8ff` em alguns tufos baixos | Tufos instanciados (`public/js/nuvens.js`) da água até uns 45 m, em três camadas, borda suave e rala, deriva lenta; lado do sol mais claro, brilho quente contra o sol. De dentro, o tufo perto da câmera some e a nuvem fica 28% mais rala, e as gotículas em volta da câmera ficam mais densas, maiores e cor de poeira `#d9c8ad` | Passáveis; escondem quem está dentro |
 | Torre sentinela | metal + neon do time | Torre sextavada de 16 m e r 9 (sólida, `TORRETA`), em cima de um pilar sextavado que desce até o fundo do lago (cinta na linha d'água, sapata no fundo), cabeça giratória; o tiro é um míssil com corpo, curva e fumaça | Defesa do time na lane |
@@ -168,8 +169,8 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 
 ## Regras do 3D
 
-- **Low-poly facetado:** `flatShading: true` em terreno, naves e estruturas. Nada de superfícies lisas brilhantes.
-- **Metal sem mapa de ambiente:** `metalness` até **0.5** e `roughness` de **0.4 a 0.8**. Metal alto sem nada para refletir fica preto ou estoura no reflexo do sol.
+- **Modelos novos no padrão mid-poly PBR** (seção abaixo); as peças low-poly antigas continuam facetadas (`flatShading: true`) até serem refeitas. Nada de superfícies lisas brilhantes nem de plástico: o metal é gasto e fosco.
+- **Metal sem mapa de ambiente:** `metalness` até **0.5** e `roughness` de **0.4 a 0.8** (nas peças PBR a textura varia a rugosidade de 0,38 a 0,92 em volta disso: risco liso, sujeira áspera). Metal alto sem nada para refletir fica preto ou estoura no reflexo do sol; as chapas PBR usam 0,3.
 - **Neon:** material com `color` e `emissive` iguais e `emissiveIntensity` entre **0.8 e 1.2**. Acima disso o tone mapping (ACES) puxa para o branco e a cor some. Luz piscando vai de 0.1 a 1.2.
 - **Uma cor de destaque por objeto.** Hangar e portal: cinza + neon da base (turquesa na sua, vermelho na do outro time). Nave de jogador: a textura do modelo do original + neon do time nas pontas das asas.
 - **Monstros são os do original** (Stage 6 e o SN-4), cada um com a textura própria; a regra antiga "pele escura e olho vermelho" não vale para eles. **O perigo fica no vermelho da interface:** rótulo e barra vermelhos, ponto vermelho no minimapa e o brilho `#ff4a2a` em todo tiro de monstro. Cada um tem silhueta própria (`public/js/monstros.js`):
@@ -190,6 +191,34 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 - **Área de pouso é sempre marcada no chão**, com a cor do que ela é: anel com o neon da base (turquesa na sua), placa violeta da Evolução, placa magenta da Loja, plataforma âmbar de ouro (`AREAS_POUSO`). Nenhum anel turquesa no chão pode existir fora da sua base, para o jogador não confundir.
 - **Tudo projeta sombra** (`castShadow`), e o terreno a recebe.
 
+### Padrão dos modelos: sci-fi mid-poly PBR
+
+Decisão do Mateus (out/2026), a partir da plataforma de pouso modelada no Blender: o cenário passa de low-poly facetado para **mid-poly hard-surface com materiais PBR**.
+
+- **Mid-poly:** o meio-termo entre o low-poly (faces chapadas, só cor) e o high-poly de cinema. A malha leva o **volume** (quinas chanfradas, blocos, aros, nervuras, peças de verdade) e polígono só onde aparece.
+- **Hard-surface:** coisa construída: chapas, frestas, rebites, grades, escotilhas, desgaste nas quinas.
+- **PBR:** cada superfície tem cor, metal, rugosidade e relevo. **O detalhe fino fica no relevo da textura (normal map), não na malha**: frestas entre chapas, rebites e grades das construções, e as fissuras e estratos finos das rochas.
+
+**Teto de triângulos por peça** (o arquivo `.glb` inteiro; conferido em `tests/modelos-mapa.test.mjs`):
+
+| Tipo de peça | Triângulos |
+|---|---|
+| Teto de qualquer peça (só para as únicas e grandes: mineradora, portal warp, Núcleo) | **até 50 mil** |
+| Plataformas e torres | **10 a 15 mil** (as menores podem ficar abaixo: a de serviço tem r 23) |
+| Rochas e bordas | **até 20 mil**, com o detalhe no relevo da textura |
+| Decoração (coral, alga, cristais, ruínas) | **até 2 mil** (aparecem dezenas de vezes) |
+
+A conta que importa é a da cena: somando as cópias, o mapa inteiro deve ficar em uns **500 a 700 mil triângulos** e uns **5 MB** de download (modelos + texturas).
+
+**Como o arquivo sai** (`public/modelos/mapa/LISTA.md` tem o contrato de cada peça):
+
+- glTF binário **com normais e UV** (liso, com as quinas vivas marcadas pelo ângulo, ~32°) e **comprimido com Draco** (o decodificador vem do próprio three, `/vendor/addons/libs/draco/gltf/`).
+- **Sem imagem dentro do glb.** As texturas são **compartilhadas pelo mapa inteiro** (`public/texturas/mapa/`, com `LISTA.md`): um **atlas de chapas 2 × 2** (*trim sheet*: chapa lisa, com grade de ventilação, com escotilha e dividida em quatro), em três imagens WebP de 1024²: cor (quase cinza), metal/rugosidade (o canal do glTF: verde = rugosidade, azul = metal) e relevo (normal, convenção glTF). Cada face da malha mapeia **um quadrante inteiro** (uma chapa com a fresta na borda); face comprida vira uma chapa esticada só no comprimento. Texturas geradas por nós (script `texturas_pbr.py`), nunca fotográficas.
+- Os materiais se chamam **`pbr_<conjunto>[_variação]`**: `pbr_painel` (deque), `pbr_painel_escuro` (casco, pilares), `pbr_painel_claro` (aro, torres) ganham as texturas do conjunto `painel` e a cor vem do **fator** do glb; `pbr_tinta` (sinalização branca) e `pbr_vidro` são lisos, sem textura. Conjunto novo (ex.: `rocha`) entra em `TEXTURAS_PBR_MAPA` (`public/js/insumos.js`).
+- **Os neon continuam iguais**: material separado com o nome do contrato (`neon_time`, `neon_servico`, `neon_objetivo`, `neon_he3`...), pintado pelo cliente; `neon_luz` é a luz quente fixa das balizas (`#ffe2b8`). Faixa de luz, janela e farol são geometria própria, nunca pintados na textura (a cor do time é relativa a quem olha).
+- **Sinalização é geometria**, não textura: anéis, tracejados, setas e o H são faces finas 2 cm acima do deque, nítidas de perto, sem texto escrito.
+- Superfícies abertas e planas (deque, pintura) saem com a normal **para cima**: o cliente desenha dos dois lados, mas a luz e a sombra seguem a normal.
+
 ### Escala de referência
 
 | Coisa | Tamanho |
@@ -205,6 +234,7 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 | Base de time | zona segura de raio 170 m (`BASES`), num bolsão no fim da lane; portal warp de 31 a 224 m (anel de raio 46 com centro a 124 m) |
 | Lane | 180 m de largura (`LANE`), sem pista |
 | Mineradora | 140 × 230 m, sólida até 95 m; do fundo (−64) à ponta da torre (134 m) |
+| Plataformas (base, serviço, ouro) | deque no piso da área de pouso; **aro até 1 m e torres de controle até 3,5 m acima do deque**, só na borda, fora do círculo de pouso (a nave voa uns 8 m acima do deque) |
 | Decoração | acima do chão de voo **até 2,5 m** (pedras que furam a água, balizas; a nave passa por cima, sem colisão); **embaixo da água**, qualquer altura; **acima de 30 m** podem flutuar peças sem colisão (portal, pórtico da doca, arco da entrega, estabilizadores do Núcleo; nuvens de gás até uns 45 m são passáveis por regra) |
 | Torreta da lane | 16 m de altura, raio 9 m (canhão na altura de voo), a 133 m do eixo da lane (140 m de largura); o pilar embaixo d'água não colide |
 | Construções (mineradora, torre do buff de suporte, torretas) | **sólidas**: nave e tiro batem. Tamanho e posição saem de `shared/obstaculos.js`, nunca só do `cena.js` |
@@ -256,7 +286,7 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 ## Checklist antes de abrir o PR
 
 - [ ] As cores novas saem da paleta acima (ou o guia foi atualizado no mesmo PR).
-- [ ] Facetado, metal ≤ 0.5, neon ≤ 1.2.
+- [ ] Peça nova no padrão mid-poly PBR, dentro do teto de triângulos do tipo dela (`npm test` confere), texturas compartilhadas (nada de imagem dentro do glb), metal ≤ 0.5, neon ≤ 1.2.
 - [ ] Inimigo em vermelho, tecnologia em turquesa, ambiente em tons quentes.
 - [ ] Escala conferida contra a tabela (a nave cabe e passa por cima da decoração).
 - [ ] Testado com print no navegador (base, corredor e mundo aberto), sem erro no console.
