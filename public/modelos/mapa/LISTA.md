@@ -11,9 +11,9 @@ repo: `new-astron-progresso/mapa-stage6/blender/` e `.../tmp/cenario/` (`cenario
 - glTF binário, **Y para cima, 1 unidade = 1 m**, no referencial do jogo (x para a direita do desenho, z para baixo do
   desenho). Pivô na origem do mapa ou do objeto, **y = 0 = chão de voo** (a nave voa a 10 m), salvo nota.
 - Dois padrões (IDENTIDADE-VISUAL.md, "Padrão dos modelos"):
-  - **mid-poly PBR** (o padrão das peças novas; hoje as três plataformas): normais e UV, **Draco**, materiais
+  - **mid-poly PBR** (o padrão das peças novas; hoje as três plataformas e a mineradora): normais e UV, **Draco**, materiais
     `pbr_*` que o cliente liga nas texturas compartilhadas de `public/texturas/mapa/` (o glb não traz imagem),
-    sombreado liso com quinas vivas por ângulo. Fontes: `plataformas_pbr.py` e `texturas_pbr.py`;
+    sombreado liso com quinas vivas por ângulo. Fontes: `plataformas_pbr.py`, `mineradora_pbr.py` e `texturas_pbr.py`;
   - **low-poly facetado** (as peças antigas, até serem refeitas): os arquivos **não trazem normais** de propósito
     (ficam ~4× menores); o `GLTFLoader` liga `flatShading` sozinho quando falta a normal. Sem textura nem UV: cor +
     emissivo.
@@ -35,7 +35,7 @@ repo: `new-astron-progresso/mapa-stage6/blender/` e `.../tmp/cenario/` (`cenario
 | `neon_objetivo` | `#ffb627` | Âmbar dos objetivos (núcleo, torre de suporte, plataforma de pouso) |
 | `neon_servico` | `#a58bff` (padrão) | Anel das plataformas de serviço: o cliente pinta violeta `#a58bff` na Evolução e magenta `#ff6fd8` na Loja |
 | `neon_luz` | `#ffe2b8` | Luz quente fixa (balizas do aro, luzes de aproximação, janelas brancas) |
-| `pbr_painel`, `pbr_painel_escuro`, `pbr_painel_claro` | fator `#e2e8e8`, `#8a9696`, `#f2f6f6`; metal 0,3 | Chapa metálica do padrão PBR: o cliente liga o atlas `painel` (cor × fator, metal/rugosidade, relevo). Deque, casco e pilares, aro e torres |
+| `pbr_painel`, `pbr_painel_escuro`, `pbr_painel_claro`, `pbr_painel_grafite` | fator `#e2e8e8`, `#8a9696`, `#f2f6f6`, `#5a6866`; metal 0,3 | Chapa metálica do padrão PBR: o cliente liga o atlas `painel` (cor × fator, metal/rugosidade, relevo). Deque, casco e pilares, aro e torres; na mineradora o grafite é o "metal escuro" (com o atlas dá a cor do `metal_escuro`), o escuro faz o aço e o `pbr_painel` o claro |
 | `pbr_tinta` | `#dfe4e1`, rugosidade 0,7 | Sinalização branca (anéis, tracejados, marcas radiais), sem textura |
 | `pbr_vidro` | `#0d1416`, rugosidade 0,25 | Visor das torres e miolo dos propulsores |
 
@@ -57,7 +57,7 @@ degraus (como a física: degrau de 30% do topo e rampa de 16 m); da água para b
 | `borda-quadrante-espelhada.glb` | O mesmo quarto espelhado em z (x ≤ 0, z ≥ 0) | z 0…1210 | 6.092 | origem do mapa | giro 0 (embaixo à esquerda) e giro π (em cima à direita). As emendas em x = 0 e z = 0 são espelho, sem fresta |
 | `borda-horizonte.glb` | Planalto e montanhas de fundo em volta do mapa inteiro (até ±3300 × ±3000), começando escondido atrás da borda (saia a 92 m) e subindo a ~330 m | 6630 × 92…334 × 5970 | 5.488 | origem do mapa | uma peça, giro 0 |
 | `fundo-lago.glb` | Leito do lago no mapa inteiro, ondulado entre −68 e −60 (simétrico pela rotação de 180°) | 3200 × −68…−60 × 2400 | 2.400 | origem do mapa | uma peça, giro 0 |
-| `mineradora.glb` | **Mineradora de Hélio-3** (ver abaixo) | 264 × −75…134 × 344 (com as pernas e os cristais do fundo; o casco é 143 × 233) | 9.121 | centro da mineradora, y = 0 | (0, 0, 0), giro 0. Planta (`MINERADORA` 70 × 115, canto 24): 0,0 a 3,95 m |
+| `mineradora.glb` | **PBR.** **Mineradora de Hélio-3** (ver abaixo) | 312 × −75…135 × 408 (com as pernas e os cristais do fundo; o casco na linha d'água é 147,6 × 237,6) | 33.081 | centro da mineradora, y = 0 | (0, 0, 0), giro 0. Planta (`MINERADORA` 70 × 115, canto 24): 0,05 a 3,95 m; fora da planta, nada entre 2,5 e 30 m |
 | `base-warp.glb` | **Portal warp** da base do time 0 (ver abaixo), virado para +x | 80 × 31…224 × 156 | 3.068 | ponto do `PORTAL_WARP` (local −95, 0 da base), y = 0 | time 0: (−1375, 0, 0) giro 0; time 1: (1375, 0, 0) giro π. Peça mais baixa a 31 m (acima de `PORTAL_WARP.base` = 30): sem colisão |
 | `plataforma-base.glb` | **PBR.** Anel de pouso da base: deque flutuante r 70 em chapas, aro de 64 blocos (até 1 m) com faixa `neon_time` e balizas `neon_luz`, 4 torres de controle na borda (até 3,5 m), anel `neon_time` r 64 (quatro arcos) e r 14, o **H** `neon_time` no centro (pernas ao longo de x, lido de quem vem da lane), setas e luzes de aproximação nas diagonais, casco cônico até −10,2 com nervuras, janelas e propulsores, 4 pilares até o fundo | 141 × −62…3,5 × 141 | 14.614 | centro, **topo do deque em y = 0** | (∓1280, 1,7, 0): y = `heightAt + piso` da área de pouso |
 | `plataforma-servico.glb` | **PBR.** Plataforma da Evolução e da Loja: deque r 23, aro com faixa `neon_servico`, 3 torres, anel `neon_servico` r 20 e tracejado branco; o **centro fica livre** (o cliente desenha o ícone e o nome do serviço no chão), 3 pilares | 47 × −62…3,5 × 47 | 8.648 | centro, topo em y = 0 | `SERVICOS` com y = piso (1,2) |
@@ -71,22 +71,28 @@ degraus (como a física: degrau de 30% do topo e rampa de 16 m); da água para b
 | `pedra-lago-2.glb` | Pedra inteira embaixo d'água (topo −22) | 48 × −64…−22 × 42 | 218 | idem | idem |
 | `ruina-submersa.glb` | Anel de pilares quebrados no fundo, com cristais no meio (lembrança do templo do Stage 6) | 67 × −63…−29 × 70 | 601 | centro, y = 0 | um ou dois pontos de cada lado (a montagem usou (∓420, ±640)) |
 
-Total: 23 arquivos, ~1,2 MB, mais ~95 KB das texturas compartilhadas (alvo do padrão PBR: uns 5 MB para o mapa inteiro).
+Total: 23 arquivos, ~1,4 MB, mais ~95 KB das texturas compartilhadas (alvo do padrão PBR: uns 5 MB para o mapa inteiro).
 
 ### Mineradora (`mineradora.glb`)
 
-Plataforma de extração que **sobe do fundo do lago**. Nós (para o cliente ligar efeitos):
-- `mineradora_fundo`: quatro pernas de âncora cravadas no leito, a coluna da broca e o **veio de cristais de He-3** em
+Plataforma de extração que **sobe do fundo do lago**, no padrão mid-poly PBR (`mineradora_pbr.py`): cada face é uma
+chapa do atlas `painel` (grafite com uma chapa de aço trocada aqui e ali), o volume na malha (cinta, saliência do duto,
+cornijas, contrafortes chanfrados com luz `neon_luz`, guarda-corpos nos tetos dos andares), simétrica pela rotação de
+180° como o mapa. Nós (para o cliente ligar efeitos):
+- `mineradora_fundo`: quatro pernas de âncora (com colares e sapatas de anel `neon_he3`) cravadas no leito, a coluna da broca e o **veio de cristais de He-3** em
   volta (10 aglomerados grandes colados na fundação e 12 espalhados até ~230 m), tudo embaixo d'água, visto pela água;
-- `mineradora_casco`: casco blindado na planta, da água (cinta da linha d'água a −17…−7) até 34 m com contrafortes, a
-  cornija, o 2º andar recuado 10 m (até 55 m) e o convés recuado 22 m (64 m); **duas docas** nas faces ±x: moldura da boca
-  de captação (luzes `neon_doca_N`), plataforma de atracação baixa (topo 1,6 m, sai até x = ±102, setas para a base),
-  escoras, e o **pórtico de carga** por cima (vigas de x = ±70 a ±100, a 35–38 m, e o funil em x = ±94 com a boca a 31 m;
-  o ponto da doca, `DOCAS` em x = ±84, fica embaixo do pórtico, sobre a plataforma);
-- `mineradora_conves`: torre de perfuração treliçada (derrick) de 64 a 128 m, dois tanques esféricos, quatro chaminés e
-  casas de máquinas;
+- `mineradora_casco`: casco blindado na planta, da água (cinta da linha d'água a −18…−8) até 34 m com contrafortes, a
+  cornija, o 2º andar recuado 10 m (até 55 m) e o convés recuado 22 m (64 m), com quatro tubos de subida em cada face ±z;
+  **duas docas** nas faces ±x: boca de captação com pilares e verga chanfrados (faixas `neon_doca_N`) e venezianas,
+  plataforma de atracação baixa (topo 1,6 m, frisos e balizas até 2,5 m, sai até x = ±102: vaga pintada em volta do ponto
+  da doca, setas `neon_doca_N` para a base, cabeços, flutuadores na linha d'água), e o **pórtico de carga** por cima
+  (vigas treliçadas de x = ±70 a ±101, a 35–38 m, com faixa `neon_doca_N` e holofotes `neon_luz`, talha sobre a vaga e o
+  funil em x = ±94 com a boca a 31 m; o ponto da doca, `DOCAS` em x = ±84, fica embaixo do pórtico, sobre a plataforma);
+- `mineradora_conves`: mesa rotativa, torre de perfuração treliçada (derrick) de 64 a 128 m com piso de grade, coroa e
+  moitão, dois tanques esféricos com berço e cintas, quatro chaminés, quatro casas de máquinas e dois mastros de antena;
 - `mineradora_he3`: tudo o que é `neon_he3` (duto que dá a volta no casco a 22 m, janelas do 2º andar, lâminas da boca, o
-  **cristal sendo içado** dentro da torre, o farol no alto e os anéis dos tanques e chaminés): pulsar junto, mais forte
+  **cristal sendo içado** dentro da torre, o poço da mesa, o farol no alto e as cintas dos tanques e os anéis das
+  chaminés; os cristais do içado usam também `he3_escuro`): pulsar junto, mais forte
   quando um minerador está minerando.
 
 ### Portal warp (`base-warp.glb`)
