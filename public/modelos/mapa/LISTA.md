@@ -11,9 +11,9 @@ repo: `new-astron-progresso/mapa-stage6/blender/` e `.../tmp/cenario/` (`cenario
 - glTF binário, **Y para cima, 1 unidade = 1 m**, no referencial do jogo (x para a direita do desenho, z para baixo do
   desenho). Pivô na origem do mapa ou do objeto, **y = 0 = chão de voo** (a nave voa a 10 m), salvo nota.
 - Dois padrões (IDENTIDADE-VISUAL.md, "Padrão dos modelos"):
-  - **mid-poly PBR** (o padrão das peças novas; hoje as três plataformas, a mineradora e as torres): normais e UV, **Draco**, materiais
+  - **mid-poly PBR** (o padrão das peças novas; hoje as três plataformas, a mineradora, as torres, o minerador e a escolta): normais e UV, **Draco**, materiais
     `pbr_*` que o cliente liga nas texturas compartilhadas de `public/texturas/mapa/` (o glb não traz imagem),
-    sombreado liso com quinas vivas por ângulo. Fontes: `plataformas_pbr.py`, `mineradora_pbr.py`, `torres_pbr.py` e `texturas_pbr.py`;
+    sombreado liso com quinas vivas por ângulo. Fontes: `plataformas_pbr.py`, `mineradora_pbr.py`, `torres_pbr.py`, `naves_servidor_pbr.py` e `texturas_pbr.py`;
   - **low-poly facetado** (as peças antigas, até serem refeitas): os arquivos **não trazem normais** de propósito
     (ficam ~4× menores); o `GLTFLoader` liga `flatShading` sozinho quando falta a normal. Sem textura nem UV: cor +
     emissivo.
@@ -68,12 +68,14 @@ degraus (como a física: degrau de 30% do topo e rampa de 16 m); da água para b
 | `torre-suporte-caida.glb` | **PBR.** A mesma torre derrubada: a cinta da base e o toco quebrado (borda irregular com rombos, até 4,8 m, sem colisão), chapas tombadas dentro do toco, o capitel partido e um gomo do fuste meio afundados com a faixa âmbar caída (`neon_objetivo`, o cliente apaga) e lascas boiando | 66 × −61…4,8 × 51 | 1.368 | idem | troca com a de pé quando `definirObstaculoAtivo('BS0', false)` |
 | `torreta.glb` | **PBR.** Torre sentinela da lane (`TORRETA`: r 9, topo 16), que antes era feita em código: nós `torreta_base` (pilar octogonal até o fundo, cinta na linha d'água, sapata, e o pé de 2,4 m com luzes `neon_time`; sempre de pé), `torreta_corpo` (o que tomba, pivô no chão: torre octogonal com aletas nas quinas e a faixa `neon_time` a 8 m) e, dentro dele, `torreta_cabeca` (**pivô no eixo, a 9 m**, gira em y: carcaça blindada, saias, mantelete, dois canos para **−z** a 10 m com freio de boca `neon_time`, lançadores de fumaça, radar e o sensor `neon_time` no mastro, até 17 m), e `torreta_destrocos` (o toco da torre rasgado sobre o pé, com rombos e aletas tortas, a cabeça partida tombada em cima, um cano torto, lascas e chapas na água, tudo abaixo de 7 m; o cliente só mostra com ela caída e quase apaga o neon) | 31 × −62…17 × 32 | 3.212 | centro, y = 0 | `TORRETAS` (`public/js/torretas.js`), giro 0; o cliente pinta o `neon_time` de cada cópia com a cor do time. Planta: corpo de −1,8 a −0,4 m (a cabeça é mais estreita), ponta do cano a 3,5 m |
 | `entrega.glb` | Arco da entrega dos mineradores na boca da base: viga flutuante a 40–49 m com fendas e luminárias `neon_time`, dois pilares flutuantes e duas boias na água (até 2,2 m) | 6,4 × −20…49 × 143 | 676 | centro da entrega, y = 0 | time 0: (−1110, 0, 0) giro 0; time 1: (1110, 0, 0) giro π |
+| `minerador.glb` | **PBR.** Nave do servidor (não é peça do mapa, mas usa o mesmo carregamento e as texturas): o minerador, frente para **−z**, y = 0 no centro do casco: casco de carga com proa em cunha e cabine `pbr_vidro`, dois motores laterais (boca em z = 2,6, x = ±1,65, y = −0,2: o cliente põe o brilho ali), blindagem com a faixa `neon_time`, a moldura do contêiner e o nó **`minerador_carga`** (bloco `he3_escuro` e cristais `neon_he3`, que o cliente só mostra cheio) | 4,4 × −0,8…2,9 × 6,1 | 874 | centro do casco | `public/js/nave.js` (`criarMinerador`; o do Núcleo, escala 1,7); o cliente pinta o `neon_time` com a cor do time |
+| `escolta.glb` | **PBR.** A escolta armada: caça de fuselagem afilada, asas enflechadas com a ponta `neon_time`, derivas, dois motores (boca em z = 3,9, x = ±1,1) e o nó **`escolta_torre`** (pivô em (0, 0,6, 0,6), gira em y: base, cabeça e dois canos para −z com a boca `neon_time`) | 6 × −0,7…1,6 × 8,2 | 780 | centro do casco | `criarEscolta` em `public/js/nave.js` |
 | `coral.glb`, `alga.glb`, `cristais-he3.glb` | Decoração do fundo: coral ramificado (~13 m), tufo de algas (fita dos dois lados, ~20 m), aglomerado de cristais de He-3 (~10 m) | — | 720 / 60 / 174 | **base no fundo** | y = `FUNDO_LAGO` − 3 (−63), espalhados (a montagem usou 70) |
 | `pedra-lago-1.glb` | Pedra que sobe do fundo e fura a água (topo +1,5 a 2,5 m: espuma em volta, abaixo do voo) | 37 × −64…2,5 × 33 | 174 | centro, y = 0 | pontos livres da região aberta (não na lane) |
 | `pedra-lago-2.glb` | Pedra inteira embaixo d'água (topo −22) | 48 × −64…−22 × 42 | 218 | idem | idem |
 | `ruina-submersa.glb` | Anel de pilares quebrados no fundo, com cristais no meio (lembrança do templo do Stage 6) | 67 × −63…−29 × 70 | 601 | centro, y = 0 | um ou dois pontos de cada lado (a montagem usou (∓420, ±640)) |
 
-Total: 24 arquivos, ~1,5 MB, mais ~95 KB das texturas compartilhadas (alvo do padrão PBR: uns 5 MB para o mapa inteiro).
+Total: 26 arquivos, ~1,6 MB, mais ~95 KB das texturas compartilhadas (alvo do padrão PBR: uns 5 MB para o mapa inteiro).
 
 ### Mineradora (`mineradora.glb`)
 
