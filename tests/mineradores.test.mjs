@@ -7,7 +7,7 @@ import { World } from '../server/game.js';
 import { MINERADOR, MINERADOR_NUCLEO, FILA_ESPACO } from '../server/mineradores.js';
 import { MINERADORES_POR_TIME } from '../shared/evolucao.js';
 import { createShip, createBullet, WEAPONS } from '../shared/sim.js';
-import { BASES, ENTREGAS, DOCAS, ROTAS, heightAt } from '../shared/terrain.js';
+import { BASES, ENTREGAS, DOCAS, ROTAS, MINERADORA, heightAt } from '../shared/terrain.js';
 import { alturaSolida } from '../shared/obstaculos.js';
 
 const SEGUNDO = 30; // ticks
@@ -45,12 +45,15 @@ test('mineradores: fazem o ciclo base → doca → entrega e somam 10 no placar,
   for (let i = 0; i < 100 * SEGUNDO && entregas.length < 2; i++) {
     w.step();
     for (const m of w.mineradores.lista) {
-      // O centro do minerador nunca fica dentro de construção (mineradora, torretas...).
-      assert.ok(alturaSolida(m.ship.x, m.ship.z) <= heightAt(m.ship.x, m.ship.z) + 1e-9, `dentro de construção em (${m.ship.x}, ${m.ship.z})`);
+      // O centro do minerador nunca fica dentro de construção (mineradora, torretas...);
+      // o hangar do próprio time, onde ele minera, é livre para ele.
+      assert.ok(alturaSolida(m.ship.x, m.ship.z, 0, false, m.time) <= heightAt(m.ship.x, m.ship.z) + 1e-9, `dentro de construção em (${m.ship.x}, ${m.ship.z})`);
       if (m.estado === 'minerando') {
         viuMinerando = true;
         const d = DOCAS[m.time];
         assert.ok(Math.hypot(m.ship.x - d.x, m.ship.z - d.z) < 30, 'minera na doca do próprio time');
+        assert.ok(Math.abs(m.ship.x - d.x) < 8, `para em cima da bacia de He-3 (x ${m.ship.x.toFixed(1)})`);
+        assert.ok(Math.abs(m.ship.x) < MINERADORA.meiaX, 'minera dentro do hangar');
       }
     }
     for (const e of w.entidades()) if (e.tipo === 'minerador' && e.carga === MINERADOR.carga) viuCarregado = true;

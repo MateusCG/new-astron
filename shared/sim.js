@@ -417,9 +417,9 @@ export function sanitizeInput(i) {
   };
 }
 
-function bloqueado(gAtual, x, z, passo) {
+function bloqueado(gAtual, x, z, passo, hangar) {
   if (passo < 1e-6) return false;
-  return (alturaSolida(x, z, SHIP_RADIUS) - gAtual) / passo > MAX_SLOPE;
+  return (alturaSolida(x, z, SHIP_RADIUS, false, hangar) - gAtual) / passo > MAX_SLOPE;
 }
 
 /** Conta para baixo um efeito em s (em segundos), sem criar o campo se ele não existe. */
@@ -584,16 +584,17 @@ export function stepShip(s, inp, dt = DT) {
   s.vz = f.z * vf + r.z * vl;
 
   // Colisão com parede: tenta o movimento inteiro, depois cada eixo (deslizar).
-  const g = alturaSolida(s.x, s.z, SHIP_RADIUS);
+  // `s.hangar` (só o minerador, só no servidor) abre o hangar do time dele na mineradora.
+  const g = alturaSolida(s.x, s.z, SHIP_RADIUS, false, s.hangar);
   const dx = s.vx * dt;
   const dz = s.vz * dt;
-  if (!bloqueado(g, s.x + dx, s.z + dz, Math.hypot(dx, dz))) {
+  if (!bloqueado(g, s.x + dx, s.z + dz, Math.hypot(dx, dz), s.hangar)) {
     s.x += dx;
     s.z += dz;
-  } else if (!bloqueado(g, s.x + dx, s.z, Math.abs(dx))) {
+  } else if (!bloqueado(g, s.x + dx, s.z, Math.abs(dx), s.hangar)) {
     s.x += dx;
     s.vz *= -0.2;
-  } else if (!bloqueado(g, s.x, s.z + dz, Math.abs(dz))) {
+  } else if (!bloqueado(g, s.x, s.z + dz, Math.abs(dz), s.hangar)) {
     s.z += dz;
     s.vx *= -0.2;
   } else {

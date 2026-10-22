@@ -98,11 +98,38 @@ export const CORREDOR = LANE;
  * em shared/obstaculos.js (com esta mesma planta).
  */
 export const MINERADORA = { x: 0, z: 0, meiaX: 70, meiaZ: 115, canto: 24, topo: 95 };
-/** Docas da mineradora: na face voltada para a própria base. O minerador para ali, minera e volta. */
-export const DOCAS = [
-  { time: 0, x: -84, z: 0 },
-  { time: 1, x: 84, z: 0 },
+/**
+ * Hangar de cada time na mineradora: o vão aberto na face voltada para a própria base
+ * (porta sempre aberta, de x = ±70 para dentro), com um campo de força na cor do time.
+ * Só o minerador do time atravessa (a nave dele leva `hangar` = time, só no servidor:
+ * alturaSolida não conta a mineradora dentro deste retângulo para ele); naves, tiros e
+ * escoltas batem no campo como na parede. `xMin`/`xMax` em x, `meiaZ` em volta de z = 0;
+ * o desenho (paredes a ±34 m, fundo a ±12 m, teto a 20 m) fica um pouco além.
+ */
+export const HANGARES = [
+  { time: 0, xMin: -78, xMax: -16, meiaZ: 30 },
+  { time: 1, xMin: 16, xMax: 78, meiaZ: 30 },
 ];
+/** Docas da mineradora: dentro do hangar do time. O minerador entra pela porta, para ali, minera e sai. */
+export const DOCAS = [
+  { time: 0, x: -38, z: 0 },
+  { time: 1, x: 38, z: 0 },
+];
+/**
+ * Ponto de espera na frente da porta de cada hangar, do lado de fora: onde a escolta
+ * para enquanto o minerador minera lá dentro (e o fim da ronda dela). As rotas passam
+ * por ele antes de entrar.
+ */
+export const ESPERAS = [
+  { time: 0, x: -100, z: 0 },
+  { time: 1, x: 100, z: 0 },
+];
+
+/** O ponto (x, z) está no hangar do `time` (onde só o minerador dele passa)? */
+export function noHangar(time, x, z) {
+  const h = HANGARES[time];
+  return !!h && x >= h.xMin && x <= h.xMax && Math.abs(z - MINERADORA.z) <= h.meiaZ;
+}
 /** @deprecated O depósito de minério virou a MINERADORA (as docas são o ponto de carga). */
 export const MINERIO = { x: MINERADORA.x, z: MINERADORA.z, raio: MINERADORA.meiaZ };
 
@@ -181,13 +208,18 @@ export const TORRETAS = BASES.flatMap((b) =>
 
 /**
  * Caminho dos mineradores de cada time: em LINHA RETA pela lane (z = 0), do centro da
- * base, passando pela entrega, até a própria doca, com um ponto a cada 100 m no
- * máximo. A volta é a mesma lista de trás para frente.
+ * base, passando pela entrega, até a espera na frente da porta (ESPERAS, com um ponto
+ * a cada 100 m no máximo) e dali, pela porta, até a doca dentro do hangar (o último
+ * ponto). A volta é a mesma lista de trás para frente. A escolta faz a ronda só até a
+ * espera (o penúltimo ponto).
  */
 export const ROTAS = BASES.map((b) => {
+  const espera = ESPERAS[b.time];
   const fim = DOCAS[b.time];
-  const n = Math.ceil(Math.abs(fim.x - b.x) / 100);
-  return Array.from({ length: n + 1 }, (_, i) => ({ x: b.x + ((fim.x - b.x) * i) / n, z: b.z + ((fim.z - b.z) * i) / n }));
+  const n = Math.ceil(Math.abs(espera.x - b.x) / 100);
+  const pontos = Array.from({ length: n + 1 }, (_, i) => ({ x: b.x + ((espera.x - b.x) * i) / n, z: b.z + ((espera.z - b.z) * i) / n }));
+  pontos.push({ x: fim.x, z: fim.z });
+  return pontos;
 });
 
 // ---------- Jungle ----------

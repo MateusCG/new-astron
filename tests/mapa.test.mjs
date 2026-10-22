@@ -23,6 +23,9 @@ import {
   CORREDOR,
   MINERADORA,
   DOCAS,
+  ESPERAS,
+  HANGARES,
+  noHangar,
   ENTREGAS,
   SERVICOS,
   OBJETIVOS,
@@ -128,10 +131,24 @@ test('mapa: contrato (tamanho, bases, lane, mineradora, docas, entregas, serviç
   assert.deepEqual([MINERADORA.x, MINERADORA.z, MINERADORA.meiaX, MINERADORA.meiaZ], [0, 0, 70, 115]);
   assert.ok(MINERADORA.topo >= 90);
   assert.ok(MINERADORA.meiaZ > LANE.meiaLargura, 'a mineradora é mais larga que a lane');
+  // A doca fica dentro do hangar do time (porta aberta na face voltada para a base);
+  // na frente da porta, do lado de fora, a espera (onde a escolta para).
   assert.deepEqual(DOCAS, [
-    { time: 0, x: -84, z: 0 },
-    { time: 1, x: 84, z: 0 },
+    { time: 0, x: -38, z: 0 },
+    { time: 1, x: 38, z: 0 },
   ]);
+  assert.deepEqual(ESPERAS, [
+    { time: 0, x: -100, z: 0 },
+    { time: 1, x: 100, z: 0 },
+  ]);
+  for (const h of HANGARES) {
+    const d = DOCAS[h.time];
+    assert.ok(noHangar(h.time, d.x, d.z) && !noHangar(1 - h.time, d.x, d.z), 'a doca no hangar do próprio time');
+    assert.ok(Math.abs(d.x) < MINERADORA.meiaX, 'dentro da mineradora');
+    const face = Math.sign(BASES[h.time].x) * MINERADORA.meiaX;
+    assert.ok(h.xMin < face && h.xMax > face, 'o hangar abre na face voltada para a base');
+    assert.ok(Math.abs(h.xMin) > 0 && Math.sign(h.xMin) === Math.sign(h.xMax), 'um hangar de cada lado, sem se tocar');
+  }
   assert.deepEqual(ENTREGAS.map((e) => [e.time, e.x, e.z]), [[0, -1110, 0], [1, 1110, 0]]);
   assert.ok(NIVEL_AGUA < 0, 'a água fica abaixo do chão de voo');
   assert.deepEqual(OBJETIVOS, [], 'os objetivos A/B/C saíram');
@@ -291,7 +308,7 @@ test('mapa: da base se chega a todo o chão aberto, sem escalar rocha', () => {
   assert.ok(maisAlto < 1, `subiu até ${maisAlto.toFixed(1)} m`);
   for (const b of BASES) assert.ok(alcancado(b.x + 30, b.z), `base ${b.time}`);
   for (const s of SERVICOS) assert.ok(alcancado(s.x, s.z), `${s.servico} ${s.time}`);
-  for (const d of DOCAS) assert.ok(alcancado(d.x, d.z), `doca ${d.time}`);
+  for (const d of ESPERAS) assert.ok(alcancado(d.x, d.z), `porta do hangar ${d.time}`);
   for (const a of [...ACAMPAMENTOS, ...PLATAFORMAS_POUSO, ...ASTEROIDES]) assert.ok(alcancado(a.x, a.z), a.id);
   for (const b of BUFFS) assert.ok(alcancado(b.x + (b.tipo === 'suporte' ? 20 : 0), b.z), b.id);
   assert.ok(alcancado(NUCLEO.x, NUCLEO.z), 'Núcleo');
@@ -399,42 +416,64 @@ test('mapa: pouso nas plataformas de serviço e de dinheiro, e não do lado dela
   }
 });
 
-test('mapa: as ROTAS dos mineradores são retas, da base à própria doca, e livres', () => {
+test('mapa: as ROTAS dos mineradores são retas, da base pela porta até a doca no hangar, e livres', () => {
   for (const [t, r] of ROTAS.entries()) {
     assert.deepEqual(r[0], { x: BASES[t].x, z: BASES[t].z });
+    assert.deepEqual(r.at(-2), { x: ESPERAS[t].x, z: ESPERAS[t].z }, 'passa pela espera na frente da porta');
     assert.deepEqual(r.at(-1), { x: DOCAS[t].x, z: DOCAS[t].z });
     for (const p of r) assert.equal(p.z, LANE.z, 'em linha reta pela lane');
     for (let i = 1; i < r.length; i++) {
       assert.ok(Math.hypot(r[i].x - r[i - 1].x, r[i].z - r[i - 1].z) <= 100);
       assert.ok(Math.sign(r[i].x - r[i - 1].x) === -Math.sign(BASES[t].x), 'sempre rumo à mineradora');
-      // As duas faixas (ida e volta) livres de rocha e construção, com folga.
+      // As duas faixas (ida e volta) livres de rocha e construção, com folga; pela
+      // porta do hangar, livres só para o minerador do time (com a folga da nave).
+      const ultimo = i === r.length - 1;
       for (const lado of [-1, 1]) {
         for (let k = 0; k <= 1; k += 0.05) {
           const x = r[i - 1].x + (r[i].x - r[i - 1].x) * k;
           const z = r[i - 1].z + lado * FAIXA_MINERADOR;
-          assert.equal(alturaSolida(x, z, SHIP_RADIUS + 4), 0, `(${x}, ${z})`);
+          const h = ultimo ? alturaSolida(x, z, SHIP_RADIUS, false, t) : alturaSolida(x, z, SHIP_RADIUS + 4);
+          assert.equal(h, 0, `(${x}, ${z})`);
         }
       }
     }
     // A entrega fica no caminho.
     const e = ENTREGAS[t];
     assert.ok(Math.min(...r.map((p) => p.x)) <= e.x && Math.max(...r.map((p) => p.x)) >= e.x);
-    // A doca fica colada na face da mineradora voltada para a base, e livre.
+    // A doca fica no hangar, na metade da mineradora voltada para a base: livre para o
+    // minerador do time, sólida para as outras naves e para o minerador do outro time.
     const d = DOCAS[t];
-    assert.equal(alturaSolida(d.x, d.z, SHIP_RADIUS), 0, 'doca livre');
-    assert.ok(Math.abs(d.x) - MINERADORA.meiaX < 20 && Math.sign(d.x) === Math.sign(BASES[t].x));
+    assert.equal(alturaSolida(d.x, d.z, SHIP_RADIUS, false, t), 0, 'doca livre para o minerador do time');
+    assert.ok(alturaSolida(d.x, d.z, SHIP_RADIUS) > 0, 'sólida para as naves');
+    assert.ok(alturaSolida(d.x, d.z, SHIP_RADIUS, false, 1 - t) > 0, 'sólida para o minerador do outro time');
+    assert.ok(Math.sign(d.x) === Math.sign(BASES[t].x));
   }
 });
 
-test('mapa: voando pela lane, da base se chega à doca, e a mineradora não deixa passar', () => {
+test('mapa: voando pela lane, da base se chega à porta do hangar, e o campo de força não deixa a nave entrar', () => {
   for (const b of BASES) {
     const s = createShip('bellico', b.x, b.z, b.time === 0 ? -Math.PI / 2 : Math.PI / 2);
-    const d = DOCAS[b.time];
+    const d = ESPERAS[b.time];
     assert.equal(voar(s, [{ x: d.x, z: d.z }], { chegou: 10 }), 1, `parou em (${s.x.toFixed(0)}, ${s.z.toFixed(0)})`);
-    // Segue reto contra a mineradora: para na face dela, não atravessa.
+    // Segue reto contra a porta do hangar: para no campo de força, não entra.
     for (let i = 0; i < 30 * 4; i++) stepShip(s, { ...PARADO, th: 1, b: true });
     assert.ok(Math.abs(s.x) > MINERADORA.meiaX && Math.sign(s.x) === Math.sign(b.x), `não atravessou (x ${s.x.toFixed(1)})`);
     assert.ok(s.y < HOVER + 1, 'nem passou por cima');
+  }
+});
+
+test('mapa: o minerador atravessa o campo de força do hangar do time dele, e só o dele', () => {
+  for (const b of BASES) {
+    const t = b.time;
+    const sg = Math.sign(b.x);
+    for (const [hangar, entra] of [[t, true], [1 - t, false]]) {
+      const s = createShip('shrewdo', ESPERAS[t].x, FAIXA_MINERADOR, sg > 0 ? Math.PI / 2 : -Math.PI / 2);
+      s.hangar = hangar;
+      for (let i = 0; i < 30 * 5; i++) stepShip(s, { ...PARADO, th: 0.6 });
+      const dentro = Math.abs(s.x) < MINERADORA.meiaX;
+      assert.equal(dentro, entra, `hangar ${hangar} na porta do time ${t}: x ${s.x.toFixed(1)}`);
+      if (entra) assert.ok(noHangar(t, s.x, s.z), 'ficou dentro do hangar');
+    }
   }
 });
 

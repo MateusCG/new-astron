@@ -4,10 +4,13 @@
 //
 // Ciclo de cada minerador, sempre em linha reta pela lane (ROTAS[time] em
 // shared/terrain.js, sem estrada):
-//   'ida'        sai do centro da base e segue a rota até a própria doca da
-//                mineradora (DOCAS; a mineradora em si é sólida);
+//   'ida'        sai do centro da base e segue a rota até a porta do hangar do
+//                time na mineradora (ESPERAS) e, por ela, até a doca lá dentro
+//                (DOCAS; a mineradora é sólida, mas a nave do minerador leva
+//                `hangar` = time e atravessa o campo de força da porta: HANGARES);
 //   'minerando'  para ali MINERADOR.mineracaoS segundos, virando para voltar, e
 //                enche o contêiner com a carga (10, mais a melhoria da Evolução);
+//                sai pela mesma porta;
 //   'volta'      refaz a rota de trás para frente e, ao passar pela ENTREGAS[time]
 //                do próprio time, soma a carga no placar e volta para a 'ida'.
 // Cada sentido anda na sua faixa (mão direita, FAIXA_MINERADOR do eixo), para quem
@@ -29,7 +32,7 @@
 // a carga conta ao passar pela faixa, sem parar.
 //
 // Tempos (medidos em tests/mineradores.test.mjs, sem melhoria, 30 m/s): da base à
-// doca são ~1200 m, uns 40 s; minerando 5 s; da doca à entrega ~1030 m, uns 34 s. A
+// doca (dentro do hangar) são ~1240 m, uns 41 s; minerando 5 s; da doca à entrega ~1070 m, uns 36 s. A
 // primeira entrega sai ~79 s depois da saída e cada volta seguinte (entrega → doca →
 // entrega) leva ~75 s. Numa partida de 20 minutos cada minerador que sobrevive faz
 // umas 15 viagens: com os 10, ~150 entregas por time, ~1500 de minério, e ~1760 no
@@ -91,6 +94,7 @@ export const FILA_ESPACO = 35;
 const FILA_LARGURA = 10; // m de lado: mais que isto, está na outra faixa (não é o da frente)
 const FILA_RUMO = 0.5; // cosseno: só conta quem vai no mesmo sentido (até ~60° de diferença)
 const CHEGOU = 12; // m: perto assim de um ponto da rota, segue para o próximo
+const CHEGOU_DOCA = 4; // m: na doca (dentro do hangar) para em cima da bacia de He-3
 const FREIA_DIST = 40; // m antes da doca: começa a frear para parar nela
 
 /** Diferença de ângulo de a para b, em (-π, π]. */
@@ -182,6 +186,7 @@ export class Mineradores {
     const z = p.z - ((q.z - p.z) / len) * atras;
     const ship = createShip(MINERADOR.raca, x, z, yawPara(x, z, q.x, q.z));
     ship.time = time;
+    ship.hangar = time; // passa pelo campo de força da porta do hangar do time (alturaSolida)
     ship.hp = ship.maxHp = a.hp;
     if (nucleo) ship.raio = MINERADOR_NUCLEO.raio; // alvo maior (bulletHits e áreas leem s.raio)
     return {
@@ -287,7 +292,7 @@ export class Mineradores {
       alvo = pontoRota(m.time, m.ponto, true);
       const d = Math.hypot(alvo.x - s.x, alvo.z - s.z);
       if (m.ponto === ultimo && d < FREIA_DIST) th = thMax * Math.max(0.2, d / FREIA_DIST);
-      if (d < CHEGOU) {
+      if (d < (m.ponto === ultimo ? CHEGOU_DOCA : CHEGOU)) {
         if (m.ponto < ultimo) m.ponto++;
         else {
           m.estado = 'minerando';

@@ -14,7 +14,9 @@
 // - a água (agua.js, shader próprio) em NIVEL_AGUA, abaixo do chão de voo: tudo
 //   flutua sobre o lago;
 // - a mineradora de He-3 no centro, com as docas na cor do time dono (relativa a quem
-//   olha) e o He-3 "respirando" (mais forte com minerador minerando);
+//   olha), a porta de cada hangar sempre aberta com o campo de força do time (só o
+//   minerador dele passa; translúcido, aditivo, pulsando devagar) e o He-3
+//   "respirando" (mais forte com minerador minerando);
 // - as bases: portal warp flutuante (ilha boiando devagar, membrana em redemoinho e
 //   um feixe fino da ponta da broca até a água), anel de pouso, plataformas da
 //   Evolução e da Loja com o ícone e o nome no chão, e a entrega na boca da base;
@@ -89,6 +91,10 @@ const CEU_RAIO = 4200;
 /** Neon do He-3: "respira" entre estes valores (e sobe com minerador minerando). */
 const HE3_MIN = 0.6;
 const HE3_MAX = 1.1;
+/** Campo de força na porta do hangar: opacidade média, quanto pulsa e em quantos segundos. */
+const CAMPO_OPACIDADE = 0.07;
+const CAMPO_PULSO = 0.025;
+const CAMPO_PERIODO_S = 2.4;
 /** Âmbar de objetivo aceso e apagado (espera/recarga). */
 const OBJ_ACESO = 1.0;
 const OBJ_APAGADO = 0.15;
@@ -270,11 +276,31 @@ export function rochasProntas() {
 
 // ---------- Mineradora ----------
 
+/**
+ * Mineradora: docas e campos de força na cor do time dono, relativa a quem olha. O
+ * campo é a película translúcida na porta de cada hangar (aditiva, dos dois lados, sem
+ * escrever profundidade: dá para ver o hangar e o minerador lá dentro através dela).
+ */
 function montarMineradora(g, meuTime) {
   const m = por(g, 'mineradora', 0, 0, 0, 0);
   if (!m) return null;
-  for (const time of [0, 1]) pintar(m, `neon_doca_${time}`, neon(time === meuTime ? CORES.neon : CORES.perigo));
-  return m;
+  const campos = [];
+  for (const time of [0, 1]) {
+    const cor = time === meuTime ? CORES.neon : CORES.perigo;
+    pintar(m, `neon_doca_${time}`, neon(cor));
+    const campo = new THREE.MeshBasicMaterial({
+      color: cor,
+      transparent: true,
+      opacity: CAMPO_OPACIDADE,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      fog: true,
+    });
+    pintar(m, `campo_doca_${time}`, campo);
+    campos.push(campo);
+  }
+  return { m, campos };
 }
 
 // ---------- Bases ----------
@@ -586,7 +612,7 @@ export function criarCena({ meuTime = 0 } = {}) {
   const mapa = new THREE.Group();
   scene.add(mapa);
   montarRochas(mapa);
-  montarMineradora(mapa, meuTime);
+  const mineradora = montarMineradora(mapa, meuTime);
   const bases = BASES.map((b) => montarBase(mapa, b, meuTime));
   const torres = montarTorres(mapa);
   const plataformas = montarPlataformas(mapa);
@@ -657,6 +683,9 @@ export function criarCena({ meuTime = 0 } = {}) {
     const he3 = materialDoMapa('neon_he3');
     if (he3) he3.emissiveIntensity = respira;
     agua.userData.material.uniforms.uHe3Pulso.value = 0.6 + 0.4 * (respira / HE3_MAX);
+    for (const [k, c] of (mineradora?.campos ?? []).entries()) {
+      c.opacity = CAMPO_OPACIDADE + CAMPO_PULSO * Math.sin((tempo / CAMPO_PERIODO_S) * Math.PI * 2 + k * 1.7);
+    }
 
     // Bases: a ilha do portal boia devagar e o feixe da broca pulsa.
     for (const b of bases) {

@@ -21,7 +21,7 @@ const TETOS = [
 ];
 
 /** Materiais que um glb PBR pode trazer (o cliente acha cada um pelo nome). */
-const MATERIAIS_PBR = /^(pbr_[a-z0-9_]+|neon_(time|servico|objetivo|luz|he3|doca_[01])|portal_time|he3_escuro)$/;
+const MATERIAIS_PBR = /^(pbr_[a-z0-9_]+|neon_(time|servico|objetivo|luz|he3|doca_[01])|campo_doca_[01]|portal_time|he3_escuro)$/;
 
 function lerGlb(nome) {
   const b = readFileSync(path.join(PASTA, `${nome}.glb`));
@@ -83,9 +83,9 @@ test('modelos do mapa: os anéis e o emissor que a cena pinta continuam nas plat
 test('modelos do mapa: a mineradora mantém as docas de cada time, o He-3 e os nós do contrato', () => {
   const j = lerGlb('mineradora');
   const mats = new Set(j.materials.map((m) => m.name));
-  for (const m of ['neon_doca_0', 'neon_doca_1', 'neon_he3']) assert.ok(mats.has(m), m);
+  for (const m of ['neon_doca_0', 'neon_doca_1', 'neon_he3', 'campo_doca_0', 'campo_doca_1']) assert.ok(mats.has(m), m);
   const nos = new Set(j.nodes.map((n) => n.name));
-  for (const n of ['mineradora', 'mineradora_casco', 'mineradora_conves', 'mineradora_he3', 'mineradora_fundo']) assert.ok(nos.has(n), n);
+  for (const n of ['mineradora', 'mineradora_casco', 'mineradora_conves', 'mineradora_he3', 'mineradora_fundo', 'mineradora_campo']) assert.ok(nos.has(n), n);
 });
 
 test('modelos do mapa: as torres trazem os nós que o cliente mexe, com o pivô no lugar', () => {

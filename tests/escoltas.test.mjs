@@ -9,7 +9,7 @@ import { World } from '../server/game.js';
 import { ESCOLTA } from '../server/escoltas.js';
 import { RECOMPENSA } from '../server/progressao.js';
 import { createShip } from '../shared/sim.js';
-import { BASES, LANE, MINERADORA, DOCAS, heightAt } from '../shared/terrain.js';
+import { BASES, LANE, MINERADORA, DOCAS, ESPERAS, heightAt } from '../shared/terrain.js';
 import { alturaSolida } from '../shared/obstaculos.js';
 
 const SEGUNDO = 30;
@@ -101,7 +101,7 @@ test('escolta: as três saem em fila e se espalham pelo comboio dos 10 minerador
   assert.ok(espalhadas > 60 * SEGUNDO, 'frente e fim do comboio longe uma da outra');
 });
 
-test('escolta: sem minerador, faz a ronda da rota (vai à doca e volta)', () => {
+test('escolta: sem minerador, faz a ronda da rota (vai até a porta do hangar e volta, sem entrar)', () => {
   const { w } = mundo();
   w.mineradores.passo = () => {};
   w.mineradores.limpar();
@@ -109,14 +109,32 @@ test('escolta: sem minerador, faz a ronda da rota (vai à doca e volta)', () => 
   const e = escoltaDo(w, 1);
   let menorDist = Infinity;
   let voltou = false;
-  const doca = DOCAS[1];
+  const porta = ESPERAS[1];
   for (let i = 0; i < 75 * SEGUNDO; i++) {
     w.step();
-    menorDist = Math.min(menorDist, Math.hypot(e.ship.x - doca.x, e.ship.z - doca.z));
+    menorDist = Math.min(menorDist, Math.hypot(e.ship.x - porta.x, e.ship.z - porta.z));
     if (menorDist < 40 && Math.abs(e.ship.x - BASES[1].x) < 150) voltou = true;
+    assert.ok(Math.abs(e.ship.x) > MINERADORA.meiaX, 'a escolta não entra no hangar');
   }
-  assert.ok(menorDist < 40, `foi até a doca (${menorDist.toFixed(0)} m)`);
+  assert.ok(menorDist < 40, `foi até a porta do hangar (${menorDist.toFixed(0)} m)`);
   assert.ok(voltou, 'e voltou para perto da base');
+});
+
+test('escolta: com o minerador minerando no hangar, espera do lado de fora, na frente da porta', () => {
+  const { w } = mundo();
+  let viu = 0;
+  for (let i = 0; i < 70 * SEGUNDO; i++) {
+    w.step();
+    for (const e of w.escoltas.lista.filter((e) => e.vivo)) {
+      assert.ok(Math.abs(e.ship.x) > MINERADORA.meiaX, `a escolta do time ${e.time} entrou na mineradora (x ${e.ship.x.toFixed(1)})`);
+    }
+    for (const m of w.mineradores.lista.filter((m) => m.estado === 'minerando')) {
+      const porta = ESPERAS[m.time];
+      const perto = w.escoltas.lista.filter((e) => e.vivo && e.time === m.time && Math.hypot(e.ship.x - porta.x, e.ship.z - porta.z) < 45);
+      if (perto.length) viu++;
+    }
+  }
+  assert.ok(viu > 0, 'alguma escolta esperou na porta enquanto o minerador minerava');
 });
 
 test('escolta: atira no inimigo perto, não no aliado, e sob EMP para', () => {
