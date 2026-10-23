@@ -33,7 +33,7 @@ const $ = (s) => document.querySelector(s);
 // O minimapa mostra o retângulo inteiro (o que sobra do canvas é rocha da borda).
 // Cores do guia visual: sua base em turquesa, a do outro time em vermelho, o He-3
 // (mineradora e docas) em azul-gelo, serviços na cor de cada um e objetivos em âmbar
-// (cada um com a sua letra). Fundo na paleta do lago: água verde-azulada escura,
+// (cada um com a sua letra). Fundo na paleta do lago: água azul-tinta da cratera,
 // rocha em estratos quentes, as nuvens de gás (campos que escondem) em manchas
 // claras de borda suave, na cor da poeira iluminada da nuvem.
 const COR_MEU_TIME = '#00efc0';
@@ -144,10 +144,10 @@ export class Hud {
         const [x, z] = this.#doMapa(i + 0.5, j + 0.5);
         const p = paredeAt(x, z);
         const k = (j * w + i) * 4;
-        // Lago (campo aberto) verde-azulado escuro; rocha em estratos quentes, mais clara no alto.
-        img.data[k] = p === 0 ? 16 : 70 + p * 75;
-        img.data[k + 1] = p === 0 ? 58 : 54 + p * 62;
-        img.data[k + 2] = p === 0 ? 66 : 40 + p * 46;
+        // Lago (campo aberto) azul-tinta da cratera; rocha em estratos quentes, mais clara no alto.
+        img.data[k] = p === 0 ? 14 : 70 + p * 75;
+        img.data[k + 1] = p === 0 ? 44 : 54 + p * 62;
+        img.data[k + 2] = p === 0 ? 60 : 40 + p * 46;
         img.data[k + 3] = 255;
       }
     }
