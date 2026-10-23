@@ -54,10 +54,10 @@ test('modelos do mapa: nenhuma peça passa do teto de triângulos do tipo dela',
 const PBR = [
   'plataforma-base', 'plataforma-servico', 'plataforma-pouso', 'mineradora', 'torre-suporte', 'torre-suporte-caida', 'torreta',
   'minerador', 'escolta', 'base-warp', 'rocha-quadrante', 'rocha-quadrante-b', 'parede-l', 'parede-l-espelhada',
-  'borda-quadrante', 'borda-quadrante-espelhada', 'borda-horizonte', 'pedra-lago-1', 'pedra-lago-2',
+  'borda-quadrante', 'borda-quadrante-espelhada', 'borda-horizonte', 'pedra-lago-1', 'pedra-lago-2', 'nucleo', 'ruina-submersa',
 ];
 
-test('modelos do mapa: as plataformas, a mineradora, as torres, as naves do servidor, o portal e as rochas estão no padrão PBR', () => {
+test('modelos do mapa: as plataformas, a mineradora, as torres, as naves do servidor, o portal, as rochas, o Núcleo e a ruína estão no padrão PBR', () => {
   for (const nome of PBR) assert.ok(ehPbr(lerGlb(nome)), nome);
 });
 
@@ -137,4 +137,24 @@ test('modelos do mapa: as rochas e a borda são um material só, a rocha PBR, co
     assert.deepEqual(j.materials.map((m) => m.name), ['pbr_rocha'], nome);
     for (const m of j.meshes) for (const p of m.primitives) assert.ok(p.attributes.COLOR_0 != null, `${nome}: sem a cor do vértice`);
   }
+});
+
+test('modelos do mapa: o Núcleo traz os nós que a cena gira, com o pivô no centro do cristal, e o âmbar e o He-3 que ela acende', () => {
+  const j = lerGlb('nucleo');
+  const no = (nome) => j.nodes.find((n) => n.name === nome);
+  for (const n of ['nucleo_cristal', 'nucleo_lascas', 'nucleo_anel_1', 'nucleo_anel_2', 'nucleo_anel_3']) {
+    assert.deepEqual(no(n)?.translation?.map(Math.round), [0, 18, 0], `${n} gira no centro do cristal`);
+  }
+  for (const n of ['nucleo_base', 'nucleo_estabilizadores']) assert.ok(no(n) && !no(n).translation, `${n} na origem`);
+  const mats = new Set(j.materials.map((m) => m.name));
+  assert.ok(mats.has('neon_objetivo') && mats.has('neon_he3'));
+});
+
+test('modelos do mapa: a ruína submersa é pedra PBR com a cor do vértice e os cristais de He-3, toda embaixo d\'água', () => {
+  const j = lerGlb('ruina-submersa');
+  const pedra = j.meshes.find((m) => m.primitives.some((p) => j.materials[p.material].name === 'pbr_rocha'));
+  assert.ok(pedra?.primitives.every((p) => p.attributes.COLOR_0 != null));
+  assert.ok(j.materials.some((m) => m.name === 'neon_he3'));
+  const maxY = Math.max(...j.meshes.flatMap((m) => m.primitives.map((p) => j.accessors[p.attributes.POSITION].max[1])));
+  assert.ok(maxY < -20, `topo a ${maxY} m`);
 });
