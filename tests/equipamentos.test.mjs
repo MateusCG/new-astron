@@ -139,9 +139,10 @@ test('equipamentos: números dos prints do original, na escala do jogo', () => {
 });
 
 test('equipamentos: preço da V1 é a compra, evoluir é a taxa de tuning da anterior, nada depois da V8', () => {
-  // Neutron Op.: 2400 no original × 0,06; taxas 3120, 4560 ... × 0,06, de 10 em 10.
+  // Neutron Op.: 2400 no original × 0,06; taxas 3120, 4560 ... × 0,003 (FATOR_OURO_EVOLUIR),
+  // de 10 em 10 e no mínimo 10.
   assert.equal(precoEquip('e330010'), 140);
-  assert.deepEqual([1, 2, 3, 4, 5, 6, 7].map((n) => precoEvoluirEquip('e330010', n)), [190, 270, 400, 600, 1080, 1580, 2020]);
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 7].map((n) => precoEvoluirEquip('e330010', n)), [10, 10, 20, 30, 50, 80, 100]);
   assert.equal(precoEvoluirEquip('e330010', 8), null);
   assert.equal(precoEvoluirEquip('e330010', 0), null);
   assert.equal(precoEvoluirEquip('nada', 1), null);

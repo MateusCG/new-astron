@@ -18,7 +18,8 @@
 //   o tempo de voo, que é o que quem joga sente, também.
 // - Raios de colisão e de área, vão entre os canos e raio da nova × 0,25
 //   (FATOR_AREA): as naves do original têm ~40 m de envergadura, as do jogo ~9 m.
-// - Durações de efeito iguais (FATOR_EFEITO); preço em ouro × 0,06 (FATOR_OURO).
+// - Durações de efeito iguais (FATOR_EFEITO); preço de compra em ouro × 0,06 (FATOR_OURO)
+//   e de evolução × 0,003 (FATOR_OURO_EVOLUIR).
 // - Quem acelera ou freia (mísseis, ondas, lâminas) voa a uma velocidade constante:
 //   a média do original (alcance ÷ vida), com o mesmo alcance e o mesmo tempo.
 // - O projétil acerta com no mínimo RAIO_TIRO_MIN de raio: no original o tiro de
@@ -54,7 +55,12 @@ export const FATOR_VEL = FATOR_VELOCIDADE; // 0,5: m/ms × 1000 × FATOR_VEL = m
 export const FATOR_ALCANCE = 0.5; // mira, teleporte, ativação da mina que atira
 export const FATOR_AREA = 0.25; // raios, vão entre canos, nova
 export const FATOR_EFEITO = 1; // durações de efeito
-export const FATOR_OURO = 0.06; // preço de compra e de evolução
+export const FATOR_OURO = 0.06; // preço de compra (a V1)
+// Preço de evolução (V2 a V8): 20 vezes mais barato que a compra (pedido do Mateus),
+// para cada piloto conseguir levar uns 8 itens até a V8 numa partida (uns 5 mil de
+// ouro com as compras; a renda vai de ~3 mil na lane a ~13 mil na jungle).
+export const FATOR_OURO_EVOLUIR = FATOR_OURO / 20;
+export const PRECO_EVOLUIR_MIN = 10; // ouro: o degrau mais barato
 export const MS = 1000;
 
 export const RAIO_TIRO_MIN = 4; // m: raio de acerto mínimo de projétil
@@ -441,7 +447,10 @@ function converterArma(a) {
       nivel: i + 1,
       id: v.id,
       // Ouro para chegar a esta versão: a V1 é a compra; as seguintes, a taxa de tuning da anterior.
-      preco: i === 0 ? Math.max(PRECO_MIN, Math.round((v.preco * FATOR_OURO) / 10) * 10) : Math.round((anterior.taxa * FATOR_OURO) / 10) * 10,
+      preco:
+        i === 0
+          ? Math.max(PRECO_MIN, Math.round((v.preco * FATOR_OURO) / 10) * 10)
+          : Math.max(PRECO_EVOLUIR_MIN, Math.round((anterior.taxa * FATOR_OURO_EVOLUIR) / 10) * 10),
       cd: ((v.recargaMs ?? 0) / MS) * FATOR_RECARGA_ARMA,
       energia: (v.energia ?? 0) * FATOR_ENERGIA_ARMA, // por disparo; por segundo nas de segurar
       segurar,

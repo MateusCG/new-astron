@@ -30,14 +30,15 @@
 //   é quanto da resistência do alvo ela ignora.
 // - Poder, recarga, golpe crítico, velocidade e aceleração: o % do original, igual
 //   (vira fração: 20% = 0,2).
-// - Ouro × FATOR_OURO (0,06), arredondado de 10 em 10, como as armas.
+// - Ouro da compra × FATOR_OURO (0,06) e da evolução × FATOR_OURO_EVOLUIR (0,003, no
+//   mínimo PRECO_EVOLUIR_MIN), arredondado de 10 em 10, como as armas.
 //
 // Mesmo arquivo nos dois lados e determinístico: o servidor valida e aplica, o
 // cliente lê para desenhar a Loja, o Inventário e o STATUS.
 
 import { EQUIPAMENTOS_ORIGINAL } from './equipamentos-original.js';
 import { FATOR_ESCALA_HP, FATOR_ENERGIA, FATOR_RECARGA, MS_POR_S, ORDEM_CLASSES } from './naves.js';
-import { FATOR_OURO, RESIST_POR_PONTO, RESIST_MAX, TIPOS_DANO } from './armas.js';
+import { FATOR_OURO, FATOR_OURO_EVOLUIR, PRECO_EVOLUIR_MIN, RESIST_POR_PONTO, RESIST_MAX, TIPOS_DANO } from './armas.js';
 import { NIVEL_ITEM_MAX } from './versoes.js';
 
 export { NIVEL_ITEM_MAX, RESIST_POR_PONTO, RESIST_MAX };
@@ -101,6 +102,7 @@ const EFEITO_DO_CODIGO = {
 
 const r4 = (x) => Math.round(x * 1e4) / 1e4;
 const ouro = (x) => Math.round((x * FATOR_OURO) / ARREDONDA_OURO) * ARREDONDA_OURO;
+const ouroEvoluir = (x) => Math.max(PRECO_EVOLUIR_MIN, Math.round((x * FATOR_OURO_EVOLUIR) / ARREDONDA_OURO) * ARREDONDA_OURO);
 
 /** Resistência em pontos [Ph, Op, El] → efeitos 'resist' (só os que não são zero). */
 function efeitosResist(pontos) {
@@ -143,14 +145,14 @@ function converterItem(o) {
   let custo = 0;
   const versoes = o.versoes.map((v, i) => {
     // Ouro para chegar a esta versão: a V1 é a compra; as seguintes, a taxa de tuning da anterior.
-    const preco = i === 0 ? ouro(v.preco) : ouro(o.versoes[i - 1].taxa);
+    const preco = i === 0 ? ouro(v.preco) : ouroEvoluir(o.versoes[i - 1].taxa);
     custo += preco;
     const versao = {
       v: v.v,
       id: v.id,
       preco,
       custoTotal: custo,
-      taxaTuning: v.taxa ? ouro(v.taxa) : 0, // ouro para a próxima (0 na V8)
+      taxaTuning: v.taxa ? ouroEvoluir(v.taxa) : 0, // ouro para a próxima (0 na V8)
       efeitos: efeitosDaVersao(o.categoria, v),
     };
     // Atalhos por categoria (os mesmos números dos efeitos).
