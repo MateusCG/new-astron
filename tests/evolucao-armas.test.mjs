@@ -43,11 +43,11 @@ test('evoluir arma: preço da taxa de tuning do original e máximo na V8', () =>
     }
     assert.equal(precoEvoluirArma(kind, ARMA_NIVEL_MAX), null, 'no máximo não há próximo');
   }
-  // Feixe Duplo: taxas de 1300, 1900, 2800, 4200 no original × 0,003 (FATOR_OURO_EVOLUIR):
-  // abaixo do mínimo, 10.
-  assert.deepEqual([1, 2, 3, 4].map((n) => precoEvoluirArma('o311001', n)), [10, 10, 10, 10]);
+  // Feixe Duplo: taxas de 1300, 1900, 2800, 4200 no original × 0,006 (FATOR_OURO_EVOLUIR),
+  // de 10 em 10 e no mínimo 10.
+  assert.deepEqual([1, 2, 3, 4].map((n) => precoEvoluirArma('o311001', n)), [10, 10, 20, 30]);
   // Míssil Paralisante: as caras ficam caras de evoluir, como no original.
-  assert.deepEqual([1, 2, 3, 4].map((n) => precoEvoluirArma('o312010', n)), [20, 30, 40, 60]);
+  assert.deepEqual([1, 2, 3, 4].map((n) => precoEvoluirArma('o312010', n)), [40, 60, 80, 130]);
   assert.equal(precoEvoluirArma('laser', 1), null, 'tiro de NPC não evolui');
   assert.equal(precoEvoluirArma('o311001', 0), null);
   assert.equal(precoEvoluirArma('nada', 1), null);

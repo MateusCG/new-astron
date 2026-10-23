@@ -19,7 +19,7 @@
 // - Raios de colisão e de área, vão entre os canos e raio da nova × 0,25
 //   (FATOR_AREA): as naves do original têm ~40 m de envergadura, as do jogo ~9 m.
 // - Durações de efeito iguais (FATOR_EFEITO); preço de compra em ouro × 0,06 (FATOR_OURO)
-//   e de evolução × 0,003 (FATOR_OURO_EVOLUIR).
+//   e de evolução × 0,006 (FATOR_OURO_EVOLUIR).
 // - Quem acelera ou freia (mísseis, ondas, lâminas) voa a uma velocidade constante:
 //   a média do original (alcance ÷ vida), com o mesmo alcance e o mesmo tempo.
 // - O projétil acerta com no mínimo RAIO_TIRO_MIN de raio: no original o tiro de
@@ -56,10 +56,10 @@ export const FATOR_ALCANCE = 0.5; // mira, teleporte, ativação da mina que ati
 export const FATOR_AREA = 0.25; // raios, vão entre canos, nova
 export const FATOR_EFEITO = 1; // durações de efeito
 export const FATOR_OURO = 0.06; // preço de compra (a V1)
-// Preço de evolução (V2 a V8): 20 vezes mais barato que a compra (pedido do Mateus),
-// para cada piloto conseguir levar uns 8 itens até a V8 numa partida (uns 5 mil de
-// ouro com as compras; a renda vai de ~3 mil na lane a ~13 mil na jungle).
-export const FATOR_OURO_EVOLUIR = FATOR_OURO / 20;
+// Preço de evolução (V2 a V8): 10 vezes mais barato que a compra (pedido do Mateus,
+// 0,006), para quem joga bem levar uns 8 itens até a V8 numa partida (uns 8,3 a 9
+// mil de ouro com as compras; a renda vai de ~3 mil na lane a ~13 mil na jungle).
+export const FATOR_OURO_EVOLUIR = FATOR_OURO / 10;
 export const PRECO_EVOLUIR_MIN = 10; // ouro: o degrau mais barato
 export const MS = 1000;
 

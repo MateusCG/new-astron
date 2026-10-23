@@ -30,7 +30,7 @@
 //   é quanto da resistência do alvo ela ignora.
 // - Poder, recarga, golpe crítico, velocidade e aceleração: o % do original, igual
 //   (vira fração: 20% = 0,2).
-// - Ouro da compra × FATOR_OURO (0,06) e da evolução × FATOR_OURO_EVOLUIR (0,003, no
+// - Ouro da compra × FATOR_OURO (0,06) e da evolução × FATOR_OURO_EVOLUIR (0,006, no
 //   mínimo PRECO_EVOLUIR_MIN), arredondado de 10 em 10, como as armas.
 //
 // Mesmo arquivo nos dois lados e determinístico: o servidor valida e aplica, o
