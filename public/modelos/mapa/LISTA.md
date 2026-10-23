@@ -37,6 +37,7 @@ repo: `new-astron-progresso/mapa-stage6/blender/` e `.../tmp/cenario/` (`cenario
 | `neon_servico` | `#a58bff` (padrão) | Anel das plataformas de serviço: o cliente pinta violeta `#a58bff` na Evolução e magenta `#ff6fd8` na Loja |
 | `neon_luz` | `#ffe2b8` | Luz quente fixa (balizas do aro, luzes de aproximação, janelas brancas) |
 | `pbr_painel`, `pbr_painel_escuro`, `pbr_painel_claro`, `pbr_painel_grafite` | fator `#e2e8e8`, `#8a9696`, `#f2f6f6`, `#5a6866`; metal 0,3 | Chapa metálica do padrão PBR: o cliente liga o atlas `painel` (cor × fator, metal/rugosidade, relevo). Deque, casco e pilares, aro e torres; na mineradora o grafite é o "metal escuro" (com o atlas dá a cor do `metal_escuro`), o escuro faz o aço e o `pbr_painel` o claro |
+| `pbr_minerio`, `pbr_minerio_claro` | `#232d36`, `#4a5866`, rugosidade ~0,9, sem textura | Minério de He-3 na bacia do hangar da mineradora: o leito e as pedras |
 | `pbr_tinta` | `#dfe4e1`, rugosidade 0,7 | Sinalização branca (anéis, tracejados, marcas radiais), sem textura |
 | `pbr_vidro` | `#0d1416`, rugosidade 0,25 | Visor das torres e miolo dos propulsores |
 
@@ -58,7 +59,7 @@ degraus (como a física: degrau de 30% do topo e rampa de 16 m); da água para b
 | `borda-quadrante-espelhada.glb` | O mesmo quarto espelhado em z (x ≤ 0, z ≥ 0) | z 0…1210 | 6.092 | origem do mapa | giro 0 (embaixo à esquerda) e giro π (em cima à direita). As emendas em x = 0 e z = 0 são espelho, sem fresta |
 | `borda-horizonte.glb` | Planalto e montanhas de fundo em volta do mapa inteiro (até ±3300 × ±3000), começando escondido atrás da borda (saia a 92 m) e subindo a ~330 m | 6630 × 92…334 × 5970 | 5.488 | origem do mapa | uma peça, giro 0 |
 | `fundo-lago.glb` | Leito do lago no mapa inteiro, ondulado entre −68 e −60 (simétrico pela rotação de 180°) | 3200 × −68…−60 × 2400 | 2.400 | origem do mapa | uma peça, giro 0 |
-| `mineradora.glb` | **PBR.** **Mineradora de Hélio-3** com um hangar aberto de cada lado (ver abaixo) | 312 × −75…135 × 408 (com as pernas e os cristais do fundo; o casco na linha d'água é 147,6 × 237,6) | 38.233 | centro da mineradora, y = 0 | (0, 0, 0), giro 0. Planta (`MINERADORA` 70 × 115, canto 24): 0,05 a 3,95 m; fora da planta, nada entre 2,5 e 30 m |
+| `mineradora.glb` | **PBR.** **Mineradora de Hélio-3** com um hangar aberto de cada lado (ver abaixo) | 312 × −75…135 × 408 (com as pernas e os cristais do fundo; o casco na linha d'água é 147,6 × 237,6) | 47.715 | centro da mineradora, y = 0 | (0, 0, 0), giro 0. Planta (`MINERADORA` 70 × 115, canto 24): 0,05 a 3,95 m; fora da planta, nada entre 2,5 e 30 m |
 | `base-warp.glb` | **PBR.** **Portal warp** da base do time 0 (ver abaixo), virado para +x | 77 × 31…223 × 153 | 9.660 | ponto do `PORTAL_WARP` (local −95, 0 da base), y = 0 | time 0: (−1375, 0, 0) giro 0; time 1: (1375, 0, 0) giro π. Peça mais baixa a 31 m (acima de `PORTAL_WARP.base` = 30): sem colisão |
 | `plataforma-base.glb` | **PBR.** Anel de pouso da base: deque flutuante r 70 em chapas, aro de 64 blocos (até 1 m) com faixa `neon_time` e balizas `neon_luz`, 4 torres de controle na borda (até 3,5 m), anel `neon_time` r 64 (quatro arcos) e r 14, o **H** `neon_time` no centro (pernas ao longo de x, lido de quem vem da lane), setas e luzes de aproximação nas diagonais, casco cônico até −10,2 com nervuras, janelas e propulsores, 4 pilares até o fundo | 141 × −62…3,5 × 141 | 14.614 | centro, **topo do deque em y = 0** | (∓1280, 1,7, 0): y = `heightAt + piso` da área de pouso |
 | `plataforma-servico.glb` | **PBR.** Plataforma da Evolução e da Loja: deque r 23, aro com faixa `neon_servico`, 3 torres, anel `neon_servico` r 20 e tracejado branco; o **centro fica livre** (o cliente desenha o ícone e o nome do serviço no chão), 3 pilares | 47 × −62…3,5 × 47 | 8.648 | centro, topo em y = 0 | `SERVICOS` com y = piso (1,2) |
@@ -90,9 +91,11 @@ cornijas, contrafortes chanfrados com luz `neon_luz`, guarda-corpos nos tetos do
   **dois hangares** nas faces ±x (`HANGARES` em shared/terrain.js): a porta sempre aberta entre os pilares e a verga
   chanfrados (faixas `neon_doca_N`), do piso (1,52 m, rente ao deque da plataforma) até 20,5 m e de z = −34,1 a 34,1; lá
   dentro (até x = ±12) piso, paredes e teto em chapas, seis pórticos, rodapé, luzes `neon_luz` no teto e nas paredes, as
-  duas faixas do minerador pintadas `neon_doca_N` no piso com setas de entrada, a **estação de mineração** na doca
-  (`DOCAS` em x = ±38, na faixa de ida, z = ∓15): bacia sobre o piso com aro e moldura pintada, e o anel de carga
-  pendurado no teto; no fundo, três condutos e duas grades. Na frente da porta, a plataforma de atracação baixa (topo
+  duas faixas do minerador pintadas `neon_doca_N` no piso com setas de entrada até a **bacia de He-3** (centro em
+  `DOCAS`, x = ±38, z = 0; raio 19,5 m): aro com grampos e luzes, moldura pintada, três braços extratores que
+  mergulham na piscina do meio, dutos até os condutos do fundo e um anel de carga pendurado no teto em cima de cada uma
+  das três `BAIAS` (lado da ida, fundo, lado da volta: três mineradores mineram juntos); no fundo, três condutos e duas
+  grades. Na frente da porta, a plataforma de atracação baixa (topo
   1,6 m, frisos e balizas até 2,5 m, sai até x = ±102, setas `neon_doca_N` para a base, cabeços, flutuadores na linha
   d'água) e o **pórtico de carga** por cima (vigas treliçadas de x = ±70 a ±101, a 35–38 m, com faixa `neon_doca_N` e
   holofotes `neon_luz`, talha e o funil em x = ±94 com a boca a 31 m);
@@ -101,8 +104,10 @@ cornijas, contrafortes chanfrados com luz `neon_luz`, guarda-corpos nos tetos do
   o minerador do time atravessa (a física é de shared/obstaculos.js, não do desenho);
 - `mineradora_conves`: mesa rotativa, torre de perfuração treliçada (derrick) de 64 a 128 m com piso de grade, coroa e
   moitão, dois tanques esféricos com berço e cintas, quatro chaminés, quatro casas de máquinas e dois mastros de antena;
-- `mineradora_he3`: tudo o que é `neon_he3` (duto que dá a volta no casco a 22 m, janelas do 2º andar, a bacia de He-3 com
-  cristais e as luzes do anel de carga de cada hangar, as cintas dos condutos do fundo, o
+- `mineradora_he3`: tudo o que é `neon_he3` (duto que dá a volta no casco a 22 m, janelas do 2º andar, o minério da bacia
+  de cada hangar: leito `pbr_minerio`, pedras de minério `pbr_minerio_claro` e `he3_escuro` com cristais brotando, nove
+  aglomerados de cristais, a piscina de He-3 líquido no meio com o núcleo de cristais e os bicos dos extratores, as luzes
+  do aro e dos anéis de carga, as cintas dos condutos do fundo, o
   **cristal sendo içado** dentro da torre, o poço da mesa, o farol no alto e as cintas dos tanques e os anéis das
   chaminés; os cristais do içado usam também `he3_escuro`): pulsar junto, mais forte
   quando um minerador está minerando.

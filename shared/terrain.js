@@ -110,7 +110,7 @@ export const HANGARES = [
   { time: 0, xMin: -78, xMax: -16, meiaZ: 30 },
   { time: 1, xMin: 16, xMax: 78, meiaZ: 30 },
 ];
-/** Docas da mineradora: dentro do hangar do time. O minerador entra pela porta, para ali, minera e sai. */
+/** Docas da mineradora: o meio da bacia de He-3, dentro do hangar do time (as três BAIAS ficam em volta). */
 export const DOCAS = [
   { time: 0, x: -38, z: 0 },
   { time: 1, x: 38, z: 0 },
@@ -220,6 +220,22 @@ export const ROTAS = BASES.map((b) => {
   const pontos = Array.from({ length: n + 1 }, (_, i) => ({ x: b.x + ((espera.x - b.x) * i) / n, z: b.z + ((espera.z - b.z) * i) / n }));
   pontos.push({ x: fim.x, z: fim.z });
   return pontos;
+});
+
+/**
+ * Baias de mineração de cada hangar: três lugares em volta do meio da bacia de He-3
+ * (DOCAS), para três mineradores do time minerarem ao mesmo tempo: uma do lado da faixa
+ * da ida, uma no fundo e uma do lado da volta (12 m ou mais entre elas e do caminho de
+ * quem entra e sai). O minerador pega uma baia livre ao chegar na porta; com as três
+ * ocupadas, espera na porta.
+ */
+export const BAIAS = DOCAS.map((d) => {
+  const dentro = -Math.sign(BASES[d.time].x); // da porta para o fundo do hangar
+  return [
+    { x: d.x, z: d.z + 12 * dentro },
+    { x: d.x + 7 * dentro, z: d.z },
+    { x: d.x, z: d.z - 12 * dentro },
+  ];
 });
 
 // ---------- Jungle ----------

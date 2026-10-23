@@ -32,7 +32,7 @@
 
 import { createShip, stepShip, createBullet, forward, velocidadeBase, DT, WEAPONS } from '../shared/sim.js';
 import { BASES, LANE, ROTAS, ESPERAS } from '../shared/terrain.js';
-import { pontoRota, anguloEntre, yawPara } from './mineradores.js';
+import { pontoRota, anguloEntre, yawPara, FAIXA_MINERADOR } from './mineradores.js';
 import { linhaDeTiro, alvosDoTime } from './torretas.js';
 
 /** Números de balanceamento da escolta. */
@@ -159,9 +159,10 @@ export class Escoltas {
       if (Math.abs(ms.x) < Math.abs(espera.x)) {
         // Ele passou da espera, rumo à porta do hangar: ela fica do lado de fora, na
         // frente da porta (de lado, para não tampar a fila), olhando para a porta.
+        // Fora das duas faixas dos mineradores, do lado em que ela já está.
         const sx = Math.sign(espera.x);
         const px = espera.x + sx * repetidas * ESCOLTA.fila;
-        const pz = LANE.z + lado * (Math.abs(ms.z - LANE.z) + ESCOLTA.lado);
+        const pz = LANE.z + (Math.sign(s.z - LANE.z) || 1) * (FAIXA_MINERADOR + ESCOLTA.lado);
         vx = (px - s.x) * SEGUIR;
         vz = (pz - s.z) * SEGUIR;
         olhar = yawPara(px, pz, 0, LANE.z);
