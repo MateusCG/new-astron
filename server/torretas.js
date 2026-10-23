@@ -364,7 +364,7 @@ export class Torretas {
     t.serieAlvo = 0;
     definirObstaculoAtivo(t.id, false);
     const { ouro, ouroTime } = ouroTorreta(this.nivel[t.time]);
-    recompensar(atirador, 'torreta', w.eventos, 1, ouro);
+    recompensar(atirador, 'torreta', w.eventos, 1, { ouro });
     for (const j of w.players.values()) {
       if (j !== atirador && j.time === atirador.time) j.ouro += ouroTime;
     }

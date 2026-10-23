@@ -10,6 +10,8 @@ import {
   ouroEncerrar,
   ouroAbateJogador,
   OURO_JOGADOR_POR_NIVEL,
+  xpAbateJogador,
+  XP_JOGADOR_POR_NIVEL,
   recompensaAssistencia,
   RECOMPENSA,
   RENASCER_BASE_S,
@@ -158,12 +160,15 @@ test('assistência: paga quem do time do matador feriu na janela, e só ele', ()
   assert.equal(c.ouro, ouroC2);
 });
 
-test('abate de jogador: o ouro sobe com o nível da vítima, e a assistência junto', () => {
+test('abate de jogador: o ouro e a XP sobem com o nível da vítima, e a assistência junto', () => {
   assert.equal(ouroAbateJogador(1), RECOMPENSA.jogador.ouro);
   assert.equal(ouroAbateJogador(10), RECOMPENSA.jogador.ouro + 9 * OURO_JOGADOR_POR_NIVEL);
   assert.equal(ouroAbateJogador(99), ouroAbateJogador(25), 'teto no nível máximo');
   assert.equal(recompensaAssistencia(10).ouro, Math.round(ouroAbateJogador(10) / 2));
-  assert.equal(recompensaAssistencia(10).xp, RECOMPENSA.jogador.xp / 2, 'a XP não muda com o nível');
+  assert.equal(xpAbateJogador(1), RECOMPENSA.jogador.xp);
+  assert.equal(xpAbateJogador(10), RECOMPENSA.jogador.xp + 9 * XP_JOGADOR_POR_NIVEL);
+  assert.equal(xpAbateJogador(99), xpAbateJogador(25), 'teto no nível máximo');
+  assert.equal(recompensaAssistencia(10).xp, Math.round(xpAbateJogador(10) / 2));
 
   const { w, js } = arena(3);
   const [a, b, c] = js;
@@ -171,8 +176,12 @@ test('abate de jogador: o ouro sobe com o nível da vítima, e a assistência ju
   golpear(w, c, b);
   const ouroA = a.ouro;
   const ouroC = c.ouro;
+  const xpA = a.xpGanho ?? 0;
+  const xpC = c.xpGanho ?? 0;
   const m = morteDe(golpear(w, a, b, true), b.id);
   assert.equal(m.ouro, ouroAbateJogador(10));
+  assert.equal((a.xpGanho ?? 0) - xpA, xpAbateJogador(10), 'a XP do abate pelo nível de B');
+  assert.equal((c.xpGanho ?? 0) - xpC, recompensaAssistencia(10).xp);
   assert.equal(a.ouro - ouroA, ouroAbateJogador(10));
   assert.equal(c.ouro - ouroC, recompensaAssistencia(10).ouro);
   assert.equal(m.ouroAssist, recompensaAssistencia(10).ouro);

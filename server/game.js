@@ -156,6 +156,7 @@ import {
   ouroEncerrar,
   recompensaAssistencia,
   ouroAbateJogador,
+  xpAbateJogador,
   ASSISTENCIA_JANELA_S,
   chaveRecompensa,
   OURO_POR_SEGUNDO,
@@ -764,9 +765,10 @@ export class World {
       matador.abates++;
       // Abate de jogador do outro time: o número do card na barra do time.
       if (alvo.tipo === 'jogador' && alvo.time !== matador.time) matador.abatesJog++;
-      // O abate de jogador paga pelo nível da vítima (ouroAbateJogador).
+      // O abate de jogador paga ouro e XP pelo nível da vítima (ouroAbateJogador, xpAbateJogador).
       const mult = alvo.tipo === 'monstro' ? this.jungle.multOuro(alvo) : 1;
-      recompensar(matador, chaveRecompensa(alvo), this.eventos, mult, alvo.tipo === 'jogador' ? ouroAbateJogador(alvo.nivel) : null);
+      const doNivel = alvo.tipo === 'jogador' ? { ouro: ouroAbateJogador(alvo.nivel), xp: xpAbateJogador(alvo.nivel) } : {};
+      recompensar(matador, chaveRecompensa(alvo), this.eventos, mult, doNivel);
       if (alvo.tipo === 'jogador') this.#abateDeJogador(alvo, matador, morte);
     }
     // Jungle: recarga do lugar e bônus do golpe final (a Medusa paga o time inteiro).

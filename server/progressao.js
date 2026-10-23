@@ -39,15 +39,16 @@
 // Ouro de abate de jogador e de torreta (pedido do Mateus: pagavam pouco perto da
 // jungle, que cresce com as ondas): o abate de jogador vale pelo NÍVEL DA VÍTIMA
 // (ouroAbateJogador: OURO_JOGADOR_BASE no nível 1, +OURO_JOGADOR_POR_NIVEL por nível
-// acima, 100 no nível 1 e 460 no 25), e a torreta pelo NÍVEL DO TIME DONO (1 a 3,
-// comprado na Evolução: OURO_TORRETA para quem deu o último tiro, OURO_TORRETA_TIME
-// para cada colega). A XP continua a de RECOMPENSA.
+// acima, 100 no nível 1 e 460 no 25), e a XP também (xpAbateJogador: XP_JOGADOR_BASE
+// no nível 1, +XP_JOGADOR_POR_NIVEL por nível acima, 100 no nível 1 e 340 no 25); a
+// torreta, pelo NÍVEL DO TIME DONO (1 a 3, comprado na Evolução: OURO_TORRETA para
+// quem deu o último tiro, OURO_TORRETA_TIME para cada colega), com a XP de RECOMPENSA.
 //
 // Combate entre jogadores (DESIGN-PARTIDA.md, "Combate"): morrer custa mais tempo
 // conforme o nível e a partida avançam (tempoRenascer), para a briga do fim da
 // partida pesar mais que a do começo e o mais forte não voltar na hora. Quem ajudou
 // num abate de jogador (feriu a vítima nos últimos ASSISTENCIA_JANELA_S) ganha
-// ASSISTENCIA_FRACAO do ouro (o do nível da vítima) e do XP do abate, cada um a parte cheia (não divide:
+// ASSISTENCIA_FRACAO do ouro e do XP do abate (os do nível da vítima), cada um a parte cheia (não divide:
 // no 3 contra 3 são no máximo dois ajudantes, e dividir puniria quem joga junto).
 // Cada piloto conta os abates de jogador seguidos sem morrer (`sequencia`); quem
 // derruba alguém com sequência de SEQUENCIA_MIN ou mais ganha bônus de ouro por
@@ -77,12 +78,15 @@ export const RECOMPENSA = {
   minerador: { xp: 40, ouro: MINERADOR.ouro },
   escolta: { xp: 50, ouro: 45 },
   torreta: { xp: 80, ouro: 200 }, // ouro do nível 1 (OURO_TORRETA)
-  jogador: { xp: 100, ouro: 100 }, // ouro da vítima nível 1 (ouroAbateJogador)
+  jogador: { xp: 100, ouro: 100 }, // da vítima nível 1 (ouroAbateJogador, xpAbateJogador)
 };
 
 // Ouro do abate de jogador pelo nível da vítima (ouroAbateJogador).
 export const OURO_JOGADOR_BASE = RECOMPENSA.jogador.ouro; // vítima nível 1
 export const OURO_JOGADOR_POR_NIVEL = 15; // a mais por nível da vítima acima do 1
+// XP do abate de jogador pelo nível da vítima (xpAbateJogador).
+export const XP_JOGADOR_BASE = RECOMPENSA.jogador.xp; // vítima nível 1
+export const XP_JOGADOR_POR_NIVEL = 10; // a mais por nível da vítima acima do 1
 // Ouro da torreta destruída pelo nível das torretas do time dono (1 a 3).
 export const OURO_TORRETA = [200, 300, 400]; // para quem deu o último tiro
 export const OURO_TORRETA_TIME = [100, 150, 200]; // para cada outro piloto do time dele
@@ -94,7 +98,7 @@ export const RENASCER_PARTIDA_S = 3; // a mais no fim do cronômetro (cresce lin
 export const RENASCER_MAX_S = 15; // teto
 // Assistência em abate de jogador.
 export const ASSISTENCIA_JANELA_S = 10; // feriu a vítima até este tempo antes da morte
-export const ASSISTENCIA_FRACAO = 0.5; // do ouro (ouroAbateJogador) e do XP do abate, para cada ajudante
+export const ASSISTENCIA_FRACAO = 0.5; // do ouro e do XP do abate (pelo nível da vítima), para cada ajudante
 // Sequência de abates de jogador sem morrer.
 export const SEQUENCIA_MIN = 2; // a partir daqui encerrar a sequência dá bônus
 export const ENCERRAR_OURO_POR_ABATE = 60; // ouro por abate da sequência da vítima
@@ -122,6 +126,12 @@ export function ouroAbateJogador(nivel = 1) {
   return OURO_JOGADOR_BASE + OURO_JOGADOR_POR_NIVEL * (n - 1);
 }
 
+/** XP do abate de um jogador de nível `nivel` (o da vítima). */
+export function xpAbateJogador(nivel = 1) {
+  const n = Math.min(NIVEL_MAX, Math.max(1, nivel));
+  return XP_JOGADOR_BASE + XP_JOGADOR_POR_NIVEL * (n - 1);
+}
+
 /** Ouro da torreta destruída para quem deu o último tiro e para cada colega, pelo nível das torretas do time dono. */
 export function ouroTorreta(nivel = 1) {
   const i = Math.min(OURO_TORRETA.length, Math.max(1, nivel)) - 1;
@@ -132,7 +142,7 @@ export function ouroTorreta(nivel = 1) {
 export function recompensaAssistencia(nivelVitima = 1) {
   return {
     ouro: Math.round(ouroAbateJogador(nivelVitima) * ASSISTENCIA_FRACAO),
-    xp: Math.round(RECOMPENSA.jogador.xp * ASSISTENCIA_FRACAO),
+    xp: Math.round(xpAbateJogador(nivelVitima) * ASSISTENCIA_FRACAO),
   };
 }
 
@@ -224,13 +234,13 @@ export function chaveRecompensa(alvo) {
 
 /**
  * Dá ao jogador o XP e o ouro do abate de algo do tipo `tipo`; `multOuro` multiplica
- * só o ouro (o dos acampamentos cresce com as ondas da jungle), arredondado. `ouro`,
- * quando vem, é o ouro do abate no lugar do de RECOMPENSA (jogador pelo nível da
- * vítima, torreta pelo nível do time).
+ * só o ouro (o dos acampamentos cresce com as ondas da jungle), arredondado. `ouro` e
+ * `xp`, quando vêm, entram no lugar dos de RECOMPENSA (jogador pelo nível da vítima,
+ * torreta pelo nível do time).
  */
-export function recompensar(j, tipo, eventos, multOuro = 1, ouro = null) {
+export function recompensar(j, tipo, eventos, multOuro = 1, { ouro = null, xp = null } = {}) {
   const r = RECOMPENSA[tipo];
   if (!r) return 0;
   j.ouro += Math.round((ouro ?? r.ouro) * multOuro);
-  return ganharXp(j, r.xp, eventos);
+  return ganharXp(j, xp ?? r.xp, eventos);
 }
