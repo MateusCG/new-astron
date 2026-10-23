@@ -4,10 +4,13 @@
 //
 // Ciclo de cada minerador, sempre em linha reta pela lane (ROTAS[time] em
 // shared/terrain.js, sem estrada):
-//   'ida'        sai do centro da base e segue a rota até a própria doca da
-//                mineradora (DOCAS; a mineradora em si é sólida);
+//   'ida'        sai do centro da base e segue a rota até a porta do hangar do
+//                time na mineradora (ESPERAS) e, por ela, até a doca lá dentro
+//                (DOCAS; a mineradora é sólida, mas a nave do minerador leva
+//                `hangar` = time e atravessa o campo de força da porta: HANGARES);
 //   'minerando'  para ali MINERADOR.mineracaoS segundos, virando para voltar, e
 //                enche o contêiner com a carga (10, mais a melhoria da Evolução);
+//                sai pela mesma porta;
 //   'volta'      refaz a rota de trás para frente e, ao passar pela ENTREGAS[time]
 //                do próprio time, soma a carga no placar e volta para a 'ida'.
 // Cada sentido anda na sua faixa (mão direita, FAIXA_MINERADOR do eixo), para quem
@@ -22,14 +25,18 @@
 // MINERADOR.intervaloS depois de abrir a vaga.
 //
 // Fila (FILA_ESPACO): nenhum minerador encosta no da frente do mesmo time que vai no
-// mesmo sentido (mesma faixa, mesma direção); com um na doca minerando, o próximo
-// espera atrás dele, parado, e só atraca quando ele sai. Os do Núcleo, mais lentos,
-// não seguram a fila dos normais pela lane (cada tipo faz fila com o seu), mas a
-// doca é uma só: todo mundo espera quem está minerando nela. Na entrega não há fila:
-// a carga conta ao passar pela faixa, sem parar.
+// mesmo sentido (mesma faixa, mesma direção). Na bacia do hangar mineram três ao
+// mesmo tempo (BAIAS): quem chega na porta pega uma baia livre e, com as três
+// ocupadas, espera ali, parado, até uma vagar (quem sai a libera depois de se afastar
+// BAIA_LIVRE); os de trás fazem fila atrás dele. Lá dentro, um sentido por vez: não
+// entra ninguém com alguém saindo, e quem terminou só sai com ninguém entrando nem
+// saindo. Os do Núcleo, mais lentos,
+// não seguram a fila dos normais pela lane (cada tipo faz fila com o seu), mas as
+// baias são as mesmas para todos. Na entrega não há fila: a carga conta ao passar
+// pela faixa, sem parar.
 //
 // Tempos (medidos em tests/mineradores.test.mjs, sem melhoria, 30 m/s): da base à
-// doca são ~1200 m, uns 40 s; minerando 5 s; da doca à entrega ~1030 m, uns 34 s. A
+// doca (dentro do hangar) são ~1240 m, uns 41 s; minerando 5 s; da doca à entrega ~1070 m, uns 36 s. A
 // primeira entrega sai ~79 s depois da saída e cada volta seguinte (entrega → doca →
 // entrega) leva ~75 s. Numa partida de 20 minutos cada minerador que sobrevive faz
 // umas 15 viagens: com os 10, ~150 entregas por time, ~1500 de minério, e ~1760 no
@@ -61,7 +68,7 @@
 // não lê as melhorias dos mineradores.
 
 import { createShip, stepShip, velocidadeBase, DT } from '../shared/sim.js';
-import { BASES, ROTAS, ENTREGAS } from '../shared/terrain.js';
+import { BASES, ROTAS, ENTREGAS, BAIAS, noHangar } from '../shared/terrain.js';
 import { MINERADORES_POR_TIME } from '../shared/evolucao.js';
 
 /** Números de balanceamento do minerador (sem melhoria). */
@@ -88,9 +95,19 @@ export const FAIXA_MINERADOR = 15;
 export const MINERADOR_NUCLEO = { quantos: 3, hpMult: 4, velMult: 0.7, carga: 50, mineracaoS: 8, raio: 7, espaco: 25 };
 /** Fila: m que um minerador guarda do da frente na mesma faixa (e de quem está na doca). */
 export const FILA_ESPACO = 35;
+/** m da baia: quem sai dela só a libera para o próximo depois de se afastar isto. */
+const BAIA_LIVRE = 8;
+/** Ordem em que as baias livres são pegas (0 lado da ida, 1 fundo, 2 lado da volta). */
+const ORDEM_BAIAS = [1, 0, 2];
+// No hangar o tráfego anda num sentido por vez (quem sai da baia do lado da ida cruzaria
+// quem entra para as do fundo): ninguém entra com alguém saindo, e quem terminou de
+// minerar só sai com ninguém entrando nem saindo.
+const entrando = (o) => o.estado === 'ida' && o.baia != null;
+const saindo = (o) => o.estado === 'volta' && noHangar(o.time, o.ship.x, o.ship.z);
 const FILA_LARGURA = 10; // m de lado: mais que isto, está na outra faixa (não é o da frente)
 const FILA_RUMO = 0.5; // cosseno: só conta quem vai no mesmo sentido (até ~60° de diferença)
 const CHEGOU = 12; // m: perto assim de um ponto da rota, segue para o próximo
+const CHEGOU_DOCA = 4; // m: na doca (dentro do hangar) para em cima da bacia de He-3
 const FREIA_DIST = 40; // m antes da doca: começa a frear para parar nela
 
 /** Diferença de ângulo de a para b, em (-π, π]. */
@@ -101,11 +118,16 @@ export function anguloEntre(a, b) {
   return d;
 }
 
-/** Ponto `i` da rota do time, na faixa do sentido (ida ou volta). A escolta usa também. */
+/**
+ * Ponto `i` da rota do time, na faixa do sentido (ida ou volta). A escolta usa também.
+ * O último (a doca, no meio da bacia de He-3 do hangar) fica no eixo, sem faixa: o
+ * minerador entra pela faixa da ida, minera no centro e sai pela da volta.
+ */
 export function pontoRota(time, i, ida) {
   const rota = ROTAS[time];
   const fim = rota[rota.length - 1];
   const ini = rota[0];
+  if (i === rota.length - 1) return { x: fim.x, z: fim.z };
   // Direção da ida (base → doca) e a direita de quem anda nela.
   const len = Math.hypot(fim.x - ini.x, fim.z - ini.z) || 1;
   const fx = (fim.x - ini.x) / len;
@@ -182,6 +204,7 @@ export class Mineradores {
     const z = p.z - ((q.z - p.z) / len) * atras;
     const ship = createShip(MINERADOR.raca, x, z, yawPara(x, z, q.x, q.z));
     ship.time = time;
+    ship.hangar = time; // passa pelo campo de força da porta do hangar do time (alturaSolida)
     ship.hp = ship.maxHp = a.hp;
     if (nucleo) ship.raio = MINERADOR_NUCLEO.raio; // alvo maior (bulletHits e áreas leem s.raio)
     return {
@@ -197,6 +220,7 @@ export class Mineradores {
       drenoTicks: 0,
       estado: 'ida',
       ponto: 1, // índice do próximo ponto da rota
+      baia: null, // baia da bacia (BAIAS) onde vai minerar, da porta até se afastar dela
       carga: 0,
       mineraAte: 0,
     };
@@ -236,11 +260,22 @@ export class Mineradores {
     if (this.lista.some((m) => m.sumiu)) this.lista = this.lista.filter((m) => !m.sumiu);
   }
 
+  /** Algum minerador vivo do time satisfaz `cond`? */
+  #alguem(time, cond) {
+    return this.lista.some((o) => o.vivo && o.time === time && cond(o));
+  }
+
+  /** Baia livre da bacia do time (na ORDEM_BAIAS), ou null com as três ocupadas. */
+  #baiaLivre(time) {
+    const ocupadas = new Set(this.lista.filter((o) => o.vivo && o.time === time && o.baia != null).map((o) => o.baia));
+    return ORDEM_BAIAS.find((k) => !ocupadas.has(k)) ?? null;
+  }
+
   /**
    * Fila: fração do acelerador que sobra para `m` pelo minerador do mesmo time à
-   * frente dele (mesmo sentido, mesma faixa): 1 longe, cai a 0 a FILA_ESPACO. O da
-   * frente conta se é do mesmo tipo (normal ou do Núcleo) e no mesmo estado, ou se
-   * está minerando (a doca é uma só).
+   * frente dele (mesmo sentido, mesma faixa, mesmo rumo): 1 longe, cai a 0 a
+   * FILA_ESPACO. O da frente conta se é do mesmo tipo (normal ou do Núcleo) e no
+   * mesmo estado (quem espera baia na porta segura os de trás).
    */
   #folgaDaFila(m) {
     const s = m.ship;
@@ -249,15 +284,13 @@ export class Mineradores {
     let folga = 1;
     for (const o of this.lista) {
       if (o === m || !o.vivo || o.time !== m.time) continue;
-      const naDoca = o.estado === 'minerando';
-      if (!naDoca && (o.estado !== m.estado || !!o.nucleo !== !!m.nucleo)) continue;
+      if (o.estado !== m.estado || !!o.nucleo !== !!m.nucleo) continue;
       const dx = o.ship.x - s.x;
       const dz = o.ship.z - s.z;
       const frente = dx * fx + dz * fz;
       if (frente <= 0 || frente > FILA_ESPACO * 2) continue;
       if (Math.abs(dx * fz - dz * fx) > FILA_LARGURA) continue;
-      // Quem está na doca já virou para a volta; nos outros, só o que vai no mesmo rumo.
-      if (!naDoca && -Math.sin(o.ship.yaw) * fx + -Math.cos(o.ship.yaw) * fz < FILA_RUMO) continue;
+      if (-Math.sin(o.ship.yaw) * fx + -Math.cos(o.ship.yaw) * fz < FILA_RUMO) continue; // só o que vai no mesmo rumo
       folga = Math.min(folga, Math.max(0, (frente - FILA_ESPACO) / FILA_ESPACO));
     }
     return folga;
@@ -284,31 +317,44 @@ export class Mineradores {
     let th = thMax;
 
     if (m.estado === 'ida') {
-      alvo = pontoRota(m.time, m.ponto, true);
-      const d = Math.hypot(alvo.x - s.x, alvo.z - s.z);
-      if (m.ponto === ultimo && d < FREIA_DIST) th = thMax * Math.max(0.2, d / FREIA_DIST);
-      if (d < CHEGOU) {
-        if (m.ponto < ultimo) m.ponto++;
-        else {
-          m.estado = 'minerando';
-          m.mineraAte = tick + a.mineracaoTicks;
+      // Na porta, pega uma baia livre da bacia; com as três ocupadas (ou alguém saindo
+      // do hangar: um sentido por vez lá dentro), espera ali parado.
+      if (m.ponto === ultimo && m.baia == null && !this.#alguem(m.time, saindo)) m.baia = this.#baiaLivre(m.time);
+      const naPorta = m.ponto === ultimo && m.baia == null;
+      if (naPorta) {
+        alvo = pontoRota(m.time, ultimo, true); // olhando para dentro
+        th = 0;
+      } else {
+        alvo = m.ponto === ultimo ? BAIAS[m.time][m.baia] : pontoRota(m.time, m.ponto, true);
+        const d = Math.hypot(alvo.x - s.x, alvo.z - s.z);
+        if (m.ponto === ultimo && d < FREIA_DIST) th = thMax * Math.max(0.2, d / FREIA_DIST);
+        if (d < (m.ponto === ultimo ? CHEGOU_DOCA : CHEGOU)) {
+          if (m.ponto < ultimo) m.ponto++;
+          else {
+            m.estado = 'minerando';
+            m.mineraAte = tick + a.mineracaoTicks;
+          }
         }
       }
     }
     if (m.estado === 'minerando') {
-      // Parado na doca, virando para a faixa da volta ao lado dela: sai de lado
-      // primeiro, para não passar raspando no próximo da fila, que espera atrás.
-      const volta = pontoRota(m.time, ultimo, false);
+      // Parado na doca, virando para a saída (a faixa da volta, na porta): sai pelo
+      // outro lado, sem passar raspando no próximo da fila, que espera na faixa da ida.
+      const volta = pontoRota(m.time, ultimo - 1, false);
       const diff = anguloEntre(s.yaw, yawPara(s.x, s.z, volta.x, volta.z));
       stepShip(s, { th: 0, tu: Math.max(-1, Math.min(1, diff * 2.5)), b: false, f1: false, f2: false, p: false, a: 0 });
-      if (tick >= m.mineraAte) {
+      // Terminou, mas só sai com ninguém entrando no hangar (um sentido por vez lá dentro)
+      // e um de cada vez (dois saindo juntos chegariam lado a lado na porta).
+      if (tick >= m.mineraAte && !this.#alguem(m.time, (o) => entrando(o) || saindo(o))) {
         m.carga = a.carga;
         m.estado = 'volta';
-        m.ponto = ultimo;
+        m.ponto = ultimo - 1; // da baia direto para a porta, pela faixa da volta
       }
       return;
     }
     if (m.estado === 'volta') {
+      const b = m.baia != null ? BAIAS[m.time][m.baia] : null;
+      if (b && Math.hypot(b.x - s.x, b.z - s.z) > BAIA_LIVRE) m.baia = null;
       alvo = pontoRota(m.time, m.ponto, false);
       if (Math.hypot(alvo.x - s.x, alvo.z - s.z) < CHEGOU && m.ponto > 0) m.ponto--;
     }

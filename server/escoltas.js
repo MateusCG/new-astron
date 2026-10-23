@@ -10,10 +10,11 @@
 //   da posição k·(mineradores)/n; com os 10 na lane, uma fica na frente do comboio,
 //   uma no meio e uma no fim. Com menos mineradores que escoltas, as que repetem o
 //   mesmo ficam mais atrás (ESCOLTA.fila m cada), sem empilhar. Fica do lado de fora
-//   da lane (ESCOLTA.lado m para fora da faixa dele) e um pouco atrás; quando ele
-//   para no depósito, ela para do lado.
+//   da lane (ESCOLTA.lado m para fora da faixa dele) e um pouco atrás; ela não entra
+//   no hangar da mineradora (não passa pelo campo de força da porta): com ele lá
+//   dentro, espera do lado de fora, na frente da porta (ESPERAS).
 // - Sem minerador, faz a ronda da rota dos mineradores (ROTAS[time], faixa de cada
-//   sentido, como eles), da base até a coroa do minério e de volta.
+//   sentido, como eles), da base até a espera na frente da porta e de volta.
 // - Atira como uma torre giratória (não precisa virar a nave): no inimigo mais perto
 //   dentro de ESCOLTA.alcance, com linha de tiro livre. Mira jogadores, mineradores e
 //   escoltas do outro time (os mesmos alvos da torreta: alvosDoTime em
@@ -30,8 +31,8 @@
 // (x, z) e `time`, e ela vai nas entidades do snapshot com `tipo: 'escolta'`.
 
 import { createShip, stepShip, createBullet, forward, velocidadeBase, DT, WEAPONS } from '../shared/sim.js';
-import { BASES, LANE, ROTAS } from '../shared/terrain.js';
-import { pontoRota, anguloEntre, yawPara } from './mineradores.js';
+import { BASES, LANE, ROTAS, ESPERAS } from '../shared/terrain.js';
+import { pontoRota, anguloEntre, yawPara, FAIXA_MINERADOR } from './mineradores.js';
 import { linhaDeTiro, alvosDoTime } from './torretas.js';
 
 /** Números de balanceamento da escolta. */
@@ -154,11 +155,24 @@ export class Escoltas {
       const f = forward(ms.yaw);
       const lado = Math.sign(ms.z - LANE.z) || 1;
       const atras = ESCOLTA.atras + repetidas * ESCOLTA.fila;
-      const px = ms.x - f.x * atras;
-      const pz = ms.z + lado * ESCOLTA.lado - f.z * atras;
-      vx = ms.vx + (px - s.x) * SEGUIR;
-      vz = ms.vz + (pz - s.z) * SEGUIR;
-      olhar = ms.yaw;
+      const espera = ESPERAS[e.time];
+      if (Math.abs(ms.x) < Math.abs(espera.x)) {
+        // Ele passou da espera, rumo à porta do hangar: ela fica do lado de fora, na
+        // frente da porta (de lado, para não tampar a fila), olhando para a porta.
+        // Fora das duas faixas dos mineradores, do lado em que ela já está.
+        const sx = Math.sign(espera.x);
+        const px = espera.x + sx * repetidas * ESCOLTA.fila;
+        const pz = LANE.z + (Math.sign(s.z - LANE.z) || 1) * (FAIXA_MINERADOR + ESCOLTA.lado);
+        vx = (px - s.x) * SEGUIR;
+        vz = (pz - s.z) * SEGUIR;
+        olhar = yawPara(px, pz, 0, LANE.z);
+      } else {
+        const px = ms.x - f.x * atras;
+        const pz = ms.z + lado * ESCOLTA.lado - f.z * atras;
+        vx = ms.vx + (px - s.x) * SEGUIR;
+        vz = ms.vz + (pz - s.z) * SEGUIR;
+        olhar = ms.yaw;
+      }
     } else {
       if (e.modo !== 'ronda') this.#retomarRota(e);
       e.modo = 'ronda';
@@ -179,9 +193,9 @@ export class Escoltas {
     stepShip(s, { ...PARADO, th, tu: Math.max(-1, Math.min(1, diff * 2.5)) });
   }
 
-  /** Volta para a ronda: próximo ponto da rota rumo ao minério, a partir de onde está. */
+  /** Volta para a ronda: próximo ponto da rota rumo à espera na porta, a partir de onde está. */
   #retomarRota(e) {
-    const rota = ROTAS[e.time];
+    const rota = ROTAS[e.time].slice(0, -1); // sem a doca (dentro do hangar)
     const fim = rota[rota.length - 1];
     const falta = Math.hypot(fim.x - e.ship.x, fim.z - e.ship.z);
     e.estado = 'ida';
@@ -189,9 +203,9 @@ export class Escoltas {
     if (e.ponto < 0) e.ponto = rota.length - 1;
   }
 
-  /** Ponto da ronda onde ela está indo; troca de sentido nas pontas da rota. */
+  /** Ponto da ronda onde ela está indo; troca de sentido nas pontas (a base e a espera na porta). */
   #pontoDaRonda(e) {
-    const ultimo = ROTAS[e.time].length - 1;
+    const ultimo = ROTAS[e.time].length - 2; // o último é a doca, dentro do hangar
     let alvo = pontoRota(e.time, e.ponto, e.estado === 'ida');
     if (Math.hypot(alvo.x - e.ship.x, alvo.z - e.ship.z) < CHEGOU) {
       if (e.estado === 'ida' && e.ponto >= ultimo) {

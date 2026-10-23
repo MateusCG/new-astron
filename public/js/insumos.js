@@ -191,6 +191,8 @@ export const MODELOS_MAPA = Object.freeze([
   'torre-suporte',
   'torre-suporte-caida',
   'torreta',
+  'minerador',
+  'escolta',
   'coral',
   'alga',
   'cristais-he3',

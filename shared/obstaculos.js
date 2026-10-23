@@ -35,6 +35,7 @@ import {
   BASES,
   LANE,
   MINERADORA as PLANTA_MINERADORA,
+  noHangar,
   TORRETAS,
   BUFFS,
   ABERTO,
@@ -127,11 +128,14 @@ function dentro(o, x, z, folga) {
  * Altura do que é sólido no ponto: o terreno ou o alto de uma construção, o que
  * for maior. `folga` engorda as construções (raio da nave), para a asa não entrar
  * na parede quando o centro da nave ainda está fora. Construção desligada
- * (definirObstaculoAtivo) não conta, a não ser com `todos` = true.
+ * (definirObstaculoAtivo) não conta, a não ser com `todos` = true. `hangar` (o time
+ * de um minerador) abre o hangar dele: lá dentro a mineradora não conta (HANGARES).
  */
-export function alturaSolida(x, z, folga = 0, todos = false) {
+export function alturaSolida(x, z, folga = 0, todos = false, hangar = null) {
   let h = heightAt(x, z);
+  const livre = hangar != null && noHangar(hangar, x, z);
   for (const o of OBSTACULOS) {
+    if (livre && o.grupo === 'mineradora') continue;
     if (o.topo > h && (todos || !o.desligado) && dentro(o, x, z, folga)) h = o.topo;
   }
   return h;

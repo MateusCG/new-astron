@@ -108,7 +108,7 @@ import {
   PLATAFORMAS_POUSO,
   NUCLEO,
   MEDUSA,
-  DOCAS,
+  ESPERAS,
   ASTEROIDES,
   MAP_HALF_X,
   MAP_HALF_Z,
@@ -294,7 +294,7 @@ const BUFF_SUPORTE = BUFF('suporte');
  */
 const EMBOSCADAS = BASES.map((b) =>
   ASTEROIDES.filter((a) => a.time !== b.time && a.id.startsWith('AC')).map((a) => {
-    const d = DOCAS.find((x) => x.time !== b.time);
+    const d = ESPERAS.find((x) => x.time !== b.time); // a porta do hangar deles (dentro, o minerador está protegido)
     const r = IA.emboscadaRecuo;
     return {
       id: a.id,
@@ -1035,7 +1035,7 @@ export class Bots {
     // A doca do outro time fora do alcance das torres deles (caíram, ou o time está
     // ganhando): espreita do lado de lá da mineradora, de onde se vê a doca deles.
     if (j.nivel >= IA.empurrarNivel) {
-      const doca = DOCAS.find((d) => d.time !== j.time);
+      const doca = ESPERAS.find((d) => d.time !== j.time); // a fila na porta do hangar deles
       if (this.#permitido(j, doca.x, doca.z)) {
         const sg = sinal(j.time);
         const espreita = { x: sg * (MINERADORA.meiaX + IA.espreitaX), z: LANE.z + IA.espreitaZ * j.ia.lado };

@@ -7,7 +7,7 @@ import { World } from '../server/game.js';
 import { MINERADOR, MINERADOR_NUCLEO, FILA_ESPACO } from '../server/mineradores.js';
 import { MINERADORES_POR_TIME } from '../shared/evolucao.js';
 import { createShip, createBullet, WEAPONS } from '../shared/sim.js';
-import { BASES, ENTREGAS, DOCAS, ROTAS, heightAt } from '../shared/terrain.js';
+import { BASES, ENTREGAS, DOCAS, ROTAS, MINERADORA, BAIAS, ESPERAS, heightAt } from '../shared/terrain.js';
 import { alturaSolida } from '../shared/obstaculos.js';
 
 const SEGUNDO = 30; // ticks
@@ -45,12 +45,15 @@ test('mineradores: fazem o ciclo base → doca → entrega e somam 10 no placar,
   for (let i = 0; i < 100 * SEGUNDO && entregas.length < 2; i++) {
     w.step();
     for (const m of w.mineradores.lista) {
-      // O centro do minerador nunca fica dentro de construção (mineradora, torretas...).
-      assert.ok(alturaSolida(m.ship.x, m.ship.z) <= heightAt(m.ship.x, m.ship.z) + 1e-9, `dentro de construção em (${m.ship.x}, ${m.ship.z})`);
+      // O centro do minerador nunca fica dentro de construção (mineradora, torretas...);
+      // o hangar do próprio time, onde ele minera, é livre para ele.
+      assert.ok(alturaSolida(m.ship.x, m.ship.z, 0, false, m.time) <= heightAt(m.ship.x, m.ship.z) + 1e-9, `dentro de construção em (${m.ship.x}, ${m.ship.z})`);
       if (m.estado === 'minerando') {
         viuMinerando = true;
         const d = DOCAS[m.time];
         assert.ok(Math.hypot(m.ship.x - d.x, m.ship.z - d.z) < 30, 'minera na doca do próprio time');
+        assert.ok(Math.hypot(m.ship.x - d.x, m.ship.z - d.z) < 20, `minera dentro da bacia de He-3 (${m.ship.x.toFixed(1)}, ${m.ship.z.toFixed(1)})`);
+        assert.ok(Math.abs(m.ship.x) < MINERADORA.meiaX, 'minera dentro do hangar');
       }
     }
     for (const e of w.entidades()) if (e.tipo === 'minerador' && e.carga === MINERADOR.carga) viuCarregado = true;
@@ -90,11 +93,13 @@ test('mineradores: saem em fila (um a cada MINERADOR.saidaS) até os 10 do time'
   assert.equal(conta(1), 10);
 });
 
-test('mineradores: os 10 não se empilham; na doca um minera e o próximo espera na fila', () => {
+test('mineradores: os 10 não se empilham; na bacia mineram três de uma vez e o quarto espera na porta', () => {
   const { w } = mundo();
   w.escoltas.passo = () => {};
-  // Um segura o da frente na ida: a doca fica ocupada mais tempo e o de trás tem de esperar.
-  let segurou = false;
+  // Segura cada minerador do time 0 na baia por mais 20 s: as três enchem e o de trás
+  // tem de esperar na porta até uma vagar.
+  const segurados = new Set();
+  let maxJuntos = 0;
   let esperou = 0;
   let menorMesmoSentido = Infinity;
   let menor = Infinity;
@@ -103,11 +108,23 @@ test('mineradores: os 10 não se empilham; na doca um minera e o próximo espera
     w.step();
     for (const t of [0, 1]) {
       const ms = w.mineradores.lista.filter((m) => m.vivo && m.time === t);
-      const naDoca = ms.filter((m) => m.estado === 'minerando');
-      assert.ok(naDoca.length <= 1, `dois minerando na doca do time ${t} ao mesmo tempo`);
-      if (t === 0 && naDoca.length && !segurou) {
-        naDoca[0].mineraAte += 15 * SEGUNDO; // doca ocupada por 20 s
-        segurou = true;
+      const minerando = ms.filter((m) => m.estado === 'minerando');
+      assert.ok(minerando.length <= BAIAS[t].length, `${minerando.length} minerando no hangar do time ${t}`);
+      const baias = minerando.map((m) => m.baia);
+      assert.equal(new Set(baias).size, baias.length, 'cada um na sua baia');
+      for (const m of minerando) {
+        const b = BAIAS[t][m.baia];
+        assert.ok(Math.hypot(m.ship.x - b.x, m.ship.z - b.z) < 8, `minera em cima da baia (${m.ship.x.toFixed(1)}, ${m.ship.z.toFixed(1)})`);
+      }
+      if (t === 0) {
+        maxJuntos = Math.max(maxJuntos, minerando.length);
+        for (const m of minerando) {
+          if (segurados.has(m.id)) continue;
+          m.mineraAte += 20 * SEGUNDO;
+          segurados.add(m.id);
+        }
+        const porta = ESPERAS[0];
+        if (ms.some((m) => m.estado === 'ida' && m.baia == null && Math.hypot(m.ship.x - porta.x, m.ship.z - porta.z) < 40 && Math.hypot(m.ship.vx, m.ship.vz) < 2)) esperou++;
       }
       for (let a = 0; a < ms.length; a++) {
         for (let b = a + 1; b < ms.length; b++) {
@@ -115,19 +132,20 @@ test('mineradores: os 10 não se empilham; na doca um minera e o próximo espera
           const q = ms[b];
           const d = Math.hypot(p.ship.x - q.ship.x, p.ship.z - q.ship.z);
           menor = Math.min(menor, d);
-          if (p.estado === q.estado && p.estado !== 'minerando') menorMesmoSentido = Math.min(menorMesmoSentido, d);
-          if (t === 0 && (p.estado === 'minerando') !== (q.estado === 'minerando') && p.estado !== 'volta' && q.estado !== 'volta' && d < FILA_ESPACO + 15 && Math.hypot(p.ship.vx, p.ship.vz) + Math.hypot(q.ship.vx, q.ship.vz) < 2) esperou++;
+          // Na lane, em fila; no hangar, indo cada um para a sua baia, só não encostam (menor).
+          if (p.estado === q.estado && p.estado !== 'minerando' && (p.baia == null || q.baia == null)) menorMesmoSentido = Math.min(menorMesmoSentido, d);
         }
       }
     }
     for (const e of w.tirarEventos()) if (e.e === 'entrega') entregas[e.time]++;
   }
-  assert.ok(menor > 12, `dois do mesmo time a ${menor.toFixed(1)} m (quem sai da doca vai de lado para a faixa da volta)`);
+  assert.equal(maxJuntos, 3, 'três minerando juntos na bacia');
+  assert.ok(esperou > 3 * SEGUNDO, `o de trás esperou parado na porta (${(esperou / SEGUNDO).toFixed(1)} s)`);
+  assert.ok(menor > 8, `dois do mesmo time a ${menor.toFixed(1)} m`);
   assert.ok(menorMesmoSentido > 20, `dois do mesmo time no mesmo sentido a ${menorMesmoSentido.toFixed(1)} m`);
-  assert.ok(esperou > 3 * SEGUNDO, `o de trás esperou parado atrás da doca (${(esperou / SEGUNDO).toFixed(1)} s)`);
   // Sem segurar ninguém, o time 1 entrega em ritmo: ~8 por minuto com os 10 na lane.
   assert.ok(entregas[1] >= 18, `entregas do time 1 em 4 min: ${entregas[1]}`);
-  assert.ok(entregas[0] > 0 && entregas[0] <= entregas[1], 'o time 0, com a doca presa, entregou menos');
+  assert.ok(entregas[0] > 0 && entregas[0] <= entregas[1], 'o time 0, com as baias presas, entregou menos');
 });
 
 test('mineradores: destruído, o substituto sai MINERADOR.intervaloS depois', () => {

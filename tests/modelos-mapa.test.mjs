@@ -14,6 +14,7 @@ const PASTA = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'pub
 
 /** Teto de triângulos por tipo de peça (o primeiro que casa com o nome vale). */
 const TETOS = [
+  [/^(minerador|escolta)$/, 3000], // naves do servidor: até 26 na tela
   [/^(plataforma|torre)/, 15000],
   [/^(rocha|borda|parede|pedra|fundo)/, 20000],
   [/^(coral|alga|cristais|ruina)/, 2000],
@@ -21,7 +22,7 @@ const TETOS = [
 ];
 
 /** Materiais que um glb PBR pode trazer (o cliente acha cada um pelo nome). */
-const MATERIAIS_PBR = /^(pbr_[a-z0-9_]+|neon_(time|servico|objetivo|luz|he3|doca_[01])|portal_time|he3_escuro)$/;
+const MATERIAIS_PBR = /^(pbr_[a-z0-9_]+|neon_(time|servico|objetivo|luz|he3|doca_[01])|campo_doca_[01]|portal_time|he3_escuro)$/;
 
 function lerGlb(nome) {
   const b = readFileSync(path.join(PASTA, `${nome}.glb`));
@@ -50,7 +51,7 @@ test('modelos do mapa: nenhuma peça passa do teto de triângulos do tipo dela',
   }
 });
 
-const PBR = ['plataforma-base', 'plataforma-servico', 'plataforma-pouso', 'mineradora', 'torre-suporte', 'torre-suporte-caida', 'torreta'];
+const PBR = ['plataforma-base', 'plataforma-servico', 'plataforma-pouso', 'mineradora', 'torre-suporte', 'torre-suporte-caida', 'torreta', 'minerador', 'escolta', 'base-warp'];
 
 test('modelos do mapa: as plataformas, a mineradora e as torres estão no padrão PBR', () => {
   for (const nome of PBR) assert.ok(ehPbr(lerGlb(nome)), nome);
@@ -83,9 +84,9 @@ test('modelos do mapa: os anéis e o emissor que a cena pinta continuam nas plat
 test('modelos do mapa: a mineradora mantém as docas de cada time, o He-3 e os nós do contrato', () => {
   const j = lerGlb('mineradora');
   const mats = new Set(j.materials.map((m) => m.name));
-  for (const m of ['neon_doca_0', 'neon_doca_1', 'neon_he3']) assert.ok(mats.has(m), m);
+  for (const m of ['neon_doca_0', 'neon_doca_1', 'neon_he3', 'campo_doca_0', 'campo_doca_1']) assert.ok(mats.has(m), m);
   const nos = new Set(j.nodes.map((n) => n.name));
-  for (const n of ['mineradora', 'mineradora_casco', 'mineradora_conves', 'mineradora_he3', 'mineradora_fundo']) assert.ok(nos.has(n), n);
+  for (const n of ['mineradora', 'mineradora_casco', 'mineradora_conves', 'mineradora_he3', 'mineradora_fundo', 'mineradora_campo']) assert.ok(nos.has(n), n);
 });
 
 test('modelos do mapa: as torres trazem os nós que o cliente mexe, com o pivô no lugar', () => {
@@ -101,4 +102,26 @@ test('modelos do mapa: as torres trazem os nós que o cliente mexe, com o pivô 
   assert.ok(corpo.children?.map((i) => t.nodes[i]).includes(cabeca), 'a cabeça tomba junto com o corpo');
   assert.deepEqual(cabeca.translation?.map(Math.round), [0, 9, 0], 'a cabeça gira no eixo, logo abaixo da altura de voo');
   assert.ok(t.materials.some((m) => m.name === 'neon_time'));
+});
+
+test('modelos do mapa: o minerador e a escolta trazem o neon do time e os nós que o cliente mexe', () => {
+  const no = (j, nome) => j.nodes.find((n) => n.name === nome);
+  const m = lerGlb('minerador');
+  assert.ok(no(m, 'minerador_carga'), 'o minério que aparece com o contêiner cheio');
+  assert.ok(m.materials.some((x) => x.name === 'neon_time'));
+  const e = lerGlb('escolta');
+  const torre = no(e, 'escolta_torre');
+  assert.deepEqual(torre?.translation?.map((v) => Math.round(v * 10) / 10), [0, 0.6, 0.6], 'a torre gira no eixo dela');
+  assert.ok(e.materials.some((x) => x.name === 'neon_time'));
+});
+
+test('modelos do mapa: o portal warp traz a membrana do redemoinho, o neon do time e os nós do contrato', () => {
+  const j = lerGlb('base-warp');
+  const nos = new Set(j.nodes.map((n) => n.name));
+  for (const n of ['base-warp', 'portal', 'portal_membrana', 'ilha', 'pendurados']) assert.ok(nos.has(n), n);
+  const mats = new Set(j.materials.map((m) => m.name));
+  assert.ok(mats.has('portal_time') && mats.has('neon_time'));
+  // Tudo acima de PORTAL_WARP.base (30 m): a nave passa por baixo.
+  const minY = Math.min(...j.meshes.flatMap((m) => m.primitives.map((p) => j.accessors[p.attributes.POSITION].min[1])));
+  assert.ok(minY > 30, `peça mais baixa a ${minY} m`);
 });

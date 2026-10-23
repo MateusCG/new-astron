@@ -14,7 +14,9 @@
 // - a água (agua.js, shader próprio) em NIVEL_AGUA, abaixo do chão de voo: tudo
 //   flutua sobre o lago;
 // - a mineradora de He-3 no centro, com as docas na cor do time dono (relativa a quem
-//   olha) e o He-3 "respirando" (mais forte com minerador minerando);
+//   olha), a porta de cada hangar sempre aberta com o campo de força do time (só o
+//   minerador dele passa; borda acesa e faixas finas, quase transparente) e o He-3
+//   "respirando" (mais forte com minerador minerando);
 // - as bases: portal warp flutuante (ilha boiando devagar, membrana em redemoinho e
 //   um feixe fino da ponta da broca até a água), anel de pouso, plataformas da
 //   Evolução e da Loja com o ícone e o nome no chão, e a entrega na boca da base;
@@ -270,11 +272,49 @@ export function rochasProntas() {
 
 // ---------- Mineradora ----------
 
+/**
+ * Mineradora: docas e campos de força na cor do time dono, relativa a quem olha. O
+ * campo cobre a porta de cada hangar, que fica aberta: quase nada no meio (somar cor
+ * em cima do hangar escuro tinge tudo), a borda acesa e faixas finas descendo devagar.
+ */
 function montarMineradora(g, meuTime) {
   const m = por(g, 'mineradora', 0, 0, 0, 0);
   if (!m) return null;
-  for (const time of [0, 1]) pintar(m, `neon_doca_${time}`, neon(time === meuTime ? CORES.neon : CORES.perigo));
+  for (const time of [0, 1]) {
+    const cor = time === meuTime ? CORES.neon : CORES.perigo;
+    pintar(m, `neon_doca_${time}`, neon(cor));
+    pintar(m, `campo_doca_${time}`, campoDeForca(cor, time));
+  }
   return m;
+}
+
+/** Campo de força da porta do hangar (troca o campo_doca_N do glb; UV de 0 a 1 na porta). */
+function campoDeForca(cor, fase) {
+  return new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    uniforms: { uTempo: TEMPO_AGUA, uCor: { value: new THREE.Color(cor) }, uFase: { value: fase * 1.7 } },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      uniform float uTempo, uFase;
+      uniform vec3 uCor;
+      varying vec2 vUv;
+      void main() {
+        float lado = smoothstep(0.06, 0.0, min(vUv.x, 1.0 - vUv.x));
+        float topo = smoothstep(0.1, 0.0, min(vUv.y, 1.0 - vUv.y));
+        float faixas = smoothstep(0.94, 1.0, 0.5 + 0.5 * sin((vUv.y * 9.0 + uTempo * 0.6 + uFase) * 6.2832));
+        float pulso = 0.85 + 0.15 * sin(uTempo * 2.6 + uFase);
+        float k = (0.012 + 0.3 * max(lado, topo) + 0.045 * faixas) * pulso;
+        gl_FragColor = vec4(uCor * k, 1.0);
+      }`,
+  });
 }
 
 // ---------- Bases ----------
