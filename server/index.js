@@ -401,12 +401,15 @@
 //                                    ({t:'teleportar'}); o seu time sempre recebe, o
 //                                    outro só se enxerga a chegada (sem a origem). O
 //                                    cliente de quem saltou corta a suavização
-//         {e:'recall', id, estado, motivo?, s?, de?, x?, y?, z?}   volta à base:
+//         {e:'recall', id, estado, motivo?, s?, de?, x?, y?, z?, partida?}   volta à base:
 //                                    estado 'inicio' (s = segundos de canalização) |
 //                                    'recusado' | 'cancelado' (motivo 'na_base' |
 //                                    'tiro' | 'boost' | 'velocidade' | 'dano' |
 //                                    'cancelou' | 'teleporte') | 'chegou' (de = de onde saiu,
-//                                    x/y/z = onde apareceu na base)
+//                                    x/y/z = onde apareceu na base; partida: 1 quando
+//                                    foi o fim da preparação, que leva toda nave viva à
+//                                    base do time e renasce lá a morta, junto com o
+//                                    'partida')
 
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';

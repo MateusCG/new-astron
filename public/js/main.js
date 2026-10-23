@@ -782,8 +782,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
       if (e.x !== undefined) efeitos.feixeRecall(e.x, e.y, e.z, cor); // névoa: a ponta escondida não vem
     }
     if (e.id !== meuId) return;
+    if (e.estado === 'chegou') saltoForcado = true; // mesmo curto (já estava perto da base), sem suavizar
     if (e.estado === 'inicio') hud.noticia(`Voltando à base em ${e.s} s · sem tiro, sem boost, quase parado`, 'bom');
-    else if (e.estado === 'chegou') hud.noticia('De volta à base', 'bom');
+    else if (e.estado === 'chegou' && !e.partida) hud.noticia('De volta à base', 'bom'); // no começo da partida, a notícia é a do 'partida'
     else if (e.estado === 'cancelado') {
       recallLocal = null;
       const porque = MOTIVO_RECALL.cancelado[e.motivo];
