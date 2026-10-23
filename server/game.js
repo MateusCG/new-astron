@@ -111,6 +111,17 @@
 // renascimento, mas é a mesma nave (vida, energia, nível e equipamento ficam); a
 // fila de comandos segue, e o cliente reconcilia o salto pelo `me`.
 //
+// Campo de força das bases (CAMPOS_BASE em shared/terrain.js; pedido do Mateus): o
+// tiro para nele (shared/sim.js, stepBullet) e a área não o atravessa
+// (server/armas.js, naArea); a nave de jogador (gente ou computador) do OUTRO time
+// que encosta no plano (o círculo dela, SHIP_RADIUS) ou o cruza no tick (teleporte
+// inclusive) é destruída na hora, aqui (#campoDaBase), sem escudo, invulnerável nem
+// proteção que segure. Ninguém ganha nada com isso (nem ouro, nem XP, nem abate, nem
+// assistência): é morte como outra qualquer para o renascimento e a sequência, e o
+// evento 'morte' sai com `por: null`, `motivo: 'campo'` e `campo` (time dono). Naves do
+// time dono, mineradores e escoltas passam livres (a física não vira parede). Para os
+// monstros, o bolsão atrás do campo conta como zona segura (#naZonaSegura).
+//
 // Teleporte até o companheiro ({t:'teleportar', alvo}, pedidoTeleporte): o piloto
 // clica no card de um aliado de nave Functional na barra do time e a nave salta na
 // hora para junto dele, sem recarga (pedido do Mateus: "imediatamente"; a nave
@@ -124,8 +135,8 @@
 // Como no recall, é a mesma nave e a fila de comandos segue: o cliente reconcilia
 // pelo `me` e o evento 'teleporte' corta a suavização da predição e da câmera.
 
-import { DT, WEAPONS, createShip, sanitizeInput, stepShip, VEL_TOQUE, velocidadeBase, pousadaNaBase, BASE_CURA_FRAC, forward, HOVER, TELEPORTE_FOLGA, custoTeleporte } from '../shared/sim.js';
-import { BASE, BASES, heightAt } from '../shared/terrain.js';
+import { DT, WEAPONS, createShip, sanitizeInput, stepShip, VEL_TOQUE, velocidadeBase, pousadaNaBase, BASE_CURA_FRAC, forward, HOVER, TELEPORTE_FOLGA, custoTeleporte, SHIP_RADIUS } from '../shared/sim.js';
+import { BASE, BASES, CAMPOS_BASE, heightAt, cruzaCampoBase, encostaNoCampo, dentroDoCampo } from '../shared/terrain.js';
 import { pontoLivre } from '../shared/obstaculos.js';
 import { racaJogavel, RACAS_JOGAVEIS, classeOuPadrao } from '../shared/naves.js';
 import { Partida, N_TIMES, MULT_FASE_FINAL, MAX_POR_TIME, computadoresDaEntrada } from './partida.js';
@@ -553,8 +564,9 @@ export class World {
     this.golpes.disparar(ent, disparos);
   }
 
+  /** Em alguma zona segura (o raio da base ou o bolsão atrás do campo de força)? Os monstros não caçam lá. */
   #naZonaSegura(s) {
-    return BASES.some((b) => Math.hypot(s.x - b.x, s.z - b.z) < ZONA_SEGURA);
+    return BASES.some((b) => Math.hypot(s.x - b.x, s.z - b.z) < ZONA_SEGURA || dentroDoCampo(b.time, s.x));
   }
 
   /** Na zona segura da base do próprio time (a do outro time não protege). */
@@ -714,6 +726,16 @@ export class World {
       this.eventos.push(e);
     }
     if (alvo.ship.hp > 0) return;
+    this.#morrer(alvo, autor, { crit });
+  }
+
+  /**
+   * A morte de `alvo` (a vida já acabou ou o campo de força da base o destruiu):
+   * renascimento, o evento 'morte' (com `extra` por cima, como o `motivo`) e, com
+   * `autor` jogador, o abate, o ouro e o XP dele (RECOMPENSA), a assistência e a
+   * sequência. `crit`: o golpe final foi crítico (vai no 'ganho').
+   */
+  #morrer(alvo, autor, { crit = false, extra = null } = {}) {
     alvo.ship.hp = 0;
     alvo.vivo = false;
     alvo.drenoTicks = 0;
@@ -729,7 +751,7 @@ export class World {
     if (alvo.tipo === 'minerador') alvo.carga = 0; // o minério que carregava se perde
     let matador = this.players.get(autor);
     if (matador?.id === alvo.id) matador = undefined;
-    const morte = { e: 'morte', id: alvo.id, por: autor, tipo: alvo.tipo, x: alvo.ship.x, y: alvo.ship.y, z: alvo.ship.z };
+    const morte = { e: 'morte', id: alvo.id, por: autor, tipo: alvo.tipo, x: alvo.ship.x, y: alvo.ship.y, z: alvo.ship.z, ...extra };
     if (alvo.time !== undefined) morte.time = alvo.time;
     if (alvo.esp) morte.esp = alvo.esp;
     this.eventos.push(morte);
@@ -795,6 +817,24 @@ export class World {
     }
     matador.sequencia++;
     morte.seqPor = matador.sequencia;
+  }
+
+  /**
+   * Campo de força da base do outro time: a nave de `j` que encostou no plano ou o
+   * cruzou neste tick (de (x0, z0) até onde está) é destruída na hora, sem crédito
+   * para ninguém. Devolve true se morreu.
+   */
+  #campoDaBase(j, x0, z0) {
+    const s = j.ship;
+    for (const c of CAMPOS_BASE) {
+      if (c.time === j.time) continue;
+      const cruzou = cruzaCampoBase(x0, z0, s.x, s.z)?.time === c.time;
+      if (!cruzou && !encostaNoCampo(c.time, s.x, s.z, SHIP_RADIUS)) continue;
+      if (j.recall) this.#pararRecall(j, 'dano');
+      this.#morrer(j, null, { extra: { motivo: 'campo', campo: c.time } });
+      return true;
+    }
+    return false;
   }
 
   /** Dreno: um tick de dano por tempo. Na zona segura/proteção o tempo corre sem dano. */
@@ -988,12 +1028,20 @@ export class World {
         continue;
       }
       this.#bonusDaNave(j);
+      const x0 = j.ship.x;
+      const z0 = j.ship.z;
       const n = Math.min(MAX_INPUTS_TICK, j.fila.length);
       for (let k = 0; k < n; k++) {
         const { seq, inp } = j.fila.shift();
         this.#atira(j, stepShip(j.ship, inp));
         this.#comandoRecall(j, inp);
         j.ack = seq;
+      }
+      // Encostou no campo de força da base do outro time (antes do recall, que o tiraria de lá).
+      if (this.#campoDaBase(j, x0, z0)) {
+        if (j.fila.length) j.ack = j.fila[j.fila.length - 1].seq;
+        j.fila.length = 0;
+        continue;
       }
       if (j.recall && this.tick >= j.recall.fim) this.#chegarNaBase(j);
       this.#drenar(j);
@@ -1030,7 +1078,8 @@ export class World {
    * monstro traz `esp`, a espécie de server/especies.js, e só vem vivo); `drone`
    * continua true para todo inimigo do PvE e o Núcleo. Jogadores,
    * mineradores e escoltas trazem `time`; os mineradores também `carga` (minério no contêiner)
-   * e `minerando`, e os da onda do Núcleo `nucleo: 1`. Jogador traz `nivel`, `classe` e
+   * e `minerando`, `descarga: 1` enquanto despejam na bacia da base e os da onda do Núcleo
+   * `nucleo: 1`. Jogador traz `nivel`, `classe` e
    * `tier` (a nave a desenhar), com escudo equipado `esc` (fração 0 a 1 do escudo) e,
    * com bônus de nave, `bn` (['ataque', 'suporte', 'sonda'], os ativos).
    */
@@ -1076,6 +1125,7 @@ export class World {
       if (e.tipo === 'minerador') {
         ent.carga = e.carga;
         ent.minerando = e.estado === 'minerando';
+        if (e.estado === 'descarregando' && e.carga > 0) ent.descarga = 1; // despejando na bacia da base
         if (e.nucleo) ent.nucleo = 1; // da onda do Núcleo (maior, brilhando He-3)
       }
       if (e.tipo === 'monstro') ent.esp = e.esp;

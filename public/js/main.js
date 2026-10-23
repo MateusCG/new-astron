@@ -523,7 +523,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
   document.querySelector('#jogo').append(renderer.domElement);
 
   const camera = new THREE.PerspectiveCamera(65, 1, 0.5, 5000);
-  const { scene, atualizar: atualizarCena, definirObjetivo, definirMineracao } = criarCena({ meuTime });
+  const { scene, atualizar: atualizarCena, definirObjetivo, definirMineracao, definirBacias, atingirCampo } = criarCena({ meuTime });
   const efeitos = new Efeitos(scene);
   const nevoa = new Nevoa({ renderer, scene, meuTime }); // névoa de guerra (visão do time)
   const controles = new Controles(document.body);
@@ -698,6 +698,11 @@ function montarJogo(rede, boas, renderer, race, classe) {
     hud.bonusNave(m.me?.bonusNave, bonusAtivos[meuTime], m.me?.bonusSuspenso);
     ultimoObj = m.obj ?? {};
     definirMineracao(m.ents.filter((e) => e.tipo === 'minerador' && e.minerando).length);
+    // Bacia de cada base: o minério sobe com o placar e cai de quem está despejando.
+    definirBacias(
+      m.partida?.placar,
+      m.ents.filter((e) => e.tipo === 'minerador' && e.descarga && e.vivo !== false).map((e) => ({ x: e.x, y: e.y, z: e.z, time: e.time })),
+    );
     // Antes da predição: a torre de suporte caída já sai da física daqui em diante.
     for (const t of objetivos.atualizar(m.obj)) {
       efeitos.explosao(t.x, t.y, t.z, 6, '#ff9a3a');
@@ -851,7 +856,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
         if (proprio && p === 0 && golpePrevisivel(golpeDaArma(e.kind, e.nv ?? 1, 0))) continue;
         const dono = proprio ? { obj: minhaNave } : outras.get(e.dono);
         const daBoca = p === 0 && e.enc !== undefined && dono?.obj?.visible !== false ? bocaDaArma(dono?.obj, e.enc, boca) : null;
-        efeitos.tiro({ id: e.id, kind: e.kind, atq: e.atq, nv: e.nv, p, x: e.x, y: e.y, z: e.z, vx: e.vx, vy: e.vy, vz: e.vz, vida: e.vida ?? 2.5 }, !!dono?.drone, null, daBoca);
+        // O tiro direto sai da nave: o primeiro passo do campo de força da base conta de
+        // onde ela está (stepBullet), para o tiro que nasce já do outro lado parar no plano.
+        const origem = p === 0 && dono?.obj ? { ox: dono.obj.position.x, oz: dono.obj.position.z } : {};
+        efeitos.tiro({ id: e.id, kind: e.kind, atq: e.atq, nv: e.nv, p, x: e.x, y: e.y, z: e.z, vx: e.vx, vy: e.vy, vz: e.vz, vida: e.vida ?? 2.5, ...origem }, !!dono?.drone, null, daBoca);
         if (proprio && p === 0) continue; // clarão e som já saíram na predição
         if (p === 0 && daBoca) efeitos.armas.clarao(e.kind, daBoca.x, daBoca.y, daBoca.z, e.nv);
         tocarUmaVez(`t${e.dono}:${e.kind}:${p}`, somDaArma(e.kind, e.nv, p), e.x, e.z);
@@ -916,6 +924,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
         hud.flutuante(e.x, e.y + 7 + (ROTULO_MONSTRO[e.esp] ?? 0), e.z, linhas);
       } else if (e.e === 'fim') {
         efeitos.removerTiro(e.bala);
+        // O tiro parou no campo de força de uma base: um anel se abre onde bateu.
+        if (e.campo !== undefined && e.x !== undefined) atingirCampo(e.campo, e.x, e.y, e.z);
       } else if (e.e === 'morte' && e.tipo === 'minerador') {
         efeitos.explosao(e.x, e.y, e.z, outras.get(e.id)?.nucleo ? 6 : 3, '#ff9a3a');
         const por = nomes.get(e.por) ?? '?';
@@ -958,7 +968,12 @@ function montarJogo(rede, boas, renderer, race, classe) {
         }
         const quem = nomes.get(e.id) ?? '?';
         const matador = e.por === meuId ? 'Você' : (nomes.get(e.por) ?? '?');
-        if (e.id === meuId) hud.noticia(`Você foi destruído por ${nomes.get(e.por) ?? '?'}`, 'ruim');
+        if (e.motivo === 'campo') {
+          // Encostou no campo de força de uma base que não é a dele: o campo pisca forte ali.
+          if (e.x !== undefined) for (let i = 0; i < 3; i++) atingirCampo(1 - e.time, e.x, e.y + (i - 1) * 4, e.z);
+          if (e.id === meuId) hud.noticia('Você encostou no campo de força da base inimiga e foi destruído', 'ruim');
+          else hud.noticia(`${quem} foi destruído pelo campo de força da ${e.time === meuTime ? 'base inimiga' : 'sua base'}`, e.time === meuTime ? 'ruim' : 'bom');
+        } else if (e.id === meuId) hud.noticia(`Você foi destruído por ${nomes.get(e.por) ?? '?'}`, 'ruim');
         else if (e.por === meuId && outras.get(e.id)?.drone) {
           const chefe = ['sn4', 'medusa', 'sonda'].includes(e.esp) || tipo === 'nucleo';
           hud.noticia(`Você destruiu ${chefe ? 'o' : 'um'} ${quem}${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');

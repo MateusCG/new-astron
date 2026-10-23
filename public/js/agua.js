@@ -13,6 +13,8 @@
 // - Fresnel para a cor da neblina no rasante, brilho do sol nas facetas, espuma
 //   serrilhada encostada no que fura a água (com um anel que se abre devagar) e o
 //   brilho azul-gelo do He-3 por baixo (mineradora, Núcleo, veios de cristal);
+// - buracos: dentro do tanque da bacia de minério de cada base a água não existe (o
+//   tanque desce bem abaixo dela e o minério acumulado aparece lá no fundo);
 // - a neblina do three (fog_pars/fog_fragment), para a água sumir no horizonte igual
 //   às rochas. A névoa de guerra (nevoa.js) é um passo de tela inteira por cima: a
 //   água entra nela sem mudar nada aqui (ela projeta o fundo visto pela água no plano
@@ -135,6 +137,7 @@ const FRAGMENTO = /* glsl */ `
   uniform vec3 uRasa, uFunda, uEspuma, uBrilho, uCeu, uHe3, uCaustica, uSolDir;
   uniform vec4 uHe3Pontos[8];
   uniform float uHe3Pulso;
+  uniform vec3 uBuracos[2];
   varying vec3 vPos;
   #include <fog_pars_fragment>
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -152,6 +155,7 @@ const FRAGMENTO = /* glsl */ `
     return pow(1.0 - min(c1, c2), 10.0);
   }
   void main() {
+    for (int i = 0; i < 2; i++) if (length(vPos.xz - uBuracos[i].xy) < uBuracos[i].z) discard;
     vec3 N = normalize(cross(dFdx(vPos), dFdy(vPos)));
     if (N.y < 0.0) N = -N;
     vec3 V = normalize(cameraPosition - vPos);
@@ -189,10 +193,12 @@ const FRAGMENTO = /* glsl */ `
 /**
  * O plano da água. `ceu` é a cor da neblina (Fresnel), `solDir` a direção do sol,
  * `pontosHe3` até 8 pontos { x, z, raio, forca } do brilho azul-gelo por baixo e
- * `extras` os sólidos pequenos que furam a água ({ x, z, raio }: pedras do lago).
+ * `extras` os sólidos pequenos que furam a água ({ x, z, raio }: pedras do lago e o
+ * tanque das bacias) e `buracos` até 2 círculos { x, z, raio } onde a água não é
+ * desenhada (por dentro das bacias de minério).
  * userData.material.uniforms.uHe3Pulso pulsa junto com o neon do He-3.
  */
-export function criarAgua({ ceu, solDir, pontosHe3 = [], extras = [] }) {
+export function criarAgua({ ceu, solDir, pontosHe3 = [], extras = [], buracos = [] }) {
   const geo = new THREE.PlaneGeometry(AGUA_LARGURA, AGUA_PROFUNDIDADE, AGUA_SEG_X, AGUA_SEG_Z);
   geo.rotateX(-Math.PI / 2);
   const pontos = Array.from({ length: 8 }, (_, i) => {
@@ -220,6 +226,7 @@ export function criarAgua({ ceu, solDir, pontosHe3 = [], extras = [] }) {
         uSolDir: { value: solDir },
         uHe3Pontos: { value: pontos },
         uHe3Pulso: { value: 1 },
+        uBuracos: { value: [0, 1].map((i) => (buracos[i] ? new THREE.Vector3(buracos[i].x, buracos[i].z, buracos[i].raio) : new THREE.Vector3(0, 0, 0))) },
       },
     ]),
   });

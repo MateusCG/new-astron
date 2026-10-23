@@ -15,14 +15,14 @@ const PASTA = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'pub
 /** Teto de triângulos por tipo de peça (o primeiro que casa com o nome vale). */
 const TETOS = [
   [/^(minerador|escolta)$/, 3000], // naves do servidor: até 26 na tela
-  [/^(plataforma|torre)/, 15000],
+  [/^(plataforma|torre|bacia|campo)/, 15000],
   [/^(rocha|borda|parede|pedra|fundo)/, 20000],
   [/^(coral|alga|cristais|ruina)/, 2000],
   [/./, 50000],
 ];
 
 /** Materiais que um glb PBR pode trazer (o cliente acha cada um pelo nome). */
-const MATERIAIS_PBR = /^(pbr_[a-z0-9_]+|neon_(time|servico|objetivo|luz|he3|doca_[01])|campo_doca_[01]|portal_time|he3_escuro)$/;
+const MATERIAIS_PBR = /^(pbr_[a-z0-9_]+|neon_(time|servico|objetivo|luz|he3|doca_[01])|campo_doca_[01]|campo_base|portal_time|he3_escuro)$/;
 
 function lerGlb(nome) {
   const b = readFileSync(path.join(PASTA, `${nome}.glb`));
@@ -55,9 +55,10 @@ const PBR = [
   'plataforma-base', 'plataforma-servico', 'plataforma-pouso', 'mineradora', 'torre-suporte', 'torre-suporte-caida', 'torreta',
   'minerador', 'escolta', 'base-warp', 'rocha-quadrante', 'rocha-quadrante-b', 'parede-l', 'parede-l-espelhada',
   'borda-quadrante', 'borda-quadrante-espelhada', 'borda-horizonte', 'pedra-lago-1', 'pedra-lago-2', 'nucleo', 'ruina-submersa',
+  'bacia', 'campo-base',
 ];
 
-test('modelos do mapa: as plataformas, a mineradora, as torres, as naves do servidor, o portal, as rochas, o Núcleo e a ruína estão no padrão PBR', () => {
+test('modelos do mapa: as plataformas, a mineradora, as torres, as naves do servidor, o portal, as rochas, o Núcleo, a ruína, a bacia e o campo da base estão no padrão PBR', () => {
   for (const nome of PBR) assert.ok(ehPbr(lerGlb(nome)), nome);
 });
 
@@ -157,4 +158,64 @@ test('modelos do mapa: a ruína submersa é pedra PBR com a cor do vértice e os
   assert.ok(j.materials.some((m) => m.name === 'neon_he3'));
   const maxY = Math.max(...j.meshes.flatMap((m) => m.primitives.map((p) => j.accessors[p.attributes.POSITION].max[1])));
   assert.ok(maxY < -20, `topo a ${maxY} m`);
+});
+
+/**
+ * Caixa de cada primitiva no referencial da peça: a caixa do accessor (min/max da POSITION) mais
+ * a translação dos nós acima dela (estas peças não giram nem escalam nó nenhum).
+ */
+function caixasNoMundo(j) {
+  const pai = new Map();
+  j.nodes.forEach((n, i) => (n.children ?? []).forEach((c) => pai.set(c, i)));
+  const out = [];
+  j.nodes.forEach((n, i) => {
+    if (n.mesh == null) return;
+    const t = [0, 0, 0];
+    for (let k = i; k != null; k = pai.get(k)) {
+      const nk = j.nodes[k];
+      assert.ok(!nk.rotation && !nk.scale, `${nk.name}: nó girado ou escalado`);
+      (nk.translation ?? [0, 0, 0]).forEach((v, e) => (t[e] += v));
+    }
+    for (const p of j.meshes[n.mesh].primitives) {
+      const a = j.accessors[p.attributes.POSITION];
+      out.push({ no: n.name, material: j.materials[p.material]?.name, min: a.min.map((v, e) => v + t[e]), max: a.max.map((v, e) => v + t[e]) });
+    }
+  });
+  return out;
+}
+
+test('modelos do mapa: a bacia fica abaixo do voo, com o minério separado e o pivô dele no fundo', () => {
+  const j = lerGlb('bacia');
+  const no = (nome) => j.nodes.find((n) => n.name === nome);
+  for (const n of ['bacia', 'bacia_estrutura', 'bacia_luzes', 'bacia_minerio']) assert.ok(no(n), n);
+  // O cliente sobe o minério em y: o pivô é a base da pilha, posta no fundo de dentro (−40).
+  assert.deepEqual(no('bacia_minerio').translation?.map(Math.round), [0, -40, 0]);
+  const caixas = caixasNoMundo(j);
+  const topo = Math.max(...caixas.map((c) => c.max[1]));
+  assert.ok(topo <= 3.5, `topo a ${topo} m (a nave passa por cima a 10 m)`);
+  // a pilha cabe no raio de dentro (19 m) com folga para subir sem raspar
+  for (const c of caixas.filter((c) => c.no === 'bacia_minerio')) {
+    assert.ok(Math.max(-c.min[0], c.max[0], -c.min[2], c.max[2]) <= 18.65, `minério (${c.material}) passa do raio`);
+  }
+  const mats = new Set(j.materials.map((m) => m.name));
+  for (const m of ['neon_time', 'neon_he3', 'pbr_minerio']) assert.ok(mats.has(m), m);
+});
+
+test('modelos do mapa: o campo da base traz a membrana e os emissores, sem nada no vão na altura das naves', () => {
+  const j = lerGlb('campo-base');
+  const no = (nome) => j.nodes.find((n) => n.name === nome);
+  assert.ok(no('campo_emissores'), 'campo_emissores');
+  const membrana = no('campo_membrana');
+  assert.ok(membrana?.mesh != null, 'campo_membrana');
+  const prims = j.meshes[membrana.mesh].primitives;
+  assert.deepEqual(prims.map((p) => j.materials[p.material].name), ['campo_base']);
+  assert.ok(prims[0].attributes.TEXCOORD_0 != null);
+  assert.ok(j.materials.some((m) => m.name === 'neon_time'));
+  // Fora a membrana, cada pedaço fica abaixo de 2 m, acima de 30 m ou encostado na rocha (|z| ≥ 176):
+  // o vão fica livre para as naves do time passarem.
+  for (const c of caixasNoMundo(j)) {
+    if (c.no === 'campo_membrana') continue;
+    const encostado = c.min[2] >= 176 || c.max[2] <= -176;
+    assert.ok(c.max[1] <= 2 || c.min[1] >= 30 || encostado, `${c.no} (${c.material}) entra no vão: y ${c.min[1]}…${c.max[1]}, z ${c.min[2]}…${c.max[2]}`);
+  }
 });

@@ -50,7 +50,7 @@
 // VISAO_TORRETA (= TORRETA.alcance); `lista` tem cada uma com x, z, y (o canhão),
 // time e viva; estado() é o que vai no snapshot.
 
-import { TORRETAS, BASES } from '../shared/terrain.js';
+import { TORRETAS, BASES, cruzaCampoBase } from '../shared/terrain.js';
 import { TORRETA as PLANTA, OBSTACULOS, definirObstaculoAtivo, alturaSolida } from '../shared/obstaculos.js';
 import { DT, HOVER, SHIP_RADIUS, AREA_ALTURA } from '../shared/sim.js';
 import { golpeDaArma } from '../shared/armas.js';
@@ -81,9 +81,11 @@ const PASSO_VISAO = 4; // m entre as amostras da linha de tiro
 /**
  * A linha de (x1, y1, z1) a (x2, y2, z2) passa livre de rocha e construção? Amostra
  * a cada PASSO_VISAO m, começando `inicio` m depois da origem (a torreta começa fora
- * do próprio cilindro). Serve à escolta também.
+ * do próprio cilindro). O campo de força de uma base no meio também fecha a linha
+ * (o tiro para nele). Serve à escolta também.
  */
 export function linhaDeTiro(x1, y1, z1, x2, y2, z2, inicio = 0) {
+  if (cruzaCampoBase(x1, z1, x2, z2)) return false;
   const d = Math.hypot(x2 - x1, z2 - z1);
   for (let t = inicio; t < d; t += PASSO_VISAO) {
     const k = t / d;
@@ -230,7 +232,7 @@ export class Torretas {
     let dist = Infinity;
     for (const a of alvosDoTime(w, t.time)) {
       const s = a.ship;
-      if (!enxerga(t.x, t.z, s.x, s.z, TORRETA.alcance)) continue;
+      if (!enxerga(t.x, t.z, s.x, s.z, TORRETA.alcance) || cruzaCampoBase(t.x, t.z, s.x, s.z)) continue;
       if (a.tipo === 'jogador' && w.golpes?.invisivel(a)) continue;
       const agressor = this.#agressor(t, a);
       const d = Math.hypot(s.x - t.x, s.z - t.z);

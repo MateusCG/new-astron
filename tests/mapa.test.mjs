@@ -26,7 +26,15 @@ import {
   ESPERAS,
   HANGARES,
   noHangar,
-  ENTREGAS,
+  CAMPOS_BASE,
+  CAMPO_BASE_DIST,
+  BACIA,
+  BACIAS,
+  VAGAS_BACIA,
+  ESPERAS_BACIA,
+  cruzaCampoBase,
+  dentroDoCampo,
+  encostaNoCampo,
   SERVICOS,
   OBJETIVOS,
   ROTAS,
@@ -48,7 +56,7 @@ import {
 } from '../shared/terrain.js';
 import { alturaSolida, pontoLivre, OBSTACULOS, POCOS, TORRE_SUPORTE } from '../shared/obstaculos.js';
 import { createShip, stepShip, MAX_SLOPE, SHIP_RADIUS, ALTURA_POUSADO, HOVER } from '../shared/sim.js';
-import { FAIXA_MINERADOR } from '../server/mineradores.js';
+import { FAIXA_MINERADOR, pontoRota } from '../server/mineradores.js';
 
 const PARADO = { th: 0, tu: 0, b: false, f1: false, f2: false, p: false };
 const mirar = (x, z, ax, az) => Math.atan2(-(ax - x), -(az - z));
@@ -112,7 +120,7 @@ function alcance(origem, bloquear = () => false) {
   return { alcancado, maisAlto, visto, nx, nz, pX, pZ };
 }
 
-test('mapa: contrato (tamanho, bases, lane, mineradora, docas, entregas, serviços)', () => {
+test('mapa: contrato (tamanho, bases, lane, mineradora, docas, serviços)', () => {
   assert.equal(MAP_HALF_X, 1500);
   assert.equal(MAP_HALF_Z, 1120);
   assert.deepEqual(BASES, [
@@ -121,11 +129,10 @@ test('mapa: contrato (tamanho, bases, lane, mineradora, docas, entregas, serviç
   ]);
   assert.equal(BASE, BASES[0]);
   assert.deepEqual(ABERTO, { jungle: { meiaX: 1080, meiaZ: 1060 }, lane: { meiaX: 1440, meiaZ: 180 }, canto: 40 });
-  // A lane acompanha o vão do arco da entrega (140 m).
+  // A lane tem 140 m (o vão do antigo arco da entrega).
   assert.equal(LANE.largura, LARGURA_LANE);
   assert.equal(LANE.largura, 140);
   assert.equal(LANE.meiaLargura, 70);
-  for (const e of ENTREGAS) assert.ok(e.profundidade <= LANE.largura, 'a entrega cabe na lane');
   assert.equal(CORREDOR, LANE, 'apelido antigo');
   assert.deepEqual([LANE.xInicio, LANE.xFim], [-BOLSAO.xMin, BOLSAO.xMin]);
   assert.deepEqual([MINERADORA.x, MINERADORA.z, MINERADORA.meiaX, MINERADORA.meiaZ], [0, 0, 70, 115]);
@@ -149,7 +156,6 @@ test('mapa: contrato (tamanho, bases, lane, mineradora, docas, entregas, serviç
     assert.ok(h.xMin < face && h.xMax > face, 'o hangar abre na face voltada para a base');
     assert.ok(Math.abs(h.xMin) > 0 && Math.sign(h.xMin) === Math.sign(h.xMax), 'um hangar de cada lado, sem se tocar');
   }
-  assert.deepEqual(ENTREGAS.map((e) => [e.time, e.x, e.z]), [[0, -1110, 0], [1, 1110, 0]]);
   assert.ok(NIVEL_AGUA < 0, 'a água fica abaixo do chão de voo');
   assert.deepEqual(OBJETIVOS, [], 'os objetivos A/B/C saíram');
   // Serviços no bolsão da própria base, Evolução à esquerda de quem olha para a lane.
@@ -179,7 +185,14 @@ test('mapa: tudo é simétrico por rotação de 180° (justo com os dois times)'
   };
   gemeo(BASES, 'base');
   gemeo(DOCAS, 'doca');
-  gemeo(ENTREGAS, 'entrega');
+  gemeo(CAMPOS_BASE, 'campo de força');
+  gemeo(BACIAS, 'bacia');
+  gemeo(ESPERAS_BACIA, 'espera da bacia');
+  for (const t of [0, 1]) {
+    // As vagas do time 1 são as do time 0 giradas, na mesma ordem (volta, fundo, ida).
+    VAGAS_BACIA[0].forEach((v, k) => assert.ok(Math.abs(VAGAS_BACIA[1][k].x + v.x) < 1e-9 && Math.abs(VAGAS_BACIA[1][k].z + v.z) < 1e-9, `vaga ${k}`));
+    assert.equal(CAMPOS_BASE[t].meiaZ, CAMPOS_BASE[1 - t].meiaZ);
+  }
   gemeo(SERVICOS, 'serviço');
   gemeo(TORRETAS, 'torreta');
   gemeo(ASTEROIDES, 'asteroide');
@@ -437,9 +450,8 @@ test('mapa: as ROTAS dos mineradores são retas, da base pela porta até a doca 
         }
       }
     }
-    // A entrega fica no caminho.
-    const e = ENTREGAS[t];
-    assert.ok(Math.min(...r.map((p) => p.x)) <= e.x && Math.max(...r.map((p) => p.x)) >= e.x);
+    // A rota sai de dentro do campo de força da base (o minerador do time o atravessa).
+    assert.ok(dentroDoCampo(t, r[0].x) && !dentroDoCampo(t, r.at(-1).x), 'atravessa o campo da própria base');
     // A doca fica no hangar, na metade da mineradora voltada para a base: livre para o
     // minerador do time, sólida para as outras naves e para o minerador do outro time.
     const d = DOCAS[t];
@@ -509,10 +521,79 @@ test('mapa: nada sólido em cima do que precisa ficar livre', () => {
   for (const o of OBSTACULOS) {
     for (const s of SERVICOS) assert.ok(Math.hypot(o.x - s.x, o.z - s.z) > s.raio + o.alcance + 10, `${o.nome} longe de ${s.servico}`);
     for (const p of PLATAFORMAS_POUSO) assert.ok(Math.hypot(o.x - p.x, o.z - p.z) > p.raio + o.alcance + 10, `${o.nome} longe de ${p.id}`);
-    for (const e of ENTREGAS) {
-      const dentro = Math.abs(o.x - e.x) < e.largura / 2 + o.alcance && Math.abs(o.z - e.z) < e.profundidade / 2 + o.alcance;
-      assert.ok(!dentro, `${o.nome} em cima da entrega`);
-    }
+    for (const b of BACIAS) assert.ok(Math.hypot(o.x - b.x, o.z - b.z) > b.raio + o.alcance + 10, `${o.nome} longe da bacia ${b.time}`);
+    for (const c of CAMPOS_BASE) assert.ok(Math.abs(o.x - c.x) > o.alcance + 10, `${o.nome} longe do campo de força ${c.time}`);
     for (const b of BASES) assert.ok(Math.hypot(o.x - b.x, o.z - b.z) > b.raio + o.alcance, `${o.nome} fora da base ${b.time}`);
+  }
+});
+
+test('mapa: campo de força de cada base, de rocha a rocha na boca do bolsão', () => {
+  assert.equal(CAMPO_BASE_DIST, 155);
+  assert.deepEqual(
+    CAMPOS_BASE.map((c) => [c.time, c.x, c.z, c.meiaZ]),
+    [
+      [0, -1125, 0, 180],
+      [1, 1125, 0, 180],
+    ],
+  );
+  for (const c of CAMPOS_BASE) {
+    const b = BASES[c.time];
+    assert.equal(Math.abs(c.x), BOLSAO.xMin, 'na boca do bolsão');
+    // De uma parede à outra: aberto até |z| = meiaZ, rocha logo além (a nave não passa por fora).
+    for (let z = -c.meiaZ + SHIP_RADIUS; z <= c.meiaZ - SHIP_RADIUS; z += 5) assert.ok(noMapaAberto(c.x, z), `aberto em (${c.x}, ${z})`);
+    for (const z of [-c.meiaZ - 2, c.meiaZ + 2]) assert.ok(!noMapaAberto(c.x, z), `rocha em (${c.x}, ${z})`);
+    // A física não vira parede: o campo não é sólido.
+    assert.equal(alturaSolida(c.x, 0, SHIP_RADIUS), 0);
+    // Lado de dentro: o da base.
+    assert.ok(dentroDoCampo(c.time, b.x) && !dentroDoCampo(c.time, 0));
+    assert.ok(!dentroDoCampo(c.time, c.x - c.dentro * 3) && dentroDoCampo(c.time, c.x - c.dentro * 3, 5), 'a folga alarga para fora');
+    // Segmentos: cruza de fora para dentro e de dentro para fora; ao lado (na rocha), não.
+    const fora = c.x - c.dentro * 50;
+    const dentro = c.x + c.dentro * 50;
+    for (const [x0, x1] of [[fora, dentro], [dentro, fora]]) {
+      const k = cruzaCampoBase(x0, 10, x1, 30);
+      assert.equal(k?.time, c.time);
+      assert.ok(Math.abs(k.t - 0.5) < 1e-9 && Math.abs(k.x - c.x) < 1e-9 && Math.abs(k.z - 20) < 1e-9);
+    }
+    assert.equal(cruzaCampoBase(fora, c.meiaZ + 20, dentro, c.meiaZ + 20), null, 'ao lado do campo (na rocha) não conta');
+    assert.equal(cruzaCampoBase(fora, 0, fora + c.dentro * 20, 0), null, 'do mesmo lado não conta');
+    assert.equal(cruzaCampoBase(-500, 0, 500, 0), null, 'longe das bases');
+    assert.ok(encostaNoCampo(c.time, c.x - c.dentro * SHIP_RADIUS, 0, SHIP_RADIUS));
+    assert.ok(!encostaNoCampo(c.time, c.x - c.dentro * (SHIP_RADIUS + 0.1), 0, SHIP_RADIUS));
+    assert.ok(!encostaNoCampo(1 - c.time, c.x, 0, SHIP_RADIUS), 'o do outro time fica na outra ponta');
+  }
+});
+
+test('mapa: bacia de minério de cada base, entre o anel de pouso e o campo de força', () => {
+  assert.deepEqual(BACIA, { dist: 115, raio: 24, raioInterno: 19, borda: 2.5, fundo: -40 });
+  assert.ok(BACIA.borda < HOVER - SHIP_RADIUS, 'o aro fica abaixo do voo: a nave passa por cima');
+  assert.ok(BACIA.fundo < NIVEL_AGUA, 'o fundo fica abaixo da água');
+  for (const bc of BACIAS) {
+    const t = bc.time;
+    const b = BASES[t];
+    const anel = AREAS_POUSO.find((a) => a.base === t);
+    const campo = CAMPOS_BASE[t];
+    const d = Math.hypot(bc.x - b.x, bc.z - b.z);
+    assert.equal(d, BACIA.dist);
+    assert.ok(d - bc.raio > anel.raio, 'à frente do anel de pouso, sem encostar nele');
+    assert.ok(dentroDoCampo(t, bc.x) && Math.abs(bc.x - campo.x) > bc.raio, 'do lado de dentro do campo de força, sem encostar nele');
+    assert.ok(d + bc.raio < b.raio, 'dentro da zona segura');
+    for (const s of SERVICOS) assert.ok(Math.hypot(s.x - bc.x, s.z - bc.z) > s.raio + bc.raio, `longe da plataforma ${s.servico}`);
+    assert.ok(!areaPouso(bc.x, bc.z), 'não é área de pouso');
+    assert.equal(alturaSolida(bc.x, bc.z, SHIP_RADIUS), 0, 'não é sólida');
+    // Três vagas, dentro do raio interno, afastadas umas das outras.
+    assert.equal(VAGAS_BACIA[t].length, 3);
+    for (const v of VAGAS_BACIA[t]) assert.ok(Math.hypot(v.x - bc.x, v.z - bc.z) <= bc.raioInterno, 'vaga dentro da bacia');
+    for (let i = 0; i < 3; i++) {
+      for (let k = i + 1; k < 3; k++) {
+        const [p, q] = [VAGAS_BACIA[t][i], VAGAS_BACIA[t][k]];
+        assert.ok(Math.hypot(p.x - q.x, p.z - q.z) > 2 * SHIP_RADIUS + 3, `vagas ${i} e ${k} sem encostar`);
+      }
+    }
+    // A espera fica dentro do campo, na faixa da volta, fora da bacia.
+    const e = ESPERAS_BACIA[t];
+    assert.ok(dentroDoCampo(t, e.x) && !encostaNoCampo(t, e.x, e.z, SHIP_RADIUS), 'espera do lado de dentro, sem encostar no campo');
+    assert.ok(Math.hypot(e.x - bc.x, e.z - bc.z) > bc.raio, 'espera fora do aro');
+    assert.ok(Math.abs(e.z - pontoRota(t, 1, false).z) < 1e-9, 'na faixa da volta');
   }
 });

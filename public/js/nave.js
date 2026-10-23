@@ -545,13 +545,14 @@ function modeloDoServidor(nome, aliado) {
   return lugar;
 }
 
-/** Anima o minerador: contêiner cheio ou vazio, feixe pulsando enquanto minera, motores. */
-export function animarMinerador(m, { carga, minerando }, t, fase = 0) {
+/** Anima o minerador: contêiner cheio ou vazio, feixe pulsando enquanto minera ou despeja na bacia, motores. */
+export function animarMinerador(m, { carga, minerando, descarga }, t, fase = 0) {
   const { carga: grupo, feixe, motores, he3 } = m.userData;
   grupo.visible = carga > 0 || !!he3;
   if (he3) he3.material.opacity = 0.35 + 0.25 * (Math.sin(t * 3 + fase) + 1) / 2;
-  feixe.visible = !!minerando;
-  if (minerando) {
+  // Despejando na bacia da base, o mesmo feixe desce enquanto o minério cai (cena.js).
+  feixe.visible = !!minerando || !!descarga;
+  if (feixe.visible) {
     feixe.material.opacity = 0.25 + 0.2 * (Math.sin(t * 8 + fase) + 1) / 2;
     feixe.rotation.y = t * 2;
   }

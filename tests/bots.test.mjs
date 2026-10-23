@@ -13,10 +13,10 @@ import WebSocket from 'ws';
 import { iniciar } from '../server/index.js';
 import { MAX_POR_TIME, IA_MEU_MAX, IA_INIMIGO_MAX, computadoresDaEntrada } from '../server/partida.js';
 import { TORRETA } from '../server/torretas.js';
-import { BASES, DOCAS, ACAMPAMENTOS, BUFFS, PLATAFORMAS_POUSO, NUCLEO, MEDUSA, ASTEROIDES, emAsteroides } from '../shared/terrain.js';
+import { BASES, DOCAS, ACAMPAMENTOS, BUFFS, PLATAFORMAS_POUSO, NUCLEO, MEDUSA, ASTEROIDES, CAMPOS_BASE, emAsteroides, dentroDoCampo } from '../shared/terrain.js';
 import { enxerga } from '../shared/visao.js';
 import { definirObstaculoAtivo } from '../shared/obstaculos.js';
-import { INPUT_VAZIO } from '../shared/sim.js';
+import { INPUT_VAZIO, createShip, SHIP_RADIUS } from '../shared/sim.js';
 
 /** Sorteio repetível, para a partida simulada dar sempre o mesmo resultado. */
 function rngFixo(semente = 7) {
@@ -553,6 +553,7 @@ test('computador: partida acelerada de 3 contra 3 computadores termina sem erro,
   const objetivos = [];
   let abatesJogador = 0;
   let mineradores = 0;
+  let noCampo = 0;
   let fim = null;
   let custo = 0;
   const passo = w.bots.passo.bind(w.bots);
@@ -568,6 +569,7 @@ test('computador: partida acelerada de 3 contra 3 computadores termina sem erro,
     for (const e of ev) {
       if (e.e === 'morte' && e.tipo === 'jogador' && w.players.get(e.por)) abatesJogador++;
       if (e.e === 'morte' && e.tipo === 'minerador' && w.players.get(e.por)) mineradores++;
+      if (e.e === 'morte' && e.motivo === 'campo') noCampo++;
       if (e.e === 'objetivo' && (e.acao === 'tomado' || e.acao === 'coletou')) objetivos.push(e.id);
       if (e.e === 'fimPartida') fim = e;
     }
@@ -579,8 +581,80 @@ test('computador: partida acelerada de 3 contra 3 computadores termina sem erro,
   assert.equal(papeis.size, 6, `os três papéis nos dois times: ${[...papeis].join(', ')}`);
   assert.ok(fim.placar[0] > 0 && fim.placar[1] > 0, `os dois times entregaram minério (${fim.placar})`);
   assert.ok(abatesJogador + mineradores >= 3, 'houve briga');
+  assert.equal(noCampo, 0, 'nenhum computador morreu no campo de força da base do outro time');
   assert.ok(objetivos.length >= 4, `objetivos tomados: ${objetivos.join(', ')}`);
   assert.ok(new Set(objetivos).size >= 3, 'de tipos diferentes');
   assert.ok(bots.every((j) => j.nivel >= 3), 'todos subiram de nível');
   assert.ok(porPasso < 2, `a IA dos seis custa ${porPasso.toFixed(3)} ms por passo`);
+});
+
+test('computador: não planeja caminho pelo campo de força da base do outro time nem encosta nele', () => {
+  const { w, h } = mundoComHumano({ jungle: false, torretas: false });
+  const bot = w.adicionarBot(1 - h.time);
+  w.mineradores.passo = () => {};
+  w.escoltas.passo = () => {};
+  rodar(w, h, 0.1);
+  const c = CAMPOS_BASE[h.time]; // o campo da base do humano: o do outro time, para o computador
+  const fora = (x) => (c.x - x) * c.dentro; // m do lado de fora do plano
+  bot.ship = Object.assign(createShip(bot.ship.race, c.x - c.dentro * 400, 60, 0), { time: bot.time });
+  bot.protegidoAte = 0;
+  // Mandado para dentro da base do outro time (o meio do bolsão e um canto junto do
+  // campo), vai até a beira, do lado de fora, e para ali.
+  for (const p of [
+    { x: c.x + c.dentro * 120, z: 0 },
+    { x: c.x + c.dentro * 5, z: 150 },
+    { x: BASES[h.time].x, z: -100 },
+  ]) {
+    bot.ia.ordem = p;
+    let menor = Infinity;
+    const eventos = [];
+    for (let i = 0; i < 25 * 30; i++) {
+      eventos.push(...rodar(w, h, 1 / 30));
+      menor = Math.min(menor, fora(bot.ship.x));
+      for (const q of bot.ia.rota?.pts ?? []) assert.ok(!dentroDoCampo(c.time, q.x, IA.campoFolga), `caminho por (${q.x}, ${q.z}), dentro do campo`);
+    }
+    assert.ok(bot.vivo, 'vivo');
+    assert.ok(!eventos.some((e) => e.e === 'morte'), 'ninguém morreu');
+    assert.ok(menor > SHIP_RADIUS + IA.campoFolga / 2, `chegou a ${menor.toFixed(1)} m do plano`);
+    assert.ok(fora(bot.ship.x) < IA.campoFolga + 60, `parou na beira, do lado de fora (${bot.ship.x.toFixed(0)}, ${bot.ship.z.toFixed(0)})`);
+  }
+});
+
+test('computador: a trava da pilotagem freia e vira antes de encostar no campo do outro time', () => {
+  const { w, h } = mundoComHumano({ jungle: false, torretas: false });
+  const bot = w.adicionarBot(1 - h.time);
+  w.mineradores.passo = () => {};
+  w.escoltas.passo = () => {};
+  rodar(w, h, 0.1);
+  const c = CAMPOS_BASE[h.time];
+  // Voando a toda, de boost, reto contra o campo (e a ordem do outro lado dele).
+  const yaw = c.dentro > 0 ? -Math.PI / 2 : Math.PI / 2; // nariz para dentro da base dele
+  bot.ship = Object.assign(createShip(bot.ship.race, c.x - c.dentro * 120, 0, yaw), { time: bot.time });
+  bot.ship.vx = c.dentro * 80;
+  bot.protegidoAte = 0;
+  bot.ia.ordem = { x: BASES[h.time].x, z: 0 };
+  const eventos = rodar(w, h, 8);
+  assert.ok(bot.vivo && !eventos.some((e) => e.e === 'morte' && e.motivo === 'campo'), 'não encostou');
+  assert.ok((c.x - bot.ship.x) * c.dentro > SHIP_RADIUS, 'do lado de fora');
+});
+
+test('computador: alvo do outro time dentro da própria base, atrás do campo, não é alvo', () => {
+  const { w, h } = mundoComHumano({ jungle: false, torretas: false });
+  const bot = w.adicionarBot(1 - h.time);
+  w.mineradores.passo = () => {};
+  w.escoltas.passo = () => {};
+  rodar(w, h, 0.1);
+  const c = CAMPOS_BASE[h.time];
+  // O humano dentro da base dele, perto do campo mas fora da zona segura (num canto do
+  // bolsão); o computador do lado de fora, de frente, a 80 m.
+  h.ship = Object.assign(createShip('acron', c.x + c.dentro * 20, 150, 0), { time: h.time });
+  h.protegidoAte = 0;
+  bot.ship = Object.assign(createShip(bot.ship.race, c.x - c.dentro * 60, 150, c.dentro > 0 ? -Math.PI / 2 : Math.PI / 2), { time: bot.time });
+  bot.protegidoAte = 0;
+  const hp = h.ship.hp;
+  const eventos = rodar(w, h, 6);
+  assert.notEqual(bot.ia.alvo, h, 'não mira o humano atrás do campo');
+  assert.ok(!eventos.some((e) => e.e === 'tiro' && e.dono === bot.id), 'nem atira nele');
+  assert.equal(h.ship.hp, hp);
+  assert.ok(bot.vivo);
 });

@@ -20,8 +20,15 @@
 // não atira nem dá boost, gira devagar e se recupera mais rápido (energia aqui, vida
 // no servidor). Só o L decola de novo; acelerar pousada não faz nada. A nave freia
 // antes de tocar o chão: só desce de vez abaixo de VEL_TOQUE.
+//
+// Campo de força das bases (CAMPOS_BASE em terrain.js): nenhum tiro atravessa o plano,
+// de nenhum lado e de ninguém. O stepBullet para o tiro no plano (CAMPO_RECUO antes
+// dele, do lado de onde veio) e marca `b.campo` com o time dono; o primeiro passo
+// conta da nave que atirou (b.ox, b.oz), para o tiro que nasce no nariz, já do outro
+// lado, não passar. A nave não colide com o campo (o servidor destrói a do outro time
+// que encosta nele; a predição não precisa saber).
 
-import { heightAt, areaPouso, topoPouso, BASES } from './terrain.js';
+import { heightAt, areaPouso, topoPouso, BASES, cruzaCampoBase } from './terrain.js';
 import { alturaSolida, pontoLivre } from './obstaculos.js';
 import { naveDe, classeOuPadrao, CLASSE_PADRAO, FATOR_ENERGIA } from './naves.js';
 import {
@@ -58,6 +65,8 @@ export const TURN_RATE = 2.3;
 // A (esquerda) abaixa a asa esquerda, D (direita) abaixa a direita.
 export const INCLINACAO_CURVA = 0.55;
 export const SHIP_RADIUS = 4.5;
+/** m antes do plano do campo de força da base onde o tiro que bate nele para (do lado de onde veio). */
+export const CAMPO_RECUO = 0.5;
 
 /**
  * Raças. A cor vai no brilho dos motores; os status (HP, energia, velocidade) vêm
@@ -699,6 +708,8 @@ export function createBullet(s, kind, id, owner, off = 0, ang = 0, nivel = 1, g 
     kind,
     nivel,
     prof: g.prof ?? 0,
+    ox: s.x, // de onde saiu (a nave): o primeiro passo do campo de força conta daqui
+    oz: s.z,
     x: s.x + f.x * frente - f.z * off,
     y: s.y,
     z: s.z + f.z * frente + f.x * off,
@@ -711,14 +722,30 @@ export function createBullet(s, kind, id, owner, off = 0, ang = 0, nivel = 1, g 
   };
 }
 
-/** Avança um tiro. Retorna false quando ele acabou (tempo ou bateu no chão). */
+/**
+ * Avança um tiro. Retorna false quando ele acabou (tempo, bateu no chão ou no campo
+ * de força de uma base). No campo, o tiro fica CAMPO_RECUO antes do plano, do lado de
+ * onde veio, e leva `b.campo` = time dono do campo (o fim do tiro sai ali).
+ */
 export function stepBullet(b, dt = DT) {
+  const ax = b.ox ?? b.x;
+  const az = b.oz ?? b.z;
+  if (b.ox !== undefined) b.ox = b.oz = undefined; // só no primeiro passo
   b.px = b.x;
   b.pz = b.z;
   b.x += b.vx * dt;
   b.y += b.vy * dt;
   b.z += b.vz * dt;
   b.vida -= dt;
+  const campo = cruzaCampoBase(ax, az, b.x, b.z);
+  if (campo) {
+    const len = Math.hypot(b.x - ax, b.z - az) || 1;
+    const k = Math.max(0, campo.t - CAMPO_RECUO / len);
+    b.x = ax + (b.x - ax) * k;
+    b.z = az + (b.z - az) * k;
+    b.campo = campo.time;
+    return false;
+  }
   return b.vida > 0 && b.y > alturaSolida(b.x, b.z); // terreno ou construção
 }
 

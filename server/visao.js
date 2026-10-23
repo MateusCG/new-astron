@@ -18,7 +18,8 @@
 //   O 'tiro' vai também se o caminho reto dele (amostrado ao longo da vida) passa
 //   pela visão do time: um tiro que sai da névoa e entra na sua visão aparece (como
 //   num MOBA). Todo tiro anunciado a um time fica anotado, e o 'fim' e o 'acerto'
-//   dele chegam a esse time (o cliente apaga o desenho), onde quer que caiam;
+//   dele chegam a esse time (o cliente apaga o desenho), onde quer que caiam; o
+//   'fim' no campo de força de uma base (`campo`) vai também a quem vê o ponto;
 //   - 'morte' de jogador fora da visão vai SEM a posição (o placar de abates é
 //     público; o cliente não desenha a explosão); de monstro, minerador e escolta, não
 //     vai;
@@ -57,7 +58,7 @@ const PUBLICOS = new Set([
   'melhoria',
   'objetivo',
   'bonusNave',
-  'entrega', // placar público; a entrega fica na boca da base
+  'entrega', // placar público; a descarga é na bacia, dentro da base
   'torreta', // construção: queda e reconstrução são públicas
   'renasceu',
 ]);
@@ -253,7 +254,9 @@ export class Visao {
     if (e.e === 'fim') {
       const visto = anunciados?.has(e.bala);
       anunciados?.delete(e.bala);
-      return visto || this.#doTimeEv(e, time) ? e : null;
+      // O tiro que bateu no campo de força de uma base pisca o campo para quem vê o ponto.
+      const noCampo = e.campo !== undefined && algumOlhoVe(olhos, e.x, e.z);
+      return visto || noCampo || this.#doTimeEv(e, time) ? e : null;
     }
     if (e.e === 'recall') return this.#recallParaTime(e, time, olhos);
     if (this.#doTimeEv(e, time)) return e;
