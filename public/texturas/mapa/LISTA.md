@@ -1,7 +1,7 @@
 # Texturas PBR do mapa
 
-Feitas por nós, sem foto nem nada do jogo original: geradas por `texturas_pbr.py` (o `painel`) e `texturas_rocha.py`
-(a `rocha`), numpy dentro do Blender, semente fixa, em `~/Documentos/new-astron-progresso/mapa-stage6/tmp/cenario/`
+Feitas por nós, sem foto nem nada do jogo original: geradas por `texturas_pbr.py` (o `painel`), `texturas_rocha.py`
+(a `rocha`) e `texturas_agua.py` (a `agua`), numpy dentro do Blender, semente fixa, em `~/Documentos/new-astron-progresso/mapa-stage6/tmp/cenario/`
 (`blender -b --factory-startup --python <script>.py` refaz as três de cada conjunto). Padrão em IDENTIDADE-VISUAL.md, "Padrão dos
 modelos: sci-fi mid-poly PBR".
 
@@ -44,4 +44,15 @@ girado 27°), e o tom de cada estrato vem da cor do vértice.
 | `rocha_mr.webp` | **verde = rugosidade** (0,7–0,98), azul = metal (0) | linear |
 | `rocha_normal.webp` | relevo (mesma convenção do painel) | linear |
 
-Total dos dois conjuntos: ~250 KB.
+## Conjunto `agua` (superfície do lago)
+
+Duas imagens de 1024 × 1024 que **repetem sem emenda**, geradas por `texturas_agua.py` (numpy dentro do Blender, semente fixa).
+Não vão num material do glb: o shader da água (`public/js/agua.js`) lê cada uma várias vezes, em tamanhos, giros e direções
+diferentes, andando com o tempo (o `agua.glb` traz o material `pbr_agua` só para o cliente baixar o conjunto junto).
+
+| Arquivo | Conteúdo | Espaço de cor |
+|---|---|---|
+| `agua_normal.webp` | relevo das ondulações (mesma convenção do painel): a altura sai de um espectro de ondas só em frequências inteiras do ladrilho (\|H\|² ~ k^−4,5, mais energia ao longo de u, corte nas altas), a normal é a derivada exata no espectro, a crista um pouco mais aguda que o vale; inclinação média 0,32 | linear |
+| `agua_espuma.webp` | R = renda de espuma fina (bordas de Voronoi periódico, 26 células, domínio torcido), G = renda grossa (9 células), B = a altura do relevo do mesmo ladrilho; valores de densidade: o shader corta num limiar que sobe com a quantidade de espuma | linear |
+
+Total dos três conjuntos: ~510 KB.

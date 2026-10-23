@@ -177,6 +177,7 @@ export const MODELOS_MAPA = Object.freeze([
   'borda-quadrante-espelhada',
   'borda-horizonte',
   'fundo-lago',
+  'agua',
   'rocha-quadrante',
   'rocha-quadrante-b',
   'parede-l',
@@ -213,12 +214,14 @@ export const PASTA_TEXTURAS_MAPA = '/texturas/mapa/';
 /**
  * Conjuntos de texturas PBR do mapa: o material `pbr_<conjunto>[_variação]` de um glb
  * ganha as três imagens do conjunto (cor, metal/rugosidade do glTF e normal): `painel`, o
- * atlas de chapas metálicas 2 × 2, e `rocha`, a rocha em estratos que repete sem emenda
+ * atlas de chapas metálicas 2 × 2, e `rocha`, a rocha em estratos que repete sem emenda.
+ * A `agua` é do shader da água (agua.js): o relevo das ondulações e a espuma, que repetem
  * (ver public/texturas/mapa/LISTA.md).
  */
 export const TEXTURAS_PBR_MAPA = Object.freeze({
   painel: Object.freeze({ cor: 'painel_cor.webp', mr: 'painel_mr.webp', normal: 'painel_normal.webp' }),
   rocha: Object.freeze({ cor: 'rocha_cor.webp', mr: 'rocha_mr.webp', normal: 'rocha_normal.webp' }),
+  agua: Object.freeze({ normal: 'agua_normal.webp', espuma: 'agua_espuma.webp' }),
 });
 
 /** URLs do que o mapa e os monstros usam: { mapa: [{ nome, url }], monstros: [{ nome, url }], texturas: [url] }. */

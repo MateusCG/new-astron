@@ -19,7 +19,9 @@
 //   para o mapa inteiro, e a cor de cada variação vem do fator do glb. Metal até 0,5
 //   (não há mapa de ambiente); sem conjunto (`pbr_tinta`, `pbr_vidro`), só a cor. A rocha
 //   PBR é um material só, `pbr_rocha` (o conjunto `rocha`, que repete), com o tom de cada
-//   estrato na cor do vértice, e ganha as cáusticas (que só aparecem da água para baixo);
+//   estrato na cor do vértice, e ganha as cáusticas (que só aparecem da água para baixo).
+//   O conjunto `agua` (sem cor) é do shader da água: o `pbr_agua` do agua.glb não usa
+//   este material, a cena pega as texturas por `texturasPbr('agua')`;
 // - os pintados por quem olha (`neon_time`, `portal_time`, `neon_doca_0/1`,
 //   `neon_servico`, `neon_objetivo`) a cena troca em cada cópia com `pintar`: cor do
 //   time relativa a quem olha, cor do serviço, e o âmbar dos objetivos, um material
@@ -86,7 +88,8 @@ function materialCompartilhado(m) {
   if ('metalness' in mat && pbr) {
     mat.metalness = Math.min(mat.metalness ?? 0, 0.5);
     const tex = conjuntosProntos.get(conjuntoPbr(nome));
-    if (tex) {
+    // O conjunto sem cor (a água) é de um shader próprio: quem usa pega por texturasPbr.
+    if (tex?.cor) {
       mat.map = tex.cor;
       mat.metalnessMap = tex.mr;
       mat.roughnessMap = tex.mr;
@@ -115,6 +118,11 @@ function materialCompartilhado(m) {
   mat.name = nome;
   materiais.set(nome, mat);
   return mat;
+}
+
+/** Texturas já baixadas de um conjunto PBR ({ normal, espuma } da água etc.), ou null. */
+export function texturasPbr(conjunto) {
+  return conjuntosProntos.get(conjunto) ?? null;
 }
 
 /** Material compartilhado pelo nome (ex. 'neon_he3'), depois que algum modelo o trouxe. */
