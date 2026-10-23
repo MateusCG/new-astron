@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MODELOS_MAPA } from '../public/js/insumos.js';
+import { NIVEL_AGUA, ABERTO } from '../shared/terrain.js';
 
 const PASTA = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public', 'modelos', 'mapa');
 
@@ -55,10 +56,10 @@ const PBR = [
   'plataforma-base', 'plataforma-servico', 'plataforma-pouso', 'mineradora', 'torre-suporte', 'torre-suporte-caida', 'torreta',
   'minerador', 'escolta', 'base-warp', 'rocha-quadrante', 'rocha-quadrante-b', 'parede-l', 'parede-l-espelhada',
   'borda-quadrante', 'borda-quadrante-espelhada', 'borda-horizonte', 'pedra-lago-1', 'pedra-lago-2', 'nucleo', 'ruina-submersa',
-  'bacia', 'campo-base',
+  'bacia', 'campo-base', 'agua',
 ];
 
-test('modelos do mapa: as plataformas, a mineradora, as torres, as naves do servidor, o portal, as rochas, o Núcleo, a ruína, a bacia e o campo da base estão no padrão PBR', () => {
+test('modelos do mapa: as plataformas, a mineradora, as torres, as naves do servidor, o portal, as rochas, o Núcleo, a ruína, a bacia, o campo da base e a água estão no padrão PBR', () => {
   for (const nome of PBR) assert.ok(ehPbr(lerGlb(nome)), nome);
 });
 
@@ -218,4 +219,16 @@ test('modelos do mapa: o campo da base traz a membrana e os emissores, sem nada 
     const encostado = c.min[2] >= 176 || c.max[2] <= -176;
     assert.ok(c.max[1] <= 2 || c.min[1] >= 30 || encostado, `${c.no} (${c.material}) entra no vão: y ${c.min[1]}…${c.max[1]}, z ${c.min[2]}…${c.max[2]}`);
   }
+});
+
+test('modelos do mapa: a água é um plano em NIVEL_AGUA que cobre o lago inteiro, num material só', () => {
+  // O shader (agua.js) dá as ondas em volta de NIVEL_AGUA; a malha só corta o que fica embaixo da rocha.
+  const j = lerGlb('agua');
+  assert.deepEqual(j.materials.map((m) => m.name), ['pbr_agua']);
+  const pos = j.meshes.flatMap((m) => m.primitives.map((p) => j.accessors[p.attributes.POSITION]));
+  const min = (i) => Math.min(...pos.map((a) => a.min[i]));
+  const max = (i) => Math.max(...pos.map((a) => a.max[i]));
+  assert.ok(Math.abs(min(1) - NIVEL_AGUA) < 0.05 && Math.abs(max(1) - NIVEL_AGUA) < 0.05, `y ${min(1)}…${max(1)}`);
+  assert.ok(min(0) <= -ABERTO.lane.meiaX && max(0) >= ABERTO.lane.meiaX, `x ${min(0)}…${max(0)}`);
+  assert.ok(min(2) <= -ABERTO.jungle.meiaZ && max(2) >= ABERTO.jungle.meiaZ, `z ${min(2)}…${max(2)}`);
 });

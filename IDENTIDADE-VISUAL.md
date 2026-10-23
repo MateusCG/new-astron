@@ -154,7 +154,15 @@ O que o seu time não enxerga (`shared/visao.js`; ver `DESIGN-PARTIDA.md`, "Vis�
 
 ### Água (lago de He-3)
 
-Shader próprio (`public/js/agua.js`), superfície em `NIVEL_AGUA` (−16 m, abaixo do voo; o fundo a −60/−68): três senos de onda (~0,6 m) com normal facetada; cor rasa `#4fb3a6` a funda `#0e3f4a` por um mapa de distância às rochas (a água fica rasa e transparente perto delas); Fresnel 0,45 puxando para a cor do céu; brilho do sol em faíscas (expoente 600, força 0,45; mais que isso vira placa branca); espuma `#e9f3ea` serrilhada onde a rocha está a menos de 6 m; brilho de He-3 sobre a mineradora e os cristais; cáusticas `#bff3e6` fracas (0,12 no fundo, 0,10 na rocha) que somem com a profundidade; o fundo e a rocha molhada não recebem sombra.
+**Água de cratera num astro minerado**, não mar de praia: o lago enche uma cratera aberta de onde se tira o Hélio-3, então ela é funda e fria. Azul-tinta `#0a2230` no meio, azul-aço glacial `#41737d` perto da rocha (rasa e carregada de mineral, mais transparente), **lodo ocre** `#6f6448` em nuvens no pé da rocha (a pedra em estratos se desfazendo na água) e espuma de mineral levemente empoeirada `#e2dccb`. O turquesa fica só para o seu time (`#00efc0`: a água turquesa de antes brigava com os rótulos e as luzes do time) e o azul-gelo `#9fe8ff` só para o minério: **veios de He-3 dissolvido**, fiapos de luz fraca por baixo da superfície que correm devagar (1,4 m/s) para a mineradora e ficam mais fortes perto dela, pulsando com o He-3 do mapa, e o brilho embaixo da mineradora, do Núcleo e dos cristais.
+
+Mid-poly PBR como as outras peças: a **malha** é do Blender (`agua.glb`, `agua_pbr.py`; ~47 mil triângulos, só onde há água, 18 m no lago aberto e 9 m perto da rocha, lisa, superfície em `NIVEL_AGUA` −16 m; o fundo a −60/−68) e a **forma e o movimento** são do shader (`public/js/agua.js`):
+
+- **ondas grandes:** quatro ondas de Gerstner (72 a 160 m, ~1,3 m somadas, crista aguda e vale largo) andando na velocidade de onda de verdade (× 0,75): o lago todo respira e a linha d'água sobe e desce na pedra (perto da rocha a onda baixa até 45%);
+- **ondulações:** o relevo `agua_normal.webp` (espectro de ondas que repete) em três camadas de 46, 15,5 e 5,3 m, cada uma girada e andando no seu sentido; a miúda some de longe e as outras amaciam, para o mipmap não virar chiado;
+- **luz:** reflexo do céu da cena (as três cores e o halo do sol) com Fresnel de Schlick, até 60%; faíscas do sol nas ondulações (expoente 1500 de perto e 380 de longe, sem placa branca) e um brilho largo fraco; a crista acende em azul-gelo claro `#86c4cf` de frente para o sol (a luz atravessando a onda);
+- **espuma em renda** (`agua_espuma.webp`, Voronoi periódico, que cresce e some pela renda): grudada no que fura a água (rocha, torres, pedras, bacias), em faixas que chegam na pedra (12,5 m, 2,8 m/s) e rala na crista das ondas grandes do lago aberto;
+- cáusticas `#c2e6ee` fracas (0,12 no fundo, 0,10 na rocha) que somem com a profundidade; o fundo e a rocha molhada não recebem sombra.
 
 ### Planetas (biomas)
 
@@ -162,7 +170,7 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 
 | Planeta | Céu topo / meio / horizonte | Neblina | Rocha | Chão | Status |
 |---|---|---|---|---|---|
-| **Lago de He-3 (Stage 6)** | `#22304a` / `#9a8574` / `#ebcba2` | `#d8b993` | `#4f3d2e` a `#b59a74` em estratos | água `#4fb3a6` / `#0e3f4a`, fundo `#4a4b40` | **feito** (`public/js/cena.js`, `public/js/agua.js`): mapa da partida 3 contra 3 |
+| **Lago de He-3 (Stage 6)** | `#22304a` / `#9a8574` / `#ebcba2` | `#d8b993` | `#4f3d2e` a `#b59a74` em estratos | água `#41737d` / `#0a2230`, lodo `#6f6448`, fundo `#4a4b40` | **feito** (`public/js/cena.js`, `public/js/agua.js`): mapa da partida 3 contra 3 |
 | M1 Cânion (Bellico) | `#2a0f1c` / `#a8402a` / `#f59a45` | `#c96a3a` | `#5a2f1e` a `#a8683e` em estratos | `#6e3f24` a `#9b6239` | saiu (substituído pelo lago em out/2026) |
 | Base Shrewdo | `#1d3b5c` / `#6f9cc4` / `#d8e6ee` | `#b9cdd8` | metal `#5d6866` | concreto `#7a817f` | planejado |
 | Vale tóxico (Mechan) | `#1a0820` / `#6a1f5e` / `#c0508a` | `#7a3460` | `#4a3328` | `#5c4a2a` com poças `#7dff6a` | planejado |

@@ -11,7 +11,7 @@
 // O que entra:
 // - borda (quatro quartos), horizonte, fundo do lago, rochas dos quadrantes e
 //   paredes em L dos poços, em rocha de estratos;
-// - a água (agua.js, shader próprio) em NIVEL_AGUA, abaixo do chão de voo: tudo
+// - a água (a malha do agua.glb com o shader de agua.js) em NIVEL_AGUA, abaixo do chão de voo: tudo
 //   flutua sobre o lago;
 // - a mineradora de He-3 no centro, com as docas na cor do time dono (relativa a quem
 //   olha), a porta de cada hangar sempre aberta com o campo de força do time (só o
@@ -66,7 +66,7 @@ import {
 import { PORTAL_WARP, OBSTACULOS, ESCALA_TORRE_SUPORTE } from '/shared/obstaculos.js';
 import { criarAgua, TEMPO_AGUA } from './agua.js';
 import { criarNuvens } from './nuvens.js';
-import { instanciaMapa, partesDoModelo, pintar, neon, materialDoMapa, modeloMapaPronto } from './mapa-modelos.js';
+import { instanciaMapa, partesDoModelo, pintar, neon, materialDoMapa, modeloMapaPronto, texturasPbr } from './mapa-modelos.js';
 
 export const CORES = {
   ceuTopo: new THREE.Color('#22304a'),
@@ -833,7 +833,9 @@ export function criarCena({ meuTime = 0 } = {}) {
   // A água por cima de tudo o que é do fundo: brilho de He-3 sobre a mineradora, o
   // Núcleo e os veios de cristal; espuma nas pedras que furam a água.
   const agua = criarAgua({
-    ceu: CORES.neblina,
+    geometria: partesDoModelo('agua')[0]?.geometria ?? null,
+    texturas: texturasPbr('agua'),
+    ceu: { topo: CORES.ceuTopo, meio: CORES.ceuMeio, horizonte: CORES.horizonte, halo: CORES.halo },
     solDir: SOL_DIR,
     pontosHe3: [
       { x: 0, z: 0, raio: 260, forca: 0.22 },
