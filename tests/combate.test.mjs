@@ -8,6 +8,8 @@ import { World } from '../server/game.js';
 import {
   tempoRenascer,
   ouroEncerrar,
+  ouroAbateJogador,
+  OURO_JOGADOR_POR_NIVEL,
   recompensaAssistencia,
   RECOMPENSA,
   RENASCER_BASE_S,
@@ -156,6 +158,26 @@ test('assistência: paga quem do time do matador feriu na janela, e só ele', ()
   assert.equal(c.ouro, ouroC2);
 });
 
+test('abate de jogador: o ouro sobe com o nível da vítima, e a assistência junto', () => {
+  assert.equal(ouroAbateJogador(1), RECOMPENSA.jogador.ouro);
+  assert.equal(ouroAbateJogador(10), RECOMPENSA.jogador.ouro + 9 * OURO_JOGADOR_POR_NIVEL);
+  assert.equal(ouroAbateJogador(99), ouroAbateJogador(25), 'teto no nível máximo');
+  assert.equal(recompensaAssistencia(10).ouro, Math.round(ouroAbateJogador(10) / 2));
+  assert.equal(recompensaAssistencia(10).xp, RECOMPENSA.jogador.xp / 2, 'a XP não muda com o nível');
+
+  const { w, js } = arena(3);
+  const [a, b, c] = js;
+  b.nivel = 10;
+  golpear(w, c, b);
+  const ouroA = a.ouro;
+  const ouroC = c.ouro;
+  const m = morteDe(golpear(w, a, b, true), b.id);
+  assert.equal(m.ouro, ouroAbateJogador(10));
+  assert.equal(a.ouro - ouroA, ouroAbateJogador(10));
+  assert.equal(c.ouro - ouroC, recompensaAssistencia(10).ouro);
+  assert.equal(m.ouroAssist, recompensaAssistencia(10).ouro);
+});
+
 test('assistência: o registro de dano zera quando a vítima morre', () => {
   const { w, js } = arena(3);
   const [a, b, c] = js;
@@ -189,8 +211,8 @@ test('sequência: encerrar paga bônus proporcional e zera ao morrer', () => {
   m = morteDe(golpear(w, b, a, true), a.id);
   assert.equal(m.seq, 2);
   assert.equal(m.encerrou, ouroEncerrar(2));
-  assert.equal(m.ouro, RECOMPENSA.jogador.ouro + ouroEncerrar(2));
-  assert.equal(b.ouro - ouroB, RECOMPENSA.jogador.ouro + ouroEncerrar(2));
+  assert.equal(m.ouro, ouroAbateJogador(a.nivel) + ouroEncerrar(2), 'o abate pelo nível de A, mais o bônus');
+  assert.equal(b.ouro - ouroB, ouroAbateJogador(a.nivel) + ouroEncerrar(2));
   assert.equal(a.sequencia, 0, 'zerou ao morrer');
   assert.equal(b.sequencia, 1);
 });

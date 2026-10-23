@@ -35,8 +35,9 @@
 //   destruir as defesas é trabalho dos pilotos. Efeitos de arma (dreno, lentidão,
 //   EMP) não pegam em estrutura, e o míssil não a persegue (só curva atrás de nave).
 // - Destruída: sai da física nos dois lados (definirObstaculoAtivo, como a torre
-//   do buff de suporte), quem deu o último tiro ganha RECOMPENSA.torreta (server/progressao.js) e o
-//   resto do time dele TORRETA.ouroTime de ouro cada; evento 'torreta'. NÃO renasce
+//   do buff de suporte), quem deu o último tiro ganha o XP de RECOMPENSA.torreta e o ouro
+//   do nível das torretas do time dono, e o resto do time dele um pouco menos cada
+//   (ouroTorreta em server/progressao.js: 200/100, 300/150, 400/200); evento 'torreta'. NÃO renasce
 //   sozinha: só se o time dono a reconstruir na Evolução (server/servicos.js), e aí
 //   ela volta inteira com o nível atual do time. Se houver nave no lugar, a obra
 //   espera ela sair, para ninguém ficar preso dentro da torreta.
@@ -56,7 +57,7 @@ import { DT, HOVER, SHIP_RADIUS, AREA_ALTURA } from '../shared/sim.js';
 import { golpeDaArma } from '../shared/armas.js';
 import { enxerga, VISAO_TORRETA } from '../shared/visao.js';
 import { efeitosTorretas, TORRETA_NIVEL_MAX } from '../shared/evolucao.js';
-import { recompensar } from './progressao.js';
+import { recompensar, ouroTorreta } from './progressao.js';
 
 /** Números de balanceamento da torreta no nível 1 (o nível multiplica HP e dano). */
 export const TORRETA = {
@@ -71,7 +72,6 @@ export const TORRETA = {
   rampa: 0.4, // dano a mais (fração do dano do nível) a cada tiro seguido no mesmo alvo
   rampaMax: 5, // tiros a mais que ainda sobem o dano: do 6º tiro seguido em diante, ×3
   kind: 'laser', // forma do projétil para o golpe (shared/armas.js); a cor vem do time no cliente
-  ouroTime: 25, // para cada outro piloto do time de quem a destruiu
 };
 const CADENCIA_TICKS = Math.round(TORRETA.cadenciaS / DT);
 const AGRESSAO_TICKS = Math.round(TORRETA.agressaoS / DT);
@@ -363,9 +363,10 @@ export class Torretas {
     t.alvo = 0;
     t.serieAlvo = 0;
     definirObstaculoAtivo(t.id, false);
-    recompensar(atirador, 'torreta', w.eventos);
+    const { ouro, ouroTime } = ouroTorreta(this.nivel[t.time]);
+    recompensar(atirador, 'torreta', w.eventos, 1, ouro);
     for (const j of w.players.values()) {
-      if (j !== atirador && j.time === atirador.time) j.ouro += TORRETA.ouroTime;
+      if (j !== atirador && j.time === atirador.time) j.ouro += ouroTime;
     }
     w.eventos.push({ e: 'torreta', id: t.id, time: t.time, estado: 'destruida', por: atirador.id, nome: atirador.nome, x: t.x, y: t.y, z: t.z });
   }

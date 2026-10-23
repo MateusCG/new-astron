@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { World } from '../server/game.js';
 import { TORRETA, linhaDeTiro } from '../server/torretas.js';
 import { VISAO_TORRETA } from '../shared/visao.js';
-import { RECOMPENSA, xpParaNivel } from '../server/progressao.js';
+import { RECOMPENSA, xpParaNivel, ouroTorreta, OURO_TORRETA, OURO_TORRETA_TIME } from '../server/progressao.js';
 import { createShip, createBullet, WEAPONS, HOVER, SHIP_RADIUS, IDX_ARMA, versaoArma } from '../shared/sim.js';
 import { TORRETAS, TORRETA_LADO, TORRETA_LADO_POR_LANE, BASES, LANE, MINERADORA, ROTAS, SERVICOS, heightAt } from '../shared/terrain.js';
 import { OBSTACULOS, TORRETA as PLANTA, alturaSolida, obstaculoAtivo } from '../shared/obstaculos.js';
@@ -160,6 +160,31 @@ test('torretas: só tiro de jogador inimigo tira vida (aliado e monstro batem e 
   );
 });
 
+test('torretas: o ouro de derrubar sobe com o nível das torretas do time dono', () => {
+  assert.deepEqual([1, 2, 3].map((n) => ouroTorreta(n).ouro), OURO_TORRETA);
+  assert.deepEqual([1, 2, 3].map((n) => ouroTorreta(n).ouroTime), OURO_TORRETA_TIME);
+  assert.equal(RECOMPENSA.torreta.ouro, OURO_TORRETA[0]);
+  assert.ok(OURO_TORRETA[2] > OURO_TORRETA[1] && OURO_TORRETA[1] > OURO_TORRETA[0]);
+  const { w, a, b } = mundo({ torretas: false });
+  const c = w.addPlayer('C', 'bellico'); // time 0, colega de A
+  w.torretas.subirNivel(1);
+  w.torretas.subirNivel(1); // time 1 no nível 3
+  const t = torreta(w, 'T1-3');
+  t.hp = 30;
+  colocar(a, t.x, t.z + 60, 0);
+  colocar(c, 0, 900);
+  colocar(b, 0, -900);
+  const antes = { ouroA: a.ouro, ouroC: c.ouro };
+  let seq = 0;
+  for (let i = 0; i < 3 * SEGUNDO && t.viva; i++) {
+    w.pushInput(a.id, { s: ++seq, f1: true });
+    w.step();
+  }
+  assert.equal(t.viva, false);
+  assert.equal(a.ouro - antes.ouroA, ouroTorreta(3).ouro);
+  assert.equal(c.ouro - antes.ouroC, ouroTorreta(3).ouroTime);
+});
+
 test('torretas: destruída sai da física, paga quem derrubou e um pouco ao time dele', () => {
   const { w, a, b } = mundo({ torretas: false });
   const c = w.addPlayer('C', 'bellico'); // time 0, colega de A
@@ -181,7 +206,7 @@ test('torretas: destruída sai da física, paga quem derrubou e um pouco ao time
   assert.equal(a.ouro - antes.ouroA, RECOMPENSA.torreta.ouro);
   assert.equal(a.nivel, 2, 'o XP da torreta passa do nível 1');
   assert.equal(a.xp, antes.xp + RECOMPENSA.torreta.xp - xpParaNivel(1));
-  assert.equal(c.ouro - antes.ouroC, TORRETA.ouroTime, 'o colega ganha um pouco');
+  assert.equal(c.ouro - antes.ouroC, ouroTorreta(1).ouroTime, 'o colega ganha um pouco');
   assert.equal(b.ouro, antes.ouroB, 'o dono da torreta nada');
   const ev = w.tirarEventos().find((e) => e.e === 'torreta');
   assert.equal(ev.estado, 'destruida');
