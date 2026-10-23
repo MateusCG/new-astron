@@ -11,9 +11,9 @@ repo: `new-astron-progresso/mapa-stage6/blender/` e `.../tmp/cenario/` (`cenario
 - glTF binário, **Y para cima, 1 unidade = 1 m**, no referencial do jogo (x para a direita do desenho, z para baixo do
   desenho). Pivô na origem do mapa ou do objeto, **y = 0 = chão de voo** (a nave voa a 10 m), salvo nota.
 - Dois padrões (IDENTIDADE-VISUAL.md, "Padrão dos modelos"):
-  - **mid-poly PBR** (o padrão das peças novas; hoje as três plataformas, a mineradora, as torres, o minerador, a escolta e o portal warp): normais e UV, **Draco**, materiais
+  - **mid-poly PBR** (o padrão das peças novas; hoje as três plataformas, a mineradora, as torres, o minerador, a escolta, o portal warp e as rochas, a borda e as pedras do lago): normais e UV, **Draco**, materiais
     `pbr_*` que o cliente liga nas texturas compartilhadas de `public/texturas/mapa/` (o glb não traz imagem),
-    sombreado liso com quinas vivas por ângulo. Fontes: `plataformas_pbr.py`, `mineradora_pbr.py`, `torres_pbr.py`, `naves_servidor_pbr.py`, `base_warp_pbr.py` e `texturas_pbr.py`;
+    sombreado liso com quinas vivas por ângulo. Fontes: `plataformas_pbr.py`, `mineradora_pbr.py`, `torres_pbr.py`, `naves_servidor_pbr.py`, `base_warp_pbr.py`, `rochas_pbr.py`, `texturas_pbr.py` e `texturas_rocha.py`;
   - **low-poly facetado** (as peças antigas, até serem refeitas): os arquivos **não trazem normais** de propósito
     (ficam ~4× menores); o `GLTFLoader` liga `flatShading` sozinho quando falta a normal. Sem textura nem UV: cor +
     emissivo.
@@ -23,7 +23,8 @@ repo: `new-astron-progresso/mapa-stage6/blender/` e `.../tmp/cenario/` (`cenario
 
 | Material | Cor | O que é |
 |---|---|---|
-| `rocha_topo`, `rocha_clara`, `rocha`, `rocha_escura`, `rocha_molhada` | `#b59a74`, `#9c8062`, `#765c45`, `#4f3d2e`, `#33302a` | Estratos da rocha (o molhado fica da água para baixo) |
+| `rocha_topo`, `rocha_clara`, `rocha`, `rocha_escura`, `rocha_molhada` | `#b59a74`, `#9c8062`, `#765c45`, `#4f3d2e`, `#33302a` | Estratos da rocha low-poly (o molhado fica da água para baixo); hoje só nas peças antigas (ruína e o prato do Núcleo) |
+| `pbr_rocha` | fator branco, metal 0, **cor do vértice** (`COLOR_0`) | Rocha PBR (quadrantes, paredes em L, borda, horizonte, pedras do lago): o cliente liga o conjunto `rocha` (que repete) e as cáusticas; o tom de cada estrato (`#b59a74` topo, `#9c8062` clara, `#765c45` média, `#4f3d2e` escura, `#33302a` molhada da água para baixo) vem na cor do vértice, já dividido pela média da textura. Um material só porque o Draco quantiza cada material numa grade própria e a costura entre estratos abria frestas |
 | `fundo_lago` | `#4a4b40` | Leito do lago |
 | `coral`, `coral_claro`, `alga` | `#b25a3e`, `#d08a62`, `#5b6a3a` | Decoração do fundo |
 | `metal`, `metal_escuro`, `metal_claro` | `#5d6866`, `#3a4442`, `#9aa5a3` | Tecnologia (metalness 0,3–0,35, rugosidade 0,55–0,65) |
@@ -52,12 +53,12 @@ degraus (como a física: degrau de 30% do topo e rampa de 16 m); da água para b
 
 | Arquivo | O que é | Medidas (x × y × z, m) | Triângulos | Pivô | Como pôr no mapa |
 |---|---|---|---|---|---|
-| `rocha-quadrante.glb`, `rocha-quadrante-b.glb` | Rocha do quadrante em estratos (cápsula 360 × 135, `ROCHA_QUADRANTE`), com entulho no pé que fura a água (até 1,8 m, sem colisão). Duas variantes | 382 × −64…107 × 167 | 1.862 cada | centro da cápsula, y = 0 | Q0N (−697,5, −652,5) `rocha-quadrante` giro 0; Q0S (−697,5, 652,5) `-b` giro 0; Q1S (697,5, 652,5) `rocha-quadrante` giro π; Q1N (697,5, −652,5) `-b` giro π. Planta: 0,4 a 3,5 m |
-| `parede-l.glb` | Parede em L do poço de cima, lado do time 0 (barras `LN0v` + `LN0h`, espessura 40, topo 84–100) | −39…239 × −64…98 × −238…33 (local) | 2.318 | **cruzamento dos eixos das barras**, (−324, −648) | LN0: (−324, 0, −648) giro 0; LS1: (324, 0, 648) giro π. Planta: −0,7 a 5,3 m (o 5,3 é no dente de 3 m entre as barras) |
-| `parede-l-espelhada.glb` | O mesmo L espelhado em z (poço de baixo) | idem, z −33…240 | 2.318 | idem | LS0: (−324, 0, 648) giro 0; LN1: (324, 0, −648) giro π |
-| `borda-quadrante.glb` | A parede da borda de **um quarto** do mapa (x ≤ 0, z ≤ 0): do meio da borda de cima (0, −1060) ao meio do fundo do bolsão (−1440, 0), com os cantos de raio 40 de `sdBorda`, topo 100–165 e o tampo até ~150 m para dentro da rocha | −1590…0 × −64…164 × −1210…0 | 6.092 | **origem do mapa** | giro 0 (em cima à esquerda) e giro π (embaixo à direita). Planta: 0,3 a 3,6 m |
-| `borda-quadrante-espelhada.glb` | O mesmo quarto espelhado em z (x ≤ 0, z ≥ 0) | z 0…1210 | 6.092 | origem do mapa | giro 0 (embaixo à esquerda) e giro π (em cima à direita). As emendas em x = 0 e z = 0 são espelho, sem fresta |
-| `borda-horizonte.glb` | Planalto e montanhas de fundo em volta do mapa inteiro (até ±3300 × ±3000), começando escondido atrás da borda (saia a 92 m) e subindo a ~330 m | 6630 × 92…334 × 5970 | 5.488 | origem do mapa | uma peça, giro 0 |
+| `rocha-quadrante.glb`, `rocha-quadrante-b.glb` | **PBR.** Rocha do quadrante em estratos (cápsula 360 × 135, `ROCHA_QUADRANTE`): 16 camadas de espessura desigual, cada uma uma aba com o sulco embaixo, a parede em blocos com fendas verticais, o alto recuando em degraus até a mesa, entulho e lascas no pé que furam a água (até 1,8 m, sem colisão). Duas variantes | 383 × −64…108 × 182 | 11.675 / 11.656 | centro da cápsula, y = 0 | Q0N (−697,5, −652,5) `rocha-quadrante` giro 0; Q0S (−697,5, 652,5) `-b` giro 0; Q1S (697,5, 652,5) `rocha-quadrante` giro π; Q1N (697,5, −652,5) `-b` giro π. Planta: 0,15 a 3,75 m |
+| `parede-l.glb` | **PBR.** Parede em L do poço de cima, lado do time 0 (barras `LN0v` + `LN0h`, espessura 40, topo 84–100), nos estratos da rocha do quadrante | −38…235 × −64…100 × −241…40 (local) | 10.596 | **cruzamento dos eixos das barras**, (−324, −648) | LN0: (−324, 0, −648) giro 0; LS1: (324, 0, 648) giro π. Planta: 0,15 a 3,86 m (medida na planta de verdade, não só no contorno) |
+| `parede-l-espelhada.glb` | **PBR.** O mesmo L espelhado em z (poço de baixo) | idem, z −33…239 | 10.613 | idem | LS0: (−324, 0, 648) giro 0; LN1: (324, 0, −648) giro π |
+| `borda-quadrante.glb` | **PBR.** A parede da borda de **um quarto** do mapa (x ≤ 0, z ≤ 0): do meio da borda de cima (0, −1060) ao meio do fundo do bolsão (−1440, 0), com os cantos de raio 40 de `sdBorda`, topo 100–165, nos estratos da rocha, e o tampo até ~150 m para dentro da rocha | −1590…0 × −64…165 × −1210…0 | 17.336 | **origem do mapa** | giro 0 (em cima à esquerda) e giro π (embaixo à direita). Planta: 0,15 a 3,76 m |
+| `borda-quadrante-espelhada.glb` | **PBR.** O mesmo quarto espelhado em z (x ≤ 0, z ≥ 0) | z 0…1210 | 17.336 | origem do mapa | giro 0 (embaixo à esquerda) e giro π (em cima à direita). As emendas em x = 0 e z = 0 são espelho, sem fresta |
+| `borda-horizonte.glb` | **PBR.** Planalto e montanhas de fundo em volta do mapa inteiro (até ±3300 × ±3000), com cristas, começando escondido atrás da borda (saia a 92 m) e subindo a ~420 m | 6594 × 92…422 × 5973 | 17.342 | origem do mapa | uma peça, giro 0 |
 | `fundo-lago.glb` | Leito do lago no mapa inteiro, ondulado entre −68 e −60 (simétrico pela rotação de 180°) | 3200 × −68…−60 × 2400 | 2.400 | origem do mapa | uma peça, giro 0 |
 | `mineradora.glb` | **PBR.** **Mineradora de Hélio-3** com um hangar aberto de cada lado (ver abaixo) | 312 × −75…135 × 408 (com as pernas e os cristais do fundo; o casco na linha d'água é 147,6 × 237,6) | 47.715 | centro da mineradora, y = 0 | (0, 0, 0), giro 0. Planta (`MINERADORA` 70 × 115, canto 24): 0,05 a 3,95 m; fora da planta, nada entre 2,5 e 30 m |
 | `base-warp.glb` | **PBR.** **Portal warp** da base do time 0 (ver abaixo), virado para +x | 77 × 31…223 × 153 | 9.660 | ponto do `PORTAL_WARP` (local −95, 0 da base), y = 0 | time 0: (−1375, 0, 0) giro 0; time 1: (1375, 0, 0) giro π. Peça mais baixa a 31 m (acima de `PORTAL_WARP.base` = 30): sem colisão |
@@ -72,11 +73,11 @@ degraus (como a física: degrau de 30% do topo e rampa de 16 m); da água para b
 | `minerador.glb` | **PBR.** Nave do servidor (não é peça do mapa, mas usa o mesmo carregamento e as texturas): o minerador, frente para **−z**, y = 0 no centro do casco: casco de carga com proa em cunha e cabine `pbr_vidro`, dois motores laterais (boca em z = 2,6, x = ±1,65, y = −0,2: o cliente põe o brilho ali), blindagem com a faixa `neon_time`, a moldura do contêiner e o nó **`minerador_carga`** (bloco `he3_escuro` e cristais `neon_he3`, que o cliente só mostra cheio) | 4,4 × −0,8…2,9 × 6,1 | 874 | centro do casco | `public/js/nave.js` (`criarMinerador`; o do Núcleo, escala 1,7); o cliente pinta o `neon_time` com a cor do time |
 | `escolta.glb` | **PBR.** A escolta armada: caça de fuselagem afilada, asas enflechadas com a ponta `neon_time`, derivas, dois motores (boca em z = 3,9, x = ±1,1) e o nó **`escolta_torre`** (pivô em (0, 0,6, 0,6), gira em y: base, cabeça e dois canos para −z com a boca `neon_time`) | 6 × −0,7…1,6 × 8,2 | 780 | centro do casco | `criarEscolta` em `public/js/nave.js` |
 | `coral.glb`, `alga.glb`, `cristais-he3.glb` | Decoração do fundo: coral ramificado (~13 m), tufo de algas (fita dos dois lados, ~20 m), aglomerado de cristais de He-3 (~10 m) | — | 720 / 60 / 174 | **base no fundo** | y = `FUNDO_LAGO` − 3 (−63), espalhados (a montagem usou 70) |
-| `pedra-lago-1.glb` | Pedra que sobe do fundo e fura a água (topo +1,5 a 2,5 m: espuma em volta, abaixo do voo) | 37 × −64…2,5 × 33 | 174 | centro, y = 0 | pontos livres da região aberta (não na lane) |
-| `pedra-lago-2.glb` | Pedra inteira embaixo d'água (topo −22) | 48 × −64…−22 × 42 | 218 | idem | idem |
+| `pedra-lago-1.glb` | **PBR.** Pedra que sobe do fundo e fura a água (topo +1,5 a 2,3 m: espuma em volta, abaixo do voo) | 37 × −64…2,3 × 33 | 440 | centro, y = 0 | pontos livres da região aberta (não na lane) |
+| `pedra-lago-2.glb` | **PBR.** Pedra inteira embaixo d'água (topo −22) | 50 × −64…−22 × 43 | 610 | idem | idem |
 | `ruina-submersa.glb` | Anel de pilares quebrados no fundo, com cristais no meio (lembrança do templo do Stage 6) | 67 × −63…−29 × 70 | 601 | centro, y = 0 | um ou dois pontos de cada lado (a montagem usou (∓420, ±640)) |
 
-Total: 26 arquivos, ~1,6 MB, mais ~95 KB das texturas compartilhadas (alvo do padrão PBR: uns 5 MB para o mapa inteiro).
+Total: 26 arquivos, ~2,1 MB, mais ~250 KB das texturas compartilhadas (alvo do padrão PBR: uns 5 MB para o mapa inteiro).
 
 ### Mineradora (`mineradora.glb`)
 

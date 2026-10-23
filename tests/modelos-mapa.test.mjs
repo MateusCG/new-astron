@@ -51,9 +51,13 @@ test('modelos do mapa: nenhuma peça passa do teto de triângulos do tipo dela',
   }
 });
 
-const PBR = ['plataforma-base', 'plataforma-servico', 'plataforma-pouso', 'mineradora', 'torre-suporte', 'torre-suporte-caida', 'torreta', 'minerador', 'escolta', 'base-warp'];
+const PBR = [
+  'plataforma-base', 'plataforma-servico', 'plataforma-pouso', 'mineradora', 'torre-suporte', 'torre-suporte-caida', 'torreta',
+  'minerador', 'escolta', 'base-warp', 'rocha-quadrante', 'rocha-quadrante-b', 'parede-l', 'parede-l-espelhada',
+  'borda-quadrante', 'borda-quadrante-espelhada', 'borda-horizonte', 'pedra-lago-1', 'pedra-lago-2',
+];
 
-test('modelos do mapa: as plataformas, a mineradora e as torres estão no padrão PBR', () => {
+test('modelos do mapa: as plataformas, a mineradora, as torres, as naves do servidor, o portal e as rochas estão no padrão PBR', () => {
   for (const nome of PBR) assert.ok(ehPbr(lerGlb(nome)), nome);
 });
 
@@ -124,4 +128,13 @@ test('modelos do mapa: o portal warp traz a membrana do redemoinho, o neon do ti
   // Tudo acima de PORTAL_WARP.base (30 m): a nave passa por baixo.
   const minY = Math.min(...j.meshes.flatMap((m) => m.primitives.map((p) => j.accessors[p.attributes.POSITION].min[1])));
   assert.ok(minY > 30, `peça mais baixa a ${minY} m`);
+});
+
+test('modelos do mapa: as rochas e a borda são um material só, a rocha PBR, com o tom dos estratos na cor do vértice', () => {
+  // Um material por estrato abria frestas: o Draco quantiza cada material numa grade própria.
+  for (const nome of ['rocha-quadrante', 'rocha-quadrante-b', 'parede-l', 'parede-l-espelhada', 'borda-quadrante', 'borda-quadrante-espelhada', 'borda-horizonte', 'pedra-lago-1', 'pedra-lago-2']) {
+    const j = lerGlb(nome);
+    assert.deepEqual(j.materials.map((m) => m.name), ['pbr_rocha'], nome);
+    for (const m of j.meshes) for (const p of m.primitives) assert.ok(p.attributes.COLOR_0 != null, `${nome}: sem a cor do vértice`);
+  }
 });

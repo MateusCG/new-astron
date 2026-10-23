@@ -17,7 +17,9 @@
 //   (glb com Draco) e são lisos: `pbr_<conjunto>[_variação]` ganha as três texturas do
 //   conjunto (TEXTURAS_PBR_MAPA: cor, metal/rugosidade e relevo), uma cópia por página
 //   para o mapa inteiro, e a cor de cada variação vem do fator do glb. Metal até 0,5
-//   (não há mapa de ambiente); sem conjunto (`pbr_tinta`, `pbr_vidro`), só a cor;
+//   (não há mapa de ambiente); sem conjunto (`pbr_tinta`, `pbr_vidro`), só a cor. A rocha
+//   PBR é um material só, `pbr_rocha` (o conjunto `rocha`, que repete), com o tom de cada
+//   estrato na cor do vértice, e ganha as cáusticas (que só aparecem da água para baixo);
 // - os pintados por quem olha (`neon_time`, `portal_time`, `neon_doca_0/1`,
 //   `neon_servico`, `neon_objetivo`) a cena troca em cada cópia com `pintar`: cor do
 //   time relativa a quem olha, cor do serviço, e o âmbar dos objetivos, um material
@@ -55,6 +57,8 @@ function texturasDoConjunto(conjunto) {
         const t = await carregador.loadAsync(`${PASTA_TEXTURAS_MAPA}${arquivo}`);
         // UV do glTF (origem em cima), como as texturas que o GLTFLoader carrega.
         t.flipY = false;
+        // A rocha repete (UV ao longo da parede, além de 0..1); o atlas do painel fica dentro de 0..1.
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
         t.colorSpace = tipo === 'cor' ? THREE.SRGBColorSpace : THREE.NoColorSpace;
         t.anisotropy = 4;
         t.name = arquivo;
@@ -107,7 +111,7 @@ function materialCompartilhado(m) {
     mat.roughness = 0.6;
     mat.metalness = 0;
   }
-  if (nome === 'rocha_molhada' || nome === 'fundo_lago') comCaustica(mat, nome === 'fundo_lago' ? 0.12 : 0.1);
+  if (nome === 'rocha_molhada' || nome === 'pbr_rocha' || nome === 'fundo_lago') comCaustica(mat, nome === 'fundo_lago' ? 0.12 : 0.1);
   mat.name = nome;
   materiais.set(nome, mat);
   return mat;
