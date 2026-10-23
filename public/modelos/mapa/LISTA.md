@@ -11,9 +11,9 @@ repo: `new-astron-progresso/mapa-stage6/blender/` e `.../tmp/cenario/` (`cenario
 - glTF binário, **Y para cima, 1 unidade = 1 m**, no referencial do jogo (x para a direita do desenho, z para baixo do
   desenho). Pivô na origem do mapa ou do objeto, **y = 0 = chão de voo** (a nave voa a 10 m), salvo nota.
 - Dois padrões (IDENTIDADE-VISUAL.md, "Padrão dos modelos"):
-  - **mid-poly PBR** (o padrão das peças novas; hoje as três plataformas, a mineradora, as torres, o minerador, a escolta, o portal warp e as rochas, a borda e as pedras do lago): normais e UV, **Draco**, materiais
+  - **mid-poly PBR** (o padrão das peças novas; hoje as três plataformas, a mineradora, as torres, o minerador, a escolta, o portal warp, as rochas, a borda e as pedras do lago, o Núcleo e a ruína submersa): normais e UV, **Draco**, materiais
     `pbr_*` que o cliente liga nas texturas compartilhadas de `public/texturas/mapa/` (o glb não traz imagem),
-    sombreado liso com quinas vivas por ângulo. Fontes: `plataformas_pbr.py`, `mineradora_pbr.py`, `torres_pbr.py`, `naves_servidor_pbr.py`, `base_warp_pbr.py`, `rochas_pbr.py`, `texturas_pbr.py` e `texturas_rocha.py`;
+    sombreado liso com quinas vivas por ângulo. Fontes: `plataformas_pbr.py`, `mineradora_pbr.py`, `torres_pbr.py`, `naves_servidor_pbr.py`, `base_warp_pbr.py`, `rochas_pbr.py`, `nucleo_pbr.py`, `ruina_pbr.py`, `texturas_pbr.py` e `texturas_rocha.py`;
   - **low-poly facetado** (as peças antigas, até serem refeitas): os arquivos **não trazem normais** de propósito
     (ficam ~4× menores); o `GLTFLoader` liga `flatShading` sozinho quando falta a normal. Sem textura nem UV: cor +
     emissivo.
@@ -23,7 +23,7 @@ repo: `new-astron-progresso/mapa-stage6/blender/` e `.../tmp/cenario/` (`cenario
 
 | Material | Cor | O que é |
 |---|---|---|
-| `rocha_topo`, `rocha_clara`, `rocha`, `rocha_escura`, `rocha_molhada` | `#b59a74`, `#9c8062`, `#765c45`, `#4f3d2e`, `#33302a` | Estratos da rocha low-poly (o molhado fica da água para baixo); hoje só nas peças antigas (ruína e o prato do Núcleo) |
+| `rocha_topo`, `rocha_clara`, `rocha`, `rocha_escura`, `rocha_molhada` | `#b59a74`, `#9c8062`, `#765c45`, `#4f3d2e`, `#33302a` | Estratos da rocha low-poly (o molhado fica da água para baixo); nenhuma peça usa mais (o cliente ainda conhece, para peça antiga) |
 | `pbr_rocha` | fator branco, metal 0, **cor do vértice** (`COLOR_0`) | Rocha PBR (quadrantes, paredes em L, borda, horizonte, pedras do lago): o cliente liga o conjunto `rocha` (que repete) e as cáusticas; o tom de cada estrato (`#b59a74` topo, `#9c8062` clara, `#765c45` média, `#4f3d2e` escura, `#33302a` molhada da água para baixo) vem na cor do vértice, já dividido pela média da textura. Um material só porque o Draco quantiza cada material numa grade própria e a costura entre estratos abria frestas |
 | `fundo_lago` | `#4a4b40` | Leito do lago |
 | `coral`, `coral_claro`, `alga` | `#b25a3e`, `#d08a62`, `#5b6a3a` | Decoração do fundo |
@@ -65,7 +65,7 @@ degraus (como a física: degrau de 30% do topo e rampa de 16 m); da água para b
 | `plataforma-base.glb` | **PBR.** Anel de pouso da base: deque flutuante r 70 em chapas, aro de 64 blocos (até 1 m) com faixa `neon_time` e balizas `neon_luz`, 4 torres de controle na borda (até 3,5 m), anel `neon_time` r 64 (quatro arcos) e r 14, o **H** `neon_time` no centro (pernas ao longo de x, lido de quem vem da lane), setas e luzes de aproximação nas diagonais, casco cônico até −10,2 com nervuras, janelas e propulsores, 4 pilares até o fundo | 141 × −62…3,5 × 141 | 14.614 | centro, **topo do deque em y = 0** | (∓1280, 1,7, 0): y = `heightAt + piso` da área de pouso |
 | `plataforma-servico.glb` | **PBR.** Plataforma da Evolução e da Loja: deque r 23, aro com faixa `neon_servico`, 3 torres, anel `neon_servico` r 20 e tracejado branco; o **centro fica livre** (o cliente desenha o ícone e o nome do serviço no chão), 3 pilares | 47 × −62…3,5 × 47 | 8.648 | centro, topo em y = 0 | `SERVICOS` com y = piso (1,2) |
 | `plataforma-pouso.glb` | **PBR.** Plataforma de pouso do ouro (P0/P1): deque r 32, aro com faixa `neon_objetivo`, 4 torres, anel âmbar r 28 (quatro arcos), quatro setas âmbar para o centro e o nó **`emissor`** no centro (prato com anel âmbar, de onde sai o feixe com alguém pousado), 3 pilares | 65 × −62…3,5 × 65 | 10.812 | centro, topo em y = 0 | P0 (−495, 1, −445,5), P1 (495, 1, 445,5) |
-| `nucleo.glb` | **Núcleo de He-3** (ver abaixo) | 138 × −62…71 × 138 | 3.144 | centro do poço, y = 0 | (0, 0, −877). Cristal centrado em y = 18 (a entidade do servidor) |
+| `nucleo.glb` | **PBR.** **Núcleo de He-3** (ver abaixo) | 103 × −62…73 × 106 | 12.436 | centro do poço, y = 0 | (0, 0, −877). Cristal centrado em y = 18 (a entidade do servidor) |
 | `torre-suporte.glb` | **PBR.** Torre do buff de suporte no tamanho da planta (`TORRE_SUPORTE`: r 14, topo 60): fundação octogonal até o leito, colar na linha d'água, cinta da base com escotilhas, fuste sextavado de quinas chanfradas com nervuras, três canais de luz `neon_objetivo` (faces 0°, 120° e 240°), grelhas e dutos nas outras faces, faixas de reforço, capitel com consoles, passarela e balizas `neon_luz`, cone com bobinas, emissor com anel âmbar e a **antena de comunicação**: mastro treliçado de três pernas até 80 m com anel de passarela, painéis setoriais em dois andares e luzes âmbar, e em cima o nó **`suporte_nucleo`** (a cabeça da antena: mesa giratória, prato de 14 m com o alimentador âmbar, contrapeso e a vareta com o farol âmbar até ~92 m, abaixo do rótulo a 96; **pivô no eixo, a 80 m**: o cliente gira com a torre acesa) | 37 × −61…92 × 40 | 7.188 | centro, y = 0 | BS0 (−855, 0, 909), BS1 (855, 0, −909), **escala 1** (`ESCALA_TORRE_SUPORTE`). Planta: 0,4 a 4,0 m entre 3 e 30 m |
 | `torre-suporte-caida.glb` | **PBR.** A mesma torre derrubada: a cinta da base e o toco quebrado (borda irregular com rombos, até 4,8 m, sem colisão), chapas tombadas dentro do toco, o capitel partido e um gomo do fuste meio afundados com a faixa âmbar caída (`neon_objetivo`, o cliente apaga) e lascas boiando | 66 × −61…4,8 × 51 | 1.368 | idem | troca com a de pé quando `definirObstaculoAtivo('BS0', false)` |
 | `torreta.glb` | **PBR.** Torre sentinela da lane (`TORRETA`: r 9, topo 16), que antes era feita em código: nós `torreta_base` (pilar octogonal até o fundo, cinta na linha d'água, sapata, e o pé de 2,4 m com luzes `neon_time`; sempre de pé), `torreta_corpo` (o que tomba, pivô no chão: torre octogonal com aletas nas quinas e a faixa `neon_time` a 8 m) e, dentro dele, `torreta_cabeca` (**pivô no eixo, a 9 m**, gira em y: carcaça blindada, saias, mantelete, dois canos para **−z** a 10 m com freio de boca `neon_time`, lançadores de fumaça, radar e o sensor `neon_time` no mastro, até 17 m), e `torreta_destrocos` (o toco da torre rasgado sobre o pé, com rombos e aletas tortas, a cabeça partida tombada em cima, um cano torto, lascas e chapas na água, tudo abaixo de 7 m; o cliente só mostra com ela caída e quase apaga o neon) | 31 × −62…17 × 32 | 3.212 | centro, y = 0 | `TORRETAS` (`public/js/torretas.js`), giro 0; o cliente pinta o `neon_time` de cada cópia com a cor do time. Planta: corpo de −1,8 a −0,4 m (a cabeça é mais estreita), ponta do cano a 3,5 m |
@@ -75,9 +75,9 @@ degraus (como a física: degrau de 30% do topo e rampa de 16 m); da água para b
 | `coral.glb`, `alga.glb`, `cristais-he3.glb` | Decoração do fundo: coral ramificado (~13 m), tufo de algas (fita dos dois lados, ~20 m), aglomerado de cristais de He-3 (~10 m) | — | 720 / 60 / 174 | **base no fundo** | y = `FUNDO_LAGO` − 3 (−63), espalhados (a montagem usou 70) |
 | `pedra-lago-1.glb` | **PBR.** Pedra que sobe do fundo e fura a água (topo +1,5 a 2,3 m: espuma em volta, abaixo do voo) | 37 × −64…2,3 × 33 | 440 | centro, y = 0 | pontos livres da região aberta (não na lane) |
 | `pedra-lago-2.glb` | **PBR.** Pedra inteira embaixo d'água (topo −22) | 50 × −64…−22 × 43 | 610 | idem | idem |
-| `ruina-submersa.glb` | Anel de pilares quebrados no fundo, com cristais no meio (lembrança do templo do Stage 6) | 67 × −63…−29 × 70 | 601 | centro, y = 0 | um ou dois pontos de cada lado (a montagem usou (∓420, ±640)) |
+| `ruina-submersa.glb` | **PBR.** O templo afundado do Stage 6, visto pela água: estilóbato de dois degraus de 12 lados, dez pilares em anel de 30 m (fustes octogonais com êntase, sete de pé com a ponta quebrada ou o capitel, dois tocos e um tombado partido em dois), vergas sobre dois pares, blocos soltos e o altar do meio com cinco cristais de He-3. Nós `ruina_pedra` (`pbr_rocha` com o tom na cor do vértice, como as rochas, e as cáusticas) e `ruina_cristais` (`neon_he3`, `he3_escuro`) | 74 × −64…−27,5 × 74 | 1.174 | centro, y = 0 | um ou dois pontos de cada lado (a montagem usou (∓420, ±640)) |
 
-Total: 26 arquivos, ~2,1 MB, mais ~250 KB das texturas compartilhadas (alvo do padrão PBR: uns 5 MB para o mapa inteiro).
+Total: 26 arquivos, ~2,3 MB, mais ~250 KB das texturas compartilhadas (alvo do padrão PBR: uns 5 MB para o mapa inteiro).
 
 ### Mineradora (`mineradora.glb`)
 
@@ -127,15 +127,23 @@ feixe fino da ponta da broca até a água na cor do time.
 
 ### Núcleo de He-3 (`nucleo.glb`)
 
-Nós, todos com o **pivô no centro do cristal (0, 18, 0)** para girar no lugar:
-- `nucleo_cristal`: cristal bipirâmide de 26 m (7 a 31 m), faces alternando `neon_he3` e `he3_escuro`;
-- `nucleo_lascas`: seis lascas em órbita a 8,5–10 m (girar devagar em y);
-- `nucleo_anel_1`, `_2`, `_3`: anéis de contenção r 11,5 / 15 / 18,5, inclinados, com faixas e emissores âmbar (girar
-  cada um num eixo, mais rápido quando o Núcleo perde vida; parar e cair quando ele morre);
-- `nucleo_base` (pivô na origem): prato emissor flutuando logo acima do lago (topo y = 0, abaixo do voo) com o círculo
-  âmbar de 22 m (bom lugar para o anel do pulso começar) e o projetor no meio;
-- `nucleo_estabilizadores` (pivô na origem): quatro agulhas flutuando a 50 m do centro, de 38 a ~70 m de altura,
-  apontando para o cristal (feixes âmbar delas até o cristal ficam bonitos no pulso).
+Mid-poly PBR (`nucleo_pbr.py`): o metal é o atlas `painel` (grafite, aço e claro), o âmbar é `neon_objetivo` (o
+cliente acende e apaga) e o He-3 é `neon_he3` e `he3_escuro`. Nós, os cinco primeiros com o **pivô no centro do cristal
+(0, 18, 0)** para girar no lugar:
+- `nucleo_cristal`: o cristal principal facetado de 26 m (7 a 31 m), oito faces de ponta a ponta alternando `neon_he3`
+  e `he3_escuro`, com seis cristais menores brotando da cintura;
+- `nucleo_lascas`: seis lascas em órbita a 8,5–10 m e seis farpas pequenas entre elas (girar devagar em y);
+- `nucleo_anel_1`, `_2`, `_3`: anéis de contenção r 11,5 / 15 / 18,5, inclinados como antes: cinta blindada de seção
+  chanfrada, 6 / 8 / 10 blocos de armadura com um emissor âmbar virado para o cristal, dois frisos âmbar por dentro e
+  um por fora (girar cada um num eixo, mais rápido quando o Núcleo perde vida; parar e cair quando ele morre);
+- `nucleo_base` (pivô na origem): prato emissor r 26,8 flutuando logo acima do lago (topo y = 0, abaixo do voo): deque
+  em chapas, o círculo âmbar de 22 m (bom lugar para o anel do pulso começar), o anel âmbar de 9 m, oito faixas
+  radiais, aro de 16 blocos (até 1 m) com luzes âmbar, o projetor no meio (até 2,5 m) com a lente de He-3, casco em
+  degraus até −12,5 com nervuras, janelas `neon_luz` e seis emissores antigravidade de He-3, e quatro pilares até o
+  fundo com colar na linha d'água;
+- `nucleo_estabilizadores` (pivô na origem): quatro obeliscos octogonais flutuando a 50 m do centro, de 38 a ~73 m,
+  inclinados para dentro, com a cinta âmbar, três aletas com luz e o farol âmbar no alto; de cada um sai um braço com
+  a lente âmbar apontada para o cristal (feixes âmbar delas até o cristal ficam bonitos no pulso).
 
 ## Campos que escondem: nuvens de gás, sem modelo
 
