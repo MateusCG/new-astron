@@ -337,6 +337,40 @@ test('preparação: 3 minutos antes dos 20, e o relógio dos 20 só começa depo
   assert.equal(teste.passo(0, 1), 'comecou');
 });
 
+test('fim da preparação: toda nave volta à base do time e os acampamentos nascem no mesmo tick', () => {
+  const w = new World({ preparacaoS: 2, duracaoPartidaS: 30, intervaloFimS: 1 });
+  const a = w.addPlayer('A', 'bellico'); // time 0
+  const b = w.addPlayer('B', 'acron'); // time 1
+  const c = w.addPlayer('C', 'shrewdo'); // time 0
+  w.step();
+  // A longe, no meio do mapa; B na base do outro time; C morto, renascendo bem depois.
+  colocar(a, 0, 600);
+  colocar(b, BASES[0].x + 300, BASES[0].z);
+  c.vivo = false;
+  c.ship.hp = 0;
+  c.respawnTick = w.tick + 9999;
+  w.tirarEventos();
+  let ev = [];
+  for (let i = 0; i < 3 * SEGUNDO && !ev.some((e) => e.e === 'partida'); i++) {
+    w.step();
+    ev = w.tirarEventos();
+    if (!ev.some((e) => e.e === 'partida')) assert.equal(w.jungle.vivos().length, 0, 'nada na jungle antes do começo');
+  }
+  assert.ok(ev.some((e) => e.e === 'partida'), 'evento partida');
+  for (const j of [a, b, c]) {
+    assert.ok(j.vivo, `${j.nome} vivo`);
+    const base = BASES[j.time];
+    const d = Math.hypot(j.ship.x - base.x, j.ship.z - base.z);
+    assert.ok(d <= 61, `${j.nome} na base do time ${j.time} (${d.toFixed(1)} m)`);
+    assert.equal(j.ship.vx, 0);
+    assert.equal(j.ship.vz, 0);
+  }
+  const chegou = ev.filter((e) => e.e === 'recall' && e.estado === 'chegou' && e.partida === 1).map((e) => e.id);
+  assert.deepEqual(chegou.sort(), [a.id, b.id].sort(), 'as vivas chegam como de recall');
+  assert.ok(ev.some((e) => e.e === 'renasceu' && e.id === c.id), 'a morta renasce na hora');
+  assert.ok(w.jungle.vivos().some((m) => m.covil?.tipo === 'acampamento'), 'os acampamentos nasceram junto');
+});
+
 test('preparação: no mundo, nada sai nem nasce, as torretas e o ouro passivo esperam; depois começa tudo', () => {
   const w = new World({ preparacaoS: 20, duracaoPartidaS: 30, intervaloFimS: 1, temposJungle: { acampamento: { primeiroS: 1 } } });
   const a = w.addPlayer('A', 'bellico');

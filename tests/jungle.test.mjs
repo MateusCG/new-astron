@@ -36,7 +36,7 @@ const matar = (w, m, j) => w.jungle.ctx.ferir(m, 1e9, j.id, null, {});
 
 test('jungle: os tempos são os do contrato', () => {
   assert.deepEqual(TEMPOS_JUNGLE, {
-    acampamento: { primeiroS: 45, voltaS: 90 },
+    acampamento: { primeiroS: 0, voltaS: 90 },
     ataque: { primeiroS: 90, voltaS: 240 },
     sonda: { primeiroS: 180, voltaS: 120 },
     medusa: { primeiroS: 300, voltaS: 300 },
@@ -50,7 +50,9 @@ test('jungle: os tempos são os do contrato', () => {
   assert.deepEqual(obj.BA1, { time: null, estado: 'espera', volta: 90 });
   assert.deepEqual(obj.SONDA, { time: null, estado: 'espera', volta: 180 });
   assert.deepEqual(obj.MEDUSA, { time: null, estado: 'espera', volta: 300 });
-  assert.equal(w.monstros.length, 0, 'nada no mapa no começo');
+  // Os acampamentos nascem com a partida (no fim da preparação); chefes e sonda, não.
+  assert.ok(w.monstros.length > 0, 'os acampamentos já no começo');
+  assert.ok(w.monstros.every((m) => m.covil?.tipo === 'acampamento'), 'só os acampamentos');
 });
 
 test('jungle: composição dos acampamentos pela decisão do Mateus, com o time 1 girado 180°', () => {
@@ -85,7 +87,7 @@ test('jungle: composição dos acampamentos pela decisão do Mateus, com o time 
   }
 });
 
-test('jungle: acampamento aparece aos 0:45 e só volta 1:30 depois de morrer INTEIRO', () => {
+test('jungle: acampamento aparece no primeiroS e só volta voltaS depois de morrer INTEIRO', () => {
   const { w, a } = mundo({ acampamento: { primeiroS: 2, voltaS: 3 } });
   passos(w, 1.5);
   assert.equal(w.jungle.covil('JB0N').estado, 'espera');

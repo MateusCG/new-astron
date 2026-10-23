@@ -13,7 +13,8 @@
 // - coluna central (SONDA): a sonda errante.
 //
 // Tempos (TEMPOS_JUNGLE, contados do começo da partida; a recarga conta da morte):
-// acampamento aos 0:45 e de novo 1:30 depois de o acampamento INTEIRO morrer (um
+// acampamento aos 0:00, no mesmo tick em que a preparação acaba (pedido do Mateus),
+// e de novo 1:30 depois de o acampamento INTEIRO morrer (um
 // monstro sozinho não volta); SN-4 aos 1:30, volta 4:00 depois; sonda aos 3:00, volta
 // 2:00 depois; Medusa aos 5:00, volta 5:00 depois. Partida nova recomeça o relógio.
 //
@@ -26,7 +27,7 @@
 // - acampamento vivo recebe NA HORA os que faltam para a quantidade nova (reforço;
 //   se o grupo está com raiva de alguém, o reforço chega com a mesma raiva);
 // - acampamento em recarga volta já com a quantidade nova, e o que ainda não
-//   apareceu (antes dos 0:45) nasce com a quantidade do momento;
+//   apareceu nasce com a quantidade do momento;
 // - o renascimento continua só quando o acampamento INTEIRO (reforço incluído) morre.
 // O ouro de cada monstro de acampamento sobe junto (pedido do Mateus): ×1,5 com
 // 15:00 restantes, ×2 com 10:00 e ×2,5 com 5:00 (o `ouro` de cada degrau), pelo
@@ -87,7 +88,7 @@ const ticks = (s) => Math.round(s * TICK_HZ);
 
 /** Quando cada coisa aparece (primeiroS, do começo da partida) e volta (voltaS, da morte). */
 export const TEMPOS_JUNGLE = {
-  acampamento: { primeiroS: 45, voltaS: 90 },
+  acampamento: { primeiroS: 0, voltaS: 90 }, // nascem quando a preparação acaba (pedido do Mateus)
   ataque: { primeiroS: 90, voltaS: 240 },
   sonda: { primeiroS: 180, voltaS: 120 },
   medusa: { primeiroS: 300, voltaS: 300 },

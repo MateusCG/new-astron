@@ -911,6 +911,7 @@ export class World {
     if (virou === 'preparacao') {
       this.eventos.push({ e: 'preparacao', n: this.partida.numero, s: Math.round(this.partida.inicioEm(this.tick)) });
     } else if (virou === 'comecou') {
+      if (antes === 'preparacao') this.#reunirNaBase();
       this.eventos.push({ e: 'partida', n: this.partida.numero });
     } else if (virou === 'faseFinal') {
       this.eventos.push({ e: 'faseFinal', mult: MULT_FASE_FINAL, restante: Math.round(this.partida.restante(this.tick)) });
@@ -962,6 +963,24 @@ export class World {
   }
 
   /**
+   * Fim da preparação (pedido do Mateus): toda nave volta à base do próprio time,
+   * de onde estiver, para os 20 minutos começarem com os dois times em casa. A viva
+   * aparece num ponto da base como quem chega de recall (evento 'recall' 'chegou'
+   * com `partida`, sem a notícia de volta à base); a morta renasce lá na hora.
+   */
+  #reunirNaBase() {
+    for (const j of this.players.values()) {
+      if (!j.vivo) {
+        this.#respawn(j);
+        continue;
+      }
+      if (j.fila.length) j.ack = j.fila[j.fila.length - 1].seq; // o que foi pedido antes do salto não vale mais
+      j.fila.length = 0;
+      this.#chegarNaBase(j, { partida: 1 });
+    }
+  }
+
+  /**
    * Recall depois de aplicar o comando `inp` na nave de `j`: B apertado agora (borda
    * de subida) começa ou cancela; canalizando, gatilho, boost e velocidade cancelam.
    * Recusa vem como evento ('na_base' ou o motivo de motivoRecall).
@@ -994,14 +1013,14 @@ export class World {
    * o corredor, como quem renasce (sem a proteção de nascimento: na própria base a
    * zona segura já protege). Vida, energia, armas e efeitos ficam como estavam.
    */
-  #chegarNaBase(j) {
+  #chegarNaBase(j, extra = null) {
     const s = j.ship;
     const de = { x: s.x, y: s.y, z: s.z };
     const p = this.#pontoNaBase(j.time);
     const nova = createShip(s.race, p.x, p.z, p.yaw);
     Object.assign(s, { x: nova.x, y: nova.y, z: nova.z, yaw: nova.yaw, vx: 0, vz: 0, roll: 0, pousado: false, boost: false });
     j.recall = null;
-    this.eventos.push({ e: 'recall', id: j.id, estado: 'chegou', de, x: s.x, y: s.y, z: s.z });
+    this.eventos.push({ e: 'recall', id: j.id, estado: 'chegou', de, x: s.x, y: s.y, z: s.z, ...extra });
   }
 
   /**
