@@ -15,9 +15,15 @@
 //   menores, mais baixos e mais ralos, para a borda ser suave.
 // - A textura é gerada aqui (4 tufos de ruído numa grade 2 × 2, um canal só), sem
 //   arquivo para baixar.
-// - Movimento todo no shader (deriva lenta, a textura girando devagar): a CPU só
-//   reordena os tufos de trás para a frente quando a câmera anda (transparência
-//   misturada exige essa ordem; entre os campos o Three.js já ordena pela distância).
+// - Movimento todo no shader: a CPU só reordena os tufos de trás para a frente quando
+//   a câmera anda (transparência misturada exige essa ordem; entre os campos o
+//   Three.js já ordena pela distância). Para a nuvem parecer viva, e não um cenário
+//   parado:
+//   - cada tufo deriva com o vento e "respira" (incha e encolhe devagar);
+//   - por dentro, o gás revolve: a textura é lida duas vezes, girando em sentidos
+//     contrários, e um ruído que repete (gerado aqui) sobe pelo tufo e desfia a borda;
+//   - a nuvem evapora: fiapos (a quarta camada, só no miolo) nascem no alto da nuvem,
+//     sobem, crescem e somem, e voltam a nascer embaixo, cada um no seu tempo.
 // - Luz falsa e barata: tufo do lado do sol e do alto mais claro (sorteado com a
 //   planta), a metade de cima de cada tufo um pouco mais clara, o miolo denso um
 //   pouco mais escuro, e um brilho quente quando se olha contra o sol.
@@ -59,7 +65,24 @@ const CAMADAS = [
   { y: -4, varY: 4, tam: [84, 104], forma: [1.45, 0.7], alfa: 0.68, ate: 1 }, // base sentada na água
   { y: 16, varY: 8, tam: [60, 80], forma: [1.15, 0.95], alfa: 0.56, ate: 1 }, // na altura do voo
   { y: 36, varY: 10, tam: [50, 70], forma: [1, 1], alfa: 0.5, ate: 0.8 }, // topo, só no miolo
+  { y: 30, varY: 14, tam: [34, 52], forma: [0.95, 1.1], alfa: 0.55, ate: 0.85, fiapo: true, chance: 0.9 }, // fiapos que evaporam
 ];
+/**
+ * Fiapos (a camada `fiapo`): sobem FIAPO_SUBIDA m (sorteado entre os dois) em FIAPO_CICLO s,
+ * crescem até FIAPO_CRESCE vezes e somem no fim; o vento leva FIAPO_VENTO da subida para o lado.
+ */
+const FIAPO_SUBIDA = [34, 56];
+const FIAPO_CICLO = [11, 19];
+const FIAPO_CRESCE = 1.9;
+const FIAPO_VENTO = 0.5;
+/** Respiração dos tufos: quanto incham (fração) e a velocidade (rad/s). */
+const RESPIRA = 0.11;
+const RESPIRA_VEL = 0.45;
+/** Fluxo dentro do tufo: subida do ruído (fração do tufo por segundo) e quanto ele desfia (0..1). */
+const FLUXO_SUBIDA = 0.035;
+const FLUXO_DESFIA = 1;
+/** Lado (px) da textura do ruído do fluxo (repete). */
+const LADO_RUIDO = 128;
 /** Na beirada: tufo menor (fração) e mais baixo (m). */
 const BEIRA_MENOR = 0.25;
 const BEIRA_DESCE = 6;
@@ -67,8 +90,8 @@ const BEIRA_DESCE = 6;
 const HE3_FRACAO = 0.14;
 const HE3_FORCA = 0.3;
 /** Deriva (m) e giro da textura (rad/s), sorteados até estes valores. */
-const DERIVA_MAX = 5;
-const GIRO_MAX = 0.035;
+const DERIVA_MAX = 14;
+const GIRO_MAX = 0.1;
 /**
  * Perto da câmera o tufo some: começa a sumir a PERTO_FRACAO do raio dele mais
  * PERTO_M (com a câmera dentro de um campo, mais PERTO_DENTRO_M) e some de vez
@@ -174,6 +197,44 @@ function texturaTufos() {
   return tex;
 }
 
+/** Ruído que repete nas bordas (0..1), para o fluxo dentro dos tufos. */
+function texturaRuido() {
+  const N = LADO_RUIDO;
+  const dados = new Uint8Array(N * N);
+  const per = (x, y, s, c) => {
+    // ruído de valor com a grade dando a volta a cada `c` células
+    const h = (i, k) => ruido(((i % c) + c) % c, ((k % c) + c) % c, s);
+    const xi = Math.floor(x);
+    const yi = Math.floor(y);
+    const u = (x - xi) * (x - xi) * (3 - 2 * (x - xi));
+    const v = (y - yi) * (y - yi) * (3 - 2 * (y - yi));
+    const a = h(xi, yi) + (h(xi + 1, yi) - h(xi, yi)) * u;
+    const b = h(xi, yi + 1) + (h(xi + 1, yi + 1) - h(xi, yi + 1)) * u;
+    return a + (b - a) * v;
+  };
+  for (let j = 0; j < N; j++) {
+    for (let i = 0; i < N; i++) {
+      let soma = 0;
+      let amp = 0.5;
+      let norma = 0;
+      for (let o = 0; o < 4; o++) {
+        const c = 4 << o;
+        soma += per((i / N) * c, (j / N) * c, 71 + o * 13, c) * amp;
+        norma += amp;
+        amp *= 0.5;
+      }
+      dados[j * N + i] = Math.round((soma / norma) * 255);
+    }
+  }
+  const tex = new THREE.DataTexture(dados, N, N, THREE.RedFormat, THREE.UnsignedByteType);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.generateMipmaps = true;
+  tex.needsUpdate = true;
+  return tex;
+}
+
 /** Tufos de um campo: listas de números por tufo (centro relativo ao campo). */
 function tufosDoCampo(a, solDir) {
   const rnd = mulberry32(SEMENTE + [...a.id].reduce((h, c) => h * 31 + c.charCodeAt(0), 0));
@@ -190,6 +251,7 @@ function tufosDoCampo(a, solDir) {
         const v = (k + 0.5 + (rnd() - 0.5) * 0.9) / nz - 0.5;
         const beira = Math.min(1, Math.max(Math.abs(u), Math.abs(v)) * 2); // 0 no miolo, 1 na beirada
         if (beira > c.ate) continue;
+        if (c.chance != null && rnd() > c.chance) continue;
         const tam = (c.tam[0] + (c.tam[1] - c.tam[0]) * rnd()) * (1 - BEIRA_MENOR * beira);
         const y = c.y + (rnd() - 0.5) * c.varY - BEIRA_DESCE * beira;
         // Lado do sol do campo e o alto mais claros; um pouco de acaso para não fazer degrau.
@@ -210,6 +272,9 @@ function tufosDoCampo(a, solDir) {
           luz,
           alfa: c.alfa * (1 - 0.45 * beira * beira) * (0.85 + rnd() * 0.3),
           he3,
+          // fiapo: duração do ciclo (s) e quanto sobe (m); 0 = tufo que não evapora
+          ciclo: c.fiapo ? FIAPO_CICLO[0] + rnd() * (FIAPO_CICLO[1] - FIAPO_CICLO[0]) : 0,
+          subida: c.fiapo ? FIAPO_SUBIDA[0] + rnd() * (FIAPO_SUBIDA[1] - FIAPO_SUBIDA[0]) : 0,
         });
       }
     }
@@ -232,7 +297,10 @@ const VERTICE = /* glsl */ `
   attribute vec2 aTam;
   attribute vec4 aMov;   // fase, deriva (m), ângulo da textura, giro (rad/s)
   attribute vec4 aDados; // variante (0..3), luz (0..1), densidade, He-3 (0..1)
+  attribute vec2 aVida;  // fiapo: ciclo (s; 0 = não evapora), subida (m)
   varying vec2 vUv;
+  varying vec2 vUv2;
+  varying vec2 vFluxo;
   varying vec2 vTela;
   varying vec3 vCor;
   varying float vAlfa;
@@ -241,9 +309,19 @@ const VERTICE = /* glsl */ `
   void main() {
     float t = uTempo;
     float f = aMov.x;
-    vec3 c = aCentro + vec3(sin(t * 0.05 + f), 0.3 * sin(t * 0.09 + f * 1.7), cos(t * 0.043 + f * 1.3)) * aMov.y;
+    vec3 c = aCentro + vec3(sin(t * 0.12 + f), 0.3 * sin(t * 0.17 + f * 1.7), cos(t * 0.1 + f * 1.3)) * aMov.y;
+    // Fiapo: nasce no alto da nuvem, sobe, cresce, o vento leva para o lado e some.
+    float vida = 1.0;
+    float cresce = 1.0 + ${RESPIRA.toFixed(3)} * sin(t * ${RESPIRA_VEL.toFixed(3)} + f * 2.3);
+    if (aVida.x > 0.0) {
+      float ciclo = fract(t / aVida.x + f * 0.159);
+      c.y += ciclo * aVida.y;
+      c.xz += vec2(cos(f * 3.1), sin(f * 3.1)) * ciclo * aVida.y * ${FIAPO_VENTO.toFixed(3)};
+      cresce *= 1.0 + (${FIAPO_CRESCE.toFixed(3)} - 1.0) * ciclo;
+      vida = smoothstep(0.0, 0.25, ciclo) * (1.0 - smoothstep(0.45, 1.0, ciclo));
+    }
     vec4 mv = modelViewMatrix * vec4(c, 1.0);
-    mv.xy += position.xy * aTam;
+    mv.xy += position.xy * aTam * cresce;
     vec3 mundo = (modelMatrix * vec4(c, 1.0)).xyz;
 
     // Perto da câmera o tufo some (de dentro da nuvem a câmera não fica cega).
@@ -262,14 +340,22 @@ const VERTICE = /* glsl */ `
     float lum = dot(cor, vec3(0.2126, 0.7152, 0.0722));
     vec3 oculta = mix(vec3(lum), cor, 0.4) * 0.55 + uOculta * 0.35;
     vCor = mix(mix(cor, oculta, ${OCULTA_COR.toFixed(3)}), cor, visto);
-    vAlfa = aDados.z * perto * uRala * mix(${OCULTA_ALFA.toFixed(3)}, 1.0, visto);
+    vAlfa = aDados.z * perto * uRala * vida * mix(${OCULTA_ALFA.toFixed(3)}, 1.0, visto);
 
     // A textura gira dentro do octógono (o raio cabe na célula da grade 2 × 2).
     float a = aMov.z + t * aMov.w;
     vec2 p = position.xy;
     p = vec2(cos(a) * p.x - sin(a) * p.y, sin(a) * p.x + cos(a) * p.y) * 0.98;
-    vUv = (p + 0.5 + vec2(mod(aDados.x, 2.0), floor(aDados.x / 2.0))) * 0.5;
+    vec2 celula = vec2(mod(aDados.x, 2.0), floor(aDados.x / 2.0));
+    vUv = (p + 0.5 + celula) * 0.5;
+    // a segunda leitura gira para o outro lado (o gás revolve por dentro)
+    float a2 = -a * 1.3 + f;
+    vec2 p2 = position.xy;
+    p2 = vec2(cos(a2) * p2.x - sin(a2) * p2.y, sin(a2) * p2.x + cos(a2) * p2.y) * 0.98;
+    vUv2 = (p2 + 0.5 + celula) * 0.5;
     vTela = position.xy + 0.5;
+    // ruído do fluxo: sobe pelo tufo (o vapor subindo), cada tufo num pedaço dele
+    vFluxo = vTela * 0.8 + vec2(f * 0.37, f * 0.61) + vec2(sin(t * 0.05 + f) * 0.05, -t * ${FLUXO_SUBIDA.toFixed(4)});
 
     gl_Position = vAlfa < 0.004 ? vec4(2.0, 2.0, 2.0, 1.0) : projectionMatrix * mv; // apagado: fora da tela
     #ifdef USE_FOG
@@ -279,14 +365,20 @@ const VERTICE = /* glsl */ `
 
 const FRAGMENTO = /* glsl */ `
   uniform sampler2D tTufos;
+  uniform sampler2D tRuido;
   varying vec2 vUv;
+  varying vec2 vUv2;
+  varying vec2 vFluxo;
   varying vec2 vTela;
   varying vec3 vCor;
   varying float vAlfa;
   #include <fog_pars_fragment>
 
   void main() {
-    float dens = texture2D(tTufos, vUv).r;
+    // duas leituras girando em sentidos contrários e o ruído subindo, que desfia a borda
+    float dens = mix(texture2D(tTufos, vUv).r, texture2D(tTufos, vUv2).r, 0.45);
+    float n = texture2D(tRuido, vFluxo).r;
+    dens = clamp(dens * mix(1.0, 0.2 + 1.7 * n, ${FLUXO_DESFIA.toFixed(3)}), 0.0, 1.0);
     float alfa = dens * vAlfa;
     if (alfa < 0.004) discard;
     // Em cima mais claro, miolo denso mais escuro: volume sem luz de verdade.
@@ -309,6 +401,7 @@ export function criarNuvens({ solDir, tempo }) {
     {
       tNevoa: { value: null },
       tTufos: { value: null },
+      tRuido: { value: null },
       uMeioMapa: { value: new THREE.Vector2(MAP_HALF_X, MAP_HALF_Z) },
       uSolDir: { value: solDir.clone() },
       uLuz: { value: new THREE.Color(CORES_NUVEM.luz) },
@@ -322,6 +415,7 @@ export function criarNuvens({ solDir, tempo }) {
   // Texturas e o relógio fora do merge (o merge clonaria): o tempo é o da água.
   uniforms.tNevoa.value = branco;
   uniforms.tTufos.value = texturaTufos();
+  uniforms.tRuido.value = texturaRuido();
   uniforms.uTempo = tempo;
   const material = new THREE.ShaderMaterial({
     uniforms,
@@ -361,10 +455,12 @@ export function criarNuvens({ solDir, tempo }) {
     const tam = attr('aTam', 2);
     const mov = attr('aMov', 4);
     const dados = attr('aDados', 4);
+    const vida = attr('aVida', 2);
     geo.instanceCount = n;
-    const raio = Math.hypot(a.largura, a.profundidade) / 2 + 60;
-    geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 10, 0), raio);
-    geo.boundingBox = new THREE.Box3(new THREE.Vector3(-raio, -40, -raio), new THREE.Vector3(raio, 70, raio));
+    // com folga para os fiapos, que sobem até uns 90 m e o vento leva para o lado
+    const raio = Math.hypot(a.largura, a.profundidade) / 2 + 80;
+    geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 20, 0), raio);
+    geo.boundingBox = new THREE.Box3(new THREE.Vector3(-raio, -40, -raio), new THREE.Vector3(raio, 110, raio));
 
     const malha = new THREE.Mesh(geo, material);
     malha.name = `nuvem-${a.id}`;
@@ -383,8 +479,9 @@ export function criarNuvens({ solDir, tempo }) {
         tam.setXY(i, t.largura, t.altura);
         mov.setXYZW(i, t.fase, t.deriva, t.ang, t.giro);
         dados.setXYZW(i, t.variante, t.luz, t.alfa, t.he3);
+        vida.setXY(i, t.ciclo, t.subida);
       });
-      for (const at of [centro, tam, mov, dados]) at.needsUpdate = true;
+      for (const at of [centro, tam, mov, dados, vida]) at.needsUpdate = true;
     };
     preencher();
     malha.onBeforeRender = (_r, _s, camera) => {
