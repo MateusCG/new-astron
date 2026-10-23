@@ -23,7 +23,7 @@ repo: `new-astron-progresso/mapa-stage6/blender/` e `.../tmp/cenario/` (`cenario
 
 | Material | Cor | O que é |
 |---|---|---|
-| `rocha_topo`, `rocha_clara`, `rocha`, `rocha_escura`, `rocha_molhada` | `#b59a74`, `#9c8062`, `#765c45`, `#4f3d2e`, `#33302a` | Estratos da rocha low-poly (o molhado fica da água para baixo); hoje só nas peças antigas (ruína e o prato do Núcleo) |
+| `rocha_topo`, `rocha_clara`, `rocha`, `rocha_escura`, `rocha_molhada` | `#b59a74`, `#9c8062`, `#765c45`, `#4f3d2e`, `#33302a` | Estratos da rocha low-poly (o molhado fica da água para baixo); hoje só nas peças antigas (ruína e os estabilizadores do Núcleo) |
 | `pbr_rocha` | fator branco, metal 0, **cor do vértice** (`COLOR_0`) | Rocha PBR (quadrantes, paredes em L, borda, horizonte, pedras do lago): o cliente liga o conjunto `rocha` (que repete) e as cáusticas; o tom de cada estrato (`#b59a74` topo, `#9c8062` clara, `#765c45` média, `#4f3d2e` escura, `#33302a` molhada da água para baixo) vem na cor do vértice, já dividido pela média da textura. Um material só porque o Draco quantiza cada material numa grade própria e a costura entre estratos abria frestas |
 | `fundo_lago` | `#4a4b40` | Leito do lago |
 | `coral`, `coral_claro`, `alga` | `#b25a3e`, `#d08a62`, `#5b6a3a` | Decoração do fundo |
