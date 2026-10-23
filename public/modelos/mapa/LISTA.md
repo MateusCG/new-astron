@@ -11,13 +11,13 @@ repo: `new-astron-progresso/mapa-stage6/blender/` e `.../tmp/cenario/` (`cenario
 - glTF binário, **Y para cima, 1 unidade = 1 m**, no referencial do jogo (x para a direita do desenho, z para baixo do
   desenho). Pivô na origem do mapa ou do objeto, **y = 0 = chão de voo** (a nave voa a 10 m), salvo nota.
 - Dois padrões (IDENTIDADE-VISUAL.md, "Padrão dos modelos"):
-  - **mid-poly PBR** (o padrão das peças novas; hoje as três plataformas, a mineradora, as torres, o minerador, a escolta, o portal warp, as rochas, a borda e as pedras do lago, o Núcleo e a ruína submersa): normais e UV, **Draco**, materiais
+  - **mid-poly PBR** (o padrão das peças novas; hoje as três plataformas, a mineradora, as torres, o minerador, a escolta, o portal warp, as rochas, a borda e as pedras do lago, o Núcleo, a ruína submersa, a bacia de minério e o campo de força da base): normais e UV, **Draco**, materiais
     `pbr_*` que o cliente liga nas texturas compartilhadas de `public/texturas/mapa/` (o glb não traz imagem),
-    sombreado liso com quinas vivas por ângulo. Fontes: `plataformas_pbr.py`, `mineradora_pbr.py`, `torres_pbr.py`, `naves_servidor_pbr.py`, `base_warp_pbr.py`, `rochas_pbr.py`, `nucleo_pbr.py`, `ruina_pbr.py`, `texturas_pbr.py` e `texturas_rocha.py`;
+    sombreado liso com quinas vivas por ângulo. Fontes: `plataformas_pbr.py`, `mineradora_pbr.py`, `torres_pbr.py`, `naves_servidor_pbr.py`, `base_warp_pbr.py`, `rochas_pbr.py`, `nucleo_pbr.py`, `ruina_pbr.py`, `base_campo_bacia_pbr.py`, `texturas_pbr.py` e `texturas_rocha.py`;
   - **low-poly facetado** (as peças antigas, até serem refeitas): os arquivos **não trazem normais** de propósito
     (ficam ~4× menores); o `GLTFLoader` liga `flatShading` sozinho quando falta a normal. Sem textura nem UV: cor +
     emissivo.
-- Teto de triângulos por tipo de peça (plataformas e torres 15 mil, rochas e bordas 20 mil, decoração 2 mil, qualquer
+- Teto de triângulos por tipo de peça (plataformas, torres, a bacia e o campo da base 15 mil, rochas e bordas 20 mil, decoração 2 mil, qualquer
   peça 50 mil), conferido em `tests/modelos-mapa.test.mjs`.
 - Materiais por nome (o cliente acha pelo nome e troca o que precisar):
 
@@ -32,13 +32,14 @@ repo: `new-astron-progresso/mapa-stage6/blender/` e `.../tmp/cenario/` (`cenario
 | `portal_time` | `#00efc0`, alpha 0,35 (BLEND) | Membrana do portal warp: cor do time, translúcida; o cliente pode trocar por shader (redemoinho aditivo) |
 | `neon_doca_0`, `neon_doca_1` | turquesa / vermelho | Luzes das docas da mineradora: a `_0` é a doca do **time 0** (face −x), a `_1` a do time 1 (face +x). Pintar cada uma com a cor do time dono relativa a quem olha |
 | `campo_doca_0`, `campo_doca_1` | turquesa / vermelho | Campo de força na porta de cada hangar da mineradora (time 0 na face −x): o cliente troca por um material translúcido e aditivo na cor do time dono, relativa a quem olha |
+| `campo_base` | `#d6e6e6` (neutro), alpha 0,3 | Membrana do **campo de força da base** (`campo-base.glb`): o cliente troca por um material translúcido e aditivo na cor do time dono da base, relativa a quem olha (meio quase transparente, borda acesa e faixas finas); UV de 0 a 1, u ao longo de z, v de baixo para cima |
 | `neon_he3` | `#9fe8ff` | Hélio-3 (neon, pode "respirar" 0,6–1,2) |
 | `he3_escuro` | `#2f7fb8` | Faces escuras dos cristais de He-3 (sem emissivo) |
 | `neon_objetivo` | `#ffb627` | Âmbar dos objetivos (núcleo, torre de suporte, plataforma de pouso) |
 | `neon_servico` | `#a58bff` (padrão) | Anel das plataformas de serviço: o cliente pinta violeta `#a58bff` na Evolução e magenta `#ff6fd8` na Loja |
 | `neon_luz` | `#ffe2b8` | Luz quente fixa (balizas do aro, luzes de aproximação, janelas brancas) |
 | `pbr_painel`, `pbr_painel_escuro`, `pbr_painel_claro`, `pbr_painel_grafite` | fator `#e2e8e8`, `#8a9696`, `#f2f6f6`, `#5a6866`; metal 0,3 | Chapa metálica do padrão PBR: o cliente liga o atlas `painel` (cor × fator, metal/rugosidade, relevo). Deque, casco e pilares, aro e torres; na mineradora o grafite é o "metal escuro" (com o atlas dá a cor do `metal_escuro`), o escuro faz o aço e o `pbr_painel` o claro |
-| `pbr_minerio`, `pbr_minerio_claro` | `#232d36`, `#4a5866`, rugosidade ~0,9, sem textura | Minério de He-3 na bacia do hangar da mineradora: o leito e as pedras |
+| `pbr_minerio`, `pbr_minerio_claro` | `#232d36`, `#4a5866`, rugosidade ~0,9, sem textura | Minério de He-3 na bacia do hangar da mineradora e na pilha da bacia de cada base: o leito e as pedras |
 | `pbr_tinta` | `#dfe4e1`, rugosidade 0,7 | Sinalização branca (anéis, tracejados, marcas radiais), sem textura |
 | `pbr_vidro` | `#0d1416`, rugosidade 0,25 | Visor das torres e miolo dos propulsores |
 
@@ -69,7 +70,8 @@ degraus (como a física: degrau de 30% do topo e rampa de 16 m); da água para b
 | `torre-suporte.glb` | **PBR.** Torre do buff de suporte no tamanho da planta (`TORRE_SUPORTE`: r 14, topo 60): fundação octogonal até o leito, colar na linha d'água, cinta da base com escotilhas, fuste sextavado de quinas chanfradas com nervuras, três canais de luz `neon_objetivo` (faces 0°, 120° e 240°), grelhas e dutos nas outras faces, faixas de reforço, capitel com consoles, passarela e balizas `neon_luz`, cone com bobinas, emissor com anel âmbar e a **antena de comunicação**: mastro treliçado de três pernas até 80 m com anel de passarela, painéis setoriais em dois andares e luzes âmbar, e em cima o nó **`suporte_nucleo`** (a cabeça da antena: mesa giratória, prato de 14 m com o alimentador âmbar, contrapeso e a vareta com o farol âmbar até ~92 m, abaixo do rótulo a 96; **pivô no eixo, a 80 m**: o cliente gira com a torre acesa) | 37 × −61…92 × 40 | 7.188 | centro, y = 0 | BS0 (−855, 0, 909), BS1 (855, 0, −909), **escala 1** (`ESCALA_TORRE_SUPORTE`). Planta: 0,4 a 4,0 m entre 3 e 30 m |
 | `torre-suporte-caida.glb` | **PBR.** A mesma torre derrubada: a cinta da base e o toco quebrado (borda irregular com rombos, até 4,8 m, sem colisão), chapas tombadas dentro do toco, o capitel partido e um gomo do fuste meio afundados com a faixa âmbar caída (`neon_objetivo`, o cliente apaga) e lascas boiando | 66 × −61…4,8 × 51 | 1.368 | idem | troca com a de pé quando `definirObstaculoAtivo('BS0', false)` |
 | `torreta.glb` | **PBR.** Torre sentinela da lane (`TORRETA`: r 9, topo 16), que antes era feita em código: nós `torreta_base` (pilar octogonal até o fundo, cinta na linha d'água, sapata, e o pé de 2,4 m com luzes `neon_time`; sempre de pé), `torreta_corpo` (o que tomba, pivô no chão: torre octogonal com aletas nas quinas e a faixa `neon_time` a 8 m) e, dentro dele, `torreta_cabeca` (**pivô no eixo, a 9 m**, gira em y: carcaça blindada, saias, mantelete, dois canos para **−z** a 10 m com freio de boca `neon_time`, lançadores de fumaça, radar e o sensor `neon_time` no mastro, até 17 m), e `torreta_destrocos` (o toco da torre rasgado sobre o pé, com rombos e aletas tortas, a cabeça partida tombada em cima, um cano torto, lascas e chapas na água, tudo abaixo de 7 m; o cliente só mostra com ela caída e quase apaga o neon) | 31 × −62…17 × 32 | 3.212 | centro, y = 0 | `TORRETAS` (`public/js/torretas.js`), giro 0; o cliente pinta o `neon_time` de cada cópia com a cor do time. Planta: corpo de −1,8 a −0,4 m (a cabeça é mais estreita), ponta do cano a 3,5 m |
-| `entrega.glb` | Arco da entrega dos mineradores na boca da base: viga flutuante a 40–49 m com fendas e luminárias `neon_time`, dois pilares flutuantes e duas boias na água (até 2,2 m) | 6,4 × −20…49 × 143 | 676 | centro da entrega, y = 0 | time 0: (−1110, 0, 0) giro 0; time 1: (1110, 0, 0) giro π |
+| `bacia.glb` | **PBR.** **Bacia de minério** da base do time 0 (ver abaixo): silo aberto flutuando no lago, onde os mineradores despejam a carga. Raio de fora 24 e de dentro 19 (`BACIA`), aro a 2,5 m (balizas e braços das vagas até 3,4), fundo de dentro a −40, casco até −50,6, 6 pernas até o leito e dois dutos até o casco do anel de pouso (x local −52) | 82,6 × −63,4…3,4 × 53,2 (o silo é 49,9 de diâmetro) | 12.594 | centro da bacia, y = 0 | `BACIAS`: time 0 (−1165, 0, 0) giro 0; time 1 (1165, 0, 0) giro π. Nada acima de 3,5 m (a nave passa por cima) |
+| `campo-base.glb` | **PBR.** **Campo de força** na boca do bolsão do time 0 (ver abaixo), face para a lane = +x: a membrana de rocha a rocha e os emissores (dois pilares encaixados nas paredes, as boias e a barreira flutuante) | 36,4 × −64…77,6 × 396 (a membrana: z −180…180, y −16…70) | 10.668 | centro do plano, y = 0 | `CAMPOS_BASE`: time 0 (−1125, 0, 0) giro 0; time 1 (1125, 0, 0) giro π. Fora a membrana, nada entre 2 e 30 m dentro de \|z\| < 176 |
 | `minerador.glb` | **PBR.** Nave do servidor (não é peça do mapa, mas usa o mesmo carregamento e as texturas): o minerador, frente para **−z**, y = 0 no centro do casco: casco de carga com proa em cunha e cabine `pbr_vidro`, dois motores laterais (boca em z = 2,6, x = ±1,65, y = −0,2: o cliente põe o brilho ali), blindagem com a faixa `neon_time`, a moldura do contêiner e o nó **`minerador_carga`** (bloco `he3_escuro` e cristais `neon_he3`, que o cliente só mostra cheio) | 4,4 × −0,8…2,9 × 6,1 | 874 | centro do casco | `public/js/nave.js` (`criarMinerador`; o do Núcleo, escala 1,7); o cliente pinta o `neon_time` com a cor do time |
 | `escolta.glb` | **PBR.** A escolta armada: caça de fuselagem afilada, asas enflechadas com a ponta `neon_time`, derivas, dois motores (boca em z = 3,9, x = ±1,1) e o nó **`escolta_torre`** (pivô em (0, 0,6, 0,6), gira em y: base, cabeça e dois canos para −z com a boca `neon_time`) | 6 × −0,7…1,6 × 8,2 | 780 | centro do casco | `criarEscolta` em `public/js/nave.js` |
 | `coral.glb`, `alga.glb`, `cristais-he3.glb` | Decoração do fundo: coral ramificado (~13 m), tufo de algas (fita dos dois lados, ~20 m), aglomerado de cristais de He-3 (~10 m) | — | 720 / 60 / 174 | **base no fundo** | y = `FUNDO_LAGO` − 3 (−63), espalhados (a montagem usou 70) |
@@ -77,7 +79,7 @@ degraus (como a física: degrau de 30% do topo e rampa de 16 m); da água para b
 | `pedra-lago-2.glb` | **PBR.** Pedra inteira embaixo d'água (topo −22) | 50 × −64…−22 × 43 | 610 | idem | idem |
 | `ruina-submersa.glb` | **PBR.** O templo afundado do Stage 6, visto pela água: estilóbato de dois degraus de 12 lados, dez pilares em anel de 30 m (fustes octogonais com êntase, sete de pé com a ponta quebrada ou o capitel, dois tocos e um tombado partido em dois), vergas sobre dois pares, blocos soltos e o altar do meio com cinco cristais de He-3. Nós `ruina_pedra` (`pbr_rocha` com o tom na cor do vértice, como as rochas, e as cáusticas) e `ruina_cristais` (`neon_he3`, `he3_escuro`) | 74 × −64…−27,5 × 74 | 1.174 | centro, y = 0 | um ou dois pontos de cada lado (a montagem usou (∓420, ±640)) |
 
-Total: 26 arquivos, ~2,3 MB, mais ~250 KB das texturas compartilhadas (alvo do padrão PBR: uns 5 MB para o mapa inteiro).
+Total: 27 arquivos, ~2,6 MB, mais ~250 KB das texturas compartilhadas (alvo do padrão PBR: uns 5 MB para o mapa inteiro).
 
 ### Mineradora (`mineradora.glb`)
 
@@ -144,6 +146,54 @@ cliente acende e apaga) e o He-3 é `neon_he3` e `he3_escuro`. Nós, os cinco pr
 - `nucleo_estabilizadores` (pivô na origem): quatro obeliscos octogonais flutuando a 50 m do centro, de 38 a ~73 m,
   inclinados para dentro, com a cinta âmbar, três aletas com luz e o farol âmbar no alto; de cada um sai um braço com
   a lente âmbar apontada para o cristal (feixes âmbar delas até o cristal ficam bonitos no pulso).
+
+### Bacia de minério (`bacia.glb`)
+
+Mid-poly PBR (`base_campo_bacia_pbr.py`). Silo aberto no lago, logo à frente do anel de pouso, do lado de dentro do
+campo de força (`BACIA` em shared/terrain.js: raio 24, de dentro 19, aro a 2,5, fundo −40). Feita para o time 0; o
+time 1 é a mesma peça girada π. Nós:
+- `bacia_estrutura`: a parede de dentro **reta e vertical** (r 19, chapas grafite do aro até −40, para o minério subir
+  como um pistão), com três anéis de reforço e doze nervuras que avançam só 0,25 m (até r 18,75), as três réguas de
+  nível pintadas (`pbr_tinta`, uma marca a cada 4 m, longa a cada 8) e duas faixas brancas embaixo de cada vaga; o
+  fundo de dentro; o aro (capa de dentro que avança sobre o poço até r 18,35, deque em chapas e capa de fora até
+  r 24,55, topo a 2,5); o casco de fora em chapas até −44, a cinta da linha d'água (−18,4…−8), a passarela a −5, 16
+  nervuras, caixas de válvula com visor, o fundo em degraus até −50,6, seis pernas com colar até o leito e sapatas,
+  e os dois dutos que vão até embaixo do casco do anel de pouso (x local −52, sobem até −3,6) com o flutuador. No aro,
+  as **três vagas** (`VAGAS_BACIA`: (0, −10), (−8, 0), (0, 10) locais): o mancal no aro (até 3,4 m), o braço que avança
+  sobre o poço até 1,25 m da vaga, a escora até a parede e o **anel-guia** em volta da coluna de queda (centro na
+  vaga, a 2,45 m); entre as vagas, a casa de controle (lado da lane) e quatro bombas. **Nada passa de 3,43 m.**
+- `bacia_luzes`: `neon_time` (faixa na capa de fora, faixa em cima de cada braço apontando para a vaga, a lente
+  virada para baixo na ponta, o anel fino embaixo do anel-guia, a faixa do mancal), `neon_luz` (16 balizas no aro,
+  bombas, 8 luzes na cinta) e `neon_he3` (as **luzes de nível**: 11 em cada régua, a cada 4 m de −38 a 2).
+- `bacia_minerio`: a pilha de minério, **pivô na base** e posto no fundo (translação (0, −40, 0)): disco `pbr_minerio`
+  de r 18,6 (não raspa na parede nem nas nervuras), topo irregular de 3,7 a 5,5 m com um monte embaixo de cada vaga,
+  52 pedras (`pbr_minerio_claro` e `he3_escuro`), 22 tufos de cristais `neon_he3`/`he3_escuro` (até 7,5 m acima da
+  base) e a saia de 3 m por baixo (fechada; parada no fundo fica dentro do casco). O cliente sobe o nó em y conforme
+  o time entrega: vazia, y = −40 (topo a uns −35); cheia, uns 4 m abaixo do aro (y ≈ −5,8, topo ≈ −1,5).
+
+### Campo de força da base (`campo-base.glb`)
+
+Mid-poly PBR (`base_campo_bacia_pbr.py`). Na boca do bolsão do time 0 (`CAMPOS_BASE`, x = −1125), de rocha a rocha,
+face para a lane = +x; o time 1 é a mesma peça girada π. **Sem arco nem viga por cima.** Nós:
+- `campo_membrana`: o retângulo em x = 0, z −180…180, y −16 (a água) …70, em 24 × 6 chapas, normal +x, material
+  `campo_base` com UV de 0 a 1 (u ao longo de z, de −180 a 180; v de baixo para cima): o cliente troca pelo aditivo
+  na cor do time dono.
+- `campo_emissores` (vazio), com os filhos:
+  - `campo_pilar_1` (parede de cima, z −180) e `campo_pilar_2` (z +180): pilar emissor encaixado na rocha (frente
+    em |z| = 177, entra até 198), do leito (−64) a 64 m: fundação, cinta na linha d'água, fuste grafite em chapas de
+    8 m com a coluna de lentes `neon_time` virada para o vão (10 lentes entre dois trilhos blindados, sobre vidro
+    escuro), braçadeiras, nervuras, contrafortes em leque cravados na rocha dos dois lados e as faixas `neon_time` nas
+    quinas. **Sempre com |z| ≥ 176.**
+  - `campo_cabeca_1` / `_2`: a cabeça emissora em cima do pilar, de 34 a 77,6 m (acima de 30 pode avançar no vão,
+    até |z| = 160,7): mísula, coluna com três bobinas e dois anéis `neon_time`, três aletas (a do meio aponta para o
+    vão e tem o gume `neon_time` que "projeta" o campo), tampa e farol `neon_luz`.
+  - `campo_boias`: oito boias emissoras (z = ±22, ±66, ±110, ±154): flutuador na linha d'água, mastro, cabeça com a
+    faixa `neon_time` e a fenda `neon_time` em cima, no plano da membrana (topo a 1,4 m), amarra e poita no leito; e a
+    barreira flutuante (tubo a −16,25 com faixa `neon_time`) entre as boias e até o pé dos pilares: a base da membrana.
+    **Tudo abaixo de 2 m.**
+
+Fora a membrana, nada entre 2 e 30 m dentro de |z| < 176 (o vão das naves do time; conferido no teste pelas caixas
+de cada primitiva).
 
 ## Campos que escondem: nuvens de gás, sem modelo
 
