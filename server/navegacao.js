@@ -22,12 +22,16 @@
 // - O monstro não mira a próxima célula, e sim o ponto mais adiante no caminho que
 //   ele alcança em linha livre (até OLHAR_CELULAS): a curva sai suave.
 // - A zona segura de cada base entra na grade como bloqueada, para nenhum caminho
-//   passar por dentro dela.
+//   passar por dentro dela; com `bloquearBolsoes` (a grade dos monstros), também o
+//   bolsão de cada base atrás do campo de força (CAMPOS_BASE), com BOLSAO_FOLGA m de
+//   margem do lado de fora do plano.
+// - No A* (caminho), célula com custo extra infinito é parede: os computadores
+//   (server/bots.js) fecham assim o campo de força da base do outro time.
 // - A grade é retangular (MAP_HALF_X × MAP_HALF_Z): com células de 10 m são 300 × 224
 //   células, umas 67 mil, e a montagem (270 mil alturas) leva menos de meio
 //   segundo, uma vez por processo.
 
-import { MAP_HALF_X, MAP_HALF_Z, BASES } from '../shared/terrain.js';
+import { MAP_HALF_X, MAP_HALF_Z, BASES, dentroDoCampo } from '../shared/terrain.js';
 import { alturaSolida } from '../shared/obstaculos.js';
 import { MAX_SLOPE } from '../shared/sim.js';
 
@@ -36,6 +40,7 @@ const FOLGA_RAMPA = 0.85; // fração de MAX_SLOPE aceita na grade (margem para 
 const CUSTO_BEIRA = [6, 3, 1]; // custo extra a 0, 1 e 2 células de uma parede
 const OLHAR_CELULAS = 6; // até quantas células adiante o monstro mira
 const PASSO_LINHA = 2.5; // metros entre amostras do teste de linha livre
+const BOLSAO_FOLGA = CELULA; // m do lado de fora do campo de força de base que já conta como bolsão (bloquearBolsoes)
 
 // Vizinhos na ordem dos bits da máscara de passagem. Os quatro primeiros são retos.
 const VIZ = [
@@ -125,10 +130,12 @@ class Heap {
 export class MapaNavegacao {
   /**
    * Monta a grade a partir do terreno. raioBloqueio: raio em volta da base onde
-   * monstro não entra (a zona segura), que fica bloqueado na grade.
-   * @param {{ raioBloqueio?: number }} [opcoes]
+   * monstro não entra (a zona segura), que fica bloqueado na grade; bloquearBolsoes:
+   * o bolsão atrás do campo de força de cada base também.
+   * @param {{ raioBloqueio?: number, bloquearBolsoes?: boolean }} [opcoes]
    */
-  constructor({ raioBloqueio = 0 } = {}) {
+  constructor({ raioBloqueio = 0, bloquearBolsoes = false } = {}) {
+    this.bloquearBolsoes = bloquearBolsoes;
     const n = Math.ceil((2 * MAP_HALF_X) / CELULA);
     const nz = Math.ceil((2 * MAP_HALF_Z) / CELULA);
     this.nx = n;
@@ -213,8 +220,9 @@ export class MapaNavegacao {
     this.busca = null; // memória do A* (caminho), alocada na primeira busca
   }
 
-  /** O ponto está na área bloqueada em volta de alguma base (zona segura)? */
+  /** O ponto está na área bloqueada em volta de alguma base (zona segura e, com bloquearBolsoes, o bolsão)? */
   naZona({ x, z }) {
+    if (this.bloquearBolsoes && BASES.some((b) => dentroDoCampo(b.time, x, BOLSAO_FOLGA))) return true;
     return BASES.some((b) => Math.hypot(x - b.x, z - b.z) < this.raioBloqueio);
   }
 
@@ -508,6 +516,7 @@ export class MapaNavegacao {
         if (!(m & (1 << k))) continue;
         const v = (j + VIZ_J[k]) * n + i + VIZ_I[k];
         const nd = gc + COMPRIMENTO[k] * (custo[v] + (extra ? extra[v] : 0));
+        if (nd === Infinity) continue; // célula fechada pelo `extra`
         if (marca[v] === vez && nd >= g[v]) continue;
         marca[v] = vez;
         g[v] = nd;

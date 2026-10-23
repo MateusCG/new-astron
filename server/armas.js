@@ -14,11 +14,14 @@
 //   desvio do nariz num cone de MIRA_CONE), 'mais_perto_no_raio' e
 //   'aleatorio_no_raio' (sem sorte: o índice sai do tick e do id do tiro).
 // - Área: distância no plano, com até AREA_ALTURA m de diferença de altura, e
-//   somando o raio do alvo (monstro grande pega de mais longe).
+//   somando o raio do alvo (monstro grande pega de mais longe). O campo de força das
+//   bases (CAMPOS_BASE em shared/terrain.js) corta a área: centro e alvo em lados
+//   opostos do plano não se pegam (explosão, nova, mina e campo de arma, de quem
+//   for). A mira e o teleguiado também não escolhem alvo do outro lado.
 
 import { DT, HOVER, AREA_ALTURA, SHIP_RADIUS, forward } from '../shared/sim.js';
 import { MIRA_CONE } from '../shared/armas.js';
-import { heightAt } from '../shared/terrain.js';
+import { heightAt, cruzaCampoBase } from '../shared/terrain.js';
 
 const VEL_SUBIDA_MISSIL = 30; // m/s máximos de subida/descida acompanhando o alvo
 
@@ -120,5 +123,11 @@ export function alturaNoChao(x, z, y) {
 export function naArea(ent, x, y, z, raio) {
   const s = ent.ship;
   if (Math.abs(s.y - y) > AREA_ALTURA + (s.raio ?? SHIP_RADIUS)) return false;
-  return Math.hypot(s.x - x, s.z - z) <= raio + (s.raio ?? SHIP_RADIUS);
+  if (!(Math.hypot(s.x - x, s.z - z) <= raio + (s.raio ?? SHIP_RADIUS))) return false;
+  return !cruzaCampoBase(x, z, s.x, s.z); // o campo de força de uma base no meio corta a área
+}
+
+/** Entre (x, z) e a nave de `ent` não há campo de força de base (a mira e o teleguiado podem escolhê-la)? */
+export function semCampoNoMeio(ent, x, z) {
+  return !cruzaCampoBase(x, z, ent.ship.x, ent.ship.z);
 }

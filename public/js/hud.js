@@ -13,7 +13,8 @@ import {
   LANE,
   MINERADORA,
   DOCAS,
-  ENTREGAS,
+  BACIAS,
+  CAMPOS_BASE,
   SERVICOS,
   TORRETAS,
   ASTEROIDES,
@@ -195,12 +196,14 @@ export class Hud {
         ctx.fillRect(cx - r, cz - r, r * 2, r * 2);
       }
     }
-    // Lane (faixa clara apagada), entregas na cor do time dono, a mineradora e as docas de He-3.
+    // Lane (faixa clara apagada), o campo de força e a bacia de cada base na cor do time
+    // dono, a mineradora e as docas de He-3.
     ctx.globalAlpha = 0.12;
     retangulo((LANE.xInicio + LANE.xFim) / 2, LANE.z, LANE.xFim - LANE.xInicio, LANE.largura, '#cfe9e4');
     ctx.globalAlpha = 1;
     const corTime = (t) => (t === this.meuTime ? COR_MEU_TIME : COR_OUTRO_TIME);
-    for (const e of ENTREGAS) retangulo(e.x, e.z, e.largura * 0.5, e.profundidade, corTime(e.time));
+    for (const c of CAMPOS_BASE) retangulo(c.x, c.z, 6, c.meiaZ * 2, corTime(c.time));
+    for (const b of BACIAS) circulo(b.x, b.z, b.raio, COR_MINERIO, true);
     retangulo(MINERADORA.x, MINERADORA.z, MINERADORA.meiaX * 2, MINERADORA.meiaZ * 2, '#5d6866');
     for (const d of DOCAS) circulo(d.x, d.z, 10, COR_MINERIO, true);
     // Acampamentos: anel vermelho apagado (os monstros em si vêm pelo snapshot, na visão).

@@ -9,7 +9,7 @@ import { World } from '../server/game.js';
 import { ESCOLTA } from '../server/escoltas.js';
 import { RECOMPENSA } from '../server/progressao.js';
 import { createShip } from '../shared/sim.js';
-import { BASES, LANE, MINERADORA, DOCAS, ESPERAS, heightAt } from '../shared/terrain.js';
+import { BASES, LANE, MINERADORA, DOCAS, ESPERAS, BACIAS, ESPERAS_BACIA, dentroDoCampo, heightAt } from '../shared/terrain.js';
 import { alturaSolida } from '../shared/obstaculos.js';
 
 const SEGUNDO = 30;
@@ -135,6 +135,29 @@ test('escolta: com o minerador minerando no hangar, espera do lado de fora, na f
     }
   }
   assert.ok(viu > 0, 'alguma escolta esperou na porta enquanto o minerador minerava');
+});
+
+test('escolta: com o minerador na bacia da base, espera de lado, sem estacionar em cima da bacia', () => {
+  const { w } = mundo();
+  // Um minerador só por time: as três escoltas o acompanham até a bacia.
+  for (const t of [0, 1]) w.mineradores.melhorias[t].maxAtivos = 1 - w.mineradores.atributos(t, 0).maxAtivos;
+  let viu = 0;
+  let saiu = 0;
+  for (let i = 0; i < 200 * SEGUNDO; i++) {
+    w.step();
+    for (const e of w.escoltas.lista.filter((e) => e.vivo)) {
+      if (!dentroDoCampo(e.time, e.ship.x)) saiu |= 1 << e.time; // atravessou o campo da própria base
+      const b = BACIAS[e.time];
+      const parada = Math.hypot(e.ship.vx, e.ship.vz) < 3;
+      if (parada) assert.ok(Math.hypot(e.ship.x - b.x, e.ship.z - b.z) > b.raio, `a escolta do time ${e.time} parou em cima da bacia (${e.ship.x.toFixed(1)}, ${e.ship.z.toFixed(1)})`);
+    }
+    for (const m of w.mineradores.lista.filter((m) => m.estado === 'descarregando')) {
+      const eb = ESPERAS_BACIA[m.time];
+      if (w.escoltas.lista.some((e) => e.vivo && e.time === m.time && Math.abs(e.ship.x - eb.x) < 30 && Math.abs(e.ship.z - eb.z) < 60)) viu++;
+    }
+  }
+  assert.equal(saiu, 3, 'as escoltas dos dois times saíram da base pelo campo de força');
+  assert.ok(viu > 0, 'alguma escolta esperou de lado enquanto o minerador despejava');
 });
 
 test('escolta: atira no inimigo perto, não no aliado, e sob EMP para', () => {

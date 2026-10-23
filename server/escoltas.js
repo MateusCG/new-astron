@@ -12,7 +12,12 @@
 //   mesmo ficam mais atrás (ESCOLTA.fila m cada), sem empilhar. Fica do lado de fora
 //   da lane (ESCOLTA.lado m para fora da faixa dele) e um pouco atrás; ela não entra
 //   no hangar da mineradora (não passa pelo campo de força da porta): com ele lá
-//   dentro, espera do lado de fora, na frente da porta (ESPERAS).
+//   dentro, espera do lado de fora, na frente da porta (ESPERAS). Com ele na bacia da
+//   base (chegando, despejando ou saindo dela: `naBacia`, 'descarregando' e
+//   `saiBacia` em server/mineradores.js), espera de lado, na altura da espera da
+//   bacia (ESPERAS_BACIA), fora das duas faixas e longe do aro: não estaciona em cima
+//   da bacia nem na frente de quem chega. O campo de força da própria base ela
+//   atravessa, como o minerador.
 // - Sem minerador, faz a ronda da rota dos mineradores (ROTAS[time], faixa de cada
 //   sentido, como eles), da base até a espera na frente da porta e de volta.
 // - Atira como uma torre giratória (não precisa virar a nave): no inimigo mais perto
@@ -31,7 +36,7 @@
 // (x, z) e `time`, e ela vai nas entidades do snapshot com `tipo: 'escolta'`.
 
 import { createShip, stepShip, createBullet, forward, velocidadeBase, DT, WEAPONS } from '../shared/sim.js';
-import { BASES, LANE, ROTAS, ESPERAS } from '../shared/terrain.js';
+import { BASES, LANE, ROTAS, ESPERAS, ESPERAS_BACIA } from '../shared/terrain.js';
 import { pontoRota, anguloEntre, yawPara, FAIXA_MINERADOR } from './mineradores.js';
 import { linhaDeTiro, alvosDoTime } from './torretas.js';
 
@@ -156,7 +161,16 @@ export class Escoltas {
       const lado = Math.sign(ms.z - LANE.z) || 1;
       const atras = ESCOLTA.atras + repetidas * ESCOLTA.fila;
       const espera = ESPERAS[e.time];
-      if (Math.abs(ms.x) < Math.abs(espera.x)) {
+      const naBacia = m.naBacia || m.estado === 'descarregando' || m.saiBacia;
+      if (naBacia) {
+        // Ele está na bacia da base: ela espera de lado, fora das faixas e do aro.
+        const eb = ESPERAS_BACIA[e.time];
+        const px = eb.x + Math.sign(eb.x) * repetidas * ESCOLTA.fila;
+        const pz = LANE.z + (Math.sign(s.z - LANE.z) || 1) * (FAIXA_MINERADOR + ESCOLTA.lado);
+        vx = (px - s.x) * SEGUIR;
+        vz = (pz - s.z) * SEGUIR;
+        olhar = yawPara(px, pz, 0, LANE.z);
+      } else if (Math.abs(ms.x) < Math.abs(espera.x)) {
         // Ele passou da espera, rumo à porta do hangar: ela fica do lado de fora, na
         // frente da porta (de lado, para não tampar a fila), olhando para a porta.
         // Fora das duas faixas dos mineradores, do lado em que ela já está.

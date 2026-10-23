@@ -68,11 +68,10 @@ export const BASE = BASES[0];
 export const BOLSAO = { xMin: 1125, xMax: 1440, meiaZ: 180 };
 
 /**
- * Largura da lane (em z): acompanha o vão do arco da entrega na boca da base
- * (entrega.glb, ~143 m de ponta a ponta, com os dois pilares nas pontas). Olhando da
- * base para a lane, a lane é o que passa por dentro do arco. Decisão do Mateus
- * (out/2026; antes eram 180 m). O bolsão das bases (ABERTO.lane, BOLSAO) continua
- * com |z| ≤ 180.
+ * Largura da lane (em z): 140 m, decisão do Mateus (out/2026; antes eram 180 m),
+ * do tamanho do vão do antigo arco da entrega na boca da base (o arco saiu: a carga
+ * agora é despejada na BACIA, dentro da base). O bolsão das bases (ABERTO.lane,
+ * BOLSAO) continua com |z| ≤ 180.
  */
 export const LARGURA_LANE = 140;
 
@@ -134,15 +133,6 @@ export function noHangar(time, x, z) {
 export const MINERIO = { x: MINERADORA.x, z: MINERADORA.z, raio: MINERADORA.meiaZ };
 
 /**
- * Pontos de entrega do minério, na boca de cada base, virados para a lane.
- * `largura` é a extensão em x (ao longo da lane) e `profundidade` a extensão em z.
- */
-export const ENTREGAS = [
-  { time: 0, x: -1110, z: 0, largura: 30, profundidade: 120 },
-  { time: 1, x: 1110, z: 0, largura: 30, profundidade: 120 },
-];
-
-/**
  * Leva um ponto do referencial da base do time 0 (centro na origem, lane para +x)
  * para o mundo, na base `b`. A base do time 1 é a do time 0 girada 180°.
  */
@@ -150,6 +140,80 @@ export function daBase(b, lx, lz) {
   const s = b.time === 0 ? 1 : -1;
   return { x: b.x + s * lx, z: b.z + s * lz };
 }
+
+/**
+ * Campo de força da base: um plano vertical na boca do bolsão de cada time, de rocha a
+ * rocha (x = ±BOLSAO.xMin, |z| ≤ BOLSAO.meiaZ), da água para cima e sem teto para a
+ * física. Mineradores, escoltas e naves do time dono atravessam; nave do outro time
+ * que encosta nele é destruída; nenhum tiro atravessa, de nenhum lado (como o campo
+ * da porta do hangar). `x` é o plano, `meiaZ` vai de uma parede à outra.
+ */
+export const CAMPO_BASE_DIST = Math.abs(BASES[0].x) - BOLSAO.xMin; // 155 m do centro da base, rumo à lane
+/** `dentro`: sinal de x do lado da base (−1 no time 0, +1 no time 1). */
+export const CAMPOS_BASE = BASES.map((b) => ({ time: b.time, x: daBase(b, CAMPO_BASE_DIST, 0).x, z: b.z, meiaZ: BOLSAO.meiaZ, dentro: Math.sign(b.x) }));
+
+/**
+ * O ponto está do lado de dentro do campo de força do `time` (no bolsão da base
+ * dele)? Só o x conta: além do plano, fora de |z| ≤ meiaZ, é tudo rocha da borda.
+ * `folga` > 0 alarga o lado de dentro para fora do plano (a margem de quem não quer
+ * nem encostar nele).
+ */
+export function dentroDoCampo(time, x, folga = 0) {
+  const c = CAMPOS_BASE[time];
+  return !!c && (x - c.x) * c.dentro > -folga;
+}
+
+/**
+ * O segmento (x0, z0) → (x1, z1) cruza o plano de algum campo de força de base
+ * dentro de |z| ≤ meiaZ? Devolve { time (dono do campo), t (fração do segmento no
+ * cruzamento), x, z (o ponto no plano) }, o primeiro cruzamento, ou null. Um ponto
+ * exatamente no plano conta como do lado de fora. Determinístico: tiro (stepBullet),
+ * área dos golpes, nave inimiga que atravessa e a IA usam a mesma conta.
+ */
+export function cruzaCampoBase(x0, z0, x1, z1) {
+  let melhor = null;
+  for (const c of CAMPOS_BASE) {
+    if ((x0 - c.x) * c.dentro > 0 === (x1 - c.x) * c.dentro > 0) continue;
+    const t = (c.x - x0) / (x1 - x0);
+    const z = z0 + (z1 - z0) * t;
+    if (Math.abs(z - c.z) > c.meiaZ) continue;
+    if (!melhor || t < melhor.t) melhor = { time: c.time, t, x: c.x, z };
+  }
+  return melhor;
+}
+
+/**
+ * O círculo de raio `raio` em (x, z) encosta no plano do campo do `time` (dentro de
+ * |z| ≤ meiaZ)? É a regra da nave inimiga que é destruída no campo.
+ */
+export function encostaNoCampo(time, x, z, raio) {
+  const c = CAMPOS_BASE[time];
+  return !!c && Math.abs(x - c.x) <= raio && Math.abs(z - c.z) <= c.meiaZ;
+}
+
+/**
+ * Bacia de minério de cada base: o tanque fundo e aberto logo à frente do anel de
+ * pouso, do lado de dentro do campo de força, onde os mineradores despejam a carga. O
+ * aro fica a `borda` m (abaixo do voo: a nave passa por cima), as paredes de dentro são
+ * retas (`raioInterno`) e o fundo fica a `fundo` (bem abaixo da água: o cliente abre a
+ * água ali dentro); o minério acumulado sobe por dentro dele. `raio` é o de fora.
+ */
+export const BACIA = { dist: 115, raio: 24, raioInterno: 19, borda: 2.5, fundo: -40 };
+export const BACIAS = BASES.map((b) => ({ time: b.time, ...daBase(b, BACIA.dist, 0), raio: BACIA.raio, raioInterno: BACIA.raioInterno }));
+/**
+ * Vagas de descarga em cada bacia: três mineradores despejam ao mesmo tempo, um em
+ * cada vaga (o lado da volta, o fundo, voltado para o anel, e o lado da ida). Com as
+ * três ocupadas, o próximo espera em ESPERAS_BACIA.
+ */
+export const VAGAS_BACIA = BASES.map((b) =>
+  [
+    [0, -10],
+    [-8, 0],
+    [0, 10],
+  ].map(([lx, lz]) => daBase(b, BACIA.dist + lx, lz)),
+);
+/** Onde o minerador que volta espera vaga na bacia: na faixa da volta, do lado de dentro do campo. */
+export const ESPERAS_BACIA = BASES.map((b) => ({ time: b.time, ...daBase(b, 148, -15) }));
 
 /**
  * Serviços de cada base: plataformas de pouso no fundo do bolsão, dos dois lados do
@@ -208,7 +272,7 @@ export const TORRETAS = BASES.flatMap((b) =>
 
 /**
  * Caminho dos mineradores de cada time: em LINHA RETA pela lane (z = 0), do centro da
- * base, passando pela entrega, até a espera na frente da porta (ESPERAS, com um ponto
+ * base, passando por cima da bacia, até a espera na frente da porta (ESPERAS, com um ponto
  * a cada 100 m no máximo) e dali, pela porta, até a doca dentro do hangar (o último
  * ponto). A volta é a mesma lista de trás para frente. A escolta faz a ronda só até a
  * espera (o penúltimo ponto).

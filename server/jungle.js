@@ -72,7 +72,7 @@
 // salvo a chama, que é dano direto num cone (evento 'chama' para o desenho).
 
 import { DT, HOVER, SHIP_RADIUS, createShip, stepShip, velocidadeBase } from '../shared/sim.js';
-import { ACAMPAMENTOS, BUFFS, MEDUSA, BASES, heightAt, trajetoSonda } from '../shared/terrain.js';
+import { ACAMPAMENTOS, BUFFS, MEDUSA, BASES, heightAt, trajetoSonda, cruzaCampoBase } from '../shared/terrain.js';
 import { bloqueiaVisao } from '../shared/visao.js';
 import { MISSIL_CONE } from '../shared/armas.js';
 import { alturaSolida, pontoLivre } from '../shared/obstaculos.js';
@@ -169,10 +169,11 @@ const CORPO_ROCHA = 0.5; // m: chão acima disto na borda = rocha
 const SONDA_OLHAR = 30; // m adiante e atrás no trajeto para decidir o lado da fuga
 
 // A grade de navegação depende só do terreno: uma por processo, na primeira vez que
-// um monstro precisa contornar uma rocha. A zona segura das bases fica bloqueada.
+// um monstro precisa contornar uma rocha. A zona segura das bases e o bolsão atrás
+// do campo de força de cada uma ficam bloqueados.
 let navegacao = null;
 function nav() {
-  navegacao ??= new MapaNavegacao({ raioBloqueio: BASES[0].raio + 5 });
+  navegacao ??= new MapaNavegacao({ raioBloqueio: BASES[0].raio + 5, bloquearBolsoes: true });
   return navegacao;
 }
 
@@ -627,7 +628,10 @@ export class Jungle {
     }
     const antes = { x: s.x, z: s.z };
     stepShip(s, this.#dirigir(m, destino, alvo, fracVel));
-    if (s.raio > SHIP_RADIUS && (s.x !== antes.x || s.z !== antes.z) && !corpoLivre(s.x, s.z, s.raio) && corpoLivre(antes.x, antes.z, s.raio)) {
+    // Monstro grande não entra na rocha; e nenhum atravessa o campo de força de uma
+    // base (a grade já não leva para lá; isto segura quem vai reto atrás do alvo).
+    const naRocha = s.raio > SHIP_RADIUS && !corpoLivre(s.x, s.z, s.raio) && corpoLivre(antes.x, antes.z, s.raio);
+    if ((s.x !== antes.x || s.z !== antes.z) && (naRocha || cruzaCampoBase(antes.x, antes.z, s.x, s.z))) {
       s.x = antes.x;
       s.z = antes.z;
       s.vx = s.vz = 0;
@@ -793,7 +797,7 @@ export class Jungle {
       if (ao < 0 || ao > a.alcance + raio) continue;
       const lado = Math.abs(dx * fz - dz * fx);
       if (lado > Math.max(a.area ?? 0, ao * Math.tan(a.abertura)) + raio) continue;
-      if (bloqueiaVisao(s.x, s.z, c.ship.x, c.ship.z)) continue;
+      if (bloqueiaVisao(s.x, s.z, c.ship.x, c.ship.z) || cruzaCampoBase(s.x, s.z, c.ship.x, c.ship.z)) continue;
       const ev = { e: 'acerto', kind: 'plasma', atq: a.atq, x: +c.ship.x.toFixed(2), y: +c.ship.y.toFixed(2), z: +c.ship.z.toFixed(2) };
       this.ctx.ferir(c, a.dano, m.id, ev, { tipoDano: a.tipoDano });
     }

@@ -85,6 +85,14 @@
 // (sorteada ao entrar). Alvo que some da visão é seguido até onde foi visto por
 // IA.memoriaAlvoS e depois esquecido.
 //
+// Campo de força da base do outro time (CAMPOS_BASE; encostar nele destrói a nave):
+// a grade do A* fecha o bolsão de lá com IA.campoFolga m de margem (custo infinito
+// no `extra`), o destino que cai lá dentro (ou na margem) é puxado para fora dele,
+// alvo atrás de um campo de base do time dele não é alvo (nem de briga, nem de caça),
+// e o tiro só sai sem campo nenhum no meio (ele para no plano). Por último, uma trava
+// na pilotagem (#longeDoCampo): perto do campo inimigo e indo para ele, freia e vira
+// para fora, e não usa arma de teleporte apontada para lá.
+//
 // Navegação (server/navegacao.js, grade de 10 m sem bloqueio nas bases): destino perto
 // com linha livre (a nave tem largura: três linhas paralelas) e fora do alcance das
 // torres, vai reto; senão, um caminho A* com o custo a mais da área das torres
@@ -97,7 +105,7 @@
 // tick diferente); o que o time vê é contado uma vez por tick por time; o A* custa
 // de 0,1 a 5 ms e só roda ao trocar de destino.
 
-import { DT, sanitizeInput, versaoArma, velocidadeBase, ARMAS, WEAPONS } from '../shared/sim.js';
+import { DT, sanitizeInput, versaoArma, velocidadeBase, forward, ARMAS, WEAPONS, SHIP_RADIUS } from '../shared/sim.js';
 import {
   BASES,
   MINERADORA,
@@ -113,6 +121,9 @@ import {
   MAP_HALF_X,
   MAP_HALF_Z,
   BOLSAO,
+  CAMPOS_BASE,
+  dentroDoCampo,
+  cruzaCampoBase,
   trajetoSonda,
 } from '../shared/terrain.js';
 import { enxerga, bloqueiaVisao, olho, olhosDaBase, algumOlhoVe, VISAO_RAIO, VISAO_MINERADOR, VISAO_TORRETA } from '../shared/visao.js';
@@ -163,6 +174,8 @@ export const IA = {
   licencaRaio: 220, // m: os do time a até isto dele contam para entrar no alcance da torre
   custoPerigo: 2.5, // custo a mais por célula coberta (o caminho contorna se der)
   custoBaseInimiga: 40, // por célula do bolsão da base do outro time
+  campoFolga: 20, // m do lado de fora do campo de força da base do outro time que já é proibido
+  campoReacaoS: 1.2, // s de antecedência: indo para o campo inimigo nesta velocidade, a trava freia
   segurarAdiante: 35, // m: brigando, se o ponto à frente está coberto, para de avançar
 
   // Lane.
@@ -320,6 +333,24 @@ function armaDoEncaixe(s, enc) {
   const g = v?.golpe;
   if (!g || g.forma !== 'projetil' || !(g.vel > 0)) return null;
   return { alcance: g.vel * g.vida, vel: g.vel, energia: v.energia };
+}
+/** Distância do teleporte da arma do encaixe (0 se não é teleporte). */
+function teleporteDoEncaixe(s, enc) {
+  const g = versaoArma(s.encaixes?.[enc], s.nivEnc?.[enc] ?? 1)?.golpe;
+  if (!g || g.forma !== 'efeito') return 0;
+  return g.efeitos.find((e) => e.tipo === 'teleporte')?.dist ?? 0;
+}
+/** O campo de força da base do outro time (o que destrói a nave do `time`). */
+const campoInimigo = (time) => CAMPOS_BASE.find((c) => c.time !== time);
+/**
+ * O ponto puxado para fora do campo de força da base do outro time, com a margem
+ * IA.campoFolga e mais uma célula (o destino do caminho nunca fica lá dentro).
+ */
+function foraDoCampo(time, p) {
+  const c = campoInimigo(time);
+  const folga = IA.campoFolga + CELULA;
+  if (!c || !dentroDoCampo(c.time, p.x, folga)) return p;
+  return { ...p, x: c.x - c.dentro * (folga + 5) };
 }
 /** Alcance das armas da nave: { min, max } (250 m sem arma de projétil). */
 function alcances(s) {
@@ -597,8 +628,14 @@ export class Bots {
   #atingivel(j, alvo) {
     const t = alvo.ship;
     const s = j.ship;
+    if (this.#atrasDoCampo(j, alvo)) return false;
     if (this.#permitido(j, t.x, t.z)) return true;
     return dist(s, t) <= alcances(s).max * 0.95 && !bloqueiaVisao(s.x, s.z, t.x, t.z) && this.#permitido(j, s.x, s.z);
+  }
+
+  /** Alvo do outro time dentro da própria base, atrás do campo de força (lá não se chega nem o tiro entra)? */
+  #atrasDoCampo(j, alvo) {
+    return alvo.time !== undefined && alvo.time !== j.time && dentroDoCampo(alvo.time, alvo.ship.x);
   }
 
   /**
@@ -631,7 +668,10 @@ export class Bots {
 
   /**
    * Grade só com o bolsão da base do outro time (o caminho de quem tem licença para
-   * entrar no alcance das torres; e a base de #perigo). Uma por time.
+   * entrar no alcance das torres; e a base de #perigo). Uma por time. A boca do
+   * bolsão custa IA.custoBaseInimiga por célula; do campo de força para dentro (com
+   * IA.campoFolga de margem, pelo centro da célula) é parede (Infinity: o A* não
+   * passa).
    */
   #soBase(time) {
     this.semTorres ??= BASES.map(() => null);
@@ -642,7 +682,10 @@ export class Bots {
       for (let x = outra.x - 260; x <= outra.x + 260; x += CELULA) {
         for (let z = outra.z - 260; z <= outra.z + 260; z += CELULA) {
           const k = n.indice(x, z);
-          if (k >= 0 && Math.abs(x) >= BOLSAO.xMin - 25) g[k] = IA.custoBaseInimiga;
+          if (k < 0) continue;
+          const c = n.centro(k);
+          if (dentroDoCampo(outra.time, c.x, IA.campoFolga + CELULA / 2)) g[k] = Infinity;
+          else if (Math.abs(c.x) >= BOLSAO.xMin - 25) g[k] = IA.custoBaseInimiga;
         }
       }
       this.semTorres[time] = g;
@@ -1385,6 +1428,7 @@ export class Bots {
     else if (ia.modo === 'pousar' && ia.destino) cmd = this.#pousar(j, ia.destino);
     else if (ia.modo === 'recall') cmd = this.#recall(j);
     else cmd = { ...PARADO };
+    this.#longeDoCampo(j, cmd);
     // Pulsos (pouso e recall valem na borda do botão): um tick apertado, depois solto.
     cmd.p = ia.pulsoP;
     cmd.r = ia.pulsoR;
@@ -1392,11 +1436,40 @@ export class Bots {
     return cmd;
   }
 
+  /**
+   * Trava da pilotagem contra o campo de força da base do outro time (encostar nele
+   * destrói a nave): perto dele (IA.campoFolga, mais o que a nave anda em
+   * IA.campoReacaoS na direção dele) e indo para lá, freia e vira para fora; a arma de
+   * teleporte apontada para lá não dispara. Mexe no comando `cmd`.
+   */
+  #longeDoCampo(j, cmd) {
+    const c = campoInimigo(j.time);
+    const s = j.ship;
+    if (!c || Math.abs(s.z - c.z) > c.meiaZ + 40) return;
+    const fora = (c.x - s.x) * c.dentro - SHIP_RADIUS; // m do casco até o plano (do lado de fora)
+    const f = forward(s.yaw);
+    const frente = f.x * c.dentro; // > 0: o nariz aponta para o campo
+    // Teleporte: salta até `dist` para a frente; apontado para o campo e com ele ao alcance, não.
+    for (const enc of [0, 1]) {
+      const tele = teleporteDoEncaixe(s, enc);
+      if (tele > 0 && frente > 0 && fora < tele + IA.campoFolga) cmd[enc ? 'f2' : 'f1'] = false;
+    }
+    const indo = Math.max(0, s.vx * c.dentro);
+    if (fora > IA.campoFolga + indo * IA.campoReacaoS) return;
+    if (frente <= 0 && indo < 1) return; // já está se afastando
+    // Vira para fora (rumo à lane) e freia; virado para fora, acelera para longe.
+    const diff = anguloEntre(s.yaw, yawPara(s, s.x - c.dentro * 100, s.z));
+    cmd.tu = clamp(diff * 3, -1, 1);
+    cmd.th = frente > 0.2 ? -1 : 0.6;
+    cmd.b = false;
+  }
+
   #alvoValido(j, alvo) {
     if (!alvo?.vivo) return false;
     if (alvo.estrutura) return true;
     if (alvo.tipo === 'jogador' && !this.world.players.has(alvo.id)) return false;
     if (alvo.time !== undefined && alvo.time !== j.time && this.#naPropriaBase(alvo)) return false;
+    if (this.#atrasDoCampo(j, alvo)) return false;
     if (!this.#ve(j, alvo)) return false;
     j.ia.visto = { x: alvo.ship.x, z: alvo.ship.z, tick: this.world.tick };
     return true;
@@ -1408,7 +1481,7 @@ export class Bots {
     const tick = this.world.tick;
     const c = ia.linha;
     if (c && tick < c.ate && Math.hypot(c.x - x, c.z - z) < 25) return c.livre;
-    const livre = nav().linhaLivre(j.ship.x, j.ship.z, x, z, IA.folgaLinha);
+    const livre = nav().linhaLivre(j.ship.x, j.ship.z, x, z, IA.folgaLinha) && !cruzaCampoBase(j.ship.x, j.ship.z, x, z);
     ia.linha = { x, z, livre, ate: tick + IA.linhaTicks };
     return livre;
   }
@@ -1459,7 +1532,8 @@ export class Bots {
     const k = alvo.estrutura ? Math.min(1, ((t.raio ?? 0) + 3) / (d || 1)) : 0;
     const fx = t.x + (s.x - t.x) * k;
     const fz = t.z + (s.z - t.z) * k;
-    if (d > 60 && !this.#livre(j, fx, fz)) {
+    // Campo de força de uma base no meio: o tiro não passa (ele para no plano).
+    if (cruzaCampoBase(s.x, s.z, fx, fz) || (d > 60 && !this.#livre(j, fx, fz))) {
       if (segurar && this.#cobertoPorTorre(j.time, t.x, t.z)) return { ...PARADO, th: Math.hypot(s.vx, s.vz) > 15 ? -0.5 : 0 };
       return this.#navegar(j, { x: fx, z: fz }, { seguro, movel: !alvo.estrutura });
     }
@@ -1514,6 +1588,7 @@ export class Bots {
   #navegar(j, destino, { seguro = true, movel = false, chegada = 0 } = {}) {
     const ia = j.ia;
     const s = j.ship;
+    destino = foraDoCampo(j.time, destino); // nunca para dentro do campo de força do outro time
     const d = dist(s, destino);
     let px = destino.x;
     let pz = destino.z;

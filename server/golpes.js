@@ -29,10 +29,17 @@
 // segue o de antes (ent.drenoTicks, aplicado pelo World).
 //
 // Sem sorte em nada: o "aleatório" da mira e a chance de desarmar viram regra fixa.
+//
+// Campo de força das bases (CAMPOS_BASE em shared/terrain.js): o tiro para no plano
+// (stepBullet; o evento 'fim' leva `campo`, o time dono, para o cliente piscar o campo
+// ali), a área não passa de um lado para o outro (naArea), a mira e o teleguiado só
+// escolhem alvo do mesmo lado, e a mina ou o campo de arma que cairia do outro lado
+// fica embaixo da nave de quem soltou.
 
 import { DT, HOVER, createBullet, stepBullet, bulletHits, forward } from '../shared/sim.js';
 import { WEAPONS, MINA_MAX, CONVERTE_ENERGIA_POR_HP, ESCUDO_EQUIV_HP, golpeDaArma, versaoArma, tirosDoGolpe } from '../shared/armas.js';
-import { alvoDoMissil, guiarMissil, escolherAlvo, tiroFilho, alturaNoChao, naArea, yawPara } from './armas.js';
+import { alvoDoMissil, guiarMissil, escolherAlvo, tiroFilho, alturaNoChao, naArea, yawPara, semCampoNoMeio } from './armas.js';
+import { cruzaCampoBase } from '../shared/terrain.js';
 
 export const INVISIVEL_VISTO_M = 25; // m: invisível a esta distância de um inimigo aparece para ele
 export const INVISIVEL_TIRO_S = 0.5; // s: atirar mostra o invisível por este tempo
@@ -111,7 +118,14 @@ export class Golpes {
         this.#nova(f, g, s.x, s.y, s.z);
       } else if (g.forma === 'mina' || g.forma === 'campo') {
         const p = forward(s.yaw);
-        this.#mina(f, g, s.x - p.x * 9, s.y, s.z - p.z * 9);
+        let mx = s.x - p.x * 9;
+        let mz = s.z - p.z * 9;
+        if (cruzaCampoBase(s.x, s.z, mx, mz)) {
+          // Cairia do outro lado do campo de força de uma base: fica embaixo da nave.
+          mx = s.x;
+          mz = s.z;
+        }
+        this.#mina(f, g, mx, s.y, mz);
       } else {
         this.#efeitoProprio(ent, g, f);
       }
@@ -149,7 +163,10 @@ export class Golpes {
         this.#lancar(b, g);
       }
     } else if (g.forma === 'nova') this.#nova(f, g, x, s.y, z);
-    else if (g.forma === 'mina' || g.forma === 'campo') this.#mina(f, g, x, s.y, z);
+    else if (g.forma === 'mina' || g.forma === 'campo') {
+      // Do outro lado do campo de força de uma base, não abre (o campo segura).
+      if (!cruzaCampoBase(s.x, s.z, x, z)) this.#mina(f, g, x, s.y, z);
+    }
   }
 
   /** Completa o tiro com quem atirou, a mira (trava o alvo ou aponta para ele) e o golpe. */
@@ -194,8 +211,12 @@ export class Golpes {
   /** Quem o golpe pode pegar: inimigos (fogo amigo não) ou, no de suporte, aliados. */
   #candidatos(fonte, g) {
     const vivos = this.world.vivosAgora();
-    if (g.inimigo) return vivos.filter((a) => this.ctx.podeAcertar(fonte, a));
-    if (g.aliado) return vivos.filter((a) => this.#aliado(fonte, a, false));
+    // A mira sai de onde está a nave (o tiro nasce no nariz): alvo do outro lado do
+    // campo de força de uma base não entra.
+    const ox = fonte.ox ?? fonte.x;
+    const oz = fonte.oz ?? fonte.z;
+    if (g.inimigo) return vivos.filter((a) => this.ctx.podeAcertar(fonte, a) && semCampoNoMeio(a, ox, oz));
+    if (g.aliado) return vivos.filter((a) => this.#aliado(fonte, a, false) && semCampoNoMeio(a, ox, oz));
     return [];
   }
 
@@ -234,7 +255,8 @@ export class Golpes {
         return false;
       }
       if (!segue) {
-        w.eventos.push({ e: 'fim', bala: b.id, x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2) });
+        // `campo`: bateu no campo de força da base desse time (o cliente pisca o campo ali).
+        w.eventos.push({ e: 'fim', bala: b.id, x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2), ...(b.campo !== undefined ? { campo: b.campo } : {}) });
         this.#fimDoTiro(b, g, novos);
         return false;
       }
@@ -265,8 +287,8 @@ export class Golpes {
   }
 
   #candidatosDe(b, g, vivos) {
-    if (g.inimigo) return vivos.filter((a) => this.ctx.podeAcertar(b, a));
-    if (g.aliado) return vivos.filter((a) => this.#aliado(b, a, false));
+    if (g.inimigo) return vivos.filter((a) => this.ctx.podeAcertar(b, a) && semCampoNoMeio(a, b.x, b.z));
+    if (g.aliado) return vivos.filter((a) => this.#aliado(b, a, false) && semCampoNoMeio(a, b.x, b.z));
     return [];
   }
 
@@ -453,7 +475,7 @@ export class Golpes {
   #rebater(como, x, z, raio) {
     for (const b of this.world.bullets) {
       if (b.rebatido || !this.#inimigoDe(como, b.time, b.drone)) continue;
-      if (Math.hypot(b.x - x, b.z - z) > raio) continue;
+      if (Math.hypot(b.x - x, b.z - z) > raio || cruzaCampoBase(x, z, b.x, b.z)) continue;
       b.vx = -b.vx;
       b.vz = -b.vz;
       b.owner = como.owner;
@@ -469,7 +491,7 @@ export class Golpes {
   #desarmar(como, x, z, raio, frac) {
     const w = this.world;
     const perto = w.minas
-      .filter((m) => this.#inimigoDe(como, m.time, m.drone) && Math.hypot(m.x - x, m.z - z) <= raio)
+      .filter((m) => this.#inimigoDe(como, m.time, m.drone) && Math.hypot(m.x - x, m.z - z) <= raio && !cruzaCampoBase(x, z, m.x, m.z))
       .sort((a, b) => Math.hypot(a.x - x, a.z - z) - Math.hypot(b.x - x, b.z - z));
     const sai = new Set(perto.slice(0, Math.ceil(perto.length * frac)));
     if (!sai.size) return;

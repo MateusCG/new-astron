@@ -19,7 +19,11 @@
 //   "respirando" (mais forte com minerador minerando);
 // - as bases: portal warp flutuante (ilha boiando devagar, membrana em redemoinho e
 //   um feixe fino da ponta da broca até a água), anel de pouso, plataformas da
-//   Evolução e da Loja com o ícone e o nome no chão, e a entrega na boca da base;
+//   Evolução e da Loja com o ícone e o nome no chão, a bacia de minério logo à
+//   frente do anel (o minério que o time entregou acumula lá dentro e sobe com o
+//   placar; o despejo de cada minerador cai em cristais) e o campo de força na boca
+//   do bolsão, de rocha a rocha (na cor do time dono, aceso perto da sua nave e
+//   com um anel onde o tiro bate);
 // - os objetivos: torres de suporte (de pé, apagadas em 'espera', caídas em
 //   'recarga'), plataformas de pouso de ouro (feixe de luz com alguém pousado), o
 //   Núcleo de He-3 (anéis e lascas girando, mais rápido com menos vida);
@@ -47,7 +51,9 @@ import {
   NIVEL_AGUA,
   FUNDO_LAGO,
   BASES,
-  ENTREGAS,
+  CAMPOS_BASE,
+  BACIAS,
+  BACIA,
   SERVICOS,
   AREAS_POUSO,
   ACAMPAMENTOS,
@@ -112,6 +118,27 @@ const POEIRA_DENTRO = { tamanho: 0.55, opacidade: 0.6, cor: new THREE.Color('#d9
 const NUCLEO_GIRO_PARADO = 0.08;
 const NUCLEO_GIRO_VIVO = 0.5;
 const NUCLEO_GIRO_FERIDO = 2.2;
+/** Campo de força da base: quantos anéis de impacto de tiro ao mesmo tempo. */
+const CAMPO_IMPACTOS = 8;
+/** Campo de força da base: quanto a colmeia acende com a sua nave perto (no do outro time é o aviso). */
+const CAMPO_PERTO_OUTRO = 0.4;
+const CAMPO_PERTO_MEU = 0.03;
+/**
+ * Bacia de minério: o minério acumulado sobe com o placar do time, 1 − e^(−placar /
+ * BACIA_ESCALA) (uma partida rende ~1500: a bacia chega a ~90%), e para a
+ * BACIA_TOPO_CHEIA m abaixo do aro; anda até o nível novo em uns segundos.
+ */
+const BACIA_ESCALA = 650;
+const BACIA_TOPO_CHEIA = 5;
+const BACIA_SUBIDA = 0.8;
+/** Brilho de He-3 de dentro da bacia (fração da cor do minério no emissivo): nas paredes e no minério acumulado. */
+const BACIA_BRILHO = { parede: 0.09, minerio: 0.14 };
+/** Topo médio do minério acima do pivô do nó `bacia_minerio` (o disco vai de 3,7 a 5,5 m; os cristais passam disso). */
+const MINERIO_TOPO = 4.6;
+/** Despejo na bacia: pedras no ar ao mesmo tempo (as duas bases), por segundo por minerador, e a gravidade (m/s²). */
+const CRISTAIS_DESPEJO = 400;
+const DESPEJO_POR_S = 22;
+const DESPEJO_GRAVIDADE = 22;
 
 function mulberry32(a) {
   return () => {
@@ -404,7 +431,7 @@ function montarBase(g, b, meuTime) {
   const cor = b.time === meuTime ? CORES.neon : CORES.perigo;
   const neonTime = neon(cor);
   const giro = b.time === 0 ? 0 : Math.PI;
-  const anim = { portal: null, feixe: null, neon: neonTime, base: b };
+  const anim = { portal: null, feixe: null, neon: neonTime, base: b, campo: null, minerio: null };
 
   // Portal warp flutuante (a peça mais baixa a 31 m: a nave passa por baixo).
   const p = daBase(b, PORTAL_WARP.lx, PORTAL_WARP.lz);
@@ -462,11 +489,175 @@ function montarBase(g, b, meuTime) {
     g.add(marca);
   }
 
-  // Entrega dos mineradores, na boca da base.
-  const e = ENTREGAS[b.time];
-  const entrega = por(g, 'entrega', e.x, 0, e.z, giro);
-  if (entrega) pintar(entrega, 'neon_time', neonTime);
+  // Campo de força na boca do bolsão, de rocha a rocha: a membrana vira o shader do
+  // campo na cor do time dono (relativa a quem olha), os emissores levam o neon do time.
+  const cb = CAMPOS_BASE[b.time];
+  const campo = por(g, 'campo-base', cb.x, 0, cb.z, giro);
+  if (campo) {
+    pintar(campo, 'neon_time', neonTime);
+    anim.campo = campoDaBase(cor, b.time, b.time === meuTime ? CAMPO_PERTO_MEU : CAMPO_PERTO_OUTRO);
+    pintar(campo, 'campo_base', anim.campo);
+    campo.traverse((o) => {
+      if (o.isMesh && o.material === anim.campo) {
+        o.castShadow = o.receiveShadow = false;
+        o.renderOrder = 1;
+      }
+    });
+  }
+
+  // Bacia de minério à frente do anel: o nó do minério acumulado sobe com o placar.
+  const bc = BACIAS[b.time];
+  const bacia = por(g, 'bacia', bc.x, 0, bc.z, giro);
+  if (bacia) {
+    pintar(bacia, 'neon_time', neonTime);
+    // O tanque é fundo e o aro faz sombra: sem isto as paredes e o minério lá
+    // embaixo ficam pretos. Um brilho fraco de He-3 vindo de dentro, só nesta peça
+    // (cópia do material: os de chapa são do mapa inteiro; o emissivo é uniforme,
+    // então o programa do shader é o mesmo e nada recompila).
+    for (const [nome, k] of [['bacia_estrutura', BACIA_BRILHO.parede], ['bacia_minerio', BACIA_BRILHO.minerio]]) {
+      no(bacia, nome)?.traverse((o) => {
+        if (!o.isMesh || !o.material?.name?.startsWith('pbr_')) return;
+        o.material = o.material.clone();
+        o.material.emissive.copy(CORES.minerio).multiplyScalar(k);
+      });
+    }
+    const minerio = no(bacia, 'bacia_minerio');
+    if (minerio) anim.minerio = { no: minerio, y0: minerio.position.y, nivel: 0, alvo: 0 };
+  }
   return anim;
+}
+
+/**
+ * Altura do topo do minério acumulado na bacia (y do mundo) para o `nivel` de 0 a 1:
+ * do fundo (BACIA.fundo, vazia) até BACIA_TOPO_CHEIA abaixo do aro (cheia).
+ */
+function topoMinerio(m, nivel) {
+  const vazia = m.y0 + MINERIO_TOPO;
+  return vazia + nivel * (BACIA.borda - BACIA_TOPO_CHEIA - vazia);
+}
+
+/**
+ * Campo de força da base (troca o campo_base do campo-base.glb; UV de 0 a 1, u ao
+ * longo do vão e v de baixo para cima). Como o do hangar: quase transparente no meio,
+ * borda acesa e faixas finas subindo, mas o vão tem 360 m, então o desenho é em
+ * metros do mundo: uma colmeia fina que acende perto da nave de quem olha (uFoco,
+ * com a força `perto`: forte no campo do outro time, o aviso de "não encoste", e
+ * fraca no seu, que você atravessa) e anéis que se abrem onde um tiro bateu
+ * (uImpactos: x, y, z do impacto e a hora dele no relógio da água).
+ */
+function campoDaBase(cor, fase, perto) {
+  return new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    uniforms: {
+      uTempo: TEMPO_AGUA,
+      uCor: { value: new THREE.Color(cor) },
+      uFase: { value: fase * 1.7 },
+      uPerto: { value: perto },
+      uFoco: { value: new THREE.Vector3(0, -1000, 0) },
+      uImpactos: { value: Array.from({ length: CAMPO_IMPACTOS }, () => new THREE.Vector4(0, -1000, 0, -100)) },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      varying vec3 vMundo;
+      void main() {
+        vUv = uv;
+        vec4 w = modelMatrix * vec4(position, 1.0);
+        vMundo = w.xyz;
+        gl_Position = projectionMatrix * viewMatrix * w;
+      }`,
+    fragmentShader: `
+      uniform float uTempo, uFase, uPerto;
+      uniform vec3 uCor, uFoco;
+      uniform vec4 uImpactos[${CAMPO_IMPACTOS}];
+      varying vec2 vUv;
+      varying vec3 vMundo;
+      // Distância à borda da célula de uma colmeia de lado 1 (0 na borda).
+      float hexBorda(vec2 p) {
+        const vec2 s = vec2(1.0, 1.7320508);
+        vec4 c = floor(vec4(p, p - vec2(0.5, 1.0)) / s.xyxy) + 0.5;
+        vec4 h = vec4(p - c.xy * s, p - (c.zw + 0.5) * s);
+        vec2 q = abs(dot(h.xy, h.xy) < dot(h.zw, h.zw) ? h.xy : h.zw);
+        return 0.5 - max(dot(q, s * 0.5), q.x);
+      }
+      void main() {
+        float lado = smoothstep(0.012, 0.0, min(vUv.x, 1.0 - vUv.x));
+        float topo = smoothstep(0.14, 0.0, 1.0 - vUv.y);
+        float pe = smoothstep(0.08, 0.0, vUv.y);
+        float faixas = smoothstep(0.95, 1.0, 0.5 + 0.5 * sin((vMundo.y / 9.0 - uTempo * 0.35 + uFase) * 6.2832));
+        float pulso = 0.85 + 0.15 * sin(uTempo * 2.6 + uFase);
+        vec2 plano = vec2(vMundo.x + vMundo.z, vMundo.y);
+        float colmeia = smoothstep(0.05, 0.0, hexBorda(plano / 6.0));
+        float perto = exp(-pow(distance(vMundo, uFoco) / 45.0, 2.0));
+        float anel = 0.0;
+        for (int i = 0; i < ${CAMPO_IMPACTOS}; i++) {
+          vec4 im = uImpactos[i];
+          float idade = uTempo - im.w;
+          if (idade < 0.0 || idade > 1.2) continue;
+          float d = distance(vMundo, im.xyz);
+          float raio = 2.0 + idade * 22.0;
+          anel += (smoothstep(3.0, 0.0, abs(d - raio)) + 1.5 * smoothstep(raio, 0.0, d) * colmeia) * (1.0 - idade / 1.2);
+        }
+        float k = (0.01 + 0.35 * lado + 0.16 * topo + 0.12 * pe + 0.04 * faixas + colmeia * (0.025 + uPerto * perto)) * pulso + 0.5 * anel;
+        gl_FragColor = vec4(uCor * k, 1.0);
+      }`,
+  });
+}
+
+/**
+ * Despejo dos mineradores na bacia: cristais de He-3 caindo do contêiner até o
+ * minério acumulado lá no fundo, numa InstancedMesh só (um pool de CRISTAIS_DESPEJO
+ * pedras). Só visual: o sorteio é Math.random.
+ */
+function criarDespejo() {
+  const geo = new THREE.OctahedronGeometry(0.55, 0);
+  geo.scale(0.8, 1.4, 0.8);
+  const mat = new THREE.MeshStandardMaterial({ color: CORES.minerio, emissive: CORES.minerio, emissiveIntensity: 0.9, roughness: 0.5, flatShading: true });
+  const malha = new THREE.InstancedMesh(geo, mat, CRISTAIS_DESPEJO);
+  malha.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  malha.frustumCulled = false;
+  malha.castShadow = false;
+  malha.count = 0;
+  const pedras = [];
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const eixo = new THREE.Vector3();
+  const pos = new THREE.Vector3();
+  const esc = new THREE.Vector3();
+  return {
+    malha,
+    /** Solta uma pedra de (x, y, z) que para ao chegar em `chao` (y do mundo). */
+    soltar(x, y, z, chao) {
+      if (pedras.length >= CRISTAIS_DESPEJO) return;
+      const a = Math.random() * Math.PI * 2;
+      const r = Math.random() * 1.6;
+      pedras.push({
+        x: x + Math.cos(a) * r, y, z: z + Math.sin(a) * r,
+        vx: Math.cos(a) * r * 0.8, vy: -2 - Math.random() * 3, vz: Math.sin(a) * r * 0.8,
+        chao, giro: Math.random() * 6, eixo: [Math.random() - 0.5, Math.random(), Math.random() - 0.5], tam: 0.6 + Math.random() * 0.9,
+      });
+    },
+    atualizar(dt) {
+      let n = 0;
+      for (let i = 0; i < pedras.length; i++) {
+        const p = pedras[i];
+        p.vy -= DESPEJO_GRAVIDADE * dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.z += p.vz * dt;
+        p.giro += dt * 4;
+        if (p.y <= p.chao) continue; // chegou no minério: some nele
+        pedras[n++] = p;
+        q.setFromAxisAngle(eixo.set(...p.eixo).normalize(), p.giro);
+        malha.setMatrixAt(n - 1, m.compose(pos.set(p.x, p.y, p.z), q, esc.setScalar(p.tam)));
+      }
+      pedras.length = n;
+      malha.count = n;
+      malha.instanceMatrix.needsUpdate = true;
+    },
+  };
 }
 
 // ---------- Objetivos ----------
@@ -609,10 +800,14 @@ function montarDecoracao(g) {
 
 /**
  * Monta a cena inteira. Retorna { scene, atualizar(dt, foco), definirObjetivo(id,
- * estado), definirMineracao(n) }: foco é o ponto (nave do jogador) que a sombra, o
- * céu e as gotículas acompanham; definirObjetivo recebe o estado de cada objetivo do
- * snapshot (obj[id]) e acende, apaga, derruba ou gira a peça dele; definirMineracao
- * diz quantos mineradores estão minerando (o He-3 da mineradora brilha mais).
+ * estado), definirMineracao(n), definirBacias(placar, descargas), atingirCampo(time,
+ * x, y, z) }: foco é o ponto (nave do jogador) que a sombra, o céu, as gotículas e o
+ * aviso do campo de força acompanham; definirObjetivo recebe o estado de cada
+ * objetivo do snapshot (obj[id]) e acende, apaga, derruba ou gira a peça dele;
+ * definirMineracao diz quantos mineradores estão minerando (o He-3 da mineradora
+ * brilha mais); definirBacias recebe o placar ({0: n, 1: n}: a altura do minério em
+ * cada bacia) e os mineradores despejando agora ([{x, y, z, time}]: o minério cai
+ * deles); atingirCampo abre um anel no campo de força da base `time` onde o tiro bateu.
  * `meuTime` decide as cores relativas (o seu time turquesa, o outro vermelho).
  * Os modelos já têm de estar no cache (tela de carregamento).
  */
@@ -632,6 +827,8 @@ export function criarCena({ meuTime = 0 } = {}) {
   const plataformas = montarPlataformas(mapa);
   const nucleo = montarNucleo(mapa);
   const deco = montarDecoracao(mapa);
+  const despejo = criarDespejo();
+  mapa.add(despejo.malha);
 
   // A água por cima de tudo o que é do fundo: brilho de He-3 sobre a mineradora, o
   // Núcleo e os veios de cristal; espuma nas pedras que furam a água.
@@ -643,7 +840,9 @@ export function criarCena({ meuTime = 0 } = {}) {
       { x: NUCLEO.x, z: NUCLEO.z, raio: 110, forca: 0.25 },
       ...deco.cristais.slice(0, 6).map((c) => ({ x: c.x, z: c.z, raio: 35, forca: 0.14 })),
     ],
-    extras: deco.furam,
+    // O tanque da bacia fura a água (espuma em volta) e por dentro ela não existe.
+    extras: [...deco.furam, ...BACIAS.map((b) => ({ x: b.x, z: b.z, raio: b.raio }))],
+    buracos: BACIAS.map((b) => ({ x: b.x, z: b.z, raio: b.raioInterno })),
   });
   scene.add(agua);
   const poeira = criarPoeira();
@@ -670,6 +869,8 @@ export function criarCena({ meuTime = 0 } = {}) {
   let tempo = 0;
   let minerando = 0;
   let he3Atual = HE3_MIN;
+  let descargas = [];
+  let impacto = 0; // próximo anel de impacto a reusar, por campo
 
   function atualizar(dt, foco) {
     tempo += dt;
@@ -703,7 +904,25 @@ export function criarCena({ meuTime = 0 } = {}) {
       if (b.portal) b.portal.position.y = Math.sin((tempo / PORTAL_BOIA_S) * Math.PI * 2 + b.base.time * 2) * PORTAL_BOIA_M;
       if (b.feixe) b.feixe.material.opacity = 0.22 + 0.1 * Math.sin(tempo * 1.7);
       b.neon.emissiveIntensity = 0.85 + 0.15 * Math.sin(tempo * 2 + b.base.time);
+      if (b.campo) b.campo.uniforms.uFoco.value.copy(foco);
+      // O minério acumulado anda até o nível do placar.
+      const m = b.minerio;
+      if (m) {
+        m.nivel += (m.alvo - m.nivel) * (1 - Math.exp(-BACIA_SUBIDA * dt));
+        m.no.position.y = topoMinerio(m, m.nivel) - MINERIO_TOPO;
+      }
     }
+    // Despejo: cada minerador despejando solta cristais do contêiner até o minério.
+    for (const d of descargas) {
+      const m = bases[d.time]?.minerio;
+      const chao = m ? topoMinerio(m, m.nivel) : BACIA.fundo;
+      let n = DESPEJO_POR_S * dt;
+      while (n > 0) {
+        if (n >= 1 || Math.random() < n) despejo.soltar(d.x, d.y - 1.2, d.z, chao);
+        n--;
+      }
+    }
+    despejo.atualizar(dt);
 
     // Torres de suporte: a antena do alto gira e o âmbar pulsa enquanto a torre está acesa.
     for (const t of torres.values()) {
@@ -783,7 +1002,21 @@ export function criarCena({ meuTime = 0 } = {}) {
     minerando = n;
   }
 
-  return { scene, atualizar, definirObjetivo, definirMineracao };
+  /** Placar de cada time (altura do minério na bacia) e os mineradores despejando agora. */
+  function definirBacias(placar, lista = []) {
+    for (const b of bases) if (b.minerio) b.minerio.alvo = 1 - Math.exp(-Math.max(0, placar?.[b.base.time] ?? 0) / BACIA_ESCALA);
+    descargas = lista;
+  }
+
+  /** Tiro bateu no campo de força da base do `time` em (x, y, z): um anel se abre ali. */
+  function atingirCampo(time, x, y, z) {
+    const campo = bases[time]?.campo;
+    if (!campo) return;
+    campo.uniforms.uImpactos.value[impacto].set(x, y, z, tempo);
+    impacto = (impacto + 1) % CAMPO_IMPACTOS;
+  }
+
+  return { scene, atualizar, definirObjetivo, definirMineracao, definirBacias, atingirCampo };
 }
 
 /**

@@ -184,7 +184,8 @@
 //         tampam, asteroide esconde quem está dentro: shared/visao.js). Vale para
 //         ents (as do próprio time sempre vêm), minas, guiados e os eventos com x/z
 //         (quem é autor ou alvo recebe o seu, o 'tiro' travado nele inclusive; 'tiro' vem se o caminho dele entra na
-//         visão, e o 'fim'/'acerto' do tiro anunciado vem sempre; 'morte' de jogador
+//         visão, e o 'fim'/'acerto' do tiro anunciado vem sempre (o 'fim' com `campo`
+//         também a quem vê o ponto do campo de força); 'morte' de jogador
 //         fora da visão vem sem x/y/z; 'recall' de outro time só o 'chegou', sem a
 //         ponta escondida (de ou x/y/z)). Entidade que some some do `ents`; ao voltar,
 //         vem no lugar novo. obj, torretas, partida, placar e jogadores são públicos.
@@ -267,10 +268,13 @@
 //         -1 = segurando a camuflagem): o HUD avisa, e cego esconde os inimigos do
 //         minimapa e dos rótulos
 //   ents: [{id, nome, tipo, drone, vivo, race, x, y, z, yaw, roll, hp, maxHp, boost, pousado,
-//           dreno, lento, emp, fx?, time?, carga?, minerando?, nivel?, classe?, tier?, arm?, esc?,
-//           recall?, bn?, nucleo?, esp?}]
+//           dreno, lento, emp, fx?, time?, carga?, minerando?, descarga?, nivel?, classe?, tier?,
+//           arm?, esc?, recall?, bn?, nucleo?, esp?}]
 //         bn = bônus de nave ativos do jogador ('ataque' | 'suporte' | 'sonda');
 //         nucleo = 1 no minerador da onda do Núcleo (maior, mais lento, carga 50);
+//         descarga = 1 no minerador parado em cima de uma vaga da bacia da base
+//         (VAGAS_BACIA), despejando o minério (só enquanto despeja; a entrega
+//         sai no fim);
 //         esc = fração (0 a 1) do escudo do equipamento, só em jogador com escudo;
 //         fx = efeitos de arma visíveis ('para', 'desg', 'energia', 'invul',
 //         'escudo', 'fraco', 'regen', 'acel', 'inv'); arm = [arma do Z, arma do X]
@@ -283,7 +287,7 @@
 //         esp = 'armish' | 'chrometic' | 'xerxes' | 'great_xerxes' | 'bazit' | 'anti' |
 //         'sn4' | 'medusa' | 'sonda' (o modelo: public/modelos/monstros/<esp>.glb;
 //         nome = nome na tela, sem time); drone = inimigo do PvE; time em jogadores,
-//         mineradores e escoltas; carga e minerando só nos mineradores; nivel, classe
+//         mineradores e escoltas; carga, minerando e descarga só nos mineradores; nivel, classe
 //         e tier só nos jogadores (raça + classe + tier = o modelo da nave); recall
 //         (0 a 1) só em quem está canalizando a volta à base
 //   ev:   {e:'tiro'|'acerto'|'fim'|'renasceu'|'saiu', ...}
@@ -291,9 +295,18 @@
 //                                    de arma (nv = versão, p = profundidade do golpe:
 //                                    0 o disparo, 1+ subprojétil; enc = encaixe de
 //                                    onde saiu, para o desenho sair da boca da arma)
+//         {e:'fim', bala, x, y, z, campo?}   o projétil acabou sem acertar (vida, rocha,
+//                                    construção); campo = time dono quando ele bateu
+//                                    no campo de força da base desse time (x, z no
+//                                    plano, CAMPO_RECUO antes dele: o cliente pisca
+//                                    o campo ali). Nenhum tiro atravessa esse campo
 //         {e:'entrou', id, nome, time}
 //         {e:'morte', id, por, tipo, time?, esp?, x, y, z, ouro?, renasce?, assist?, ouroAssist?,
-//          seq?, encerrou?, seqPor?}   (esp = espécie, na morte de monstro)
+//          seq?, encerrou?, seqPor?, motivo?, campo?}   (esp = espécie, na morte de monstro)
+//                                    motivo = 'campo' (com campo = time dono): nave de
+//                                    jogador que encostou no campo de força da base
+//                                    do outro time (CAMPOS_BASE), destruída na hora;
+//                                    por = null, sem ouro, XP, abate nem assistência
 //                                    ouro = ouro que o matador (jogador) ganhou, bônus
 //                                    incluso; em morte de jogador: renasce = s até
 //                                    renascer; assist = ids dos aliados do matador que
@@ -374,9 +387,11 @@
 //                                    motivo 'saiu' | 'dano'). Da jungle (id BA0, BA1,
 //                                    SONDA, MEDUSA): 'apareceu' (x, z) e 'tomado'
 //                                    (time, quem, por = quem deu o golpe final)
-//         {e:'entrega', id, time, carga, x, y, z, nucleo?}   minerador somou carga no
-//                                    placar (carga = o que entrou, já dobrado na fase
-//                                    final; nucleo = 1 no da onda do Núcleo)
+//         {e:'entrega', id, time, carga, x, y, z, nucleo?}   minerador terminou de
+//                                    despejar na bacia da base (x, z em cima da vaga)
+//                                    e somou a carga no placar (carga = o que entrou,
+//                                    já dobrado na fase final; nucleo = 1 no da onda
+//                                    do Núcleo)
 //         {e:'faseFinal', mult, restante}   começou a fase final (minério × mult)
 //         {e:'preparacao', n, s}   abriu a partida n (placar zerado) na preparação: começa em s
 //         {e:'partida', n}   começou a partida n (acabou a preparação: os 20 minutos)
