@@ -211,11 +211,13 @@ export const PASTA_TEXTURAS_MAPA = '/texturas/mapa/';
 
 /**
  * Conjuntos de texturas PBR do mapa: o material `pbr_<conjunto>[_variação]` de um glb
- * ganha as três imagens do conjunto (cor, metal/rugosidade do glTF e normal). Hoje um só,
- * `painel`: o atlas de chapas metálicas 2 × 2 (ver public/texturas/mapa/LISTA.md).
+ * ganha as três imagens do conjunto (cor, metal/rugosidade do glTF e normal): `painel`, o
+ * atlas de chapas metálicas 2 × 2, e `rocha`, a rocha em estratos que repete sem emenda
+ * (ver public/texturas/mapa/LISTA.md).
  */
 export const TEXTURAS_PBR_MAPA = Object.freeze({
   painel: Object.freeze({ cor: 'painel_cor.webp', mr: 'painel_mr.webp', normal: 'painel_normal.webp' }),
+  rocha: Object.freeze({ cor: 'rocha_cor.webp', mr: 'rocha_mr.webp', normal: 'rocha_normal.webp' }),
 });
 
 /** URLs do que o mapa e os monstros usam: { mapa: [{ nome, url }], monstros: [{ nome, url }], texturas: [url] }. */
