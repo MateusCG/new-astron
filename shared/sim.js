@@ -751,8 +751,9 @@ export function stepBullet(b, dt = DT) {
 
 /**
  * O tiro passou pela nave neste passo? Teste de segmento contra cilindro vertical,
- * para tiro rápido não atravessar nave sem acertar entre um passo e outro. Monstro
- * grande leva `s.raio` maior que o da nave (o da espécie, server/especies.js).
+ * para tiro rápido não atravessar nave sem acertar entre um passo e outro. O alvo
+ * leva o próprio `s.raio`: a nave de jogador, o da nave da linha (cresce com o tier,
+ * shared/naves.js); o monstro, o da espécie (server/especies.js); sem ele, SHIP_RADIUS.
  */
 export function bulletHits(b, s) {
   const raio = (b.raio ?? WEAPONS[b.kind]?.raio ?? 0) + (s.raio ?? SHIP_RADIUS);

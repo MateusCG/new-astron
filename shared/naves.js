@@ -36,6 +36,16 @@
 // - Velocidade: m/ms do original × 1000 = m/s, vezes FATOR_VELOCIDADE (o alcance das
 //   armas usa o mesmo fator). A Warrior faz 0,1111 m/ms = 111 m/s no original e
 //   ~55,6 m/s aqui, a faixa de antes. Fica em m/s na nave (s.velocidade).
+// - Raio de acerto (a coluna 17 do initunit.cfg, que o carregador põe em 0x18c e o
+//   CUnit::LoadResource copia para o raio do modelo): no original é a esfera com que
+//   a nave colide com tiros e áreas (CModel::IsCollisionModel: acerta quando a
+//   distância é menor que a soma dos raios). Ele cresce quando a nave evolui (Acron
+//   15, 18 e 22 m; Bellico e Shrewdo 14, 17 e 20 m, parando no tier 2; a Assault Wing
+//   tem 10). Aqui é o do original vezes FATOR_RAIO_NAVE, que deixa a nave de 15 m
+//   com os 4,5 m de sempre (SHIP_RADIUS): de ~4,2 m na primeira nave a 6 ou 6,6 m na
+//   última. Vai em s.raio, que bulletHits, as áreas e os golpes de monstro leem; a
+//   colisão com rocha e construções continua com SHIP_RADIUS para todas (os cânions,
+//   o hangar e a predição foram medidos com ele).
 // Não existe armadura por nave no original: a redução de dano é só a da Loja.
 //
 // Tudo aqui é dado puro e determinístico (servidor e cliente leem o mesmo arquivo).
@@ -70,81 +80,83 @@ export const MS_POR_S = 1000; // tempos do original são em ms (regenerações p
 export const FATOR_ENERGIA = 0.3; // energia máxima (e custo das armas) do original
 export const FATOR_RECARGA = 0.5; // recarga das armas do original (entra na regeneração de energia)
 export const FATOR_VELOCIDADE = 0.5; // velocidade (e alcance das armas) do original, em m/s
+export const FATOR_RAIO_NAVE = 0.3; // raio de acerto do original (m): 15 m → 4,5 m
 
 /**
  * Colunas do initunit.cfg, em ordem de tier dentro de cada linha (número do modelo:
  * 02/05/08/11/14 Assault, 03/06/09/12/15 Mobile, 04/07/10/13/16 Functional):
  * [id, nome, HP, regenHP em voo (0x20c), regenHP pousada (0x210), energia,
- * regenEnergia, velocidade]. Regenerações por ms, velocidade em m/ms.
+ * regenEnergia, velocidade, raio de acerto (0x18c, m)]. Regenerações por ms,
+ * velocidade em m/ms.
  */
 const ORIGINAL = {
   acron: {
     assault: [
-      ['warrior', 'Warrior', 850, 0, 0.02, 90, 0.0156, 0.1111],
-      ['paladin', 'Paladin', 1445, 0, 0.03, 120, 0.0192, 0.1122],
-      ['tristan', 'Tristan', 2456, 0, 0.04, 150, 0.0228, 0.1133],
-      ['kamasutra', 'Kamasutra', 4175, 0, 0.05, 180, 0.0264, 0.1144],
-      ['ulysses', 'Ulysses', 3340, 0, 0.05, 441, 0.0277, 0.1201],
+      ['warrior', 'Warrior', 850, 0, 0.02, 90, 0.0156, 0.1111, 15],
+      ['paladin', 'Paladin', 1445, 0, 0.03, 120, 0.0192, 0.1122, 18],
+      ['tristan', 'Tristan', 2456, 0, 0.04, 150, 0.0228, 0.1133, 22],
+      ['kamasutra', 'Kamasutra', 4175, 0, 0.05, 180, 0.0264, 0.1144, 22],
+      ['ulysses', 'Ulysses', 3340, 0, 0.05, 441, 0.0277, 0.1201, 22],
     ],
     mobile: [
-      ['ranger', 'Ranger', 700, 0, 0.012, 120, 0.0144, 0.121],
-      ['tracker', 'Tracker', 980, 0, 0.014, 180, 0.0168, 0.132],
-      ['windwalker', 'Windwalker', 1372, 0, 0.016, 240, 0.0192, 0.143],
-      ['eurus', 'Eurus', 1920, 0, 0.018, 300, 0.0216, 0.154],
-      ['sephiros', 'Sephiros', 2016, 0, 0.018, 315, 0.0227, 0.143],
+      ['ranger', 'Ranger', 700, 0, 0.012, 120, 0.0144, 0.121, 15],
+      ['tracker', 'Tracker', 980, 0, 0.014, 180, 0.0168, 0.132, 18],
+      ['windwalker', 'Windwalker', 1372, 0, 0.016, 240, 0.0192, 0.143, 22],
+      ['eurus', 'Eurus', 1920, 0, 0.018, 300, 0.0216, 0.154, 22],
+      ['sephiros', 'Sephiros', 2016, 0, 0.018, 315, 0.0227, 0.143, 22],
     ],
     functional: [
-      ['esper', 'Esper', 750, 0, 0.013, 180, 0.024, 0.1122],
-      ['mirage', 'Mirage', 1125, 0, 0.016, 300, 0.036, 0.1144],
-      ['mystique', 'Mystique', 1687, 0, 0.019, 420, 0.048, 0.1166],
-      ['mobius', 'Mobius', 2530, 0, 0.022, 540, 0.06, 0.1188],
-      ['garuda', 'Garuda', 2657, 0, 0.022, 432, 0.048, 0.1247],
+      ['esper', 'Esper', 750, 0, 0.013, 180, 0.024, 0.1122, 15],
+      ['mirage', 'Mirage', 1125, 0, 0.016, 300, 0.036, 0.1144, 18],
+      ['mystique', 'Mystique', 1687, 0, 0.019, 420, 0.048, 0.1166, 22],
+      ['mobius', 'Mobius', 2530, 0, 0.022, 540, 0.06, 0.1188, 22],
+      ['garuda', 'Garuda', 2657, 0, 0.022, 432, 0.048, 0.1247, 22],
     ],
   },
   bellico: {
     assault: [
-      ['lioner', 'Lioner', 1020, 0.0133, 0.04, 75, 0.013, 0.1111],
-      ['tigera', 'Tigera', 1734, 0.02, 0.06, 100, 0.016, 0.1122],
-      ['liger', 'Liger', 2947, 0.0267, 0.08, 125, 0.019, 0.1133],
-      ['elephantera', 'Elephantera', 5010, 0.0333, 0.1, 150, 0.022, 0.1144],
-      ['cheetahar', 'Cheetahar', 4008, 0.0333, 0.1, 368, 0.0231, 0.1201],
+      ['lioner', 'Lioner', 1020, 0.0133, 0.04, 75, 0.013, 0.1111, 14],
+      ['tigera', 'Tigera', 1734, 0.02, 0.06, 100, 0.016, 0.1122, 17],
+      ['liger', 'Liger', 2947, 0.0267, 0.08, 125, 0.019, 0.1133, 20],
+      ['elephantera', 'Elephantera', 5010, 0.0333, 0.1, 150, 0.022, 0.1144, 20],
+      ['cheetahar', 'Cheetahar', 4008, 0.0333, 0.1, 368, 0.0231, 0.1201, 20],
     ],
     mobile: [
-      ['condor', 'Condor', 840, 0.008, 0.024, 100, 0.012, 0.121],
-      ['falcon', 'Falcon', 1176, 0.0093, 0.028, 150, 0.014, 0.132],
-      ['eagle', 'Eagle', 1646, 0.0107, 0.032, 200, 0.016, 0.143],
-      ['phantom', 'Phantom', 2304, 0.012, 0.036, 250, 0.018, 0.154],
-      ['phoenix', 'Phoenix', 2419, 0.012, 0.036, 263, 0.0189, 0.143],
+      ['condor', 'Condor', 840, 0.008, 0.024, 100, 0.012, 0.121, 14],
+      ['falcon', 'Falcon', 1176, 0.0093, 0.028, 150, 0.014, 0.132, 17],
+      ['eagle', 'Eagle', 1646, 0.0107, 0.032, 200, 0.016, 0.143, 20],
+      ['phantom', 'Phantom', 2304, 0.012, 0.036, 250, 0.018, 0.154, 20],
+      ['phoenix', 'Phoenix', 2419, 0.012, 0.036, 263, 0.0189, 0.143, 20],
     ],
     functional: [
-      ['turtle', 'Turtle', 900, 0.0087, 0.026, 150, 0.02, 0.1122],
-      ['snaker', 'Snaker', 1350, 0.0107, 0.032, 250, 0.03, 0.1144],
-      ['dragoner', 'Dragoner', 2024, 0.0127, 0.038, 350, 0.04, 0.1166],
-      ['sphinx', 'Sphinx', 3036, 0.0147, 0.044, 450, 0.05, 0.1188],
-      ['chimera', 'Chimera', 3187, 0.0147, 0.044, 360, 0.04, 0.1247],
+      ['turtle', 'Turtle', 900, 0.0087, 0.026, 150, 0.02, 0.1122, 14],
+      ['snaker', 'Snaker', 1350, 0.0107, 0.032, 250, 0.03, 0.1144, 17],
+      ['dragoner', 'Dragoner', 2024, 0.0127, 0.038, 350, 0.04, 0.1166, 20],
+      ['sphinx', 'Sphinx', 3036, 0.0147, 0.044, 450, 0.05, 0.1188, 20],
+      ['chimera', 'Chimera', 3187, 0.0147, 0.044, 360, 0.04, 0.1247, 20],
     ],
   },
   shrewdo: {
     assault: [
-      ['assault-wing', 'Assault Wing', 850, 0, 0.02, 75, 0.013, 0.1162],
-      ['power-wing', 'Power Wing', 1445, 0, 0.03, 100, 0.016, 0.1173],
-      ['plate-wing', 'Plate Wing', 2456, 0, 0.04, 125, 0.019, 0.1185],
-      ['uranium-wing', 'Uranium Wing', 4175, 0, 0.05, 150, 0.022, 0.1196],
-      ['hellion-wing', 'Hellion Wing', 3340, 0, 0.05, 368, 0.0231, 0.1256],
+      ['assault-wing', 'Assault Wing', 850, 0, 0.02, 75, 0.013, 0.1162, 10],
+      ['power-wing', 'Power Wing', 1445, 0, 0.03, 100, 0.016, 0.1173, 17],
+      ['plate-wing', 'Plate Wing', 2456, 0, 0.04, 125, 0.019, 0.1185, 20],
+      ['uranium-wing', 'Uranium Wing', 4175, 0, 0.05, 150, 0.022, 0.1196, 20],
+      ['hellion-wing', 'Hellion Wing', 3340, 0, 0.05, 368, 0.0231, 0.1256, 20],
     ],
     mobile: [
-      ['speed-wing', 'Speed Wing', 700, 0, 0.012, 100, 0.012, 0.1265],
-      ['rapier-wing', 'Rapier Wing', 980, 0, 0.014, 150, 0.014, 0.138],
-      ['thunder-wing', 'Thunder Wing', 1372, 0, 0.016, 200, 0.016, 0.1495],
-      ['lightning-wing', 'Lightning Wing', 1920, 0, 0.018, 250, 0.018, 0.161],
-      ['alchemium-wing', 'Alchemium Wing', 2016, 0, 0.018, 263, 0.0189, 0.1495],
+      ['speed-wing', 'Speed Wing', 700, 0, 0.012, 100, 0.012, 0.1265, 14],
+      ['rapier-wing', 'Rapier Wing', 980, 0, 0.014, 150, 0.014, 0.138, 17],
+      ['thunder-wing', 'Thunder Wing', 1372, 0, 0.016, 200, 0.016, 0.1495, 20],
+      ['lightning-wing', 'Lightning Wing', 1920, 0, 0.018, 250, 0.018, 0.161, 20],
+      ['alchemium-wing', 'Alchemium Wing', 2016, 0, 0.018, 263, 0.0189, 0.1495, 20],
     ],
     functional: [
-      ['chaos-wing', 'Chaos Wing', 750, 0, 0.013, 150, 0.02, 0.1173],
-      ['techron-wing', 'Techron Wing', 1125, 0, 0.016, 250, 0.03, 0.1196],
-      ['magic-wing', 'Magic Wing', 1687, 0, 0.019, 350, 0.04, 0.1219],
-      ['energy-wing', 'Energy Wing', 2530, 0, 0.022, 450, 0.05, 0.1242],
-      ['cyclone-wing', 'Cyclone Wing', 2657, 0, 0.022, 360, 0.04, 0.1304],
+      ['chaos-wing', 'Chaos Wing', 750, 0, 0.013, 150, 0.02, 0.1173, 14],
+      ['techron-wing', 'Techron Wing', 1125, 0, 0.016, 250, 0.03, 0.1196, 17],
+      ['magic-wing', 'Magic Wing', 1687, 0, 0.019, 350, 0.04, 0.1219, 20],
+      ['energy-wing', 'Energy Wing', 2530, 0, 0.022, 450, 0.05, 0.1242, 20],
+      ['cyclone-wing', 'Cyclone Wing', 2657, 0, 0.022, 360, 0.04, 0.1304, 20],
     ],
   },
 };
@@ -152,7 +164,7 @@ const ORIGINAL = {
 const umaCasa = (v) => Math.round(v * 10) / 10;
 
 /** Converte uma linha do original para a nave do jogo novo. */
-function converter(race, classe, tier, [id, nome, hp, regenVoo, regenPousada, energia, regenEnergia, velocidade]) {
+function converter(race, classe, tier, [id, nome, hp, regenVoo, regenPousada, energia, regenEnergia, velocidade, raio]) {
   return {
     id,
     nome,
@@ -168,6 +180,7 @@ function converter(race, classe, tier, [id, nome, hp, regenVoo, regenPousada, en
     velocidade: umaCasa(velocidade * MS_POR_S * FATOR_VELOCIDADE), // m/s
     regenHpVoo: umaCasa(regenVoo * MS_POR_S * FATOR_ESCALA_HP), // HP por segundo, voando (só Bellico)
     regenHpPousada: umaCasa(regenPousada * MS_POR_S * FATOR_ESCALA_HP), // HP por segundo, pousada
+    raio: umaCasa(raio * FATOR_RAIO_NAVE), // m: raio de acerto (tiros e áreas)
   };
 }
 

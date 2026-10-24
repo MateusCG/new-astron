@@ -173,8 +173,8 @@ export class Objetivos {
   /** Alguma nave no lugar de (o.x, o.z), raio `raio`? */
   #naveEmCima(o, raio) {
     const w = this.world;
-    const r = raio + SHIP_RADIUS + 1;
-    return w.vivosAgora().some((e) => e !== this.nucleo && Math.hypot(e.ship.x - o.x, e.ship.z - o.z) < r + (e.ship.raio ?? 0));
+    const r = raio + 1;
+    return w.vivosAgora().some((e) => e !== this.nucleo && Math.hypot(e.ship.x - o.x, e.ship.z - o.z) < r + (e.ship.raio ?? SHIP_RADIUS));
   }
 
   /**

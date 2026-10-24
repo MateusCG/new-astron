@@ -58,8 +58,10 @@
 // j.status): HP máximo (nave + nível + hpExtra), energia máxima (nave + enExtra),
 // regenerações (nave + extras), escudo (s.maxEscudo, s.regenEscudo), velocidade e
 // aceleração (s.velMult, s.acelMult) e a recarga por tipo de dano (s.recargaMult),
-// que o stepShip lê (a predição acompanha). O dano (poder, resistência, penetração,
-// crítico e o escudo) o World aplica em #ferir e multDanoDe, lendo j.status.
+// que o stepShip lê (a predição acompanha), e o raio de acerto da nave da linha
+// (s.raio, que cresce com o tier como no original: bulletHits e as áreas leem). O
+// dano (poder, resistência, penetração, crítico e o escudo) o World aplica em #ferir
+// e multDanoDe, lendo j.status.
 //
 // Evolução da nave ({t:'evoluir', opcao:'nave'}): compra a PRÓXIMA nave da linha
 // da raça e classe do piloto (shared/naves.js), com o nível exigido (a cada 5) e o
@@ -78,7 +80,7 @@
 // na partida seguinte. Como nas melhorias dos mineradores, o time recebe a notícia
 // (evento 'melhoria' com melhoria 'torretas'; a reconstrução vira o evento 'torreta').
 
-import { VEL_TOQUE, DT, NAVE_SEM_CLASSE, aplicarNave, armasDisponiveis, derivarEncaixes } from '../shared/sim.js';
+import { VEL_TOQUE, DT, NAVE_SEM_CLASSE, SHIP_RADIUS, aplicarNave, armasDisponiveis, derivarEncaixes } from '../shared/sim.js';
 import { areaPouso } from '../shared/terrain.js';
 import {
   itemDaLoja,
@@ -156,6 +158,7 @@ function aplicarStatus(j) {
   const st = statusDoJogador(j);
   j.status = st;
   aplicarNave(s, nave);
+  s.raio = nave?.raio ?? SHIP_RADIUS;
   s.armas = armasDoInv(j.inv);
   s.armasInst = armasInstDoInv(j.inv);
   delete s.niveis; // com inventário a versão é da instância (s.nivEnc, por encaixe)

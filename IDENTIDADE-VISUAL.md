@@ -232,7 +232,7 @@ A conta que importa é a da cena: somando as cópias, o mapa inteiro deve ficar 
 
 | Coisa | Tamanho |
 |---|---|
-| Nave de jogador | 9,6 m (1ª nave da linha) a 11,6 m (5ª) na média de comprimento × envergadura; a Assault 4% maior, a Mobile 3% menor; envergadura no máximo 1,45× esse tamanho (o modelo é escalado ao carregar, em `nave.js`) |
+| Nave de jogador | 9,6 m (1ª nave da linha) a 11,6 m (5ª) na média de comprimento × envergadura; a Assault 4% maior, a Mobile 3% menor; envergadura no máximo 1,45× esse tamanho (o modelo é escalado ao carregar, em `nave.js`); acerto com o raio do original, que cresce com a nave (4,2–4,5 m na 1ª, 6–6,6 m da 3ª em diante, `raio` em `shared/naves.js`) |
 | Minerador | ~6 m de comprimento, ~4 m de largura (metade da nave), voa na mesma altura (`HOVER`) |
 | Monstros | sonda 8 m, Armish/Chrometic 12, Xerxes/Bazit 13, Grande Xerxes/Anti 26, SN-4 30, Medusa 48 de largura × ~43 de altura (acerto com raio 4 a 20 m, `ESPECIES`) |
 | Altura de voo | 10 m acima do chão (`HOVER`) |
