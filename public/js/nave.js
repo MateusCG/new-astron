@@ -73,6 +73,34 @@ function matNeon(cor) {
   return new THREE.MeshStandardMaterial({ color: cor, emissive: cor, emissiveIntensity: 1, flatShading: true });
 }
 
+/**
+ * Luz a mais no casco das naves de jogador e nas armas da asa: o mapa ficou mais
+ * escuro para os tiros se destacarem (cena.js), e a nave, que é o que o piloto mais
+ * olha, voltaria a ficar apagada. Multiplica toda a luz que chega no material (sol,
+ * hemisférica, sombra e reflexo continuam com o mesmo desenho), como se as luzes da
+ * cena fossem LUZ_NAVE vezes mais fortes só para ela; o resto da cena não muda.
+ */
+export const LUZ_NAVE = 1.4;
+const uLuzNave = { value: LUZ_NAVE };
+
+/** Material de casco ou de arma da asa (textura do modelo, regras do guia) com a LUZ_NAVE. */
+function matCasco(map) {
+  const m = new THREE.MeshStandardMaterial({ map, metalness: 0.4, roughness: 0.5, flatShading: true, side: THREE.DoubleSide });
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.uLuzNave = uLuzNave;
+    shader.fragmentShader = shader.fragmentShader.replace('void main() {', 'uniform float uLuzNave;\nvoid main() {').replace(
+      '#include <lights_fragment_end>',
+      `#include <lights_fragment_end>
+      reflectedLight.directDiffuse *= uLuzNave;
+      reflectedLight.directSpecular *= uLuzNave;
+      reflectedLight.indirectDiffuse *= uLuzNave;
+      reflectedLight.indirectSpecular *= uLuzNave;`,
+    );
+  };
+  m.customProgramCacheKey = () => 'luz-nave'; // um programa só para todas as naves e armas
+  return m;
+}
+
 // Naves de jogador: os 45 modelos do Astro-N original (public/modelos/naves/<raça>/
 // <classe>/<id>.glb, um por nave de shared/naves.js), escolhidos pela raça, pela
 // classe e pelo tier da nave. A tela de carregamento (carregamento.js) baixa antes
@@ -224,7 +252,7 @@ function prepararModelo(gltf, tamanho) {
   // Material dentro das regras do guia (facetado, metal até 0.5), com a textura do modelo.
   const partes = malhas.map((m, i) => ({
     geometria: geos[i],
-    material: new THREE.MeshStandardMaterial({ map: m.material.map, metalness: 0.4, roughness: 0.5, flatShading: true, side: THREE.DoubleSide }),
+    material: matCasco(m.material.map),
   }));
   return { partes, encaixes, propulsores, caixa, itens };
 }
@@ -251,7 +279,7 @@ export function carregarArma(modelo) {
         if (o.isMesh) {
           const geo = o.geometry.clone().applyMatrix4(o.matrixWorld);
           orientarFaces(geo);
-          partes.push({ geometria: geo, material: new THREE.MeshStandardMaterial({ map: o.material.map, metalness: 0.4, roughness: 0.5, flatShading: true, side: THREE.DoubleSide }) });
+          partes.push({ geometria: geo, material: matCasco(o.material.map) });
         } else if (o.name === 'fire' && o.userData?.astron_helper) boca = o.getWorldPosition(new THREE.Vector3());
       });
       const pronta = { partes, boca };

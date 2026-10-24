@@ -48,8 +48,9 @@ import { ASTEROIDES, MAP_HALF_X, MAP_HALF_Z, emAsteroides } from '/shared/terrai
 
 /** Cores da nuvem (paleta do lago de He-3, IDENTIDADE-VISUAL.md). */
 export const CORES_NUVEM = {
-  luz: '#e8d6ba', // poeira iluminada pelo sol da tarde (areia clara, puxando para o horizonte)
+  luz: '#d0bfa5', // poeira iluminada pelo sol da tarde (areia, puxando para o horizonte)
   sombra: '#61788a', // gás na sombra (azul-acinzentado frio, da poeira da névoa)
+  mapa: '#e8d6ba', // as manchas das nuvens no minimapa (claras, para ler no fundo escuro dele)
   he3: '#9fe8ff', // gás de He-3 subindo do lago (azul-gelo), só em alguns tufos baixos
   oculta: '#2c3d47', // para onde puxa o campo que o time não vê (frio, nunca preto)
 };
