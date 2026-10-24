@@ -12,7 +12,7 @@ import WebSocket from 'ws';
 import { World } from '../server/game.js';
 import { iniciar } from '../server/index.js';
 import { hpMaxDoNivel } from '../server/progressao.js';
-import { createShip, stepShip, velocidadeBase, DT } from '../shared/sim.js';
+import { createShip, createBullet, stepShip, bulletHits, velocidadeBase, DT, SHIP_RADIUS } from '../shared/sim.js';
 import { SERVICOS, PLATAFORMAS_POUSO } from '../shared/terrain.js';
 import {
   NAVES,
@@ -23,6 +23,7 @@ import {
   NIVEL_POR_TIER,
   PRECO_POR_TIER,
   TIER_MAX,
+  FATOR_RAIO_NAVE,
   naveDe,
   linhaDe,
   classeValida,
@@ -268,6 +269,45 @@ test('naves: trocar de nave mantém a vida perdida e a nave nova volta no renasc
   assert.equal(j.ship.tier, 1, 'renasce na nave comprada');
   assert.equal(j.ship.maxHp, hpMaxDoNivel(paladin.hp, 5));
   assert.equal(j.ship.hp, j.ship.maxHp);
+});
+
+test('naves: o raio de acerto do original cresce com a nave (×0,3: a Warrior fica nos 4,5 m)', () => {
+  assert.equal(FATOR_RAIO_NAVE, 0.3);
+  assert.equal(naveDe('acron', 'assault', 0).raio, SHIP_RADIUS); // Warrior 15 m
+  assert.equal(naveDe('acron', 'assault', 1).raio, 5.4); // Paladin 18 m
+  assert.equal(naveDe('acron', 'assault', 2).raio, 6.6); // Tristan 22 m
+  assert.equal(naveDe('bellico', 'mobile', 0).raio, 4.2); // Condor 14 m
+  assert.equal(naveDe('bellico', 'mobile', 4).raio, 6); // Phoenix 20 m
+  assert.equal(naveDe('shrewdo', 'assault', 0).raio, 3, 'a Assault Wing do original tem 10 m');
+  for (const race of RACAS_JOGAVEIS) {
+    for (const classe of ORDEM_CLASSES) {
+      const raios = linhaDe(race, classe).map((n) => n.raio);
+      for (let t = 1; t <= TIER_MAX; t++) assert.ok(raios[t] >= raios[t - 1], `${race} ${classe}: nunca encolhe`);
+      assert.ok(raios[2] > raios[1] && raios[1] > raios[0], `${race} ${classe}: cresce até o tier 2`);
+    }
+  }
+});
+
+test('naves: a nave evoluída é alvo maior (tiro que passa raspando acerta a Tristan e não a Warrior)', () => {
+  const w = mundo();
+  const j = w.addPlayer('A', 'acron', 'assault');
+  assert.equal(j.ship.raio, naveDe('acron', 'assault', 0).raio, 'nasce com o raio da primeira nave');
+  j.nivel = 10;
+  j.ouro = 10000;
+  pousar(j, 'evolucao');
+  assert.equal(evoluir(w, j).ok, true);
+  assert.equal(evoluir(w, j).ok, true);
+  assert.equal(j.ship.raio, naveDe('acron', 'assault', 2).raio, 'a nave nova vale na hora');
+  // Tiro de raio conhecido passando a 8 m do centro: maior que 4,5 + raio, menor que 6,6 + raio.
+  const alvo = (raio) => ({ x: 0, y: 10, z: 0, raio });
+  const atirador = createShip('bellico', -60, 8, Math.PI / 2);
+  const b = createBullet(atirador, 'laser', 1, 99);
+  Object.assign(b, { x: 30, z: 8, px: -30, pz: 8, y: 10, raio: 2 });
+  assert.equal(bulletHits(b, alvo(naveDe('acron', 'assault', 0).raio)), false, 'Warrior: passa');
+  assert.equal(bulletHits(b, alvo(naveDe('acron', 'assault', 2).raio)), true, 'Tristan: acerta');
+  // Mineradores e escoltas nascem pelo createShip ('shrewdo' só para a física): sem
+  // raio, ficam com SHIP_RADIUS, e não com o da Assault Wing.
+  assert.equal(createShip('shrewdo', 0, 0).raio, undefined);
 });
 
 test('naves: a velocidade da nave nova vale no stepShip (servidor e predição)', () => {

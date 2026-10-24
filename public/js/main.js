@@ -1205,6 +1205,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
       if (e.tipo === 'jogador') {
         definirNave(o.obj, e.race, e.classe, e.tier);
         definirArmas(o.obj, e.arm);
+        o.raio = naveDe(e.race, e.classe, e.tier)?.raio; // raio de acerto, que cresce com o tier
       }
       o.obj.visible = e.vivo;
       o.pos = o.obj.position;
@@ -1248,7 +1249,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     efeitos.atualizar(dt, (b) => {
       if (b.owner !== meuId) return false;
       for (const o of outras.values()) {
-        if (o.obj.visible && !o.aliado && bulletHits(b, { x: o.obj.position.x, y: o.obj.position.y, z: o.obj.position.z })) return true;
+        if (o.obj.visible && !o.aliado && bulletHits(b, { x: o.obj.position.x, y: o.obj.position.y, z: o.obj.position.z, raio: o.raio })) return true;
       }
       return false;
     });

@@ -689,7 +689,7 @@ export class Jungle {
     if (destino) {
       const d = dist(s, destino);
       // Não encosta em quem caça (fica a uma distância de tiro, nunca dentro da nave).
-      const perto = alvo && destino === alvo.ship ? m.ship.raio + SHIP_RADIUS + ENCOSTO : 3;
+      const perto = alvo && destino === alvo.ship ? m.ship.raio + (alvo.ship.raio ?? SHIP_RADIUS) + ENCOSTO : 3;
       if (d > perto) {
         vx = (destino.x - s.x) / d;
         vz = (destino.z - s.z) / d;
@@ -734,9 +734,10 @@ export class Jungle {
     const t = this.tick;
     const d = dist(s, alvo.ship);
     if (bloqueiaVisao(s.x, s.z, alvo.ship.x, alvo.ship.z)) return;
+    const raioAlvo = alvo.ship.raio ?? SHIP_RADIUS;
     const prontos = m.cfg.ataques
       .map((a, i) => ({ a, i }))
-      .filter(({ a, i }) => t >= m.prox[i] && d <= a.alcance + SHIP_RADIUS && !(a.minimo !== undefined && d < a.minimo));
+      .filter(({ a, i }) => t >= m.prox[i] && d <= a.alcance + raioAlvo && !(a.minimo !== undefined && d < a.minimo));
     if (!prontos.length) return;
     if (m.cfg.entreAtaquesS !== undefined) {
       // Medusa: um ataque de cada vez, escolhido pelo peso do original entre os prontos.

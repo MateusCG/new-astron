@@ -374,9 +374,9 @@ export class Torretas {
   /** Alguma nave (de qualquer tipo) no lugar da torreta? */
   #naveEmCima(t) {
     const w = this.world;
-    const r = PLANTA.raio + SHIP_RADIUS + 1;
+    const r = PLANTA.raio + 1;
     const todos = [...w.players.values(), ...w.monstros, ...w.mineradores.lista, ...(w.escoltas?.lista ?? [])];
-    return todos.some((e) => e.vivo && Math.hypot(e.ship.x - t.x, e.ship.z - t.z) < r + (e.ship.raio ?? 0));
+    return todos.some((e) => e.vivo && Math.hypot(e.ship.x - t.x, e.ship.z - t.z) < r + (e.ship.raio ?? SHIP_RADIUS));
   }
 
   #levantar(t) {
