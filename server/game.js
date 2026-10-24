@@ -114,7 +114,7 @@
 // Campo de força das bases (CAMPOS_BASE em shared/terrain.js; pedido do Mateus): o
 // tiro para nele (shared/sim.js, stepBullet) e a área não o atravessa
 // (server/armas.js, naArea); a nave de jogador (gente ou computador) do OUTRO time
-// que encosta no plano (o círculo dela, SHIP_RADIUS) ou o cruza no tick (teleporte
+// que encosta no plano (o círculo do corpo dela, s.corpo) ou o cruza no tick (teleporte
 // inclusive) é destruída na hora, aqui (#campoDaBase), sem escudo, invulnerável nem
 // proteção que segure. Ninguém ganha nada com isso (nem ouro, nem XP, nem abate, nem
 // assistência): é morte como outra qualquer para o renascimento e a sequência, e o
@@ -135,7 +135,7 @@
 // Como no recall, é a mesma nave e a fila de comandos segue: o cliente reconcilia
 // pelo `me` e o evento 'teleporte' corta a suavização da predição e da câmera.
 
-import { DT, WEAPONS, createShip, sanitizeInput, stepShip, VEL_TOQUE, velocidadeBase, pousadaNaBase, BASE_CURA_FRAC, forward, HOVER, TELEPORTE_FOLGA, custoTeleporte, SHIP_RADIUS } from '../shared/sim.js';
+import { DT, WEAPONS, createShip, sanitizeInput, stepShip, VEL_TOQUE, velocidadeBase, pousadaNaBase, BASE_CURA_FRAC, forward, HOVER, folgaTeleporte, custoTeleporte, SHIP_RADIUS } from '../shared/sim.js';
 import { BASE, BASES, CAMPOS_BASE, heightAt, cruzaCampoBase, encostaNoCampo, dentroDoCampo } from '../shared/terrain.js';
 import { pontoLivre } from '../shared/obstaculos.js';
 import { racaJogavel, RACAS_JOGAVEIS, classeOuPadrao } from '../shared/naves.js';
@@ -512,18 +512,18 @@ export class World {
   #teleportarAte(j, alvo) {
     if (j.recall) this.#pararRecall(j, 'teleporte');
     const s = j.ship;
-    const p = this.#pontoJuntoA(alvo.ship);
+    const p = this.#pontoJuntoA(alvo.ship, folgaTeleporte(j.ship));
     Object.assign(s, { x: p.x, z: p.z, y: heightAt(p.x, p.z) + HOVER, yaw: alvo.ship.yaw, vx: 0, vz: 0, roll: 0, pousado: false, boost: false });
     this.eventos.push({ e: 'teleporte', id: j.id, alvo: alvo.id, time: j.time, x: +s.x.toFixed(2), y: +s.y.toFixed(2), z: +s.z.toFixed(2) });
   }
 
   /**
-   * Ponto livre (fora de rocha, construção e muralha: pontoLivre com a folga do
-   * teleporte das armas) em volta da nave `a`: cada distância de TELEPORTE_ALIADO_DIST
+   * Ponto livre (fora de rocha, construção e muralha: pontoLivre com a `folga` do
+   * teleporte, a do corpo de quem salta) em volta da nave `a`: cada distância de TELEPORTE_ALIADO_DIST
    * em TELEPORTE_DIRECOES rumos, começando por trás dela e abrindo para os lados.
    * Sem nenhum, o ponto dela.
    */
-  #pontoJuntoA(a) {
+  #pontoJuntoA(a, folga) {
     const f = forward(a.yaw);
     const atras = Math.atan2(-f.z, -f.x);
     const passo = (2 * Math.PI) / TELEPORTE_DIRECOES;
@@ -533,7 +533,7 @@ export class World {
         const giro = Math.ceil(k / 2) * (k % 2 ? 1 : -1) * passo;
         const x = a.x + Math.cos(atras + giro) * d;
         const z = a.z + Math.sin(atras + giro) * d;
-        if (pontoLivre(x, z, TELEPORTE_FOLGA)) return { x, z };
+        if (pontoLivre(x, z, folga)) return { x, z };
       }
     }
     return { x: a.x, z: a.z };
@@ -834,7 +834,7 @@ export class World {
     for (const c of CAMPOS_BASE) {
       if (c.time === j.time) continue;
       const cruzou = cruzaCampoBase(x0, z0, s.x, s.z)?.time === c.time;
-      if (!cruzou && !encostaNoCampo(c.time, s.x, s.z, SHIP_RADIUS)) continue;
+      if (!cruzou && !encostaNoCampo(c.time, s.x, s.z, s.corpo ?? SHIP_RADIUS)) continue;
       if (j.recall) this.#pararRecall(j, 'dano');
       this.#morrer(j, null, { extra: { motivo: 'campo', campo: c.time } });
       return true;

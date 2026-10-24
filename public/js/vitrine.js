@@ -48,8 +48,15 @@ function montarPalco() {
   return palco;
 }
 
-/** Câmera de três quartos, de cima e da frente, enquadrando uma nave de ~14 m. */
-function enquadrar(camera, largura, altura, dist = 24) {
+/** Corpo da primeira nave da linha (m, shared/naves.js): a câmera se afasta das maiores na proporção. */
+const RAIO_BASE = 7.5;
+
+/**
+ * Câmera de três quartos, de cima e da frente, enquadrando a primeira nave da linha
+ * a `dist` m; a nave de corpo maior (as naves crescem com o tier) é vista de mais longe.
+ */
+function enquadrar(camera, largura, altura, dist = 24, corpo = RAIO_BASE) {
+  dist *= Math.max(1, corpo / RAIO_BASE);
   camera.aspect = largura / altura;
   camera.updateProjectionMatrix();
   camera.position.set(dist * 0.62, dist * 0.42, -dist * 0.66);
@@ -97,11 +104,11 @@ function girar(agora) {
   if (canvas.width !== Math.round(w * p.renderer.getPixelRatio()) || canvas.height !== Math.round(h * p.renderer.getPixelRatio())) {
     p.renderer.setSize(w, h);
   }
-  enquadrar(p.camera, w, h);
+  enquadrar(p.camera, w, h, 24, nave.userData.tamanho);
   nave.visible = true;
   nave.rotation.y = ((agora - previa.t0) / 1000) * 0.6;
   nave.userData.corpo.rotation.z = Math.sin(agora / 900) * 0.12;
-  for (const [i, m] of nave.userData.motores.entries()) m.scale.setScalar(2.4 + Math.sin(agora / 25 + i * 2) * 0.35);
+  for (const [i, m] of nave.userData.motores.entries()) m.scale.setScalar(2.4 * (nave.userData.fatorMotor ?? 1) + Math.sin(agora / 25 + i * 2) * 0.35);
   p.renderer.render(p.cena, p.camera);
   previa.quadro = requestAnimationFrame(girar);
 }
@@ -129,7 +136,7 @@ export function miniatura(race, classe, tier) {
       if (outra) outra.visible = false; // a prévia da entrada divide a mesma cena
       p.cena.add(nave);
       p.renderer.setSize(MINIATURA.largura, MINIATURA.altura, false);
-      enquadrar(p.camera, MINIATURA.largura, MINIATURA.altura, 25);
+      enquadrar(p.camera, MINIATURA.largura, MINIATURA.altura, 25, nave.userData.tamanho);
       p.renderer.render(p.cena, p.camera);
       const url = p.renderer.domElement.toDataURL('image/png');
       p.cena.remove(nave);

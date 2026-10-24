@@ -326,12 +326,13 @@ test('mapa: da base se chega a todo o chão aberto, sem escalar rocha', () => {
   for (const b of BUFFS) assert.ok(alcancado(b.x + (b.tipo === 'suporte' ? 20 : 0), b.z), b.id);
   assert.ok(alcancado(NUCLEO.x, NUCLEO.z), 'Núcleo');
   assert.ok(alcancado(MEDUSA.x, MEDUSA.z), 'Medusa');
-  // Sem bolsões de chão isolados por rocha.
+  // Sem bolsões de chão isolados por rocha (chão onde o corpo da nave cabe: a rocha
+  // engorda SHIP_RADIUS, como na física).
   let aberto = 0;
   let chegou = 0;
   for (let j = 0; j < nz; j++) {
     for (let i = 0; i < nx; i++) {
-      if (!noMapaAberto(pX(i), pZ(j))) continue;
+      if (heightAt(pX(i), pZ(j), SHIP_RADIUS) > 0) continue;
       aberto++;
       if (visto[j * nx + i]) chegou++;
     }

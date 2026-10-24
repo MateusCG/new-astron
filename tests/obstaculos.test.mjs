@@ -116,7 +116,8 @@ test('obstáculos: ninguém nasce dentro de construção, e a base é livre', ()
         const x = b.x + Math.cos((a * Math.PI) / 180) * r;
         const z = b.z + Math.sin((a * Math.PI) / 180) * r;
         if (!noMapaAberto(x, z)) continue; // o bolsão é mais estreito que a zona segura
-        assert.equal(alturaSolida(x, z, SHIP_RADIUS), heightAt(x, z), `ponto (${x.toFixed(0)}, ${z.toFixed(0)})`);
+        // A folga engorda rocha e construção; aqui só a construção conta (a rocha é igual dos dois lados).
+        assert.equal(alturaSolida(x, z, SHIP_RADIUS), heightAt(x, z, SHIP_RADIUS), `ponto (${x.toFixed(0)}, ${z.toFixed(0)})`);
       }
     }
   }

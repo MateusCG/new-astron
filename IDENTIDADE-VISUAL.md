@@ -232,7 +232,7 @@ A conta que importa é a da cena: somando as cópias, o mapa inteiro deve ficar 
 
 | Coisa | Tamanho |
 |---|---|
-| Nave de jogador | 9,6 m (1ª nave da linha) a 11,6 m (5ª) na média de comprimento × envergadura; a Assault 4% maior, a Mobile 3% menor; envergadura no máximo 1,45× esse tamanho (o modelo é escalado ao carregar, em `nave.js`); acerto com o raio do original, que cresce com a nave (4,2–4,5 m na 1ª, 6–6,6 m da 3ª em diante, `raio` em `shared/naves.js`) |
+| Nave de jogador | O tamanho do original × 0,5 (`FATOR_TAMANHO_NAVE`, o mesmo para as 45; o modelo não é igualado): a nave cresce quando evolui, de ~10 m na 1ª da linha (Warrior 10 × 8, Assault Wing 8 × 12) a ~20–23 m na 4ª e na 5ª (Kamasutra 21 × 20, Phoenix 18 × 24). Corpo (`corpo` em `shared/naves.js`) de 7 a 12 m de raio, que a rocha para: nenhuma parte da nave entra na pedra. A câmera, os anéis e auras presos na nave, os rótulos, os motores e as miniaturas crescem na mesma proporção (base: a Warrior); pousada, a nave alta sobe no desenho até o trem tocar o chão |
 | Minerador | ~6 m de comprimento, ~4 m de largura (metade da nave), voa na mesma altura (`HOVER`) |
 | Monstros | sonda 8 m, Armish/Chrometic 12, Xerxes/Bazit 13, Grande Xerxes/Anti 26, SN-4 30, Medusa 48 de largura × ~43 de altura (acerto com raio 4 a 20 m, `ESPECIES`) |
 | Altura de voo | 10 m acima do chão (`HOVER`) |

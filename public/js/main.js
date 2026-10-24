@@ -185,6 +185,10 @@ const CAMERAS = [
   { dist: 34, alt: 13, olhar: 18 },
   { dist: 14, alt: 5, olhar: 12 },
 ];
+// Os modos acima são para a primeira nave (raio CAMERA_RAIO_BASE, a Warrior). A nave
+// cresce quando evolui (shared/naves.js, até o dobro): a câmera se afasta na mesma
+// proporção, para a nave grande não tomar a tela.
+const CAMERA_RAIO_BASE = 7.5;
 // Altura da câmera escolhida pelo piloto (T/G, PageUp/PageDown ou a roda do mouse):
 // um ângulo somado ao de cada modo do V, de CAM_ANG_MIN (por baixo da nave, olhando
 // para cima) a CAM_ANG_MAX (quase de cima). Fica guardado no navegador.
@@ -627,6 +631,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
   let camAjuste = lerCamAngulo(); // rad somados ao ângulo do modo
   let camAjusteSalvo = camAjuste;
   let camYaw = 0;
+  let camEscala = 1; // afastamento da câmera pelo tamanho da nave (suavizado na troca)
   let tempo = 0;
   let renasceAte = 0; // performance.now() em que a nave renasce (do renasceEm do servidor)
   let localSeq = 0;
@@ -1228,7 +1233,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
         // Monstro grande: o rótulo sobe até o alto dele (a Medusa é desenhada mais alta).
         let pos = o.obj.position;
         if (e.tipo === 'monstro' && ROTULO_MONSTRO[e.esp]) pos = (o.posRotulo ??= new THREE.Vector3()).copy(pos).setY(pos.y + ROTULO_MONSTRO[e.esp]);
-        rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos, nivel: e.nivel, piloto: e.tipo === 'jogador', esc: e.esc });
+        rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos, nivel: e.nivel, piloto: e.tipo === 'jogador', esc: e.esc, tamanho: o.obj.userData.efeitos?.scale.x });
       }
     }
     objetivos.seguir('SONDA', sonda);
@@ -1236,7 +1241,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     torretas.quadro(dt, tempo, (id) => (id === meuId ? (vivo ? foco : null) : outras.get(id)?.obj.position ?? null));
     rotulos.push(...torretas.rotulos());
     // A sua nave também leva a etiqueta com o nick e o nível embaixo.
-    if (vivo && meuNome) rotulos.push({ id: meuId, nome: meuNome, aliado: true, pos: minhaNave.position, nivel: extra.nivel, piloto: true, proprio: true });
+    if (vivo && meuNome) rotulos.push({ id: meuId, nome: meuNome, aliado: true, pos: minhaNave.position, nivel: extra.nivel, piloto: true, proprio: true, tamanho: minhaNave.userData.efeitos.scale.x });
     for (const [id, o] of outras) {
       if (!presentes.has(id)) {
         scene.remove(o.obj);
@@ -1256,7 +1261,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
 
     // Câmera de perseguição, como no AstroN: atrás e um pouco acima da nave.
     if (pred) {
-      const cfg = CAMERAS[camModo];
+      camEscala = lerp(camEscala, Math.max(1, (minhaNave.userData.tamanho ?? CAMERA_RAIO_BASE) / CAMERA_RAIO_BASE), 1 - Math.exp(-3 * dt));
+      const modo = CAMERAS[camModo];
+      const cfg = { dist: modo.dist * camEscala, alt: modo.alt * camEscala, olhar: modo.olhar * camEscala };
       // Morto, a câmera fica parada onde estava até renascer (pedido do Mateus: tela estática).
       if (vivo) camYaw = lerpAng(camYaw, minhaNave.rotation.y, 1 - Math.exp(-5 * dt));
       const f = forward(camYaw);
