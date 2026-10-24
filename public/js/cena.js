@@ -33,9 +33,11 @@
 //   cristais no fundo), simétrica pela rotação de 180°.
 //
 // Cor de time é relativa a quem olha (criarCena({ meuTime })): o seu time em
-// turquesa, o outro em vermelho. Paleta do planeta da PROPOSTA-VISUAL.md (céu de
-// fim de tarde ardósia para areia, sol mais alto que no M1, luz hemisférica com o
-// chão verde-azulado da água).
+// turquesa, o outro em vermelho. Paleta do planeta da PROPOSTA-VISUAL.md, levada
+// para o crepúsculo (céu de anil para areia queimada, sol baixo e alaranjado, luz
+// hemisférica fraca com o chão verde-azulado da água): o ambiente fica escuro para
+// que os tiros, impactos e neons (aditivos: só se somam ao fundo) se destaquem.
+// A exposição continua a mesma (baixá-la apagaria os tiros junto).
 //
 // A névoa de guerra (nevoa.js) desenha a cena num passo de tela inteira e ajusta a
 // neblina (scene.fog, que tem de continuar um THREE.Fog) ao raio de visão.
@@ -69,12 +71,12 @@ import { criarNuvens } from './nuvens.js';
 import { instanciaMapa, partesDoModelo, pintar, neon, materialDoMapa, modeloMapaPronto, texturasPbr } from './mapa-modelos.js';
 
 export const CORES = {
-  ceuTopo: new THREE.Color('#22304a'),
-  ceuMeio: new THREE.Color('#9a8574'),
-  horizonte: new THREE.Color('#ebcba2'),
-  neblina: new THREE.Color('#d8b993'),
+  ceuTopo: new THREE.Color('#141c30'),
+  ceuMeio: new THREE.Color('#5e4c4a'),
+  horizonte: new THREE.Color('#b58f72'),
+  neblina: new THREE.Color('#9c7f68'),
   sol: new THREE.Color('#fff0d8'),
-  halo: new THREE.Color('#ffc890'),
+  halo: new THREE.Color('#ff9e64'),
   neon: new THREE.Color('#00efc0'), // seu time
   perigo: new THREE.Color('#ff3b2a'), // o outro time
   objetivo: new THREE.Color('#ffb627'), // objetivos (âmbar)
@@ -86,11 +88,11 @@ export const CORES = {
 
 /** Direção do sol (vem de −x/−z, elevação ~25°): bate com o disco desenhado no céu. */
 export const SOL_DIR = new THREE.Vector3(-0.55, 0.42, -0.72).normalize();
-const SOL_COR = '#ffd9b0';
-const SOL_INTENSIDADE = 2.4;
-const HEMI_CEU = '#f0c9a0';
-const HEMI_CHAO = '#3a6e69'; // a luz que volta da água (mais clara que a da proposta: o fundo da ilha do portal ficava preto)
-const HEMI_INTENSIDADE = 1.0;
+const SOL_COR = '#ffbf8a';
+const SOL_INTENSIDADE = 1.55;
+const HEMI_CEU = '#c99a7c';
+const HEMI_CHAO = '#2f5a57'; // a luz que volta da água (sem ela o fundo da ilha do portal fica preto)
+const HEMI_INTENSIDADE = 0.6;
 /** Raio da esfera do céu (acompanha a câmera; a câmera vai até 5000 m). */
 const CEU_RAIO = 4200;
 

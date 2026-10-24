@@ -176,8 +176,8 @@ export const CORES_AGUA = {
   funda: new THREE.Color('#0a2230'),
   lodo: new THREE.Color('#6f6448'),
   crista: new THREE.Color('#86c4cf'), // a luz do sol atravessando a crista
-  espuma: new THREE.Color('#e2dccb'),
-  brilho: new THREE.Color('#ffe2b8'),
+  espuma: new THREE.Color('#b5ae9e'),
+  brilho: new THREE.Color('#c9a882'), // faíscas do sol: abaixo dos tiros, que têm o mesmo tom quente,
   he3: new THREE.Color('#9fe8ff'),
   caustica: new THREE.Color('#c2e6ee'),
 };
