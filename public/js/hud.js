@@ -629,14 +629,15 @@ export class Hud {
       tag.style.transform = `translate(${((this.v.x + 1) / 2) * largura}px, ${((1 - this.v.y) / 2) * altura}px) translate(-50%, ${ancoraY})`;
       return tag;
     };
-    for (const { id, nome, aliado, hp, maxHp, pos: p, nivel, piloto, proprio, esc } of lista) {
+    // `tamanho`: a nave grande (até o dobro da primeira) leva os rótulos mais para fora.
+    for (const { id, nome, aliado, hp, maxHp, pos: p, nivel, piloto, proprio, esc, tamanho = 1 } of lista) {
       const dist = camera.position.distanceTo(p);
       if (dist > 450) continue;
       const opacidade = dist > 300 ? String(1 - (dist - 300) / 150) : '1';
       const cor = aliado ? ' aliado' : ' inimigo';
       // Em cima: nome e barra (só a barra nas naves de jogador; nada na sua, que tem o painel).
       if (!proprio) {
-        const cima = pos(`c${id}`, p, 6, '-100%', () => {
+        const cima = pos(`c${id}`, p, 6 * tamanho, '-100%', () => {
           const tag = document.createElement('div');
           tag.className = 'rotulo' + cor;
           tag.innerHTML = piloto
@@ -662,7 +663,7 @@ export class Hud {
       }
       // Embaixo da nave de jogador: a etiqueta com o nick e o nível.
       if (piloto) {
-        const baixo = pos(`b${id}`, p, -3.5, '0', () => {
+        const baixo = pos(`b${id}`, p, -3.5 * tamanho, '0', () => {
           const tag = document.createElement('div');
           tag.className = 'rotulo piloto' + cor + (proprio ? ' proprio' : '');
           tag.innerHTML = '<span class="nome"></span><b class="nv"></b>';

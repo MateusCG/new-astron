@@ -543,20 +543,21 @@ function profundidadeEm(r, x, z) {
 
 /**
  * A rocha mais funda no ponto: { r, d } (d > 0 dentro), ou null fora de toda rocha.
- * A caixa de cada rocha descarta rápido a maior parte do mapa.
+ * A caixa de cada rocha descarta rápido a maior parte do mapa. `folga` engorda as
+ * rochas (o corpo de uma nave: ver heightAt).
  */
-function rochaNoPonto(x, z) {
+function rochaNoPonto(x, z, folga = 0) {
   let melhor = null;
   let fundo = 0;
-  const db = sdBorda(x, z);
+  const db = sdBorda(x, z) + folga;
   if (db > 0) {
     melhor = BORDA;
     fundo = db;
   }
   for (const r of INTERIORES) {
     const c = r.caixa;
-    if (x < c.x0 || x > c.x1 || z < c.z0 || z > c.z1) continue;
-    const d = profundidadeEm(r, x, z);
+    if (x < c.x0 - folga || x > c.x1 + folga || z < c.z0 - folga || z > c.z1 + folga) continue;
+    const d = profundidadeEm(r, x, z) + folga;
     if (d > fundo) {
       melhor = r;
       fundo = d;
@@ -596,9 +597,14 @@ export function noMapaAberto(x, z) {
   return rochaNoPonto(x, z) === null;
 }
 
-/** Altura do chão de voo em metros no ponto (x, z): 0 no campo aberto, o alto da rocha nela. */
-export function heightAt(x, z) {
-  const h = rochaNoPonto(x, z);
+/**
+ * Altura do chão de voo em metros no ponto (x, z): 0 no campo aberto, o alto da rocha
+ * nela. `folga` (m) engorda as rochas: é a altura que um corpo de raio `folga` com o
+ * centro no ponto encontra (a parede começa `folga` m antes da planta). A física da
+ * nave usa com o corpo dela (alturaSolida em shared/obstaculos.js); 0 é a planta.
+ */
+export function heightAt(x, z, folga = 0) {
+  const h = rochaNoPonto(x, z, folga);
   if (!h) return 0;
   return fracaoParede(h.d) * alturaTopo(h.r, x, z);
 }

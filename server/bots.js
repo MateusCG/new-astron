@@ -224,7 +224,7 @@ export const IA = {
   presoS: 1.5, // parado querendo andar: dá ré
   reS: 0.7,
   retaMax: 350, // m: destino mais perto que isso com linha livre, vai reto
-  folgaLinha: 5, // m das linhas paralelas do teste de linha livre (a nave tem 4,5 m de raio)
+  folgaLinha: 0.5, // m além do corpo da nave (s.corpo) das linhas paralelas do teste de linha livre
   linhaTicks: 8, // de quanto em quanto tempo refaz o teste de linha reta até o destino
   olharCelulas: 8, // até quantas células adiante no caminho ele mira
   miraTicks: 3, // de quanto em quanto tempo refaz a mira no caminho
@@ -1446,7 +1446,7 @@ export class Bots {
     const c = campoInimigo(j.time);
     const s = j.ship;
     if (!c || Math.abs(s.z - c.z) > c.meiaZ + 40) return;
-    const fora = (c.x - s.x) * c.dentro - SHIP_RADIUS; // m do casco até o plano (do lado de fora)
+    const fora = (c.x - s.x) * c.dentro - (s.corpo ?? SHIP_RADIUS); // m do casco até o plano (do lado de fora)
     const f = forward(s.yaw);
     const frente = f.x * c.dentro; // > 0: o nariz aponta para o campo
     // Teleporte: salta até `dist` para a frente; apontado para o campo e com ele ao alcance, não.
@@ -1481,7 +1481,7 @@ export class Bots {
     const tick = this.world.tick;
     const c = ia.linha;
     if (c && tick < c.ate && Math.hypot(c.x - x, c.z - z) < 25) return c.livre;
-    const livre = nav().linhaLivre(j.ship.x, j.ship.z, x, z, IA.folgaLinha) && !cruzaCampoBase(j.ship.x, j.ship.z, x, z);
+    const livre = nav().linhaLivre(j.ship.x, j.ship.z, x, z, (j.ship.corpo ?? SHIP_RADIUS) + IA.folgaLinha) && !cruzaCampoBase(j.ship.x, j.ship.z, x, z);
     ia.linha = { x, z, livre, ate: tick + IA.linhaTicks };
     return livre;
   }
@@ -1633,7 +1633,7 @@ export class Bots {
     r.i = melhor;
     if (ia.mira && tick < ia.mira.ate && ia.mira.k >= r.i) return r.pts[ia.mira.k];
     let k = Math.min(r.pts.length - 1, r.i + IA.olharCelulas);
-    while (k > r.i + 1 && !nav().linhaLivre(s.x, s.z, r.pts[k].x, r.pts[k].z, IA.folgaLinha)) k--;
+    while (k > r.i + 1 && !nav().linhaLivre(s.x, s.z, r.pts[k].x, r.pts[k].z, (s.corpo ?? SHIP_RADIUS) + IA.folgaLinha)) k--;
     ia.mira = { k, ate: tick + IA.miraTicks };
     return r.pts[k];
   }

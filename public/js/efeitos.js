@@ -61,6 +61,11 @@ const COR_EMP = new THREE.Color('#c8d2ff');
 // fino deitado em volta da nave, pulsando devagar, sem partículas: brilho difuso
 // some no deserto alaranjado, e o anel lê bem na câmera de perseguição sem
 // competir com tiro, explosão nem com as auras de arma (que são nuvens).
+// Efeitos presos na nave (anéis, auras, recall) entram no grupo `efeitos` dela
+// (public/js/nave.js), que acompanha o tamanho da nave: os números abaixo são para a
+// primeira nave da linha, e a grande leva tudo maior. Monstro e o resto: no próprio objeto.
+const efeitosDa = (obj) => obj.userData.efeitos ?? obj;
+
 // Anéis dos bônus na nave: cor, raio (m) e jeito (pulsa, abre, gira em arcos, lento).
 const ANEIS_BONUS = {
   ataque: { cor: new THREE.Color('#ffb627'), raio: 7.5, jeito: 'pulsa' },
@@ -468,7 +473,7 @@ export class Efeitos {
       }
       const clarao = spriteAditivo(cor, 9);
       r = obj.userData.recall = { coluna, aneis, clarao, fase: 0 };
-      obj.add(coluna, clarao, ...aneis);
+      efeitosDa(obj).add(coluna, clarao, ...aneis);
     }
     r.coluna.visible = r.clarao.visible = ligado;
     for (const a of r.aneis) a.visible = ligado;
@@ -512,12 +517,12 @@ export class Efeitos {
     for (const atraso of [0, 0.25]) {
       const anel = this.#pegar('anelNivel');
       anel.visible = false;
-      obj.add(anel);
+      efeitosDa(obj).add(anel);
       this.aneis.push({ obj, anel, vida: -atraso });
     }
     const clarao = this.#brilhoSolto(COR_NIVEL, 8);
     clarao.position.set(0, 0, 0);
-    obj.add(clarao);
+    efeitosDa(obj).add(clarao);
     this.aneis.push({ obj, anel: clarao, vida: 0, clarao: true });
   }
 
@@ -541,7 +546,7 @@ export class Efeitos {
         acc: 0,
         accEmp: 0,
       };
-      obj.add(a.dreno, a.gelo, a.emp);
+      efeitosDa(obj).add(a.dreno, a.gelo, a.emp);
     }
     a.dreno.visible = dreno;
     a.gelo.visible = lento;
@@ -585,7 +590,7 @@ export class Efeitos {
       if (!anel) {
         if (!ativos.has(nome)) continue;
         anel = ud.bonus[nome] = anelBonus(def);
-        obj.add(anel);
+        efeitosDa(obj).add(anel);
       }
       anel.visible = ativos.has(nome);
       if (!anel.visible) continue;
@@ -623,7 +628,7 @@ export class Efeitos {
       }
       if (!s) {
         s = ud.fx.auras[k] = spriteAditivo(cor, k === 'invul' || k === 'escudo' ? 15 : 12);
-        obj.add(s);
+        efeitosDa(obj).add(s);
       }
       s.visible = true;
       const pisca = k === 'para' ? (Math.sin(tempo * 41) * Math.sin(tempo * 17) > 0 ? 0.6 : 0.15) : 0.35 + 0.15 * Math.sin(tempo * (k === 'invul' ? 5 : 3));

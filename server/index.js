@@ -162,7 +162,10 @@
 //                        me.bonusSuspenso = ['sonda'] quando a sonda está suspensa
 //                        (3 s depois de causar ou levar dano); me.regenHpVoo e
 //                        me.regenHpPousada (HP/s voando e pousada) = da nave, só
-//                        informação (quem regenera é o servidor);
+//                        informação (quem regenera é o servidor); me.corpo (m) =
+//                        o que a rocha e as construções param, lido no stepShip
+//                        da predição, e me.raio (m) = o alvo dos tiros, os dois da
+//                        nave da linha (crescem com o tier, shared/naves.js);
 //                        cada ent traz dreno/lento/emp booleanos para desenhar o efeito;
 //                        ev 'tiro' traz kind, que diz a arma e o efeito do projétil;
 //                        nivel = nível do jogador (1 a NIVEL_MAX), xp = XP dentro do

@@ -10,7 +10,7 @@
 
 import * as THREE from 'three';
 import { RACES, WEAPONS, ARMAS } from '/shared/sim.js';
-import { naveDe } from '/shared/naves.js';
+import { naveDe, FATOR_TAMANHO_NAVE } from '/shared/naves.js';
 import { instanciaMapa, pintar } from './mapa-modelos.js';
 
 let texturaBrilho = null;
@@ -113,11 +113,12 @@ function matCasco(map) {
 //
 // Os arquivos vêm com o nariz para +x (os motores, encaixes *_propulsion, ficam
 // sempre em x negativo), em escala própria e às vezes em mais de uma malha (as
-// Shrewdo têm 2 a 4 peças, cada uma com a sua textura). Aqui tudo gira para -z,
-// encolhe e fica centrado na origem. O tamanho é pela média do comprimento com a
-// envergadura (TAMANHO_POR_TIER, crescendo com o tier, e MULT_CLASSE: a Assault um
-// pouco maior, a Mobile um pouco menor), e não só pelo comprimento: as asas-voadoras
-// (Dragoner, Tracker) ficariam enormes de lado. Os pontos de encaixe (nós l_/r_/c_)
+// Shrewdo têm 2 a 4 peças, cada uma com a sua textura). Aqui tudo gira para -z e
+// fica centrado na origem. O tamanho é o do original: os arquivos estão no metro do
+// jogo original e todos levam a mesma escala (FATOR_TAMANHO_NAVE, shared/naves.js),
+// então a nave cresce quando evolui como lá (Warrior 10 × 8 m, Paladin 18 × 11 m,
+// Kamasutra 21 × 20 m) e cada uma tem a forma e o tamanho dela. O corpo que a rocha
+// para e o tiro acerta é o raio da nave, na mesma escala. Os pontos de encaixe (nós l_/r_/c_)
 // passam pela mesma conta e dizem onde ficam os motores (todos os *_propulsion: a
 // Eagle tem quatro) e as pontas das asas (l_fire01/r_fire01, a luz do time).
 //
@@ -133,12 +134,10 @@ function matCasco(map) {
 // sai o clarão e o desenho do tiro (bocaDaArma). Trocar de arma (definirArmas) troca o
 // modelo, para você e para os outros (o snapshot traz as armas de cada jogador).
 
-/** Tamanho da nave (m, média de comprimento e envergadura) por tier: ~11 a ~14 m de comprimento. */
-const TAMANHO_POR_TIER = [9.6, 10.1, 10.6, 11.1, 11.6];
-const MULT_CLASSE = { assault: 1.04, mobile: 0.97, functional: 1 };
-// Envergadura máxima, em vezes o tamanho: as naves muito largas (Uranium Wing,
-// Dragoner) encolhem um pouco a mais para não passar de ~17 m de lado a lado.
-const ENVERGADURA_MAX = 1.45;
+/** Raio da primeira nave da linha (Warrior, m): os brilhos dos motores crescem a partir dele. */
+const RAIO_REFERENCIA = 7.5;
+/** Perna mínima do trem de pouso (m) da nave alta, que sobe no desenho ao pousar. */
+const PERNA_MIN = 0.8;
 
 let carregador = null; // GLTFLoader, importado na primeira nave
 const modelos = new Map(); // URL -> Promise do modelo preparado
@@ -159,8 +158,8 @@ function carregarNave(nave) {
     const p = (async () => {
       carregador ??= new (await import('three/addons/loaders/GLTFLoader.js')).GLTFLoader();
       const gltf = await carregador.loadAsync(url);
-      const tamanho = TAMANHO_POR_TIER[nave.tier] * (MULT_CLASSE[nave.classe] ?? 1);
-      const modelo = prepararModelo(gltf, tamanho);
+      const modelo = prepararModelo(gltf, FATOR_TAMANHO_NAVE);
+      modelo.fator = Math.max(1, nave.corpo / RAIO_REFERENCIA); // naves grandes: motores maiores
       prontos.set(url, modelo);
       return modelo;
     })();
@@ -212,8 +211,8 @@ function orientarFaces(geo) {
   }
 }
 
-/** Gira o glTF para -z, escala para `tamanho` (média de comprimento e envergadura) e centra. */
-function prepararModelo(gltf, tamanho) {
+/** Gira o glTF para -z, escala por `escala` (do metro do original para o do jogo) e centra. */
+function prepararModelo(gltf, escala) {
   gltf.scene.updateMatrixWorld(true);
   const malhas = [];
   const encaixes = new Map();
@@ -238,9 +237,7 @@ function prepararModelo(gltf, tamanho) {
     g.computeBoundingBox();
     caixa.union(g.boundingBox);
   }
-  const lados = caixa.getSize(new THREE.Vector3());
   const centro = caixa.getCenter(new THREE.Vector3());
-  const escala = Math.min(tamanho / Math.sqrt(lados.x * lados.z), (tamanho * ENVERGADURA_MAX) / lados.x);
   const final = new THREE.Matrix4().makeScale(escala, escala, escala).multiply(new THREE.Matrix4().makeTranslation(-centro.x, -centro.y, -centro.z));
   for (const g of geos) orientarFaces(g.applyMatrix4(final));
   for (const p of [...encaixes.values(), ...propulsores]) p.applyMatrix4(giro).applyMatrix4(final);
@@ -389,8 +386,9 @@ export function criarNave(race, { aliado = true, classe = 'assault', tier = 0 } 
   // casco (modelo, luzes, motores e trem) fica dentro do corpo e é o que troca.
   const raiz = new THREE.Group();
   const corpo = new THREE.Group();
-  raiz.add(corpo);
-  Object.assign(raiz.userData, { corpo, motores: [], trem: null, aliado });
+  const efeitos = new THREE.Group(); // anéis e auras de public/js/efeitos.js, na escala da nave
+  raiz.add(corpo, efeitos);
+  Object.assign(raiz.userData, { corpo, efeitos, motores: [], trem: null, aliado });
   definirNave(raiz, race, classe, tier);
   return raiz;
 }
@@ -405,6 +403,8 @@ export function definirNave(raiz, race, classe, tier) {
   const chave = urlDa(nave);
   if (raiz.userData.nave === chave) return;
   raiz.userData.nave = chave;
+  raiz.userData.tamanho = nave.corpo; // corpo da nave, m (a câmera se afasta das grandes)
+  raiz.userData.efeitos?.scale.setScalar(Math.max(1, nave.corpo / RAIO_REFERENCIA));
   const pronto = prontos.get(chave);
   if (pronto) {
     montarCasco(raiz, pronto, race);
@@ -447,11 +447,13 @@ function montarCasco(raiz, modelo, race) {
     for (const { geometria, material } of modelo.partes) casco.add(new THREE.Mesh(geometria, material));
     ({ caixa, encaixes, propulsores, itens } = modelo);
   } else {
-    // Losango neon do time enquanto o modelo não chega (do tamanho de uma nave).
+    // Losango neon do time enquanto o modelo não chega (do tamanho da nave).
+    const r = raiz.userData.tamanho ?? RAIO_REFERENCIA;
+    const [lx, lz] = [r * 0.6, r * 0.87];
     const lugar = new THREE.Mesh(GEO_LOSANGO, neonTime);
-    lugar.scale.set(4.5, 1, 6.5);
+    lugar.scale.set(lx, 1, lz);
     casco.add(lugar);
-    caixa = new THREE.Box3(new THREE.Vector3(-4.5, -1, -6.5), new THREE.Vector3(4.5, 1, 6.5));
+    caixa = new THREE.Box3(new THREE.Vector3(-lx, -1, -lz), new THREE.Vector3(lx, 1, lz));
     encaixes = new Map();
     propulsores = [new THREE.Vector3(-1.2, 0, 5.5), new THREE.Vector3(1.2, 0, 5.5)];
   }
@@ -477,10 +479,14 @@ function montarCasco(raiz, modelo, race) {
 
   // Trem de pouso: três pernas que só aparecem com a nave pousada, do fundo do
   // casco até 1,45 m abaixo do centro (pousada, a nave fica a ALTURA_POUSADO do chão).
+  // Nave alta (as grandes passam de 7 m de altura) não cabe nisso: pousada, o casco
+  // sobe no desenho (elevarPouso, atualizarMotor) até sobrar uma perna de PERNA_MIN.
   const trem = new THREE.Group();
   const fundo = Math.min(-0.2, caixa.min.y);
   const comp = caixa.max.z - caixa.min.z;
-  const altura = fundo + 1.45;
+  const elevarPouso = Math.max(0, PERNA_MIN - 1.45 - fundo);
+  const pe = -1.45 - elevarPouso; // o chão, visto do casco já levantado
+  const altura = fundo - pe;
   for (const [x, z] of [
     [0, -comp * 0.3],
     [-1.6, comp * 0.18],
@@ -488,9 +494,9 @@ function montarCasco(raiz, modelo, race) {
   ]) {
     const perna = new THREE.Mesh(cilindro(0.12, 0.12, +Math.max(0.1, altura).toFixed(2), 5), matEscuro());
     perna.position.set(x, fundo - altura / 2, z);
-    const pe = new THREE.Mesh(GEO_PE, matEscuro());
-    pe.position.set(x, -1.45, z);
-    trem.add(perna, pe);
+    const sapata = new THREE.Mesh(GEO_PE, matEscuro());
+    sapata.position.set(x, pe, z);
+    trem.add(perna, sapata);
   }
   trem.visible = false;
   casco.add(trem);
@@ -499,7 +505,7 @@ function montarCasco(raiz, modelo, race) {
     if (o.isMesh) o.castShadow = true;
   });
   corpo.add(casco);
-  Object.assign(raiz.userData, { casco, motores, trem, itens, pecasArmas: [null, null], bocas: [null, null] });
+  Object.assign(raiz.userData, { casco, motores, trem, itens, fatorMotor: modelo?.fator ?? 1, elevarPouso, pecasArmas: [null, null], bocas: [null, null] });
   montarArmas(raiz); // as armas voltam penduradas na nave nova
 }
 
@@ -629,7 +635,9 @@ export function animarEscolta(e, t, dt, fase = 0) {
 /** Atualiza motores (maiores com boost, quase apagados pousada) e o trem de pouso. */
 export function atualizarMotor(nave, boost, t, pousado = false) {
   if (nave.userData.trem) nave.userData.trem.visible = pousado;
-  const base = pousado ? 0.9 : boost ? 4.2 : 2.4;
+  const casco = nave.userData.casco;
+  if (casco) casco.position.y += ((pousado ? nave.userData.elevarPouso ?? 0 : 0) - casco.position.y) * 0.15;
+  const base = (pousado ? 0.9 : boost ? 4.2 : 2.4) * (nave.userData.fatorMotor ?? 1);
   for (const [i, m] of nave.userData.motores.entries()) {
     m.scale.setScalar(base + Math.sin(t * 40 + i * 2) * 0.35);
   }

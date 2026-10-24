@@ -138,7 +138,12 @@ export const NAVE_SEM_CLASSE = { hp: 250, energia: 60, velocidade: 52.25 }; // v
 // leem o mesmo s.armasInst, então decidem igual.
 export const AREA_ALTURA = 12; // m de diferença de altura até onde a área ainda pega
 export const TELEPORTE_PASSO = 10; // m: o teleporte recua isto até achar lugar livre
-export const TELEPORTE_FOLGA = SHIP_RADIUS + 3; // m de chão livre em volta do destino
+export const TELEPORTE_MARGEM = 3; // m de chão livre em volta do corpo da nave, no destino
+export const TELEPORTE_FOLGA = SHIP_RADIUS + TELEPORTE_MARGEM; // a de uma nave sem corpo próprio
+/** Chão livre que o teleporte pede em volta do destino da nave `s` (o corpo dela e a margem). */
+export function folgaTeleporte(s) {
+  return (s?.corpo ?? SHIP_RADIUS) + TELEPORTE_MARGEM;
+}
 
 // Teleporte até o companheiro Functional (server/game.js, pedidoTeleporte): gasta
 // energia como no original (CGameInterface::OnPartyUserListTeleport confere antes de
@@ -426,9 +431,9 @@ export function sanitizeInput(i) {
   };
 }
 
-function bloqueado(gAtual, x, z, passo, hangar) {
+function bloqueado(gAtual, x, z, passo, hangar, corpo) {
   if (passo < 1e-6) return false;
-  return (alturaSolida(x, z, SHIP_RADIUS, false, hangar) - gAtual) / passo > MAX_SLOPE;
+  return (alturaSolida(x, z, corpo, false, hangar) - gAtual) / passo > MAX_SLOPE;
 }
 
 /** Conta para baixo um efeito em s (em segundos), sem criar o campo se ele não existe. */
@@ -451,7 +456,7 @@ export function teleportar(s, dist) {
   for (let d = dist; d >= TELEPORTE_PASSO; d -= TELEPORTE_PASSO) {
     const x = s.x + f.x * d;
     const z = s.z + f.z * d;
-    if (!pontoLivre(x, z, TELEPORTE_FOLGA)) continue;
+    if (!pontoLivre(x, z, folgaTeleporte(s))) continue;
     s.x = x;
     s.z = z;
     s.y = heightAt(x, z) + HOVER;
@@ -594,16 +599,20 @@ export function stepShip(s, inp, dt = DT) {
 
   // Colisão com parede: tenta o movimento inteiro, depois cada eixo (deslizar).
   // `s.hangar` (só o minerador, só no servidor) abre o hangar do time dele na mineradora.
-  const g = alturaSolida(s.x, s.z, SHIP_RADIUS, false, s.hangar);
+  // A parede engorda pelo corpo da nave (s.corpo: o raio da nave da linha, que cresce
+  // com o tier, shared/naves.js; vem no `me`, então a predição para no mesmo lugar);
+  // minerador, escolta e monstro ficam com SHIP_RADIUS.
+  const corpo = s.corpo ?? SHIP_RADIUS;
+  const g = alturaSolida(s.x, s.z, corpo, false, s.hangar);
   const dx = s.vx * dt;
   const dz = s.vz * dt;
-  if (!bloqueado(g, s.x + dx, s.z + dz, Math.hypot(dx, dz), s.hangar)) {
+  if (!bloqueado(g, s.x + dx, s.z + dz, Math.hypot(dx, dz), s.hangar, corpo)) {
     s.x += dx;
     s.z += dz;
-  } else if (!bloqueado(g, s.x + dx, s.z, Math.abs(dx), s.hangar)) {
+  } else if (!bloqueado(g, s.x + dx, s.z, Math.abs(dx), s.hangar, corpo)) {
     s.x += dx;
     s.vz *= -0.2;
-  } else if (!bloqueado(g, s.x, s.z + dz, Math.abs(dz), s.hangar)) {
+  } else if (!bloqueado(g, s.x, s.z + dz, Math.abs(dz), s.hangar, corpo)) {
     s.z += dz;
     s.vx *= -0.2;
   } else {
@@ -752,8 +761,8 @@ export function stepBullet(b, dt = DT) {
 /**
  * O tiro passou pela nave neste passo? Teste de segmento contra cilindro vertical,
  * para tiro rápido não atravessar nave sem acertar entre um passo e outro. O alvo
- * leva o próprio `s.raio`: a nave de jogador, o da nave da linha (cresce com o tier,
- * shared/naves.js); o monstro, o da espécie (server/especies.js); sem ele, SHIP_RADIUS.
+ * leva o próprio `s.raio`: a nave de jogador, o corpo da nave da linha (cresce com o
+ * tier, shared/naves.js); o monstro, o da espécie (server/especies.js); sem ele, SHIP_RADIUS.
  */
 export function bulletHits(b, s) {
   const raio = (b.raio ?? WEAPONS[b.kind]?.raio ?? 0) + (s.raio ?? SHIP_RADIUS);
