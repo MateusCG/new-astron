@@ -251,6 +251,7 @@ A conta que importa é a da cena: somando as cópias, o mapa inteiro deve ficar 
 ## Luz e atmosfera
 
 - **Ambiente abaixo dos tiros.** O céu, a neblina, as nuvens e as faíscas da água ficam abaixo do brilho dos tiros, impactos, auras e neons. Todo efeito de arma é aditivo (só se soma ao fundo, não ilumina nada): num fundo claro ele vira bege quase branco e o ACES tira a cor; num fundo mais escuro ele acende com a cor da arma. Para mexer na claridade, mexa no ambiente (cores do céu e da neblina, sol, hemisférica), **nunca na exposição**, que apaga os tiros junto. No lago, a cena fica em torno de 70 de 255 na lane e o céu em torno de 125 (era 84 e 148; o crepúsculo testado, com 59 e 97, ficou escuro demais).
+- **A nave de jogador recebe mais luz que o resto** (`LUZ_NAVE` = 1.4 em `public/js/nave.js`: o casco e as armas da asa multiplicam toda a luz que chega neles, como se o sol e a hemisférica fossem 1,4× mais fortes só para elas). Com o ambiente mais escuro, a nave, que é o que o piloto mais olha, continua clara e com a textura legível. A vitrine (miniaturas) divide as luzes dela pelo mesmo fator e não muda.
 - **Sol quente e não muito alto** (no lago, `#ffcfa2` a 1.9, elevação ~25°), que desenha silhuetas e sombras longas. A direção do sol (`SOL_DIR`) bate com o disco desenhado no céu.
 - **Luz hemisférica** (0.75) com o céu quente em cima e, no lago, verde-azulado embaixo (`#3a6e69`, a luz que volta da água; mais escuro, o fundo da ilha do portal ficava preto): sombra nunca é preta pura.
 - **Tone mapping ACES**, com exposição em torno de 1.05.

@@ -11,7 +11,7 @@
 // mostra um ícone), sem quebrar a tela.
 
 import * as THREE from 'three';
-import { criarNave, definirNave, modeloDaNave } from './nave.js';
+import { criarNave, definirNave, modeloDaNave, LUZ_NAVE } from './nave.js';
 import { criarLimitador } from './quadros.js';
 
 const MINIATURA = { largura: 192, altura: 112 };
@@ -29,11 +29,13 @@ function montarPalco() {
     renderer.toneMappingExposure = 1.05;
     renderer.setClearColor(0x000000, 0);
     const cena = new THREE.Scene();
-    cena.add(new THREE.HemisphereLight('#ffb27a', '#3b1c10', 1.4));
-    const sol = new THREE.DirectionalLight('#ffd3a1', 2.6);
+    // A vitrine só tem naves, e o material delas já multiplica a luz por LUZ_NAVE
+    // (nave.js): as luzes daqui dividem por ela, para a miniatura sair como antes.
+    cena.add(new THREE.HemisphereLight('#ffb27a', '#3b1c10', 1.4 / LUZ_NAVE));
+    const sol = new THREE.DirectionalLight('#ffd3a1', 2.6 / LUZ_NAVE);
     sol.position.set(-6, 10, -4);
     cena.add(sol);
-    const contra = new THREE.DirectionalLight('#9fe8ff', 0.6); // recorte frio atrás, para a silhueta
+    const contra = new THREE.DirectionalLight('#9fe8ff', 0.6 / LUZ_NAVE); // recorte frio atrás, para a silhueta
     contra.position.set(5, 3, 8);
     cena.add(contra);
     const camera = new THREE.PerspectiveCamera(30, 1, 0.5, 200);
