@@ -173,7 +173,7 @@ export class Hud {
     };
     // Nuvens de gás (passáveis, escondem): manchas de borda suave, com o miolo um
     // pouco mais denso, no retângulo do campo (a mesma conta do jogo).
-    const rgb = [1, 3, 5].map((i) => parseInt(CORES_NUVEM.luz.slice(i, i + 2), 16)).join(', ');
+    const rgb = [1, 3, 5].map((i) => parseInt(CORES_NUVEM.mapa.slice(i, i + 2), 16)).join(', ');
     for (const a of ASTEROIDES) {
       const [x0, z0] = this.#paraMapa(a.x - a.largura / 2, a.z - a.profundidade / 2);
       const w = a.largura * k;
