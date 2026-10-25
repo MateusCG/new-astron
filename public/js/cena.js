@@ -19,7 +19,8 @@
 //   "respirando" (mais forte com minerador minerando);
 // - as bases: portal warp flutuante (ilha boiando devagar, membrana em redemoinho e
 //   um feixe fino da ponta da broca até a água), anel de pouso, plataformas da
-//   Evolução e da Loja com o ícone e o nome no chão, a bacia de minério logo à
+//   Evolução e da Loja com o ícone e o nome no chão (e, para se acharem de longe,
+//   holograma no ar, cortina de luz subindo do aro e fagulhas), a bacia de minério logo à
 //   frente do anel (o minério que o time entregou acumula lá dentro e sobe com o
 //   placar; o despejo de cada minerador cai em cristais) e o campo de força na boca
 //   do bolsão, de rocha a rocha (na cor do time dono, aceso perto da sua nave e
@@ -141,6 +142,19 @@ const MINERIO_TOPO = 4.6;
 const CRISTAIS_DESPEJO = 400;
 const DESPEJO_POR_S = 22;
 const DESPEJO_GRAVIDADE = 22;
+/**
+ * Plataformas da Loja e da Evolução, para se acharem de longe: o holograma no ar (ícone
+ * e nome, sempre virado para a câmera) `altura` m acima do deque, que cresce com a
+ * distância a partir de `distRef` até `escalaMax` vezes para continuar legível do
+ * outro lado da base; a cortina de luz subindo do aro (r 23 do deque) com as fagulhas;
+ * e o brilho na água por baixo. Com a sua nave a menos de SERVICO_PERTO m da sua
+ * plataforma, tudo acende (`forca` de 0 a 1 em uns 0,3 s) e aparece o "Pouse aqui · L".
+ */
+const HOLO_SERVICO = { altura: 25, largura: 16, distRef: 100, escalaMax: 2.8, boia: 0.8 };
+const CORTINA_SERVICO = { raio: 23.3, altura: 16, longe: 0.4, perto: 0.8 };
+const FAGULHAS_SERVICO = { n: 60, tamanho: 0.7, altura: 22 };
+const BRILHO_AGUA_SERVICO = { raio: 36, acima: 1.5 };
+const SERVICO_PERTO = 80;
 
 function mulberry32(a) {
   return () => {
@@ -375,6 +389,257 @@ function traco(g, mat, x, y, z, larg, prof, ang = 0) {
   g.add(m);
 }
 
+/**
+ * Desenha o ícone do serviço no canvas, centrado em (cx, cy) com meia largura `r`: a
+ * Loja é a moeda (anel com o anel de dentro e o traço, como a marca no deque) e a
+ * Evolução, duas setas para cima. A forma separa os dois, não só a cor.
+ */
+function iconeServico(ctx, servico, cx, cy, r) {
+  ctx.beginPath();
+  if (servico === 'loja') {
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.moveTo(cx + r * 0.62, cy);
+    ctx.arc(cx, cy, r * 0.62, 0, Math.PI * 2);
+    ctx.moveTo(cx, cy - r * 0.42);
+    ctx.lineTo(cx, cy + r * 0.42);
+  } else {
+    for (const dy of [-0.45, 0.25]) {
+      ctx.moveTo(cx - r * 0.9, cy + (dy + 0.45) * r);
+      ctx.lineTo(cx, cy + (dy - 0.45) * r);
+      ctx.lineTo(cx + r * 0.9, cy + (dy + 0.45) * r);
+    }
+  }
+}
+
+/**
+ * Textura do holograma de um serviço (canvas): ícone em cima e nome embaixo, na cor
+ * do serviço com brilho, por cima de um contorno escuro (lê no céu claro e na rocha
+ * escura), e as linhas de varredura de holograma.
+ */
+function texturaHolograma(servico, cor) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  const ctx = c.getContext('2d');
+  const css = `#${cor.getHexString()}`;
+  const clara = `#${cor.clone().lerp(new THREE.Color('#ffffff'), 0.45).getHexString()}`;
+  ctx.lineCap = ctx.lineJoin = 'round';
+  iconeServico(ctx, servico, 256, 190, 120);
+  ctx.strokeStyle = 'rgba(8, 10, 18, 0.7)';
+  ctx.lineWidth = servico === 'loja' ? 34 : 40;
+  ctx.stroke();
+  ctx.shadowColor = css;
+  ctx.shadowBlur = 28;
+  ctx.strokeStyle = clara;
+  ctx.lineWidth = servico === 'loja' ? 20 : 26;
+  ctx.stroke();
+  ctx.font = 'bold 96px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const nome = servico === 'evolucao' ? 'EVOLUÇÃO' : 'LOJA';
+  ctx.shadowBlur = 0;
+  ctx.lineWidth = 14;
+  ctx.strokeStyle = 'rgba(8, 10, 18, 0.75)';
+  ctx.strokeText(nome, 256, 420, 490);
+  ctx.shadowBlur = 24;
+  ctx.fillStyle = clara;
+  ctx.fillText(nome, 256, 420, 490);
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+  for (let y = 0; y < 512; y += 6) ctx.fillRect(0, y, 512, 2);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/** Textura da linha "Pouse aqui · L" que aparece embaixo do holograma com a sua nave perto. */
+function texturaPouseAqui(cor) {
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 96;
+  const ctx = c.getContext('2d');
+  const clara = `#${cor.clone().lerp(new THREE.Color('#ffffff'), 0.6).getHexString()}`;
+  ctx.font = 'bold 54px system-ui, sans-serif';
+  ctx.textBaseline = 'middle';
+  const texto = 'Pouse aqui ·';
+  const larg = ctx.measureText(texto).width;
+  const x0 = (512 - (larg + 76)) / 2;
+  ctx.lineWidth = 10;
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = 'rgba(8, 10, 18, 0.75)';
+  ctx.strokeText(texto, x0, 50);
+  ctx.fillStyle = clara;
+  ctx.fillText(texto, x0, 50);
+  // A tecla L numa caixinha, como o <kbd> do HUD.
+  const kx = x0 + larg + 16;
+  ctx.fillStyle = 'rgba(8, 10, 18, 0.75)';
+  ctx.fillRect(kx, 16, 60, 66);
+  ctx.strokeStyle = clara;
+  ctx.lineWidth = 5;
+  ctx.strokeRect(kx, 16, 60, 66);
+  ctx.fillStyle = clara;
+  ctx.textAlign = 'center';
+  ctx.fillText('L', kx + 30, 51);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/** Cortina de luz aditiva subindo do aro da plataforma de serviço: riscos verticais, anéis subindo e o pé aceso. */
+function cortinaServico(cor, fase) {
+  const geo = new THREE.CylinderGeometry(CORTINA_SERVICO.raio, CORTINA_SERVICO.raio, CORTINA_SERVICO.altura, 64, 1, true);
+  geo.translate(0, CORTINA_SERVICO.altura / 2, 0);
+  const mat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    uniforms: { uTempo: TEMPO_AGUA, uCor: { value: cor.clone() }, uForca: { value: CORTINA_SERVICO.longe }, uFase: { value: fase } },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      uniform float uTempo, uForca, uFase;
+      uniform vec3 uCor;
+      varying vec2 vUv;
+      void main() {
+        float y = vUv.y;
+        float some = (1.0 - y) * (1.0 - y);
+        float riscos = 0.5 + 0.5 * sin(vUv.x * 6.2832 * 36.0 + 2.0 * sin(vUv.x * 6.2832 * 5.0 + uFase));
+        riscos = 0.3 + 0.7 * riscos * riscos;
+        float aneis = smoothstep(0.92, 1.0, 0.5 + 0.5 * sin((y * 2.5 - uTempo * 0.6 + uFase) * 6.2832));
+        float pe = smoothstep(0.1, 0.0, y);
+        float k = (0.22 * some * riscos + 0.35 * aneis * some + 0.5 * pe) * uForca;
+        gl_FragColor = vec4(uCor * k, 1.0);
+      }`,
+  });
+  const m = new THREE.Mesh(geo, mat);
+  m.castShadow = m.receiveShadow = false;
+  return m;
+}
+
+/** Fagulhas subindo em volta do aro da plataforma de serviço (o movimento todo no shader). */
+function fagulhasServico(cor, fase) {
+  const n = FAGULHAS_SERVICO.n;
+  const geo = new THREE.BufferGeometry();
+  const sementes = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    // Espalhadas por igual em volta, com fase e velocidade variando (sem Math.random: todo mundo vê igual).
+    sementes[i * 3] = (i / n) * Math.PI * 2 + Math.sin(i * 12.9898 + fase) * 0.2;
+    sementes[i * 3 + 1] = (Math.sin(i * 78.233 + fase) * 43758.5453) % 1;
+    sementes[i * 3 + 2] = 0.12 + 0.1 * Math.abs(Math.sin(i * 3.7 + fase));
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  geo.setAttribute('semente', new THREE.BufferAttribute(sementes, 3));
+  const mat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: {
+      uTempo: TEMPO_AGUA,
+      uCor: { value: cor.clone() },
+      uForca: { value: CORTINA_SERVICO.longe },
+      uRaio: { value: CORTINA_SERVICO.raio },
+      uAltura: { value: FAGULHAS_SERVICO.altura },
+      uTam: { value: FAGULHAS_SERVICO.tamanho },
+    },
+    vertexShader: `
+      attribute vec3 semente; // ângulo, fase, velocidade (voltas por segundo)
+      uniform float uTempo, uRaio, uAltura, uTam;
+      varying float vVida;
+      void main() {
+        float t = fract(semente.y + uTempo * semente.z);
+        vVida = t;
+        float r = uRaio * (0.94 + 0.08 * fract(semente.y * 7.0));
+        vec4 mv = modelViewMatrix * vec4(cos(semente.x) * r, t * uAltura, sin(semente.x) * r, 1.0);
+        gl_PointSize = uTam * 600.0 / max(1.0, -mv.z);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      uniform float uForca;
+      uniform vec3 uCor;
+      varying float vVida;
+      void main() {
+        float d = length(gl_PointCoord - 0.5) * 2.0;
+        float k = smoothstep(1.0, 0.0, d) * smoothstep(0.0, 0.1, vVida) * (1.0 - vVida) * uForca;
+        gl_FragColor = vec4(uCor * k, 1.0);
+      }`,
+  });
+  const p = new THREE.Points(geo, mat);
+  p.frustumCulled = false;
+  return p;
+}
+
+/** Brilho da plataforma de serviço na água, logo abaixo dela (a luz de baixo para cima no casco). */
+function brilhoAguaServico(cor) {
+  const mat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: { uTempo: TEMPO_AGUA, uCor: { value: cor.clone() }, uForca: { value: CORTINA_SERVICO.longe } },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      uniform float uTempo, uForca;
+      uniform vec3 uCor;
+      varying vec2 vUv;
+      void main() {
+        float r = length(vUv - 0.5) * 2.0;
+        float k = (1.0 - r) * (1.0 - r) * (0.85 + 0.15 * sin(r * 22.0 - uTempo * 1.8));
+        gl_FragColor = vec4(uCor * max(k, 0.0) * 0.4 * uForca, 1.0);
+      }`,
+  });
+  const m = new THREE.Mesh(new THREE.CircleGeometry(BRILHO_AGUA_SERVICO.raio, 48), mat);
+  m.rotation.x = -Math.PI / 2;
+  m.renderOrder = -1.5; // depois da água (−2), antes das nuvens (−1)
+  return m;
+}
+
+/**
+ * Holograma no ar da plataforma de serviço: o ícone e o nome numa Sprite (sempre de
+ * frente para a câmera) e, embaixo, o "Pouse aqui · L", que só aparece com a sua nave
+ * perto. Os dois sem neblina, para o holograma ler de longe.
+ */
+function hologramaServico(servico, cor) {
+  const g = new THREE.Group();
+  const l = HOLO_SERVICO.largura;
+  const holo = new THREE.Sprite(new THREE.SpriteMaterial({ map: texturaHolograma(servico, cor), transparent: true, depthWrite: false, fog: false }));
+  holo.scale.set(l, l, 1);
+  const pouse = new THREE.Sprite(new THREE.SpriteMaterial({ map: texturaPouseAqui(cor), transparent: true, depthWrite: false, fog: false, opacity: 0 }));
+  pouse.scale.set(l, (l * 96) / 512, 1);
+  pouse.position.y = -l * 0.62;
+  g.add(holo, pouse);
+  return { grupo: g, holo, pouse };
+}
+
+/**
+ * Plataforma de serviço a cada quadro: a `forca` anda para 1 com a sua nave a menos de
+ * SERVICO_PERTO m da sua plataforma (fica em 0 longe e nas do outro time), acendendo a
+ * cortina, as fagulhas, o brilho na água e o neon do aro e mostrando o "Pouse aqui · L";
+ * o holograma boia, pisca de leve e cresce com a distância para ler de longe.
+ */
+function atualizarServico(sv, dt, foco) {
+  const d = Math.hypot(foco.x - sv.x, foco.z - sv.z);
+  const alvo = sv.meu && d < SERVICO_PERTO ? 1 : 0;
+  sv.forca += (alvo - sv.forca) * (1 - Math.exp(-10 * dt));
+  const k = CORTINA_SERVICO.longe + (CORTINA_SERVICO.perto - CORTINA_SERVICO.longe) * sv.forca;
+  for (const u of sv.uniformes) u.value = k;
+  const t = TEMPO_AGUA.value;
+  sv.neon.emissiveIntensity = 0.8 + 0.3 * sv.forca + 0.1 * Math.sin(t * 2.2 + sv.fase);
+  const h = sv.holo;
+  h.grupo.position.y = sv.y + HOLO_SERVICO.altura + Math.sin(t * 1.3 + sv.fase) * HOLO_SERVICO.boia;
+  h.grupo.scale.setScalar(Math.min(HOLO_SERVICO.escalaMax, Math.max(1, d / HOLO_SERVICO.distRef)));
+  const pisca = Math.sin(t * 17 + sv.fase) * Math.sin(t * 3.1) > 0.92 ? 0.3 : 0;
+  h.holo.material.opacity = 0.85 + 0.15 * sv.forca - pisca;
+  h.pouse.material.opacity = sv.forca;
+}
+
 /** Membrana do portal: redemoinho aditivo na cor do time (troca o portal_time do glb). */
 function membranaPortal(cor, centro, raio) {
   return new THREE.ShaderMaterial({
@@ -433,7 +698,7 @@ function montarBase(g, b, meuTime) {
   const cor = b.time === meuTime ? CORES.neon : CORES.perigo;
   const neonTime = neon(cor);
   const giro = b.time === 0 ? 0 : Math.PI;
-  const anim = { portal: null, feixe: null, neon: neonTime, base: b, campo: null, minerio: null };
+  const anim = { portal: null, feixe: null, neon: neonTime, base: b, campo: null, minerio: null, servicos: [] };
 
   // Portal warp flutuante (a peça mais baixa a 31 m: a nave passa por baixo).
   const p = daBase(b, PORTAL_WARP.lx, PORTAL_WARP.lz);
@@ -462,7 +727,9 @@ function montarBase(g, b, meuTime) {
   const anel = por(g, 'plataforma-base', b.x, heightAt(b.x, b.z) + area.piso, b.z, giro);
   if (anel) pintar(anel, 'neon_time', neonTime);
 
-  // Evolução e Loja: deque com o anel na cor do serviço, o ícone e o nome no chão.
+  // Evolução e Loja: deque com o anel na cor do serviço, o ícone e o nome no chão, e
+  // o que faz a plataforma se achar de longe: holograma no ar, cortina de luz subindo
+  // do aro com fagulhas e o brilho na água por baixo.
   for (const s of SERVICOS.filter((s) => s.time === b.time)) {
     const a = AREAS_POUSO.find((x) => x.servico === s.servico && x.time === s.time);
     const y = heightAt(s.x, s.z) + a.piso;
@@ -472,8 +739,8 @@ function montarBase(g, b, meuTime) {
     if (plat) pintar(plat, 'neon_servico', mat);
     const marca = new THREE.Group();
     marca.position.set(s.x, y + 0.06, s.z);
-    // O nome se lê de dentro da base, de quem olha para a lane (como a câmera ao nascer).
-    marca.rotation.y = s.time === 0 ? -Math.PI / 2 : Math.PI / 2;
+    // O nome se lê de quem chega do anel da base (o ícone aponta para longe dele).
+    marca.rotation.y = Math.atan2(-(s.x - b.x), -(s.z - b.z));
     if (s.servico === 'evolucao') {
       for (const dz of [-3, 2.5]) {
         traco(marca, mat, -2.4, 0, dz, 7, 0.8, Math.PI / 4);
@@ -489,6 +756,21 @@ function montarBase(g, b, meuTime) {
     nome.position.set(0, 0.04, 12.5);
     marca.add(nome);
     g.add(marca);
+
+    const fase = s.servico === 'loja' ? 1.7 : 0.4;
+    const holo = hologramaServico(s.servico, corServico);
+    holo.grupo.position.set(s.x, y + HOLO_SERVICO.altura, s.z);
+    const cortina = cortinaServico(corServico, fase);
+    cortina.position.set(s.x, y, s.z);
+    const fagulhas = fagulhasServico(corServico, fase);
+    fagulhas.position.set(s.x, y, s.z);
+    const brilho = brilhoAguaServico(corServico);
+    brilho.position.set(s.x, NIVEL_AGUA + BRILHO_AGUA_SERVICO.acima, s.z);
+    g.add(holo.grupo, cortina, fagulhas, brilho);
+    anim.servicos.push({
+      x: s.x, z: s.z, y, fase, meu: s.time === meuTime, forca: 0, neon: mat, holo,
+      uniformes: [cortina.material.uniforms.uForca, fagulhas.material.uniforms.uForca, brilho.material.uniforms.uForca],
+    });
   }
 
   // Campo de força na boca do bolsão, de rocha a rocha: a membrana vira o shader do
@@ -915,6 +1197,7 @@ export function criarCena({ meuTime = 0 } = {}) {
         m.nivel += (m.alvo - m.nivel) * (1 - Math.exp(-BACIA_SUBIDA * dt));
         m.no.position.y = topoMinerio(m, m.nivel) - MINERIO_TOPO;
       }
+      for (const sv of b.servicos) atualizarServico(sv, dt, foco);
     }
     // Despejo: cada minerador despejando solta cristais do contêiner até o minério.
     for (const d of descargas) {
