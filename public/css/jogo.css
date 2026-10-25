@@ -286,8 +286,52 @@ input:focus {
 }
 
 #previa-nave .palco {
+  position: relative;
   height: 160px;
   min-width: 0;
+}
+
+/* Enquanto o modelo da nave baixa: anel girando e o texto piscando, como na tela de carregamento. */
+#previa-nave .carregando-nave {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 16px;
+  text-align: center;
+  color: var(--neon);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  animation: piscar-carregando 1.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+#previa-nave .carregando-nave[hidden] {
+  display: none;
+}
+
+#previa-nave .carregando-nave .marca {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--neon-escuro);
+  border-top-color: var(--neon);
+  border-radius: 50%;
+  animation: girar-marca 0.9s linear infinite;
+}
+
+#previa-nave .carregando-nave.falhou {
+  color: #ff8a70;
+  animation: none;
+}
+
+#previa-nave .carregando-nave.falhou .marca {
+  display: none;
 }
 
 #previa-nave .palco canvas {

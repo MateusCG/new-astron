@@ -407,15 +407,23 @@ export function definirNave(raiz, race, classe, tier) {
   raiz.userData.efeitos?.scale.setScalar(Math.max(1, nave.corpo / RAIO_REFERENCIA));
   const pronto = prontos.get(chave);
   if (pronto) {
-    montarCasco(raiz, pronto, race);
+    montarCasco(raiz, pronto, race, chave);
     return;
   }
   if (!raiz.userData.casco) montarCasco(raiz, null, race);
   carregarNave(nave)
     .then((modelo) => {
-      if (raiz.userData.nave === chave) montarCasco(raiz, modelo, race);
+      if (raiz.userData.nave === chave) montarCasco(raiz, modelo, race, chave);
     })
     .catch((err) => console.error('Falha ao carregar a nave', chave, err));
+}
+
+/**
+ * A nave escolhida (a última de definirNave) já está desenhada com o modelo dela?
+ * false com o losango no lugar ou a nave antiga esperando a nova chegar.
+ */
+export function naveDesenhada(raiz) {
+  return !!raiz.userData.casco && raiz.userData.casco.userData.nave === raiz.userData.nave;
 }
 
 /** Material neon do time (um para todas as naves de cada lado). */
@@ -432,11 +440,15 @@ function matEscuro() {
   return (materialEscuro ??= new THREE.MeshStandardMaterial({ color: '#2b3233', metalness: 0.4, roughness: 0.6, flatShading: true }));
 }
 
-/** Monta o casco (modelo ou, sem ele, o losango) dentro do corpo, no lugar do anterior. */
-function montarCasco(raiz, modelo, race) {
+/**
+ * Monta o casco (modelo ou, sem ele, o losango) dentro do corpo, no lugar do anterior.
+ * `chave` é a URL do modelo: o casco guarda de qual nave ele é (naveDesenhada).
+ */
+function montarCasco(raiz, modelo, race, chave = null) {
   const { corpo, aliado } = raiz.userData;
   if (raiz.userData.casco) corpo.remove(raiz.userData.casco);
   const casco = new THREE.Group();
+  casco.userData.nave = modelo ? chave : null; // losango: de nenhuma
   const cor = new THREE.Color(RACES[race]?.cor ?? 0xffffff);
   const neonTime = neonDoTime(aliado);
   let caixa;
