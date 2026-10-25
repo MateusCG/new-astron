@@ -8,8 +8,15 @@
 // a V8 (os níveis 1 a 8 da arma no jogo novo) e só os campos que a mecânica e a
 // interface usam, mais o dicionário dos efeitos visuais (id → texturas e cores).
 //
-//   node tools/gerar_armas.mjs --enxugar <armas_completo.json>   refaz tools/dados/armas.json
+//   node tools/gerar_armas.mjs --enxugar <armas_completo.json> [<armas_npc_completo.json>]
+//                                                                refaz tools/dados/armas.json
 //   node tools/gerar_armas.mjs                                   refaz shared/armas-original.js
+//
+// As armas "(NPC)" dos monstros da jungle que vêm do original (SN-3 e SN-Zero VI do
+// Stage M5) saem da mesma pesquisa, num arquivo à parte (armas_npc_completo.json, uma
+// versão por arma, gerado pelo mesmo leitor do cfg com os ids das armas do
+// initnpc.cfg): ficam na lista "npc" do armas.json e em ARMAS_NPC_ORIGINAL, fora do
+// catálogo do jogador (shared/armas.js as põe no fim do WEAPONS, como tiros de NPC).
 //
 // O que este script decide (a interpretação do cfg) e o que fica para o jogo:
 // - Aqui: a FORMA de cada golpe (projétil, nova, mina, campo ou efeito na própria
@@ -37,8 +44,9 @@ const RACAS = ['acron', 'bellico', 'shrewdo'];
 
 const CAMPOS_VISUAL = ['disparo', 'projetil', 'rastro', 'impacto', 'fim', 'armadilhaAtiva'];
 
-function enxugar(origem) {
+function enxugar(origem, origemNpc) {
   const todas = JSON.parse(readFileSync(origem, 'utf8'));
+  const npcTodas = origemNpc ? JSON.parse(readFileSync(origemNpc, 'utf8')) : [];
   const efeitos = {};
   const visualCurto = (vis) => {
     if (!vis) return null;
@@ -66,13 +74,11 @@ function enxugar(origem) {
     visual: visualCurto(s.visual),
     subprojeteis: s.subprojeteis.map(sub),
   });
-  const armas = todas
-    .filter((a) => RACAS.includes(a.naLojaDaRaca))
-    .map((a) => ({
+  const enxugarArma = (a) => ({
       id: a.id,
       nome: a.nome,
       nomePt: a.nomePt,
-      raca: a.naLojaDaRaca,
+      raca: a.naLojaDaRaca ?? a.raca,
       classes: a.classes,
       tipoDano: a.tipoDano,
       categoria: a.categoria,
@@ -98,13 +104,16 @@ function enxugar(origem) {
         visual: visualCurto(v.visual),
         subprojeteis: v.subprojeteis.map(sub),
       })),
-    }));
+  });
+  const armas = todas.filter((a) => RACAS.includes(a.naLojaDaRaca)).map(enxugarArma);
+  const npc = npcTodas.map(enxugarArma);
   const ordenados = Object.fromEntries(Object.keys(efeitos).sort().map((k) => [k, efeitos[k]]));
   // Uma arma por linha: o arquivo fica curto e o diff mostra qual arma mudou.
   const linhas = (lista) => lista.map((x) => JSON.stringify(x)).join(',\n');
   const efs = Object.entries(ordenados).map(([k, v]) => `${JSON.stringify(k)}:${JSON.stringify(v)}`).join(',\n');
-  writeFileSync(DADOS, `{"armas":[\n${linhas(armas)}\n],\n"efeitos":{\n${efs}\n}}\n`);
-  console.log(`${armas.length} armas e ${Object.keys(efeitos).length} efeitos visuais em ${path.relative(RAIZ, DADOS)}`);
+  const blocoNpc = npc.length ? `"npc":[\n${linhas(npc)}\n],\n` : '';
+  writeFileSync(DADOS, `{"armas":[\n${linhas(armas)}\n],\n${blocoNpc}"efeitos":{\n${efs}\n}}\n`);
+  console.log(`${armas.length} armas, ${npc.length} de NPC e ${Object.keys(efeitos).length} efeitos visuais em ${path.relative(RAIZ, DADOS)}`);
 }
 
 // ---------- gerar: tools/dados/armas.json -> shared/armas-original.js ----------
@@ -229,7 +238,7 @@ function modelo(m) {
 }
 
 function gerar() {
-  const { armas, efeitos: todos } = JSON.parse(readFileSync(DADOS, 'utf8'));
+  const { armas, npc = [], efeitos: todos } = JSON.parse(readFileSync(DADOS, 'utf8'));
   // Textura que não está em public/texturas/efeitos (o original cita algumas por
   // engano, como as shrewdo_* no clarão dos canhões elétricos, e o 1343007_01 do
   // rastro dos mísseis) fica sem arquivo (null), mas com a cor: o cliente usa a cor.
@@ -237,7 +246,7 @@ function gerar() {
   const efeitos = Object.fromEntries(
     Object.entries(todos).map(([id, e]) => [id, { ...e, tex: e.tex.map(([png, cor]) => [existsSync(path.join(TEX, png + '.png')) ? png : null, cor]) }]),
   );
-  const saida = armas.map((a) => {
+  const converter = (a) => {
     const versoes = a.versoes.map((v) => {
       const g = golpe(v.numeros, v.efeitos, v.subprojeteis, a.categoria, true);
       g.vis = visualIds(v.visual);
@@ -271,17 +280,25 @@ function gerar() {
       somImpacto: som(a.somImpacto),
       versoes,
     });
-  });
+  };
+  const saida = armas.map(converter);
+  const saidaNpc = npc.map(converter);
   const texto = `// GERADO por tools/gerar_armas.mjs a partir de tools/dados/armas.json: não edite à mão.
 //
 // As ${saida.length} armas das lojas do Astro-N original (Acron, Bellico e Shrewdo), na
 // ordem das lojas, com as versões V1 a V8 (níveis 1 a 8 da arma). Números nas
 // unidades do original (ms, metro, m/ms, HP e energia do original): a conversão para
-// o jogo novo é de shared/armas.js. EFEITOS_VISUAIS: id do efeito do original ->
-// modelos e texturas (public/texturas/efeitos/<png>.png) com a cor dominante.
+// o jogo novo é de shared/armas.js. ARMAS_NPC_ORIGINAL: as ${saidaNpc.length} armas "(NPC)" dos
+// monstros da jungle que vêm do original (uma versão cada). EFEITOS_VISUAIS: id do
+// efeito do original -> modelos e texturas (public/texturas/efeitos/<png>.png) com a
+// cor dominante.
 
 export const ARMAS_ORIGINAL = [
 ${saida.map((a) => JSON.stringify(a)).join(',\n')},
+];
+
+export const ARMAS_NPC_ORIGINAL = [
+${saidaNpc.map((a) => JSON.stringify(a)).join(',\n')},
 ];
 
 export const EFEITOS_VISUAIS = {
@@ -289,8 +306,8 @@ ${Object.entries(efeitos).map(([k, v]) => `${JSON.stringify(k)}: ${JSON.stringif
 };
 `;
   writeFileSync(SAIDA, texto);
-  console.log(`${saida.length} armas em ${path.relative(RAIZ, SAIDA)} (${(texto.length / 1024).toFixed(0)} KB)`);
+  console.log(`${saida.length} armas e ${saidaNpc.length} de NPC em ${path.relative(RAIZ, SAIDA)} (${(texto.length / 1024).toFixed(0)} KB)`);
 }
 
-if (process.argv[2] === '--enxugar') enxugar(process.argv[3]);
+if (process.argv[2] === '--enxugar') enxugar(process.argv[3], process.argv[4]);
 else gerar();

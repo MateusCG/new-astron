@@ -57,8 +57,8 @@ test('jungle: os tempos são os do contrato', () => {
 
 test('jungle: composição dos acampamentos pela decisão do Mateus, com o time 1 girado 180°', () => {
   assert.deepEqual(COMPOSICAO, {
-    JB0N: ['armish', 'armish', 'armish', 'armish'],
-    JB0S: ['chrometic', 'chrometic', 'chrometic', 'chrometic'],
+    JB0N: ['sn3', 'sn3', 'sn3', 'sn3'],
+    JB0S: ['snzero', 'snzero', 'snzero', 'snzero'],
     JC0N: ['great_xerxes', 'xerxes', 'xerxes'],
     JC0S: ['anti', 'bazit', 'bazit'],
   });
@@ -81,10 +81,12 @@ test('jungle: composição dos acampamentos pela decisão do Mateus, com o time 
       assert.ok(Math.abs(m.casa.x + m1[i].casa.x) < 1e-9 && Math.abs(m.casa.z + m1[i].casa.z) < 1e-9, 'girado 180°');
     });
   }
-  // Mesma força por papel.
-  for (const [x, y] of [['armish', 'chrometic'], ['xerxes', 'bazit'], ['great_xerxes', 'anti']]) {
+  // Mesma força por papel no centro; na base, o SN-3 e o SN-Zero VI com a relação do original.
+  for (const [x, y] of [['xerxes', 'bazit'], ['great_xerxes', 'anti']]) {
     for (const k of ['hp', 'velocidade', 'raio', 'xp', 'ouro']) assert.equal(ESPECIES[x][k], ESPECIES[y][k], `${x} × ${y}: ${k}`);
   }
+  assert.ok(ESPECIES.sn3.hp > ESPECIES.snzero.hp && ESPECIES.sn3.xp > ESPECIES.snzero.xp, 'o SN-3 aguenta mais e paga mais (2500 × 1200 de HP, 75 × 60 de XP)');
+  assert.ok(ESPECIES.snzero.velocidade > ESPECIES.sn3.velocidade, 'o SN-Zero VI é mais rápido (0,17 × 0,15 m/ms)');
 });
 
 test('jungle: acampamento aparece no primeiroS e só volta voltaS depois de morrer INTEIRO', () => {
@@ -107,7 +109,7 @@ test('jungle: acampamento aparece no primeiroS e só volta voltaS depois de morr
   assert.equal(c.estado, 'ativo', 'voltou o acampamento inteiro');
   assert.ok(c.membros.every((m) => m.vivo && m.ship.hp === m.ship.maxHp));
   assert.ok(!w.monstros.includes(m1), 'os mortos saíram da lista');
-  assert.equal(a.ouro, 4 * RECOMPENSA.armish.ouro);
+  assert.equal(a.ouro, 4 * RECOMPENSA.sn3.ouro);
 });
 
 test('jungle: SN-4 do buff de ataque dá o bônus de nave "ataque" a quem deu o golpe final', () => {

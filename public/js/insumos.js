@@ -13,7 +13,7 @@
 // daqui): se o desenho de um efeito passar a usar outra textura, a lista do
 // carregamento acompanha sozinha.
 
-import { WEAPONS, ARMAS, armasDisponiveis, visualEfeito } from '../../shared/armas.js';
+import { WEAPONS, ARMAS, armasDisponiveis, visualEfeito, visualDoOriginal } from '../../shared/armas.js';
 import { linhaDe, RACAS_JOGAVEIS, ORDEM_CLASSES } from '../../shared/naves.js';
 import { SONS_INTERFACE, SONS_ARMA } from './sons.js';
 
@@ -114,15 +114,24 @@ export function insumosDaNave(race, classe) {
 }
 
 /**
+ * As armas de NPC do original que os monstros usam (o SN-3 e o SN-Zero VI atiram com
+ * elas): { idx, kind, nome }. Sem modelo na asa; entram pelas texturas dos efeitos.
+ */
+export function armasDeMonstro() {
+  return ARMAS.map((kind, idx) => ({ idx, kind, nome: WEAPONS[kind].nome })).filter(({ kind }) => WEAPONS[kind].npc && visualDoOriginal(kind));
+}
+
+/**
  * Tudo o que pode aparecer na partida, para a tela de carregamento baixar de uma vez:
  * as naves de TODAS as raças jogáveis, classes e tiers (os outros pilotos e os
  * computadores podem vir com qualquer uma e comprar a seguinte no meio da partida),
  * os modelos da asa de todas as armas, as texturas dos efeitos de todas as armas em
- * todas as versões e todos os sons (os das armas de todos, os dos tiros de NPC, os
+ * todas as versões (e as das armas de NPC do original que os monstros usam,
+ * `armasMonstro`) e todos os sons (os das armas de todos, os dos tiros de NPC, os
  * de interface e os padrões de SONS_ARMA). A raça e a classe do piloto vêm primeiro
  * em cada lista (o que ele mais usa fica pronto antes). São ~18 MB: o Mateus prefere
  * esperar na entrada a ter o jogo travando quando um piloto novo aparece.
- * Mesma forma de insumosDaNave; as naves trazem também `race` e `classe`.
+ * Mesma forma de insumosDaNave, mais `armasMonstro`; as naves trazem também `race` e `classe`.
  */
 export function insumosDaPartida(race, classe) {
   const propria = insumosDaNave(race, classe);
@@ -147,11 +156,12 @@ export function insumosDaPartida(race, classe) {
   });
   const texturas = new Set(propria.texturas);
   const sons = new Set(propria.sons);
-  for (const { kind } of armas) for (const t of texturasDaArma(kind)) texturas.add(t);
+  const armasMonstro = armasDeMonstro();
+  for (const { kind } of [...armas, ...armasMonstro]) for (const t of texturasDaArma(kind)) texturas.add(t);
   // Sons de todas as armas, as de NPC também (torres, escoltas e drones atiram com elas).
   for (const kind of ARMAS) for (const s of sonsDaArma(kind)) sons.add(s);
   for (const s of Object.values(SONS_ARMA)) sons.add(s);
-  return { naves, armas, texturas: [...texturas], sons: [...sons] };
+  return { naves, armas, armasMonstro, texturas: [...texturas], sons: [...sons] };
 }
 
 /** Os arquivos dos modelos da asa de uma lista de armas, sem repetição (peças compartilhadas baixam uma vez). */
@@ -204,7 +214,7 @@ export const MODELOS_MAPA = Object.freeze([
 ]);
 
 /** Espécies de monstro (a `esp` do protocolo = o nome do glb). */
-export const ESPECIES_MONSTRO = Object.freeze(['armish', 'chrometic', 'xerxes', 'great_xerxes', 'bazit', 'anti', 'sn4', 'medusa', 'sonda']);
+export const ESPECIES_MONSTRO = Object.freeze(['sn3', 'snzero', 'xerxes', 'great_xerxes', 'bazit', 'anti', 'sn4', 'medusa', 'sonda']);
 /** Os modelos dos monstros e os efeitos da Medusa (sangue e bolhas, decoração). */
 export const MODELOS_MONSTRO = Object.freeze([...ESPECIES_MONSTRO, 'medusa-sangue', 'medusa-bolha']);
 

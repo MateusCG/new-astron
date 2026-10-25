@@ -251,7 +251,7 @@ test('campo: mineradores e escoltas do time saem da base atravessando o campo', 
 test('campo: monstro não entra no bolsão nem caça quem está lá dentro', () => {
   const { w, a } = mundo();
   colocar(a, CANTO.x, CANTO.z, PARA_FORA);
-  const m = w.jungle.criarMonstro('armish', C.x + 90, CANTO.z, { territorio: 600 });
+  const m = w.jungle.criarMonstro('sn3', C.x + 90, CANTO.z, { territorio: 600 });
   w.jungle.provocar(m, a.id);
   const hp = a.ship.hp;
   for (let i = 0; i < 15 * SEGUNDO; i++) {

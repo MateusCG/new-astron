@@ -146,7 +146,7 @@ O mapa segue `DESIGN-PARTIDA.md` e `shared/terrain.js`; o visual é inspirado no
 
 - **Âmbar = objetivo.** Rótulo de estado sobre cada um, com ícone por tipo (espada = SN-4, escudo com cruz = suporte, moeda = plataforma, setas = sonda, água-viva = Medusa, cristal com anel = Núcleo), barra de vida ou de pouso e o tempo até voltar (`public/js/objetivos.js`).
 - **Azul-gelo = Hélio-3** (cristais, duto da mineradora, Núcleo, brilho na água), só no cenário; aura em nave é sempre efeito de arma.
-- **Minimapa:** retângulo do mapa na paleta do lago (água, rocha, nuvens de gás em manchas `#e8d6ba` de borda suave (mais claras que a nuvem no 3D, para ler no fundo escuro do minimapa: `CORES_NUVEM.mapa`)), sua base em turquesa e a outra em vermelho (com a linha do campo de força na boca e a bacia de minério em azul-gelo), mineradora e docas, letras dos objetivos (A, S, $, V, M, N) com arco de vida ou de pouso e o tempo de recarga, torres em triângulo na cor do time, monstros em ponto vermelho redondo pelo tamanho (sonda 3 px, Armish e Chrometic 3,5, Xerxes e Bazit 4, Grande Xerxes e Anti 5,5, SN-4 7,5, Medusa 8).
+- **Minimapa:** retângulo do mapa na paleta do lago (água, rocha, nuvens de gás em manchas `#e8d6ba` de borda suave (mais claras que a nuvem no 3D, para ler no fundo escuro do minimapa: `CORES_NUVEM.mapa`)), sua base em turquesa e a outra em vermelho (com a linha do campo de força na boca e a bacia de minério em azul-gelo), mineradora e docas, letras dos objetivos (A, S, $, V, M, N) com arco de vida ou de pouso e o tempo de recarga, torres em triângulo na cor do time, monstros em ponto vermelho redondo pelo tamanho (sonda 3 px, SN-3 e SN-Zero VI 3,5, Xerxes e Bazit 4, Grande Xerxes e Anti 5,5, SN-4 7,5, Medusa 8).
 
 ### Névoa de guerra
 
@@ -182,12 +182,12 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 - **Metal sem mapa de ambiente:** `metalness` até **0.5** e `roughness` de **0.4 a 0.8** (nas peças PBR a textura varia a rugosidade de 0,38 a 0,92 em volta disso: risco liso, sujeira áspera). Metal alto sem nada para refletir fica preto ou estoura no reflexo do sol; as chapas PBR usam 0,3.
 - **Neon:** material com `color` e `emissive` iguais e `emissiveIntensity` entre **0.8 e 1.2**. Acima disso o tone mapping (ACES) puxa para o branco e a cor some. Luz piscando vai de 0.1 a 1.2.
 - **Uma cor de destaque por objeto.** Hangar e portal: cinza + neon da base (turquesa na sua, vermelho na do outro time). Nave de jogador: a textura do modelo do original + neon do time nas pontas das asas.
-- **Monstros são os do original** (Stage 6 e o SN-4), cada um com a textura própria; a regra antiga "pele escura e olho vermelho" não vale para eles. **O perigo fica no vermelho da interface:** rótulo e barra vermelhos, ponto vermelho no minimapa e o brilho `#ff4a2a` em todo tiro de monstro. Cada um tem silhueta própria (`public/js/monstros.js`):
+- **Monstros são os do original** (Stage 6, o SN-4 e os SN-3 e SN-Zero VI do Stage M5), cada um com a textura própria; a regra antiga "pele escura e olho vermelho" não vale para eles. **O perigo fica no vermelho da interface:** rótulo e barra vermelhos, ponto vermelho no minimapa e o brilho `#ff4a2a` em todo tiro de monstro. Cada um tem silhueta própria (`public/js/monstros.js`):
 
   | Monstro | Forma | Papel |
   |---|---|---|
-  | Armish | peixe-girino compacto (12 m) | pequeno do acampamento da base |
-  | Chrometic | peixe-diabo comprido (12 m) | pequeno do acampamento da base |
+  | SN-3 | máquina de cilindros bronze com asas articuladas que batem, a animação `STAND` do original (23 m) | pequeno do acampamento da base |
+  | SN-Zero VI | criatura escura de olho vermelho, cauda que ondula e um cone de luz magenta aditivo à frente, a animação `STAND` do original (corpo de 18 m) | pequeno do acampamento da base |
   | Xerxes | dragão de asas de morcego (13 m) | pequeno do acampamento do centro |
   | Bazit | criatura de asas abertas (13 m) | pequeno do acampamento do centro |
   | Grande Xerxes | o dragão 2× maior e vermelho (26 m) | grande do centro |
@@ -196,7 +196,7 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
   | Ancient Medusa | água-viva de cúpula dourada (48 m), centro a 18 m, cúpula respirando, sangue e bolhas do original em volta | chefe épico |
   | Sonda errante | inseto azul (8 m), menor que a nave | neutra, foge |
 
-  **Ataques de monstro** (sempre com o brilho `#ff4a2a`): pedra marrom girando; onda elétrica = anel azulado; bala explosiva = bola laranja; feixe óptico = feixes rosados; controle = leque de raios azul-violeta; mísseis com fumaça; armadilha = orbes pulsando; chama = cone laranja; campo elétrico = disco azulado com borda vermelha.
+  **Ataques de monstro** (sempre com o brilho `#ff4a2a`, salvo as armas do original): o SN-3 e o SN-Zero VI atiram com as armas de NPC do original, desenhadas como as armas do jogador (texturas e cores do original: discos verdes girando, mísseis com rastro azul, cargas magenta do canhão com a explosão azul de área, a armadilha = orbe magenta no chão); bala explosiva = bola laranja; feixe óptico = feixes rosados; controle = leque de raios azul-violeta; mísseis com fumaça; armadilha = orbes pulsando; chama = cone laranja; campo elétrico = disco azulado com borda vermelha.
 - **Área de pouso é sempre marcada no chão**, com a cor do que ela é: anel com o neon da base (turquesa na sua), placa violeta da Evolução, placa magenta da Loja, plataforma âmbar de ouro (`AREAS_POUSO`). Nenhum anel turquesa no chão pode existir fora da sua base, para o jogador não confundir.
 - **Tudo projeta sombra** (`castShadow`), e o terreno a recebe.
 
@@ -234,7 +234,7 @@ A conta que importa é a da cena: somando as cópias, o mapa inteiro deve ficar 
 |---|---|
 | Nave de jogador | O tamanho do original × 0,5 (`FATOR_TAMANHO_NAVE`, o mesmo para as 45; o modelo não é igualado): a nave cresce quando evolui, de ~10 m na 1ª da linha (Warrior 10 × 8, Assault Wing 8 × 12) a ~20–23 m na 4ª e na 5ª (Kamasutra 21 × 20, Phoenix 18 × 24). Corpo (`corpo` em `shared/naves.js`) de 7 a 12 m de raio, que a rocha para: nenhuma parte da nave entra na pedra. A câmera, os anéis e auras presos na nave, os rótulos, os motores e as miniaturas crescem na mesma proporção (base: a Warrior); pousada, a nave alta sobe no desenho até o trem tocar o chão |
 | Minerador | ~6 m de comprimento, ~4 m de largura (metade da nave), voa na mesma altura (`HOVER`) |
-| Monstros | sonda 8 m, Armish/Chrometic 12, Xerxes/Bazit 13, Grande Xerxes/Anti 26, SN-4 30, Medusa 48 de largura × ~43 de altura (acerto com raio 4 a 20 m, `ESPECIES`) |
+| Monstros | sonda 8 m, SN-Zero VI 18 (corpo; o cone de luz vai além), SN-3 23 (o original × 0,25, a escala das áreas das armas), Xerxes/Bazit 13, Grande Xerxes/Anti 26, SN-4 30, Medusa 48 de largura × ~43 de altura (acerto com raio 4 a 26 m, `ESPECIES`; SN-3 12,25, SN-Zero VI 11,75) |
 | Altura de voo | 10 m acima do chão (`HOVER`) |
 | Nave pousada | 1,4 m (`ALTURA_POUSADO`), com trem de pouso visível e motores quase apagados |
 | Rocha (quadrante, parede em L, borda) | quadrante 360 × 135 m, topo 74–110; paredes em L com 40 m de espessura, topo 84–100; borda 100–165 m (montanhas até o horizonte); começa com um degrau vertical de 30% da altura (nem de lado a nave sobe) |

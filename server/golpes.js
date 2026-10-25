@@ -144,15 +144,17 @@ export class Golpes {
    * dos golpes do catálogo (forma, dano, area, efeitos, tiros, vel, vida, guia,
    * nova...), com `tipoDano` e `atq` (o nome do ataque, que vai nos eventos e no
    * snapshot para o cliente desenhar) próprios; `kind` é o tiro de NPC ('laser' ou
-   * 'plasma'). O projétil sai de `ent` no rumo `yaw` (o teleguiado trava em `alvo`;
-   * o reto sobe ou desce até a altura dele); nova, mina e campo abrem em (x, z).
+   * 'plasma', ou a arma de NPC do original, 'n511080'...). O projétil sai de `ent`
+   * no rumo `yaw` (o teleguiado trava em `alvo`; o reto sobe ou desce até a altura
+   * dele); `k` é o disparo da rajada (o padrão gira com a varredura, como nas armas do
+   * jogador); nova, mina e campo abrem em (x, z).
    */
-  golpeDeMonstro(ent, kind, g, { yaw = ent.ship.yaw, alvo = null, x = ent.ship.x, z = ent.ship.z } = {}) {
+  golpeDeMonstro(ent, kind, g, { yaw = ent.ship.yaw, alvo = null, x = ent.ship.x, z = ent.ship.z, k = 0 } = {}) {
     ent.ultimoTiro = this.tick;
     const f = { ...this.#fonte(ent), kind, nivel: 1 };
     const s = ent.ship;
     if (g.forma === 'projetil') {
-      for (const { off, ang } of g.tiros) {
+      for (const { off, ang } of tirosDoGolpe(g, k)) {
         const b = tiroFilho(g, this.#id(), s.x, s.y, s.z, yaw, off, ang);
         this.#prepararTiro(b, f, g, yaw + ang);
         if (alvo && g.guia) b.alvo = alvo.id;

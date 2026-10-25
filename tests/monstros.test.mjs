@@ -7,8 +7,11 @@ import { World, ZONA_SEGURA } from '../server/game.js';
 import { createShip } from '../shared/sim.js';
 import { BASES, BUFFS, heightAt } from '../shared/terrain.js';
 import { bloqueiaVisao } from '../shared/visao.js';
-import { ESPECIES, alcanceMaximo } from '../server/especies.js';
-import { RAIVA_S, corpoLivre } from '../server/jungle.js';
+import { readFileSync } from 'node:fs';
+import { ESPECIES, alcanceMaximo, FATOR_HP_M5, FATOR_DANO_M5, FATOR_XP_M5, FATOR_VEL_MONSTRO } from '../server/especies.js';
+import { RAIVA_S, corpoLivre, golpeDoAtaque } from '../server/jungle.js';
+import { WEAPONS, ARMAS, FATOR_AREA, armasDisponiveis, visualDoOriginal } from '../shared/armas.js';
+import { RACAS_JOGAVEIS, ORDEM_CLASSES } from '../shared/naves.js';
 import { CAMPO } from './lugares.mjs';
 
 function rngFixo(semente = 1) {
@@ -41,12 +44,12 @@ const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
 test('monstros: o snapshot traz tipo monstro com a espécie (e só os vivos)', () => {
   const { w } = mundo();
-  const a = w.jungle.criarMonstro('armish', CAMPO.x, CAMPO.z - 200);
+  const a = w.jungle.criarMonstro('sn3', CAMPO.x, CAMPO.z - 200);
   const b = w.jungle.criarMonstro('great_xerxes', CAMPO.x + 60, CAMPO.z - 200);
   const ents = w.entidades().filter((e) => e.tipo === 'monstro');
   assert.deepEqual(ents.map((e) => [e.esp, e.drone, e.maxHp]).sort(), [
-    ['armish', true, ESPECIES.armish.hp],
     ['great_xerxes', true, ESPECIES.great_xerxes.hp],
+    ['sn3', true, ESPECIES.sn3.hp],
   ]);
   assert.ok(!w.entidades().some((e) => ['arnosh', 'vorax', 'krakor', 'guardiao', 'drone'].includes(e.tipo)), 'os monstros antigos saíram');
   b.vivo = false;
@@ -65,8 +68,8 @@ test('monstros: passivos, patrulham perto do ponto e ignoram quem passa perto', 
 test('monstros: atacado, o grupo fica com raiva de quem atirou e esquece depois de RAIVA_S', () => {
   const { w, j } = mundo();
   const covil = { membros: [] }; // grupo de teste (o acampamento)
-  const a = w.jungle.criarMonstro('armish', CAMPO.x, CAMPO.z - 150, { covil });
-  const b = w.jungle.criarMonstro('armish', CAMPO.x + 30, CAMPO.z - 150, { covil });
+  const a = w.jungle.criarMonstro('sn3', CAMPO.x, CAMPO.z - 150, { covil });
+  const b = w.jungle.criarMonstro('sn3', CAMPO.x + 30, CAMPO.z - 150, { covil });
   covil.membros.push(a, b);
   // Tiros de verdade do jogador no primeiro.
   j.ship.yaw = Math.atan2(-(a.ship.x - j.ship.x), -(a.ship.z - j.ship.z));
@@ -148,8 +151,8 @@ test('monstros: com rocha no meio, contorna até ter linha de tiro', () => {
 test('monstros: não atacam quem está na zona segura nem acertam outro monstro', () => {
   const b = BASES[0];
   const { w, j } = mundo(b.x, b.z);
-  const m = w.jungle.criarMonstro('armish', b.x + ZONA_SEGURA + 60, b.z, { territorio: 1000 });
-  const outro = w.jungle.criarMonstro('armish', b.x + ZONA_SEGURA + 30, b.z + 40);
+  const m = w.jungle.criarMonstro('sn3', b.x + ZONA_SEGURA + 60, b.z, { territorio: 1000 });
+  const outro = w.jungle.criarMonstro('sn3', b.x + ZONA_SEGURA + 30, b.z + 40);
   m.raiva.set(j.id, Infinity);
   const ev = rodar(w, 5);
   assert.ok(!ev.some((e) => e.e === 'tiro' && e.dono === m.id), 'sem tiro em quem está na base');
@@ -223,4 +226,162 @@ test('monstros: o SN-4 tem o dobro do tamanho, cabe no buff de ataque e não ent
     andou = Math.max(andou, Math.hypot(sn.ship.x - lugar.x, sn.ship.z - lugar.z));
   });
   assert.ok(andou > 1, 'chegou a andar (a regra freia, não congela)');
+});
+
+// ---------- SN-3 e SN-Zero VI (Stage M5 do original) ----------
+
+/** Põe o monstro só com o ataque `atq` (os outros nunca ficam prontos). */
+function soAtaque(m, atq) {
+  m.cfg.ataques.forEach((a, i) => {
+    if (a.atq !== atq) m.prox[i] = Infinity;
+  });
+}
+
+/** Roda até `s` segundos juntando [tick, evento] dos eventos do monstro `m`. */
+function eventosDe(w, m, s) {
+  const out = [];
+  for (let i = 0; i < Math.round(s * 30); i++) {
+    w.step();
+    for (const e of w.tirarEventos()) if ((e.dono ?? e.id) === m.id || e.atq) out.push([w.tick, e]);
+  }
+  return out;
+}
+
+test('SN-3 e SN-Zero VI: números do original (unidade, NPC e armas) na escala do jogo', () => {
+  const { sn3, snzero } = ESPECIES;
+  // initunit.cfg 502020 "Sn-Three" e 500405 "Sn-Zero Unit6": HP, m/ms e raio (col 17); XP do initnpc.cfg.
+  assert.equal(sn3.hp, Math.round(2500 * FATOR_HP_M5));
+  assert.equal(snzero.hp, Math.round(1200 * FATOR_HP_M5));
+  assert.equal(sn3.velocidade, 0.15 * 1000 * FATOR_VEL_MONSTRO);
+  assert.equal(snzero.velocidade, 0.17 * 1000 * FATOR_VEL_MONSTRO);
+  assert.equal(sn3.raio, 49 * FATOR_AREA);
+  assert.equal(snzero.raio, 47 * FATOR_AREA);
+  assert.equal(sn3.xp, Math.round(75 * FATOR_XP_M5));
+  assert.equal(snzero.xp, Math.round(60 * FATOR_XP_M5));
+  // As armas do initnpc.cfg (cols 13 e 14) com os pesos (cols 22 e 23).
+  assert.deepEqual(sn3.ataques.map((a) => [a.kind, a.peso, a.tipoDano]), [['n511080', 70, 'fisico'], ['n511090', 30, 'eletrico']]);
+  assert.deepEqual(snzero.ataques.map((a) => [a.kind, a.peso, a.tipoDano]), [['n510372', 70, 'laser'], ['n510373', 30, 'laser']]);
+  assert.equal(sn3.ataques[0].dano, +(366 * FATOR_DANO_M5).toFixed(3), 'Disco Voador: 366 por disco no original');
+  assert.equal(snzero.ataques[0].dano, +(166 * FATOR_DANO_M5).toFixed(3), 'Canhão SN 6: 166 por bala no original');
+  // Um ataque por vez, no ritmo da arma mais rápida (recarga do original × 0,5).
+  assert.equal(sn3.entreAtaquesS, WEAPONS.n511080.versoes[0].cd);
+  assert.equal(snzero.entreAtaquesS, WEAPONS.n510372.versoes[0].cd);
+});
+
+test('SN-3 e SN-Zero VI: as armas de NPC do original ficam no fim do catálogo, fora das do jogador', () => {
+  assert.deepEqual(ARMAS.slice(-4), ['n510372', 'n510373', 'n511080', 'n511090']);
+  for (const k of ARMAS.slice(-4)) {
+    assert.ok(WEAPONS[k].npc && WEAPONS[k].original && visualDoOriginal(k), k);
+    for (const r of RACAS_JOGAVEIS) for (const c of ORDEM_CLASSES) assert.ok(!armasDisponiveis(r, c).includes(WEAPONS[k].idx), `${k} não é do ${r} ${c}`);
+  }
+  const canhao = WEAPONS.n510372.versoes[0].golpe;
+  assert.equal(canhao.rajada, 2, 'Canhão SN 6: 2 disparos');
+  assert.equal(canhao.rajadaS, 0.15, '300 ms do original × 0,5');
+  assert.deepEqual(canhao.tiros.map((t) => t.off), [-2.5, 2.5], '2 balas, 20 m de vão × 0,25');
+  assert.equal(canhao.area, 20, 'área 80 × 0,25');
+  assert.ok(canhao.fim, 'explode no fim do voo');
+  const disco = WEAPONS.n511080.versoes[0].golpe;
+  assert.equal(disco.tiros.length, 3);
+  assert.deepEqual(disco.tiros.map((t) => +((-t.ang * 180) / Math.PI).toFixed(3)), [0, 20, 40], 'leque de 20° a partir de 0°, como no cfg');
+  assert.ok(disco.atravessa, 'o disco atravessa');
+  const missil = WEAPONS.n511090.versoes[0].golpe;
+  assert.ok(missil.guia && Math.abs(missil.guia.giro - 1) < 0.01, 'teleguiado, ~57°/s');
+  assert.deepEqual(missil.efeitos, [{ tipo: 'descarga', alvo: 'inimigo', frac: 1, raio: 0 }], 'descarrega 100% da energia');
+  const armadilha = WEAPONS.n510373.versoes[0].golpe;
+  assert.equal(armadilha.forma, 'mina');
+  assert.equal(armadilha.vida, 20);
+  // O golpe do monstro é o da arma, com o dano e o nome do ataque da espécie.
+  const g = golpeDoAtaque(ESPECIES.snzero.ataques[0]);
+  assert.equal(g.dano, ESPECIES.snzero.ataques[0].dano);
+  assert.equal(g.atq, 'canhao_sn6');
+  assert.equal(g.vis, canhao.vis, 'o visual do original');
+});
+
+test('SN-Zero VI: o Canhão SN 6 dá 2 disparos de 2 balas, o segundo 0,15 s depois, e fere em área', () => {
+  const { w, j } = mundo();
+  j.ship.maxHp = j.ship.hp = 1e6;
+  const m = w.jungle.criarMonstro('snzero', CAMPO.x, CAMPO.z - 150);
+  soAtaque(m, 'canhao_sn6');
+  w.jungle.provocar(m, j.id);
+  const ev = eventosDe(w, m, 3);
+  const tiros = ev.filter(([, e]) => e.e === 'tiro' && e.dono === m.id);
+  assert.ok(tiros.every(([, e]) => e.kind === 'n510372' && e.atq === 'canhao_sn6'));
+  const ticks = [...new Set(tiros.map(([t]) => t))];
+  assert.ok(ticks.length >= 4, `vários disparos (${ticks.length})`);
+  for (const t of ticks) assert.equal(tiros.filter(([x]) => x === t).length, 2, '2 balas por disparo');
+  assert.equal(ticks[1] - ticks[0], Math.round(0.15 * 30), 'o segundo disparo da rajada');
+  assert.ok(ticks[2] - ticks[0] >= Math.round(ESPECIES.snzero.entreAtaquesS * 30), 'a rajada seguinte espera a recarga');
+  assert.ok(ev.some(([, e]) => e.e === 'acerto' && e.alvo === j.id && e.atq === 'canhao_sn6' && e.kind === 'n510372'), 'acertou');
+  assert.ok(ev.some(([, e]) => e.e === 'explosao' && e.atq === 'canhao_sn6' && e.raio === 20), 'explosão de área');
+  assert.ok(j.ship.hp < j.ship.maxHp);
+});
+
+test('SN-Zero VI: a Armadilha SN6 cai embaixo do alvo e explode quando ele fica nela', () => {
+  const { w, j } = mundo();
+  j.ship.maxHp = j.ship.hp = 1e6;
+  const m = w.jungle.criarMonstro('snzero', CAMPO.x, CAMPO.z - 120);
+  soAtaque(m, 'armadilha_sn6');
+  w.jungle.provocar(m, j.id);
+  let mina = null;
+  const ev = [];
+  for (let i = 0; i < 60 && !ev.some((e) => e.e === 'acerto' && e.atq === 'armadilha_sn6'); i++) {
+    w.step();
+    ev.push(...w.tirarEventos());
+    mina ??= w.minas.find((x) => x.dono === m.id);
+  }
+  assert.ok(mina, 'instalou a armadilha');
+  assert.equal(mina.kind, 'n510373');
+  assert.ok(Math.hypot(mina.x - j.ship.x, mina.z - j.ship.z) < 1, 'embaixo do alvo');
+  assert.ok(ev.some((e) => e.e === 'acerto' && e.alvo === j.id && e.atq === 'armadilha_sn6'), 'explodiu no alvo parado');
+  assert.ok(j.ship.hp < j.ship.maxHp);
+});
+
+test('SN-3: o Disco Voador sai em leque de 3 e o míssil teleguiado descarrega a energia do alvo', () => {
+  const { w, j } = mundo();
+  j.ship.maxHp = j.ship.hp = 1e6;
+  const m = w.jungle.criarMonstro('sn3', CAMPO.x, CAMPO.z - 150);
+  soAtaque(m, 'disco_voador');
+  w.jungle.provocar(m, j.id);
+  const ev = eventosDe(w, m, 2.5);
+  const discos = ev.filter(([, e]) => e.e === 'tiro' && e.dono === m.id);
+  assert.ok(discos.length >= 3 && discos.every(([, e]) => e.kind === 'n511080' && e.atq === 'disco_voador'));
+  const t0 = discos.filter(([t]) => t === discos[0][0]).map(([, e]) => Math.atan2(-e.vx, -e.vz));
+  assert.equal(t0.length, 3, '3 discos por disparo');
+  const abre = Math.abs(Math.atan2(Math.sin(t0[2] - t0[0]), Math.cos(t0[2] - t0[0])));
+  assert.ok(Math.abs(abre - (40 * Math.PI) / 180) < 0.01, `leque de 40° (${((abre * 180) / Math.PI).toFixed(1)}°)`);
+  assert.ok(ev.some(([, e]) => e.e === 'acerto' && e.alvo === j.id && e.atq === 'disco_voador'));
+
+  const outro = mundo();
+  outro.j.ship.maxHp = outro.j.ship.hp = 1e6;
+  const sn = outro.w.jungle.criarMonstro('sn3', CAMPO.x, CAMPO.z - 150);
+  soAtaque(sn, 'missil_descarga');
+  outro.w.jungle.provocar(sn, outro.j.id);
+  outro.w.step();
+  assert.ok(outro.w.snapshotPara(outro.j, [], []).guiados.some((g) => g.kind === 'n511090' && g.atq === 'missil_descarga'), 'mísseis no guiados');
+  let descarregou = false;
+  for (let i = 0; i < 90 && !descarregou; i++) {
+    outro.j.ship.en = outro.j.ship.maxEn;
+    outro.w.step();
+    descarregou = outro.w.tirarEventos().some((e) => e.e === 'acerto' && e.alvo === outro.j.id && e.atq === 'missil_descarga');
+  }
+  assert.ok(descarregou, 'o míssil chegou');
+  assert.ok(outro.j.ship.en < outro.j.ship.maxEn * 0.1, `energia descarregada (${outro.j.ship.en.toFixed(1)})`);
+});
+
+test('SN-3 e SN-Zero VI: o glb traz a animação STAND do original (24 quadros por segundo) e o cone de luz aditivo', () => {
+  const glb = (nome) => {
+    const b = readFileSync(new URL(`../public/modelos/monstros/${nome}.glb`, import.meta.url));
+    return JSON.parse(b.subarray(20, 20 + b.readUInt32LE(12)).toString());
+  };
+  for (const [nome, quadros] of [['sn3', 31], ['snzero', 21]]) {
+    const g = glb(nome);
+    const [anim] = g.animations;
+    assert.equal(anim.name, 'STAND', nome);
+    const tempo = g.accessors[anim.samplers[0].input];
+    assert.equal(tempo.count, quadros, `${nome}: ${quadros} quadros`);
+    assert.ok(Math.abs(tempo.max[0] - (quadros - 1) / 24) < 1e-6, `${nome}: 24 por segundo`);
+    assert.ok(g.materials.every((m) => m.doubleSided && m.pbrMetallicRoughness.metallicFactor === 0));
+  }
+  const luz = glb('snzero').materials.find((m) => m.name === 'nu0040_light');
+  assert.ok(luz?.extras?.aditivo && luz.alphaMode === 'BLEND', 'o cone de luz do SN-Zero VI');
 });

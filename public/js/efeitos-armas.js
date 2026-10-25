@@ -49,6 +49,11 @@ const TAM_PROJETIL = {
   missil: { comp: 0, larg: 0, brilho: 3.4 },
   dispositivo: { comp: 3, larg: 3, brilho: 3 },
 };
+// No máximo isto de efeitos passageiros (clarão, impacto, área, nova) na cena: passou,
+// o mais velho sai. Um acampamento de SN-Zero VI provocado solta dezenas de balas de
+// canhão com área por segundo; num quadro lento chegam muitos eventos de uma vez e,
+// sem teto, os efeitos se empilhariam e deixariam o quadro seguinte ainda mais lento.
+const PASSAGEIROS_MAX = 120;
 const CLARAO_S = 0.12;
 const IMPACTO_S = 0.4;
 const AREA_S = 0.6;
@@ -230,6 +235,7 @@ export class VisualArmas {
   #passageiro(obj, dur, anima = {}) {
     this.scene.add(obj);
     this.efeitos.push({ obj, vida: 0, dur, ...anima });
+    if (this.efeitos.length > PASSAGEIROS_MAX) this.#tirar(this.efeitos.shift());
   }
 
   #tirar(e) {

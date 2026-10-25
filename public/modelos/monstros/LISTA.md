@@ -1,4 +1,4 @@
-# Monstros do AstroN original (Stage 6 e chefe do Stage 5)
+# Monstros do AstroN original (Stage 6, chefe do Stage 5 e os SN-3 e SN-Zero VI do Stage M5)
 
 Modelos dos monstros da jungle do mapa novo (Stage 6), tirados do AstroN original por decisão do
 Mateus (out/2026, exceção do `IDENTIDADE-VISUAL.md`). A pesquisa (colunas do `initnpc.cfg`, força,
@@ -16,13 +16,21 @@ números do jogo) está em `new-astron-progresso/mapa-stage6/PESQUISA-MONSTROS.m
 - Faces já na ordem certa (a mesma correção do `orientarFaces` do `nave.js`, feita na conversão).
 - Os ossos do esqueleto do original (objetos `BoneNN` do 3DX, que no jogo só deformam a malha) saíram;
   o modelo é a pose parada (sem animação). Animar (bater de asas, tentáculos) fica para o cliente.
+- **Exceção, com a animação do original: `sn3.glb` e `snzero.glb`** (feitos por
+  `tools/monstros_do_original.py` direto do `.3dx`, sem Blender): cada peça da malha é um nó e
+  a animação `STAND` do original vai junto (os quadros de matriz de cada peça do `.3dx`, 24 por
+  segundo, em laço: as asas do SN-3 batendo, a cauda do SN-Zero VI ondulando e o cone de luz
+  dele pulsando). Escala de um fator só, o tamanho do original × 0,25 (o `FATOR_AREA` das
+  armas), com a origem no centro da caixa do **corpo** (sem o cone de luz). O material de luz
+  (`nu0040_light`, o cone do SN-Zero VI) vem `BLEND` com `extras.aditivo`: o cliente desenha com
+  mistura aditiva, como o original (`CAlphaManage::OnPaint`: SRCALPHA + ONE).
 
 ## Arquivos
 
 | Arquivo (`esp`) | Monstro (original) | id no `initnpc.cfg` → unidade → modelo | Triângulos | Tamanho no jogo (envergadura × comprimento × altura) | Escala sobre o original | Textura |
 |---|---|---|---|---|---|---|
-| `armish.glb` | Armish IV | 700103 → 500103 → NU0013 (usa a malha `nu0012`, ver `effect/nu0013.eff`) | 178 | 4,4 × 12,0 × 5,4 m | 0,305 (original 39 m) | `nu0012.png` 128² |
-| `chrometic.glb` | Chrometic | 705020 → 502030 → `nu0240` | 258 | 3,5 × 12,0 × 4,4 m | 0,173 (original 69 m) | `nu0240.png` 256², `-nu0270_wing.png` 256² (MASK, barbatanas) |
+| `sn3.glb` | SN-3 (Stage M5) | 705010 → 502020 → `nu0230` | 671 (15 peças, `STAND` de 31 quadros, 1,25 s) | 18,5 × 23,0 × 9,0 m | 0,25 (original 92 m) | `nu0230.png` 256² |
+| `snzero.glb` | SN-Zero VI (Stage M5) | 700405 → 500405 → `nu0045` | 257 (6 peças, `STAND` de 21 quadros, 0,83 s) | 16,3 × 18,2 × 14,1 m de corpo; o cone de luz vai 27 m à frente | 0,25 (original 73 m de corpo) | `nu0045.png` 128², `nu0040_light.png` 128² (BLEND, aditivo) |
 | `xerxes.glb` | Xerxes | 705050 → 502060 → `nu0270` | 602 | 13,0 × 10,6 × 5,4 m | 0,135 (original 96 m) | `nu0270.png` 256², `-nu0270_wing.png` 256² (MASK) |
 | `great_xerxes.glb` | Great Xerxes | 705055 → 502065 → `nu0300` (a malha do Xerxes 2× maior, couro vermelho) | 602 | 26,0 × 21,2 × 10,7 m | 0,135 (original 193 m) | `nu0300.png` 256², `-nu0270_wing.png` 256² (MASK) |
 | `bazit.glb` | Bazit | 705040 → 502050 → `nu0260` | 658 | 13,0 × 10,8 × 8,9 m | 0,171 (original 76 m) | `nu0260.png` 256², `-nu0260_wing.png` 256² (MASK, asas) |
@@ -33,7 +41,7 @@ números do jogo) está em `new-astron-progresso/mapa-stage6/PESQUISA-MONSTROS.m
 | `medusa-sangue.glb` | efeito `BOSS_BLOOD` (#59 do `effectevent.txt`) | `s6_boss_blood` | 2 | 1,4 × 1,4 m, plano deitado | 0,242 (a da Medusa) | `s6_boss_blood.png` 128² (MASK) |
 | `medusa-bolha.glb` | efeito `BOSS_BUBBLE` (#60) | `s6_boss_bubble` | 18 | 1,5 × 1,3 × 0,6 m | 0,242 (a da Medusa) | `1321045.png` 64² (MASK) |
 
-Pasta inteira: ~1,15 MB.
+Pasta inteira: ~1,3 MB.
 
 **Efeitos da Medusa no original** (`assets_obb/cfg/effectevent.txt`): o sangue nasce num ponto
 sorteado a até 70 m (original) do centro, girado ao acaso, cresce 0,3–0,7× por segundo e some em
@@ -52,3 +60,8 @@ em `new-astron-progresso/mapa-stage6/tmp/monstros/`:
    importa, junta, centra, gira a frente (+x do OBJ) para −z, escala para o `tamanho` (maior medida
    horizontal) do `specs.json`, exporta o glb e fotografa (de trás, de frente e de cima, com uma régua
    turquesa de 10 m e uma seta laranja na frente). Prints em `new-astron-progresso/mapa-stage6/prints-monstros/`.
+
+**SN-3 e SN-Zero VI** (out/2026): `python3 -I tools/monstros_do_original.py <old-astron> public/modelos/monstros/sn3.glb nu0230 0.25`
+e o mesmo com `snzero.glb nu0045`. O `.eff` do modelo (`assets_obb/effect/nu0230.eff`) só nomeia a animação
+(`STAND`) e a sequência; quem mexe são as matrizes por quadro de cada peça no `.3dx` (`CDummy::SetFrame`), e o
+efeito anda um quadro por atualização (`CEffectSprite::NextFrame`), a 24 por segundo.

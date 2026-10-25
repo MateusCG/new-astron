@@ -30,11 +30,14 @@
 //
 // Monstros da jungle (server/jungle.js): o tiro de cada ataque (`atq` nos eventos e
 // nos `guiados`) tem forma própria, sempre com o brilho no vermelho de perigo
-// #ff4a2a: pedra marrom girando, onda elétrica em anel azulado, bala explosiva
-// laranja, feixes ópticos, raios de controle, mísseis com rastro, orbes da armadilha
-// pulsando; a chama do Xerxes é um cone de fogo (evento 'chama'), a onda do SN-4 um
-// anel que abre, o campo elétrico um disco azulado no chão. O pulso do Núcleo de He-3
-// é um anel azul-gelo (puxando para o vermelho quanto mais forte) que abre até o raio.
+// #ff4a2a: bala explosiva laranja, pedra gigante, feixes ópticos, raios de controle,
+// mísseis com rastro, orbes da armadilha pulsando; a chama do Xerxes é um cone de fogo
+// (evento 'chama'), a onda do SN-4 um anel que abre, o campo elétrico um disco
+// azulado no chão. O SN-3 e o SN-Zero VI atiram com as armas de NPC do original
+// (`kind` 'n511080'...): o tiro, o clarão, o impacto, a área e a armadilha saem como os
+// das armas do jogador (efeitos-armas.js, texturas e cores do original). O pulso do
+// Núcleo de He-3 é um anel azul-gelo (puxando para o vermelho quanto mais forte) que
+// abre até o raio.
 //
 // Desempenho (nada de travada quando a luta começa): o que vem e vai a cada tiro
 // (faísca, fumaça do míssil, clarão, anel de área, chama, pulso, feixe do recall, anel
@@ -48,6 +51,7 @@
 
 import * as THREE from 'three';
 import { stepBullet, WEAPONS } from '/shared/sim.js';
+import { visualDoOriginal } from '/shared/armas.js';
 import { brilho } from './nave.js';
 import { VisualArmas } from './efeitos-armas.js';
 
@@ -77,9 +81,7 @@ const BONUS_OPACIDADE = 0.85;
 // Monstros: o vermelho de perigo de todo tiro de monstro e a forma de cada ataque (atq).
 const COR_PERIGO = new THREE.Color('#ff4a2a');
 const FORMA_ATQ = {
-  pedra: { forma: 'pedra', raio: 1.1, cor: '#7a5a3e', brilho: 3 },
   pedra_gigante: { forma: 'pedra', raio: 3.2, cor: '#6e4f36', brilho: 9 },
-  onda_eletrica: { forma: 'anel', raio: 2.2, cor: '#8fb4ff', brilho: 4 },
   bala_explosiva: { forma: 'bola', raio: 0.9, cor: '#ff9a3a', brilho: 4.5 },
   feixe_optico: { forma: 'barra', barra: 6, grossura: 0.3, cor: '#ff8a70', brilho: 2.6 },
   controle: { forma: 'barra', barra: 5, grossura: 0.22, cor: '#9fb0ff', brilho: 2.4 },
@@ -261,7 +263,7 @@ export class Efeitos {
     this.matsPorCor.clear();
     for (const g of this.geoPulso.values()) g.dispose();
     this.geoPulso.clear();
-    for (const r of [this.geoMina, this.geoEspinho, this.geoLuzMina, this.matMina, this.geoMissil, this.geoNarizMissil, this.matMissil, this.geoAnel, this.geoColuna, this.geoAnelRecall, this.geoPedra, this.geoBola, this.geoAnelTiro, this.geoChama, this.geoCascaPulso, this.geoAnelNivel, this.geoDiscoCampo, this.geoBordaCampo, this.matDiscoCampo, this.matBordaCampo]) {
+    for (const r of [this.geoMina, this.geoEspinho, this.geoLuzMina, this.matMina, this.geoMissil, this.geoNarizMissil, this.matMissil, this.geoAnel, this.geoColuna, this.geoAnelRecall, this.geoPedra, this.geoBola, this.geoChama, this.geoCascaPulso, this.geoAnelNivel, this.geoDiscoCampo, this.geoBordaCampo, this.matDiscoCampo, this.matBordaCampo]) {
       r.dispose();
     }
   }
@@ -333,7 +335,6 @@ export class Efeitos {
     // Peças dos tiros de monstro (uma geometria por forma, liberadas em liberar()).
     this.geoPedra = new THREE.IcosahedronGeometry(1, 0);
     this.geoBola = new THREE.IcosahedronGeometry(1, 1);
-    this.geoAnelTiro = new THREE.TorusGeometry(1, 0.18, 4, 20);
     // Geometrias de tamanho 1 (a malha escala): chama, pulso, anel de nível, campo elétrico.
     this.geoChama = geometriaChama();
     this.geoCascaPulso = new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2);
@@ -434,7 +435,6 @@ export class Efeitos {
     if (!m) {
       const aditivo = { color: c, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false };
       if (jeito === 'brilho') m = new THREE.SpriteMaterial({ map: brilho(), ...aditivo });
-      else if (jeito === 'aditivo') m = new THREE.MeshBasicMaterial(aditivo);
       else if (jeito === 'pedra') m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.95, flatShading: true });
       else m = new THREE.MeshBasicMaterial({ color: c });
       this.matsPorCor.set(chave, m);
@@ -794,7 +794,7 @@ export class Efeitos {
       if (!t) {
         // Míssil de monstro (atq), de torre (tiro de NPC sem atq: o evento se perdeu ou
         // entrou agora na visão) ou de arma de jogador.
-        const npc = !WEAPONS[g.kind] || WEAPONS[g.kind].npc;
+        const npc = !visualDoOriginal(g.kind);
         const b = { id: g.id, kind: g.kind ?? 'plasma', atq: g.atq, nv: g.nv, p: g.p, x: g.x, y: g.y, z: g.z, vx: g.vx, vy: g.vy, vz: g.vz, vida: 3 };
         if (npc && !g.atq) this.tiro({ ...b, kind: 'missil' }, true);
         else this.tiro(b);
@@ -820,7 +820,9 @@ export class Efeitos {
   tiro(b, inimigo = false, cor = null, boca = null) {
     if (b.atq && FORMA_ATQ[b.atq]) return this.#tiroMonstro(b);
     const w = WEAPONS[b.kind];
-    if (w && !w.npc && !inimigo && !cor) {
+    // Arma do original: a do jogador, ou a de NPC do original que um monstro usa (o
+    // SN-3 e o SN-Zero VI atiram com as armas deles, desenhadas como no original).
+    if (visualDoOriginal(b.kind) && (w.original || !inimigo) && !cor) {
       const p = this.armas.projetil(b.kind, b.nv ?? 1, b.p ?? 0);
       p.g.position.set(b.x, b.y, b.z);
       p.g.lookAt(b.x + b.vx, b.y + b.vy, b.z + b.vz);
@@ -871,11 +873,6 @@ export class Efeitos {
         pedra.rotation.x += dt * 5;
         pedra.rotation.y += dt * 3;
       };
-    } else if (f.forma === 'anel') {
-      const anel = new THREE.Mesh(this.geoAnelTiro, this.#matPorCor('aditivo', f.cor));
-      anel.scale.setScalar(f.raio);
-      g.add(anel);
-      animar = (dt, t) => anel.scale.setScalar(f.raio * (0.85 + 0.25 * Math.sin(t * 30)));
     } else if (f.forma === 'bola' || f.forma === 'orbe') {
       const bola = new THREE.Mesh(this.geoBola, this.#matPorCor('solido', f.cor));
       bola.scale.setScalar(f.raio);

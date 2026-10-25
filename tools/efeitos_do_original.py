@@ -123,12 +123,19 @@ def cor_dominante(caminho):
     return '#' + ''.join(f'{int(round(c)):02x}' for c in m)
 
 
+# Armas "(NPC)" dos monstros da jungle que vêm do original (SN-Zero VI e SN-3 do Stage
+# M5; ARMAS_NPC_ORIGINAL em shared/armas-original.js): os efeitos delas também entram.
+ARMAS_MONSTRO = {'510372', '510373', '511080', '511090'}
+
+
 def armas_jogaveis(cfg):
-    """[(id, nome, {coluna: id_efeito})] das armas de jogador (versão base)."""
+    """[(id, nome, {coluna: id_efeito})] das armas de jogador (versão base) e das dos monstros."""
     linhas = []
     for linha in open(cfg, encoding='utf-8', errors='replace'):
         c = [x.strip() for x in linha.rstrip('\r\n').split('\t')]
-        if len(c) < 105 or not re.fullmatch(r'\d{6}', c[0]) or c[0][3] != '0' or c[0][0] not in '123':
+        if len(c) < 105 or not re.fullmatch(r'\d{6}', c[0]):
+            continue
+        if c[0] not in ARMAS_MONSTRO and (c[0][3] != '0' or c[0][0] not in '123'):
             continue
         efeitos = {col: c[col] for col in COLUNAS if re.fullmatch(r'[12]\d{6}', c[col])}
         linhas.append((c[0], c[1], efeitos))
@@ -171,7 +178,7 @@ def main():
         f.write(
             '# Texturas dos efeitos de tiro do AstroN original\n\n'
             'Copiadas por `tools/efeitos_do_original.py` (de `old-astron/reference/textures_png`), só '
-            f'as usadas pelos efeitos das armas de jogador: {len(copiadas)} arquivos, {total / 1024:.0f} KB. '
+            f'as usadas pelos efeitos das armas de jogador e dos monstros da jungle (SN-3 e SN-Zero VI): {len(copiadas)} arquivos, {total / 1024:.0f} KB. '
             'São insumo para `public/js/efeitos.js` (frente Armas); nenhuma está ligada no jogo ainda.\n\n'
             'Os efeitos do original são **aditivos** (fundo preto = transparente): use `AdditiveBlending`, '
             'como o guia visual já pede para efeito de luz. A cor dominante é a média ponderada pelo brilho.\n\n'

@@ -119,7 +119,7 @@ export function corDaArma(kind, prof = 0) {
   if (cacheCor.has(chave)) return cacheCor.get(chave);
   const w = WEAPONS[kind];
   let cor = null;
-  if (w?.npc) cor = kind === 'plasma' ? '#7dff6a' : '#5ff7ff';
+  if (w?.npc && !w.original) cor = kind === 'plasma' ? '#7dff6a' : '#5ff7ff';
   else if (w) {
     let g = w.versoes[0].golpe;
     for (let i = 0; i < prof && g; i++) g = g.divide ?? g.dispara;

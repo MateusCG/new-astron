@@ -8,8 +8,15 @@
 //   (a das naves no jogo): é só pôr no lugar e aplicar o yaw. Material dentro do
 //   guia (facetado, sem metal), com a textura do original e o recorte (MASK) das asas
 //   e tentáculos.
-// - Cada espécie sobe e desce devagar e balança de leve (os modelos são a pose parada,
-//   sem ossos); a sonda zumbe mais rápido; a Medusa "respira" (a cúpula estica) e
+// - O SN-3 e o SN-Zero VI (os pequenos dos acampamentos da base, do Stage M5) trazem
+//   no glb a animação do original ("STAND": as asas do SN-3 batendo, a cauda do
+//   SN-Zero VI ondulando e o cone de luz dele pulsando, quadro a quadro do .3dx, 24
+//   por segundo; tools/monstros_do_original.py): ela toca em laço (AnimationMixer, um
+//   por monstro, cada um numa fase) e eles não ganham o balanço inventado. O cone de
+//   luz (material `extras.aditivo` no glb) é desenhado aditivo, como os efeitos do
+//   original.
+// - As outras espécies sobem e descem devagar e balançam de leve (os modelos são a pose
+//   parada, sem ossos); a sonda zumbe mais rápido; a Medusa "respira" (a cúpula estica) e
 //   fica com o centro a MEDUSA_CENTRO m (a física põe todo monstro na altura de voo;
 //   ela é desenhada mais alta, com os tentáculos chegando na água).
 // - O SN-4 (chefe do buff de ataque) é desenhado ESCALA_MONSTRO.sn4 = 2× o glb (60 m
@@ -26,14 +33,14 @@ import { HOVER } from '/shared/sim.js';
 import { PASTA_MODELOS_MONSTRO, ESPECIES_MONSTRO } from './insumos.js';
 
 /** Tamanho do ponto de cada espécie no minimapa (px): quanto mais perigoso, maior. */
-export const PONTO_MONSTRO = { sonda: 3, armish: 3.5, chrometic: 3.5, xerxes: 4, bazit: 4, great_xerxes: 5.5, anti: 5.5, sn4: 7.5, medusa: 8 };
+export const PONTO_MONSTRO = { sonda: 3, sn3: 3.5, snzero: 3.5, xerxes: 4, bazit: 4, great_xerxes: 5.5, anti: 5.5, sn4: 7.5, medusa: 8 };
 /** Tamanho da explosão da morte de cada espécie (efeitos.explosao). */
-export const EXPLOSAO_MONSTRO = { sonda: 2, armish: 2.5, chrometic: 2.5, xerxes: 3, bazit: 3, great_xerxes: 5, anti: 5, sn4: 12, medusa: 10 };
+export const EXPLOSAO_MONSTRO = { sonda: 2, sn3: 3, snzero: 4, xerxes: 3, bazit: 3, great_xerxes: 5, anti: 5, sn4: 12, medusa: 10 };
 /**
  * Quanto o rótulo (nome e barra) de cada espécie sobe além do de uma nave: os
  * grandes têm o alto bem acima do centro (a Medusa, desenhada mais alta, mais ainda).
  */
-export const ROTULO_MONSTRO = { sonda: 0, armish: 0, chrometic: 0, xerxes: 1, bazit: 2, great_xerxes: 5, anti: 1, sn4: 34, medusa: 32 };
+export const ROTULO_MONSTRO = { sonda: 0, sn3: 1, snzero: 4, xerxes: 1, bazit: 2, great_xerxes: 5, anti: 1, sn4: 34, medusa: 32 };
 /** Altura do centro da Medusa acima do chão de voo (m). */
 export const MEDUSA_CENTRO = 18;
 /** Escala do glb por espécie (1 nas que não estão aqui): o SN-4 é o dobro do original. */
@@ -43,8 +50,8 @@ export const CENTRO_MONSTRO = { medusa: MEDUSA_CENTRO, sn4: 16 };
 /** Balanço de cada espécie: subida e descida (m), frequência (rad/s) e balanço lateral (rad). */
 const BALANCO = {
   sonda: { sobe: 0.6, freq: 6, rola: 0.15 },
-  armish: { sobe: 0.5, freq: 2.2, rola: 0.08 },
-  chrometic: { sobe: 0.5, freq: 2.0, rola: 0.1 },
+  sn3: { sobe: 0, freq: 0, rola: 0 }, // a animação do original já mexe tudo
+  snzero: { sobe: 0, freq: 0, rola: 0 },
   xerxes: { sobe: 0.8, freq: 2.6, rola: 0.12 },
   great_xerxes: { sobe: 1.2, freq: 1.8, rola: 0.08 },
   bazit: { sobe: 0.8, freq: 2.4, rola: 0.14 },
@@ -59,8 +66,25 @@ let carregador = null;
 const pedidos = new Map(); // nome -> Promise
 const prontos = new Map(); // nome -> THREE.Object3D preparado
 
-/** Material do monstro no guia: facetado, sem metal, a textura do original e o recorte. */
+/**
+ * Material do monstro no guia: facetado, sem metal, a textura do original e o recorte.
+ * Peça de luz do original (`extras.aditivo` no glb: o cone de luz do SN-Zero VI): luz
+ * aditiva sem sombra, como os efeitos do original (fundo preto = transparente).
+ */
 function prepararMaterial(m) {
+  if (m.userData?.aditivo) {
+    const luz = new THREE.MeshBasicMaterial({
+      map: m.map ?? null,
+      color: m.color ?? 0xffffff,
+      side: THREE.DoubleSide,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    luz.name = m.name;
+    luz.userData.aditivo = true;
+    return luz;
+  }
   const mat = new THREE.MeshStandardMaterial({
     map: m.map ?? null,
     color: m.color ?? 0xffffff,
@@ -85,8 +109,9 @@ export function carregarMonstro(nome) {
       raiz.traverse((o) => {
         if (!o.isMesh) return;
         o.material = Array.isArray(o.material) ? o.material.map(prepararMaterial) : prepararMaterial(o.material);
-        o.castShadow = true;
+        o.castShadow = ![o.material].flat().some((mat) => mat.userData.aditivo);
       });
+      raiz.userData.clipes = gltf.animations ?? []; // a animação do original (SN-3, SN-Zero VI)
       prontos.set(nome, raiz);
       return raiz;
     })();
@@ -120,6 +145,16 @@ function montar(raiz, modelo) {
   casco.scale.multiplyScalar(ESCALA_MONSTRO[raiz.userData.esp] ?? 1);
   corpo.add(casco);
   raiz.userData.casco = casco;
+  // Animação do original em laço, começando num quadro qualquer (o acampamento não bate as asas junto).
+  const clipe = modelo?.userData.clipes?.[0];
+  raiz.userData.mixer = null;
+  if (clipe) {
+    const mixer = new THREE.AnimationMixer(casco);
+    const acao = mixer.clipAction(clipe);
+    acao.play();
+    acao.time = Math.random() * clipe.duration;
+    raiz.userData.mixer = mixer;
+  }
 }
 
 /**
@@ -196,7 +231,8 @@ export function prepararFxMedusa(raiz) {
 /** Anima o monstro (chamar a cada quadro): balanço da espécie e, na Medusa, a respiração e os efeitos. */
 export function animarMonstro(raiz, t, dt, fase = 0) {
   const ud = raiz.userData;
-  const b = BALANCO[ud.esp] ?? BALANCO.armish;
+  ud.mixer?.update(dt);
+  const b = BALANCO[ud.esp] ?? BALANCO.xerxes;
   const base = CENTRO_MONSTRO[ud.esp] ? CENTRO_MONSTRO[ud.esp] - HOVER : 0;
   ud.corpo.position.y = base + Math.sin(t * b.freq + fase) * b.sobe;
   ud.corpo.rotation.z = Math.sin(t * b.freq * 0.5 + fase * 1.7) * b.rola;

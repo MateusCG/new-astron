@@ -177,7 +177,7 @@ test('abates de jogador: só o jogador inimigo conta, e zera na partida nova', (
   colocar(b, CAMPO.x + 100, CAMPO.z);
   assert.equal(a.abatesJog, 0);
 
-  const m = w.jungle.criarMonstro('armish', CAMPO.x, CAMPO.z - 80);
+  const m = w.jungle.criarMonstro('sn3', CAMPO.x, CAMPO.z - 80);
   matar(w, m, a);
   assert.equal(m.vivo, false);
   assert.equal(a.abates, 1, 'o abate geral conta o monstro');

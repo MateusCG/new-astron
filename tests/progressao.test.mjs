@@ -60,19 +60,19 @@ test('progressão: ganhar XP sobe de nível, avisa e dá +3% de HP máximo por n
   assert.equal(j.ship.maxHp, hpMaxDoNivel(naveDe('bellico', 'assault', 0).hp, NIVEL_MAX));
 });
 
-test('progressão: abater um Armish dá XP e ouro, e o snapshot leva nível e XP', () => {
+test('progressão: abater um SN-3 dá XP e ouro, e o snapshot leva nível e XP', () => {
   const w = new World({ preparacaoS: 0, jungle: false, rng: rngFixo(11), ouroPorSegundo: 0 }); // só o ouro do abate
   const j = w.addPlayer('Caçador', 'acron');
   j.ship = createShip('acron', FORA.x, FORA.z, 0);
   j.protegidoAte = Infinity;
-  const m = w.jungle.criarMonstro('armish', FORA.x, FORA.z - 40);
+  const m = w.jungle.criarMonstro('sn3', FORA.x, FORA.z - 40);
   abater(w, j, m);
   assert.equal(m.vivo, false);
-  assert.equal(j.xp, RECOMPENSA.armish.xp);
-  assert.equal(j.ouro, RECOMPENSA.armish.ouro);
+  assert.equal(j.xp, RECOMPENSA.sn3.xp);
+  assert.equal(j.ouro, RECOMPENSA.sn3.ouro);
   const snap = w.snapshotPara(j, w.entidades(), w.tirarEventos());
   assert.equal(snap.nivel, 1);
-  assert.equal(snap.xp, RECOMPENSA.armish.xp);
+  assert.equal(snap.xp, RECOMPENSA.sn3.xp);
   assert.equal(snap.xpProx, xpParaNivel(1));
   assert.equal(snap.ents.find((e) => e.id === j.id).nivel, 1);
 });
@@ -125,13 +125,13 @@ test('monstros: cada espécie tem o XP e o ouro dela, e quem é mais forte paga 
     else assert.deepEqual(RECOMPENSA[esp], { xp: e.xp, ouro: e.ouro }, esp);
   }
   for (const k of ['arnosh', 'vorax', 'krakor', 'guardiao']) assert.equal(RECOMPENSA[k], undefined, `${k} saiu`);
-  // Mesma força por papel: os pares pagam igual.
-  assert.deepEqual(RECOMPENSA.armish, RECOMPENSA.chrometic);
+  // Mesma força por papel no centro: os pares pagam igual. Na base, a XP do original (SN-3 75, SN-Zero VI 60).
+  assert.ok(RECOMPENSA.sn3.xp > RECOMPENSA.snzero.xp && RECOMPENSA.sn3.ouro > RECOMPENSA.snzero.ouro);
   assert.deepEqual(RECOMPENSA.xerxes, RECOMPENSA.bazit);
   assert.deepEqual(RECOMPENSA.great_xerxes, RECOMPENSA.anti);
-  assert.ok(RECOMPENSA.armish.xp < RECOMPENSA.xerxes.xp && RECOMPENSA.xerxes.xp < RECOMPENSA.great_xerxes.xp);
+  assert.ok(RECOMPENSA.sn3.xp < RECOMPENSA.xerxes.xp && RECOMPENSA.snzero.xp < RECOMPENSA.xerxes.xp && RECOMPENSA.xerxes.xp < RECOMPENSA.great_xerxes.xp);
   assert.ok(RECOMPENSA.great_xerxes.xp < RECOMPENSA.sn4.xp && RECOMPENSA.sn4.xp < ESPECIES.medusa.xp);
-  assert.ok(ESPECIES.armish.hp < ESPECIES.great_xerxes.hp && ESPECIES.great_xerxes.hp < ESPECIES.sn4.hp && ESPECIES.sn4.hp < ESPECIES.medusa.hp);
+  assert.ok(ESPECIES.sn3.hp < ESPECIES.great_xerxes.hp && ESPECIES.great_xerxes.hp < ESPECIES.sn4.hp && ESPECIES.sn4.hp < ESPECIES.medusa.hp);
   assert.ok(XP_OBJETIVO > 0);
 });
 
@@ -240,7 +240,7 @@ test('monstros: o ouro e o XP do abate vão só para quem matou, no lugar da mor
     o.ship = createShip(o.ship.race, FORA.x + 20, FORA.z + 10, 0); // perto: veem a morte
     o.protegidoAte = Infinity;
   }
-  const m = w.jungle.criarMonstro('armish', FORA.x, FORA.z - 40);
+  const m = w.jungle.criarMonstro('sn3', FORA.x, FORA.z - 40);
   const eventos = abaterColetando(w, j, m);
   assert.equal(m.vivo, false);
   const morte = eventos.find((e) => e.e === 'morte' && e.id === m.id);
@@ -248,9 +248,9 @@ test('monstros: o ouro e o XP do abate vão só para quem matou, no lugar da mor
   assert.equal(ganhos.length, 1);
   assert.equal(ganhos[0].para, j.id);
   assert.equal(ganhos[0].id, m.id);
-  assert.equal(ganhos[0].esp, 'armish');
-  assert.equal(ganhos[0].ouro, RECOMPENSA.armish.ouro);
-  assert.equal(ganhos[0].xp, RECOMPENSA.armish.xp);
+  assert.equal(ganhos[0].esp, 'sn3');
+  assert.equal(ganhos[0].ouro, RECOMPENSA.sn3.ouro);
+  assert.equal(ganhos[0].xp, RECOMPENSA.sn3.xp);
   assert.ok(Math.hypot(ganhos[0].x - morte.x, ganhos[0].z - morte.z) < 0.01, 'no lugar da morte');
   for (const o of [aliado, outro]) {
     const ev = w.snapshotPara(o, [], eventos).ev;
@@ -265,9 +265,9 @@ test('monstros: no nível máximo o ganho traz só o ouro (XP 0)', () => {
   j.ship = createShip('acron', FORA.x, FORA.z, 0);
   j.protegidoAte = Infinity;
   ganharXp(j, 1e6, w.eventos);
-  const m = w.jungle.criarMonstro('armish', FORA.x, FORA.z - 40);
+  const m = w.jungle.criarMonstro('sn3', FORA.x, FORA.z - 40);
   const ganho = w.snapshotPara(j, [], abaterColetando(w, j, m)).ev.find((e) => e.e === 'ganho');
-  assert.equal(ganho.ouro, RECOMPENSA.armish.ouro);
+  assert.equal(ganho.ouro, RECOMPENSA.sn3.ouro);
   assert.equal(ganho.xp, 0);
 });
 
@@ -277,7 +277,7 @@ test('monstros: golpe crítico vai a quem bateu com `por` e o ganho do golpe fin
   j.ship = createShip('acron', FORA.x, FORA.z, 0);
   j.protegidoAte = Infinity;
   j.status = { ...j.status, critico: 1 }; // todo golpe direto é crítico
-  const m = w.jungle.criarMonstro('armish', FORA.x, FORA.z - 40);
+  const m = w.jungle.criarMonstro('sn3', FORA.x, FORA.z - 40);
   const ev = w.snapshotPara(j, [], abaterColetando(w, j, m)).ev;
   assert.equal(m.vivo, false);
   const crits = ev.filter((e) => e.e === 'acerto' && e.alvo === m.id && e.crit);

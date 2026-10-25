@@ -385,7 +385,7 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
     // Projétil de cada versão e golpe de cada arma, acima das naves, e os passageiros.
     const altoProjetil = 18;
     let k = 0;
-    for (const a of ins.armas) {
+    for (const a of [...ins.armas, ...ins.armasMonstro]) {
       const w = WEAPONS[a.kind];
       for (let nv = 1; nv <= w.versoes.length; nv++) {
         for (let prof = 0; golpeProfundo(a.kind, nv, prof); prof++) {
@@ -414,6 +414,8 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
         mina('aq-mina1', { kind: ins.armas[0]?.kind, time: 1 }),
         mina('aq-campo', { kind: ins.armas[0]?.kind, campo: true, raio: 8 }),
         mina('aq-campo-monstro', { campo: true, atq: 'campo', raio: 10 }),
+        // A armadilha do SN-Zero VI (arma de NPC do original), no vermelho dos monstros.
+        ...ins.armasMonstro.filter((a) => WEAPONS[a.kind].categoria === 'mina').map((a) => mina(`aq-mina-${a.kind}`, { kind: a.kind, time: undefined, atq: 'armadilha_sn6' })),
       ],
       meuTime,
     );
@@ -429,7 +431,7 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
     efeitos.anelArea(ponto.x, ponto.y + 5, ponto.z - 10, 8, COR_TIME.outro);
     efeitos.feixeRecall(ponto.x + 20, ponto.y, ponto.z, COR_TIME.meu);
     // Monstros: um tiro de cada ataque, a chama, a onda e o pulso do Núcleo.
-    const ataques = ['pedra', 'pedra_gigante', 'onda_eletrica', 'bala_explosiva', 'feixe_optico', 'controle', 'missil', 'missil_cruzador', 'armadilha'];
+    const ataques = ['pedra_gigante', 'bala_explosiva', 'feixe_optico', 'controle', 'missil', 'missil_cruzador', 'armadilha'];
     ataques.forEach((atq, i) => tiro(`aq-${atq}`, 'plasma', i * 4, { atq, y: ponto.y + 25 }));
     efeitos.chama({ x: ponto.x, y: ponto.y + 30, z: ponto.z, yaw: 0, alcance: 70, abertura: 0.5 });
     efeitos.pulsoNucleo(ponto.x, ponto.y + 35, ponto.z, 80, 1.5);

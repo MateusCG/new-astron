@@ -287,7 +287,7 @@
 //         tipo = 'jogador' | 'monstro' | 'minerador' | 'escolta' | 'nucleo' (o que
 //         desenhar; o Núcleo de He-3 é uma entidade parada no poço de cima, neutra,
 //         com hp/maxHp, só enquanto vivo); monstro (server/jungle.js, só vivo) traz
-//         esp = 'armish' | 'chrometic' | 'xerxes' | 'great_xerxes' | 'bazit' | 'anti' |
+//         esp = 'sn3' | 'snzero' | 'xerxes' | 'great_xerxes' | 'bazit' | 'anti' |
 //         'sn4' | 'medusa' | 'sonda' (o modelo: public/modelos/monstros/<esp>.glb;
 //         nome = nome na tela, sem time); drone = inimigo do PvE; time em jogadores,
 //         mineradores e escoltas; carga, minerando e descarga só nos mineradores; nivel, classe
@@ -319,9 +319,13 @@
 //                                    seqPor = sequência do matador com este abate
 //         Ataques de monstro (server/especies.js): os eventos 'tiro', 'acerto',
 //                                    'explosao' e 'nova', as `minas` e os `guiados`
-//                                    de um golpe de monstro trazem atq = 'pedra'
-//                                    (Armish), 'onda_eletrica' (Chrometic),
-//                                    'bala_explosiva' (Xerxes, área 10 m), 'chama'
+//                                    de um golpe de monstro trazem atq =
+//                                    'disco_voador' (SN-3, 3 discos em leque que
+//                                    atravessam), 'missil_descarga' (SN-3, 2
+//                                    teleguiados que descarregam a energia),
+//                                    'canhao_sn6' (SN-Zero VI, 2 disparos de 2 balas
+//                                    com área), 'armadilha_sn6' (SN-Zero VI, mina
+//                                    embaixo do alvo), 'bala_explosiva' (Xerxes, área 10 m), 'chama'
 //                                    (Xerxes e Grande Xerxes; só 'acerto', o desenho
 //                                    vem no evento 'chama'), 'feixe_optico' (Bazit, 3
 //                                    feixes paralelos), 'missil' (Anti, 3 teleguiados de
@@ -332,6 +336,10 @@
 //                                    'controle' (Medusa, leque de 10, desgoverno),
 //                                    'armadilha' (Medusa, 8 teleguiados lentos, sem
 //                                    tiro); kind = 'laser' ou 'plasma' (tiro de NPC)
+//                                    ou, no SN-3 e no SN-Zero VI, a arma de NPC do
+//                                    original ('n511080', 'n511090', 'n510372',
+//                                    'n510373' em WEAPONS: o cliente desenha e toca
+//                                    como as armas do jogador)
 //         {e:'chama', id, esp, x, y, z, yaw, alcance, abertura, area}   chama em cone
 //                                    de um monstro (id): do ponto, no rumo yaw, até
 //                                    alcance m, meia-abertura em rad (ou area m do

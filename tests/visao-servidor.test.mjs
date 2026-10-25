@@ -135,7 +135,7 @@ test('visão: minerador do time enxerga em volta (raio menor)', () => {
 test('visão: monstro fora da visão não vem; perto, vem', () => {
   const { w, js } = mundo(2);
   const [a] = js;
-  const d = w.jungle.criarMonstro('armish', 800, 600);
+  const d = w.jungle.criarMonstro('sn3', 800, 600);
   colocar(a, -900, 0);
   d.ship = createShip('mechan', 800, 600, 0);
   assert.ok(!vistos(w, a).has(d.id));
@@ -223,7 +223,7 @@ test('visão: o modo de teste também usa a névoa', () => {
   const w = new World({ preparacaoS: 0, teste: true, jungle: false, rng: rngFixo() });
   const j = w.addPlayer('Teste', 'acron');
   w.step();
-  const d = w.jungle.criarMonstro('armish', 900, 700);
+  const d = w.jungle.criarMonstro('sn3', 900, 700);
   d.ship = createShip('mechan', 900, 700, 0);
   w.step();
   assert.ok(!w.snapshotPara(j, w.entidades(), []).ents.some((e) => e.id === d.id));

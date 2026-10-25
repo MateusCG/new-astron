@@ -1,6 +1,6 @@
 # Texturas dos efeitos de tiro do AstroN original
 
-Copiadas por `tools/efeitos_do_original.py` (de `old-astron/reference/textures_png`), só as usadas pelos efeitos das armas de jogador: 212 arquivos, 890 KB. São insumo para `public/js/efeitos.js` (frente Armas); nenhuma está ligada no jogo ainda.
+Copiadas por `tools/efeitos_do_original.py` (de `old-astron/reference/textures_png`), só as usadas pelos efeitos das armas de jogador e dos monstros da jungle (SN-3 e SN-Zero VI): 213 arquivos, 896 KB. São insumo para `public/js/efeitos.js` (frente Armas); nenhuma está ligada no jogo ainda.
 
 Os efeitos do original são **aditivos** (fundo preto = transparente): use `AdditiveBlending`, como o guia visual já pede para efeito de luz. A cor dominante é a média ponderada pelo brilho.
 
@@ -10,7 +10,7 @@ Funções (coluna de `inititemweapon.cfg`): **clarão do disparo** (50, na boca 
 
 | Efeito | Função | Texturas | Cor dominante | Armas (versão base) |
 |---|---|---|---|---|
-| `1121001` | clarão do disparo | `gun_flare_.png` | #edf78c | Shrewdo Storm Gun; Vulkan Blow Gun; Array Spin Gun; Array Thunder Gun; Rifle Thunder Gun; Vulkan Sector Gun (+20) |
+| `1121001` | clarão do disparo | `gun_flare_.png` | #edf78c | Shrewdo Storm Gun; Vulkan Blow Gun; Array Spin Gun; Array Thunder Gun; Rifle Thunder Gun; Vulkan Sector Gun (+21) |
 | `1131055` | projétil | `1131056.png`, `1131055.png` | #47e742, #497e9f | Homing Clone Missile Lv.1 |
 | `1131056` | projétil | `1131056.png`, `propulsion_light.png` | #47e742, #b6f59e | Homing Clone Missile (Acron)P1 |
 | `1131256` | projétil | `propulsion_light.png`, `1131056.png` | #b6f59e, #47e742 | Homing Clone Missile (Acron)P2 |
@@ -18,7 +18,7 @@ Funções (coluna de `inititemweapon.cfg`): **clarão do disparo** (50, na boca 
 | `1132001` | clarão do disparo | `1132001.png` | #ff9ee1 | Sector Storm Cannon; Rifle Storm Cannon; EnergyBolt Trap; Reinforced EnergyBolt Trap; Magma Sector Cannon; Energy Spear (+1) |
 | `1133002` | clarão do disparo | `1133002.png` | #9ea4ff | Paralyzing Cannon; Rapid Shield Discharging Cannon; SpeedTrap Cannon; Resistance Break Cannon; Radar Disturbing Cannon; Control Disturbing Cannon (+23) |
 | `1133055` | projétil | `1133055.png` | #8beb3f | Cyclone Storm Lv.1; Cyclone Wiper Lv.1 |
-| `1150005` | clarão do disparo | `1150005.png` | #ffffff | Energy Field Trap; Homing Trap; Homing Trap (Shrewdo)(warhead); Lock-Down Missile; Striking Power Diminish Missile; Cloak Sensing Cannon (+24) |
+| `1150005` | clarão do disparo | `1150005.png` | #ffffff | Energy Field Trap; Homing Trap; Homing Trap (Shrewdo)(warhead); Lock-Down Missile; Striking Power Diminish Missile; Cloak Sensing Cannon (+25) |
 | `1162020` | clarão do disparo, projétil | `1162020_01.png` | #f9a2d0 | Bullet Rebouncing Device Lv.1 |
 | `1162022` | projétil | `1162022.png`, `1162022_02.png` | #74d871, #78db75 | Ph. Shock Wave; Front Sector Shock Wave |
 | `1162023` | projétil | `1162023.png`, `1162023_02.png`, `1162022.png`, `1162022_02.png` | #ed569b, #fb4eac, #74d871, #78db75 | Acron Blow Wave Lv.1 |
@@ -47,6 +47,7 @@ Funções (coluna de `inititemweapon.cfg`): **clarão do disparo** (50, na boca 
 | `1321251` | projétil | `gun.png`, `1321051_light.png` | #9b9c74, #b6f59e | Vulkan Blow Gun |
 | `1331015` | projétil | `1331015.png` | #55ff00 | Case Shot Launcher |
 | `1332003` | projétil | `charge_vox00.png`, `charge_vox01.png`, `charge_vox02.png`, `charge_vox03.png`, `charge_vox04.png` (+10 quadros) | #e64adc, #e54dd7, #e951d7, #e551d2 | Sector Storm Cannon; Rifle Storm Cannon; Array Cannon |
+| `1332004` | projétil | `charge_vox00.png`, `charge_vox01.png`, `charge_vox02.png`, `charge_vox03.png`, `charge_vox04.png` (+10 quadros) | #e64adc, #e54dd7, #e951d7, #e551d2 | sn Cannon6 (NPC) |
 | `1332008` | projétil | `charge_vox14.png`, `charge_vox00.png`, `charge_vox01.png`, `charge_vox02.png`, `charge_vox03.png` (+10 quadros) | #f55edb, #e64adc, #e54dd7, #e951d7 | Magma Sector Cannon |
 | `1332025` | projétil | `1332023.png` | #f612c7 | Energy Spear |
 | `1332034` | projétil | `1332034.png` | #ff53e1 | Energy Wave Lv.1; Wide Energy Wave Lv.1 |
@@ -67,11 +68,12 @@ Funções (coluna de `inititemweapon.cfg`): **clarão do disparo** (50, na boca 
 | `1353019` | projétil | `1353019.png`, `1353019_01.png` | #4a56af, #86c5f9 | Repair Druid |
 | `1353021` | projétil | `1353021_01.png`, `1353021_02.png` | #326cff, #5283ff | Trap Removing Nova; Trap Removing Nova Lv.1 |
 | `1355004` | projétil | `1355004_01.png` | #f94440 | Magma Trap |
-| `1361031` | projétil | `1361029.png` | #75d52a | Reinforced Revolving Blade Lv.1; Revolving Blade Lv.1 |
+| `1361031` | projétil | `1361029.png` | #75d52a | Reinforced Revolving Blade Lv.1; Revolving Blade Lv.1; snThr Flying Disk(NPC) |
 | `1361059` | projétil | `1361057_02.png`, `1361057_01.png` | #f888dc, #b65bb1 | Circle Trap Lv.1; Circle Trap (warhead) |
 | `1401007` | impacto | `1401007_01.png`, `1401007_02.png`, `1401007_03.png`, `1401007_04.png`, `1401007_05.png` (+11 quadros) | #c2cad8, #dfe3ea, #e1e4ec, #dfe3eb | Homing Trap; Homing Clone Missile (Acron)P1; Rifle Trap |
 | `1401107` | impacto | `1401007_01.png`, `1401007_02.png`, `1401007_03.png`, `1401007_04.png`, `1401007_05.png` (+11 quadros) | #c2cad8, #dfe3ea, #e1e4ec, #dfe3eb | Homing Trap (Shrewdo)(warhead); Homing Spin Missile; Homing Spin Missile T2; Homing Clone Missile Lv.1; Homing Clone Missile (Acron)P2; Reinforced Revolving Blade Lv.1 (+6) |
 | `1401207` | impacto | `1401007_01.png`, `1401007_02.png`, `1401007_03.png`, `1401007_04.png`, `1401007_05.png` (+11 quadros) | #c2cad8, #dfe3ea, #e1e4ec, #dfe3eb | Homing Clone Missile (Acron)P3 |
+| `1401307` | impacto | `1401007_01.png`, `1401007_02.png`, `1401007_03.png`, `1401007_04.png`, `1401007_05.png` (+11 quadros) | #c2cad8, #dfe3ea, #e1e4ec, #dfe3eb | snThr Flying Disk(NPC) |
 | `1412001` | impacto | `1412001.png`, `1412001_01.png` | #ef42a9, #eb2082 | Array Blow Beam; Piercing Array Beam; Clone Storm Beam; Clone Storm (mainbody)1; Force Magma Beam; 3way Rifle Beam (+24) |
 | `1412002` | efeito no alvo | `1412002.png` | #f47ab1 | Clone Storm Beam; Clone Storm (mainbody)1; CircleStorm Beam Lv.1; CircleBlow Beam Lv.1; HomingStorm Beam Lv.1; HomingStorm Reinforced Beam Lv.1 (+1) |
 | `1412023` | projétil | `1412021.png` | #8ca4fe | Bolt Storm Beam Lv.1 |
@@ -82,8 +84,8 @@ Funções (coluna de `inititemweapon.cfg`): **clarão do disparo** (50, na boca 
 | `1500001` | projétil | `1500001.png` | #4384fa | Acron Commandship Wave Cannon |
 | `1500002` | projétil | `1500002.png` | #fa4343 | Bellico Commandship Wave Cannon |
 | `1500003` | projétil | `1500003.png` | #43fa46 | Shrewdo Commandship Wave Cannon |
-| `1502004` | impacto | `1502004.png` | #c91864 | Sector Storm Cannon; Rifle Storm Cannon; EnergyBolt Trap; EnergyBolt (Shrewdo); Reinforced EnergyBolt Trap; kkkEnergyBolt (+13) |
-| `1503009` | impacto | `1503009.png` | #2b4d97 | Paralyzing Cannon; Rapid Shield Discharging Cannon; SpeedTrap Cannon; Lock-Down Missile; Resistance Break Cannon; Striking Power Diminish Missile (+31) |
+| `1502004` | impacto | `1502004.png` | #c91864 | Sector Storm Cannon; Rifle Storm Cannon; EnergyBolt Trap; EnergyBolt (Shrewdo); Reinforced EnergyBolt Trap; kkkEnergyBolt (+15) |
+| `1503009` | impacto | `1503009.png` | #2b4d97 | Paralyzing Cannon; Rapid Shield Discharging Cannon; SpeedTrap Cannon; Lock-Down Missile; Resistance Break Cannon; Striking Power Diminish Missile (+32) |
 | `1503010` | impacto, projétil | `1503010.png` | #ffffff | Paralysis Removing Nova; Paralysis Removing Nova Lv.1; Energy Distribution Nova Lv.1; Paralysis Removing Cannon |
 | `1503011` | impacto | `1503010.png` | #ffffff | Repair Druid; Repair Nova Lv.1 |
 | `1503012` | impacto | `1503010.png` | #ffffff | Shield Recharging Nova |
@@ -98,6 +100,7 @@ Funções (coluna de `inititemweapon.cfg`): **clarão do disparo** (50, na boca 
 | `2164011` | projétil | `2164011.png`, `2164011_cross.png` | #f5eb7f, #fffc2c | Shield Recharging Nova |
 | `2164012` | projétil | `2163011.png`, `2163022_cross.png` | #88a8df, #2c2fff | Energy Distribution Nova Lv.1 |
 | `2165012` | projétil | `2163011.png`, `2163011_0001.png`, `2163011_0100.png`, `2163011_0101.png`, `2163011_0102.png` (+18 quadros) | #88a8df, #4f48ce, #e1e1e1, #e2e2e2 | SpeedTrap Nova Lv.1; Acceleration Paralysis Nova |
+| `2252007` | projétil | `2252007.png` | #9e1466 | Sn6Trap (NPC) |
 | `2252010` | projétil, área | `1352004.png`, `1352004_0050.png`, `icon_e.png`, `1352004_0051.png`, `1352004_0052.png` (+7 quadros) | #ff00cc, #df5cc8, #ffffff, #df5dc8 | Magnetic Field Trap |
 | `2253006` | projétil, área | `1352005.png`, `1352004_0050.png`, `1352004_0051.png`, `1352004_0052.png`, `1352004_0053.png` (+6 quadros) | #00ff33, #df5cc8, #df5dc8, #e162cb | Suppress Trap Bullet |
 | `2253007` | projétil, área | `1355004_01.png` | #f94440 | Magma Trap Bullet |
@@ -106,7 +109,7 @@ Funções (coluna de `inititemweapon.cfg`): **clarão do disparo** (50, na boca 
 | `2343008` | projétil | `missile.png`, `missile_light.png`, `icon_cross03.png` | #c8c8a0, #a9bfe8, #ffffff | Shield Breaking Missile |
 | `2343009` | projétil | `missile.png`, `missile_light.png`, `icon_cross04.png` | #c8c8a0, #a9bfe8, #ffffff | Striking Power Diminish Missile |
 | `2343011` | projétil | `missile.png`, `missile_light.png`, `icon_ld.png` | #c8c8a0, #a9bfe8, #ffffff | Lock-Down Missile |
-| `2343012` | projétil | `missile.png`, `missile_light.png`, `icon_e.png` | #c8c8a0, #a9bfe8, #ffffff | Double Discharging Missile; Energy Absorbing Missile Lv.1 |
+| `2343012` | projétil | `missile.png`, `missile_light.png`, `icon_e.png` | #c8c8a0, #a9bfe8, #ffffff | Double Discharging Missile; Energy Absorbing Missile Lv.1; snThr Energy Discharging Missile(NPC) |
 | `2403002` | efeito no alvo | `2403002_0050.png`, `2403002_01.png`, `icon_cross02.png`, `2403002_0051.png`, `2403002_0052.png` (+18 quadros) | #5775cf, #7878d3, #ffffff, #5674ce | SpeedTrap Cannon; Control Disturbing Cannon; Paralyzing Stormmissile Lv.1 |
 | `2403003` | efeito no alvo | `2403002_0050.png`, `2403002_01.png`, `icon_cross03.png`, `2403002_0051.png`, `2403002_0052.png` (+18 quadros) | #5775cf, #7878d3, #ffffff, #5674ce | Rapid Shield Discharging Cannon; Freezer Cannon Lv.1 |
 | `2403004` | efeito no alvo | `2403002_0050.png`, `2403002_01.png`, `icon_cross04.png`, `2403002_0051.png`, `2403002_0052.png` (+18 quadros) | #5775cf, #7878d3, #ffffff, #5674ce | Paralyzing Cannon; Recoil Shock Boostergun Lv.1; Volley Disabling Cannon |
@@ -115,7 +118,7 @@ Funções (coluna de `inititemweapon.cfg`): **clarão do disparo** (50, na boca 
 | `2403008` | efeito no alvo | `2403002_0050.png`, `2403002_01.png`, `icon_e.png`, `2403002_0051.png`, `2403002_0052.png` (+18 quadros) | #5775cf, #7878d3, #ffffff, #5674ce | Energy Discharging Cannon Lv.1; Energy Reducing Cannon; Energy Consumer Cannon |
 | `2403009` | efeito no alvo | `2403002_0050.png`, `2403002_01.png`, `icon_s.png`, `2403002_0051.png`, `2403002_0052.png` (+18 quadros) | #5775cf, #7878d3, #ffffff, #5674ce | Cloak Sensing Cannon |
 | `2432000` | efeito no alvo | `2403002_0050.png`, `2403002_01.png`, `2432001_0050.png`, `2432001_0051.png`, `2432001_0052.png` (+18 quadros) | #5775cf, #7878d3, #b938b9, #bc3abc | Tracking Bolt; El. Bomber Lv.1; LightningStorm Rifle Lv.1; El. Trap Lv.1; Bolt Storm Beam Lv.1; Acron Commandship Wave Cannon (+1) |
-| `2432001` | efeito no alvo | `2403002_0050.png`, `2403002_01.png`, `2432001_0050.png`, `2432001_0051.png`, `2432001_0052.png` (+18 quadros) | #5775cf, #7878d3, #b938b9, #bc3abc | Sector Storm Cannon; Rifle Storm Cannon; EnergyBolt (Shrewdo); kkkEnergyBolt; K EnergyBolt; Magma Sector Cannon (+2) |
+| `2432001` | efeito no alvo | `2403002_0050.png`, `2403002_01.png`, `2432001_0050.png`, `2432001_0051.png`, `2432001_0052.png` (+18 quadros) | #5775cf, #7878d3, #b938b9, #bc3abc | Sector Storm Cannon; Rifle Storm Cannon; EnergyBolt (Shrewdo); kkkEnergyBolt; K EnergyBolt; Magma Sector Cannon (+3) |
 | `2432002` | efeito no alvo | `2403002_0050.png`, `2403002_01.png`, `2432001_0050.png`, `2432001_0051.png`, `2432001_0052.png` (+18 quadros) | #5775cf, #7878d3, #b938b9, #bc3abc | Shrewdo Commandship Wave Cannon |
 | `2443007` | projétil | `missile.png`, `missile_light.png` | #c8c8a0, #a9bfe8 | ChargeBolt Missile; Shock Bolt Missile |
 | `2541022` | projétil | `missile.png`, `gun_flare_.png`, `2343007_01.png` | #c8c8a0, #edf78c, #c1ef8f | Cruise Missile |
@@ -262,6 +265,7 @@ Funções (coluna de `inititemweapon.cfg`): **clarão do disparo** (50, na boca 
 | `2163022_cross.png` | 128×128 px, 2.0 KB | #2c2fff |
 | `2164011.png` | 128×128 px, 10.2 KB | #f5eb7f |
 | `2164011_cross.png` | 128×128 px, 1.8 KB | #fffc2c |
+| `2252007.png` | 128×128 px, 5.6 KB | #9e1466 |
 | `2343007_01.png` | 64×64 px, 3.5 KB | #c1ef8f |
 | `2403002_0050.png` | 128×128 px, 5.4 KB | #5775cf |
 | `2403002_0051.png` | 128×128 px, 5.4 KB | #5674ce |

@@ -43,7 +43,7 @@ test('ondas: os degraus do pedido, pelo tempo restante', () => {
     assert.equal(multJungle(r), m, `${r} s restantes`);
     assert.equal(ouroJungle(r), o, `ouro com ${r} s restantes`);
   }
-  assert.deepEqual(especiesAcampamento('JB0N', 4), Array(16).fill('armish'));
+  assert.deepEqual(especiesAcampamento('JB0N', 4), Array(16).fill('sn3'));
   const centro = especiesAcampamento('JC0N', 2);
   assert.equal(centro.filter((e) => e === 'great_xerxes').length, 2);
   assert.equal(centro.filter((e) => e === 'xerxes').length, 4);
@@ -198,19 +198,19 @@ test('ondas: o ouro de cada monstro de acampamento sobe com o degrau; SN-4 e XP 
     w.step();
     return { ouro: a.ouro - ouro, xp: (a.xpGanho ?? 0) - xp };
   };
-  const base = ESPECIES.armish.ouro;
+  const base = ESPECIES.sn3.ouro;
   const ganhos = [];
   for (const espera of [0, 5.05, 5, 5]) {
     passos(w, espera);
-    ganhos.push(abate('armish'));
+    ganhos.push(abate('sn3'));
   }
   assert.deepEqual(ganhos.map((g) => g.ouro), [base, base * 1.5, base * 2, base * 2.5].map(Math.round));
-  assert.ok(ganhos.every((g) => g.xp === ESPECIES.armish.xp || g.xp === 0), 'a XP não multiplica');
+  assert.ok(ganhos.every((g) => g.xp === ESPECIES.sn3.xp || g.xp === 0), 'a XP não multiplica');
   assert.equal(abate('sn4').ouro, ESPECIES.sn4.ouro, 'o SN-4 paga o ouro de sempre');
   // O evento 'ganho' (o ouro que sobe da morte) leva o valor multiplicado.
-  const m = w.monstros.find((x) => x.vivo && x.esp === 'chrometic');
+  const m = w.monstros.find((x) => x.vivo && x.esp === 'snzero');
   w.tirarEventos();
   matar(w, m, a);
   const ganho = w.tirarEventos().find((e) => e.e === 'ganho' && e.id === m.id);
-  assert.equal(ganho.ouro, Math.round(ESPECIES.chrometic.ouro * 2.5));
+  assert.equal(ganho.ouro, Math.round(ESPECIES.snzero.ouro * 2.5));
 });

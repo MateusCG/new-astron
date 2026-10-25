@@ -85,30 +85,30 @@ Rocha e mineradora cortam a linha de visão. Quem está num campo de asteroides 
 
 **Comportamento:** passivos; só atacam quem os atacou (e atacar um provoca o **acampamento inteiro**), por 20 s depois do último golpe. **Sem alcance para revidar, o monstro se aproxima** de quem o atacou (até 85% do alcance da arma; com rocha no meio, contorna). Não saem do **território** (250 m dos comuns, 175 m dos chefes): passando dele, desistem, voltam ao ponto e regeneram. Fora de briga regeneram (3%/s comuns, 2%/s chefes). Nunca atacam quem está numa zona segura.
 
-**Acampamentos** (6 por território: 4 comuns e 2 buffs). Aparecem aos **0:00**, no mesmo instante em que a preparação acaba (pedido do Mateus, 23/out/2026; eram 0:45), e voltam **1:30** depois de o acampamento inteiro morrer. Composição no referencial do time 0 (o time 1 é o mesmo girado; escolha do Mateus: variedade com a mesma força por papel):
+**Acampamentos** (6 por território: 4 comuns e 2 buffs). Aparecem aos **0:00**, no mesmo instante em que a preparação acaba (pedido do Mateus, 23/out/2026; eram 0:45), e voltam **1:30** depois de o acampamento inteiro morrer. Composição no referencial do time 0 (o time 1 é o mesmo girado; escolha do Mateus: variedade com a mesma força por papel no centro; na base, o SN-3 e o SN-Zero VI do Stage M5 do original, pedido de out/2026, com a relação de força do original entre eles):
 
 | Acampamento | Monstros |
 |---|---|
-| Perto da base, em cima | 4 **Armish** |
-| Perto da base, embaixo | 4 **Chrometic** |
+| Perto da base, em cima | 4 **SN-3** |
+| Perto da base, embaixo | 4 **SN-Zero VI** |
 | Perto do centro, em cima | 1 **Grande Xerxes** + 2 **Xerxes** |
 | Perto do centro, embaixo | 1 **Anti** + 2 **Bazit** |
 
 **[feito]** **Ondas** (`DEGRAUS_JUNGLE` em `server/jungle.js`): os acampamentos crescem pelo tempo restante da partida, e o **ouro de cada monstro de acampamento sobe junto** (pedido do Mateus; pelo degrau da hora do abate, a XP não muda; o SN-4, a Medusa e a sonda não multiplicam nem a quantidade nem o ouro):
 
-| Tempo restante | Quantidade | Ouro por monstro | Ex.: Armish |
+| Tempo restante | Quantidade | Ouro por monstro | Ex.: SN-3 |
 |---|---|---|---|
-| 20:00 a 15:01 | ×1 | ×1 | 18 |
-| 15:00 a 10:01 | ×2 | ×1,5 | 27 |
-| 10:00 a 5:01 | ×3 | ×2 | 36 |
-| 5:00 até o fim | ×4 | ×2,5 | 45 |
+| 20:00 a 15:01 | ×1 | ×1 | 21 |
+| 15:00 a 10:01 | ×2 | ×1,5 | 32 |
+| 10:00 a 5:01 | ×3 | ×2 | 42 |
+| 5:00 até o fim | ×4 | ×2,5 | 53 |
 
 O ouro sobe mais devagar que a quantidade para o fim da partida não virar só farm: limpar um acampamento inteiro no ×4 paga 10 vezes o do começo (seria 16 com o ouro também ×4).
 
 | Espécie | Papel | HP | Ataque | XP / ouro |
 |---|---|---|---|---|
-| Armish | pequeno da base | 160 | pedra (físico), 4 a cada 1,4 s, 170 m | 20 / 18 |
-| Chrometic | pequeno da base | 160 | onda elétrica, 4 a cada 1,4 s, 170 m | 20 / 18 |
+| SN-3 | pequeno da base (Stage M5) | 200 | um por vez pelo peso do original: Disco Voador (70%: 3 discos físicos em leque que atravessam, 1,2 cada, a cada 1 s, 477 m) ou Míssil Descarregador de Energia (30%: 2 teleguiados elétricos que zeram a energia, 367 m); 37,5 m/s | 23 / 21 |
+| SN-Zero VI | pequeno da base (Stage M5) | 96 | um por vez pelo peso do original: Canhão SN 6 (70%: 2 disparos de 2 balas com área de 20 m, 0,5 cada, a cada 0,5 s, 220 m) ou Armadilha SN6 (30%: mina de 20 s embaixo do alvo, 1,5); 42,5 m/s | 18 / 16 |
 | Xerxes | pequeno do centro | 240 | chama em cone de perto (70 m) e bala explosiva de longe (220 m) | 35 / 28 |
 | Bazit | pequeno do centro | 240 | 3 feixes laser paralelos, 200 m | 35 / 28 |
 | Grande Xerxes | grande do centro | 900 | chama larga (110 m, área 15 m) | 90 / 70 |

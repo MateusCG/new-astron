@@ -5,7 +5,8 @@
 //
 // Quem nasce onde (o time 1 é o time 0 girado 180°, com as MESMAS espécies no
 // acampamento correspondente: JB0N ↔ JB1S, JC0S ↔ JC1N...):
-// - acampamento da base de cima (JB0N) 4 Armish, da base de baixo (JB0S) 4 Chrometic;
+// - acampamento da base de cima (JB0N) 4 SN-3, da base de baixo (JB0S) 4 SN-Zero VI
+//   (os dois do Stage M5 do original, com as armas dele);
 // - acampamento do centro de cima (JC0N) 1 Grande Xerxes + 2 Xerxes, do centro de
 //   baixo (JC0S) 1 Anti + 2 Bazit;
 // - buffs de ataque (BA0, BA1): um SN-4 cada;
@@ -21,7 +22,7 @@
 // Ondas (DEGRAUS_JUNGLE): a quantidade de monstros dos acampamentos cresce com a
 // partida, pelo tempo RESTANTE do relógio que o jogador vê: até 15:00 restantes a
 // composição normal (×1); de 15:00 restantes ×2; de 10:00 ×3; de 5:00 até o fim ×4
-// (não passa disso). Multiplica cada espécie da COMPOSICAO (4 Armish → 8 → 12 → 16;
+// (não passa disso). Multiplica cada espécie da COMPOSICAO (4 SN-3 → 8 → 12 → 16;
 // 1 Grande Xerxes + 2 Xerxes → 2 + 4...), nos 8 acampamentos dos dois territórios;
 // o SN-4, a Medusa e a sonda não multiplicam. Quando o degrau sobe:
 // - acampamento vivo recebe NA HORA os que faltam para a quantidade nova (reforço;
@@ -70,12 +71,16 @@
 // aplicados por server/bonus.js e pelo World.
 //
 // Os ataques são golpes no formato das armas (server/golpes.js golpeDeMonstro),
-// salvo a chama, que é dano direto num cone (evento 'chama' para o desenho).
+// salvo a chama, que é dano direto num cone (evento 'chama' para o desenho). O SN-3
+// e o SN-Zero VI atiram com as armas do original (forma 'arma': o golpe é o da arma
+// do catálogo, com o dano da espécie), inclusive a rajada (o Canhão SN 6 dá 2
+// disparos de 2 balas, o segundo RAJADA da arma depois: Jungle#rajadas) e a armadilha,
+// que cai embaixo do alvo.
 
 import { DT, HOVER, SHIP_RADIUS, createShip, stepShip, velocidadeBase } from '../shared/sim.js';
 import { ACAMPAMENTOS, BUFFS, MEDUSA, BASES, heightAt, trajetoSonda, cruzaCampoBase } from '../shared/terrain.js';
 import { bloqueiaVisao } from '../shared/visao.js';
-import { MISSIL_CONE } from '../shared/armas.js';
+import { MISSIL_CONE, golpeDaArma } from '../shared/armas.js';
 import { alturaSolida, pontoLivre } from '../shared/obstaculos.js';
 import { MapaNavegacao } from './navegacao.js';
 import { ESPECIES, TERRITORIO_COMUM, alcanceMaximo } from './especies.js';
@@ -125,8 +130,8 @@ export const BONUS_MEDUSA_S = BONUS.medusa.s;
  * JB1S tem as do JB0N, JB1N as do JB0S, e assim por diante).
  */
 export const COMPOSICAO = {
-  JB0N: ['armish', 'armish', 'armish', 'armish'],
-  JB0S: ['chrometic', 'chrometic', 'chrometic', 'chrometic'],
+  JB0N: ['sn3', 'sn3', 'sn3', 'sn3'],
+  JB0S: ['snzero', 'snzero', 'snzero', 'snzero'],
   JC0N: ['great_xerxes', 'xerxes', 'xerxes'],
   JC0S: ['anti', 'bazit', 'bazit'],
 };
@@ -218,7 +223,11 @@ export function golpeDoAtaque(a) {
   if (GOLPES.has(a)) return GOLPES.get(a);
   const base = { prof: 0, dano: a.dano, efeitos: a.efeito ? [a.efeito] : [], area: a.area ?? 0, tipoDano: a.tipoDano, atq: a.atq, vis: {}, inimigo: true, aliado: false, atravessa: false };
   let g;
-  if (a.forma === 'projetil' || a.forma === 'guiado') {
+  if (a.forma === 'arma') {
+    // Arma do original (SN-3, SN-Zero VI): o golpe convertido do catálogo, com o dano,
+    // o tipo e o nome do ataque da espécie (o visual e o resto, da arma).
+    g = { ...golpeDaArma(a.kind, 1, 0), dano: a.dano, tipoDano: a.tipoDano, atq: a.atq, inimigo: true, aliado: false };
+  } else if (a.forma === 'projetil' || a.forma === 'guiado') {
     g = {
       ...base,
       forma: 'projetil',
@@ -499,7 +508,8 @@ export class Jungle {
       ultimoDano: 0,
       raiva: new Map(),
       prox: cfg.ataques.map(() => 0), // tick em que cada ataque fica pronto
-      livreAte: 0, // Medusa: entre um ataque e outro
+      livreAte: 0, // Medusa, SN-3, SN-Zero VI: entre um ataque e outro
+      rajadas: [], // disparos da rajada que ainda vão sair: { a, alvo, k, tick }
       voltando: false,
       patrulha: null,
       trocaPatrulha: 0,
@@ -638,6 +648,7 @@ export class Jungle {
       s.vx = s.vz = 0;
     }
     if (alvo) this.#atacar(m, alvo);
+    if (m.rajadas.length) this.#rajadas(m);
   }
 
   /**
@@ -740,7 +751,8 @@ export class Jungle {
       .filter(({ a, i }) => t >= m.prox[i] && d <= a.alcance + raioAlvo && !(a.minimo !== undefined && d < a.minimo));
     if (!prontos.length) return;
     if (m.cfg.entreAtaquesS !== undefined) {
-      // Medusa: um ataque de cada vez, escolhido pelo peso do original entre os prontos.
+      // Medusa, SN-3 e SN-Zero VI: um ataque de cada vez, escolhido pelo peso do
+      // original entre os prontos.
       if (t < m.livreAte) return;
       const total = prontos.reduce((soma, p) => soma + (p.a.peso ?? 1), 0);
       let sorte = this.world.rng() * total;
@@ -763,18 +775,44 @@ export class Jungle {
     }
   }
 
-  #disparar(m, a, alvo) {
+  #disparar(m, a, alvo, k = 0) {
     if (a.forma === 'cone') return this.#chama(m, a, alvo);
     const s = m.ship;
     const t = alvo.ship;
+    const g = golpeDoAtaque(a);
     let yaw = yawPara(s.x, s.z, t.x, t.z);
-    if (a.forma === 'projetil') {
+    if (g.forma === 'projetil' && !g.guia && g.vel > 0) {
       // Mira onde o alvo vai estar quando o tiro chegar.
-      const voo = dist(s, t) / a.vel;
+      const voo = dist(s, t) / g.vel;
       yaw = yawPara(s.x, s.z, t.x + (t.vx ?? 0) * voo, t.z + (t.vz ?? 0) * voo);
     }
-    const ponto = a.forma === 'campo' ? { x: t.x, z: t.z } : { x: s.x, z: s.z };
-    this.world.golpes.golpeDeMonstro(m, a.kind, golpeDoAtaque(a), { yaw, alvo, ...ponto });
+    // Campo (SN-4) e armadilha (SN-Zero VI) abrem embaixo do alvo; o resto sai do monstro.
+    const ponto = g.forma === 'campo' || g.forma === 'mina' ? { x: t.x, z: t.z } : { x: s.x, z: s.z };
+    this.world.golpes.golpeDeMonstro(m, a.kind, g, { yaw, alvo, k, ...ponto });
+    // Rajada (armas do original): os disparos seguintes saem RAJADA da arma depois.
+    if (k === 0 && g.rajada > 1) m.rajadas.push({ a, alvo: alvo.id, k: 1, tick: this.tick + Math.max(1, ticks(g.rajadaS)) });
+  }
+
+  /**
+   * Os disparos da rajada que chegaram na hora, no alvo de quando ela começou (se ele
+   * ainda está vivo e à vista; se não, a rajada acaba). EMP e "sem tiro" cortam a rajada.
+   */
+  #rajadas(m) {
+    const s = m.ship;
+    if (s.emp > 0 || s.semTiro > 0) {
+      m.rajadas = [];
+      return;
+    }
+    const prontas = m.rajadas.filter((r) => r.tick <= this.tick);
+    if (!prontas.length) return;
+    m.rajadas = m.rajadas.filter((r) => r.tick > this.tick);
+    for (const r of prontas) {
+      const alvo = this.world.players.get(r.alvo);
+      if (!alvo?.vivo || bloqueiaVisao(s.x, s.z, alvo.ship.x, alvo.ship.z)) continue;
+      const g = golpeDoAtaque(r.a);
+      this.#disparar(m, r.a, alvo, r.k);
+      if (r.k + 1 < g.rajada) m.rajadas.push({ ...r, k: r.k + 1, tick: this.tick + Math.max(1, ticks(g.rajadaS)) });
+    }
   }
 
   /**

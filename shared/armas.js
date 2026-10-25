@@ -42,7 +42,7 @@
 // (debuff), aliado (suporte), a própria nave (reforço) ou especial (rebater tiros,
 // desarmar minas).
 
-import { ARMAS_ORIGINAL, EFEITOS_VISUAIS } from './armas-original.js';
+import { ARMAS_ORIGINAL, ARMAS_NPC_ORIGINAL, EFEITOS_VISUAIS } from './armas-original.js';
 import { FATOR_ESCALA_HP, FATOR_ENERGIA, FATOR_RECARGA, FATOR_VELOCIDADE } from './naves.js';
 import { NIVEL_ITEM_MAX } from './versoes.js';
 
@@ -493,8 +493,9 @@ function converterArma(a) {
 
 /**
  * Tiros dos NPCs (fora do catálogo do jogador): o laser das torretas e da escolta.
- * Os monstros da jungle (server/jungle.js) usam 'laser' e 'plasma' só como o desenho
- * do tiro: o dano, o tipo e o alcance vêm do ataque da espécie (server/especies.js).
+ * Os monstros da jungle (server/jungle.js) que não trazem arma do original usam
+ * 'laser' e 'plasma' só como o desenho do tiro: o dano, o tipo e o alcance vêm do
+ * ataque da espécie (server/especies.js).
  */
 export const NPC_LASER = { dano: 12, vel: 340, cd: 0.16, energia: 2, vida: 1.3, raio: 5 };
 export const NPC_PLASMA = { dano: 42, vel: 190, cd: 0.9, energia: 14, vida: 2.2, raio: 6.5 };
@@ -535,12 +536,34 @@ function armaNpc(chave, nome, n, tipoDano) {
   };
 }
 
-/** Todas as armas por chave: NPCs ('laser', 'plasma') e as do original ('o111001'...). */
+/**
+ * Arma "(NPC)" do original (ARMAS_NPC_ORIGINAL: as dos monstros da jungle que vêm do
+ * AstroN, como o SN-3 e o SN-Zero VI): convertida como as do jogador (mesmos fatores,
+ * mesma forma do golpe, o visual e o som do original), mas fora do catálogo do jogador
+ * (`npc`) e com `original` (o cliente desenha com os efeitos do original, como as do
+ * jogador). O dano que vale é o do ataque da espécie (server/especies.js), que põe o
+ * monstro na força do papel dele no mapa.
+ */
+function converterArmaNpcOriginal(a) {
+  return { ...converterArma(a), chave: 'n' + a.id, npc: true, original: true, preco: 0 };
+}
+
+/**
+ * Todas as armas por chave: NPCs ('laser', 'plasma'), as do original ('o111001'...) e,
+ * no fim, as de NPC do original ('n511080'...).
+ */
 export const WEAPONS = {
   laser: armaNpc('laser', 'Laser', NPC_LASER, 'laser'),
   plasma: armaNpc('plasma', 'Plasma', NPC_PLASMA, 'eletrico'),
   ...Object.fromEntries(ARMAS_ORIGINAL.map((a) => [`o${a.id}`, converterArma(a)])),
+  ...Object.fromEntries(ARMAS_NPC_ORIGINAL.map((a) => [`n${a.id}`, converterArmaNpcOriginal(a)])),
 };
+
+/** A arma (chave) desenha com os efeitos do original (as do jogador e as de NPC do original)? */
+export function visualDoOriginal(kind) {
+  const w = WEAPONS[kind];
+  return !!w && (!w.npc || !!w.original);
+}
 
 /**
  * Índice de cada arma (os campos `a` e `a2` do comando são índices aqui). Os tiros

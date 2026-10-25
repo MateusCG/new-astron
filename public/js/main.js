@@ -86,7 +86,8 @@
 // cenário e a entidade dele só leva o rótulo com a vida. O `obj` do snapshot
 // ({ id: estado }) acende, apaga e derruba as peças dos objetivos e escreve os
 // rótulos; o pulso do Núcleo, a chama e os tiros de cada ataque de monstro (`atq`)
-// saem pelos eventos. Os bônus de nave (`bn` de cada jogador e o `me.bonusNave`) e o
+// saem pelos eventos (os do SN-3 e do SN-Zero VI com o desenho, o clarão, o impacto e
+// o som das armas de NPC do original, como as armas do jogador). Os bônus de nave (`bn` de cada jogador e o `me.bonusNave`) e o
 // da Medusa (do time) viram anéis em volta das naves e ícones no HUD.
 //
 // Névoa de guerra (nevoa.js): o servidor só manda o que o seu time enxerga; o
@@ -104,7 +105,7 @@
 
 import * as THREE from 'three';
 import { DT, RACES, WEAPONS, VEL_TOQUE, HOVER, createBullet, stepShip, bulletHits, forward, pousoPermitido } from '/shared/sim.js';
-import { golpeDaArma, golpePrevisivel, versaoArma } from '/shared/armas.js';
+import { golpeDaArma, golpePrevisivel, versaoArma, visualDoOriginal } from '/shared/armas.js';
 import { CLASSES, ORDEM_CLASSES, RACAS_BLOQUEADAS, naveDe, linhaDe, classeValida, racaJogavel } from '/shared/naves.js';
 import { areaPouso, heightAt } from '/shared/terrain.js';
 import { alturaSolida } from '/shared/obstaculos.js';
@@ -868,6 +869,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
         efeitos.tiro({ id: e.id, kind: e.kind, atq: e.atq, nv: e.nv, p, x: e.x, y: e.y, z: e.z, vx: e.vx, vy: e.vy, vz: e.vz, vida: e.vida ?? 2.5, ...origem }, !!dono?.drone, null, daBoca);
         if (proprio && p === 0) continue; // clarão e som já saíram na predição
         if (p === 0 && daBoca) efeitos.armas.clarao(e.kind, daBoca.x, daBoca.y, daBoca.z, e.nv);
+        // Monstro com arma do original (SN-3, SN-Zero VI): o clarão do original sai dele.
+        else if (p === 0 && e.atq && WEAPONS[e.kind]?.original) efeitos.armas.clarao(e.kind, e.x, e.y, e.z, e.nv);
         tocarUmaVez(`t${e.dono}:${e.kind}:${p}`, somDaArma(e.kind, e.nv, p), e.x, e.z);
       } else if (e.e === 'nova' && e.atq) {
         // Onda do SN-4 em volta dele: anel no vermelho de perigo.
@@ -879,7 +882,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
         // Pulso do Núcleo de He-3: anel na altura de voo, abrindo até o raio.
         efeitos.pulsoNucleo(e.x, HOVER, e.z, e.raio, e.forca);
         tocarUmaVez(`p${e.id}`, 'n2_explo', e.x, e.z, 0.8);
-      } else if (e.e === 'explosao' && e.atq) {
+      } else if (e.e === 'explosao' && e.atq && !visualDoOriginal(e.arma)) {
         // Bala explosiva do Xerxes e o resto de área de monstro: explosão laranja e o anel vermelho.
         efeitos.explosao(e.x, e.y, e.z, 2.5, '#ff9a3a');
         if (e.raio > 0) efeitos.anelArea(e.x, e.y, e.z, e.raio, COR_TIME.outro);
@@ -905,14 +908,14 @@ function montarJogo(rede, boas, renderer, race, classe) {
       } else if (e.e === 'explosao' && e.arma === 'mina') {
         efeitos.explosao(e.x, e.y + 1.5, e.z, 3, '#ff9a3a');
         efeitos.anelArea(e.x, e.y + 1.5, e.z, e.raio, e.time === meuTime ? COR_TIME.meu : COR_TIME.outro);
-      } else if (e.e === 'acerto' && (e.atq || e.kind === 'pulso')) {
+      } else if (e.e === 'acerto' && ((e.atq && !visualDoOriginal(e.kind)) || e.kind === 'pulso')) {
         // Golpe de monstro (vermelho de perigo) ou do pulso do Núcleo (azul-gelo).
         efeitos.removerTiro(e.bala);
         efeitos.explosao(e.x, e.y, e.z, 0.8, e.kind === 'pulso' ? '#9fe8ff' : '#ff4a2a');
         if (e.alvo === meuId && e.dano > 0) hud.levarDano();
       } else if (e.e === 'acerto') {
         efeitos.removerTiro(e.bala);
-        if (WEAPONS[e.kind] && !WEAPONS[e.kind].npc) {
+        if (visualDoOriginal(e.kind)) {
           efeitos.armas.impacto(e.kind, 1, 0, e.x, e.y, e.z, 3.5);
           tocarUmaVez(`a${e.kind}:${e.alvo}`, somImpacto(e.kind), e.x, e.z, 0.8);
         } else efeitos.explosao(e.x, e.y, e.z, 0.7, '#ffd080');
