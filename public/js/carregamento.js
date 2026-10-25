@@ -40,7 +40,7 @@
 
 import * as THREE from 'three';
 import { RACES } from '/shared/sim.js';
-import { CLASSES, naveDe } from '/shared/naves.js';
+import { CLASSES, RACAS_JOGAVEIS, naveDe } from '/shared/naves.js';
 import { WEAPONS } from '/shared/armas.js';
 import { BASES } from '/shared/terrain.js';
 import { insumosDaPartida, insumosDoMapa, modelosDasArmas, ESPECIES_MONSTRO } from './insumos.js';
@@ -58,6 +58,7 @@ import {
   atualizarMotor,
 } from './nave.js';
 import { carregarTexturaEfeito, texturasEfeitoPedidas } from './efeitos-armas.js';
+import { carregarPropulsao, texturasDaPropulsao } from './propulsao.js';
 import { COR_TIME } from './efeitos.js';
 import { miniatura } from './vitrine.js';
 
@@ -242,7 +243,7 @@ export class Carregamento {
     const t = this.tela;
     t?.linha('mapa', { total: mapa.length });
     t?.linha('monstros', { total: monstros.length });
-    t?.linha('naves', { total: naves.length });
+    t?.linha('naves', { total: naves.length + RACAS_JOGAVEIS.length });
     t?.linha('armas', { total: modelosArma.length });
     t?.linha('efeitos', { total: texturas.length });
     t?.linha('sons', { total: sons.length });
@@ -254,6 +255,8 @@ export class Carregamento {
       ...mapa.map((m) => this.#item('mapa', `cenário ${m.url}`, () => carregarModeloMapa(m.nome))),
       ...monstros.map((m) => this.#item('monstros', `monstro ${m.url}`, () => carregarMonstro(m.nome))),
       ...naves.map((n) => this.#item('naves', `nave ${n.url}`, () => modeloDaNave(n.race, n.classe, n.tier))),
+      // A propulsão do original de cada raça (motor, turbo e jatos auxiliares).
+      ...RACAS_JOGAVEIS.map((r) => this.#item('naves', `propulsão ${r}`, () => carregarPropulsao(r))),
       ...modelosArma.map((m) => this.#item('armas', `arma ${m}`, () => carregarArma(m))),
       ...texturas.map((nome) => this.#item('efeitos', `textura ${nome}`, () => carregarTexturaEfeito(nome))),
       // Os sons já saem decodificados (o contexto de áudio nasce no clique do Decolar).
@@ -343,7 +346,7 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
     for (const nave of ins.naves) {
       for (const aliado of [true, false]) {
         const obj = lugar(criarNave(nave.race, { aliado, classe: nave.classe, tier: nave.tier }));
-        atualizarMotor(obj, false, 0, aliado);
+        atualizarMotor(obj, { vitrine: true }, 0, 1 / 30);
       }
     }
     // Cada modelo de arma pendurado numa nave (dois por nave, um em cada asa).
@@ -475,7 +478,7 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
     // Texturas: as das naves e armas, as dos monstros, as dos efeitos (todos os quadros
     // das sequências, não só o primeiro), o brilho e as que a cena usa (plaquinhas,
     // névoa, água). initTexture de uma já enviada não faz nada.
-    const texturas = new Set([brilho(), ...texturasDosModelos(), ...texturasDosMonstros(), ...texturasEfeitoPedidas()]);
+    const texturas = new Set([brilho(), ...texturasDosModelos(), ...texturasDosMonstros(), ...texturasEfeitoPedidas(), ...texturasDaPropulsao()]);
     scene.traverse((o) => {
       for (const m of [o.material].flat()) {
         if (!m) continue;

@@ -11,7 +11,7 @@
 // mostra um ícone), sem quebrar a tela.
 
 import * as THREE from 'three';
-import { criarNave, definirNave, modeloDaNave, naveDesenhada, LUZ_NAVE } from './nave.js';
+import { atualizarMotor, criarNave, definirNave, modeloDaNave, naveDesenhada, LUZ_NAVE } from './nave.js';
 import { criarLimitador } from './quadros.js';
 
 const MINIATURA = { largura: 192, altura: 112 };
@@ -129,7 +129,8 @@ function girar(agora) {
   nave.visible = !carregando;
   nave.rotation.y = ((agora - previa.t0) / 1000) * 0.6;
   nave.userData.corpo.rotation.z = Math.sin(agora / 900) * 0.12;
-  for (const [i, m] of nave.userData.motores.entries()) m.scale.setScalar(2.4 * (nave.userData.fatorMotor ?? 1) + Math.sin(agora / 25 + i * 2) * 0.35);
+  atualizarMotor(nave, { vitrine: true }, agora / 1000, Math.min(0.1, (agora - (previa.antes ?? agora)) / 1000));
+  previa.antes = agora;
   p.renderer.render(p.cena, p.camera);
   previa.quadro = requestAnimationFrame(girar);
 }

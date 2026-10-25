@@ -1152,7 +1152,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
       minhaNave.position.set(x, y + (pred.pousado ? 0 : Math.sin(tempo * 2.2) * 0.25), z);
       minhaNave.rotation.y = lerpAng(ant.yaw, pred.yaw, alfa);
       minhaNave.userData.corpo.rotation.z = lerp(ant.roll, pred.roll, alfa);
-      atualizarMotor(minhaNave, pred.boost, tempo, pred.pousado);
+      atualizarMotor(minhaNave, { boost: pred.boost, pousado: pred.pousado }, tempo, dt);
       definirArmas(minhaNave, pred.encaixes);
       const eu = snaps.at(-1)?.ents.find((e) => e.id === meuId);
       const meusEfeitos = {
@@ -1227,7 +1227,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
         if (e.esp === 'sonda') sonda = o.obj.position;
       } else if (e.tipo === 'minerador') animarMinerador(o.obj, e, tempo, e.id);
       else if (e.tipo === 'escolta') animarEscolta(o.obj, tempo, dt, e.id);
-      else if (!bicho) atualizarMotor(o.obj, e.boost, tempo, e.pousado);
+      else if (!bicho) atualizarMotor(o.obj, { boost: e.boost, pousado: e.pousado }, tempo, dt);
       const bonus = e.tipo === 'jogador' ? [...(e.bn ?? []), ...(bonusAtivos[e.time]?.medusa ? ['medusa'] : [])] : [];
       efeitos.estadoNave(o.obj, { dreno: !!e.dreno, lento: !!e.lento, emp: !!e.emp, fx: e.fx, bonus }, dt, tempo);
       efeitos.recall(o.obj, e.recall ?? null, aliado ? COR_TIME.meu : COR_TIME.outro, dt, tempo);

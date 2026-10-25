@@ -2,16 +2,17 @@
 //
 // A nave olha para -z (convenção do Three.js e de shared/sim.js). A nave de
 // jogador é o modelo do Astro-N original da raça, classe e tier dela (glTF, com a
-// cor da raça no brilho dos motores), e o time vem marcado por luzes nas pontas
+// propulsão do original nos encaixes: propulsao.js), e o time vem marcado por luzes nas pontas
 // das asas (turquesa = do seu time, vermelho = do outro, relativo a quem olha); o
 // minerador e a escolta armada, naves do servidor, são os modelos nossos do mapa
 // (minerador.glb e escolta.glb, mid-poly PBR, via mapa-modelos.js), com a mesma marca
 // de time. Os monstros da jungle (modelos do original) ficam em monstros.js.
 
 import * as THREE from 'three';
-import { RACES, WEAPONS, ARMAS } from '/shared/sim.js';
+import { RACES, WEAPONS, ARMAS, INCLINACAO_CURVA } from '/shared/sim.js';
 import { naveDe, FATOR_TAMANHO_NAVE } from '/shared/naves.js';
 import { instanciaMapa, pintar } from './mapa-modelos.js';
+import { montarPropulsao, animarPropulsao, ENCAIXES_PROPULSAO } from './propulsao.js';
 
 let texturaBrilho = null;
 
@@ -119,8 +120,9 @@ function matCasco(map) {
 // então a nave cresce quando evolui como lá (Warrior 10 × 8 m, Paladin 18 × 11 m,
 // Kamasutra 21 × 20 m) e cada uma tem a forma e o tamanho dela. O corpo que a rocha
 // para e o tiro acerta é o raio da nave, na mesma escala. Os pontos de encaixe (nós l_/r_/c_)
-// passam pela mesma conta e dizem onde ficam os motores (todos os *_propulsion: a
-// Eagle tem quatro) e as pontas das asas (l_fire01/r_fire01, a luz do time).
+// passam pela mesma conta e dizem onde ficam a propulsão (os motores *_propulsion, a
+// Eagle tem quatro, o nariz c_fire0n e as pontas das asas l_/r_fire0n, com o giro de
+// cada nó: propulsao.js) e as pontas das asas (l_fire01/r_fire01, a luz do time).
 //
 // Trocar de nave (Evolução) troca o modelo na hora: definirNave(raiz, ...) monta o
 // modelo novo dentro do mesmo grupo, então o que estiver pendurado nele (auras,
@@ -134,14 +136,14 @@ function matCasco(map) {
 // sai o clarão e o desenho do tiro (bocaDaArma). Trocar de arma (definirArmas) troca o
 // modelo, para você e para os outros (o snapshot traz as armas de cada jogador).
 
-/** Raio da primeira nave da linha (Warrior, m): os brilhos dos motores crescem a partir dele. */
+/** Raio da primeira nave da linha (Warrior, m): os anéis e auras presos na nave crescem a partir dele. */
 const RAIO_REFERENCIA = 7.5;
 /** Perna mínima do trem de pouso (m) da nave alta, que sobe no desenho ao pousar. */
 const PERNA_MIN = 0.8;
 
 let carregador = null; // GLTFLoader, importado na primeira nave
 const modelos = new Map(); // URL -> Promise do modelo preparado
-const prontos = new Map(); // URL -> { partes: [{ geometria, material }], encaixes, propulsores, caixa }
+const prontos = new Map(); // URL -> { partes: [{ geometria, material }], encaixes, propulsao, caixa, itens }
 const matNeonTime = {}; // 'aliado' | 'inimigo' -> material compartilhado da luz do time
 
 /** A nave do catálogo para a raça, classe e tier (classe ou tier inválido: a primeira Assault). */
@@ -159,7 +161,6 @@ function carregarNave(nave) {
       carregador ??= new (await import('three/addons/loaders/GLTFLoader.js')).GLTFLoader();
       const gltf = await carregador.loadAsync(url);
       const modelo = prepararModelo(gltf, FATOR_TAMANHO_NAVE);
-      modelo.fator = Math.max(1, nave.corpo / RAIO_REFERENCIA); // naves grandes: motores maiores
       prontos.set(url, modelo);
       return modelo;
     })();
@@ -216,14 +217,16 @@ function prepararModelo(gltf, escala) {
   gltf.scene.updateMatrixWorld(true);
   const malhas = [];
   const encaixes = new Map();
-  const propulsores = [];
+  const propulsaoOriginal = []; // { nome, matriz do nó }: todos os motores, um de cada dos outros
   const itensOriginal = new Map(); // 'l_item' | 'r_item' -> matriz do nó (espaço do arquivo)
   gltf.scene.traverse((o) => {
     if (o.isMesh) malhas.push(o);
     else if (o.userData?.astron_helper) {
       const p = o.getWorldPosition(new THREE.Vector3());
-      if (!encaixes.has(o.name)) encaixes.set(o.name, p);
-      if (/_propulsion$/.test(o.name)) propulsores.push(p.clone());
+      const novo = !encaixes.has(o.name);
+      if (novo) encaixes.set(o.name, p);
+      const papelPropulsao = Object.values(ENCAIXES_PROPULSAO).some((re) => re.test(o.name));
+      if (papelPropulsao && (novo || ENCAIXES_PROPULSAO.motor.test(o.name))) propulsaoOriginal.push({ nome: o.name, matriz: o.matrixWorld.clone() });
       if (/^[lr]_item$/.test(o.name) && !itensOriginal.has(o.name)) itensOriginal.set(o.name, o.matrixWorld.clone());
     }
   });
@@ -240,18 +243,20 @@ function prepararModelo(gltf, escala) {
   const centro = caixa.getCenter(new THREE.Vector3());
   const final = new THREE.Matrix4().makeScale(escala, escala, escala).multiply(new THREE.Matrix4().makeTranslation(-centro.x, -centro.y, -centro.z));
   for (const g of geos) orientarFaces(g.applyMatrix4(final));
-  for (const p of [...encaixes.values(), ...propulsores]) p.applyMatrix4(giro).applyMatrix4(final);
+  for (const p of encaixes.values()) p.applyMatrix4(giro).applyMatrix4(final);
   caixa.applyMatrix4(final);
-  // Onde as armas penduram: a matriz do nó passando pela mesma conta da nave.
+  // Onde as armas penduram e onde sai a propulsão: a matriz do nó passando pela mesma conta da nave.
+  const conta = new THREE.Matrix4().multiplyMatrices(final, giro);
   const itens = {};
-  for (const [nome, m] of itensOriginal) itens[nome[0]] = new THREE.Matrix4().multiplyMatrices(final, giro).multiply(m);
+  for (const [nome, m] of itensOriginal) itens[nome[0]] = conta.clone().multiply(m);
+  const propulsao = propulsaoOriginal.map(({ nome, matriz }) => ({ nome, matriz: conta.clone().multiply(matriz) }));
 
   // Material dentro das regras do guia (facetado, metal até 0.5), com a textura do modelo.
   const partes = malhas.map((m, i) => ({
     geometria: geos[i],
     material: matCasco(m.material.map),
   }));
-  return { partes, encaixes, propulsores, caixa, itens };
+  return { partes, encaixes, propulsao, caixa, itens };
 }
 
 // ---------- Armas na asa ----------
@@ -378,7 +383,7 @@ export function texturasDosModelos() {
  * (luzes nas pontas das asas): turquesa se é do seu time, vermelho se não. A cor
  * da raça vai no brilho dos motores. Se o modelo ainda não chegou, aparece o
  * losango neon do time e o modelo entra sozinho quando carregar.
- * userData: corpo (inclina nas curvas), motores (brilhos), trem (pouso), nave
+ * userData: corpo (inclina nas curvas), propulsao (propulsao.js), trem (pouso), nave
  * (URL do modelo desenhado).
  */
 export function criarNave(race, { aliado = true, classe = 'assault', tier = 0 } = {}) {
@@ -388,7 +393,7 @@ export function criarNave(race, { aliado = true, classe = 'assault', tier = 0 } 
   const corpo = new THREE.Group();
   const efeitos = new THREE.Group(); // anéis e auras de public/js/efeitos.js, na escala da nave
   raiz.add(corpo, efeitos);
-  Object.assign(raiz.userData, { corpo, efeitos, motores: [], trem: null, aliado });
+  Object.assign(raiz.userData, { corpo, efeitos, propulsao: null, trem: null, aliado });
   definirNave(raiz, race, classe, tier);
   return raiz;
 }
@@ -404,6 +409,7 @@ export function definirNave(raiz, race, classe, tier) {
   if (raiz.userData.nave === chave) return;
   raiz.userData.nave = chave;
   raiz.userData.tamanho = nave.corpo; // corpo da nave, m (a câmera se afasta das grandes)
+  raiz.userData.velocidade = nave.velocidade; // m/s: a chama cresce até ela
   raiz.userData.efeitos?.scale.setScalar(Math.max(1, nave.corpo / RAIO_REFERENCIA));
   const pronto = prontos.get(chave);
   if (pronto) {
@@ -449,15 +455,14 @@ function montarCasco(raiz, modelo, race, chave = null) {
   if (raiz.userData.casco) corpo.remove(raiz.userData.casco);
   const casco = new THREE.Group();
   casco.userData.nave = modelo ? chave : null; // losango: de nenhuma
-  const cor = new THREE.Color(RACES[race]?.cor ?? 0xffffff);
   const neonTime = neonDoTime(aliado);
   let caixa;
   let encaixes;
-  let propulsores;
+  let propulsao;
   let itens = null;
   if (modelo) {
     for (const { geometria, material } of modelo.partes) casco.add(new THREE.Mesh(geometria, material));
-    ({ caixa, encaixes, propulsores, itens } = modelo);
+    ({ caixa, encaixes, propulsao, itens } = modelo);
   } else {
     // Losango neon do time enquanto o modelo não chega (do tamanho da nave).
     const r = raiz.userData.tamanho ?? RAIO_REFERENCIA;
@@ -467,7 +472,12 @@ function montarCasco(raiz, modelo, race, chave = null) {
     casco.add(lugar);
     caixa = new THREE.Box3(new THREE.Vector3(-lx, -1, -lz), new THREE.Vector3(lx, 1, lz));
     encaixes = new Map();
-    propulsores = [new THREE.Vector3(-1.2, 0, 5.5), new THREE.Vector3(1.2, 0, 5.5)];
+    // Dois motores atrás do losango, virados para trás (o efeito sai para +x do encaixe).
+    const atras = (x) => new THREE.Matrix4().makeTranslation(x, 0, lz).multiply(new THREE.Matrix4().makeRotationY(-Math.PI / 2)).multiply(new THREE.Matrix4().makeScale(FATOR_TAMANHO_NAVE, FATOR_TAMANHO_NAVE, FATOR_TAMANHO_NAVE));
+    propulsao = [
+      { nome: 'l_propulsion', matriz: atras(-lx * 0.3) },
+      { nome: 'r_propulsion', matriz: atras(lx * 0.3) },
+    ];
   }
 
   // Marca do time: uma luz em cada ponta de asa (o que mais aparece na câmera de
@@ -480,14 +490,8 @@ function montarCasco(raiz, modelo, race, chave = null) {
     casco.add(ponta);
   }
 
-  // Motores: brilho na cor da raça em cada bocal (encaixes *_propulsion).
-  const motores = [];
-  for (const p of propulsores) {
-    const chama = motorBrilho(cor.clone().lerp(new THREE.Color('#fff2c0'), 0.15), 2.6, 0.75);
-    chama.position.copy(p).add(new THREE.Vector3(0, 0, 0.6));
-    motores.push(chama);
-    casco.add(chama);
-  }
+  // Propulsão do original em cada encaixe (motores, nariz e pontas das asas).
+  const equipPropulsao = montarPropulsao(casco, RACES[race] ? race : 'acron', propulsao, brilho());
 
   // Trem de pouso: três pernas que só aparecem com a nave pousada, do fundo do
   // casco até 1,45 m abaixo do centro (pousada, a nave fica a ALTURA_POUSADO do chão).
@@ -517,7 +521,7 @@ function montarCasco(raiz, modelo, race, chave = null) {
     if (o.isMesh) o.castShadow = true;
   });
   corpo.add(casco);
-  Object.assign(raiz.userData, { casco, motores, trem, itens, fatorMotor: modelo?.fator ?? 1, elevarPouso, pecasArmas: [null, null], bocas: [null, null] });
+  Object.assign(raiz.userData, { casco, propulsao: equipPropulsao, trem, itens, elevarPouso, pecasArmas: [null, null], bocas: [null, null] });
   montarArmas(raiz); // as armas voltam penduradas na nave nova
 }
 
@@ -644,13 +648,52 @@ export function animarEscolta(e, t, dt, fase = 0) {
   torre.rotation.y += Math.max(-5 * dt, Math.min(5 * dt, d));
 }
 
-/** Atualiza motores (maiores com boost, quase apagados pousada) e o trem de pouso. */
-export function atualizarMotor(nave, boost, t, pousado = false) {
-  if (nave.userData.trem) nave.userData.trem.visible = pousado;
-  const casco = nave.userData.casco;
-  if (casco) casco.position.y += ((pousado ? nave.userData.elevarPouso ?? 0 : 0) - casco.position.y) * 0.15;
-  const base = (pousado ? 0.9 : boost ? 4.2 : 2.4) * (nave.userData.fatorMotor ?? 1);
-  for (const [i, m] of nave.userData.motores.entries()) {
-    m.scale.setScalar(base + Math.sin(t * 40 + i * 2) * 0.35);
+/** Acima disso (m/s) a nave está subindo ou descendo do pouso: os jatos auxiliares acendem. */
+const VEL_VERTICAL_POUSO = 1.5;
+/** Pulo maior que isso (m) num quadro é renascer ou teleporte, não voo. */
+const SALTO_M = 40;
+
+/**
+ * Atualiza a propulsão e o trem de pouso. `estado`: boost e pousado (do snapshot ou da
+ * predição); `vitrine` liga os motores como em voo (a nave girando na tela inicial).
+ * O rumo da nave (para a frente, de ré, subindo) sai do quanto ela andou desde o quadro
+ * anterior, e a curva da inclinação do corpo: vale igual para a sua e para as outras.
+ */
+export function atualizarMotor(nave, { boost = false, pousado = false, vitrine = false } = {}, t = 0, dt = 0) {
+  const ud = nave.userData;
+  if (ud.trem) ud.trem.visible = pousado;
+  if (ud.casco) ud.casco.position.y += ((pousado ? ud.elevarPouso ?? 0 : 0) - ud.casco.position.y) * 0.15;
+  const p = nave.position;
+  const mov = (ud.mov ??= { x: p.x, y: p.y, z: p.z, frente: 0, subida: 0 });
+  if (dt > 0) {
+    const dx = p.x - mov.x;
+    const dy = p.y - mov.y;
+    const dz = p.z - mov.z;
+    if (dx * dx + dy * dy + dz * dz > SALTO_M * SALTO_M) {
+      mov.frente = mov.subida = 0;
+    } else {
+      // Frente da nave: (−sen yaw, −cos yaw), como em shared/sim.js.
+      const frente = (-Math.sin(nave.rotation.y) * dx - Math.cos(nave.rotation.y) * dz) / dt;
+      const k = 1 - Math.exp(-8 * dt);
+      mov.frente += (frente - mov.frente) * k;
+      mov.subida += (dy / dt - mov.subida) * k;
+    }
+    Object.assign(mov, { x: p.x, y: p.y, z: p.z });
   }
+  const velocidade = ud.velocidade ?? 50;
+  animarPropulsao(
+    ud.propulsao,
+    vitrine
+      ? { frente: velocidade, velocidade }
+      : {
+          frente: mov.frente,
+          velocidade,
+          curva: (ud.corpo?.rotation.z ?? 0) / INCLINACAO_CURVA,
+          vertical: Math.abs(mov.subida) > VEL_VERTICAL_POUSO,
+          turbo: boost,
+          pousado: pousado && Math.abs(mov.subida) <= VEL_VERTICAL_POUSO,
+        },
+    t,
+    dt,
+  );
 }
