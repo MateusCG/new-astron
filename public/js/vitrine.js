@@ -11,7 +11,7 @@
 // mostra um ícone), sem quebrar a tela.
 
 import * as THREE from 'three';
-import { criarNave, definirNave, modeloDaNave, LUZ_NAVE } from './nave.js';
+import { criarNave, definirNave, modeloDaNave, naveDesenhada, LUZ_NAVE } from './nave.js';
 import { criarLimitador } from './quadros.js';
 
 const MINIATURA = { largura: 192, altura: 112 };
@@ -78,8 +78,25 @@ export function mostrarPrevia(container, race, classe, tier = 0) {
   }
   previa.container = container;
   definirNave(previa.nave, race, classe, tier);
-  modeloDaNave(race, classe, tier).catch(() => {}); // garante o download (o erro já aparece no console de nave.js)
+  // Garante o download (o erro já aparece no console de nave.js); se falhar, o aviso diz.
+  const chave = previa.nave.userData.nave;
+  modeloDaNave(race, classe, tier).catch(() => {
+    if (previa?.nave.userData.nave === chave) previa.erro = chave;
+  });
   if (!previa.quadro) previa.quadro = requestAnimationFrame(girar);
+}
+
+/**
+ * Aviso da prévia (`.carregando-nave` dentro do container): "Carregando a nave"
+ * enquanto o modelo baixa, ou a falha, se o download deu erro; some com a nave pronta.
+ */
+function avisoCarregando(container, carregando, falhou) {
+  const aviso = container.querySelector('.carregando-nave');
+  if (!aviso) return;
+  aviso.hidden = !carregando;
+  if (aviso.classList.contains('falhou') === falhou) return;
+  aviso.classList.toggle('falhou', falhou);
+  aviso.querySelector('.texto').textContent = falhou ? 'Falha ao carregar a nave' : 'Carregando a nave';
 }
 
 // A prévia gira a 30 fps, como o jogo (public/js/quadros.js).
@@ -105,7 +122,11 @@ function girar(agora) {
     p.renderer.setSize(w, h);
   }
   enquadrar(p.camera, w, h, 24, nave.userData.tamanho);
-  nave.visible = true;
+  // Enquanto o modelo da nave escolhida não chega, o losango (ou a nave da classe
+  // anterior) fica escondido e o aviso aparece.
+  const carregando = !naveDesenhada(nave);
+  avisoCarregando(container, carregando, previa.erro === nave.userData.nave);
+  nave.visible = !carregando;
   nave.rotation.y = ((agora - previa.t0) / 1000) * 0.6;
   nave.userData.corpo.rotation.z = Math.sin(agora / 900) * 0.12;
   for (const [i, m] of nave.userData.motores.entries()) m.scale.setScalar(2.4 * (nave.userData.fatorMotor ?? 1) + Math.sin(agora / 25 + i * 2) * 0.35);
