@@ -1,6 +1,6 @@
 # Sons do AstroN original
 
-Efeitos sonoros tirados de `old-astron/reference/audio/sfx/` por `tools/sons_do_original.py`: WAV PCM mono, 22 050 Hz, 16 bits (o formato do original), só com o silêncio do fim cortado. Ficaram em WAV porque o ffmpeg da máquina não tem codificador de áudio e WAV decodifica em qualquer navegador. Total: 61 arquivos, ~4,2 MB. O uso de cada som vem do próprio jogo: colunas de som de disparo e de impacto de `inititemweapon.cfg` (armas) e as listas `commonsound.cfg` (sons no mundo, 3D) e `commonsound2d.cfg` (interface). Quem toca é `public/js/sons.js`.
+Efeitos sonoros tirados de `old-astron/reference/audio/sfx/` por `tools/sons_do_original.py`: WAV PCM mono, 22 050 Hz, 16 bits (o formato do original), só com o silêncio do fim cortado. Ficaram em WAV porque o ffmpeg da máquina não tem codificador de áudio e WAV decodifica em qualquer navegador. Total: 63 arquivos, ~4,2 MB. O uso de cada som vem do próprio jogo: colunas de som de disparo e de impacto de `inititemweapon.cfg` (armas) e as listas `commonsound.cfg` (sons no mundo, 3D) e `commonsound2d.cfg` (interface). Quem toca é `public/js/sons.js`.
 
 ## Disparo das armas
 
@@ -33,7 +33,9 @@ Efeitos sonoros tirados de `old-astron/reference/audio/sfx/` por `tools/sons_do_
 | `hide` | 1,65 s | Camuflagem (Cloak Device) |
 | `moojuk` | 2,47 s | Invulnerabilidade ("무적"), Optical Beam Tent, Circuit Breaking, Plasma Field |
 | `dt1` | 3,97 s | Aceleração (Acceleration Device, Instant Acceleration) |
-| `dt2` | 2,37 s | Lança-chamas de chefe (boss4 Flamethrower) |
+| `dt2` | 2,37 s | Lança-chamas de chefe (boss4 Flamethrower) e dos Xerxes (Xerxes e G Xerxes Flamethrower) |
+| `npcfire2` | 0,74 s | Feixe óptico de monstro (Optical Beam Launcher do Bazit) |
+| `npcfire3` | 1,09 s | Canhão de monstro (Long Range Explosive Gun do Xerxes) |
 
 ## Impacto e explosão
 

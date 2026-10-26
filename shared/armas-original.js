@@ -3,7 +3,7 @@
 // As 140 armas das lojas do Astro-N original (Acron, Bellico e Shrewdo), na
 // ordem das lojas, com as versões V1 a V8 (níveis 1 a 8 da arma). Números nas
 // unidades do original (ms, metro, m/ms, HP e energia do original): a conversão para
-// o jogo novo é de shared/armas.js. ARMAS_NPC_ORIGINAL: as 4 armas "(NPC)" dos
+// o jogo novo é de shared/armas.js. ARMAS_NPC_ORIGINAL: as 13 armas "(NPC)" dos
 // monstros da jungle que vêm do original (uma versão cada). EFEITOS_VISUAIS: id do
 // efeito do original -> modelos e texturas (public/texturas/efeitos/<png>.png) com a
 // cor dominante.
@@ -156,6 +156,15 @@ export const ARMAS_NPC_ORIGINAL = [
 {"id":"510373","nome":"Armadilha SN6 (NPC)","nomeEn":"Sn6Trap (NPC)","raca":"npc","categoria":"mina","papel":"ataque","auxiliar":true,"tipoDano":"laser","icone":"ITEM_OBJECT11","modelo":["aw214","aw214"],"som":"u_mine","somImpacto":"c_explo","versoes":[{"id":"510373","preco":10,"recargaMs":2000,"energia":10,"golpe":{"forma":"mina","dano":466,"raio":25,"vidaMs":20000,"inimigo":true,"fim":true,"mina":{"gatilho":1,"ativa":"na_hora","acao":"para_no_lugar"},"vis":{"p":"2252007","i":"1502004"}}}]},
 {"id":"511080","nome":"Disco Voador SN-3 (NPC)","nomeEn":"snThr Flying Disk(NPC)","raca":"npc","categoria":"lamina","papel":"ataque","tipoDano":"fisico","icone":"ITEM_OBJECT02","modelo":["aw205_l","aw205_r"],"som":"shot_iron","somImpacto":"c_explo","versoes":[{"id":"511080","preco":10,"recargaMs":2000,"energia":64,"golpe":{"forma":"projetil","dano":366,"raio":16,"vidaMs":3600,"atravessa":true,"inimigo":true,"fim":true,"n":3,"leque":20,"vel":0.35,"velMedia":0.265,"vis":{"d":"1121001","p":"1361031","i":"1401307"}}}]},
 {"id":"511090","nome":"Míssil Descarregador de Energia SN-3 (NPC)","nomeEn":"snThr Energy Discharging Missile(NPC)","raca":"npc","categoria":"missil","papel":"bloqueio","auxiliar":true,"tipoDano":"eletrico","icone":"ITEM_OBJECT04","modelo":["sw207_l","sw207_r"],"som":"shot_ct","somImpacto":"off_device2","versoes":[{"id":"511090","nivel":1,"preco":10,"recargaMs":2000,"energia":50,"golpe":{"forma":"projetil","dano":46,"efeitos":[{"t":"descarregaEnergia","v":100,"ms":2000}],"raio":2,"vidaMs":3100,"inimigo":true,"n":2,"vao":30,"vel":0.4,"velMedia":0.237,"guia":{"comecaMs":400,"giro":57.3},"mira":{"modo":"alvo_a_frente","raio":367},"vis":{"tipo":"missil_com_rastro","d":"1150005","p":"2343012","r":"2343101","i":"1503009"}}}]},
+{"id":"550120","nome":"Míssil Cruzador SN-4 (NPC)","nomeEn":"boss5Cruise Missile(NPC)","raca":"npc","categoria":"missil","papel":"ataque","auxiliar":true,"tipoDano":"fisico","icone":"ITEM_OBJECT02","modelo":["sw211","sw211"],"som":"shot_ct","somImpacto":"c_explo","versoes":[{"id":"550120","preco":10,"recargaMs":2500,"energia":336,"golpe":{"forma":"projetil","dano":333,"raio":2,"vidaMs":3100,"inimigo":true,"fim":true,"n":10,"leque":36,"varre":{"modo":"gira_horario","passo":0},"vel":0.4,"velMedia":0.237,"guia":{"comecaMs":700,"giro":40.1},"mira":{"modo":"alvo_a_frente","raio":367},"vis":{"tipo":"missil_com_rastro","d":"1150005","p":"2341024","r":"2341102","i":"1401307"}}}]},
+{"id":"550130","nome":"Onda de Feixe Óptico SN-4 (NPC)","nomeEn":"boss5Optical BeamWave(NPC)","raca":"npc","categoria":"nova","papel":"ataque","auxiliar":true,"tipoDano":"laser","icone":"ITEM_OBJECT06","modelo":["aw202","aw202"],"som":"u_decoy","versoes":[{"id":"550130","preco":10,"recargaMs":2000,"energia":101,"golpe":{"forma":"nova","dano":533,"area":450,"raio":1,"vidaMs":1650,"atravessa":true,"inimigo":true,"nova":{"raio":450,"cresce":0.318},"vis":{"tipo":"esfera_que_cresce","p":"1332035","i":"1502004"}}}]},
+{"id":"550140","nome":"Campo Elétrico SN-4 (NPC)","nomeEn":"boss5 El. Field(NPC)","raca":"npc","categoria":"mina","papel":"ataque","tipoDano":"eletrico","icone":"ITEM_OBJECT05","modelo":["sw212","sw212"],"som":"u_mine","somImpacto":"c_explo","versoes":[{"id":"550140","preco":10,"recargaMs":2000,"golpe":{"forma":"campo","dano":20,"efeitos":[{"t":"quebraResistencias","v":100,"ms":2000}],"raio":50,"vidaMs":20000,"atravessa":true,"inimigo":true,"intervaloMs":500,"mina":{"gatilho":50,"ativa":"na_hora","acao":"para_no_lugar"},"vis":{"tipo":"modelo_tipo7","d":"1150005","p":"2252008","i":"1503009","a":"2252008"}}}]},
+{"id":"511150","nome":"Lança-chamas Xerxes (NPC)","nomeEn":"Xerxes Flamethrower","raca":"npc","categoria":"outro","papel":"ataque","auxiliar":true,"tipoDano":"laser","icone":"ITEM_OBJECT11","modelo":["sw101","sw101"],"som":"dt2","somImpacto":"c_explo","versoes":[{"id":"511150","nivel":1,"preco":10,"recargaMs":1000,"energia":20,"golpe":{"forma":"projetil","dano":333,"efeitos":[{"t":"drenoHp","v":100,"ms":5000}],"raio":20,"vidaMs":2000,"atravessa":true,"inimigo":true,"n":1,"rajada":8,"rajadaMs":100,"vel":0.2,"velMedia":0.192,"vis":{"tipo":18,"p":"1361153","i":"1412001"}}}]},
+{"id":"511160","nome":"Canhão Explosivo de Longo Alcance Xerxes (NPC)","nomeEn":"Xerxes Long Range Explosive Gun","raca":"npc","categoria":"outro","papel":"bloqueio","tipoDano":"fisico","icone":"ITEM_OBJECT04","modelo":["bw208_l","bw208_r"],"som":"npcfire3","somImpacto":"n2_explo","versoes":[{"id":"511160","nivel":1,"preco":160,"recargaMs":2000,"energia":20,"golpe":{"forma":"projetil","dano":533,"area":90,"raio":8,"vidaMs":3500,"inimigo":true,"fim":true,"n":1,"rajada":2,"rajadaMs":300,"vel":0.9,"velMedia":0.35,"vis":{"p":"1322060","i":"1421001","f":"1421002"}}}]},
+{"id":"511155","nome":"Lança-chamas Grande Xerxes (NPC)","nomeEn":"G Xerxes Flamethrower","raca":"npc","categoria":"outro","papel":"ataque","auxiliar":true,"tipoDano":"laser","icone":"ITEM_OBJECT11","modelo":["sw101","sw101"],"som":"dt2","somImpacto":"c_explo","versoes":[{"id":"511155","nivel":1,"preco":10,"recargaMs":1000,"energia":20,"golpe":{"forma":"projetil","dano":466,"efeitos":[{"t":"drenoHp","v":150,"ms":5000}],"raio":30,"vidaMs":2400,"atravessa":true,"inimigo":true,"n":1,"rajada":8,"rajadaMs":100,"vel":0.2,"velMedia":0.193,"vis":{"tipo":18,"p":"1361253","i":"1412001"}}}]},
+{"id":"511140","nome":"Lançador de Feixe Óptico Bazit (NPC)","nomeEn":"Optical Beam Launcher","raca":"npc","categoria":"outro","papel":"ataque","auxiliar":true,"tipoDano":"laser","icone":"ITEM_OBJECT11","modelo":["sw101","sw101"],"som":"npcfire2","somImpacto":"c_explo","versoes":[{"id":"511140","nivel":1,"preco":10,"recargaMs":1000,"energia":20,"golpe":{"forma":"projetil","dano":400,"raio":8,"vidaMs":2500,"atravessa":true,"inimigo":true,"n":3,"leque":5,"a0":-5,"vel":0.3,"velMedia":0.125,"vis":{"p":"1322065","i":"1412001"}}}]},
+{"id":"511170","nome":"Míssil de Longo Alcance Anti (NPC)","nomeEn":"Anti Long Range Missile","raca":"npc","categoria":"missil","papel":"ataque","tipoDano":"fisico","icone":"ITEM_OBJECT02","modelo":["bw214_l","bw214_r"],"som":"shot_ct","somImpacto":"c_explo","versoes":[{"id":"511170","nivel":1,"preco":160,"recargaMs":2000,"energia":20,"golpe":{"forma":"projetil","dano":600,"raio":2,"vidaMs":3300,"inimigo":true,"fim":true,"n":4,"vao":20,"vel":0.4,"velMedia":0.279,"vis":{"tipo":"missil_com_rastro","p":"2341024","r":"2341102","i":"1401007"}}}]},
+{"id":"511180","nome":"Canhão Teleguiado Anti (NPC)","nomeEn":"Anti Homingcannon","raca":"npc","categoria":"canhao","papel":"bloqueio","tipoDano":"laser","icone":"ITEM_OBJECT04","modelo":["sw219_l","sw219_r"],"som":"shot_cc","somImpacto":"c_explo","versoes":[{"id":"511180","nivel":1,"preco":160,"recargaMs":2000,"energia":20,"golpe":{"forma":"projetil","dano":333,"area":70,"raio":5,"vidaMs":1760,"inimigo":true,"fim":true,"n":2,"vao":30,"vel":0.6,"velMedia":0.486,"guia":{"comecaMs":100,"giro":57.3},"mira":{"modo":"mais_perto_no_raio","raio":500},"vis":{"p":"1322061","i":"1502004","f":"2432001"}}}]},
 ];
 
 export const EFEITOS_VISUAIS = {
@@ -230,6 +239,9 @@ export const EFEITOS_VISUAIS = {
 "1321351": {"modelos":["1321351"],"tex":[["gun","#748349"],["1321051_light","#95eb7b"]]},
 "1321441": {"modelos":["1321441"],"tex":[["gun","#748349"],["gun_light","#95eb7b"],["1321041","#18ab16"]]},
 "1321451": {"modelos":["1321451"],"tex":[["gun","#748349"],["1321051_light","#95eb7b"]]},
+"1322060": {"modelos":["1322060"],"tex":[[null,"#89ff68"]]},
+"1322061": {"modelos":["1322061","particle_dummy"],"tex":[[null,"#c9395e"],[null,null]]},
+"1322065": {"modelos":["1322065","particle_dummy"],"tex":[[null,"#e37385"],[null,null]]},
 "1331015": {"modelos":["1331015"],"tex":[["1331015","#55ff00"]]},
 "1331016": {"modelos":["1331016"],"tex":[["1331015","#55ff00"]]},
 "1331017": {"modelos":["1331017"],"tex":[["1331015","#55ff00"]]},
@@ -245,6 +257,7 @@ export const EFEITOS_VISUAIS = {
 "1332026": {"modelos":["1332026"],"tex":[["1332023","#f60fc7"]]},
 "1332027": {"modelos":["1332027"],"tex":[["1332023","#f60fc7"]]},
 "1332034": {"modelos":["1332034"],"tex":[["1332034","#ff47df"]]},
+"1332035": {"modelos":["1332035"],"tex":[["1332034","#ff47df"]]},
 "1333002": {"modelos":["1333002"],"tex":[["1333002_00","#679a9c"],["1333002_001","#8179de"],["1333002_002","#8d86e3"],["1333002_003","#877fe1"],["icon_cross02","#ffffff"]]},
 "1333003": {"modelos":["1333003","1333002"],"tex":[["1333002_00","#679a9c"],["1333002_001","#8179de"],["1333002_002","#8d86e3"],["1333002_003","#877fe1"],["icon_cross03","#ffffff"],["icon_cross02","#ffffff"]]},
 "1333004": {"modelos":["1333004","1333002"],"tex":[["1333002_00","#679a9c"],["1333002_001","#8179de"],["1333002_002","#8d86e3"],["1333002_003","#877fe1"],["icon_cross04","#ffffff"],["icon_cross02","#ffffff"]]},
@@ -279,6 +292,8 @@ export const EFEITOS_VISUAIS = {
 "1361059": {"modelos":["1361059"],"tex":[["1361057_02","#f05cc4"],["1361057_01","#b647af"]]},
 "1361060": {"modelos":["1361060"],"tex":[["1361057_02","#f05cc4"],["1361057_01","#b647af"]]},
 "1361061": {"modelos":["1361061"],"tex":[["1361057_02","#f05cc4"],["1361057_01","#b647af"]]},
+"1361153": {"modelos":["1361153","1361053"],"tex":[[null,null]]},
+"1361253": {"modelos":["1361253","1361053"],"tex":[[null,null]]},
 "1401007": {"modelos":["1401007"],"tex":[["1401007_01","#a8b3c5"]]},
 "1401107": {"modelos":["1401107","1401007"],"tex":[["1401007_01","#a8b3c5"]]},
 "1401207": {"modelos":["1401207","1401007"],"tex":[["1401007_01","#a8b3c5"]]},
@@ -314,6 +329,7 @@ export const EFEITOS_VISUAIS = {
 "2165012": {"modelos":["2163011"],"tex":[["2163011","#6389cb"]]},
 "2252006": {"modelos":["1352004"],"tex":[["1352004","#ff00cc"],["1352004_0050","#d948c0"]]},
 "2252007": {"modelos":["2252007"],"tex":[["2252007","#890851"]]},
+"2252008": {"modelos":["1352004"],"tex":[["1352004","#ff00cc"],["1352004_0050","#d948c0"]]},
 "2252010": {"modelos":["2252010","1352004"],"tex":[["1352004","#ff00cc"],["1352004_0050","#d948c0"],["icon_e","#ffffff"]]},
 "2253006": {"modelos":["1352005","1352004"],"tex":[["1352005","#00ff33"],["1352004_0050","#d948c0"],["1352004","#ff00cc"]]},
 "2253007": {"modelos":["1355004"],"tex":[["1355004_01","#f7322e"]]},

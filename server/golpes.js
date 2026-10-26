@@ -26,7 +26,14 @@
 // recuo, cego, revelado, invisível, invulnerável, escudo, resistência, conversor,
 // conserto e cura por tempo. Acertar de novo renova a duração, não soma. Efeito de
 // inimigo não pega em quem está protegido (zona segura, nascimento). O dreno de HP
-// segue o de antes (ent.drenoTicks, aplicado pelo World).
+// segue o de antes (ent.drenoTicks, aplicado pelo World); o do original (drenoHp, o
+// "Magma damage" do AstroN) marca ent.drenoMagma, que vira o fx 'magma'.
+//
+// Debuff recebido (como o CChatList::AddCollisionMsg do original): o jogador atingido
+// recebe o evento privado {e:'debuff', para, ef, v?, dur?}, com o nome do debuff (ef),
+// o valor (v: o que o texto do original mostra, na escala do jogo) e a duração; o
+// cliente escreve a linha com o ícone na lista do canto esquerdo. Os que se veem na
+// nave (para todos) vão na lista `fx` da entidade (visiveis).
 //
 // Sem sorte em nada: o "aleatório" da mira e a chance de desarmar viram regra fixa.
 //
@@ -49,7 +56,10 @@ const ticks = (s) => Math.round(s * TICK_HZ);
 
 /** Estados de inimigo que a limpeza (Nova/Canhão Antiparalisia) tira. */
 const NA_NAVE_DEBUFF = ['lento', 'emp', 'semTiro', 'trava', 'desgov', 'semRegen', 'cadencia', 'enCara', 'drenoEn'];
-const NA_ENT_DEBUFF = ['vulneravel', 'fraco', 'recuo', 'cego'];
+const NA_ENT_DEBUFF = ['vulneravel', 'fraco', 'recuo', 'cego', 'descarga'];
+// O ícone da descarga de energia (o "E" do míssil do SN-3) fica na nave por isto (s),
+// se o golpe não traz duração (a do original, 2 s no míssil do SN-3).
+const DESCARGA_ICONE_S = 2;
 
 export class Golpes {
   /**
@@ -356,12 +366,14 @@ export class Golpes {
 
   #aplicarInimigo(ef, alvo, autor, fonte) {
     const s = alvo.ship;
+    this.#avisar(ef, alvo);
     switch (ef.tipo) {
       case 'dreno':
       case 'drenoDuplo':
         alvo.drenoTicks = ticks(ef.dur);
         alvo.drenoDono = autor;
         alvo.drenoDps = ef.dps;
+        alvo.drenoMagma = !!ef.magma;
         alvo.drenoTipo = WEAPONS[fonte?.kind]?.tipoDano; // o poder de quem drena e a resistência do alvo contam
         if (ef.tipo === 'drenoDuplo') {
           s.drenoEn = Math.max(s.drenoEn ?? 0, ef.dur);
@@ -389,6 +401,7 @@ export class Golpes {
         break;
       case 'descarga':
         s.en = Math.max(0, s.en * (1 - ef.frac));
+        this.#por(alvo, 'descarga', ef.dur || DESCARGA_ICONE_S);
         break;
       case 'roubaEn': {
         const tirado = Math.min(s.en, ef.qtd);
@@ -435,6 +448,16 @@ export class Golpes {
         else this.ctx.ferir(alvo, s.maxHp * ef.frac, autor, null, { direto: false });
         break;
     }
+  }
+
+  /**
+   * O evento privado do debuff que o jogador `alvo` recebeu (a mensagem do original,
+   * CChatList::AddCollisionMsg): nome, valor e duração. Monstro não recebe.
+   */
+  #avisar(ef, alvo) {
+    if (this.world.players.get(alvo.id) !== alvo) return;
+    const msg = mensagemDebuff(ef);
+    if (msg) this.world.eventos.push({ e: 'debuff', para: alvo.id, ...msg });
   }
 
   #efeitosAliado(g, alvo, como) {
@@ -725,9 +748,13 @@ export class Golpes {
     if (s.semTiro > 0 || (s.lento > 0 && s.lentoMult === 0) || s.trava > 0) fx.push('para');
     if (s.desgov > 0) fx.push('desg');
     if (s.drenoEn > 0 || s.semRegen > 0) fx.push('energia');
+    if (this.st(ent, 'descarga')) fx.push('descarga');
+    if (ent.drenoTicks > 0 && ent.drenoMagma) fx.push('magma');
     if (this.st(ent, 'invulneravel')) fx.push('invul');
     if (this.st(ent, 'escudo')?.hp > 0) fx.push('escudo');
-    if (this.st(ent, 'vulneravel') || this.st(ent, 'fraco') || this.st(ent, 'recuo')) fx.push('fraco');
+    const vuln = this.st(ent, 'vulneravel');
+    if (vuln && !vuln.tipoDano) fx.push('resist');
+    if ((vuln && vuln.tipoDano) || this.st(ent, 'fraco') || this.st(ent, 'recuo')) fx.push('fraco');
     if (this.st(ent, 'regen') || this.st(ent, 'curaTempo') || segurandoTipo(s, 'regen')) fx.push('regen');
     if (segurandoTipo(s, 'acelera')) fx.push('acel');
     if (this.invisivel(ent)) fx.push('inv');
@@ -755,6 +782,57 @@ function segurando(s, enc) {
 /** Algum dos dois encaixes está segurando um efeito do tipo `tipo`? */
 function segurandoTipo(s, tipo) {
   return [0, 1].some((enc) => segurando(s, enc)?.tipo === tipo);
+}
+
+const um = (x) => Math.round(x * 10) / 10;
+
+/**
+ * A mensagem do debuff `ef` (efeito de arma no inimigo) como o original escreve
+ * (CChatList::AddCollisionMsg: um texto por código, com o valor e a duração), ou
+ * null para o que o original não avisa. `ef` é o nome no protocolo; `v` o número do
+ * texto (na escala do jogo) e `dur` em s.
+ */
+export function mensagemDebuff(ef) {
+  const dur = um(ef.dur ?? 0);
+  switch (ef.tipo) {
+    case 'dreno':
+      return ef.magma ? { ef: 'magma', v: um(ef.dps * ef.dur), dur } : null;
+    case 'drenoDuplo':
+      return { ef: 'drenoDuplo', v: um(ef.dps), dur };
+    case 'drenoEn':
+      return { ef: 'drenoEn', v: um(ef.enPs), dur };
+    case 'lento':
+      return ef.mult === 0 ? { ef: 'imovel', dur } : { ef: 'lento', v: um((1 - ef.mult) * 100), dur };
+    case 'trava':
+      return { ef: 'trava', dur };
+    case 'paralisa':
+      return { ef: 'paralisa', dur };
+    case 'semTiro':
+      return { ef: 'semTiro', dur };
+    case 'descarga':
+      return { ef: 'descarga', v: um(ef.frac * 100) };
+    case 'semRegen':
+      return { ef: 'semRegen', dur };
+    case 'enCara':
+      return { ef: 'enCara', v: um((ef.mult - 1) * 100), dur };
+    case 'cadencia':
+      return { ef: 'cadencia', v: um((ef.mult - 1) * 100), dur };
+    case 'desgoverno':
+      return { ef: 'desgoverno', dur };
+    case 'fraco':
+      return { ef: 'fraco', v: um((1 - ef.mult) * 100), dur };
+    case 'vulneravel':
+      if (!ef.tipoDano) return { ef: 'resist', v: um(ef.k * 100), dur };
+      return { ef: ef.tipoDano === 'fisico' ? 'vulnFisico' : 'vulnLaser', dur };
+    case 'cego':
+      return { ef: 'cego', dur };
+    case 'revela':
+      return { ef: 'revela', dur };
+    case 'recuo':
+      return { ef: 'recuo', v: um(ef.frac * 100), dur };
+    default:
+      return null;
+  }
 }
 
 /** Tira os debuffs de inimigo (paralisia, lentidão e os outros) de um aliado. */
