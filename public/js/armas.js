@@ -101,6 +101,7 @@ function corViva(cores) {
   let melhor = null;
   let nota = -1;
   for (const c of cores) {
+    if (!c) continue; // textura sem cor no catálogo (o campo elétrico do SN-4)
     const [, s, l] = hexParaHsl(c);
     const n = s * (1 - Math.abs(l - 0.55));
     if (n > nota) [melhor, nota] = [c, n];

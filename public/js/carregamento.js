@@ -58,6 +58,7 @@ import {
   atualizarMotor,
 } from './nave.js';
 import { carregarTexturaEfeito, texturasEfeitoPedidas } from './efeitos-armas.js';
+import { carregarEfeitoOriginal, criarEfeitoOriginal, tocarEfeitoOriginal } from './efeitos-original.js';
 import { carregarPropulsao, texturasDaPropulsao } from './propulsao.js';
 import { COR_TIME } from './efeitos.js';
 import { miniatura } from './vitrine.js';
@@ -236,7 +237,7 @@ export class Carregamento {
 
   /** Baixa tudo da lista da partida (resolve sempre, mesmo com falhas). */
   carregar() {
-    const { naves, armas, texturas, sons } = this.insumos;
+    const { naves, armas, texturas, sons, efeitosOriginais = [] } = this.insumos;
     const modelosArma = modelosDasArmas(armas);
     const { mapa, monstros } = insumosDoMapa();
     const linha = this.linhaPropria;
@@ -245,7 +246,7 @@ export class Carregamento {
     t?.linha('monstros', { total: monstros.length });
     t?.linha('naves', { total: naves.length + RACAS_JOGAVEIS.length });
     t?.linha('armas', { total: modelosArma.length });
-    t?.linha('efeitos', { total: texturas.length });
+    t?.linha('efeitos', { total: texturas.length + efeitosOriginais.length });
     t?.linha('sons', { total: sons.length });
     t?.linha('miniaturas', { total: linha.length });
     t?.linha('servidor', { total: 1, texto: 'Conectando…' });
@@ -259,6 +260,8 @@ export class Carregamento {
       ...RACAS_JOGAVEIS.map((r) => this.#item('naves', `propulsão ${r}`, () => carregarPropulsao(r))),
       ...modelosArma.map((m) => this.#item('armas', `arma ${m}`, () => carregarArma(m))),
       ...texturas.map((nome) => this.#item('efeitos', `textura ${nome}`, () => carregarTexturaEfeito(nome))),
+      // Os efeitos do original (os das armas dos monstros e os de estado na nave), com as texturas deles.
+      ...efeitosOriginais.map((id) => this.#item('efeitos', `efeito ${id}`, () => carregarEfeitoOriginal(id))),
       // Os sons já saem decodificados (o contexto de áudio nasce no clique do Decolar).
       ...sons.map((nome) =>
         this.#item('sons', `som ${nome}`, async () => {
@@ -416,7 +419,8 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
         mina('aq-mina0', { kind: ins.armas[0]?.kind }),
         mina('aq-mina1', { kind: ins.armas[0]?.kind, time: 1 }),
         mina('aq-campo', { kind: ins.armas[0]?.kind, campo: true, raio: 8 }),
-        mina('aq-campo-monstro', { campo: true, atq: 'campo', raio: 10 }),
+        // O campo elétrico do SN-4 (efeito do original).
+        mina('aq-campo-monstro', { kind: 'n550140', campo: true, atq: 'campo_eletrico', raio: 12.5 }),
         // A armadilha do SN-Zero VI (arma de NPC do original), no vermelho dos monstros.
         ...ins.armasMonstro.filter((a) => WEAPONS[a.kind].categoria === 'mina').map((a) => mina(`aq-mina-${a.kind}`, { kind: a.kind, time: undefined, atq: 'armadilha_sn6' })),
       ],
@@ -433,11 +437,22 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
     efeitos.explosao(ponto.x, ponto.y + 5, ponto.z + 10, 3, '#ff9a3a');
     efeitos.anelArea(ponto.x, ponto.y + 5, ponto.z - 10, 8, COR_TIME.outro);
     efeitos.feixeRecall(ponto.x + 20, ponto.y, ponto.z, COR_TIME.meu);
-    // Monstros: um tiro de cada ataque, a chama, a onda e o pulso do Núcleo.
-    const ataques = ['pedra_gigante', 'bala_explosiva', 'feixe_optico', 'controle', 'missil', 'missil_cruzador', 'armadilha'];
+    // Monstros: um tiro de cada ataque da Medusa e o pulso do Núcleo.
+    const ataques = ['pedra_gigante', 'controle', 'armadilha'];
     ataques.forEach((atq, i) => tiro(`aq-${atq}`, 'plasma', i * 4, { atq, y: ponto.y + 25 }));
-    efeitos.chama({ x: ponto.x, y: ponto.y + 30, z: ponto.z, yaw: 0, alcance: 70, abertura: 0.5 });
     efeitos.pulsoNucleo(ponto.x, ponto.y + 35, ponto.z, 80, 1.5);
+    // Os efeitos do original (armas dos monstros e estados na nave): uma instância de
+    // cada, que volta para a reserva em efeitos.esquecer() (o material já compilado
+    // fica pronto para a partida).
+    efeitos.camera = camera;
+    (ins.efeitosOriginais ?? []).forEach((id, i) => {
+      const inst = criarEfeitoOriginal(id, { escala: 0.5, loop: true });
+      if (!inst) return;
+      inst.obj.position.set(ponto.x + ((i % 12) - 6) * 8, ponto.y + 40 + Math.floor(i / 12) * 8, ponto.z);
+      grupo.add(inst.obj);
+      tocarEfeitoOriginal(inst, 0, camera);
+      efeitos.originais.push({ inst });
+    });
     // Um passo de animação: os mísseis soltam a fumaça e tudo ganha a forma do quadro.
     efeitos.atualizar(1 / 30);
     // As reservas de efeitos.js (fumaça, faíscas, anéis): criadas aqui, prontas na partida.

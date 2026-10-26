@@ -21,6 +21,40 @@ import { SONS_INTERFACE, SONS_ARMA } from './sons.js';
 export const PASTA_TEXTURAS_EFEITO = '/texturas/efeitos/';
 /** Pasta dos modelos das armas penduradas na asa. */
 export const PASTA_MODELOS_ARMA = '/modelos/armas/';
+/** Pasta dos efeitos do original convertidos (tools/efeitos3d_do_original.py, <id>.json). */
+export const PASTA_EFEITOS_ORIGINAIS = '/modelos/efeitos/';
+
+/**
+ * Os efeitos do original convertidos (.eff + .3dx + .MPL → public/modelos/efeitos):
+ * os das armas de NPC do original que os monstros usam (projétil, clarão, impacto,
+ * fim e armadilha) e os de estado na nave. Efeito novo: converta com o
+ * tools/efeitos3d_do_original.py e ponha aqui.
+ */
+export const EFEITOS_ORIGINAIS = Object.freeze([
+  // SN-3: clarão, Disco Voador, impacto; clarão do míssil, o míssil com o "E", a esfera azul da descarga.
+  '1121001', '1361031', '1401307', '1150005', '2343012', '1503009',
+  // SN-4: Míssil Cruzador, Onda de Feixe Óptico (e o impacto), Campo Elétrico.
+  '2341024', '1332035', '1502004', '2252008',
+  // Xerxes e Grande Xerxes: as bolas de fogo, o impacto; o canhão explosivo e as explosões.
+  '1361153', '1361253', '1412001', '1322060', '1421001', '1421002',
+  // Bazit: o feixe óptico. Anti: o canhão teleguiado, o impacto do míssil e o fim do canhão.
+  '1322065', '1322061', '1401007', '2432001',
+  // Estados na nave: o fogo do Magma e os ícones.
+  '1164001', 'cross003', 'cross002', 'cross007', 'cross008', 'cross010', 'cross013',
+]);
+
+/**
+ * Ícone 3D do original em cima da nave para cada estado da lista `fx` (os que o
+ * original marca: CUnit::ChangeEffectFlag), na ordem em que empilham: o capacete das
+ * resistências (quebraResistencias, o campo do SN-4; o capacete azul dentro do círculo
+ * vermelho), o "LD" da paralisia, o avião
+ * proibido do desgoverno, o "E" da energia (a descarga do míssil do SN-3, o dreno e a
+ * recarga cortada) e a espada proibida do ataque enfraquecido. Os mesmos símbolos das
+ * mensagens de debuff (debuffs.js).
+ */
+export const ICONES_ESTADO = Object.freeze({ resist: 'cross003', para: 'cross002', desg: 'cross010', descarga: 'cross013', energia: 'cross013', fraco: 'cross008' });
+/** O fogo do Magma na nave (o dreno de HP do original: faíscas vermelhas subindo). */
+export const MAGMA_NA_NAVE = '1164001';
 
 // Texturas que no original são do casco 3D (opacas), não luz: não servem de efeito aditivo.
 export const TEXTURAS_CASCO = new Set(['1321011_01', '1321021_01', 'gun', 'missile', '1351005_01', '1131056']);
@@ -131,7 +165,9 @@ export function armasDeMonstro() {
  * de interface e os padrões de SONS_ARMA). A raça e a classe do piloto vêm primeiro
  * em cada lista (o que ele mais usa fica pronto antes). São ~18 MB: o Mateus prefere
  * esperar na entrada a ter o jogo travando quando um piloto novo aparece.
- * Mesma forma de insumosDaNave, mais `armasMonstro`; as naves trazem também `race` e `classe`.
+ * Mesma forma de insumosDaNave, mais `armasMonstro` e `efeitosOriginais` (os efeitos do
+ * original convertidos, com as texturas que cada um pede: o carregamento lê do json);
+ * as naves trazem também `race` e `classe`.
  */
 export function insumosDaPartida(race, classe) {
   const propria = insumosDaNave(race, classe);
@@ -161,7 +197,7 @@ export function insumosDaPartida(race, classe) {
   // Sons de todas as armas, as de NPC também (torres, escoltas e drones atiram com elas).
   for (const kind of ARMAS) for (const s of sonsDaArma(kind)) sons.add(s);
   for (const s of Object.values(SONS_ARMA)) sons.add(s);
-  return { naves, armas, armasMonstro, texturas: [...texturas], sons: [...sons] };
+  return { naves, armas, armasMonstro, texturas: [...texturas], sons: [...sons], efeitosOriginais: [...EFEITOS_ORIGINAIS] };
 }
 
 /** Os arquivos dos modelos da asa de uma lista de armas, sem repetição (peças compartilhadas baixam uma vez). */

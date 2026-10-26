@@ -142,6 +142,7 @@ import { EscolhaTimes } from './escolha-times.js';
 import { PainelServicos } from './servicos.js';
 import { PainelStatus } from './status.js';
 import { PainelInventario } from './inventario.js';
+import { ListaDebuffs } from './debuffs.js';
 import { TelaCarregamento, Carregamento, aquecerGpu } from './carregamento.js';
 import { MELHORIAS_MINERADOR, MELHORIA_TORRETAS } from '/shared/evolucao.js';
 import { RECALL_S } from '/shared/recall.js';
@@ -530,9 +531,11 @@ function montarJogo(rede, boas, renderer, race, classe) {
   const camera = new THREE.PerspectiveCamera(65, 1, 0.5, 5000);
   const { scene, atualizar: atualizarCena, definirObjetivo, definirMineracao, definirBacias, atingirCampo } = criarCena({ meuTime });
   const efeitos = new Efeitos(scene);
+  efeitos.camera = camera; // as peças dos efeitos do original que olham para a câmera
   const nevoa = new Nevoa({ renderer, scene, meuTime }); // névoa de guerra (visão do time)
   const controles = new Controles(document.body);
   const hud = new Hud({ meuTime });
+  const debuffs = new ListaDebuffs(document.getElementById('debuffs'));
   const placar = new Placar({ meuTime });
   // Modo de teste (mundo só seu): painel com ouro e XP à vontade.
   const painelTeste = boas.teste
@@ -869,15 +872,13 @@ function montarJogo(rede, boas, renderer, race, classe) {
         efeitos.tiro({ id: e.id, kind: e.kind, atq: e.atq, nv: e.nv, p, x: e.x, y: e.y, z: e.z, vx: e.vx, vy: e.vy, vz: e.vz, vida: e.vida ?? 2.5, ...origem }, !!dono?.drone, null, daBoca);
         if (proprio && p === 0) continue; // clarão e som já saíram na predição
         if (p === 0 && daBoca) efeitos.armas.clarao(e.kind, daBoca.x, daBoca.y, daBoca.z, e.nv);
-        // Monstro com arma do original (SN-3, SN-Zero VI): o clarão do original sai dele.
-        else if (p === 0 && e.atq && WEAPONS[e.kind]?.original) efeitos.armas.clarao(e.kind, e.x, e.y, e.z, e.nv);
+        // Monstro com arma do original: o clarão do original sai dele, no rumo do tiro.
+        else if (p === 0 && e.atq && WEAPONS[e.kind]?.original) efeitos.claraoMonstro(e.kind, e.x, e.y, e.z, { x: e.vx, y: e.vy, z: e.vz }, e.nv);
         tocarUmaVez(`t${e.dono}:${e.kind}:${p}`, somDaArma(e.kind, e.nv, p), e.x, e.z);
       } else if (e.e === 'nova' && e.atq) {
-        // Onda do SN-4 em volta dele: anel no vermelho de perigo.
-        efeitos.anelArea(e.x, e.y, e.z, e.raio, COR_TIME.outro);
-        tocarUmaVez(`n${e.id}`, 'n2_explo', e.x, e.z, 0.6);
-      } else if (e.e === 'chama') {
-        efeitos.chama(e);
+        // Onda do SN-4 em volta dele: a onda de feixe do original, abrindo até o raio.
+        efeitos.novaMonstro(e.kind, e.x, e.y, e.z, e.raio, e.vel, e.p ?? 0);
+        tocarUmaVez(`n${e.id}`, somDaArma(e.kind, e.nv, e.p) ?? 'n2_explo', e.x, e.z, 0.8);
       } else if (e.e === 'pulso') {
         // Pulso do Núcleo de He-3: anel na altura de voo, abrindo até o raio.
         efeitos.pulsoNucleo(e.x, HOVER, e.z, e.raio, e.forca);
@@ -887,6 +888,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
         efeitos.explosao(e.x, e.y, e.z, 2.5, '#ff9a3a');
         if (e.raio > 0) efeitos.anelArea(e.x, e.y, e.z, e.raio, COR_TIME.outro);
         tocarUmaVez(`x${Math.round(e.x / 20)}:${Math.round(e.z / 20)}`, 'n2_explo', e.x, e.z, 0.5);
+      } else if (e.e === 'explosao' && e.atq) {
+        // Área de monstro com arma do original (canhões do Xerxes, do Anti, do SN-Zero VI).
+        efeitos.areaMonstro(e.arma, e.x, e.y, e.z, e.raio, e.p ?? 0);
+        tocarUmaVez(`x${e.arma}:${Math.round(e.x / 20)}:${Math.round(e.z / 20)}`, somImpacto(e.arma, e.nv, e.p), e.x, e.z, 0.7);
       } else if (e.e === 'nova') {
         efeitos.armas.nova(e.kind, e.nv, e.p, e.x, e.y, e.z, e.raio, e.vel);
         if (!(e.dono === meuId && !e.p)) tocarUmaVez(`n${e.id}`, somDaArma(e.kind, e.nv, e.p), e.x, e.z);
@@ -915,7 +920,12 @@ function montarJogo(rede, boas, renderer, race, classe) {
         if (e.alvo === meuId && e.dano > 0) hud.levarDano();
       } else if (e.e === 'acerto') {
         efeitos.removerTiro(e.bala);
-        if (visualDoOriginal(e.kind)) {
+        if (e.atq && WEAPONS[e.kind]?.original) {
+          // Golpe de monstro com arma do original: o impacto do original fica onde bateu
+          // (a esfera azul da descarga do SN-3, as explosões dos canhões).
+          efeitos.impactoMonstro(e.kind, e.x, e.y, e.z);
+          tocarUmaVez(`a${e.kind}:${e.alvo}`, somImpacto(e.kind), e.x, e.z, 0.8);
+        } else if (visualDoOriginal(e.kind)) {
           efeitos.armas.impacto(e.kind, 1, 0, e.x, e.y, e.z, 3.5);
           tocarUmaVez(`a${e.kind}:${e.alvo}`, somImpacto(e.kind), e.x, e.z, 0.8);
         } else efeitos.explosao(e.x, e.y, e.z, 0.7, '#ffd080');
@@ -924,6 +934,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
         if (e.crit && e.por === meuId && !critFinal.has(e.alvo)) {
           hud.flutuante(e.x, e.y + 1, e.z, [{ txt: 'CRÍTICO', classe: 'crit' }]);
         }
+      } else if (e.e === 'debuff') {
+        // Debuff que a sua nave recebeu: a linha do original com o ícone, no canto esquerdo.
+        if (e.para === meuId) debuffs.adicionar(e);
       } else if (e.e === 'ganho') {
         // Monstro que você abateu: o ouro e o XP que o servidor deu sobem do lugar da morte.
         const linhas = [];
