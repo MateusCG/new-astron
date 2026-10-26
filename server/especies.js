@@ -23,7 +23,8 @@
 // shared/armas.js): forma do golpe, canos, leque, rajada, teleguiado, área, armadilha,
 // efeito no alvo, visual e som saem do original, convertidos pelos mesmos fatores das
 // armas do jogador. Um ataque por vez, escolhido pelo peso do original (cols 22–25:
-// 70 e 30), no ritmo da arma mais rápida (`entreAtaquesS`). Escala do resto:
+// 70 e 30), no ritmo da arma mais rápida (`entreAtaquesS`), com a recarga e o ritmo
+// × FATOR_RECARGA_M5 (atacam na metade da velocidade das armas). Escala do resto:
 // - velocidade: m/ms do original × 1000 × FATOR_VEL_MONSTRO (a regra de todo monstro);
 // - raio de acerto e modelo: o do original × FATOR_AREA (0,25, o mesmo das áreas das
 //   armas: o corpo e o tiro ficam na proporção do original entre si e com o SN-4);
@@ -64,6 +65,8 @@ export const FATOR_VEL_MONSTRO = 0.25;
 export const FATOR_HP_M5 = 0.08;
 /** SN-3 e SN-Zero VI: dano por projétil das armas do original × isto (Disco Voador 366 → 1,2; Canhão 6 166 → 0,5 por bala, 4 por disparo). */
 export const FATOR_DANO_M5 = 0.0032;
+/** SN-3 e SN-Zero VI: recarga de cada arma e ritmo entre ataques × isto (2 = atacam na metade da velocidade). */
+export const FATOR_RECARGA_M5 = 2;
 /** SN-3 e SN-Zero VI: XP do abate do original (col 30 do initnpc) × isto (75 → 23, 60 → 18). */
 export const FATOR_XP_M5 = 0.3;
 /** SN-3 e SN-Zero VI: ouro do abate por ponto de XP (o original não dá ouro; 0,9 era a relação dos pequenos de antes, 18 por 20). */
@@ -84,8 +87,8 @@ const DESGOVERNO = { tipo: 'desgoverno', alvo: 'inimigo', dur: 1.5 };
 const SEM_TIRO = { tipo: 'semTiro', alvo: 'inimigo', dur: 2 };
 
 /**
- * Ataque com a arma "(NPC)" `id` do original: dano do original × FATOR_DANO_M5; recarga,
- * tipo de dano e alcance (o voo do projétil) da arma convertida; `peso` do initnpc.
+ * Ataque com a arma "(NPC)" `id` do original: dano do original × FATOR_DANO_M5; recarga
+ * da arma convertida × FATOR_RECARGA_M5; tipo de dano e alcance (o voo do projétil) da arma convertida; `peso` do initnpc.
  * `forma: 'arma'`: o golpe é o da arma (server/jungle.js golpeDoAtaque).
  */
 function ataqueDoOriginal(atq, id, peso, extra = {}) {
@@ -99,7 +102,7 @@ function ataqueDoOriginal(atq, id, peso, extra = {}) {
     peso,
     tipoDano: WEAPONS[kind].tipoDano,
     dano: +(original.dano * FATOR_DANO_M5).toFixed(3),
-    intervaloS: v.cd,
+    intervaloS: v.cd * FATOR_RECARGA_M5,
     alcance: v.golpe.forma === 'projetil' ? Math.round(v.golpe.alcance) : 0,
     ...extra,
   };
@@ -125,7 +128,7 @@ export const ESPECIES = {
     nome: 'SN-3',
     ...doOriginal({ hp: 2500, velMs: 0.15, raio: 49, xp: 75 }),
     tamanho: 23,
-    entreAtaquesS: 1,
+    entreAtaquesS: WEAPONS.n511080.versoes[0].cd * FATOR_RECARGA_M5,
     ataques: [ataqueDoOriginal('disco_voador', '511080', 70), ataqueDoOriginal('missil_descarga', '511090', 30)],
   },
   // SN-Zero VI (Stage M5): npc 700405, unidade 500405 "Sn-Zero Unit6" (HP 1200, 0,17
@@ -135,7 +138,7 @@ export const ESPECIES = {
     nome: 'SN-Zero VI',
     ...doOriginal({ hp: 1200, velMs: 0.17, raio: 47, xp: 60 }),
     tamanho: 18,
-    entreAtaquesS: 0.5,
+    entreAtaquesS: WEAPONS.n510372.versoes[0].cd * FATOR_RECARGA_M5,
     ataques: [ataqueDoOriginal('canhao_sn6', '510372', 70), ataqueDoOriginal('armadilha_sn6', '510373', 30, { alcance: ALCANCE_ARMADILHA })],
   },
   xerxes: {

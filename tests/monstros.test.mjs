@@ -8,7 +8,7 @@ import { createShip } from '../shared/sim.js';
 import { BASES, BUFFS, heightAt } from '../shared/terrain.js';
 import { bloqueiaVisao } from '../shared/visao.js';
 import { readFileSync } from 'node:fs';
-import { ESPECIES, alcanceMaximo, FATOR_HP_M5, FATOR_DANO_M5, FATOR_XP_M5, FATOR_VEL_MONSTRO } from '../server/especies.js';
+import { ESPECIES, alcanceMaximo, FATOR_HP_M5, FATOR_DANO_M5, FATOR_XP_M5, FATOR_RECARGA_M5, FATOR_VEL_MONSTRO } from '../server/especies.js';
 import { RAIVA_S, corpoLivre, golpeDoAtaque } from '../server/jungle.js';
 import { WEAPONS, ARMAS, FATOR_AREA, armasDisponiveis, visualDoOriginal } from '../shared/armas.js';
 import { RACAS_JOGAVEIS, ORDEM_CLASSES } from '../shared/naves.js';
@@ -263,9 +263,11 @@ test('SN-3 e SN-Zero VI: números do original (unidade, NPC e armas) na escala d
   assert.deepEqual(snzero.ataques.map((a) => [a.kind, a.peso, a.tipoDano]), [['n510372', 70, 'laser'], ['n510373', 30, 'laser']]);
   assert.equal(sn3.ataques[0].dano, +(366 * FATOR_DANO_M5).toFixed(3), 'Disco Voador: 366 por disco no original');
   assert.equal(snzero.ataques[0].dano, +(166 * FATOR_DANO_M5).toFixed(3), 'Canhão SN 6: 166 por bala no original');
-  // Um ataque por vez, no ritmo da arma mais rápida (recarga do original × 0,5).
-  assert.equal(sn3.entreAtaquesS, WEAPONS.n511080.versoes[0].cd);
-  assert.equal(snzero.entreAtaquesS, WEAPONS.n510372.versoes[0].cd);
+  // Um ataque por vez, no ritmo da arma mais rápida, na metade da velocidade da arma.
+  assert.equal(FATOR_RECARGA_M5, 2);
+  assert.equal(sn3.entreAtaquesS, WEAPONS.n511080.versoes[0].cd * FATOR_RECARGA_M5);
+  assert.equal(snzero.entreAtaquesS, WEAPONS.n510372.versoes[0].cd * FATOR_RECARGA_M5);
+  for (const a of [...sn3.ataques, ...snzero.ataques]) assert.equal(a.intervaloS, WEAPONS[a.kind].versoes[0].cd * FATOR_RECARGA_M5, a.atq);
 });
 
 test('SN-3 e SN-Zero VI: as armas de NPC do original ficam no fim do catálogo, fora das do jogador', () => {
