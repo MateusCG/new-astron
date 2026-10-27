@@ -82,12 +82,19 @@ export const FATOR_RECARGA_ORIGINAL = 2;
 /** @deprecated o nome antigo (era só do SN-3 e do SN-Zero VI): use FATOR_RECARGA_ORIGINAL. */
 export const FATOR_RECARGA_M5 = FATOR_RECARGA_ORIGINAL;
 /**
+ * Medusa: recarga e ritmo entre ataques × isto, no lugar de FATOR_RECARGA_ORIGINAL (pedido
+ * do Mateus: no ritmo do original ela atacava sem parar). 6 = um ataque a cada 1,5 s (o
+ * ritmo dela antes das armas do original); pedra a cada 2,4 s, disparo de controle a
+ * cada 1,5 s, armadilhas a cada 15 s. O dano de cada golpe não muda.
+ */
+export const FATOR_RECARGA_MEDUSA = 6;
+/**
  * Dano das armas do original × isto, por espécie (o SN-3 e o SN-Zero VI usam
  * FATOR_DANO_M5). Escolhido para o dano por segundo de perto, um ataque por vez no
  * ritmo de cima, ficar perto do de antes de cada papel: Xerxes ~4 a 6 e Grande
  * Xerxes ~10 com o Magma (4 e 6 de HP por segundo enquanto a chama pega), Anti ~7,5,
  * Bazit ~3,75; o SN-4 é chefe (dez mísseis em volta, a onda e o campo); a Medusa,
- * chefe de time inteiro, ~30 no alvo das pedras (12 por pedra, um ataque a cada 0,5 s).
+ * chefe de time inteiro, 12 por pedra, um ataque a cada 1,5 s (FATOR_RECARGA_MEDUSA).
  */
 export const FATOR_DANO_ESPECIE = { xerxes: 0.001, great_xerxes: 0.001, bazit: 0.0031, anti: 0.0098, sn4: 0.02, medusa: 0.009 };
 /** Alcance máximo de um ataque com arma do original (m): o do Disco Voador do SN-3, perto da visão do time (550). */
@@ -114,7 +121,7 @@ export const TERRITORIO_CHEFE = 175;
  * convertida (o voo do projétil, até ALCANCE_MAX_ORIGINAL; o raio da nova); `peso` do
  * initnpc. `forma: 'arma'`: o golpe é o da arma (server/jungle.js golpeDoAtaque).
  */
-function ataqueDoOriginal(atq, id, peso, extra = {}, fatorDano = FATOR_DANO_M5) {
+function ataqueDoOriginal(atq, id, peso, extra = {}, fatorDano = FATOR_DANO_M5, fatorRecarga = FATOR_RECARGA_ORIGINAL) {
   const kind = `n${id}`;
   const v = versaoArma(kind, 1);
   const original = ARMAS_NPC_ORIGINAL.find((a) => a.id === id).versoes[0].golpe;
@@ -127,15 +134,15 @@ function ataqueDoOriginal(atq, id, peso, extra = {}, fatorDano = FATOR_DANO_M5) 
     peso,
     tipoDano: WEAPONS[kind].tipoDano,
     dano: +(original.dano * fatorDano).toFixed(3),
-    intervaloS: v.cd * FATOR_RECARGA_ORIGINAL,
+    intervaloS: v.cd * fatorRecarga,
     alcance,
     ...extra,
   };
 }
 
-/** O ritmo entre ataques de quem usa as armas `ids` do original: a recarga da mais rápida × FATOR_RECARGA_ORIGINAL. */
-function ritmoDoOriginal(...ids) {
-  return Math.min(...ids.map((id) => WEAPONS[`n${id}`].versoes[0].cd)) * FATOR_RECARGA_ORIGINAL;
+/** O ritmo entre ataques de quem usa as armas `ids` do original: a recarga da mais rápida × `fator`. */
+function ritmoDoOriginal(ids, fator = FATOR_RECARGA_ORIGINAL) {
+  return Math.min(...ids.map((id) => WEAPONS[`n${id}`].versoes[0].cd)) * fator;
 }
 
 /** Números de um NPC do original (unidade do initunit.cfg e XP do initnpc.cfg) na escala do jogo. */
@@ -158,7 +165,7 @@ export const ESPECIES = {
     nome: 'SN-3',
     ...doOriginal({ hp: 2500, velMs: 0.15, raio: 49, xp: 75 }),
     tamanho: 23,
-    entreAtaquesS: ritmoDoOriginal('511080', '511090'),
+    entreAtaquesS: ritmoDoOriginal(['511080', '511090']),
     ataques: [ataqueDoOriginal('disco_voador', '511080', 70), ataqueDoOriginal('missil_descarga', '511090', 30)],
   },
   // SN-Zero VI (Stage M5): npc 700405, unidade 500405 "Sn-Zero Unit6" (HP 1200, 0,17
@@ -168,7 +175,7 @@ export const ESPECIES = {
     nome: 'SN-Zero VI',
     ...doOriginal({ hp: 1200, velMs: 0.17, raio: 47, xp: 60 }),
     tamanho: 18,
-    entreAtaquesS: ritmoDoOriginal('510372', '510373'),
+    entreAtaquesS: ritmoDoOriginal(['510372', '510373']),
     ataques: [ataqueDoOriginal('canhao_sn6', '510372', 70), ataqueDoOriginal('armadilha_sn6', '510373', 30, { alcance: ALCANCE_ARMADILHA })],
   },
   // Xerxes (npc 705050): Lança-chamas (511150, 30%: rajada de 8 bolas de fogo que
@@ -176,7 +183,7 @@ export const ESPECIES = {
   // (511160, 70%: rajada de 2 balas com área).
   xerxes: {
     nome: 'Xerxes', hp: 240, velocidade: 37, raio: 6, tamanho: 13, xp: 35, ouro: 28,
-    entreAtaquesS: ritmoDoOriginal('511150', '511160'),
+    entreAtaquesS: ritmoDoOriginal(['511150', '511160']),
     ataques: [
       ataqueDoOriginal('lanca_chamas', '511150', 30, {}, FATOR_DANO_ESPECIE.xerxes),
       ataqueDoOriginal('canhao_explosivo', '511160', 70, {}, FATOR_DANO_ESPECIE.xerxes),
@@ -185,14 +192,14 @@ export const ESPECIES = {
   // Grande Xerxes (npc 705055): só o Lança-chamas grande (511155, 100%: Magma de 150).
   great_xerxes: {
     nome: 'Grande Xerxes', hp: 900, velocidade: 30, raio: 11, tamanho: 26, xp: 90, ouro: 70,
-    entreAtaquesS: ritmoDoOriginal('511155'),
+    entreAtaquesS: ritmoDoOriginal(['511155']),
     ataques: [ataqueDoOriginal('lanca_chamas_g', '511155', 100, {}, FATOR_DANO_ESPECIE.great_xerxes)],
   },
   // Bazit (npc 705040): o Lançador de Feixe Óptico (511140) nos dois encaixes (50/50):
   // três feixes em leque de 5° que atravessam.
   bazit: {
     nome: 'Bazit', hp: 240, velocidade: 37, raio: 6, tamanho: 13, xp: 35, ouro: 28,
-    entreAtaquesS: ritmoDoOriginal('511140'),
+    entreAtaquesS: ritmoDoOriginal(['511140']),
     ataques: [ataqueDoOriginal('feixe_optico_bazit', '511140', 100, {}, FATOR_DANO_ESPECIE.bazit)],
   },
   // Anti (npc 705060): Míssil de Longo Alcance (511170, 50%: quatro mísseis retos lado a
@@ -200,7 +207,7 @@ export const ESPECIES = {
   // explodem com área).
   anti: {
     nome: 'Anti', hp: 900, velocidade: 30, raio: 11, tamanho: 26, xp: 90, ouro: 70,
-    entreAtaquesS: ritmoDoOriginal('511170', '511180'),
+    entreAtaquesS: ritmoDoOriginal(['511170', '511180']),
     ataques: [
       ataqueDoOriginal('missil_longo', '511170', 50, {}, FATOR_DANO_ESPECIE.anti),
       ataqueDoOriginal('canhao_teleguiado', '511180', 50, {}, FATOR_DANO_ESPECIE.anti),
@@ -212,7 +219,7 @@ export const ESPECIES = {
   // resistências), 40/40/40.
   sn4: {
     nome: 'SN-4', hp: 2000, velocidade: 15, raio: 26, tamanho: 60, xp: 150, ouro: 100, territorio: TERRITORIO_CHEFE, chefe: true,
-    entreAtaquesS: ritmoDoOriginal('550120', '550130', '550140'),
+    entreAtaquesS: ritmoDoOriginal(['550120', '550130', '550140']),
     ataques: [
       ataqueDoOriginal('missil_cruzador', '550120', 40, {}, FATOR_DANO_ESPECIE.sn4),
       ataqueDoOriginal('onda_feixe', '550130', 40, {}, FATOR_DANO_ESPECIE.sn4),
@@ -224,16 +231,16 @@ export const ESPECIES = {
   // a mina solta um teleguiado que impede o tiro por 2,5 s), Disparo de Controle
   // (550160, 40: 10 tiros em leque de 36° com área, desgoverno de 3 s) e Canhão de
   // Pedra (550170, 70: 2 pedras que atravessam). Não se teleporta (decisão do Mateus):
-  // fica no poço atirando.
+  // fica no poço atirando, mais devagar que as armas do original (FATOR_RECARGA_MEDUSA).
   medusa: {
     nome: 'Medusa Anciã', hp: 12000, regenHpS: 10, velocidade: 12, raio: 20, tamanho: 48, alturaCentro: 18,
     xp: 220, ouro: 150, doTime: true, // XP e ouro para CADA piloto do time de quem deu o golpe final
     territorio: TERRITORIO_CHEFE, chefe: true,
-    entreAtaquesS: ritmoDoOriginal('550150', '550160', '550170'),
+    entreAtaquesS: ritmoDoOriginal(['550150', '550160', '550170'], FATOR_RECARGA_MEDUSA),
     ataques: [
-      ataqueDoOriginal('armadilha_paralisante', '550150', 40, {}, FATOR_DANO_ESPECIE.medusa),
-      ataqueDoOriginal('disparo_controle', '550160', 40, {}, FATOR_DANO_ESPECIE.medusa),
-      ataqueDoOriginal('canhao_pedra', '550170', 70, {}, FATOR_DANO_ESPECIE.medusa),
+      ataqueDoOriginal('armadilha_paralisante', '550150', 40, {}, FATOR_DANO_ESPECIE.medusa, FATOR_RECARGA_MEDUSA),
+      ataqueDoOriginal('disparo_controle', '550160', 40, {}, FATOR_DANO_ESPECIE.medusa, FATOR_RECARGA_MEDUSA),
+      ataqueDoOriginal('canhao_pedra', '550170', 70, {}, FATOR_DANO_ESPECIE.medusa, FATOR_RECARGA_MEDUSA),
     ],
   },
   sonda: {

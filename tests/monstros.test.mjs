@@ -8,7 +8,7 @@ import { createShip } from '../shared/sim.js';
 import { BASES, BUFFS, heightAt } from '../shared/terrain.js';
 import { bloqueiaVisao } from '../shared/visao.js';
 import { readFileSync } from 'node:fs';
-import { ESPECIES, alcanceMaximo, FATOR_HP_M5, FATOR_DANO_M5, FATOR_XP_M5, FATOR_RECARGA_ORIGINAL, FATOR_VEL_MONSTRO, FATOR_DANO_ESPECIE, ALCANCE_MAX_ORIGINAL } from '../server/especies.js';
+import { ESPECIES, alcanceMaximo, FATOR_HP_M5, FATOR_DANO_M5, FATOR_XP_M5, FATOR_RECARGA_ORIGINAL, FATOR_RECARGA_MEDUSA, FATOR_VEL_MONSTRO, FATOR_DANO_ESPECIE, ALCANCE_MAX_ORIGINAL } from '../server/especies.js';
 import { ARMAS_NPC_ORIGINAL } from '../shared/armas-original.js';
 import { RAIVA_S, corpoLivre, golpeDoAtaque } from '../server/jungle.js';
 import { MINA_MAX_MONSTRO } from '../server/golpes.js';
@@ -406,7 +406,9 @@ test('Stage 6, SN-4 e Medusa: as armas e os pesos do initnpc.cfg, um ataque por 
     const e = ESPECIES[esp];
     assert.deepEqual(e.ataques.map((a) => [a.kind, a.peso]), armas, esp);
     const cds = e.ataques.map((a) => WEAPONS[a.kind].versoes[0].cd);
-    assert.equal(e.entreAtaquesS, Math.min(...cds) * FATOR_RECARGA_ORIGINAL, `${esp}: ritmo`);
+    const fator = esp === 'medusa' ? FATOR_RECARGA_MEDUSA : FATOR_RECARGA_ORIGINAL;
+    assert.equal(e.entreAtaquesS, Math.min(...cds) * fator, `${esp}: ritmo`);
+    for (const a of e.ataques) assert.equal(a.intervaloS, WEAPONS[a.kind].versoes[0].cd * fator, `${esp} ${a.atq}: recarga`);
     for (const a of e.ataques) {
       assert.equal(a.forma, 'arma');
       assert.equal(a.tipoDano, WEAPONS[a.kind].tipoDano);
@@ -565,4 +567,22 @@ test('Medusa: o glb traz a pele do original (112 ossos) e os movimentos do .eff:
   const dur = (n) => g.accessors[g.animations.find((a) => a.name === n).samplers.find((s) => g.accessors[s.input].count > 1).input].max[0];
   assert.ok(Math.abs(dur('STAND') - 56 / 24) < 1e-6, 'o laço: quadros 146–202 do .eff, 24 por segundo');
   for (const n of ['STAND02', 'STAND03', 'STAND04']) assert.ok(Math.abs(dur(n) - 23 / 24) < 1e-6, `${n}: 24 quadros`);
+});
+
+test('Medusa: ataca no máximo um golpe a cada 1,5 s (mais devagar que as armas do original)', () => {
+  const { w, j } = mundo(0, 877 - 150);
+  j.ship.maxHp = j.ship.hp = 1e7;
+  const m = w.jungle.criarMonstro('medusa', 0, 877);
+  w.jungle.provocar(m, j.id);
+  const disparos = [];
+  for (let i = 0; i < 30 * 30; i++) {
+    w.step();
+    for (const e of w.tirarEventos()) {
+      // O primeiro disparo de cada golpe (a rajada da pedra e o tiro da mina não contam).
+      if (e.e === 'tiro' && e.dono === m.id && !e.p && !disparos.some((d) => d.tick === w.tick || (d.atq === e.atq && w.tick - d.tick <= 2))) disparos.push({ tick: w.tick, atq: e.atq });
+    }
+  }
+  assert.ok(disparos.length >= 10 && disparos.length <= 21, `golpes em 30 s (${disparos.length})`);
+  for (let i = 1; i < disparos.length; i++) assert.ok(disparos[i].tick - disparos[i - 1].tick >= 45, 'pelo menos 1,5 s entre um golpe e outro');
+  assert.equal(FATOR_RECARGA_MEDUSA, 6);
 });
