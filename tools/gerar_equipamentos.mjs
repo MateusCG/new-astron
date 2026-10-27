@@ -13,7 +13,8 @@
 //   node tools/gerar_equipamentos.mjs                         refaz shared/equipamentos-original.js
 //
 // A pasta padrão é a dos cfg do old-astron (PASTA_CFG). Colunas (índice 0):
-// 0 id, 1 nome (a V1 sem sufixo "Vn"), 11 tipo de dano (0 Ph, 1 Op, 2 El, 3 nenhum),
+// 0 id, 1 nome (a V1 sem sufixo "Vn"), 2 ícone (o mesmo nas oito versões, em
+// texture/item do original), 11 tipo de dano (0 Ph, 1 Op, 2 El, 3 nenhum),
 // 12 versão, 13 taxa de tuning para a próxima (0 na V8), 15 id da próxima versão,
 // 16 categoria (2 armadura, 3 escudo, 4 potenciador), 20 a 23 classes (todas,
 // Assault, Mobile, Functional), 25 nível exigido no original, 31 preço da versão e,
@@ -124,6 +125,7 @@ function lerArquivo(pasta, { arquivo, categoria, codigo, prefixo }) {
       id: c[0],
       nome,
       nomePt: nomePt(nome),
+      icone: c[2].toLowerCase(),
       categoria,
       tipo: num(c[11]),
       classes: [20, 21, 22, 23].map((k) => num(c[k])),
@@ -159,7 +161,7 @@ function gerar() {
 // Os ${equipamentos.length} escudos, armaduras e potenciadores do Astro-N original, na ordem do
 // catálogo (escudos, armaduras, potenciadores), com as versões V1 a V8. Números nas
 // unidades do original: a conversão para o jogo novo é de shared/equipamentos.js.
-// Campos: id (da V1), nome (original), nomePt, categoria, tipo (0 Ph, 1 Op, 2 El,
+// Campos: id (da V1), nome (original), nomePt, icone (public/texturas/itens), categoria, tipo (0 Ph, 1 Op, 2 El,
 // 3 nenhum), classes ([todas, Assault, Mobile, Functional]) e versoes ({ v, id,
 // preco, taxa (tuning para a próxima), nivel (exigido no original) } mais escudo +
 // regenMs + resist [Ph, Op, El] no escudo, hp + resist na armadura e efeitos

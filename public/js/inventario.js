@@ -424,7 +424,7 @@ export class PainelInventario {
       }
       const k = inst?.chave ?? null;
       return `<button type="button" class="slot${k ? '' : ' vazio'}${marcado}" data-slot="${enc.slot}" title="${k ? 'Clique para tirar ou evoluir' : 'Vazio: equipe pelo compartimento'}">
-        <span class="rot">${enc.nome}</span><span class="ic">${iconeEquip(k, CATEGORIA_DO_SLOT[enc.slot])}</span><span class="nm">${k ? EQUIPAMENTOS[k].nomePt : 'Vazio'}</span>${k ? `<b class="v">V${inst.nivel}</b>` : ''}
+        <span class="rot">${enc.nome}</span><span class="ic">${iconeEquip(k, inst?.nivel)}</span><span class="nm">${k ? EQUIPAMENTOS[k].nomePt : 'Vazio'}</span>${k ? `<b class="v">V${inst.nivel}</b>` : ''}
       </button>`;
     }).join('');
 
@@ -437,7 +437,7 @@ export class PainelInventario {
     const comp = this.#compartimento().sort((a, b) => (a.tipo === b.tipo ? (a.tipo === 'arma' ? IDX_ARMA[a.chave] - IDX_ARMA[b.chave] || a.id - b.id : a.id - b.id) : a.tipo === 'arma' ? -1 : 1));
     const caixaInst = this.caixa?.inst;
     const cartas = comp.map((x) => {
-      const ic = x.tipo === 'arma' ? iconeArma(x.chave, x.nivel) : iconeEquip(x.chave);
+      const ic = x.tipo === 'arma' ? iconeArma(x.chave, x.nivel) : iconeEquip(x.chave, x.nivel);
       const nm = x.tipo === 'arma' ? nomeArma(x.chave) : (EQUIPAMENTOS[x.chave]?.nomePt ?? x.chave);
       const marcado = caixaInst === x.id ? ' com-caixa' : '';
       return `<button type="button" class="item-inv${marcado}" data-inst="${x.id}"><span class="ic">${ic}</span><span class="nm">${esc(nm)}</span><b class="v">V${x.nivel}</b></button>`;

@@ -74,6 +74,8 @@ import { TORRETAS } from '/shared/terrain.js';
 import { iconeArma, descreverArma, etiquetasArma, textoDano, nomeArma, classeArma, ordenarPorCategoria } from './armas.js';
 import { miniatura } from './vitrine.js';
 import { iconeEquip, textoClasses, classeTipo } from './equipamento.js';
+import { htmlIcone } from './icones-itens.js';
+import { ICONE_CONSUMIVEL } from './insumos.js';
 
 /** Mensagem curta para cada código de erro estável do servidor. */
 export const MENSAGEM_ERRO = {
@@ -112,10 +114,9 @@ const numero = (v) => Math.round(v).toLocaleString('pt-BR');
 const pct = (f) => `${Math.round(f * 100)}%`;
 const svg = (classe, desenho) => `<svg class="icone-servico ${classe}" viewBox="0 0 24 24" aria-hidden="true">${desenho}</svg>`;
 
-/** Ícone de item consumível: cruz de reparo (vida) e bateria (energia). */
+/** Ícone de item consumível, o do original: o Hpbattery (reparo) e o Energybattery (energia). */
 export function iconeItem(id) {
-  if (id === 'reparo') return svg('vida', '<rect x="4" y="4" width="16" height="16" rx="3" /><path d="M12 8 V16 M8 12 H16" />');
-  return svg('energia', '<rect x="5" y="6" width="13" height="14" rx="2" /><path d="M9 3 H14 M12.5 9 L9.5 13.5 H13 L10.5 17.5" />');
+  return htmlIcone(ICONE_CONSUMIVEL[id], 1, 'icone-consumivel');
 }
 
 /** Ícones da Evolução: torretas e as melhorias dos mineradores. */

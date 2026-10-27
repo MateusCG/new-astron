@@ -15,6 +15,7 @@
 
 import { WEAPONS, ARMAS, armasDisponiveis, visualEfeito, visualDoOriginal } from '../../shared/armas.js';
 import { linhaDe, RACAS_JOGAVEIS, ORDEM_CLASSES } from '../../shared/naves.js';
+import { EQUIPAMENTOS, equipamentosAVenda } from '../../shared/equipamentos.js';
 import { SONS_INTERFACE, SONS_ARMA } from './sons.js';
 
 /** Pasta das texturas dos efeitos de arma do original. */
@@ -23,6 +24,32 @@ export const PASTA_TEXTURAS_EFEITO = '/texturas/efeitos/';
 export const PASTA_MODELOS_ARMA = '/modelos/armas/';
 /** Pasta dos efeitos do original convertidos (tools/efeitos3d_do_original.py, <id>.json). */
 export const PASTA_EFEITOS_ORIGINAIS = '/modelos/efeitos/';
+/** Pasta dos ícones dos itens do original (tools/icones_do_original.py, <nome>.png). */
+export const PASTA_ICONES_ITENS = '/texturas/itens/';
+
+/** Ícones do Kit de reparo e da Célula de energia: o Hpbattery e o Energybattery do original. */
+export const ICONE_CONSUMIVEL = Object.freeze({ reparo: 'sp011', energia: 'sp012' });
+/** O número da versão no canto do ícone, por versão (a V1 não tem, como no original). */
+export function iconeVersao(nivel) {
+  return nivel >= 2 && nivel <= 8 ? `item_lv${nivel}` : null;
+}
+
+/**
+ * Os ícones (nomes, sem extensão) que a Loja e o INVENTÁRIO da raça e da classe podem
+ * mostrar: as armas da raça e da classe, os equipamentos da classe, os consumíveis e
+ * os números da versão. Só os do próprio piloto: ninguém vê o inventário dos outros.
+ */
+export function iconesDaNave(race, classe) {
+  const nomes = new Set();
+  for (const idx of armasDisponiveis(race, classe)) {
+    const w = WEAPONS[ARMAS[idx]];
+    if (!w.npc && w.icone) nomes.add(w.icone);
+  }
+  for (const k of equipamentosAVenda(classe)) nomes.add(EQUIPAMENTOS[k].icone);
+  for (const n of Object.values(ICONE_CONSUMIVEL)) nomes.add(n);
+  for (let v = 2; v <= 8; v++) nomes.add(iconeVersao(v));
+  return [...nomes];
+}
 
 /**
  * Os efeitos do original convertidos (.eff + .3dx + .MPL → public/modelos/efeitos):
@@ -133,7 +160,8 @@ export function modelosDaArma(kind) {
  * - `naves`: as 5 da linha (as que a Evolução compra), { tier, nome, url };
  * - `armas`: todas as que a raça e a classe usam, { idx, kind, nome, modelos };
  * - `texturas`: as dos efeitos dessas armas, em todas as versões;
- * - `sons`: os dessas armas e os gerais (interface, explosões).
+ * - `sons`: os dessas armas e os gerais (interface, explosões);
+ * - `icones`: os dos itens da Loja e do INVENTÁRIO (iconesDaNave).
  */
 export function insumosDaNave(race, classe) {
   const naves = linhaDe(race, classe).map((n) => ({ tier: n.tier, nome: n.nome, url: '/' + n.modelo }));
@@ -147,7 +175,7 @@ export function insumosDaNave(race, classe) {
     for (const t of texturasDaArma(kind)) texturas.add(t);
     for (const s of sonsDaArma(kind)) sons.add(s);
   }
-  return { naves, armas, texturas: [...texturas], sons: [...sons] };
+  return { naves, armas, texturas: [...texturas], sons: [...sons], icones: iconesDaNave(race, classe) };
 }
 
 /**
@@ -170,7 +198,7 @@ export function armasDeMonstro() {
  * esperar na entrada a ter o jogo travando quando um piloto novo aparece.
  * Mesma forma de insumosDaNave, mais `armasMonstro` e `efeitosOriginais` (os efeitos do
  * original convertidos, com as texturas que cada um pede: o carregamento lê do json);
- * as naves trazem também `race` e `classe`.
+ * as naves trazem também `race` e `classe`. Os `icones` são só os do piloto.
  */
 export function insumosDaPartida(race, classe) {
   const propria = insumosDaNave(race, classe);
@@ -200,7 +228,7 @@ export function insumosDaPartida(race, classe) {
   // Sons de todas as armas, as de NPC também (torres, escoltas e drones atiram com elas).
   for (const kind of ARMAS) for (const s of sonsDaArma(kind)) sons.add(s);
   for (const s of Object.values(SONS_ARMA)) sons.add(s);
-  return { naves, armas, armasMonstro, texturas: [...texturas], sons: [...sons], efeitosOriginais: [...EFEITOS_ORIGINAIS] };
+  return { naves, armas, armasMonstro, texturas: [...texturas], sons: [...sons], icones: propria.icones, efeitosOriginais: [...EFEITOS_ORIGINAIS] };
 }
 
 /** Os arquivos dos modelos da asa de uma lista de armas, sem repetição (peças compartilhadas baixam uma vez). */
