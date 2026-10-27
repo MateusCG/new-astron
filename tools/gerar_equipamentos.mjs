@@ -42,6 +42,16 @@ const SAIDA = path.join(RAIZ, 'shared', 'equipamentos-original.js');
 const PASTA_CFG = '/home/mateus/Documentos/old-astron/reference/game_data_decoded/locale/en/cfg';
 const N_VERSOES = 8;
 
+// Itens do original que ficam fora do jogo novo (pelo id da V1). Os Reforços T2 (Ph.,
+// Op. e El.) são variantes dos Reforços, com o mesmo preço e o mesmo ícone, e não fazem
+// mais sentido no jogo: o Mateus pediu para tirá-los (out/2026). A lista fica aqui para
+// o --ler não trazê-los de volta.
+const FORA_DO_JOGO = new Set([
+  '340032', // Ph. Reinforcement T2
+  '340033', // Op. Reinforcement T2
+  '340034', // El. Reinforcement T2
+]);
+
 /** Arquivo, categoria do jogo novo e código da categoria no cfg (coluna 16). */
 const ARQUIVOS = [
   { arquivo: 'inititemshield.cfg', categoria: 'escudo', codigo: 3, prefixo: '33' },
@@ -83,13 +93,12 @@ const NOMES_PT = {
   'Total Resistance Enhancer': 'Potenciador de Resistência Total',
   'Mobility Enhancer': 'Potenciador de Mobilidade',
   Reinforcement: 'Reforço',
-  'Reinforcement T2': 'Reforço T2',
   'Fatal Stirke Enhancer': 'Potenciador de Golpe Fatal', // "Stirke" assim no original
   'Penetration Enhancer': 'Potenciador de Penetração',
   'Total Penetration Enhancer': 'Potenciador de Penetração Total',
 };
 
-/** 'Op. Neutron Shield' -> 'Escudo Neutron Op.'; 'Reinforcement T2' com sigla -> 'Reforço T2 Op.'. */
+/** 'Op. Neutron Shield' -> 'Escudo Neutron Op.'; 'Op. Reinforcement' -> 'Reforço Op.'. */
 function nomePt(nome) {
   const sigla = SIGLAS.find((s) => nome.startsWith(s + ' '));
   const base = sigla ? nome.slice(sigla.length + 1) : nome;
@@ -111,6 +120,7 @@ function lerArquivo(pasta, { arquivo, categoria, codigo, prefixo }) {
   const itens = [];
   for (const c of linhas) {
     if (c[0][2] !== '0') continue; // só a V1 abre um item; as outras vêm pela corrente
+    if (FORA_DO_JOGO.has(c[0])) continue;
     const versoes = [];
     for (let id = c[0], v = 1; v <= N_VERSOES; v++) {
       const l = porId.get(id);

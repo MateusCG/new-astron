@@ -129,19 +129,19 @@ Gerado por `tools/icones_do_original.py` de `assets_obb/texture/item/` do origin
 | `xd009.png` | Potenciador de Recarga Total, Potenciador de Penetração Total |
 | `xd010.png` | Potenciador de Velocidade |
 | `xd103.png` | Potenciador de Energia |
-| `xd104.png` | Reforço Ph., Reforço T2 Ph. |
+| `xd104.png` | Reforço Ph. |
 | `xd105.png` | Potenciador de Regeneração de Energia |
 | `xd106.png` | Potenciador de Resistência Ph. |
 | `xd107.png` | Potenciador de Poder Ph. |
 | `xd109.png` | Potenciador de Recarga Ph., Potenciador de Penetração Ph. |
 | `xd203.png` | Potenciador de Durabilidade |
-| `xd204.png` | Reforço El., Reforço T2 El. |
+| `xd204.png` | Reforço El. |
 | `xd205.png` | Potenciador de Conserto |
 | `xd206.png` | Potenciador de Resistência El. |
 | `xd207.png` | Potenciador de Poder El. |
 | `xd209.png` | Potenciador de Recarga El., Potenciador de Penetração El. |
 | `xd303.png` | Potenciador Máximo Total |
-| `xd304.png` | Reforço Op., Reforço T2 Op. |
+| `xd304.png` | Reforço Op. |
 | `xd305.png` | Potenciador de Recuperação Total |
 | `xd306.png` | Potenciador de Resistência Op. |
 | `xd307.png` | Potenciador de Poder Op. |

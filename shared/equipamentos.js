@@ -1,4 +1,4 @@
-// Catálogo dos equipamentos da nave: os 12 escudos, 16 armaduras e 34 potenciadores
+// Catálogo dos equipamentos da nave: os 12 escudos, 16 armaduras e 31 potenciadores
 // (enhancers) das lojas do Astro-N original (dados em shared/equipamentos-original.js,
 // gerado por tools/gerar_equipamentos.mjs), convertidos para a escala do jogo novo.
 //

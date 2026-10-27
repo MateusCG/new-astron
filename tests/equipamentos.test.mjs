@@ -30,18 +30,18 @@ const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const perto = (a, b, msg) => assert.ok(Math.abs(a - b) < 1e-6, `${msg ?? ''} ${a} != ${b}`);
 const efeito = (k, nv, tipo, tipoDano) => efeitosDoEquip(k, nv).find((e) => e.tipo === tipo && (tipoDano === undefined || e.tipoDano === tipoDano));
 
-test('equipamentos: 12 escudos, 16 armaduras e 34 potenciadores, nessa ordem, com oito versões cada', () => {
-  assert.equal(ORDEM_EQUIP.length, 62);
+test('equipamentos: 12 escudos, 16 armaduras e 31 potenciadores, nessa ordem, com oito versões cada', () => {
+  assert.equal(ORDEM_EQUIP.length, 59);
   const cats = ORDEM_EQUIP.map((k) => EQUIPAMENTOS[k].categoria);
   assert.deepEqual(Object.keys(CATEGORIAS_EQUIP), ['escudo', 'armadura', 'potenciador']);
   assert.equal(cats.filter((c) => c === 'escudo').length, 12);
   assert.equal(cats.filter((c) => c === 'armadura').length, 16);
-  assert.equal(cats.filter((c) => c === 'potenciador').length, 34);
+  assert.equal(cats.filter((c) => c === 'potenciador').length, 31);
   assert.deepEqual(cats, [...cats].sort((a, b) => Object.keys(CATEGORIAS_EQUIP).indexOf(a) - Object.keys(CATEGORIAS_EQUIP).indexOf(b)));
   // A chave é o id da V1 e não muda (é o que vai no protocolo).
   assert.equal(ORDEM_EQUIP[0], 'e330001');
   assert.equal(ORDEM_EQUIP[9], 'e330010');
-  assert.equal(ORDEM_EQUIP.at(-1), 'e340034');
+  assert.equal(ORDEM_EQUIP.at(-1), 'e340031');
   assert.equal(NIVEL_ITEM_MAX, 8);
   for (const k of ORDEM_EQUIP) {
     const e = EQUIPAMENTOS[k];
@@ -69,7 +69,6 @@ test('equipamentos: nomes em português, com o original guardado', () => {
   assert.equal(EQUIPAMENTOS.e320010.nome, 'Ph. Argon Armor', 'espaço sobrando no original sai');
   assert.equal(EQUIPAMENTOS.e320016.nomePt, 'Armadura de Argônio');
   assert.equal(EQUIPAMENTOS.e340025.nomePt, 'Reforço Op.');
-  assert.equal(EQUIPAMENTOS.e340033.nomePt, 'Reforço T2 Op.');
   assert.equal(new Set(ORDEM_EQUIP.map((k) => EQUIPAMENTOS[k].nomePt)).size, ORDEM_EQUIP.length, 'nomes únicos');
 });
 
@@ -96,8 +95,8 @@ test('equipamentos: tipo de dano e classes como no original', () => {
   for (const classe of ['assault', 'mobile', 'functional']) {
     assert.equal(equipamentosAVenda(classe, 'escudo').length, 6, classe);
     assert.equal(equipamentosAVenda(classe, 'armadura').length, 8, classe);
-    assert.equal(equipamentosAVenda(classe, 'potenciador').length, 34, classe);
-    assert.equal(equipamentosAVenda(classe).length, 48, classe);
+    assert.equal(equipamentosAVenda(classe, 'potenciador').length, 31, classe);
+    assert.equal(equipamentosAVenda(classe).length, 45, classe);
     assert.ok(equipamentosAVenda(classe).every((k) => podeUsar(k, classe)));
   }
   assert.deepEqual(equipamentosAVenda('nada'), []);
