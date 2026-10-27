@@ -410,3 +410,7 @@ Copiadas por `tools/efeitos3d_do_original.py` junto com os efeitos que as usam (
 | `cross.png` | 32×32 px, 0.6 KB | #c7c7c7 | cross001, cross002, cross007, cross008, cross010, cross013 |
 | `cross002.png` | 64×64 px, 1.4 KB | #ff0000 | cross007, cross008, cross010 |
 | `recharging.png` | 32×32 px, 1.0 KB | #ff442f | 1164001 |
+| `1322063.png` | 128×128 px, 8.5 KB | #22b1fe | 1322063 |
+| `1322064_01.png` | 128×128 px, 6.0 KB | #75d269 | 1322064 |
+| `1322064_02.png` | 128×128 px, 7.7 KB | #30ac63 | 1322064 |
+| `1121030.png` | 64×64 px, 1.7 KB | #4fd206 | 1421030 |

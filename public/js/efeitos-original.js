@@ -104,7 +104,8 @@ function preparar(j) {
   };
   const raio = raioDo(j.blocos[0] ?? []);
   const raioMax = Math.max(raio, ...j.blocos.map(raioDo));
-  const particula = j.particula ? { tex: j.pecas[0]?.tex, raio } : null;
+  // Partícula: as texturas das variantes (o original sorteia uma por partícula).
+  const particula = j.particula ? { texs: j.pecas.map((p) => p.tex).filter(Boolean), raio } : null;
   return { id: j.id, quadros: j.quadros, pecas, mpal: j.mpal, opacas: new Set(j.opacas ?? []), blocos: j.blocos, raio, raioMax, particula, reserva: [] };
 }
 
@@ -161,8 +162,9 @@ export function soltarEfeitoOriginal(inst) {
 
 /**
  * O projétil `id` é um sistema de partículas no original ("particle_dummy": o feixe do
- * Bazit, o canhão teleguiado do Anti)? Devolve { tex, raio } (a textura e o raio da
- * partícula em unidades do original) para quem desenha o rastro, ou null.
+ * Bazit, o canhão teleguiado do Anti, a pedra e o disparo de controle da Medusa)?
+ * Devolve { texs, raio } (as texturas das variantes e o raio da partícula em unidades
+ * do original) para quem desenha o rastro, ou null.
  */
 export function particulaOriginal(id) {
   return dados.get(id)?.particula ?? null;

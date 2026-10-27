@@ -437,9 +437,7 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
     efeitos.explosao(ponto.x, ponto.y + 5, ponto.z + 10, 3, '#ff9a3a');
     efeitos.anelArea(ponto.x, ponto.y + 5, ponto.z - 10, 8, COR_TIME.outro);
     efeitos.feixeRecall(ponto.x + 20, ponto.y, ponto.z, COR_TIME.meu);
-    // Monstros: um tiro de cada ataque da Medusa e o pulso do Núcleo.
-    const ataques = ['pedra_gigante', 'controle', 'armadilha'];
-    ataques.forEach((atq, i) => tiro(`aq-${atq}`, 'plasma', i * 4, { atq, y: ponto.y + 25 }));
+    // O pulso do Núcleo.
     efeitos.pulsoNucleo(ponto.x, ponto.y + 35, ponto.z, 80, 1.5);
     // Os efeitos do original (armas dos monstros e estados na nave): uma instância de
     // cada, que volta para a reserva em efeitos.esquecer() (o material já compilado

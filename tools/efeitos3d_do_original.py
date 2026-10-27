@@ -11,7 +11,8 @@ Uso:
 Como o original desenha um efeito (CEffectSprite::DrawFrame, EFFECT_DATA::ReLoad,
 decompilados do libgame_arm64.so): o .eff tem um cabeçalho de 0x80 bytes ("1FFE",
 quadros, peças, movimentos e os nomes do efeito, do modelo .3dx e da paleta .MPL), os
-movimentos (0x40 cada: "STAND"...), 64 bytes, um registro de 0x40 por quadro e, por
+movimentos (0x80 cada: o nome "STAND"... e, em +0x20, o primeiro e o último quadro e
+quantos), um registro de 0x40 por quadro e, por
 quadro e por peça, um bloco de 196 bytes:
 - u16 quadro do .3dx: a matriz da peça naquele quadro (CDummy::SetFrame);
 - u16 material da paleta .MPL (a textura daquele quadro: a chama troca de textura);
@@ -39,11 +40,12 @@ original só manda para o CAlphaManage (aditivo, SRCALPHA + ONE, sem escrever
 profundidade) a peça com textura de alfa; a outra é sólida.
 Modelo "particle_dummy" (o projétil do original é um sistema de partículas): usa o
 .3dx de mesmo nome do efeito, com as peças viradas para a câmera, girando pelos
-quadros do .3dx, e o json leva `particula: true` (o cliente solta o rastro de
+quadros do .3dx (sem ele, as variantes <id>_01, _02... como peças), e o json leva `particula: true` (o cliente solta o rastro de
 partículas com a textura dele, a nuvem que liga o monstro ao alvo no vídeo).
 """
 import json
 import os
+import re
 import shutil
 import struct
 import sys
@@ -58,7 +60,7 @@ from monstros_do_original import ler_3dx  # noqa: E402
 def ler_eff(d):
     _, nf, no, na = struct.unpack_from('<4s3H', d, 0)
     nome = lambda o: d[o:o + 32].split(b'\0', 1)[0].decode('latin-1')
-    ini = 0x80 + na * 0x40 + 0x40 + nf * 0x40
+    ini = 0x80 + na * 0x80 + nf * 0x40  # cabeçalho, movimentos de 0x80 e um registro por quadro
     blocos = []
     for q in range(nf):
         linha = []
@@ -89,7 +91,18 @@ def converter(old, saida, pasta_tex, eid):
     particula = modelo == 'particle_dummy'
     if particula:
         modelo = eid
-    mats, objs = ler_3dx(open(os.path.join(base, '3dx', modelo + '.3dx'), 'rb').read())
+    # A partícula de várias variantes (1322064_01, _02: o original sorteia uma por
+    # partícula) junta as variantes, uma peça cada.
+    modelos = [modelo]
+    if particula and not os.path.exists(os.path.join(base, '3dx', modelo + '.3dx')):
+        modelos = sorted(f[:-4] for f in os.listdir(os.path.join(base, '3dx')) if re.fullmatch(re.escape(eid) + r'_\d+\.3dx', f))
+    mats, objs = [], []
+    for mod in modelos:
+        m, o = ler_3dx(open(os.path.join(base, '3dx', mod + '.3dx'), 'rb').read())
+        for x in o:
+            x['mat'] += len(mats)
+        mats += m
+        objs += o
     objs = [o for o in objs if not o['flags'] & 4]
     mpal = []
     if e['mpal']:
@@ -125,6 +138,7 @@ def converter(old, saida, pasta_tex, eid):
     out = {'id': eid, 'quadros': len(blocos), 'pecas': pecas, 'mpal': mpal, 'opacas': opacas, 'blocos': blocos}
     if particula:
         out['particula'] = True
+        out['variantes'] = len(modelos)
     with open(os.path.join(saida, eid + '.json'), 'w') as f:
         json.dump(out, f, separators=(',', ':'))
     print(f'{eid}: {len(pecas)} peças, {len(blocos)} quadros, modelo {modelo}{" (partícula)" if particula else ""}'

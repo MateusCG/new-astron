@@ -33,3 +33,6 @@ Escala no jogo: os golpes (projétil, clarão, impacto, explosão) são o origin
 | `cross008.json` | ícone: ataque (espada proibida) | 2 | 30 (1.25 s) | — | 13 KB |
 | `cross010.json` | ícone: desgoverno | 2 | 50 (2.08 s) | — | 19 KB |
 | `cross013.json` | ícone: energia ("E") | 1 | 50 (2.08 s) | — | 11 KB |
+| `1322063.json` | Armadilha Paralisante (Medusa): a esfera ciano | 1 | 30 (1.25 s) | — | 26 KB |
+| `1322064.json` | Canhão de Pedra e Disparo de Controle (Medusa): partículas verdes, duas variantes | 2 | 41 (1.71 s) | — | 9 KB |
+| `1421030.json` | impacto do Canhão de Pedra (Medusa): respingo verde | 5 | 11 (0.46 s) | — | 10 KB |
