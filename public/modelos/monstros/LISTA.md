@@ -15,7 +15,7 @@ números do jogo) está em `new-astron-progresso/mapa-stage6/PESQUISA-MONSTROS.m
   `alphaMode: MASK` (corte 0,5).
 - Faces já na ordem certa (a mesma correção do `orientarFaces` do `nave.js`, feita na conversão).
 - Os ossos do esqueleto do original (objetos `BoneNN` do 3DX, que no jogo só deformam a malha) saíram;
-  o modelo é a pose parada (sem animação). Animar (bater de asas, tentáculos) fica para o cliente.
+  o modelo é a pose parada (sem animação), salvo as exceções abaixo.
 - **Exceção, com a animação do original: `sn3.glb` e `snzero.glb`** (feitos por
   `tools/monstros_do_original.py` direto do `.3dx`, sem Blender): cada peça da malha é um nó e
   a animação `STAND` do original vai junto (os quadros de matriz de cada peça do `.3dx`, 24 por
@@ -24,6 +24,15 @@ números do jogo) está em `new-astron-progresso/mapa-stage6/PESQUISA-MONSTROS.m
   armas), com a origem no centro da caixa do **corpo** (sem o cone de luz). O material de luz
   (`nu0040_light`, o cone do SN-Zero VI) vem `BLEND` com `extras.aditivo`: o cliente desenha com
   mistura aditiva, como o original (`CAlphaManage::OnPaint`: SRCALPHA + ONE).
+- **Exceção, com o esqueleto do original: `medusa.glb`** (o mesmo `tools/monstros_do_original.py`):
+  a cúpula e os tentáculos são malhas com **pele** (`skins`: os 112 ossos `BoneNN` do `.3dx` viram
+  juntas; cada vértice leva até 4 ossos e os pesos do original, `JOINTS_0`/`WEIGHTS_0`), e as
+  animações são os **movimentos do `.eff`** (`nu1070.eff`, cada um com o quadro do `.3dx` de cada
+  osso): `STAND` (o laço parado, quadros 146–202, 2,3 s: os tentáculos e os braços com garras
+  ondulando), `STAND02`, `STAND03` e `STAND04` (1 s cada: ela sobe da água, nascendo ~85 m abaixo;
+  no original o alfa abre no `STAND02`) e `STAND05` (o começo da volta, que só entra por trazer o
+  quadro 72; os outros movimentos repetem quadros e ficam de fora). Origem no centro da caixa da
+  **pose do laço parado** (a pose de ligação, o quadro 0, é ela debaixo d'água). ~1,4 MB.
 
 ## Arquivos
 
@@ -36,12 +45,12 @@ números do jogo) está em `new-astron-progresso/mapa-stage6/PESQUISA-MONSTROS.m
 | `bazit.glb` | Bazit | 705040 → 502050 → `nu0260` | 658 | 13,0 × 10,8 × 8,9 m | 0,171 (original 76 m) | `nu0260.png` 256², `-nu0260_wing.png` 256² (MASK, asas) |
 | `anti.glb` | Anti | 705060 → 502070 → `nu0280` | 326 | 26,0 × 23,1 × 5,5 m | 0,383 (original 68 m) | `nu0280.png` 256² |
 | `sn4.glb` | SN-4 (chefe do Stage 5) | 702600 → 510600 → `nu1060` | 1498 | 30,0 × 28,6 × 28,5 m | 0,118 (original 255 m) | `nu1060_1.png`, `nu1060_2.png` 256² |
-| `medusa.glb` | Ancient Medusa (chefe do Stage 6) | 702700 → 510700 → `nu1070` | 1390 | 48,0 × 47,5 × 42,7 m | 0,242 (original 199 m) | `nu1070.png` 256², `nu1070_tail.png` 64×256 (MASK, tentáculos) |
+| `medusa.glb` | Ancient Medusa (chefe do Stage 6), com pele e movimentos | 702700 → 510700 → `nu1070` | 1390 | 60,1 × 58,1 × 65,7 m (no laço parado, tentáculos esticados) | 0,242 (original 199 m) | `nu1070.png` 256², `nu1070_tail.png` 64×256 (MASK, tentáculos) |
 | `sonda.glb` | A-Fly IV (sonda errante) | 700303 → 500303 → `nu0033` | 226 | 3,5 × 8,0 × 3,3 m | 0,171 (original 47 m) | `nu0033.png` 128² |
 | `medusa-sangue.glb` | efeito `BOSS_BLOOD` (#59 do `effectevent.txt`) | `s6_boss_blood` | 2 | 1,4 × 1,4 m, plano deitado | 0,242 (a da Medusa) | `s6_boss_blood.png` 128² (MASK) |
 | `medusa-bolha.glb` | efeito `BOSS_BUBBLE` (#60) | `s6_boss_bubble` | 18 | 1,5 × 1,3 × 0,6 m | 0,242 (a da Medusa) | `1321045.png` 64² (MASK) |
 
-Pasta inteira: ~1,3 MB.
+Pasta inteira: ~2,5 MB.
 
 **Efeitos da Medusa no original** (`assets_obb/cfg/effectevent.txt`): o sangue nasce num ponto
 sorteado a até 70 m (original) do centro, girado ao acaso, cresce 0,3–0,7× por segundo e some em

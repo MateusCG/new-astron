@@ -91,12 +91,16 @@ def ler_3dx(dados):
         mat, nv, ni, nextra = r.i32(), r.i32(), r.i32(), r.i32()
         r.u8()
         nq = r.i32()
-        r.bytes(max(nextra, 0))
+        paleta = list(r.bytes(max(nextra, 0)))  # malha com pele: os objetos-osso que os vértices usam
         verts = []
+        pesos = []
         for _ in range(nv):
             pos = r.f(3)
             if flags & 2:
-                r.f(4)
+                # Pele: 3 pesos e, no 4º float, 4 índices (um byte cada) na paleta; 0xff = nenhum.
+                w = r.bytes(16)
+                p3 = struct.unpack('<3f', w[:12])
+                pesos.append((p3, tuple(w[12:16])))
             nrm = r.f(3)
             uv = r.f(2)
             if flags & 8:
@@ -104,7 +108,8 @@ def ler_3dx(dados):
             verts.append((pos, nrm, uv))
         idx = list(struct.unpack(f'<{ni}H', r.bytes(2 * ni))) if flags & 1 and ni > 0 else list(range(nv))
         quadros = [r.f(16) for _ in range(max(nq, 0))]
-        objs.append({'nome': nome, 'flags': flags, 'matriz': matriz, 'mat': mat, 'verts': verts, 'idx': idx, 'quadros': quadros})
+        objs.append({'nome': nome, 'flags': flags, 'matriz': matriz, 'mat': mat, 'verts': verts, 'idx': idx, 'quadros': quadros,
+                     'pesos': pesos, 'paleta': paleta})
     for _ in range(nh):
         r.texto(64)
         r.f(16)
@@ -163,10 +168,59 @@ def trs(lin):
     return quaternio(rot), esc
 
 
+def movimentos_do_eff(caminho):
+    """Os movimentos do .eff do modelo: [(nome, [quadro do .3dx por peça, por quadro do movimento])].
+
+    O .eff (EFFECT_DATA::ReLoad) tem o cabeçalho de 0x80 bytes, um registro de 0x80 por
+    movimento (o nome e, em +0x20, o primeiro e o último quadro e quantos), um de 0x40
+    por quadro e um bloco de 196 bytes por quadro e peça (o u16 do começo é o quadro do
+    .3dx que a peça usa). A Medusa tem nove: STAND (o laço parado) e STAND01–08 (o
+    teletransporte: sumida, subindo da água, afundando).
+    """
+    if not os.path.exists(caminho):
+        return []
+    d = open(caminho, 'rb').read()
+    _, nf, no, na = struct.unpack_from('<4s3H', d, 0)
+    ini = 0x80 + na * 0x80 + nf * 0x40
+    movs = []
+    for k in range(na):
+        o = 0x80 + k * 0x80
+        nome = d[o:o + 32].split(b'\0', 1)[0].decode('latin-1')
+        _, a, b, n = struct.unpack_from('<4H', d, o + 0x20)
+        quadros = [[struct.unpack_from('<H', d, ini + (q * no + p) * 196)[0] for p in range(no)] for q in range(a, b + 1)]
+        movs.append((nome, quadros))
+    return movs
+
+
+def coluna(m16):
+    """Matriz do 3DX (16 floats, vetor-linha) como 4×4 de coluna-vetor (lista de linhas)."""
+    return [[m16[4 * c + r] for c in range(4)] for r in range(4)]
+
+
+def mul4(a, b):
+    return [[sum(a[i][k] * b[k][j] for k in range(4)) for j in range(4)] for i in range(4)]
+
+
+def inversa4(m):
+    """Inversa de uma matriz 4×4 afim (lista de linhas, coluna-vetor)."""
+    lin = [r[:3] for r in m[:3]]
+    t = [m[0][3], m[1][3], m[2][3]]
+    d = det(lin)
+    cof = [[(lin[(j + 1) % 3][(i + 1) % 3] * lin[(j + 2) % 3][(i + 2) % 3] - lin[(j + 1) % 3][(i + 2) % 3] * lin[(j + 2) % 3][(i + 1) % 3]) / d
+            for j in range(3)] for i in range(3)]
+    ti = [-sum(cof[i][k] * t[k] for k in range(3)) for i in range(3)]
+    return [cof[0] + [ti[0]], cof[1] + [ti[1]], cof[2] + [ti[2]], [0, 0, 0, 1]]
+
+
 def converter(old, saida, modelo, escala):
-    mats, objs = ler_3dx(open(os.path.join(old, 'assets_obb/3dx', modelo + '.3dx'), 'rb').read())
+    mats, todos = ler_3dx(open(os.path.join(old, 'assets_obb/3dx', modelo + '.3dx'), 'rb').read())
     tex_dir = os.path.join(old, 'reference/textures_png')
-    objs = [o for o in objs if o['verts'] and not o['flags'] & 4]
+    objs = [o for o in todos if o['verts'] and not o['flags'] & 4]
+    # Malha com pele (a Medusa): os vértices seguem os ossos (objetos de flag 4) pelos
+    # pesos; os ossos viram juntas do glTF e as animações saem dos movimentos do .eff.
+    ossos = [o for o in todos if o['flags'] & 4 and o['quadros']]
+    pele = bool(ossos) and any(o['pesos'] for o in objs)
+    junta_de = {id(o): i for i, o in enumerate(ossos)}
     glob = [[escala * x for x in linha] for linha in mul(GIRO, TROCA)]  # L = s·R·A
 
     def textura(i):
@@ -176,14 +230,38 @@ def converter(old, saida, modelo, escala):
         t = textura(o['mat'])
         return bool(t and t.endswith('_light'))
 
-    # Pose parada (matriz da peça) no espaço do jogo, para a caixa do corpo.
+    # Pose parada (matriz da peça) no espaço do jogo, para a caixa do corpo. Com pele,
+    # a pose do primeiro quadro do laço STAND do .eff (a Medusa: a pose de ligação é
+    # ela ~85 m debaixo d'água, antes de subir; o laço parado é onde ela fica).
+    movs = movimentos_do_eff(os.path.join(old, 'assets_obb/effect', modelo + '.eff')) if pele else []
+    parado = next((q[0] for n, q in movs if n == 'STAND' and q), None)
+    deforma = {}
+    if parado:
+        indice = {id(o): i for i, o in enumerate(todos)}
+        for o in ossos:
+            base = coluna(o['matriz'])
+            agora = coluna(o['quadros'][min(parado[indice[id(o)]], len(o['quadros']) - 1)])
+            deforma[id(o)] = mul4(agora, inversa4(base))
     mn, mx = [1e9] * 3, [-1e9] * 3
     for o in objs:
         if luz(o):
             continue
         lin, t = linear_e_posicao(o['matriz'])
-        for p, _, _ in o['verts']:
-            w = aplicar(glob, [a + b for a, b in zip(aplicar(lin, p), t)])
+        for k_v, (p, _, _) in enumerate(o['verts']):
+            v = [a + b for a, b in zip(aplicar(lin, p), t)]
+            if deforma and o['pesos']:
+                p3, ids = o['pesos'][k_v]
+                w4 = list(p3) + [max(0.0, 1 - sum(p3))]
+                soma, acc = 0.0, [0.0, 0.0, 0.0]
+                for k, i in enumerate(ids):
+                    if i == 255:
+                        continue
+                    d = deforma[id(todos[o['paleta'][i]])]
+                    vv = [sum(d[r][c] * x for c, x in enumerate(v + [1])) for r in range(3)]
+                    acc = [a + w4[k] * b for a, b in zip(acc, vv)]
+                    soma += w4[k]
+                v = [x / (soma or 1) for x in acc]
+            w = aplicar(glob, v)
             for k in range(3):
                 mn[k], mx[k] = min(mn[k], w[k]), max(mx[k], w[k])
     centro = [(a + b) / 2 for a, b in zip(mn, mx)]
@@ -199,7 +277,7 @@ def converter(old, saida, modelo, escala):
         return len(views) - 1
 
     def acessor(valores, tipo, comp, alvo=None, minmax=False):
-        n = {'SCALAR': 1, 'VEC2': 2, 'VEC3': 3, 'VEC4': 4}[tipo]
+        n = {'SCALAR': 1, 'VEC2': 2, 'VEC3': 3, 'VEC4': 4, 'MAT4': 16}[tipo]
         fmt = {5126: 'f', 5123: 'H', 5125: 'I'}[comp]
         planos = [x for v in valores for x in (v if n > 1 else [v])]
         dados = struct.pack(f'<{len(planos)}{fmt}', *planos)
@@ -249,13 +327,20 @@ def converter(old, saida, modelo, escala):
     malhas, nos, canais, amostras = [], [], [], []
     tempos_idx = {}
     for o in objs:
-        lin0, _ = linear_e_posicao(o['matriz'])
+        lin0, t0 = linear_e_posicao(o['matriz'])
         espelho = det(lin0) < 0
         b = mul(TROCA, ESPELHO_X) if espelho else TROCA
-        pos = [aplicar(b, p) for p, _, _ in o['verts']]
+        com_pele = pele and o['pesos']
+        if com_pele:
+            # Vértice com pele: na pose de ligação, já no espaço do jogo (centrado); as
+            # juntas é que andam.
+            pos = [[a - c for a, c in zip(aplicar(glob, [x + y for x, y in zip(aplicar(lin0, p), t0)]), centro)] for p, _, _ in o['verts']]
+            nl = mul(glob, lin0)
+        else:
+            pos = [aplicar(b, p) for p, _, _ in o['verts']]
         nrm = []
         for _, n, _ in o['verts']:
-            v = aplicar(b, n)
+            v = aplicar(nl, n) if com_pele else aplicar(b, n)
             ln = math.sqrt(sum(x * x for x in v)) or 1
             nrm.append([x / ln for x in v])
         uvs = [list(uv) for _, _, uv in o['verts']]
@@ -280,6 +365,25 @@ def converter(old, saida, modelo, escala):
             'indices': acessor(tris, 'SCALAR', 5123 if len(pos) < 65536 else 5125, 34963),
             'material': mat_de[textura(o['mat'])],
         }
+        if com_pele:
+            juntas, pesos_v = [], []
+            for (p3, ids) in o['pesos']:
+                w = list(p3) + [max(0.0, 1 - sum(p3))]
+                j = []
+                for k, i in enumerate(ids):
+                    if i == 255:
+                        j.append(0)
+                        w[k] = 0.0
+                    else:
+                        j.append(junta_de[id(todos[o['paleta'][i]])])
+                soma = sum(w) or 1
+                juntas.append(j)
+                pesos_v.append([x / soma for x in w])
+            prim['attributes']['JOINTS_0'] = acessor(juntas, 'VEC4', 5123, 34962)
+            prim['attributes']['WEIGHTS_0'] = acessor(pesos_v, 'VEC4', 5126, 34962)
+            malhas.append({'name': o['nome'], 'primitives': [prim]})
+            nos.append({'name': o['nome'], 'mesh': len(malhas) - 1, 'skin': 0})
+            continue
         malhas.append({'name': o['nome'], 'primitives': [prim]})
         p0, q0, e0 = no_do_quadro(o['matriz'], espelho)
         nos.append({'name': o['nome'] or f'peca{len(nos)}', 'mesh': len(malhas) - 1, 'translation': p0, 'rotation': q0, 'scale': e0})
@@ -301,6 +405,62 @@ def converter(old, saida, modelo, escala):
                 amostras.append({'input': tempos_idx[n], 'output': acessor(valores, tipo, 5126), 'interpolation': 'LINEAR'})
                 canais.append({'sampler': len(amostras) - 1, 'target': {'node': no_i, 'path': caminho}})
 
+    peles, animacoes = [], []
+    if pele:
+        # Juntas: um nó por osso, na pose da matriz do osso (a de ligação); a inversa
+        # dela é a matriz inversa de ligação. Os movimentos do .eff dizem, quadro a
+        # quadro, qual quadro do .3dx cada osso usa (a ordem das peças do .eff é a dos
+        # objetos do .3dx).
+        primeira = len(nos)
+        inversas = []
+        for o in ossos:
+            espelho = det(linear_e_posicao(o['matriz'])[0]) < 0
+            p0, q0, e0 = no_do_quadro(o['matriz'], espelho)
+            nos.append({'name': o['nome'], 'translation': p0, 'rotation': q0, 'scale': e0})
+            lin, t = linear_e_posicao(o['matriz'])
+            b = mul(TROCA, ESPELHO_X) if espelho else TROCA
+            n_lin = mul(mul(glob, lin), b)
+            pos = [a - c for a, c in zip(aplicar(glob, t), centro)]
+            inv = inversa4([n_lin[0] + [pos[0]], n_lin[1] + [pos[1]], n_lin[2] + [pos[2]], [0, 0, 0, 1]])
+            inversas.append([inv[r][c] for c in range(4) for r in range(4)])  # coluna a coluna
+        peles.append({'joints': list(range(primeira, primeira + len(ossos))), 'inverseBindMatrices': acessor(inversas, 'MAT4', 5126)})
+        indice_peca = {id(o): i for i, o in enumerate(todos)}
+        movs_feitos = set()
+        for nome, quadros in movimentos_do_eff(os.path.join(old, 'assets_obb/effect', modelo + '.eff')):
+            # Os movimentos que só repetem quadros já exportados (a Medusa afundando:
+            # STAND05–07 voltam STAND04–02 de trás para a frente) e as poses de um quadro
+            # só ficam de fora: o cliente toca o trecho ao contrário se precisar.
+            linhas = {tuple(q) for q in quadros}
+            if len(quadros) < 2 or linhas <= movs_feitos:
+                continue
+            movs_feitos |= linhas
+            tempos = acessor([i / QUADROS_POR_S for i in range(len(quadros))], 'SCALAR', 5126, None, True)
+            tempo_unico = acessor([0.0], 'SCALAR', 5126, None, True)
+            amostras_m, canais_m = [], []
+            for j, o in enumerate(ossos):
+                espelho = det(linear_e_posicao(o['matriz'])[0]) < 0
+                peca = indice_peca[id(o)]
+                ps, qs, es = [], [], []
+                for linha in quadros:
+                    fr = min(linha[peca], len(o['quadros']) - 1)
+                    p, q, e = no_do_quadro(o['quadros'][fr], espelho)
+                    if qs and sum(a * b for a, b in zip(q, qs[-1])) < 0:
+                        q = [-x for x in q]
+                    ps.append(p)
+                    qs.append(q)
+                    es.append(e)
+                for caminho, valores, tipo in (('translation', ps, 'VEC3'), ('rotation', qs, 'VEC4'), ('scale', es, 'VEC3')):
+                    # Canal que não muda no movimento vira um valor só (o arquivo encolhe).
+                    if all(max(abs(a - b) for a, b in zip(v, valores[0])) < 1e-3 for v in valores):
+                        valores = valores[:1]
+                        entrada = tempo_unico
+                    else:
+                        valores = [[round(x, 4) for x in v] for v in valores]
+                        entrada = tempos
+                    amostras_m.append({'input': entrada, 'output': acessor(valores, tipo, 5126), 'interpolation': 'LINEAR'})
+                    canais_m.append({'sampler': len(amostras_m) - 1, 'target': {'node': primeira + j, 'path': caminho}})
+            animacoes.append({'name': nome, 'channels': canais_m, 'samplers': amostras_m})
+
     gltf = {
         'asset': {'version': '2.0', 'generator': 'new-astron tools/monstros_do_original.py'},
         'scene': 0,
@@ -317,7 +477,11 @@ def converter(old, saida, modelo, escala):
         gltf['images'] = imagens
         gltf['textures'] = texturas_gltf
     if canais:
-        gltf['animations'] = [{'name': 'STAND', 'channels': canais, 'samplers': amostras}]
+        animacoes.insert(0, {'name': 'STAND', 'channels': canais, 'samplers': amostras})
+    if animacoes:
+        gltf['animations'] = animacoes
+    if peles:
+        gltf['skins'] = peles
     while len(bin_) % 4:
         bin_.append(0)
     gltf['buffers'][0]['byteLength'] = len(bin_)
@@ -332,9 +496,9 @@ def converter(old, saida, modelo, escala):
     tris = sum(len(o['idx']) // 3 for o in objs)
     tam = [b - a for a, b in zip(mn, mx)]
     n_quadros = max((len(o['quadros']) for o in objs), default=0)
-    print(f'{modelo}: {len(objs)} peças, {tris} triângulos, corpo {tam[0]:.1f} × {tam[2]:.1f} × {tam[1]:.1f} m '
-          f'(largura × comprimento × altura), STAND {n_quadros} quadros ({(n_quadros - 1) / QUADROS_POR_S:.2f} s), '
-          f'{total / 1024:.0f} KB -> {saida}')
+    anim = ', '.join(f"{a['name']}" for a in animacoes) if pele else f'STAND {n_quadros} quadros ({(n_quadros - 1) / QUADROS_POR_S:.2f} s)'
+    print(f'{modelo}: {len(objs)} peças{f", {len(ossos)} ossos" if pele else ""}, {tris} triângulos, corpo {tam[0]:.1f} × {tam[2]:.1f} × {tam[1]:.1f} m '
+          f'(largura × comprimento × altura), {anim}, {total / 1024:.0f} KB -> {saida}')
 
 
 if __name__ == '__main__':
