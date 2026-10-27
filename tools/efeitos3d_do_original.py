@@ -1,0 +1,140 @@
+"""Converte efeitos visuais do AstroN original (.eff + .3dx + .MPL) para o cliente tocar.
+
+Uso:
+  python3 -I tools/efeitos3d_do_original.py <old-astron> <public/modelos/efeitos> <public/texturas/efeitos> <id> [<id>...]
+
+  <old-astron>  raiz do old-astron (lê assets_obb/effect, assets_obb/3dx, assets_obb/mpal
+                e reference/textures_png)
+  saída         <id>.json por efeito; as texturas que faltam são copiadas para a pasta
+                de texturas dos efeitos (o mesmo PNG do original, nome em minúsculas)
+
+Como o original desenha um efeito (CEffectSprite::DrawFrame, EFFECT_DATA::ReLoad,
+decompilados do libgame_arm64.so): o .eff tem um cabeçalho de 0x80 bytes ("1FFE",
+quadros, peças, movimentos e os nomes do efeito, do modelo .3dx e da paleta .MPL), os
+movimentos (0x40 cada: "STAND"...), 64 bytes, um registro de 0x40 por quadro e, por
+quadro e por peça, um bloco de 196 bytes:
+- u16 quadro do .3dx: a matriz da peça naquele quadro (CDummy::SetFrame);
+- u16 material da paleta .MPL (a textura daquele quadro: a chama troca de textura);
+- 16 floats: matriz local (só com a flag 2);
+- D3DMATERIAL9 (17 floats): difusa RGBA (a alfa faz o efeito aparecer e sumir), ambiente,
+  especular, emissiva e potência (vale com a flag 4);
+- u8 flags: 1 material da paleta, 2 matriz local, 4 material próprio (cor e alfa do
+  bloco), 8 virado para a câmera, 16 escondido, 32 rolar a textura (u, v nos floats
+  seguintes).
+O efeito anda um quadro por atualização (CEffectSprite::NextFrame), a 24 por segundo.
+
+A saída guarda o .3dx cru (espaço do original: Z para cima, frente +x, vetor-linha
+p' = p·M) e o cliente (public/js/efeitos-original.js) faz a troca de eixos e a escala.
+Peça "virada para a câmera": a rotação vem da câmera, com x = cima da tela e y =
+direita (o original troca as duas primeiras linhas da matriz da câmera), por isso as
+faíscas do Magma, que andam no x, sobem.
+
+Formato de <id>.json:
+  { id, quadros, pecas: [{ nome, tex, pos, uv, idx, m, q }], mpal: [nome], opacas: [nome], blocos }
+  pos/uv/idx: malha da peça (flat); m: matriz base (16); q: matrizes por quadro do .3dx
+  (lista de 16, pode ser vazia); blocos[quadro][peça] = [quadro3dx, material, flags,
+  r, g, b, a, du, dv].
+opacas: as texturas sem alfa (o casco do míssil, o símbolo dos ícones de estado): o
+original só manda para o CAlphaManage (aditivo, SRCALPHA + ONE, sem escrever
+profundidade) a peça com textura de alfa; a outra é sólida.
+Modelo "particle_dummy" (o projétil do original é um sistema de partículas): usa o
+.3dx de mesmo nome do efeito, com as peças viradas para a câmera, girando pelos
+quadros do .3dx, e o json leva `particula: true` (o cliente solta o rastro de
+partículas com a textura dele, a nuvem que liga o monstro ao alvo no vídeo).
+"""
+import json
+import os
+import shutil
+import struct
+import sys
+
+from PIL import Image
+
+sys.dont_write_bytecode = True  # importar o vizinho não deixa __pycache__ em tools/
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from monstros_do_original import ler_3dx  # noqa: E402
+
+
+def ler_eff(d):
+    _, nf, no, na = struct.unpack_from('<4s3H', d, 0)
+    nome = lambda o: d[o:o + 32].split(b'\0', 1)[0].decode('latin-1')
+    ini = 0x80 + na * 0x40 + 0x40 + nf * 0x40
+    blocos = []
+    for q in range(nf):
+        linha = []
+        for p in range(no):
+            o = ini + (q * no + p) * 196
+            fr, mat = struct.unpack_from('<2H', d, o)
+            dif = struct.unpack_from('<4f', d, o + 68)
+            fl = d[o + 136]
+            du, dv = struct.unpack_from('<2f', d, o + 140)
+            linha.append([fr, mat, fl, *[round(x, 3) for x in dif], round(du, 4), round(dv, 4)])
+        blocos.append(linha)
+    return {'nf': nf, 'no': no, 'modelo': nome(0x30), 'mpal': nome(0x50), 'blocos': blocos}
+
+
+def ler_mpal(d):
+    n, tam = struct.unpack_from('<2I', d, 4)
+    return [d[0x20 + i * tam:0x20 + i * tam + 32].split(b'\0', 1)[0].decode('latin-1').lower() for i in range(n)]
+
+
+def r4(x):
+    return round(x, 4)
+
+
+def converter(old, saida, pasta_tex, eid):
+    base = os.path.join(old, 'assets_obb')
+    e = ler_eff(open(os.path.join(base, 'effect', eid + '.eff'), 'rb').read())
+    modelo = e['modelo'].lower()
+    particula = modelo == 'particle_dummy'
+    if particula:
+        modelo = eid
+    mats, objs = ler_3dx(open(os.path.join(base, '3dx', modelo + '.3dx'), 'rb').read())
+    objs = [o for o in objs if not o['flags'] & 4]
+    mpal = []
+    if e['mpal']:
+        mpal = ler_mpal(open(os.path.join(base, 'mpal', e['mpal'].lower()), 'rb').read())
+    pecas = []
+    for o in objs:
+        tex = mats[o['mat']].lower() if 0 <= o['mat'] < len(mats) and mats[o['mat']] else None
+        pecas.append({
+            'nome': o['nome'],
+            'tex': tex,
+            'pos': [r4(x) for v in o['verts'] for x in v[0]],
+            'uv': [r4(x) for v in o['verts'] for x in v[2]],
+            'idx': o['idx'],
+            'm': [r4(x) for x in o['matriz']],
+            'q': [[r4(x) for x in m] for m in o['quadros']],
+        })
+    blocos = e['blocos']
+    if particula:
+        # Sem blocos de verdade (a peça do .eff é a linha do emissor): um bloco por
+        # quadro do .3dx, virado para a câmera, com o material do próprio modelo.
+        nq = max(1, max((len(p['q']) for p in pecas), default=1))
+        blocos = [[[q, 0, 4 | 8, 1, 1, 1, 1, 0, 0] for _ in pecas] for q in range(nq)]
+    texturas = {p['tex'] for p in pecas if p['tex']} | set(mpal)
+    copiadas = []
+    for t in sorted(texturas):
+        destino = os.path.join(pasta_tex, t + '.png')
+        origem = os.path.join(old, 'reference/textures_png', t + '.png')
+        if not os.path.exists(destino) and os.path.exists(origem):
+            shutil.copyfile(origem, destino)
+            copiadas.append(t)
+    opacas = sorted(t for t in texturas if os.path.exists(os.path.join(pasta_tex, t + '.png'))
+                    and Image.open(os.path.join(pasta_tex, t + '.png')).convert('RGBA').getchannel('A').getextrema()[0] == 255)
+    out = {'id': eid, 'quadros': len(blocos), 'pecas': pecas, 'mpal': mpal, 'opacas': opacas, 'blocos': blocos}
+    if particula:
+        out['particula'] = True
+    with open(os.path.join(saida, eid + '.json'), 'w') as f:
+        json.dump(out, f, separators=(',', ':'))
+    print(f'{eid}: {len(pecas)} peças, {len(blocos)} quadros, modelo {modelo}{" (partícula)" if particula else ""}'
+          f', paleta {len(mpal)}, texturas novas {copiadas or "-"}')
+
+
+if __name__ == '__main__':
+    if len(sys.argv) < 5:
+        print(__doc__)
+        sys.exit(1)
+    os.makedirs(sys.argv[2], exist_ok=True)
+    for i in sys.argv[4:]:
+        converter(sys.argv[1], sys.argv[2], sys.argv[3], i)

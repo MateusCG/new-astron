@@ -31,19 +31,28 @@
 // Monstros da jungle (server/jungle.js): o tiro de cada ataque (`atq` nos eventos e
 // nos `guiados`) tem forma própria, sempre com o brilho no vermelho de perigo
 // #ff4a2a: bala explosiva laranja, pedra gigante, feixes ópticos, raios de controle,
-// mísseis com rastro, orbes da armadilha pulsando; a chama do Xerxes é um cone de fogo
-// (evento 'chama'), a onda do SN-4 um anel que abre, o campo elétrico um disco
-// azulado no chão. O SN-3 e o SN-Zero VI atiram com as armas de NPC do original
-// (`kind` 'n511080'...): o tiro, o clarão, o impacto, a área e a armadilha saem como os
-// das armas do jogador (efeitos-armas.js, texturas e cores do original). O pulso do
-// Núcleo de He-3 é um anel azul-gelo (puxando para o vermelho quanto mais forte) que
-// abre até o raio.
+// orbes da armadilha pulsando (a Medusa). Os outros atiram com as armas de NPC do
+// original (`kind` 'n511080'...), desenhadas com os EFEITOS DO ORIGINAL tocados como no
+// original (efeitos-original.js: o .eff + .3dx + .MPL de cada um; os golpes na escala
+// do monstro, ESCALA_TIRO_ORIGINAL, o que fica preso na nave na dela,
+// ESCALA_ORIGINAL): o projétil em voo (as bolas de fogo do Xerxes, o feixe do Bazit,
+// os mísseis do Anti e do SN-4, o míssil com o "E" do SN-3), o clarão, o impacto (a
+// esfera azul da descarga de energia), a área, a nova (a onda rosa do SN-4, esticada
+// até o raio) e o campo (o campo elétrico do SN-4); efeito que não carregou cai no
+// desenho das armas do jogador (efeitos-armas.js). O pulso do Núcleo de He-3 é um anel
+// azul-gelo (puxando para o vermelho quanto mais forte) que abre até o raio.
+//
+// Estados na nave, como no original (CUnit::ChangeEffectFlag): os debuffs da lista `fx`
+// que o original marca com um ícone ganham o ícone 3D do original girando EM CIMA da
+// nave, empilhados (ICONES_ESTADO: o capacete das resistências, o "LD" da paralisia, o
+// "E" da energia...), e o Magma é o fogo do original na nave (faíscas vermelhas
+// subindo). Esses não levam mais a aura colorida.
 //
 // Desempenho (nada de travada quando a luta começa): o que vem e vai a cada tiro
-// (faísca, fumaça do míssil, clarão, anel de área, chama, pulso, feixe do recall, anel
-// de nível) sai de RESERVAS e volta para elas ao sumir, com material e geometria já
-// prontos; os tiros de NPC e de monstro dividem um material por cor; e as geometrias
-// são de tamanho 1, escaladas (a chama, o pulso, o campo elétrico). Assim a partida
+// (faísca, fumaça do míssil, clarão, anel de área, pulso, feixe do recall, anel de
+// nível, os efeitos do original) sai de RESERVAS e volta para elas ao sumir, com
+// material e geometria já prontos; os tiros de NPC e de monstro dividem um material por
+// cor; e as geometrias são de tamanho 1, escaladas (o pulso, o anel). Assim a partida
 // não cria geometria nem material a cada tiro e não libera nenhum no meio dela: o
 // Three.js apaga o programa de shader quando o último material dele é liberado, e o
 // próximo efeito igual compilaria de novo. As reservas já nascem cheias na tela de
@@ -51,9 +60,13 @@
 
 import * as THREE from 'three';
 import { stepBullet, WEAPONS } from '/shared/sim.js';
-import { visualDoOriginal } from '/shared/armas.js';
+import { FATOR_AREA, golpeDaArma, visualDoOriginal, visualEfeito } from '/shared/armas.js';
+import { FATOR_TAMANHO_NAVE } from '/shared/naves.js';
 import { brilho } from './nave.js';
 import { VisualArmas } from './efeitos-armas.js';
+import { ICONES_ESTADO, MAGMA_NA_NAVE } from './insumos.js';
+import { criarEfeitoOriginal, tocarEfeitoOriginal, soltarEfeitoOriginal, raioEfeitoOriginal, efeitoOriginalPronto, particulaOriginal } from './efeitos-original.js';
+import { texturaEfeito } from './efeitos-armas.js';
 
 // Cores dos efeitos de arma (ver IDENTIDADE-VISUAL.md): o dreno é violeta e o
 // criogênico azul-gelo, para não se confundirem com o laser ciano, o plasma verde
@@ -82,18 +95,30 @@ const BONUS_OPACIDADE = 0.85;
 const COR_PERIGO = new THREE.Color('#ff4a2a');
 const FORMA_ATQ = {
   pedra_gigante: { forma: 'pedra', raio: 3.2, cor: '#6e4f36', brilho: 9 },
-  bala_explosiva: { forma: 'bola', raio: 0.9, cor: '#ff9a3a', brilho: 4.5 },
-  feixe_optico: { forma: 'barra', barra: 6, grossura: 0.3, cor: '#ff8a70', brilho: 2.6 },
   controle: { forma: 'barra', barra: 5, grossura: 0.22, cor: '#9fb0ff', brilho: 2.4 },
-  missil: { forma: 'missil', brilho: 4.5 },
-  missil_cruzador: { forma: 'missil', brilho: 5.5 },
   armadilha: { forma: 'orbe', raio: 1.1, cor: '#ffd0c8', brilho: 5 },
 };
-// Chama em cone (Xerxes): quanto dura cada lufada (o servidor manda uma a cada 0,4 s).
-const CHAMA_S = 0.45;
-const COR_CHAMA_MONSTRO = new THREE.Color('#ff6a2a');
-// Campo elétrico de monstro (SN-4): disco azulado no chão com a borda vermelha.
-const COR_CAMPO_MONSTRO = new THREE.Color('#8fb4ff');
+// Efeitos do original: o que fica preso na nave (ícones de estado, o Magma) na escala
+// das naves (o modelo das naves é o do original × isto); os golpes do monstro
+// (projétil, clarão, impacto, explosão) na escala dos monstros e do raio de acerto dos
+// tiros (FATOR_AREA): na das naves, as bolas de fogo do Xerxes, que crescem 4 vezes no
+// voo, e os oito impactos de cada rajada cobririam a tela.
+const ESCALA_ORIGINAL = FATOR_TAMANHO_NAVE;
+const ESCALA_TIRO_ORIGINAL = FATOR_AREA;
+// Ícones de estado em cima da nave (CUnit::RenderScene do original: 15 m acima da
+// nave e mais 20 a cada ícone, na escala do original), em m da primeira nave da linha.
+const ICONE_ALTURA = 15 * ESCALA_ORIGINAL;
+const ICONE_PASSO = 20 * ESCALA_ORIGINAL;
+// Rastro do projétil de partículas do original (feixe do Bazit, canhão do Anti): uma
+// partícula com a textura do efeito a cada PARTICULA_PASSO m andados, que cresce
+// PARTICULA_CRESCE vezes e some em PARTICULA_S (a nuvem que liga o monstro ao alvo).
+const PARTICULA_PASSO = 4;
+const PARTICULA_S = 0.6;
+const PARTICULA_CRESCE = 1.6;
+const PARTICULAS_MAX = 160;
+// Impactos iguais que chegam juntos no mesmo lugar desenham um só (impactoMonstro).
+const IMPACTO_JUNTO_S = 0.15;
+const IMPACTO_JUNTO_M = 6;
 // Pulso do Núcleo: duração (s) do anel abrindo, cor com força 1 e com força máxima.
 const PULSO_S = 0.7;
 const PULSO_RAIO_INICIO = 11; // m: o círculo âmbar de 22 m do prato do Núcleo
@@ -176,31 +201,9 @@ const RECALL_FEIXE_S = 0.7;
 // Quantos de cada efeito passageiro já nascem prontos na tela de carregamento (a
 // reserva cresce sozinha se a partida pedir mais). Uma briga de 6 naves com mísseis
 // passa de cem faíscas e baforadas de fumaça ao mesmo tempo.
-const RESERVA_INICIAL = { brilho: 160, fumaca: 120, faiscas: 12, anelArea: 12, anelNivel: 4, chama: 8, pulsoAnel: 4, pulsoCasca: 4, feixe: 4 };
+const RESERVA_INICIAL = { brilho: 160, fumaca: 120, faiscas: 12, anelArea: 12, anelNivel: 4, pulsoAnel: 4, pulsoCasca: 4, feixe: 4 };
 // Faíscas de uma explosão: 14 por tamanho, até este tanto (o buffer da reserva é deste tamanho).
 const FAISCAS_MAX = 128;
-
-/**
- * Cone da chama do monstro em tamanho 1 (boca na origem, abrindo até z = -1, raio 1
- * na ponta larga), com a cor dos vértices: mais claro e quente perto da boca,
- * apagando na ponta. A lufada escala (raio, raio, alcance).
- */
-function geometriaChama() {
-  const geo = new THREE.ConeGeometry(1, 1, 14, 1, true);
-  geo.rotateX(Math.PI / 2);
-  geo.translate(0, 0, -0.5);
-  const pos = geo.attributes.position;
-  const cores = new Float32Array(pos.count * 3);
-  const quente = new THREE.Color('#ffd28a');
-  const c = new THREE.Color();
-  for (let i = 0; i < pos.count; i++) {
-    const k = Math.min(1, -pos.getZ(i));
-    c.copy(quente).lerp(COR_CHAMA_MONSTRO, Math.min(1, k * 1.6)).multiplyScalar(0.6 * (1 - k * 0.85));
-    cores.set([c.r, c.g, c.b], i * 3);
-  }
-  geo.setAttribute('color', new THREE.BufferAttribute(cores, 3));
-  return geo;
-}
 
 function spriteAditivo(cor, tamanho) {
   const s = new THREE.Sprite(
@@ -252,6 +255,8 @@ export class Efeitos {
     this.atualizarMinas([]);
     this.esquecer();
     // As reservas e os materiais por cor só se liberam aqui, saindo da partida.
+    for (const sp of this.reservaParticulas) sp.material.dispose();
+    this.reservaParticulas = [];
     for (const lista of this.reservas.values()) {
       for (const o of lista) {
         o.material.dispose();
@@ -263,7 +268,7 @@ export class Efeitos {
     this.matsPorCor.clear();
     for (const g of this.geoPulso.values()) g.dispose();
     this.geoPulso.clear();
-    for (const r of [this.geoMina, this.geoEspinho, this.geoLuzMina, this.matMina, this.geoMissil, this.geoNarizMissil, this.matMissil, this.geoAnel, this.geoColuna, this.geoAnelRecall, this.geoPedra, this.geoBola, this.geoChama, this.geoCascaPulso, this.geoAnelNivel, this.geoDiscoCampo, this.geoBordaCampo, this.matDiscoCampo, this.matBordaCampo]) {
+    for (const r of [this.geoMina, this.geoEspinho, this.geoLuzMina, this.matMina, this.geoMissil, this.geoNarizMissil, this.matMissil, this.geoAnel, this.geoColuna, this.geoAnelRecall, this.geoPedra, this.geoBola, this.geoCascaPulso, this.geoAnelNivel]) {
       r.dispose();
     }
   }
@@ -276,7 +281,10 @@ export class Efeitos {
    * próximo efeito igual compilaria de novo no meio da partida; estes ficam de reserva.
    */
   esquecer() {
-    for (const t of this.tiros.values()) this.scene.remove(t.g);
+    for (const t of this.tiros.values()) {
+      this.scene.remove(t.g);
+      if (t.original) soltarEfeitoOriginal(t.original);
+    }
     this.tiros.clear();
     for (const p of this.particulas) {
       this.#devolver(p.flash);
@@ -286,8 +294,11 @@ export class Efeitos {
     for (const f of this.feixes) this.#devolver(f.m);
     for (const p of [...this.fumacas, ...this.auras]) this.#devolver(p.s);
     for (const a of this.aneis) this.#devolver(a.anel);
-    for (const c of [...this.chamas, ...this.pulsos]) this.#devolver(c.m);
-    this.chamas = [];
+    for (const c of this.pulsos) this.#devolver(c.m);
+    for (const o of this.originais) soltarEfeitoOriginal(o.inst);
+    this.originais = [];
+    for (const p of this.particulasRastro) this.#soltarParticula(p);
+    this.particulasRastro = [];
     this.pulsos = [];
     this.particulas = [];
     this.aneisArea = [];
@@ -330,21 +341,19 @@ export class Efeitos {
     this.geoColuna.setAttribute('color', new THREE.BufferAttribute(cores, 3));
     this.geoAnelRecall = new THREE.TorusGeometry(1, 0.045, 4, 40);
     this.feixes = []; // feixes de partida e chegada do recall
-    this.chamas = []; // lufadas de chama dos monstros
+    this.originais = []; // efeitos do original que tocam uma vez: { inst }
+    this.particulasRastro = []; // rastro dos projéteis de partículas do original
+    this.reservaParticulas = [];
+    this.camera = null; // quem desenha a cena põe a câmera (peças viradas para ela)
     this.pulsos = []; // pulsos do Núcleo de He-3
     // Peças dos tiros de monstro (uma geometria por forma, liberadas em liberar()).
     this.geoPedra = new THREE.IcosahedronGeometry(1, 0);
     this.geoBola = new THREE.IcosahedronGeometry(1, 1);
-    // Geometrias de tamanho 1 (a malha escala): chama, pulso, anel de nível, campo elétrico.
-    this.geoChama = geometriaChama();
+    // Geometrias de tamanho 1 (a malha escala): pulso e anel de nível.
     this.geoCascaPulso = new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2);
     this.geoPulso = new Map(); // grossura do anel do pulso (em degraus) -> TorusGeometry
     this.geoAnelNivel = new THREE.TorusGeometry(1, 0.035, 4, 48);
-    this.geoDiscoCampo = new THREE.CircleGeometry(1, 40);
-    this.geoBordaCampo = new THREE.RingGeometry(0.94, 1, 48);
     const aditivo = { blending: THREE.AdditiveBlending, transparent: true, depthWrite: false };
-    this.matDiscoCampo = new THREE.MeshBasicMaterial({ color: COR_CAMPO_MONSTRO, ...aditivo, opacity: 0.25, side: THREE.DoubleSide });
-    this.matBordaCampo = new THREE.MeshBasicMaterial({ color: COR_PERIGO, ...aditivo, opacity: 0.8, side: THREE.DoubleSide });
     this.matsPorCor = new Map(); // materiais dos tiros de NPC e de monstro, um por cor e jeito
     // Reservas dos efeitos passageiros (#pegar/#devolver) e como nasce cada um.
     this.reservas = new Map();
@@ -368,7 +377,6 @@ export class Efeitos {
         m.rotation.x = Math.PI / 2;
         return m;
       },
-      chama: () => new THREE.Mesh(this.geoChama, new THREE.MeshBasicMaterial({ vertexColors: true, ...aditivo, side: THREE.DoubleSide })),
       pulsoAnel: () => {
         const m = new THREE.Mesh(this.#geoPulso(0), new THREE.MeshBasicMaterial({ ...aditivo }));
         m.rotation.x = Math.PI / 2;
@@ -535,6 +543,8 @@ export class Efeitos {
    */
   estadoNave(obj, { dreno = false, lento = false, emp = false, bonus = [], fx = [] }, dt, tempo) {
     this.#fxArmas(obj, fx, dt, tempo);
+    // O dreno do original (Magma) é o fogo do original, não a aura violeta.
+    if (dreno && obj.userData.magmaOriginal) dreno = false;
     this.#bonus(obj, bonus, tempo);
     let a = obj.userData.auras;
     if (!a) {
@@ -616,13 +626,14 @@ export class Efeitos {
     const ud = obj.userData;
     const ativos = new Set(fx ?? []);
     this.#fantasma(obj, ativos.has('inv'));
+    const comIcone = this.#estadosOriginais(obj, ativos, dt);
     if (!ud.fx) {
       if (!ativos.size) return;
       ud.fx = { auras: {}, acc: 0 };
     }
     for (const [k, cor] of Object.entries(COR_FX)) {
       let s = ud.fx.auras[k];
-      if (!ativos.has(k)) {
+      if (!ativos.has(k) || comIcone.has(k)) {
         if (s) s.visible = false;
         continue;
       }
@@ -634,15 +645,58 @@ export class Efeitos {
       const pisca = k === 'para' ? (Math.sin(tempo * 41) * Math.sin(tempo * 17) > 0 ? 0.6 : 0.15) : 0.35 + 0.15 * Math.sin(tempo * (k === 'invul' ? 5 : 3));
       s.material.opacity = pisca;
     }
-    if (!(ativos.has('regen') || ativos.has('acel') || ativos.has('energia'))) return;
+    const energia = ativos.has('energia') && !comIcone.has('energia');
+    if (!(ativos.has('regen') || ativos.has('acel') || energia)) return;
     obj.getWorldPosition(this.v);
     ud.fx.acc += dt;
     while (ud.fx.acc >= FX_PARTICULA_S) {
       ud.fx.acc -= FX_PARTICULA_S;
       if (ativos.has('regen')) this.#particula(COR_FX.regen, 1.6, 5, 0.8);
-      if (ativos.has('energia')) this.#particula(COR_FX.energia, 1.4, -5, 0.7);
+      if (energia) this.#particula(COR_FX.energia, 1.4, -5, 0.7);
       if (ativos.has('acel')) this.#particula(COR_FX.acel, 2.2, 0, 0.35, 3);
     }
+  }
+
+  /**
+   * Estados com efeito do original na nave (CUnit::ChangeEffectFlag): o ícone 3D
+   * girando em cima dela, um em cima do outro na ordem de ICONES_ESTADO (dois estados
+   * com o mesmo ícone mostram um só), e o fogo do Magma na nave. Devolve os nomes do
+   * `fx` que ganharam efeito do original (esses não levam a aura).
+   */
+  #estadosOriginais(obj, ativos, dt) {
+    const ud = obj.userData;
+    const feitos = new Set();
+    if (!ud.estados) {
+      if (!ativos.size) return feitos;
+      ud.estados = {};
+    }
+    const querer = new Map(); // id do efeito -> altura (m)
+    let n = 0;
+    for (const [k, id] of Object.entries(ICONES_ESTADO)) {
+      if (!ativos.has(k) || !efeitoOriginalPronto(id)) continue;
+      feitos.add(k);
+      if (!querer.has(id)) querer.set(id, ICONE_ALTURA + ICONE_PASSO * n++);
+    }
+    if (ativos.has('magma') && efeitoOriginalPronto(MAGMA_NA_NAVE)) {
+      feitos.add('magma');
+      querer.set(MAGMA_NA_NAVE, 0);
+    }
+    for (const [id, inst] of Object.entries(ud.estados)) {
+      if (querer.has(id)) continue;
+      soltarEfeitoOriginal(inst);
+      delete ud.estados[id];
+    }
+    for (const [id, altura] of querer) {
+      let inst = ud.estados[id];
+      if (!inst) {
+        inst = ud.estados[id] = criarEfeitoOriginal(id, { escala: ESCALA_ORIGINAL, loop: true });
+        efeitosDa(obj).add(inst.obj);
+      }
+      inst.obj.position.set(0, altura, 0);
+      tocarEfeitoOriginal(inst, dt, this.camera);
+    }
+    ud.magmaOriginal = querer.has(MAGMA_NA_NAVE);
+    return feitos;
   }
 
   /** Nave camuflada (vista por você ou aliado): materiais do casco trocados por um fantasma. */
@@ -708,25 +762,17 @@ export class Efeitos {
     for (const m of lista ?? []) {
       vistas.add(m.id);
       let v = this.minas.get(m.id);
-      if (!v && m.campo && m.atq) {
-        // Campo elétrico de monstro: disco azulado no chão com a borda vermelha de perigo.
-        // Geometrias de raio 1 e materiais divididos por todos os campos (escala no raio).
-        const g = new THREE.Group();
-        const raio = Math.max(3, m.raio ?? 10);
-        const disco = new THREE.Mesh(this.geoDiscoCampo, this.matDiscoCampo);
-        disco.rotation.x = -Math.PI / 2;
-        disco.scale.set(raio, raio, 1);
-        disco.position.y = 0.3;
-        const borda = new THREE.Mesh(this.geoBordaCampo, this.matBordaCampo);
-        borda.rotation.x = -Math.PI / 2;
-        borda.scale.set(raio, raio, 1);
-        borda.position.y = 0.4;
-        const brilhoCampo = this.#brilhoSolto(COR_CAMPO_MONSTRO, raio * 0.8);
-        brilhoCampo.position.set(0, 1.5, 0);
-        g.add(disco, borda, brilhoCampo);
-        this.scene.add(g);
-        v = { g, luz: null, brilho: brilhoCampo, decal: borda, campo: true, fase: Math.random() * Math.PI * 2 };
-        this.minas.set(m.id, v);
+      if (!v && m.campo) {
+        // Campo de arma do original de monstro (o campo elétrico do SN-4): o efeito do
+        // original repetindo, esticado até a área.
+        const id = this.#idOriginal(m.kind, 'a') ?? this.#idOriginal(m.kind, 'p');
+        if (id) {
+          const raio = Math.max(3, m.raio ?? 10);
+          const inst = criarEfeitoOriginal(id, { escala: raio / Math.max(1, raioEfeitoOriginal(id)), loop: true });
+          this.scene.add(inst.obj);
+          v = { g: inst.obj, original: inst, campo: true };
+          this.minas.set(m.id, v);
+        }
       }
       if (!v && m.campo) {
         const g = new THREE.Group();
@@ -774,12 +820,16 @@ export class Efeitos {
     }
     for (const [id, v] of this.minas) {
       if (vistas.has(id)) continue;
+      this.minas.delete(id);
+      if (v.original) {
+        soltarEfeitoOriginal(v.original);
+        continue;
+      }
       this.scene.remove(v.g);
       // A luz da mina pulsa sozinha (material próprio); o programa dela fica com as
       // outras luzes neon (naves, torres), então liberar não recompila nada.
       v.luz?.material.dispose();
       this.#devolver(v.brilho);
-      this.minas.delete(id);
     }
   }
 
@@ -819,6 +869,7 @@ export class Efeitos {
    */
   tiro(b, inimigo = false, cor = null, boca = null) {
     if (b.atq && FORMA_ATQ[b.atq]) return this.#tiroMonstro(b);
+    if (b.atq && this.#tiroOriginal(b)) return;
     const w = WEAPONS[b.kind];
     // Arma do original: a do jogador, ou a de NPC do original que um monstro usa (o
     // SN-3 e o SN-Zero VI atiram com as armas deles, desenhadas como no original).
@@ -855,6 +906,122 @@ export class Efeitos {
     g.lookAt(b.x + b.vx, b.y + b.vy, b.z + b.vz);
     this.scene.add(g);
     this.tiros.set(b.id, { b, g, guiado: !!forma.corpo, rastro: { x: b.x, y: b.y, z: b.z } });
+  }
+
+  /**
+   * O id do efeito do original `campo` ('d' clarão, 'p' projétil, 'i' impacto, 'f'
+   * fim, 'a' armadilha) do golpe da arma de monstro `kind`, se a arma é de NPC do
+   * original e o efeito já está pronto (senão null: quem chama desenha como antes).
+   */
+  #idOriginal(kind, campo, prof = 0) {
+    const w = WEAPONS[kind];
+    if (!w?.npc || !w.original) return null;
+    const id = golpeDaArma(kind, 1, prof)?.vis?.[campo];
+    return id && efeitoOriginalPronto(id) ? id : null;
+  }
+
+  /**
+   * Tiro de monstro com arma do original: o efeito do projétil do original repetindo,
+   * no rumo do tiro. Míssil (com rastro no original) deixa a fumaça na cor do rastro.
+   */
+  #tiroOriginal(b) {
+    const id = this.#idOriginal(b.kind, 'p', b.p ?? 0);
+    if (!id) return false;
+    const inst = criarEfeitoOriginal(id, { escala: ESCALA_TIRO_ORIGINAL, loop: true });
+    const vis = golpeDaArma(b.kind, 1, b.p ?? 0).vis;
+    inst.obj.position.set(b.x, b.y, b.z);
+    inst.obj.lookAt(b.x + b.vx, b.y + b.vy, b.z + b.vz);
+    this.scene.add(inst.obj);
+    const missil = vis.tipo === 'missil_com_rastro';
+    const corRastro = vis.r ? new THREE.Color(visualEfeito(vis.r)?.cores?.[0] ?? '#8f8a83') : null;
+    const pt = particulaOriginal(id);
+    const particula = pt?.tex ? { tex: pt.tex, tam: pt.raio * 2 * ESCALA_TIRO_ORIGINAL, x: b.x, y: b.y, z: b.z } : null;
+    this.tiros.set(b.id, { b, g: inst.obj, original: inst, guiado: missil, corRastro, particula, rastro: { x: b.x, y: b.y, z: b.z } });
+    return true;
+  }
+
+  /** Solta as partículas do rastro do projétil `t` no caminho andado desde a última. */
+  #rastroParticulas(t) {
+    const r = t.particula;
+    const dist = Math.hypot(t.b.x - r.x, t.b.y - r.y, t.b.z - r.z);
+    const n = Math.min(FUMACA_MAX, Math.floor(dist / PARTICULA_PASSO));
+    for (let i = 1; i <= n; i++) {
+      const k = (i * PARTICULA_PASSO) / dist;
+      let s = this.reservaParticulas.pop();
+      if (!s) {
+        s = new THREE.Sprite(new THREE.SpriteMaterial({ blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
+      }
+      const mapa = texturaEfeito(r.tex);
+      if (s.material.map !== mapa) {
+        s.material.map = mapa;
+        s.material.needsUpdate = true;
+      }
+      s.material.opacity = 1;
+      s.material.rotation = Math.random() * Math.PI * 2;
+      s.position.set(r.x + (t.b.x - r.x) * k, r.y + (t.b.y - r.y) * k, r.z + (t.b.z - r.z) * k);
+      s.scale.setScalar(r.tam);
+      this.scene.add(s);
+      this.particulasRastro.push({ s, vida: 0, tam: r.tam });
+      if (this.particulasRastro.length > PARTICULAS_MAX) this.#soltarParticula(this.particulasRastro.shift());
+    }
+    if (n) Object.assign(r, { x: t.b.x, y: t.b.y, z: t.b.z });
+  }
+
+  #soltarParticula(p) {
+    this.scene.remove(p.s);
+    this.reservaParticulas.push(p.s);
+  }
+
+  /** Efeito do original que toca uma vez no ponto (clarão, impacto, fim), na escala `escala`. */
+  #umaVez(id, x, y, z, escala = ESCALA_TIRO_ORIGINAL, rumo = null) {
+    const inst = criarEfeitoOriginal(id, { escala });
+    inst.obj.position.set(x, y, z);
+    if (rumo) inst.obj.lookAt(x + rumo.x, y + rumo.y, z + rumo.z);
+    this.scene.add(inst.obj);
+    this.originais.push({ inst });
+  }
+
+  /**
+   * Clarão do disparo de um monstro com arma do original, no rumo do tiro; sem o
+   * efeito do original, o das armas do jogador.
+   */
+  claraoMonstro(kind, x, y, z, rumo, nv = 1) {
+    const id = this.#idOriginal(kind, 'd');
+    if (id) this.#umaVez(id, x, y, z, ESCALA_TIRO_ORIGINAL, rumo);
+    else this.armas.clarao(kind, x, y, z, nv);
+  }
+
+  /**
+   * Impacto de golpe de monstro com arma do original no ponto (o efeito do original
+   * fica onde bateu). O mesmo impacto a menos de IMPACTO_JUNTO_M de outro que acabou de
+   * nascer (os dez mísseis do SN-4 chegando juntos, a rajada de fogo) não desenha de
+   * novo: dez luzes aditivas no mesmo ponto virariam uma mancha branca.
+   */
+  impactoMonstro(kind, x, y, z, prof = 0) {
+    const id = this.#idOriginal(kind, 'i', prof);
+    if (id && this.originais.some((o) => o.inst.d.id === id && o.inst.t < IMPACTO_JUNTO_S && o.inst.obj.position.distanceToSquared(this.v.set(x, y, z)) < IMPACTO_JUNTO_M ** 2)) return;
+    if (id) this.#umaVez(id, x, y, z, ESCALA_TIRO_ORIGINAL);
+    else this.armas.impacto(kind, 1, prof, x, y, z, 3.5);
+  }
+
+  /**
+   * Explosão de área de monstro com arma do original: o efeito de fim (ou o de
+   * impacto) do original, esticado para chegar ao raio da área no maior quadro.
+   */
+  areaMonstro(kind, x, y, z, raio, prof = 0) {
+    const id = this.#idOriginal(kind, 'f', prof) ?? this.#idOriginal(kind, 'i', prof);
+    if (id) this.#umaVez(id, x, y, z, raio > 0 ? raio / Math.max(1, raioEfeitoOriginal(id, true)) : ESCALA_TIRO_ORIGINAL);
+    else this.armas.area(kind, 1, prof, x, y, z, raio);
+  }
+
+  /**
+   * Nova de monstro com arma do original (a onda do SN-4): o efeito do projétil do
+   * original esticado para chegar ao raio da nova no fim dele.
+   */
+  novaMonstro(kind, x, y, z, raio, vel, prof = 0) {
+    const id = this.#idOriginal(kind, 'p', prof);
+    if (id) this.#umaVez(id, x, y, z, raio / Math.max(1, raioEfeitoOriginal(id, true)));
+    else this.armas.nova(kind, 1, prof, x, y, z, raio, vel);
   }
 
   /**
@@ -899,20 +1066,6 @@ export class Efeitos {
   }
 
   /**
-   * Lufada de chama de um monstro (evento 'chama'): cone de fogo aditivo do ponto, no
-   * rumo `yaw`, até `alcance` m, aberto `abertura` rad (ou `area` m do eixo).
-   */
-  chama({ x, y, z, yaw, alcance, abertura, area }) {
-    const raio = Math.max(2, area ?? Math.tan(abertura ?? 0.5) * alcance);
-    const m = this.#pegar('chama');
-    m.position.set(x, y, z);
-    m.rotation.set(0, yaw, 0);
-    m.scale.set(raio, raio, alcance);
-    this.scene.add(m);
-    this.chamas.push({ m, vida: 0, raio, alcance });
-  }
-
-  /**
    * Pulso de energia do Núcleo de He-3 (evento 'pulso'): anel que abre do prato do
    * Núcleo até `raio`, mais grosso e mais vermelho quanto maior a `forca` (1 a 2,5),
    * com uma casca clara.
@@ -949,6 +1102,7 @@ export class Efeitos {
     if (!t) return null;
     this.scene.remove(t.g);
     if (t.visual) this.armas.soltarProjetil(t.g);
+    if (t.original) soltarEfeitoOriginal(t.original);
     this.tiros.delete(id);
     return t.b;
   }
@@ -1012,6 +1166,11 @@ export class Efeitos {
         this.armas.animarProjetil(t, dt);
         if (t.b.vx || t.b.vz) t.g.lookAt(t.g.position.x + t.b.vx, t.g.position.y + t.b.vy, t.g.position.z + t.b.vz);
       }
+      if (t.original) {
+        if (t.b.vx || t.b.vz) t.g.lookAt(t.g.position.x + t.b.vx, t.g.position.y + t.b.vy, t.g.position.z + t.b.vz);
+        tocarEfeitoOriginal(t.original, dt, this.camera);
+        if (t.particula) this.#rastroParticulas(t);
+      }
       if (t.guiado) {
         // O míssil vira com a curva e deixa fumaça para trás.
         t.g.lookAt(t.b.x + t.b.vx, t.b.y + t.b.vy, t.b.z + t.b.vz);
@@ -1029,6 +1188,10 @@ export class Efeitos {
     this.tempo += dt;
     this.armas.atualizar(dt);
     for (const m of this.minas.values()) {
+      if (m.original) {
+        tocarEfeitoOriginal(m.original, dt, this.camera);
+        continue;
+      }
       // Pulsa devagar enquanto não arma e rápido armada; o decalque gira devagar.
       const f = m.armada ? MINA_PISCA.armada : MINA_PISCA.desarmada;
       const k = 0.5 + 0.5 * Math.sin(this.tempo * f * Math.PI * 2 + m.fase);
@@ -1056,17 +1219,22 @@ export class Efeitos {
       return true;
     });
 
-    this.chamas = this.chamas.filter((c) => {
-      c.vida += dt;
-      const k = c.vida / CHAMA_S;
+    this.particulasRastro = this.particulasRastro.filter((p) => {
+      p.vida += dt;
+      const k = p.vida / PARTICULA_S;
       if (k >= 1) {
-        this.#devolver(c.m);
+        this.#soltarParticula(p);
         return false;
       }
-      c.m.material.opacity = (k < 0.2 ? k / 0.2 : 1 - (k - 0.2) / 0.8) * (0.75 + 0.25 * Math.random());
-      const abre = c.raio * (0.8 + 0.3 * k);
-      c.m.scale.set(abre, abre, c.alcance * (0.9 + 0.1 * k));
+      p.s.scale.setScalar(p.tam * (1 + (PARTICULA_CRESCE - 1) * k));
+      p.s.material.opacity = 1 - k;
       return true;
+    });
+
+    this.originais = this.originais.filter((o) => {
+      if (tocarEfeitoOriginal(o.inst, dt, this.camera)) return true;
+      soltarEfeitoOriginal(o.inst);
+      return false;
     });
 
     this.pulsos = this.pulsos.filter((p) => {

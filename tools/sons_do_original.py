@@ -29,6 +29,8 @@ SONS = [
     # Impacto e explosão (coluna "som do impacto")
     'g_impact', 'b_impact', 'c_explo', 'h_explo', 'n2_explo', 'extra2', 'off_device',
     'off_device2', 'cure',
+    # Armas dos monstros da jungle que vêm do original (Bazit e Xerxes)
+    'npcfire2', 'npcfire3',
     # Nave
     'hyper', 'repair', 'usehpbattery', 'usehebattery', 'level_up',
     # Interface

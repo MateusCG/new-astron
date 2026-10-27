@@ -109,11 +109,11 @@ O ouro sobe mais devagar que a quantidade para o fim da partida não virar só f
 |---|---|---|---|---|
 | SN-3 | pequeno da base (Stage M5) | 200 | um por vez pelo peso do original: Disco Voador (70%: 3 discos físicos em leque que atravessam, 1,2 cada, a cada 1 s, 477 m) ou Míssil Descarregador de Energia (30%: 2 teleguiados elétricos que zeram a energia, 367 m); 37,5 m/s | 23 / 21 |
 | SN-Zero VI | pequeno da base (Stage M5) | 96 | um por vez pelo peso do original: Canhão SN 6 (70%: 2 disparos de 2 balas com área de 20 m, 0,5 cada, a cada 0,5 s, 220 m) ou Armadilha SN6 (30%: mina de 20 s embaixo do alvo, 1,5); 42,5 m/s | 18 / 16 |
-| Xerxes | pequeno do centro | 240 | chama em cone de perto (70 m) e bala explosiva de longe (220 m) | 35 / 28 |
-| Bazit | pequeno do centro | 240 | 3 feixes laser paralelos, 200 m | 35 / 28 |
-| Grande Xerxes | grande do centro | 900 | chama larga (110 m, área 15 m) | 90 / 70 |
-| Anti | grande do centro | 900 | 3 mísseis físicos de curva leve, 240 m | 90 / 70 |
-| **SN-4** (chefe do Stage 5, **2× o modelo original**: 60 m, raio de acerto 26 m; não entra na rocha) | buff de ataque | 2000 | 4 mísseis teleguiados (320 m), onda em volta (70 m), campo elétrico que deixa lento | 150 / 100 |
+| Xerxes | pequeno do centro | 240 | as armas do original (30/70): lança-chamas, rajada de 8 bolas de fogo (~190 m) que deixam o **Magma** (20 de HP em 5 s), e canhão explosivo, 2 balas com área (até 480 m) | 35 / 28 |
+| Bazit | pequeno do centro | 240 | a arma do original: 3 feixes ópticos em leque de 5° que atravessam, ~156 m | 35 / 28 |
+| Grande Xerxes | grande do centro | 900 | a arma do original: lança-chamas grande, rajada de 8 bolas de fogo (~230 m), Magma de 30 em 5 s | 90 / 70 |
+| Anti | grande do centro | 900 | as armas do original (50/50): 4 mísseis retos lado a lado (~460 m) e canhão teleguiado, 2 balas com área (~430 m) | 90 / 70 |
+| **SN-4** (chefe do Stage 5, **2× o modelo original**: 60 m, raio de acerto 26 m; não entra na rocha) | buff de ataque | 2000 | as armas do original, uma por vez (40/40/40): 10 mísseis cruzadores em volta que viram atrás do alvo (~370 m), onda de feixe que abre em volta (112 m) e campo elétrico embaixo do alvo (20 s, área 12,5 m) que quebra todas as resistências | 150 / 100 |
 | **Ancient Medusa** | chefe épico | 12000 (+10 HP/s) | pedras gigantes, leque de 10 raios com desgoverno, armadilhas que impedem o tiro | 220 / 150 **para cada piloto do time** |
 | **Sonda errante** (A-Fly IV) | neutra | 300 | nenhum: foge | 40 / 35 |
 

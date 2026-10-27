@@ -70,12 +70,12 @@
 // Medusa e o time ganha o bônus 'medusa' (BONUS_MEDUSA_S). Os efeitos dos bônus são
 // aplicados por server/bonus.js e pelo World.
 //
-// Os ataques são golpes no formato das armas (server/golpes.js golpeDeMonstro),
-// salvo a chama, que é dano direto num cone (evento 'chama' para o desenho). O SN-3
-// e o SN-Zero VI atiram com as armas do original (forma 'arma': o golpe é o da arma
+// Os ataques são golpes no formato das armas (server/golpes.js golpeDeMonstro). Todos
+// menos a Medusa atiram com as armas do original (forma 'arma': o golpe é o da arma
 // do catálogo, com o dano da espécie), inclusive a rajada (o Canhão SN 6 dá 2
-// disparos de 2 balas, o segundo RAJADA da arma depois: Jungle#rajadas) e a armadilha,
-// que cai embaixo do alvo.
+// disparos de 2 balas e o lança-chamas do Xerxes 8 bolas de fogo, cada uma RAJADA da
+// arma depois da outra: Jungle#rajadas), a armadilha e o campo, que caem embaixo do
+// alvo, e a nova, que abre em volta do monstro.
 
 import { DT, HOVER, SHIP_RADIUS, createShip, stepShip, velocidadeBase } from '../shared/sim.js';
 import { ACAMPAMENTOS, BUFFS, MEDUSA, BASES, heightAt, trajetoSonda, cruzaCampoBase } from '../shared/terrain.js';
@@ -224,8 +224,9 @@ export function golpeDoAtaque(a) {
   const base = { prof: 0, dano: a.dano, efeitos: a.efeito ? [a.efeito] : [], area: a.area ?? 0, tipoDano: a.tipoDano, atq: a.atq, vis: {}, inimigo: true, aliado: false, atravessa: false };
   let g;
   if (a.forma === 'arma') {
-    // Arma do original (SN-3, SN-Zero VI): o golpe convertido do catálogo, com o dano,
-    // o tipo e o nome do ataque da espécie (o visual e o resto, da arma).
+    // Arma do original (todos menos a Medusa): o golpe convertido do catálogo, com o
+    // dano, o tipo e o nome do ataque da espécie (o visual, os efeitos no alvo e o
+    // resto, da arma).
     g = { ...golpeDaArma(a.kind, 1, 0), dano: a.dano, tipoDano: a.tipoDano, atq: a.atq, inimigo: true, aliado: false };
   } else if (a.forma === 'projetil' || a.forma === 'guiado') {
     g = {
@@ -246,7 +247,7 @@ export function golpeDoAtaque(a) {
     g = { ...base, forma: 'nova', area: a.alcance, raio: 0, vida: 0, nova: { raio: a.alcance, vel: a.velOnda ?? VEL_ONDA_PADRAO } };
   } else if (a.forma === 'campo') {
     g = { ...base, forma: 'campo', area: a.raioCampo, raio: 0, vida: a.vidaS, armaS: CAMPO_ARMA_S, intervalo: a.intervaloCampoS };
-  } else g = null; // cone: dano direto (Jungle#chama)
+  } else g = null;
   GOLPES.set(a, g);
   return g;
 }
@@ -508,7 +509,7 @@ export class Jungle {
       ultimoDano: 0,
       raiva: new Map(),
       prox: cfg.ataques.map(() => 0), // tick em que cada ataque fica pronto
-      livreAte: 0, // Medusa, SN-3, SN-Zero VI: entre um ataque e outro
+      livreAte: 0, // Medusa e os de arma do original: entre um ataque e outro
       rajadas: [], // disparos da rajada que ainda vão sair: { a, alvo, k, tick }
       voltando: false,
       patrulha: null,
@@ -751,8 +752,8 @@ export class Jungle {
       .filter(({ a, i }) => t >= m.prox[i] && d <= a.alcance + raioAlvo && !(a.minimo !== undefined && d < a.minimo));
     if (!prontos.length) return;
     if (m.cfg.entreAtaquesS !== undefined) {
-      // Medusa, SN-3 e SN-Zero VI: um ataque de cada vez, escolhido pelo peso do
-      // original entre os prontos.
+      // Medusa e os monstros com armas do original: um ataque de cada vez,
+      // escolhido pelo peso do original entre os prontos.
       if (t < m.livreAte) return;
       const total = prontos.reduce((soma, p) => soma + (p.a.peso ?? 1), 0);
       let sorte = this.world.rng() * total;
@@ -776,7 +777,6 @@ export class Jungle {
   }
 
   #disparar(m, a, alvo, k = 0) {
-    if (a.forma === 'cone') return this.#chama(m, a, alvo);
     const s = m.ship;
     const t = alvo.ship;
     const g = golpeDoAtaque(a);
@@ -786,7 +786,8 @@ export class Jungle {
       const voo = dist(s, t) / g.vel;
       yaw = yawPara(s.x, s.z, t.x + (t.vx ?? 0) * voo, t.z + (t.vz ?? 0) * voo);
     }
-    // Campo (SN-4) e armadilha (SN-Zero VI) abrem embaixo do alvo; o resto sai do monstro.
+    // Campo (SN-4) e armadilha (SN-Zero VI) abrem embaixo do alvo; a nova (SN-4) em
+    // volta do monstro; o resto sai do monstro.
     const ponto = g.forma === 'campo' || g.forma === 'mina' ? { x: t.x, z: t.z } : { x: s.x, z: s.z };
     this.world.golpes.golpeDeMonstro(m, a.kind, g, { yaw, alvo, k, ...ponto });
     // Rajada (armas do original): os disparos seguintes saem RAJADA da arma depois.
@@ -812,34 +813,6 @@ export class Jungle {
       const g = golpeDoAtaque(r.a);
       this.#disparar(m, r.a, alvo, r.k);
       if (r.k + 1 < g.rajada) m.rajadas.push({ ...r, k: r.k + 1, tick: this.tick + Math.max(1, ticks(g.rajadaS)) });
-    }
-  }
-
-  /**
-   * Chama em cone: dano direto em cada inimigo (jogador) no cone à frente, rumo ao
-   * alvo: até o alcance e a meia-abertura (ou a `area` m do eixo, na chama larga),
-   * sem rocha no meio. Evento 'chama' para o desenho.
-   */
-  #chama(m, a, alvo) {
-    const w = this.world;
-    const s = m.ship;
-    const yaw = yawPara(s.x, s.z, alvo.ship.x, alvo.ship.z);
-    const fx = -Math.sin(yaw);
-    const fz = -Math.cos(yaw);
-    w.eventos.push({ e: 'chama', id: m.id, esp: m.esp, x: +s.x.toFixed(2), y: +s.y.toFixed(2), z: +s.z.toFixed(2), yaw: +yaw.toFixed(3), alcance: a.alcance, abertura: a.abertura, area: a.area ?? 0 });
-    const como = { owner: m.id, time: m.time, drone: true };
-    for (const c of w.vivosAgora()) {
-      if (!this.ctx.podeAcertar(como, c)) continue;
-      const dx = c.ship.x - s.x;
-      const dz = c.ship.z - s.z;
-      const raio = c.ship.raio ?? SHIP_RADIUS;
-      const ao = dx * fx + dz * fz; // ao longo do eixo
-      if (ao < 0 || ao > a.alcance + raio) continue;
-      const lado = Math.abs(dx * fz - dz * fx);
-      if (lado > Math.max(a.area ?? 0, ao * Math.tan(a.abertura)) + raio) continue;
-      if (bloqueiaVisao(s.x, s.z, c.ship.x, c.ship.z) || cruzaCampoBase(s.x, s.z, c.ship.x, c.ship.z)) continue;
-      const ev = { e: 'acerto', kind: 'plasma', atq: a.atq, x: +c.ship.x.toFixed(2), y: +c.ship.y.toFixed(2), z: +c.ship.z.toFixed(2) };
-      this.ctx.ferir(c, a.dano, m.id, ev, { tipoDano: a.tipoDano });
     }
   }
 

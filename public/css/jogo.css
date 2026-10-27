@@ -779,6 +779,52 @@ kbd {
   opacity: 0.9;
 }
 
+/* Debuffs recebidos (debuffs.js): como as linhas do original, no canto esquerdo, o
+   ícone do efeito, o nome em rosa claro e o texto em vermelho, com sombra para ler
+   em cima do cenário (sem chapa: o original escreve direto na tela). */
+#debuffs {
+  position: absolute;
+  top: 44%;
+  left: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-width: min(560px, calc(100vw - 24px));
+  pointer-events: none;
+  font-size: 13px;
+  line-height: 1.25;
+  text-shadow: 0 1px 2px #000, 0 0 4px #000;
+}
+
+#debuffs li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+  transition: opacity 0.6s;
+}
+
+#debuffs li.sai {
+  opacity: 0;
+}
+
+#debuffs img {
+  width: 20px;
+  height: 20px;
+  image-rendering: pixelated;
+  flex: none;
+}
+
+#debuffs b {
+  color: #ffc8c8;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+#debuffs span {
+  color: #ff6464;
+}
+
 #feed {
   position: absolute;
   top: 104px; /* abaixo do placar */

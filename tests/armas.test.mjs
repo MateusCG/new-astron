@@ -54,7 +54,7 @@ const idx = (id) => IDX_ARMA['o' + id];
 
 test('catálogo: as 140 armas das lojas e os dois tiros de NPC, com índices estáveis', () => {
   assert.equal(ARMAS_ORIGINAL.length, 140);
-  assert.equal(ARMAS.length, 146, 'os dois tiros de NPC, as 140 do original e, no fim, as 4 de NPC do original (SN-3 e SN-Zero VI)');
+  assert.equal(ARMAS.length, 155, 'os dois tiros de NPC, as 140 do original e, no fim, as 13 de NPC do original (os monstros da jungle)');
   // Os tiros de NPC são os primeiros; as do original seguem a ordem das lojas.
   assert.deepEqual(ARMAS.slice(0, 2), ['laser', 'plasma']);
   assert.equal(ENCAIXE_PADRAO.join(), '0,1');

@@ -8,7 +8,8 @@ import { createShip } from '../shared/sim.js';
 import { BASES, BUFFS, heightAt } from '../shared/terrain.js';
 import { bloqueiaVisao } from '../shared/visao.js';
 import { readFileSync } from 'node:fs';
-import { ESPECIES, alcanceMaximo, FATOR_HP_M5, FATOR_DANO_M5, FATOR_XP_M5, FATOR_RECARGA_M5, FATOR_VEL_MONSTRO } from '../server/especies.js';
+import { ESPECIES, alcanceMaximo, FATOR_HP_M5, FATOR_DANO_M5, FATOR_XP_M5, FATOR_RECARGA_ORIGINAL, FATOR_VEL_MONSTRO, FATOR_DANO_ESPECIE, ALCANCE_MAX_ORIGINAL } from '../server/especies.js';
+import { ARMAS_NPC_ORIGINAL } from '../shared/armas-original.js';
 import { RAIVA_S, corpoLivre, golpeDoAtaque } from '../server/jungle.js';
 import { WEAPONS, ARMAS, FATOR_AREA, armasDisponiveis, visualDoOriginal } from '../shared/armas.js';
 import { RACAS_JOGAVEIS, ORDEM_CLASSES } from '../shared/naves.js';
@@ -89,26 +90,27 @@ test('monstros: atacado, o grupo fica com raiva de quem atirou e esquece depois 
 
 test('monstros: provocado e sem alcance, se aproxima de quem atacou até ter alcance e ataca (MD §10)', () => {
   const { w, j } = mundo();
-  // O Grande Xerxes só tem a chama (110 m); o jogador atirou de 220 m.
-  const m = w.jungle.criarMonstro('great_xerxes', CAMPO.x, CAMPO.z - 220);
+  // O Grande Xerxes só tem o lança-chamas (~230 m); o jogador atirou de 400 m.
+  j.ship.maxHp = j.ship.hp = 1e6;
+  const m = w.jungle.criarMonstro('great_xerxes', CAMPO.x, CAMPO.z - 400, { territorio: 600 });
   w.jungle.provocar(m, j.id);
-  const ev = rodar(w, 10);
+  const ev = rodar(w, 12);
   assert.ok(dist(m.ship, j.ship) <= alcanceMaximo('great_xerxes'), `chegou perto (${dist(m.ship, j.ship).toFixed(0)} m)`);
-  assert.ok(ev.some((e) => e.e === 'chama' && e.id === m.id), 'soltou a chama');
+  assert.ok(ev.some((e) => e.e === 'tiro' && e.dono === m.id && e.atq === 'lanca_chamas_g' && e.kind === 'n511155'), 'soltou as bolas de fogo');
   assert.ok(j.ship.hp < j.ship.maxHp, 'a chama queimou');
-  assert.ok(ev.some((e) => e.e === 'acerto' && e.alvo === j.id && e.atq === 'chama'));
+  assert.ok(ev.some((e) => e.e === 'acerto' && e.alvo === j.id && e.atq === 'lanca_chamas_g'));
 });
 
 test('monstros: com alcance, fica onde está e atira (não encosta)', () => {
   const { w, j } = mundo();
-  const m = w.jungle.criarMonstro('bazit', CAMPO.x, CAMPO.z - 120); // feixe de 200 m
+  const m = w.jungle.criarMonstro('bazit', CAMPO.x, CAMPO.z - 120); // feixe de ~156 m
   const ini = { x: m.ship.x, z: m.ship.z };
   w.jungle.provocar(m, j.id);
   const ev = rodar(w, 5);
   assert.ok(dist(m.ship, ini) < 20, 'não andou atrás');
   const tiros = ev.filter((e) => e.e === 'tiro' && e.dono === m.id);
   assert.ok(tiros.length >= 6, `atirou (${tiros.length} feixes)`);
-  assert.ok(tiros.every((t) => t.atq === 'feixe_optico' && t.kind === 'laser'));
+  assert.ok(tiros.every((t) => t.atq === 'feixe_optico_bazit' && t.kind === 'n511140'));
   assert.ok(j.ship.hp < j.ship.maxHp);
 });
 
@@ -134,7 +136,7 @@ test('monstros: não passam do território; passou, desistem, voltam ao ponto e 
 });
 
 test('monstros: com rocha no meio, contorna até ter linha de tiro', () => {
-  // Rocha do quadrante Q0N (-697,5, -652,5): jogador de um lado, Anti (mísseis, 240 m) do outro.
+  // Rocha do quadrante Q0N (-697,5, -652,5): jogador de um lado, Anti (mísseis e canhão teleguiado, ~430 m) do outro.
   const { w, j } = mundo(-697.5, -652.5 - 140);
   j.ship.maxHp = j.ship.hp = 1e6;
   const m = w.jungle.criarMonstro('anti', -697.5, -652.5 + 140, { territorio: 600 });
@@ -145,7 +147,7 @@ test('monstros: com rocha no meio, contorna até ter linha de tiro', () => {
     if (!bloqueiaVisao(m.ship.x, m.ship.z, j.ship.x, j.ship.z)) livre = true;
   });
   assert.ok(livre, 'achou a linha contornando');
-  assert.ok(ev.some((e) => e.e === 'tiro' && e.dono === m.id && e.atq === 'missil'), 'e atirou os mísseis');
+  assert.ok(ev.some((e) => e.e === 'tiro' && e.dono === m.id && (e.atq === 'missil_longo' || e.atq === 'canhao_teleguiado')), 'e atirou');
 });
 
 test('monstros: não atacam quem está na zona segura nem acertam outro monstro', () => {
@@ -178,18 +180,33 @@ test('monstros: a Medusa alterna os ataques um de cada vez; o SN-4 solta míssei
   assert.ok([...porTick.values()].every((s) => s.size === 1), 'um ataque por vez');
   assert.ok(j.ship.desgov > 0 || j.ship.hp < j.ship.maxHp, 'acertou');
 
+  // O SN-4 também é um ataque por vez, pelo peso do original (40/40/40).
   const outro = mundo();
   const sn = outro.w.jungle.criarMonstro('sn4', CAMPO.x, CAMPO.z - 50);
   outro.j.ship.maxHp = outro.j.ship.hp = 1e6;
   outro.w.jungle.provocar(sn, outro.j.id);
-  outro.w.step(); // os mísseis saem no primeiro passo: estão em voo no snapshot
-  assert.ok(outro.w.snapshotPara(outro.j, [], []).guiados.some((g) => g.atq === 'missil_cruzador'), 'mísseis no guiados');
-  const ev = [...outro.w.tirarEventos(), ...rodar(outro.w, 2)];
-  assert.ok(ev.some((e) => e.e === 'nova' && e.dono === sn.id && e.atq === 'onda_feixe'), 'onda em volta');
-  assert.ok(ev.some((e) => e.e === 'tiro' && e.dono === sn.id && e.atq === 'missil_cruzador'), 'mísseis');
-  assert.ok(outro.w.minas.some((m) => m.dono === sn.id && m.campo && m.g.atq === 'campo_eletrico'), 'campo elétrico no chão');
-  const snap = outro.w.snapshotPara(outro.j, outro.w.entidades(), []);
-  assert.ok(snap.minas.some((m) => m.atq === 'campo_eletrico'));
+  const ev = [];
+  let guiados = false;
+  let campo = false;
+  const porTickSn = new Map();
+  for (let i = 0; i < 30 * 20; i++) {
+    outro.w.step();
+    for (const e of outro.w.tirarEventos()) {
+      ev.push(e);
+      if ((e.e === 'tiro' || e.e === 'nova') && e.dono === sn.id) {
+        if (!porTickSn.has(outro.w.tick)) porTickSn.set(outro.w.tick, new Set());
+        porTickSn.get(outro.w.tick).add(e.atq);
+      }
+    }
+    guiados ||= outro.w.snapshotPara(outro.j, [], []).guiados.some((g) => g.atq === 'missil_cruzador' && g.kind === 'n550120');
+    campo ||= outro.w.minas.some((m) => m.dono === sn.id && m.campo && m.g.atq === 'campo_eletrico');
+  }
+  assert.ok(guiados, 'mísseis no guiados');
+  assert.ok(ev.some((e) => e.e === 'nova' && e.dono === sn.id && e.atq === 'onda_feixe' && e.kind === 'n550130'), 'onda em volta');
+  const misseis = ev.filter((e) => e.e === 'tiro' && e.dono === sn.id && e.atq === 'missil_cruzador');
+  assert.ok(misseis.length >= 10, 'mísseis');
+  assert.ok(campo, 'campo elétrico no chão');
+  assert.ok([...porTickSn.values()].every((s) => s.size === 1), 'um ataque por vez');
 });
 
 test('monstros: o SN-4 tem o dobro do tamanho, cabe no buff de ataque e não entra na rocha', () => {
@@ -237,12 +254,12 @@ function soAtaque(m, atq) {
   });
 }
 
-/** Roda até `s` segundos juntando [tick, evento] dos eventos do monstro `m`. */
+/** Roda até `s` segundos juntando [tick, evento] dos eventos do monstro `m` (e os debuffs). */
 function eventosDe(w, m, s) {
   const out = [];
   for (let i = 0; i < Math.round(s * 30); i++) {
     w.step();
-    for (const e of w.tirarEventos()) if ((e.dono ?? e.id) === m.id || e.atq) out.push([w.tick, e]);
+    for (const e of w.tirarEventos()) if ((e.dono ?? e.id) === m.id || e.atq || e.e === 'debuff') out.push([w.tick, e]);
   }
   return out;
 }
@@ -264,15 +281,17 @@ test('SN-3 e SN-Zero VI: números do original (unidade, NPC e armas) na escala d
   assert.equal(sn3.ataques[0].dano, +(366 * FATOR_DANO_M5).toFixed(3), 'Disco Voador: 366 por disco no original');
   assert.equal(snzero.ataques[0].dano, +(166 * FATOR_DANO_M5).toFixed(3), 'Canhão SN 6: 166 por bala no original');
   // Um ataque por vez, no ritmo da arma mais rápida, na metade da velocidade da arma.
-  assert.equal(FATOR_RECARGA_M5, 2);
-  assert.equal(sn3.entreAtaquesS, WEAPONS.n511080.versoes[0].cd * FATOR_RECARGA_M5);
-  assert.equal(snzero.entreAtaquesS, WEAPONS.n510372.versoes[0].cd * FATOR_RECARGA_M5);
-  for (const a of [...sn3.ataques, ...snzero.ataques]) assert.equal(a.intervaloS, WEAPONS[a.kind].versoes[0].cd * FATOR_RECARGA_M5, a.atq);
+  assert.equal(FATOR_RECARGA_ORIGINAL, 2);
+  assert.equal(sn3.entreAtaquesS, WEAPONS.n511080.versoes[0].cd * FATOR_RECARGA_ORIGINAL);
+  assert.equal(snzero.entreAtaquesS, WEAPONS.n510372.versoes[0].cd * FATOR_RECARGA_ORIGINAL);
+  for (const a of [...sn3.ataques, ...snzero.ataques]) assert.equal(a.intervaloS, WEAPONS[a.kind].versoes[0].cd * FATOR_RECARGA_ORIGINAL, a.atq);
 });
 
-test('SN-3 e SN-Zero VI: as armas de NPC do original ficam no fim do catálogo, fora das do jogador', () => {
-  assert.deepEqual(ARMAS.slice(-4), ['n510372', 'n510373', 'n511080', 'n511090']);
-  for (const k of ARMAS.slice(-4)) {
+test('monstros: as armas de NPC do original ficam no fim do catálogo, fora das do jogador', () => {
+  const npc = ARMAS_NPC_ORIGINAL.map((a) => `n${a.id}`);
+  assert.deepEqual(npc, ['n510372', 'n510373', 'n511080', 'n511090', 'n550120', 'n550130', 'n550140', 'n511150', 'n511160', 'n511155', 'n511140', 'n511170', 'n511180']);
+  assert.deepEqual(ARMAS.slice(-npc.length), npc);
+  for (const k of npc) {
     assert.ok(WEAPONS[k].npc && WEAPONS[k].original && visualDoOriginal(k), k);
     for (const r of RACAS_JOGAVEIS) for (const c of ORDEM_CLASSES) assert.ok(!armasDisponiveis(r, c).includes(WEAPONS[k].idx), `${k} não é do ${r} ${c}`);
   }
@@ -288,7 +307,7 @@ test('SN-3 e SN-Zero VI: as armas de NPC do original ficam no fim do catálogo, 
   assert.ok(disco.atravessa, 'o disco atravessa');
   const missil = WEAPONS.n511090.versoes[0].golpe;
   assert.ok(missil.guia && Math.abs(missil.guia.giro - 1) < 0.01, 'teleguiado, ~57°/s');
-  assert.deepEqual(missil.efeitos, [{ tipo: 'descarga', alvo: 'inimigo', frac: 1, raio: 0 }], 'descarrega 100% da energia');
+  assert.deepEqual(missil.efeitos, [{ tipo: 'descarga', alvo: 'inimigo', frac: 1, dur: 2, raio: 0 }], 'descarrega 100% da energia (o ícone fica 2 s)');
   const armadilha = WEAPONS.n510373.versoes[0].golpe;
   assert.equal(armadilha.forma, 'mina');
   assert.equal(armadilha.vida, 20);
@@ -368,6 +387,79 @@ test('SN-3: o Disco Voador sai em leque de 3 e o míssil teleguiado descarrega a
   }
   assert.ok(descarregou, 'o míssil chegou');
   assert.ok(outro.j.ship.en < outro.j.ship.maxEn * 0.1, `energia descarregada (${outro.j.ship.en.toFixed(1)})`);
+});
+
+test('Stage 6 e SN-4: as armas e os pesos do initnpc.cfg, um ataque por vez no ritmo da arma mais rápida', () => {
+  // cols 13–16 (armas) e 22–25 (pesos) do initnpc.cfg: 705050 Xerxes, 705055 Great
+  // Xerxes, 705040 Bazit (a mesma arma nos dois encaixes), 705060 Anti, 702600 SN-4.
+  const esperado = {
+    xerxes: [['n511150', 30], ['n511160', 70]],
+    great_xerxes: [['n511155', 100]],
+    bazit: [['n511140', 100]],
+    anti: [['n511170', 50], ['n511180', 50]],
+    sn4: [['n550120', 40], ['n550130', 40], ['n550140', 40]],
+  };
+  for (const [esp, armas] of Object.entries(esperado)) {
+    const e = ESPECIES[esp];
+    assert.deepEqual(e.ataques.map((a) => [a.kind, a.peso]), armas, esp);
+    const cds = e.ataques.map((a) => WEAPONS[a.kind].versoes[0].cd);
+    assert.equal(e.entreAtaquesS, Math.min(...cds) * FATOR_RECARGA_ORIGINAL, `${esp}: ritmo`);
+    for (const a of e.ataques) {
+      assert.equal(a.forma, 'arma');
+      assert.equal(a.tipoDano, WEAPONS[a.kind].tipoDano);
+      const original = ARMAS_NPC_ORIGINAL.find((x) => `n${x.id}` === a.kind).versoes[0].golpe.dano;
+      assert.equal(a.dano, +(original * FATOR_DANO_ESPECIE[esp]).toFixed(3), `${esp} ${a.atq}: dano do original × fator da espécie`);
+      assert.ok(a.alcance > 0 && a.alcance <= ALCANCE_MAX_ORIGINAL, `${esp} ${a.atq}: alcance ${a.alcance}`);
+    }
+  }
+  // A nova do SN-4 vale até o raio dela; o campo cai embaixo do alvo.
+  assert.equal(ESPECIES.sn4.ataques[1].alcance, WEAPONS.n550130.versoes[0].golpe.nova.raio);
+});
+
+test('Xerxes: o lança-chamas solta uma rajada de 8 bolas de fogo e deixa o Magma (HP caindo por 5 s)', () => {
+  const { w, j } = mundo();
+  j.ship.maxHp = j.ship.hp = 1e6;
+  const m = w.jungle.criarMonstro('xerxes', CAMPO.x, CAMPO.z - 100);
+  soAtaque(m, 'lanca_chamas');
+  w.jungle.provocar(m, j.id);
+  const ev = eventosDe(w, m, 1.5);
+  const fogo = ev.filter(([, e]) => e.e === 'tiro' && e.dono === m.id);
+  assert.ok(fogo.every(([, e]) => e.kind === 'n511150' && e.atq === 'lanca_chamas'));
+  const t0 = fogo[0][0];
+  const rajada = fogo.filter(([t]) => t - t0 < 25);
+  assert.equal(rajada.length, 8, '8 bolas de fogo por disparo');
+  assert.ok(ev.some(([, e]) => e.e === 'acerto' && e.alvo === j.id && e.atq === 'lanca_chamas'), 'pegou');
+  assert.ok(j.drenoTicks > 0 && j.drenoMagma, 'Magma no alvo');
+  assert.equal(j.drenoDps, WEAPONS.n511150.versoes[0].golpe.efeitos[0].dps, 'Magma na escala das armas do jogador (100 em 5 s × 0,2)');
+  // Só o alvo recebe a mensagem do Magma, com o valor e a duração.
+  const deb = ev.map(([, e]) => e).find((e) => e.e === 'debuff' && e.para === j.id);
+  assert.ok(deb, 'evento debuff');
+  assert.equal(deb.ef, 'magma');
+  assert.equal(deb.v, 20);
+  assert.equal(deb.dur, 5);
+  // Fora da chama, a vida continua caindo enquanto o Magma dura.
+  m.ship.hp = 0;
+  m.vivo = false;
+  const antes = j.ship.hp;
+  rodar(w, 2);
+  assert.ok(j.ship.hp < antes, 'queimando');
+  const fx = w.snapshotPara(j, w.entidades(), []).ents.find((e) => e.id === j.id)?.fx ?? [];
+  assert.ok(fx.includes('magma'), `fx magma (${fx})`);
+});
+
+test('SN-4: o campo elétrico zera as resistências de quem fica nele (Resistance diminish)', () => {
+  const { w, j } = mundo();
+  j.ship.maxHp = j.ship.hp = 1e6;
+  const m = w.jungle.criarMonstro('sn4', CAMPO.x, CAMPO.z - 150);
+  soAtaque(m, 'campo_eletrico');
+  w.jungle.provocar(m, j.id);
+  const ev = eventosDe(w, m, 2);
+  assert.ok(w.minas.some((x) => x.dono === m.id && x.campo && x.kind === 'n550140'), 'campo no chão');
+  assert.ok(w.golpes.st(j, 'vulneravel'), 'resistências quebradas');
+  const deb = ev.map(([, e]) => e).find((e) => e.e === 'debuff' && e.para === j.id);
+  assert.equal(deb?.ef, 'resist');
+  const fx = w.snapshotPara(j, w.entidades(), []).ents.find((e) => e.id === j.id)?.fx ?? [];
+  assert.ok(fx.includes('resist'), `fx resist (${fx})`);
 });
 
 test('SN-3 e SN-Zero VI: o glb traz a animação STAND do original (24 quadros por segundo) e o cone de luz aditivo', () => {

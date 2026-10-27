@@ -279,7 +279,9 @@
 //         (VAGAS_BACIA), despejando o minério (só enquanto despeja; a entrega
 //         sai no fim);
 //         esc = fração (0 a 1) do escudo do equipamento, só em jogador com escudo;
-//         fx = efeitos de arma visíveis ('para', 'desg', 'energia', 'invul',
+//         fx = efeitos de arma visíveis ('para', 'desg', 'energia', 'descarga' (a
+//         energia descarregada, o ícone fica a duração do original), 'magma' (o dreno
+//         de HP do original), 'resist' (todas as resistências quebradas), 'invul',
 //         'escudo', 'fraco', 'regen', 'acel', 'inv'); arm = [arma do Z, arma do X]
 //         dos jogadores (o modelo pendurado em cada asa). Jogador camuflado do outro
 //         time não vem na lista (salvo a INVISIVEL_VISTO_M da sua nave ou logo
@@ -325,25 +327,23 @@
 //                                    teleguiados que descarregam a energia),
 //                                    'canhao_sn6' (SN-Zero VI, 2 disparos de 2 balas
 //                                    com área), 'armadilha_sn6' (SN-Zero VI, mina
-//                                    embaixo do alvo), 'bala_explosiva' (Xerxes, área 10 m), 'chama'
-//                                    (Xerxes e Grande Xerxes; só 'acerto', o desenho
-//                                    vem no evento 'chama'), 'feixe_optico' (Bazit, 3
-//                                    feixes paralelos), 'missil' (Anti, 3 teleguiados de
-//                                    curva leve), 'missil_cruzador' (SN-4, 4
-//                                    teleguiados), 'onda_feixe' (SN-4, nova de 70 m),
-//                                    'campo_eletrico' (SN-4, campo de 20 m no chão,
-//                                    lento), 'pedra_gigante' (Medusa, 2 pedras),
-//                                    'controle' (Medusa, leque de 10, desgoverno),
-//                                    'armadilha' (Medusa, 8 teleguiados lentos, sem
-//                                    tiro); kind = 'laser' ou 'plasma' (tiro de NPC)
-//                                    ou, no SN-3 e no SN-Zero VI, a arma de NPC do
-//                                    original ('n511080', 'n511090', 'n510372',
-//                                    'n510373' em WEAPONS: o cliente desenha e toca
-//                                    como as armas do jogador)
-//         {e:'chama', id, esp, x, y, z, yaw, alcance, abertura, area}   chama em cone
-//                                    de um monstro (id): do ponto, no rumo yaw, até
-//                                    alcance m, meia-abertura em rad (ou area m do
-//                                    eixo, a chama larga do Grande Xerxes)
+//                                    embaixo do alvo), 'lanca_chamas' e
+//                                    'lanca_chamas_g' (Xerxes e Grande Xerxes, rajada
+//                                    de 8 bolas de fogo que atravessam e deixam o
+//                                    Magma), 'canhao_explosivo' (Xerxes, 2 balas com
+//                                    área), 'feixe_optico_bazit' (Bazit, 3 feixes em
+//                                    leque de 5°), 'missil_longo' (Anti, 4 mísseis
+//                                    lado a lado), 'canhao_teleguiado' (Anti, 2 balas
+//                                    teleguiadas com área), 'missil_cruzador' (SN-4,
+//                                    10 teleguiados em volta), 'onda_feixe' (SN-4,
+//                                    nova), 'campo_eletrico' (SN-4, campo de 20 s
+//                                    embaixo do alvo que quebra as resistências),
+//                                    'pedra_gigante' (Medusa, 2 pedras), 'controle'
+//                                    (Medusa, leque de 10, desgoverno), 'armadilha'
+//                                    (Medusa, 8 teleguiados lentos, sem tiro); kind =
+//                                    'laser' ou 'plasma' (tiro de NPC, a Medusa) ou a
+//                                    arma de NPC do original ('n511080'... em WEAPONS:
+//                                    o cliente desenha com os efeitos do original)
 //         {e:'tiro', ..., fonte, time, guiado?, alvo?, vida?}   tiro de torreta (fonte
 //                                    'torreta', dono = id dela; míssil teleguiado:
 //                                    guiado true, alvo = id travado, vai também em
@@ -367,6 +367,14 @@
 //                                    parte que o escudo do equipamento segurou; crit =
 //                                    golpe crítico, dano dobrado; com crit vem também
 //                                    por = id de quem bateu, que sempre recebe o evento)
+//         {e:'debuff', para, ef, v?, dur?}   PRIVADO (só o jogador `para` recebe): o
+//                                    debuff que ele levou, a mensagem do original
+//                                    (CChatList::AddCollisionMsg): ef = 'magma',
+//                                    'resist', 'descarga', 'semTiro', 'lento', 'imovel',
+//                                    'paralisa', 'trava', 'cadencia', 'fraco',
+//                                    'vulnFisico', 'vulnLaser', 'revela', 'cego',
+//                                    'desgoverno', 'drenoDuplo', 'drenoEn', 'semRegen',
+//                                    'enCara', 'recuo'; v = o número do texto, dur em s
 //         {e:'ganho', para, id, esp, x, y, z, ouro, xp, crit?}   PRIVADO (só o jogador
 //                                    `para` recebe): o ouro e o XP que ele ganhou ao
 //                                    abater o monstro id (espécie esp) no lugar x, y, z

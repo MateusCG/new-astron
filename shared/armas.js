@@ -139,7 +139,8 @@ function converterEfeito(e, versao) {
   const hpPorS = (versao?.hpPorS ?? 0) * FATOR_DANO;
   switch (e.t) {
     case 'drenoHp':
-      return { tipo: 'dreno', alvo: 'inimigo', dps: dur ? (v * FATOR_DANO) / dur : 0, dur, raio };
+      // O "Magma damage" do original: o cliente desenha o fogo do original na nave.
+      return { tipo: 'dreno', alvo: 'inimigo', dps: dur ? (v * FATOR_DANO) / dur : 0, dur, raio, magma: true };
     case 'superaquece':
       return { tipo: 'dreno', alvo: 'inimigo', dps: v * FATOR_DANO, dur, raio };
     case 'drenoEscudoEnergia':
@@ -157,7 +158,9 @@ function converterEfeito(e, versao) {
     case 'paralisaAtaque':
       return { tipo: 'semTiro', alvo: 'inimigo', dur, raio };
     case 'descarregaEnergia':
-      return { tipo: 'descarga', alvo: 'inimigo', frac: Math.min(1, v / 100), raio };
+      // A descarga é na hora; a duração do original (2 s no míssil do SN-3) é o tempo
+      // do ícone na nave.
+      return { tipo: 'descarga', alvo: 'inimigo', frac: Math.min(1, v / 100), dur, raio };
     case 'roubaEnergia':
       return { tipo: 'roubaEn', alvo: 'inimigo', qtd: v * FATOR_ENERGIA_ARMA, frac: (e.v2 ?? 100) / 100, raio };
     case 'cortaRegenEnergia':

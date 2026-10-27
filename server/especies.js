@@ -16,25 +16,37 @@
 // A chave (sn3, xerxes...) é a `esp` que vai no protocolo (entidade tipo
 // 'monstro'); o cliente escolhe o modelo por ela (public/modelos/monstros/<esp>.glb).
 //
-// SN-3 e SN-Zero VI (pedido do Mateus, out/2026: "exatamente iguais ao old-astron"):
-// cada um é o NPC do Stage M5 (initnpc.cfg 705010 e 700405) com a unidade dele
-// (initunit.cfg 502020 e 500405) e as armas "(NPC)" dele (inititemweapon.cfg, cols 13+
-// do initnpc), que entram no catálogo como as do jogador (WEAPONS 'n511080'...,
-// shared/armas.js): forma do golpe, canos, leque, rajada, teleguiado, área, armadilha,
-// efeito no alvo, visual e som saem do original, convertidos pelos mesmos fatores das
-// armas do jogador. Um ataque por vez, escolhido pelo peso do original (cols 22–25:
-// 70 e 30), no ritmo da arma mais rápida (`entreAtaquesS`), com a recarga e o ritmo
-// × FATOR_RECARGA_M5 (atacam na metade da velocidade das armas). Escala do resto:
+// Armas do original (pedido do Mateus, out/2026: "exatamente iguais ao old-astron";
+// primeiro o SN-3 e o SN-Zero VI, depois o padrão de ataque do SN-4, do Grande Xerxes,
+// do Xerxes, do Bazit e do Anti): cada um é o NPC do original (initnpc.cfg) com a
+// unidade dele (initunit.cfg) e as armas "(NPC)" dele (inititemweapon.cfg, cols 13+ do
+// initnpc), que entram no catálogo como as do jogador (WEAPONS 'n511080'...,
+// shared/armas.js): forma do golpe, canos, leque, rajada, teleguiado, área, nova,
+// campo, armadilha, efeito no alvo (o Magma do lança-chamas, a quebra de resistências
+// do campo elétrico, a descarga de energia do míssil do SN-3), visual e som saem do
+// original, convertidos pelos mesmos fatores das armas do jogador. Um ataque por vez,
+// escolhido pelo peso do original (cols 22–25), no ritmo da arma mais rápida
+// (`entreAtaquesS`), com a recarga e o ritmo × FATOR_RECARGA_ORIGINAL (atacam na
+// metade da velocidade das armas, a regra que o Mateus pediu para o SN-3). Escala do
+// resto:
 // - velocidade: m/ms do original × 1000 × FATOR_VEL_MONSTRO (a regra de todo monstro);
-// - raio de acerto e modelo: o do original × FATOR_AREA (0,25, o mesmo das áreas das
-//   armas: o corpo e o tiro ficam na proporção do original entre si e com o SN-4);
-// - HP, dano e XP: os do original vezes um fator só para os dois (FATOR_HP_M5,
-//   FATOR_DANO_M5, FATOR_XP_M5), escolhido para o acampamento da base ficar no papel
-//   dele no ritmo da partida (os pequenos de antes tinham 160 de HP e ~3 de dano por
-//   segundo cada); a relação entre os dois é a do original (o SN-3 aguenta o dobro, o
-//   SN-Zero VI bate mais forte). O original não dá ouro no abate (só drop): o ouro é a
-//   XP × OURO_POR_XP_M5, a relação dos pequenos de antes.
-//
+// - SN-3 e SN-Zero VI: raio de acerto e modelo do original × FATOR_AREA (0,25, o mesmo
+//   das áreas das armas: o corpo e o tiro ficam na proporção do original entre si e
+//   com o SN-4); HP, dano e XP do original vezes um fator só para os dois
+//   (FATOR_HP_M5, FATOR_DANO_M5, FATOR_XP_M5), escolhido para o acampamento da base
+//   ficar no papel dele no ritmo da partida (os pequenos de antes tinham 160 de HP e ~3
+//   de dano por segundo cada); a relação entre os dois é a do original (o SN-3 aguenta
+//   o dobro, o SN-Zero VI bate mais forte). O original não dá ouro no abate (só drop):
+//   o ouro é a XP × OURO_POR_XP_M5, a relação dos pequenos de antes;
+// - os do Stage 6 e o SN-4 continuam com o HP, o tamanho, a XP e o ouro do papel
+//   deles no mapa (PESQUISA-MONSTROS.md, seção 6); só o ataque vem do original, e o
+//   dano de cada arma é o do original × o fator da espécie (FATOR_DANO_ESPECIE), que
+//   deixa o dano por segundo de perto perto do de antes; os efeitos no alvo ficam na
+//   escala das armas do jogador (o Magma do lança-chamas tira 20 de HP em 5 s do
+//   Xerxes e 30 do Grande Xerxes, como o Magma das armas de jogador, e é o que mais
+//   machuca na chama: as bolas de fogo valem pouco);
+// - alcance: o voo do projétil da arma convertida, até ALCANCE_MAX_ORIGINAL (o
+//   canhão explosivo do Xerxes voa 612 m, mais que a visão de 550).
 // Ataques: cada um tem uma `forma`, que server/jungle.js transforma num golpe no
 // formato dos golpes das armas (server/golpes.js resolve voo, curva, área, campo e
 // efeitos no alvo, sem duplicar nada):
@@ -48,7 +60,8 @@
 // - 'nova': onda em volta do monstro até `alcance` m (só com alguém dentro);
 // - 'campo': área no chão embaixo do alvo, fere a cada `intervaloCampoS` por `vidaS`;
 // - 'arma': a arma de NPC do original `kind` ('n511080'...), com o golpe dela inteiro
-//   (SN-3 e SN-Zero VI; a armadilha cai embaixo do alvo).
+//   (todos menos a Medusa; a armadilha e o campo caem embaixo do alvo, a nova abre em
+//   volta do monstro).
 // `kind` é o tiro de NPC do catálogo ('laser' ou 'plasma'), para quem já desenha
 // esses; `atq` é o nome do ataque no protocolo (o cliente desenha cada um do seu
 // jeito: ver o comentário do topo de server/index.js). `efeito` vai no alvo (lento,
@@ -65,8 +78,22 @@ export const FATOR_VEL_MONSTRO = 0.25;
 export const FATOR_HP_M5 = 0.08;
 /** SN-3 e SN-Zero VI: dano por projétil das armas do original × isto (Disco Voador 366 → 1,2; Canhão 6 166 → 0,5 por bala, 4 por disparo). */
 export const FATOR_DANO_M5 = 0.0032;
-/** SN-3 e SN-Zero VI: recarga de cada arma e ritmo entre ataques × isto (2 = atacam na metade da velocidade). */
-export const FATOR_RECARGA_M5 = 2;
+/** Monstros com arma do original: recarga de cada arma e ritmo entre ataques × isto (2 = atacam na metade da velocidade). */
+export const FATOR_RECARGA_ORIGINAL = 2;
+/** @deprecated o nome antigo (era só do SN-3 e do SN-Zero VI): use FATOR_RECARGA_ORIGINAL. */
+export const FATOR_RECARGA_M5 = FATOR_RECARGA_ORIGINAL;
+/**
+ * Dano das armas do original × isto, por espécie (o SN-3 e o SN-Zero VI usam
+ * FATOR_DANO_M5). Escolhido para o dano por segundo de perto, um ataque por vez no
+ * ritmo de cima, ficar perto do de antes de cada papel: Xerxes ~4 a 6 e Grande
+ * Xerxes ~10 com o Magma (4 e 6 de HP por segundo enquanto a chama pega), Anti ~7,5,
+ * Bazit ~3,75; o SN-4 é chefe (dez mísseis em volta, a onda e o campo).
+ */
+export const FATOR_DANO_ESPECIE = { xerxes: 0.001, great_xerxes: 0.001, bazit: 0.0031, anti: 0.0098, sn4: 0.02 };
+/** Alcance máximo de um ataque com arma do original (m): o do Disco Voador do SN-3, perto da visão do time (550). */
+export const ALCANCE_MAX_ORIGINAL = 480;
+/** SN-4: a armadilha de campo elétrico cai embaixo do alvo a até isto (m), como o campo de antes. */
+export const ALCANCE_CAMPO_SN4 = 200;
 /** SN-3 e SN-Zero VI: XP do abate do original (col 30 do initnpc) × isto (75 → 23, 60 → 18). */
 export const FATOR_XP_M5 = 0.3;
 /** SN-3 e SN-Zero VI: ouro do abate por ponto de XP (o original não dá ouro; 0,9 era a relação dos pequenos de antes, 18 por 20). */
@@ -82,30 +109,37 @@ export const TERRITORIO_COMUM = 250;
 export const TERRITORIO_CHEFE = 175;
 
 /** Efeitos no alvo (mesmo formato dos efeitos das armas, shared/armas.js). */
-const LENTO_30 = { tipo: 'lento', alvo: 'inimigo', mult: 0.7, dur: 2 };
 const DESGOVERNO = { tipo: 'desgoverno', alvo: 'inimigo', dur: 1.5 };
 const SEM_TIRO = { tipo: 'semTiro', alvo: 'inimigo', dur: 2 };
 
 /**
- * Ataque com a arma "(NPC)" `id` do original: dano do original × FATOR_DANO_M5; recarga
- * da arma convertida × FATOR_RECARGA_M5; tipo de dano e alcance (o voo do projétil) da arma convertida; `peso` do initnpc.
- * `forma: 'arma'`: o golpe é o da arma (server/jungle.js golpeDoAtaque).
+ * Ataque com a arma "(NPC)" `id` do original: dano do original × `fatorDano`; recarga
+ * da arma convertida × FATOR_RECARGA_ORIGINAL; tipo de dano e alcance da arma
+ * convertida (o voo do projétil, até ALCANCE_MAX_ORIGINAL; o raio da nova); `peso` do
+ * initnpc. `forma: 'arma'`: o golpe é o da arma (server/jungle.js golpeDoAtaque).
  */
-function ataqueDoOriginal(atq, id, peso, extra = {}) {
+function ataqueDoOriginal(atq, id, peso, extra = {}, fatorDano = FATOR_DANO_M5) {
   const kind = `n${id}`;
   const v = versaoArma(kind, 1);
   const original = ARMAS_NPC_ORIGINAL.find((a) => a.id === id).versoes[0].golpe;
+  const g = v.golpe;
+  const alcance = g.forma === 'projetil' ? Math.min(ALCANCE_MAX_ORIGINAL, Math.round(g.alcance)) : g.forma === 'nova' ? g.nova.raio : 0;
   return {
     atq,
     forma: 'arma',
     kind,
     peso,
     tipoDano: WEAPONS[kind].tipoDano,
-    dano: +(original.dano * FATOR_DANO_M5).toFixed(3),
-    intervaloS: v.cd * FATOR_RECARGA_M5,
-    alcance: v.golpe.forma === 'projetil' ? Math.round(v.golpe.alcance) : 0,
+    dano: +(original.dano * fatorDano).toFixed(3),
+    intervaloS: v.cd * FATOR_RECARGA_ORIGINAL,
+    alcance,
     ...extra,
   };
+}
+
+/** O ritmo entre ataques de quem usa as armas `ids` do original: a recarga da mais rápida × FATOR_RECARGA_ORIGINAL. */
+function ritmoDoOriginal(...ids) {
+  return Math.min(...ids.map((id) => WEAPONS[`n${id}`].versoes[0].cd)) * FATOR_RECARGA_ORIGINAL;
 }
 
 /** Números de um NPC do original (unidade do initunit.cfg e XP do initnpc.cfg) na escala do jogo. */
@@ -128,7 +162,7 @@ export const ESPECIES = {
     nome: 'SN-3',
     ...doOriginal({ hp: 2500, velMs: 0.15, raio: 49, xp: 75 }),
     tamanho: 23,
-    entreAtaquesS: WEAPONS.n511080.versoes[0].cd * FATOR_RECARGA_M5,
+    entreAtaquesS: ritmoDoOriginal('511080', '511090'),
     ataques: [ataqueDoOriginal('disco_voador', '511080', 70), ataqueDoOriginal('missil_descarga', '511090', 30)],
   },
   // SN-Zero VI (Stage M5): npc 700405, unidade 500405 "Sn-Zero Unit6" (HP 1200, 0,17
@@ -138,34 +172,55 @@ export const ESPECIES = {
     nome: 'SN-Zero VI',
     ...doOriginal({ hp: 1200, velMs: 0.17, raio: 47, xp: 60 }),
     tamanho: 18,
-    entreAtaquesS: WEAPONS.n510372.versoes[0].cd * FATOR_RECARGA_M5,
+    entreAtaquesS: ritmoDoOriginal('510372', '510373'),
     ataques: [ataqueDoOriginal('canhao_sn6', '510372', 70), ataqueDoOriginal('armadilha_sn6', '510373', 30, { alcance: ALCANCE_ARMADILHA })],
   },
+  // Xerxes (npc 705050): Lança-chamas (511150, 30%: rajada de 8 bolas de fogo que
+  // atravessam, Magma de 100 em 5 s no alvo) e Canhão Explosivo de Longo Alcance
+  // (511160, 70%: rajada de 2 balas com área).
   xerxes: {
     nome: 'Xerxes', hp: 240, velocidade: 37, raio: 6, tamanho: 13, xp: 35, ouro: 28,
+    entreAtaquesS: ritmoDoOriginal('511150', '511160'),
     ataques: [
-      { atq: 'chama', forma: 'cone', tipoDano: 'laser', dano: 1.5, intervaloS: 0.4, alcance: 70, abertura: 0.5 },
-      { atq: 'bala_explosiva', forma: 'projetil', kind: 'plasma', tipoDano: 'fisico', dano: 8, intervaloS: 3.5, alcance: 220, minimo: 70, area: 10, vel: 120 },
+      ataqueDoOriginal('lanca_chamas', '511150', 30, {}, FATOR_DANO_ESPECIE.xerxes),
+      ataqueDoOriginal('canhao_explosivo', '511160', 70, {}, FATOR_DANO_ESPECIE.xerxes),
     ],
   },
+  // Grande Xerxes (npc 705055): só o Lança-chamas grande (511155, 100%: Magma de 150).
   great_xerxes: {
     nome: 'Grande Xerxes', hp: 900, velocidade: 30, raio: 11, tamanho: 26, xp: 90, ouro: 70,
-    ataques: [{ atq: 'chama', forma: 'cone', tipoDano: 'laser', dano: 3, intervaloS: 0.4, alcance: 110, abertura: 0.5, area: 15 }],
+    entreAtaquesS: ritmoDoOriginal('511155'),
+    ataques: [ataqueDoOriginal('lanca_chamas_g', '511155', 100, {}, FATOR_DANO_ESPECIE.great_xerxes)],
   },
+  // Bazit (npc 705040): o Lançador de Feixe Óptico (511140) nos dois encaixes (50/50):
+  // três feixes em leque de 5° que atravessam.
   bazit: {
     nome: 'Bazit', hp: 240, velocidade: 37, raio: 6, tamanho: 13, xp: 35, ouro: 28,
-    ataques: [{ atq: 'feixe_optico', forma: 'projetil', kind: 'laser', tipoDano: 'laser', dano: 2, tiros: 3, vao: 3, intervaloS: 1.6, alcance: 200, vel: 220 }],
+    entreAtaquesS: ritmoDoOriginal('511140'),
+    ataques: [ataqueDoOriginal('feixe_optico_bazit', '511140', 100, {}, FATOR_DANO_ESPECIE.bazit)],
   },
+  // Anti (npc 705060): Míssil de Longo Alcance (511170, 50%: quatro mísseis retos lado a
+  // lado) e Canhão Teleguiado (511180, 50%: duas balas que viram atrás do mais perto e
+  // explodem com área).
   anti: {
     nome: 'Anti', hp: 900, velocidade: 30, raio: 11, tamanho: 26, xp: 90, ouro: 70,
-    ataques: [{ atq: 'missil', forma: 'guiado', kind: 'plasma', tipoDano: 'fisico', dano: 5, tiros: 3, leque: 0.25, intervaloS: 2, alcance: 240, vel: 110, giro: 1.2 }],
+    entreAtaquesS: ritmoDoOriginal('511170', '511180'),
+    ataques: [
+      ataqueDoOriginal('missil_longo', '511170', 50, {}, FATOR_DANO_ESPECIE.anti),
+      ataqueDoOriginal('canhao_teleguiado', '511180', 50, {}, FATOR_DANO_ESPECIE.anti),
+    ],
   },
+  // SN-4 (chefe do Stage M5, npc 702600): Míssil Cruzador (550120: dez mísseis em volta,
+  // a cada 36°, que viram atrás do alvo), Onda de Feixe Óptico (550130: nova que abre
+  // em volta dele) e Campo Elétrico (550140: campo de 20 s que fere e zera as
+  // resistências), 40/40/40.
   sn4: {
     nome: 'SN-4', hp: 2000, velocidade: 15, raio: 26, tamanho: 60, xp: 150, ouro: 100, territorio: TERRITORIO_CHEFE, chefe: true,
+    entreAtaquesS: ritmoDoOriginal('550120', '550130', '550140'),
     ataques: [
-      { atq: 'missil_cruzador', forma: 'guiado', kind: 'plasma', tipoDano: 'fisico', dano: 4, tiros: 4, leque: 0.2, intervaloS: 3, alcance: 320, vel: 120, giro: 2.5 },
-      { atq: 'onda_feixe', forma: 'nova', kind: 'laser', tipoDano: 'laser', dano: 25, intervaloS: 8, alcance: 70, velOnda: 140 },
-      { atq: 'campo_eletrico', forma: 'campo', kind: 'plasma', tipoDano: 'eletrico', dano: 5, intervaloS: 12, alcance: 200, raioCampo: 20, vidaS: 6, intervaloCampoS: 1, efeito: LENTO_30 },
+      ataqueDoOriginal('missil_cruzador', '550120', 40, {}, FATOR_DANO_ESPECIE.sn4),
+      ataqueDoOriginal('onda_feixe', '550130', 40, {}, FATOR_DANO_ESPECIE.sn4),
+      ataqueDoOriginal('campo_eletrico', '550140', 40, { alcance: ALCANCE_CAMPO_SN4 }, FATOR_DANO_ESPECIE.sn4),
     ],
   },
   medusa: {
