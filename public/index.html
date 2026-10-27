@@ -79,8 +79,8 @@
             <div><dt><kbd>A</kbd><kbd>D</kbd></dt><dd>Gira a nave</dd></div>
             <div><dt><kbd>Shift</kbd></dt><dd>Boost</dd></div>
             <div><dt><kbd>Z</kbd><kbd>X</kbd></dt><dd>Atiram (uma arma em cada)</dd></div>
-            <div><dt><kbd>Q</kbd></dt><dd>Troca a arma do Z</dd></div>
-            <div><dt><kbd>E</kbd></dt><dd>Troca a arma do X</dd></div>
+            <div><dt><kbd>Q</kbd></dt><dd>Troca o Z pela arma guardada no Q</dd></div>
+            <div><dt><kbd>E</kbd></dt><dd>Troca o X pela arma guardada no E</dd></div>
             <div><dt><kbd>L</kbd></dt><dd>Pousa e decola (abre Loja e Evolução)</dd></div>
             <div><dt><kbd>R</kbd></dt><dd>Kit de reparo</dd></div>
             <div><dt><kbd>F</kbd></dt><dd>Célula de energia</dd></div>
@@ -188,10 +188,10 @@
           <div id="xp" class="barra"><em>NV 1</em><span class="valor"></span><span class="txt"></span></div>
         </div>
         <div id="armas-nave">
-          <button id="arma-z" class="arma-encaixe" type="button" title="Trocar a arma do Z (Q)">
+          <button id="arma-z" class="arma-encaixe" type="button" title="Troca a arma do Z pela guardada no Q">
             <b class="tecla">Z</b><span class="icone"></span><span class="nome"></span><i class="recarga"><i></i></i>
           </button>
-          <button id="arma-x" class="arma-encaixe" type="button" title="Trocar a arma do X (E)">
+          <button id="arma-x" class="arma-encaixe" type="button" title="Troca a arma do X pela guardada no E">
             <b class="tecla">X</b><span class="icone"></span><span class="nome"></span><i class="recarga"><i></i></i>
           </button>
         </div>
@@ -209,15 +209,6 @@
           <dt>Vel.</dt><dd id="vel">0</dd>
         </dl>
       </footer>
-
-      <section id="menu-armas" hidden aria-label="Menu de armas">
-        <h2>Arma do <kbd>Z</kbd></h2>
-        <div class="opcoes"></div>
-        <p class="dica">
-          <span class="so-teclado"><kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> escolhe entre as suas · <span class="dica-encaixe"></span></span><span class="so-toque">Toque para escolher · ARMA Z/X troca ou fecha</span>
-          · a mesma arma nos dois: compre a 2ª cópia na Loja · sem tiro com o menu aberto
-        </p>
-      </section>
 
       <div id="times" hidden>
         <section class="janela" role="dialog" aria-modal="true" aria-labelledby="times-titulo">
@@ -263,6 +254,7 @@
           <div class="slots"></div>
           <p class="aviso-base"></p>
           <h3>No compartimento <span class="conta-inv">0</span></h3>
+          <div class="casas-troca"></div>
           <div class="grade-inv"></div>
         </div>
         <p class="msg" aria-live="polite"></p>
@@ -284,8 +276,8 @@
       <div id="toque">
         <div id="stick"><span class="pino"></span></div>
         <div id="botoes">
-          <button id="btn-arma-z" class="btn-arma" type="button">ARMA Z</button>
-          <button id="btn-arma-x" class="btn-arma" type="button">ARMA X</button>
+          <button id="btn-arma-z" class="btn-arma" type="button">TROCA Z</button>
+          <button id="btn-arma-x" class="btn-arma" type="button">TROCA X</button>
           <button id="btn-pouso" type="button">POUSAR</button>
           <button id="btn-recall" type="button" title="Voltar à base (B)">BASE</button>
           <button id="btn-shift" type="button">SHIFT</button>

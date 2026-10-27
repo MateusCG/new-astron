@@ -1,57 +1,47 @@
-// Menu de armas: a nave tem duas armas, uma em cada encaixe (Z e X), e as duas
+// Armas da nave: a nave tem duas armas, uma em cada encaixe (Z e X), e as duas
 // aceitam qualquer arma da raça e da classe do piloto (armasDisponiveis em
-// shared/armas.js: 18 a 28 armas do Astro-N original). Não existe arma principal: o
-// mesmo menu edita os dois encaixes. Q abre (e fecha) o menu do Z, E o do X; com o
-// menu de um aberto, a tecla do outro troca de encaixe. No celular, os botões ARMA Z
-// e ARMA X fazem o mesmo, e os indicadores das armas no painel também abrem o menu
-// do encaixe deles.
+// shared/armas.js: 18 a 28 armas do Astro-N original). Não existe arma principal.
 //
 // Cada arma do piloto é um OBJETO do inventário (uma instância, com a sua versão V1
 // a V8), e a mesma arma pode estar em duas cópias (ARMA_COPIAS_MAX, shared/loja.js):
-// a mesma arma no Z e no X são duas cópias. O menu mostra uma carta por instância,
-// cada uma com a versão dela; escolher a carta que está no outro encaixe troca os
-// dois de lugar.
+// a mesma arma no Z e no X são duas cópias.
 //
-// Com tanta arma, o menu rola e se organiza assim: em cima as armas que o piloto
-// POSSUI (as de fábrica da raça e as compradas na Loja, cada cópia), na ordem das
-// categorias do original (feixe, metralhadora, canhão, míssil, mina, nova,
-// dispositivo...), com as teclas 1 a 9 e 0 nas dez primeiras; embaixo, apagadas e
-// agrupadas por categoria, as que ainda estão "NA LOJA". Escolher (clique, toque ou
-// tecla) fecha o menu.
+// Troca rápida, como no original (TROCA_RAPIDA em shared/loja.js): as duas
+// primeiras casas do compartimento do INVENTÁRIO guardam uma arma cada, a do Q para
+// o Z e a do E para o X. Apertar Q troca a arma do Z pela guardada no Q, e a que
+// sai do Z fica guardada no Q (apertar de novo desfaz); o E faz o mesmo com o X. No
+// painel inferior, cada encaixe mostra a arma guardada da sua tecla, e clicar no
+// encaixe (ou no celular, TROCA Z / TROCA X) é o mesmo que a tecla. O que vai em
+// cada casa se escolhe no INVENTÁRIO (inventario.js).
 //
-// O menu só guarda a escolha do piloto: os ids das instâncias vão nos campos `a` (Z)
-// e `a2` (X) de cada comando e quem troca a arma de verdade é stepShip (no servidor
-// e na predição, no mesmo passo). Instância que a nave não tem não chega a ser
-// pedida; se chegar, o stepShip a troca pela de fábrica do encaixe. As instâncias e
-// os encaixes vêm da nave prevista (nave(): s.armasInst = [[id, índice, nível]] e
-// s.encInst, que o `me` traz), então o menu mostra o que a nave tem. O jogo não
-// pausa com o menu aberto; só os tiros ficam travados enquanto ele está na tela. Os
-// números das cartas saem da VERSÃO de cada instância, pelo resumoVersao de
-// shared/armas.js, então balancear lá já atualiza o menu.
+// Esta classe só guarda a escolha do piloto: os ids das instâncias do Z e do X vão
+// nos campos `a` (Z) e `a2` (X) de cada comando, e quem troca a arma de verdade é o
+// stepShip (no servidor e na predição, no mesmo passo). As casas da troca rápida
+// ficam só aqui (o servidor não precisa delas). As instâncias e os encaixes vêm da
+// nave prevista (nave(): s.armasInst = [[id, índice, nível]] e s.encInst, que o `me`
+// traz), então o que aparece é o que a nave tem.
 //
 // Recarga de troca (TROCA_ARMA_S em shared/sim.js): fora da própria base, trocar a
 // arma de um encaixe o trava por alguns segundos, e o stepShip ignora outra troca
-// nele enquanto conta. O menu trava o encaixe enquanto conta (as outras cartas
-// apagadas com a contagem; escolher só dá a notícia em aoRecusar). main.js passa a
-// nave prevista a cada passo (nave()), e o menu sempre mostra a arma que a nave tem.
+// nele enquanto conta. Aqui a troca recusada só dá a notícia (aoRecusar) e não
+// muda nada; main.js passa a nave prevista a cada passo (nave()).
 //
 // Daqui saem também o ícone, a cor, a descrição e as etiquetas de cada arma para o
-// painel da Loja (servicos.js) e o painel inferior (hud.js).
+// painel da Loja (servicos.js), o INVENTÁRIO e o painel inferior (hud.js).
 
-import { WEAPONS, ARMAS, TROCA_ARMA_S, TIPOS_DANO, trocaLivre, armasIniciais, armasDisponiveis } from '/shared/sim.js';
-import { versaoArma, resumoVersao, visualEfeito, CATEGORIAS, ORDEM_CATEGORIAS, PAPEIS, NIVEL_ARMA_MAX } from '/shared/armas.js';
+import { WEAPONS, ARMAS, TIPOS_DANO, trocaLivre, armasIniciais } from '/shared/sim.js';
+import { versaoArma, resumoVersao, visualEfeito, ORDEM_CATEGORIAS, PAPEIS, NIVEL_ARMA_MAX } from '/shared/armas.js';
+import { TROCA_RAPIDA, limparTrocaRapida, guardarNaTrocaRapida, equiparArmaRapida } from '/shared/loja.js';
 import { htmlIcone } from './icones-itens.js';
 
-/** Tecla, nome e botões de cada encaixe (0 = Z, 1 = X). */
+/**
+ * Tecla de tiro, tecla da troca rápida e botões de cada encaixe (0 = Z, 1 = X): o
+ * encaixe do painel inferior e o TROCA Z/X do celular trocam como a tecla.
+ */
 export const ENCAIXES = [
-  { tecla: 'Z', menu: 'KeyQ', letraMenu: 'Q', botoes: ['#btn-arma-z', '#arma-z'] },
-  { tecla: 'X', menu: 'KeyE', letraMenu: 'E', botoes: ['#btn-arma-x', '#arma-x'] },
+  { tecla: 'Z', codigoTroca: 'KeyQ', letraTroca: TROCA_RAPIDA[0], botoes: ['#btn-arma-z', '#arma-z'] },
+  { tecla: 'X', codigoTroca: 'KeyE', letraTroca: TROCA_RAPIDA[1], botoes: ['#btn-arma-x', '#arma-x'] },
 ];
-// 1 a 9 e o 0 para a décima arma possuída.
-const TECLAS_OPCAO = Array.from({ length: 10 }, (_, i) => {
-  const n = (i + 1) % 10;
-  return [`Digit${n}`, `Numpad${n}`];
-});
 
 const numero = (v, casas = 0) => v.toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas });
 /** Número com uma casa só quando precisa ("2", "2,4"). */
@@ -248,75 +238,53 @@ function aoTocar(el, fn, signal) {
   );
 }
 
-export class MenuArmas {
+export class ArmasNave {
   /**
-   * `race` e `classe` do piloto dizem as armas do menu. `signal` desliga todos os
-   * listeners do menu quando a partida acaba (sair com ESC e entrar de novo não
-   * duplica o Q). `aoRecusar(texto)` avisa quando o piloto tenta trocar um encaixe
-   * em recarga de troca.
-   * @param {{ race: string, classe: string, aoTrocar?: (encaixe: number, indice: number, kind: string) => void,
+   * `race` do piloto diz as armas de fábrica. `signal` desliga os listeners quando a
+   * partida acaba (sair com ESC e entrar de novo não duplica o Q). `aoTrocar` avisa a
+   * troca feita; `aoRecusar(texto)`, a que não deu (casa vazia, recarga de troca).
+   * @param {{ race: string, aoTrocar?: (encaixe: number, indice: number, kind: string) => void,
    *   aoRecusar?: (texto: string) => void, signal?: AbortSignal }} opcoes
    */
-  constructor({ race, classe, aoTrocar, aoRecusar, signal } = {}) {
-    this.el = document.querySelector('#menu-armas');
-    this.titulo = this.el.querySelector('h2');
-    this.dica = this.el.querySelector('.dica-encaixe');
-    this.lista = this.el.querySelector('.opcoes');
-    this.lista.replaceChildren(); // nova partida: cartas desenhadas do zero
-    this.el.hidden = true;
-    this.race = race;
-    this.classe = classe;
+  constructor({ race, aoTrocar, aoRecusar, signal } = {}) {
     this.aoTrocar = aoTrocar;
     this.aoRecusar = aoRecusar;
     this.fabrica = armasIniciais(race);
-    this.disponiveis = armasDisponiveis(race, classe);
     // Ids das instâncias do Z e do X (o que vai em a/a2); -1 até a nave chegar = a de fábrica.
     this.encaixes = [-1, -1];
-    this.encaixe = 0; // qual encaixe o menu está editando
+    this.casas = [null, null]; // ids guardados na troca rápida: [do Q, do E]
     this.insts = []; // armas do piloto por instância: [[id, índice, nível], ...] (s.armasInst)
     this.chaveInsts = '';
-    this.atalhos = []; // ids das instâncias nas teclas 1 a 0
     this.troca = [0, 0]; // s de recarga de troca de cada encaixe (da nave prevista)
     this.livre = true; // na própria base: troca sem recarga
-    this.textoTroca = '';
-    this.aviso = document.createElement('p');
-    this.aviso.className = 'aviso-troca';
-    this.lista.before(this.aviso);
-    this.botoes = new Map(); // id da instância (ou 'a<índice>' na Loja) -> botão
-    aoTocar(
-      this.lista,
-      (e) => {
-        const b = e.target.closest?.('[data-inst]');
-        if (b) this.escolher(Number(b.dataset.inst));
-      },
-      signal,
-    );
-    this.#montar();
+    this.chaveCasas = '';
+    // No painel inferior, a arma guardada da tecla de cada encaixe ("Q ▸ ícone").
+    this.indicadores = ENCAIXES.map((x) => {
+      const el = document.querySelector(x.botoes[1]);
+      if (!el) return null;
+      el.querySelector('.casa-troca')?.remove(); // nova partida: refeito do zero
+      const casa = document.createElement('span');
+      casa.className = 'casa-troca vazia';
+      el.querySelector('.recarga').before(casa);
+      return { el, casa };
+    });
+    this.#desenharCasas();
 
     addEventListener(
       'keydown',
       (e) => {
         if (e.target instanceof HTMLInputElement || e.repeat) return;
-        const enc = ENCAIXES.findIndex((x) => x.menu === e.code);
-        if (enc >= 0) this.alternar(enc);
-        else if (this.aberto) {
-          const i = TECLAS_OPCAO.findIndex((codigos) => codigos.includes(e.code));
-          if (i >= 0 && this.atalhos[i] !== undefined) this.escolher(this.atalhos[i]);
-        }
+        const enc = ENCAIXES.findIndex((x) => x.codigoTroca === e.code);
+        if (enc >= 0) this.trocar(enc);
       },
       { signal },
     );
     ENCAIXES.forEach((x, enc) => {
       for (const sel of x.botoes) {
         const el = document.querySelector(sel);
-        if (el) aoTocar(el, () => this.alternar(enc), signal);
+        if (el) aoTocar(el, () => this.trocar(enc), signal);
       }
     });
-  }
-
-  /** O menu está na tela? (enquanto estiver, o Z e o X não disparam) */
-  get aberto() {
-    return !this.el.hidden;
   }
 
   /** A instância de arma `id` do piloto ([id, índice, nível]) ou null. */
@@ -329,6 +297,11 @@ export class MenuArmas {
     return this.inst(this.encaixes[encaixe]);
   }
 
+  /** A instância guardada na casa de troca rápida k (0 = Q, 1 = E), ou null. */
+  instDaCasa(k) {
+    return this.inst(this.casas[k]);
+  }
+
   /** Índices das armas do Z e do X (a de fábrica enquanto a nave não chegou). */
   get armasNosEncaixes() {
     return [0, 1].map((enc) => this.instDoEncaixe(enc)?.[1] ?? this.fabrica[enc]);
@@ -339,131 +312,62 @@ export class MenuArmas {
     return [0, 1].map((enc) => this.instDoEncaixe(enc)?.[2] ?? 1);
   }
 
-  /**
-   * Monta as cartas: uma por instância possuída primeiro (com as teclas), depois as
-   * armas que o piloto não tem, da Loja, por categoria, cada grupo com o nome dele.
-   * Refeito quando as instâncias mudam (compra, venda, evolução).
-   */
-  #montar() {
-    const ordem = (i) => ORDEM_CATEGORIAS.indexOf(classeArma(ARMAS[i]));
-    const minhas = [...this.insts].sort((x, y) => ordem(x[1]) - ordem(y[1]) || x[1] - y[1] || x[0] - y[0]);
-    const tem = new Set(this.insts.map((x) => x[1]));
-    const loja = ordenarPorCategoria(this.disponiveis.filter((i) => !tem.has(i)));
-    this.atalhos = minhas.slice(0, 10).map((x) => x[0]);
-    // Qual cópia da arma é cada instância (a carta da segunda diz "2ª cópia").
-    const conta = new Map();
-    const suas = minhas.map(([id, i, nivel]) => {
-      const n = (conta.get(i) ?? 0) + 1;
-      conta.set(i, n);
-      return { id, i, nivel, n };
-    });
-    const grupos = [{ titulo: 'Suas armas', lista: suas, classe: 'minhas' }];
-    for (const cat of ORDEM_CATEGORIAS) {
-      const daCat = loja.filter((i) => classeArma(ARMAS[i]) === cat);
-      if (daCat.length) grupos.push({ titulo: `${CATEGORIAS[cat]} · na Loja`, lista: daCat.map((i) => ({ id: null, i, nivel: 1 })), classe: 'loja' });
-    }
-    this.lista.replaceChildren();
-    this.botoes.clear();
-    for (const g of grupos) {
-      const h = document.createElement('h3');
-      h.className = `grupo-armas ${g.classe}`;
-      h.textContent = g.titulo;
-      this.lista.append(h);
-      for (const { id, i, nivel, n } of g.lista) {
-        const kind = ARMAS[i];
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'opcao-arma';
-        if (id !== null) b.dataset.inst = String(id);
-        else b.dataset.arma = String(i);
-        const tecla = id !== null ? this.atalhos.indexOf(id) : -1;
-        const nome = n > 1 ? `${nomeArma(kind)} <small class="copia">${n}ª cópia</small>` : nomeArma(kind);
-        b.innerHTML = `${tecla >= 0 ? `<kbd>${(tecla + 1) % 10}</kbd>` : ''}<span class="nivel"></span><span class="cab"><span class="ic"></span><strong>${nome}</strong></span>
-          ${etiquetasArma(kind)}
-          <dl>
-            <dt>Dano</dt><dd class="val-dano"></dd>
-            <dt>Energia</dt><dd class="val-en"></dd>
-            <dt>Recarga</dt><dd class="val-cd"></dd>
-          </dl>
-          <small class="efeito"></small>
-          <span class="selo"></span>`;
-        if (tecla < 0) b.classList.add('sem-tecla');
-        this.#numeros(b, i, nivel);
-        this.lista.append(b);
-        this.botoes.set(id ?? `a${i}`, b);
-      }
-    }
-    this.textoTroca = null;
-    this.#marcar();
-  }
-
-  /** Os números da carta da arma de índice i no nível dado. */
-  #numeros(b, i, nivel) {
-    const kind = ARMAS[i];
-    const r = resumoVersao(versaoArma(i, nivel));
-    const nv = b.querySelector('.nivel');
-    nv.textContent = `NV ${nivel}`;
-    nv.classList.toggle('base', nivel <= 1);
-    nv.classList.toggle('max', nivel >= NIVEL_ARMA_MAX);
-    b.querySelector('.ic').innerHTML = iconeArma(kind, nivel);
-    b.querySelector('.val-dano').textContent = textoDano(kind, nivel);
-    b.querySelector('.val-en').textContent = r.segurar ? `${um(r.energia)}/s` : um(r.energia);
-    b.querySelector('.val-cd').textContent = r.segurar ? 'segure' : `${numero(r.cd, r.cd < 1 ? 2 : 1)} s`;
-    const efeito = descreverArma(kind, nivel);
-    b.querySelector('.efeito').textContent = efeito;
-    b.title = `${WEAPONS[kind].nomeEn} · ${efeito}`; // em tela baixa o efeito some da carta e fica aqui
-  }
-
-  /**
-   * Abre o menu do encaixe; se ele já está aberto nesse encaixe, fecha; se está
-   * aberto no outro, troca de encaixe.
-   */
-  alternar(encaixe = 0) {
-    if (this.aberto && this.encaixe === encaixe) {
-      this.el.hidden = true;
-      return;
-    }
-    this.encaixe = encaixe;
-    this.#marcar();
-    this.el.hidden = false;
-    // A arma em uso à vista (com 28 armas a lista rola).
-    this.botoes.get(this.encaixes[encaixe])?.scrollIntoView?.({ block: 'nearest' });
-  }
-
   /** Segundos de recarga de troca do encaixe (0 se pode trocar agora). */
   esperaTroca(encaixe) {
     return this.livre ? 0 : (this.troca[encaixe] ?? 0);
   }
 
-  /** Escolhe a instância `id` para o encaixe em edição e fecha o menu. */
-  escolher(id) {
-    if (this.equipar(this.encaixe, id)) this.el.hidden = true;
+  /**
+   * Troca rápida (Q no Z, E no X): a arma guardada na casa da tecla vai para o
+   * encaixe e a do encaixe fica guardada. Casa vazia ou troca em recarga: só avisa.
+   */
+  trocar(encaixe) {
+    const id = this.casas[encaixe];
+    if (id === null) {
+      const { tecla, letraTroca } = ENCAIXES[encaixe];
+      this.aoRecusar?.(`Nada guardado no ${letraTroca}: no INVENTÁRIO (I), guarde uma arma para trocar com o ${tecla}`);
+      return false;
+    }
+    return this.equipar(encaixe, id);
   }
 
   /**
-   * Põe a instância de arma `id` no encaixe (0 = Z, 1 = X): o mesmo caminho do menu,
-   * usado também pelo INVENTÁRIO (inventario.js). Se ela está no outro encaixe, os
-   * dois trocam de lugar (uma instância vai num encaixe só). Devolve se ficou
+   * Guarda a instância de arma `id` na casa de troca rápida k (0 = Q, 1 = E), ou
+   * esvazia com null; a arma tem de estar no compartimento (fora do Z e do X). Se
+   * ela estava na outra casa, as duas trocam. Devolve se ficou.
+   */
+  guardar(k, id) {
+    if (!TROCA_RAPIDA[k]) return false;
+    if (id !== null && (!this.inst(id) || this.encaixes.includes(id))) return false;
+    this.casas = guardarNaTrocaRapida(this.casas, k, id);
+    this.#desenharCasas();
+    return true;
+  }
+
+  /**
+   * Põe a instância de arma `id` no encaixe (0 = Z, 1 = X): o caminho do Q/E e do
+   * INVENTÁRIO (inventario.js). Se ela está no outro encaixe, os dois trocam de lugar
+   * (uma instância vai num encaixe só); se estava guardada numa casa da troca
+   * rápida, a que sai do encaixe fica guardada no lugar dela. Devolve se ficou
    * (false: não possui, ou um dos encaixes que mudam está em recarga de troca, com o
    * aviso em aoRecusar).
    */
   equipar(encaixe, id) {
     const x = this.inst(id);
-    if (!x || !ENCAIXES[encaixe]) return false; // travada: a Loja libera
+    if (!x || !ENCAIXES[encaixe]) return false;
     if (id === this.encaixes[encaixe]) return true;
     const outro = 1 - encaixe;
     const troca = id === this.encaixes[outro]; // está no outro: os dois trocam de lugar
     for (const enc of troca ? [encaixe, outro] : [encaixe]) {
       const espera = this.esperaTroca(enc);
       if (espera > 0) {
-        // O stepShip ignoraria a troca: avisa e não muda nada (o menu continua aberto).
+        // O stepShip ignoraria a troca: avisa e não muda nada.
         this.aoRecusar?.(`Arma do ${ENCAIXES[enc].tecla} em troca: ${um(espera)} s`);
         return false;
       }
     }
-    if (troca) this.encaixes[outro] = this.encaixes[encaixe];
-    this.encaixes[encaixe] = id;
-    this.#marcar();
+    ({ encInst: this.encaixes, casas: this.casas } = equiparArmaRapida(this.encaixes, this.casas, encaixe, id));
+    this.#desenharCasas();
     this.aoTrocar?.(encaixe, x[1], ARMAS[x[1]]);
     return true;
   }
@@ -472,7 +376,8 @@ export class MenuArmas {
    * A cada passo, a nave prevista (formato de shared/sim.js): as armas do piloto por
    * instância (s.armasInst), recarga de troca de cada encaixe, se está na própria
    * base e as instâncias que ela tem de fato nos encaixes (s.encInst). Se a nave
-   * ficou com outra (a troca não passou), o menu volta a mostrar a dela.
+   * ficou com outra (a troca não passou), volta a valer a dela, e a casa da troca
+   * rápida que tinha recebido essa arma guarda de novo a que não entrou.
    */
   nave(s) {
     if (!s) return;
@@ -483,76 +388,35 @@ export class MenuArmas {
       if (chave !== this.chaveInsts) {
         this.chaveInsts = chave;
         this.insts = s.armasInst.map((x) => [...x]);
-        this.#montar();
       }
     }
-    let mudou = false;
     if (Array.isArray(s.encInst)) {
       s.encInst.forEach((id, enc) => {
-        if (Number.isInteger(id) && id !== this.encaixes[enc]) {
-          this.encaixes[enc] = id;
-          mudou = true;
-        }
+        if (!Number.isInteger(id) || id === this.encaixes[enc]) return;
+        const k = this.casas.indexOf(id);
+        if (k >= 0 && this.encaixes[enc] >= 0) this.casas[k] = this.encaixes[enc];
+        this.encaixes[enc] = id;
       });
     }
-    if (mudou) this.#marcar();
-    else if (this.aberto) this.#marcarTroca();
+    // Vendida, partida nova: a casa que guardava o que não existe mais esvazia.
+    this.casas = limparTrocaRapida(this.casas, this.insts, this.encaixes);
+    this.#desenharCasas();
   }
 
-  /**
-   * Compatibilidade com main.js (que passa me.armas e me.niveis a cada snapshot): a
-   * posse e as versões agora são por instância e chegam pela nave prevista (nave()).
-   */
-  definirPosse() {}
-
-  /** Ver definirPosse: as versões vêm de s.armasInst, em nave(). */
-  definirNiveis() {}
-
-  #marcar() {
-    const enc = this.encaixe;
-    const outro = 1 - enc;
-    const x = ENCAIXES[enc];
-    const y = ENCAIXES[outro];
-    this.el.dataset.encaixe = x.tecla;
-    this.titulo.innerHTML = `Arma do <kbd>${x.tecla}</kbd>`;
-    if (this.dica) this.dica.innerHTML = `<kbd>${x.letraMenu}</kbd> fecha · <kbd>${y.letraMenu}</kbd> edita o ${y.tecla}`;
-    this.textoTroca = null;
-    this.#marcarTroca();
-  }
-
-  /**
-   * Cartas e aviso da recarga de troca do encaixe em edição: com a troca contando,
-   * as outras armas ficam apagadas ("TROCA EM 2,1 s") até acabar. Só mexe no DOM
-   * quando o texto muda (a contagem anda de décimo em décimo).
-   */
-  #marcarTroca() {
-    const enc = this.encaixe;
-    const outro = 1 - enc;
-    const y = ENCAIXES[outro];
-    const espera = this.esperaTroca(enc);
-    const texto = espera > 0 ? um(Math.ceil(espera * 10) / 10) : '';
-    const chave = `${enc}|${texto}|${this.livre}|${this.encaixes.join()}`;
-    if (chave === this.textoTroca) return;
-    this.textoTroca = chave;
-    this.el.classList.toggle('trocando', espera > 0);
-    this.aviso.innerHTML =
-      espera > 0
-        ? `Troca do <kbd>${ENCAIXES[enc].tecla}</kbd> em recarga: <b>${texto} s</b>`
-        : this.livre
-          ? 'Na base: troca livre'
-          : `Fora da base: trocar trava o encaixe por ${um(TROCA_ARMA_S)} s`;
-    this.aviso.classList.toggle('livre', this.livre && espera <= 0);
-    for (const [id, b] of this.botoes) {
-      const travada = typeof id !== 'number';
-      const aqui = !travada && id === this.encaixes[enc];
-      const la = !travada && id === this.encaixes[outro];
-      const esperando = !travada && !aqui && espera > 0;
-      b.classList.toggle('sel', aqui);
-      b.classList.toggle('no-outro', la);
-      b.classList.toggle('travada', travada);
-      b.classList.toggle('espera', esperando);
-      b.disabled = travada;
-      b.querySelector('.selo').textContent = aqui ? 'EM USO' : travada ? 'NA LOJA' : esperando ? `TROCA EM ${texto} s` : la ? `NO ${y.tecla} · TROCA` : '';
-    }
+  /** Painel inferior: a tecla e o ícone da arma guardada ao lado de cada encaixe. */
+  #desenharCasas() {
+    const chave = JSON.stringify([this.casas, this.casas.map((id) => this.inst(id))]);
+    if (chave === this.chaveCasas) return;
+    this.chaveCasas = chave;
+    this.indicadores.forEach((ind, enc) => {
+      if (!ind) return;
+      const x = this.instDaCasa(enc);
+      const { tecla, letraTroca } = ENCAIXES[enc];
+      ind.casa.classList.toggle('vazia', !x);
+      ind.casa.innerHTML = `<kbd>${letraTroca}</kbd>${x ? iconeArma(ARMAS[x[1]], x[2]) : '<span class="icone-item vazio"></span>'}`;
+      ind.el.title = x
+        ? `${letraTroca} (ou clique) troca a arma do ${tecla} por ${WEAPONS[ARMAS[x[1]]].nome}`
+        : `Nada guardado no ${letraTroca}: guarde uma arma no INVENTÁRIO (I) para trocar com o ${tecla}`;
+    });
   }
 }

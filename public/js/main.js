@@ -12,13 +12,14 @@
 //   snapshots, para o movimento sair liso mesmo com a rede irregular.
 //
 // Duas armas (encaixes Z e X), do catálogo do Astro-N original da raça e classe:
-// o menu (armas.js) guarda a escolha, que vai nos campos a e a2 de cada comando. O
+// ArmasNave (armas.js) guarda a escolha (com a troca rápida do Q e do E), que vai
+// nos campos a e a2 de cada comando. O
 // projétil reto é previsto aqui (tiro local, golpePrevisivel); o resto (teleguiado,
 // o que se divide, nova, mina, campo, dispositivo) vem do servidor pelos eventos
 // ('tiro', 'nova', 'efeito', 'explosao'), o seu também, e o teleguiado é corrigido
 // pela lista `guiados` do snapshot. Minas e campos vêm da lista `minas`. A recarga de
-// troca de arma roda no stepShip (predição); depois de cada passo o menu recebe a
-// nave prevista (menuArmas.nave) para travar o encaixe enquanto conta e mostrar a
+// troca de arma roda no stepShip (predição); depois de cada passo ArmasNave recebe a
+// nave prevista (armasNave.nave) para travar o encaixe enquanto conta e mostrar a
 // arma que a nave tem de fato. As armas penduram nas asas (nave.js, definirArmas): a
 // sua pela nave prevista, as dos outros pelo `arm` de cada jogador no snapshot; o
 // clarão e o desenho do tiro saem da boca delas.
@@ -38,13 +39,13 @@
 //
 // Loja e Evolução (servicos.js): pousado e parado na plataforma da própria base, o
 // painel abre sozinho; os pedidos vão direto pela rede e a resposta chega como
-// {t:'resultado'}. Com o painel aberto, como com o menu de armas, não sai tiro.
+// {t:'resultado'}. Com o painel aberto não sai tiro.
 //
 // STATUS (status.js, tecla C) e INVENTÁRIO (inventario.js, tecla I): janelas laterais
 // com a altura toda da tela, uma de cada vez, que leem o `me` do snapshot (pontos,
 // inventário por instância, status somado). Os pedidos {t:'pontos'}, {t:'equipar'},
 // {t:'vender'} e {t:'evoluirItem'} vão direto pela rede; as armas Z/X do inventário
-// mudam os encaixes do menu de armas, como o Q/E. Abertas, a nave atira normal
+// e as casas da troca rápida mudam ArmasNave, como o Q/E. Abertas, a nave atira normal
 // (pedido do Mateus: dá para olhar o status ou trocar de arma no meio da luta); os
 // botões delas soltam o foco no clique, para o Espaço do tiro não apertá-los.
 //
@@ -133,7 +134,7 @@ import { criarMonstro, animarMonstro, surgirMonstro, criarMarcadorNucleo, EXPLOS
 import { TorretasNaTela } from './torretas.js';
 import { Rede } from './rede.js';
 import { mostrarPrevia, pararPrevia } from './vitrine.js';
-import { MenuArmas } from './armas.js';
+import { ArmasNave } from './armas.js';
 import { Placar, relogio } from './placar.js';
 import { PainelTeste } from './teste.js';
 import { PainelTimes } from './times.js';
@@ -401,9 +402,8 @@ function montarEntrada() {
 
   // Fase de captura na janela: este handler roda antes de qualquer outro keydown,
   // então decide sozinho o que o ESC faz. Com a janela de volume aberta (na partida
-  // ou na tela de entrada), ESC só fecha ela. Com o menu de armas (#menu-armas, o mesmo
-  // elemento para o Z e o X) aberto, ESC só fecha o menu; com o painel da Loja ou
-  // da Evolução (#servico) aberto, só fecha o painel; senão sai da partida. Na tela
+  // ou na tela de entrada), ESC só fecha ela. Com o painel da Loja ou da Evolução
+  // (#servico) aberto, só fecha o painel; senão sai da partida. Na tela
   // de carregamento, cancela e volta para a entrada; na de entrada, não faz nada.
   addEventListener(
     'keydown',
@@ -415,11 +415,6 @@ function montarEntrada() {
       }
       if (!jogoAtual) {
         cargaAtual?.cancelar();
-        return;
-      }
-      const menu = document.querySelector('#menu-armas');
-      if (menu && !menu.hidden) {
-        menu.hidden = true;
         return;
       }
       if (jogoAtual.fecharPainel()) return;
@@ -544,9 +539,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
   const painelTeste = boas.teste
     ? new PainelTeste({ enviar: (m) => rede.enviar(m), noticia: (texto, tipo) => hud.noticia(texto, tipo), signal: controles.parar.signal })
     : null;
-  const menuArmas = new MenuArmas({
+  const armasNave = new ArmasNave({
     race,
-    classe,
     aoTrocar: (encaixe, i, kind) => hud.noticia(`Arma do ${encaixe ? 'X' : 'Z'}: ${WEAPONS[kind].nome}`, 'bom'),
     aoRecusar: (texto) => hud.noticia(texto, 'ruim'),
     signal: controles.parar.signal, // desliga junto com os controles ao sair
@@ -565,7 +559,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
   });
   const inventario = new PainelInventario({
     enviar: (m) => rede.enviar(m),
-    menuArmas,
+    armasNave,
     noticia: (texto, tipo) => hud.noticia(texto, tipo),
     signal: controles.parar.signal,
     aoAbrir: () => status.fechar(),
@@ -656,11 +650,11 @@ function montarJogo(rede, boas, renderer, race, classe) {
   function passo() {
     if (!vivo || !pred) return;
     const inp = controles.ler();
-    // As armas dos dois encaixes vão em todo comando; com o menu, o painel da
-    // Loja/Evolução ou a janela de volume ou dos times aberta não sai tiro. Com o
-    // STATUS ou o INVENTÁRIO aberto, sai (são janelas laterais de consulta).
-    [inp.a, inp.a2] = menuArmas.encaixes;
-    if (menuArmas.aberto || painel.aberto || painelVolume.aberto || times.aberto) inp.f1 = inp.f2 = false;
+    // As armas dos dois encaixes vão em todo comando; com o painel da Loja/Evolução
+    // ou a janela de volume ou dos times aberta não sai tiro. Com o STATUS ou o
+    // INVENTÁRIO aberto, sai (são janelas laterais de consulta).
+    [inp.a, inp.a2] = armasNave.encaixes;
+    if (painel.aberto || painelVolume.aberto || times.aberto) inp.f1 = inp.f2 = false;
     seq++;
     rede.enviar({ t: 'in', s: seq, ...inp });
     ant = pose(pred);
@@ -689,8 +683,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
       if (daBoca) efeitos.armas.clarao(d.kind, daBoca.x, daBoca.y, daBoca.z, d.nivel);
       somNoMundo(somDaArma(d.kind, d.nivel), pred.x, pred.z);
     }
-    // Recarga de troca e a arma que a nave tem de fato (troca recusada volta no menu).
-    menuArmas.nave(pred);
+    // Recarga de troca e a arma que a nave tem de fato (troca recusada volta atrás).
+    armasNave.nave(pred);
     pendentes.push({ seq, inp });
     if (pendentes.length > 120) pendentes.shift();
   }
@@ -731,8 +725,6 @@ function montarJogo(rede, boas, renderer, race, classe) {
     tratarEventos(m.ev);
     efeitos.corrigirGuiados(m.guiados);
     efeitos.atualizarMinas(m.minas, meuTime);
-    menuArmas.definirPosse(m.me?.armas);
-    menuArmas.definirNiveis(m.me?.niveis);
     estadosArmas = m.st ?? {};
     painel.atualizar({ ouro: m.ouro, nivel: m.nivel, me: m.me, melhorias: m.melhorias, torretas: m.torretas });
     status.atualizar({ me: m.me, nivel: m.nivel, xp: m.xp, xpProx: m.xpProx, ouro: m.ouro, nome: euNoSnap?.nome ?? meuNome });
@@ -1416,7 +1408,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     renderer,
     scene,
     camera,
-    menuArmas,
+    armasNave,
     painel,
     status,
     inventario,
@@ -1439,7 +1431,6 @@ function montarJogo(rede, boas, renderer, race, classe) {
     cancelAnimationFrame(idQuadro);
     rede.fechar();
     controles.destruir();
-    menuArmas.el.hidden = true;
     times.fechar();
     barraTime.limpar();
     status.fechar();

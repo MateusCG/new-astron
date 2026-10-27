@@ -233,3 +233,58 @@ export function precoEvoluirInst(inst) {
   if (inst?.tipo === 'equip') return precoEvoluirEquip(inst.chave, inst.nivel);
   return null;
 }
+
+// ---------- Troca rápida (Q e E) ----------
+//
+// Como no original: as duas primeiras casas do compartimento guardam uma arma cada,
+// a do Q para o Z e a do E para o X. Apertar Q troca a arma do Z pela guardada no Q
+// (a que sai do Z fica no Q), e o E faz o mesmo com o X. As casas são do cliente,
+// como os encaixes Z/X (ids das instâncias que vão no comando, a/a2): o servidor só
+// vê a troca nos encaixes e aplica as mesmas regras (posse e TROCA_ARMA_S, no
+// stepShip). A arma guardada continua no compartimento (conta nos COMPARTIMENTO_MAX).
+
+/** Tecla de cada casa de troca rápida: a casa k troca com o encaixe k (0 = Z, 1 = X). */
+export const TROCA_RAPIDA = Object.freeze(['Q', 'E']);
+
+/**
+ * As casas de troca rápida que valem: só arma do piloto (`armasInst`, como s.armasInst)
+ * fora dos encaixes (`encInst`) e sem repetir; o resto vira null.
+ */
+export function limparTrocaRapida(casas, armasInst, encInst) {
+  const tem = new Set((armasInst ?? []).map((x) => x[0]));
+  const usadas = new Set(encInst ?? []);
+  return [0, 1].map((k) => {
+    const id = casas?.[k] ?? null;
+    if (!tem.has(id) || usadas.has(id)) return null;
+    usadas.add(id);
+    return id;
+  });
+}
+
+/**
+ * Guarda a instância `id` (ou null, para esvaziar) na casa `k`. Se ela estava na
+ * outra casa, as duas trocam de lugar. Devolve as casas novas.
+ */
+export function guardarNaTrocaRapida(casas, k, id) {
+  const novas = [casas?.[0] ?? null, casas?.[1] ?? null];
+  if (id !== null && novas[1 - k] === id) novas[1 - k] = novas[k];
+  novas[k] = id;
+  return novas;
+}
+
+/**
+ * Encaixes e casas depois de pôr a instância `id` no encaixe `enc`. Se ela estava no
+ * outro encaixe, os dois trocam de lugar; se estava numa casa de troca rápida, a arma
+ * que sai do encaixe fica nessa casa (é o que o Q e o E fazem). Devolve
+ * { encInst, casas }.
+ */
+export function equiparArmaRapida(encInst, casas, enc, id) {
+  const e = [...encInst];
+  const c = [casas?.[0] ?? null, casas?.[1] ?? null];
+  const antiga = e[enc];
+  if (e[1 - enc] === id) e[1 - enc] = antiga;
+  const k = c.indexOf(id);
+  if (k >= 0) c[k] = antiga;
+  e[enc] = id;
+  return { encInst: e, casas: c };
+}

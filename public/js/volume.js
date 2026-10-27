@@ -1,7 +1,7 @@
 // Janela de volume (#volume): duas barras, música e efeitos, de 0 a 100%. Abre pelo
 // botão de som da tela inicial (#botao-som) e pelo do HUD (#som-hud), fecha no ✕,
 // no ESC ou clicando fora. O jogo não pausa (é multijogador): a janela fica por cima
-// de tudo, sem tiro enquanto aberta, como o menu de armas.
+// de tudo, sem tiro enquanto aberta, como o painel da Loja.
 //
 // Os volumes moram no Sons (sons.js), que guarda no navegador. A barra muda o som na
 // hora, enquanto arrasta; ao soltar, toca o clique da interface no volume novo dos
