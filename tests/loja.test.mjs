@@ -14,9 +14,9 @@ import { hpMaxDoNivel } from '../server/progressao.js';
 import { createShip, IDX_ARMA, DT, armasIniciais, versaoArma } from '../shared/sim.js';
 import { naveDe } from '../shared/naves.js';
 import { SERVICOS, CORREDOR } from '../shared/terrain.js';
-import { ITENS, REPARO_CURA, ITEM_CARGA_MAX, armasAVenda, precoArma, itemDaLoja } from '../shared/loja.js';
+import { ITENS, REPARO_CURA, ITEM_CARGA_MAX, armasAVenda, precoArma, itemDaLoja, gruposPorTipo, tipoDoItemLoja } from '../shared/loja.js';
 import { armasDisponiveis, WEAPONS, ARMAS } from '../shared/armas.js';
-import { versaoEquip, EQUIPAMENTOS, ORDEM_EQUIP } from '../shared/equipamentos.js';
+import { versaoEquip, EQUIPAMENTOS, ORDEM_EQUIP, equipamentosAVenda } from '../shared/equipamentos.js';
 import { CAMPO } from './lugares.mjs';
 
 const SEGUNDO = 30;
@@ -358,4 +358,28 @@ test('loja: energia máxima da primeira nave da linha', () => {
   const w = mundo();
   const j = w.addPlayer('A', 'acron');
   assert.equal(j.ship.maxEn, naveDe('acron', 'assault', 0).energia);
+});
+
+test('loja: armas, escudos, armaduras e potenciadores se separam por tipo de dano (Gerais só se houver)', () => {
+  const ids = (g) => g.map((x) => x.id);
+  const somaBate = (grupos) => assert.equal(grupos.slice(1).reduce((n, g) => n + g.itens.length, 0), grupos[0].itens.length);
+  // Armas: toda arma tem tipo, então Todos, Ph., Op., El. e nada de Gerais.
+  const armas = armasAVenda('shrewdo', 'assault').map((i) => ARMAS[i]);
+  const ga = gruposPorTipo(armas);
+  assert.deepEqual(ids(ga), ['todos', 'fisico', 'laser', 'eletrico']);
+  somaBate(ga);
+  for (const g of ga.slice(1)) for (const k of g.itens) assert.equal(WEAPONS[k].tipoDano, g.id);
+  // Escudos: só os três tipos.
+  const ge = gruposPorTipo(equipamentosAVenda('assault', 'escudo'));
+  assert.ok(!ids(ge).includes('geral'));
+  somaBate(ge);
+  // Armaduras e potenciadores: têm os gerais (sem tipo).
+  for (const cat of ['armadura', 'potenciador']) {
+    const g = gruposPorTipo(equipamentosAVenda('functional', cat));
+    assert.deepEqual(ids(g), ['todos', 'fisico', 'laser', 'eletrico', 'geral'], cat);
+    somaBate(g);
+    for (const k of g.at(-1).itens) assert.equal(EQUIPAMENTOS[k].tipoDano, null, k);
+  }
+  assert.equal(tipoDoItemLoja('reparo'), 'geral');
+  assert.deepEqual(ids(gruposPorTipo([])), ['todos']);
 });

@@ -48,7 +48,7 @@ import {
   armasIniciais,
   precoEvoluirArma,
 } from './armas.js';
-import { EQUIPAMENTOS, ORDEM_EQUIP, CATEGORIA_DO_SLOT, equipamentosAVenda, precoEquip, precoEvoluirEquip } from './equipamentos.js';
+import { EQUIPAMENTOS, ORDEM_EQUIP, CATEGORIA_DO_SLOT, ORDEM_TIPOS_DANO, equipamentosAVenda, precoEquip, precoEvoluirEquip } from './equipamentos.js';
 
 export { precoEvoluirArma, equipamentosAVenda, precoEquip, precoEvoluirEquip };
 
@@ -107,6 +107,33 @@ export const CATALOGO_LOJA = Object.freeze({
 /** O item da Loja com este id, ou null (id que não é string ou não existe). */
 export function itemDaLoja(id) {
   return typeof id === 'string' && Object.hasOwn(CATALOGO_LOJA, id) ? CATALOGO_LOJA[id] : null;
+}
+
+// ---------- Filtro por tipo de dano (abas da Loja) ----------
+//
+// As abas Armas, Escudos, Armaduras e Potenciadores separam o que vendem pelo tipo
+// de dano, como os potenciadores já faziam: Todos, Ph., Op., El. e Gerais (o item
+// sem tipo: armadura geral, potenciador "Total"). Grupo sem item não aparece (toda
+// arma e todo escudo tem tipo, então lá não há "Gerais").
+
+/** Grupos do filtro, na ordem dos botões. */
+export const GRUPOS_TIPO_LOJA = Object.freeze(['todos', ...ORDEM_TIPOS_DANO, 'geral']);
+
+/** Tipo de dano de um item da Loja pelo id ('o311001', 'e330010'): 'fisico', 'laser', 'eletrico' ou 'geral'. */
+export function tipoDoItemLoja(id) {
+  const it = itemDaLoja(id);
+  const t = it?.tipo === 'arma' ? WEAPONS[id].tipoDano : it?.tipo === 'equip' ? EQUIPAMENTOS[id].tipoDano : null;
+  return ORDEM_TIPOS_DANO.includes(t) ? t : 'geral';
+}
+
+/**
+ * Os grupos do filtro para os ids à venda numa aba: [{ id, itens }] na ordem de
+ * GRUPOS_TIPO_LOJA, com 'todos' (a lista inteira) sempre e os outros só quando têm item.
+ */
+export function gruposPorTipo(ids) {
+  return GRUPOS_TIPO_LOJA.map((g) => ({ id: g, itens: g === 'todos' ? [...ids] : ids.filter((k) => tipoDoItemLoja(k) === g) })).filter(
+    (g) => g.id === 'todos' || g.itens.length,
+  );
 }
 
 // ---------- Inventário (instâncias) ----------

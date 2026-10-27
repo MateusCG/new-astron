@@ -31,16 +31,16 @@
 // ("COMPARTIMENTO CHEIO") e o servidor recusaria com 'cheio'.
 //
 // As abas "Escudos", "Armaduras" e "Potenciadores" mostram os itens do original à
-// venda para a CLASSE do piloto (equipamentosAVenda em shared/equipamentos.js; os
-// potenciadores com filtro por tipo de dano), com os efeitos e o preço da V1
+// venda para a CLASSE do piloto (equipamentosAVenda em shared/equipamentos.js, com
+// filtro por tipo de dano: Todos, Ph., Op., El. e Gerais, se houver), com os efeitos e o preço da V1
 // ({t:'comprar', item:'e330010'}); o mesmo item pode ser comprado de novo (cada
 // compra é outra instância) e o cartão conta quantos o piloto tem ("NO INVENTÁRIO
 // ×n", "NA NAVE" se um está num encaixe).
 //
 // A aba "Armas" mostra as armas do Astro-N original da RAÇA e da CLASSE do piloto
-// (armasAVenda em shared/loja.js; 16 a 26), com um filtro por categoria (feixe,
-// metralhadora, canhão, míssil, mina, nova, dispositivo...) para não virar uma
-// parede de cartões; cada cartão traz o ícone, o nome (e o do original em inglês,
+// (armasAVenda em shared/loja.js; 16 a 26), na ordem das categorias do original e
+// com filtro por tipo de dano (Todos, Ph., Op., El., como nos equipamentos) para não
+// virar uma parede de cartões; cada cartão traz o ícone, o nome (e o do original em inglês,
 // pequeno), dano, recarga e energia, a forma e o efeito, as etiquetas de tipo de
 // dano e papel, e o preço. Cada arma vai até ARMA_COPIAS_MAX cópias (shared/
 // loja.js; a de fábrica conta como a primeira, e por isso também está à venda),
@@ -57,9 +57,9 @@
 // Listeners no `signal` dos controles: sair da partida e entrar de novo não duplica.
 
 import { ARMAS, WEAPONS } from '/shared/sim.js';
-import { ITENS, ORDEM_ITENS, COMPARTIMENTO_MAX, ARMA_COPIAS_MAX, armasAVenda, noCompartimento, armasDoInv, copiasDaArma } from '/shared/loja.js';
-import { EQUIPAMENTOS, SIGLA_TIPO, ORDEM_TIPOS_DANO, equipamentosAVenda, versaoEquip, textoEfeitoEquip } from '/shared/equipamentos.js';
-import { CATEGORIAS, versaoArma, resumoVersao } from '/shared/armas.js';
+import { ITENS, ORDEM_ITENS, COMPARTIMENTO_MAX, ARMA_COPIAS_MAX, armasAVenda, noCompartimento, armasDoInv, copiasDaArma, gruposPorTipo } from '/shared/loja.js';
+import { EQUIPAMENTOS, SIGLA_TIPO, equipamentosAVenda, versaoEquip, textoEfeitoEquip } from '/shared/equipamentos.js';
+import { versaoArma, resumoVersao } from '/shared/armas.js';
 import { linhaDe, CLASSES } from '/shared/naves.js';
 import {
   MELHORIAS_MINERADOR,
@@ -71,7 +71,7 @@ import {
   precoNivelTorretas,
 } from '/shared/evolucao.js';
 import { TORRETAS } from '/shared/terrain.js';
-import { iconeArma, descreverArma, etiquetasArma, textoDano, nomeArma, classeArma, ordenarPorCategoria } from './armas.js';
+import { iconeArma, descreverArma, etiquetasArma, textoDano, nomeArma, ordenarPorCategoria } from './armas.js';
 import { miniatura } from './vitrine.js';
 import { iconeEquip, textoClasses, classeTipo } from './equipamento.js';
 import { htmlIcone } from './icones-itens.js';
@@ -164,8 +164,7 @@ export class PainelServicos {
     this.servico = null; // serviço do painel aberto (ou do último aberto)
     this.onde = null; // serviço da plataforma onde a nave está pousada (ou null)
     this.aba = { loja: 'armas', evolucao: 'nave' };
-    this.filtro = 'todas'; // categoria do filtro das abas de armas da Loja
-    this.filtroPot = 'todos'; // tipo de dano do filtro da aba Potenciadores
+    this.filtroTipo = { armas: 'todos', escudo: 'todos', armadura: 'todos', potenciador: 'todos' }; // tipo de dano do filtro de cada aba da Loja
     this.compEl = this.el.querySelector('.comp-loja');
     this.estado = { ouro: 0, nivel: 1, armas: [], inv: [], compMax: COMPARTIMENTO_MAX, noComp: 0, encInst: [], equipado: {}, itens: {}, race: null, classe: null, tier: 0, melhorias: {}, torretas: [] };
     this.minis = new Map(); // 'race/classe/tier' -> data URL da miniatura já feita
@@ -185,15 +184,9 @@ export class PainelServicos {
     aoClicar(
       this.cartas,
       (e) => {
-        const f = e.target.closest('button[data-filtro]');
-        if (f) {
-          this.filtro = f.dataset.filtro;
-          this.#desenhar(true);
-          return;
-        }
-        const fp = e.target.closest('button[data-filtro-pot]');
-        if (fp) {
-          this.filtroPot = fp.dataset.filtroPot;
+        const ft = e.target.closest('button[data-filtro-tipo]');
+        if (ft) {
+          this.filtroTipo[this.aba.loja] = ft.dataset.filtroTipo;
           this.#desenhar(true);
           return;
         }
@@ -333,7 +326,7 @@ export class PainelServicos {
     const s = this.estado;
     const servico = this.servico;
     const aba = this.aba[servico];
-    const chave = JSON.stringify([servico, aba, this.filtro, this.filtroPot, s]);
+    const chave = JSON.stringify([servico, aba, this.filtroTipo, s]);
     if (!forcar && chave === this.chave) return;
     this.chave = chave;
     this.titulo.textContent = NOME_SERVICO[servico];
@@ -394,18 +387,19 @@ export class PainelServicos {
   }
 
   /**
-   * Filtro por categoria das abas de armas: "Todas" e uma por categoria que aparece
-   * na lista, com a contagem. Categoria sem arma na lista volta para "Todas".
+   * Filtro por tipo de dano da aba `aba` (Todos, Ph., Op., El. e Gerais; só os grupos
+   * que têm item, gruposPorTipo em shared/loja.js) sobre os ids à venda. O grupo
+   * escolhido que sumiu da lista volta para "Todos".
    */
-  #filtroCategorias(lista) {
-    const cats = [...new Set(lista.map((i) => classeArma(ARMAS[i])))];
-    if (!cats.includes(this.filtro)) this.filtro = 'todas';
-    const botao = (id, nome, n) => `<button type="button" data-filtro="${id}" class="${id === this.filtro ? 'sel' : ''}">${nome} <i>${n}</i></button>`;
-    const html = `<div class="filtro-armas">${botao('todas', 'Todas', lista.length)}${cats
-      .map((c) => botao(c, CATEGORIAS[c], lista.filter((i) => classeArma(ARMAS[i]) === c).length))
+  #filtroTipo(aba, ids) {
+    const grupos = gruposPorTipo(ids);
+    if (!grupos.some((g) => g.id === this.filtroTipo[aba])) this.filtroTipo[aba] = 'todos';
+    const sel = this.filtroTipo[aba];
+    const nome = (g) => (g === 'todos' ? 'Todos' : g === 'geral' ? 'Gerais' : SIGLA_TIPO[g]);
+    const html = `<div class="filtro-armas">${grupos
+      .map((g) => `<button type="button" data-filtro-tipo="${g.id}" class="${g.id === sel ? 'sel' : ''}">${nome(g.id)} <i>${g.itens.length}</i></button>`)
       .join('')}</div>`;
-    const filtrada = this.filtro === 'todas' ? lista : lista.filter((i) => classeArma(ARMAS[i]) === this.filtro);
-    return { html, filtrada };
+    return { html, filtrada: grupos.find((g) => g.id === sel).itens };
   }
 
   /** Dano, recarga e energia da arma no nível (linha de números do cartão). */
@@ -420,7 +414,9 @@ export class PainelServicos {
     const { race, classe, inv, encInst } = this.estado;
     const venda = ordenarPorCategoria(armasAVenda(race, classe));
     if (!venda.length) return '<p class="nota">Sem armas à venda para esta nave.</p>';
-    const { html, filtrada } = this.#filtroCategorias(venda);
+    // Filtro por tipo de dano, como nos equipamentos (os cartões seguem na ordem das categorias).
+    const { html, filtrada: doTipo } = this.#filtroTipo('armas', venda.map((i) => ARMAS[i]));
+    const filtrada = venda.filter((i) => doTipo.includes(ARMAS[i]));
     const cartoes = filtrada.map((i) => {
       const kind = ARMAS[i];
       const preco = WEAPONS[kind].preco;
@@ -454,20 +450,13 @@ export class PainelServicos {
    * Escudos, armaduras ou potenciadores à venda para a classe do piloto: efeitos e
    * preço da V1 e COMPRAR (cada compra é uma instância nova no compartimento; a
    * versão sobe no Inventário). O cartão conta quantos o piloto já tem ("NO
-   * INVENTÁRIO ×n") e se um deles está num encaixe ("NA NAVE"). Os potenciadores (34)
-   * têm filtro por tipo de dano.
+   * INVENTÁRIO ×n") e se um deles está num encaixe ("NA NAVE"). Filtro por tipo de dano
+   * nas três abas.
    */
   #equipamentos(categoria) {
     const { classe, inv, equipado } = this.estado;
-    let lista = equipamentosAVenda(classe, categoria);
-    let filtro = '';
-    if (categoria === 'potenciador') {
-      const grupos = [['todos', 'Todos'], ...ORDEM_TIPOS_DANO.map((t) => [t, SIGLA_TIPO[t]]), ['geral', 'Gerais']];
-      const doGrupo = (g) => (g === 'todos' ? lista : lista.filter((k) => (EQUIPAMENTOS[k].tipoDano ?? 'geral') === g));
-      const botao = ([id, nome]) => `<button type="button" data-filtro-pot="${id}" class="${id === this.filtroPot ? 'sel' : ''}">${nome} <i>${doGrupo(id).length}</i></button>`;
-      filtro = `<div class="filtro-armas">${grupos.map(botao).join('')}</div>`;
-      lista = doGrupo(this.filtroPot);
-    }
+    const venda = equipamentosAVenda(classe, categoria);
+    const { html: filtro, filtrada: lista } = venda.length ? this.#filtroTipo(categoria, venda) : { html: '', filtrada: [] };
     // Chaves dos equipamentos que estão nos quatro encaixes (equipado traz ids de instância).
     const idsNaNave = new Set([equipado?.escudo, equipado?.armadura, ...(equipado?.pot ?? [])].filter((x) => x != null));
     const naNave = new Set(inv.filter((x) => idsNaNave.has(x.id)).map((x) => x.chave));
