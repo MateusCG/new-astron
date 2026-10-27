@@ -167,6 +167,7 @@ function converterItem(o) {
     categoria: o.categoria,
     nome: o.nome,
     nomePt: o.nomePt,
+    icone: o.icone,
     tipoDano: tipoDanoDoItem(o, versoes),
     classes,
     preco: versoes[0].preco,
@@ -178,6 +179,7 @@ function converterItem(o) {
  * Todos os equipamentos por chave ('e330010' = id da V1 no original), na ordem do
  * catálogo: escudos, armaduras e potenciadores. Cada um:
  * { chave, id, categoria: 'escudo'|'armadura'|'potenciador', nome (original), nomePt,
+ *   icone (o do original em public/texturas/itens, o mesmo nas oito versões),
  *   tipoDano: 'fisico'|'laser'|'eletrico'|null, classes: ['assault', ...], preco (V1),
  *   versoes: [8 × { v, id, preco, custoTotal, taxaTuning,
  *   efeitos: [{ tipo, tipoDano?, valor }], maxEscudo?, regenEscudo?, hp? }] }.

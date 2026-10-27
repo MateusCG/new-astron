@@ -478,7 +478,7 @@ function converterArma(a) {
     papel: a.papel,
     funcao: funcaoDe(a.papel),
     tipoDano: a.tipoDano,
-    icone: a.icone,
+    icone: a.icone, // ícone de inventário do original em public/texturas/itens
     modelo: a.modelo, // [esquerda, direita] em public/modelos/armas
     som: a.som,
     somImpacto: a.somImpacto ?? null,

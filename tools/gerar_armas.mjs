@@ -274,7 +274,9 @@ function gerar() {
       auxiliar: a.auxiliar,
       tipoDano: a.tipoDano,
       descricao: a.descricao,
-      icone: a.modeloArma.icone,
+      // O ícone de inventário do original tem o nome do modelo da arma (texture/item/aw001.pn8);
+      // a coluna ITEM_OBJECT do cfg é o objeto que cai no chão, que o jogo novo não usa.
+      icone: a.modeloArma.modelo.toLowerCase(),
       modelo: modelo(a.modeloArma),
       som: som(a.som),
       somImpacto: som(a.somImpacto),
