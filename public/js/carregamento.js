@@ -10,6 +10,7 @@
 // - as texturas dos efeitos de todas as armas em todas as versões (V1 a V8, com os
 //   filhos: subprojétil, o que a mina dispara);
 // - todos os sons (armas de todos, tiros de NPC e interface), já decodificados;
+// - os ícones dos itens do original que a sua Loja e o seu INVENTÁRIO mostram;
 // - e, no fim, a placa de vídeo: compila os shaders, envia texturas e geometrias e
 //   desenha um quadro de tudo isso (aquecerGpu).
 //
@@ -62,6 +63,7 @@ import { carregarEfeitoOriginal, criarEfeitoOriginal, tocarEfeitoOriginal } from
 import { carregarPropulsao, texturasDaPropulsao } from './propulsao.js';
 import { COR_TIME } from './efeitos.js';
 import { miniatura } from './vitrine.js';
+import { carregarIcone } from './icones-itens.js';
 
 /** Arquivos baixando ao mesmo tempo na tela de carregamento (o navegador abre ~6 por servidor). */
 const SIMULTANEOS = 6;
@@ -78,6 +80,7 @@ const LINHAS = [
   { id: 'efeitos', nome: 'Efeitos das armas · V1 a V8', curto: 'Efeitos', peso: 7 },
   { id: 'sons', nome: 'Sons das armas e da interface', curto: 'Sons', peso: 20 },
   { id: 'miniaturas', nome: 'Miniaturas da Evolução', curto: 'Miniaturas', peso: 3 },
+  { id: 'icones', nome: 'Ícones da Loja e do inventário', curto: 'Ícones', peso: 1 },
   { id: 'servidor', nome: 'Servidor', curto: 'Conectando ao servidor', peso: 3 },
   { id: 'gpu', nome: 'Placa de vídeo · shaders, texturas e modelos', curto: 'Preparando a placa de vídeo', peso: 13 },
 ];
@@ -237,7 +240,7 @@ export class Carregamento {
 
   /** Baixa tudo da lista da partida (resolve sempre, mesmo com falhas). */
   carregar() {
-    const { naves, armas, texturas, sons, efeitosOriginais = [] } = this.insumos;
+    const { naves, armas, texturas, sons, icones = [], efeitosOriginais = [] } = this.insumos;
     const modelosArma = modelosDasArmas(armas);
     const { mapa, monstros } = insumosDoMapa();
     const linha = this.linhaPropria;
@@ -249,6 +252,7 @@ export class Carregamento {
     t?.linha('efeitos', { total: texturas.length + efeitosOriginais.length });
     t?.linha('sons', { total: sons.length });
     t?.linha('miniaturas', { total: linha.length });
+    t?.linha('icones', { total: icones.length });
     t?.linha('servidor', { total: 1, texto: 'Conectando…' });
     t?.linha('gpu', { total: PASSOS_GPU });
     const tarefas = [
@@ -269,6 +273,8 @@ export class Carregamento {
           return !this.sons.falhou(nome);
         }),
       ),
+      // Os ícones dos itens (Loja, INVENTÁRIO, painel das armas): pequenos, ficam no cache do navegador.
+      ...icones.map((nome) => this.#item('icones', `ícone ${nome}`, () => carregarIcone(nome))),
       // Miniaturas por último: cada uma é um desenho na vitrine (com o modelo já pronto).
       ...linha.map((n) => this.#item('miniaturas', `miniatura ${n.nome}`, async () => (await miniatura(this.race, this.classe, n.tier)) !== null)),
     ];

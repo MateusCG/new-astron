@@ -40,6 +40,7 @@
 
 import { WEAPONS, ARMAS, TROCA_ARMA_S, TIPOS_DANO, trocaLivre, armasIniciais, armasDisponiveis } from '/shared/sim.js';
 import { versaoArma, resumoVersao, visualEfeito, CATEGORIAS, ORDEM_CATEGORIAS, PAPEIS, NIVEL_ARMA_MAX } from '/shared/armas.js';
+import { htmlIcone } from './icones-itens.js';
 
 /** Tecla, nome e botões de cada encaixe (0 = Z, 1 = X). */
 export const ENCAIXES = [
@@ -150,76 +151,13 @@ export function nomeArma(kind, comOriginal = false) {
 }
 
 /**
- * Ícone da arma em SVG de traço, pela categoria do original: feixes (um traço por
- * projétil, paralelos ou em leque), metralhadora (rajada de tracinhos), canhão
- * (bala grande), míssil (foguete), raio (zigue-zague), onda (arcos), lâmina
- * (hélice), lançador (estouro), mina (espinhos), nova (anéis), suporte (cruz) e os
- * dispositivos pelo efeito (escudo, olho, setas, cruz, raio, espiral). A cor é a da
- * arma (corDaArma), no `--cor-arma` do SVG.
+ * Ícone da arma, o do original (a figura do modelo dela, texture/item/aw001...), com o
+ * número da versão no canto da V2 em diante (icones-itens.js). As armas de NPC não têm.
  */
 export function iconeArma(kind, nivel = 1) {
   const w = WEAPONS[kind];
   if (!w) return '';
-  const cat = classeArma(kind);
-  const g = versaoArma(kind, nivel)?.golpe ?? w.versoes[0].golpe;
-  const linha = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" />`;
-  const raios = (angulos, r1, r2, cy = 12, cx = 12) =>
-    angulos
-      .map((gr) => {
-        const r = (gr * Math.PI) / 180;
-        const [sx, sy] = [Math.sin(r), Math.cos(r)];
-        return linha(+(cx + sx * r1).toFixed(2), +(cy - sy * r1).toFixed(2), +(cx + sx * r2).toFixed(2), +(cy - sy * r2).toFixed(2));
-      })
-      .join('');
-  const tiros = g.tiros ?? [{ off: 0, ang: 0 }];
-  const leque = tiros.some((t) => t.ang);
-  let d;
-  if (cat === 'beam' || (w.npc && kind === 'laser')) {
-    if (tiros.length >= 6) d = raios(tiros.map((t) => (-t.ang * 180) / Math.PI), 2, 10);
-    else if (leque) d = tiros.map((t) => linha(12, 21, +(12 - Math.sin(t.ang * 3) * 16).toFixed(2), +(21 - Math.cos(t.ang * 3) * 17).toFixed(2))).join('');
-    else {
-      const n = Math.min(tiros.length, 4);
-      d = Array.from({ length: n }, (_, i) => {
-        const x = n === 1 ? 12 : 6 + (i * 12) / (n - 1);
-        return linha(x, 3, x, 21);
-      }).join('');
-    }
-  } else if (cat === 'gun') {
-    const n = Math.min(tiros.length, 4);
-    const rajada = Math.min(g.rajada ?? 1, 3);
-    d = Array.from({ length: n }, (_, i) => {
-      const x = n === 1 ? 12 : 6 + (i * 12) / (n - 1);
-      return Array.from({ length: rajada + 1 }, (_, k) => linha(x, 4 + k * 5.5, x, 6.5 + k * 5.5)).join('');
-    }).join('');
-  } else if (cat === 'canhao' || (w.npc && kind === 'plasma')) {
-    d = '<circle cx="12" cy="10" r="6" /><circle cx="12" cy="10" r="2" />' + linha(12, 17, 12, 22);
-  } else if (cat === 'missil') {
-    d = '<path d="M12 2 L15 7 L15 16 L9 16 L9 7 Z" />' + linha(9, 12, 6, 17) + linha(15, 12, 18, 17) + linha(12, 19, 12, 22);
-  } else if (cat === 'raio') {
-    d = '<path d="M14 2 L7 12 L12 12 L9 22 L17 10 L12 10 Z" />';
-  } else if (cat === 'onda') {
-    d = '<path d="M5 15 A9 9 0 0 1 19 15 M3 10 A12 12 0 0 1 21 10 M8 20 A5 5 0 0 1 16 20" />';
-  } else if (cat === 'lamina') {
-    d = '<circle cx="12" cy="12" r="2.5" /><path d="M12 9.5 C12 4 17 3 19 5 M14.5 12 C20 12 21 17 19 19 M12 14.5 C12 20 7 21 5 19 M9.5 12 C4 12 3 7 5 5" />';
-  } else if (cat === 'lancador') {
-    d = '<circle cx="12" cy="12" r="3" />' + raios([0, 45, 90, 135, 180, 225, 270, 315], 6, 10);
-  } else if (cat === 'mina') {
-    d = '<circle cx="12" cy="13" r="4.5" />' + raios([0, 72, 144, 216, 288], 6, 9, 13) + linha(3, 22, 21, 22);
-  } else if (cat === 'nova') {
-    d = '<circle cx="12" cy="12" r="2" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="10" stroke-dasharray="3 3" />';
-  } else if (cat === 'suporte') {
-    d = '<circle cx="12" cy="12" r="9" /><path d="M12 7 V17 M7 12 H17" />';
-  } else {
-    // Dispositivo: pelo efeito.
-    const ef = g.efeitos?.[0]?.tipo;
-    if (ef === 'invisivel') d = '<path d="M2 12 C6 5 18 5 22 12 C18 19 6 19 2 12 Z" /><circle cx="12" cy="12" r="3" />' + linha(4, 20, 20, 4);
-    else if (ef === 'acelera') d = '<path d="M4 6 L10 12 L4 18 M11 6 L17 12 L11 18" />' + linha(19, 6, 19, 18);
-    else if (ef === 'energiaPorHp') d = '<rect x="5" y="6" width="13" height="14" rx="2" /><path d="M9 3 H14 M12.5 9 L9.5 13.5 H13 L10.5 17.5" />';
-    else if (ef === 'regen' || ef === 'converte') d = '<path d="M12 3 L20 6 V12 C20 17 16 20 12 22 C8 20 4 17 4 12 V6 Z" /><path d="M12 9 V16 M8.5 12.5 H15.5" />';
-    else if (ef === 'teleporte') d = '<path d="M12 12 m-1 0 a1 1 0 1 1 2 0 a3 3 0 1 1 -6 0 a5 5 0 1 1 10 0 a7 7 0 1 1 -14 0 a9 9 0 0 1 9 -9" />';
-    else d = '<path d="M12 3 L20 6 V12 C20 17 16 20 12 22 C8 20 4 17 4 12 V6 Z" />' + (ef === 'resiste' ? '<path d="M8 12 L11 15 L16 9" />' : '');
-  }
-  return `<svg class="icone-arma ${cat}" viewBox="0 0 24 24" aria-hidden="true" style="--cor-arma:${corDaArma(kind)}">${d}</svg>`;
+  return htmlIcone(w.icone, nivel, 'icone-arma');
 }
 
 /** Texto do dano na carta: "4×3" (por projétil × quantos, contando a rajada), o total ou "—". */

@@ -1606,7 +1606,7 @@ kbd {
   color: var(--neon);
 }
 
-#carregando .ic svg {
+#carregando .ic .icone-item {
   display: block;
   width: 22px;
   height: 22px;
@@ -1814,20 +1814,38 @@ dd {
   opacity: 0.4;
 }
 
-/* Ícone de arma: traço na cor da arma (a do projétil do original, clareada; vem no
-   --cor-arma do próprio SVG, armas.js corDaArma). */
-.icone-arma {
-  stroke: var(--cor-arma, var(--laser));
-  stroke-width: 2.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
-  filter: drop-shadow(0 0 3px var(--cor-arma, var(--laser)));
+/* Ícone de item do original (icones-itens.js): a figura de 64 × 64 sobre preto, com
+   a moldura na cor do tipo de dano já desenhada nela, e o número da versão (V2 a V8)
+   no canto de baixo à direita, como no INVENTÁRIO do original. Cada painel diz o
+   tamanho (largura e altura); o número acompanha. */
+.icone-item {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  background: #000;
 }
 
-.icone-arma.gun,
-.icone-arma.beam {
-  stroke-width: 3;
+.icone-item img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.icone-item img.versao {
+  position: absolute;
+  right: 7%;
+  bottom: 8%;
+  width: 27%;
+  height: 27%;
+  image-rendering: pixelated;
+}
+
+/* Encaixe sem item: só o fundo preto com o contorno apagado. */
+.icone-item.vazio {
+  box-shadow: inset 0 0 0 1px var(--chapa-clara);
+  opacity: 0.6;
 }
 
 /* Arma de segurar a tecla ligada (dispositivo): o encaixe acende. */
@@ -1962,8 +1980,8 @@ small.original {
 
 .opcao-arma .icone-arma {
   flex: none;
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
 }
 
 .opcao-arma strong {
@@ -2163,7 +2181,7 @@ small.original {
   opacity: 0.6;
 }
 
-.item-nave .icone-servico {
+.item-nave .icone-consumivel {
   width: 26px;
   height: 26px;
 }
@@ -2456,11 +2474,16 @@ small.original {
   min-height: 24px;
 }
 
-.carta-servico .icone-arma,
 .carta-servico .icone-servico {
   flex: none;
   width: 28px;
   height: 28px;
+}
+
+/* Arma, equipamento e consumível: a figura do original pede mais espaço que o traço. */
+.carta-servico .icone-item {
+  width: 46px;
+  height: 46px;
 }
 
 .carta-servico strong {
@@ -3426,26 +3449,6 @@ body.dano::after {
   --cor-tipo: var(--neon);
 }
 
-/* Escudo, armadura e potenciador: SVG de traço como os de arma, na cor do tipo. */
-.icone-equip {
-  stroke: var(--cor-tipo, var(--neon));
-  stroke-width: 1.9;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
-  filter: drop-shadow(0 0 3px var(--cor-tipo, var(--neon)));
-}
-
-.icone-equip.vazio {
-  stroke: var(--chapa-clara);
-  filter: none;
-}
-
-.carta-servico .icone-equip {
-  flex: none;
-  width: 28px;
-  height: 28px;
-}
 
 /* Loja › Escudos, Armaduras, Potenciadores: classe exigida, onde está o item e a
    próxima versão. */
@@ -3637,10 +3640,9 @@ body.dano::after {
   gap: 6px;
 }
 
-.detalhe-cab svg {
-  flex: none;
-  width: 26px;
-  height: 26px;
+.detalhe-cab .icone-item {
+  width: 48px;
+  height: 48px;
 }
 
 .detalhe-cab strong {
@@ -4035,7 +4037,7 @@ body.dano::after {
 
 .slot {
   display: grid;
-  grid-template-columns: 34px 1fr auto;
+  grid-template-columns: 48px 1fr auto;
   grid-template-rows: auto auto;
   align-items: center;
   gap: 2px 6px;
@@ -4062,11 +4064,11 @@ body.dano::after {
   opacity: 0.7;
 }
 
-.slot .ic svg,
-.item-inv .ic svg {
+.slot .ic .icone-item,
+.item-inv .ic .icone-item {
   display: block;
-  width: 32px;
-  height: 32px;
+  width: 48px;
+  height: 48px;
 }
 
 .slot .nm {
