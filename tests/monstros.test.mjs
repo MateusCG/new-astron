@@ -8,12 +8,12 @@ import { createShip } from '../shared/sim.js';
 import { BASES, BUFFS, heightAt } from '../shared/terrain.js';
 import { bloqueiaVisao } from '../shared/visao.js';
 import { readFileSync } from 'node:fs';
-import { ESPECIES, alcanceMaximo, FATOR_HP_M5, FATOR_DANO_M5, FATOR_XP_M5, FATOR_RECARGA_ORIGINAL, FATOR_RECARGA_MEDUSA, FATOR_VEL_MONSTRO, FATOR_DANO_ESPECIE, ALCANCE_MAX_ORIGINAL } from '../server/especies.js';
+import { ESPECIES, alcanceMaximo, FATOR_HP_M5, FATOR_DANO_M5, FATOR_XP_M5, FATOR_RECARGA_ORIGINAL, FATOR_RECARGA_MEDUSA, FATOR_VEL_MONSTRO, FATOR_DANO_ESPECIE, FATOR_DANO_MONSTRO, ALCANCE_MAX_ORIGINAL } from '../server/especies.js';
 import { ARMAS_NPC_ORIGINAL } from '../shared/armas-original.js';
 import { RAIVA_S, corpoLivre, golpeDoAtaque } from '../server/jungle.js';
 import { MINA_MAX_MONSTRO } from '../server/golpes.js';
 import { WEAPONS, ARMAS, FATOR_AREA, MINA_MAX, armasDisponiveis, visualDoOriginal } from '../shared/armas.js';
-import { RACAS_JOGAVEIS, ORDEM_CLASSES } from '../shared/naves.js';
+import { RACAS_JOGAVEIS, ORDEM_CLASSES, FATOR_ESCALA_HP } from '../shared/naves.js';
 import { CAMPO } from './lugares.mjs';
 
 function rngFixo(semente = 1) {
@@ -286,6 +286,15 @@ test('SN-3 e SN-Zero VI: números do original (unidade, NPC e armas) na escala d
   assert.equal(sn3.entreAtaquesS, WEAPONS.n511080.versoes[0].cd * FATOR_RECARGA_ORIGINAL);
   assert.equal(snzero.entreAtaquesS, WEAPONS.n510372.versoes[0].cd * FATOR_RECARGA_ORIGINAL);
   for (const a of [...sn3.ataques, ...snzero.ataques]) assert.equal(a.intervaloS, WEAPONS[a.kind].versoes[0].cd * FATOR_RECARGA_ORIGINAL, a.atq);
+});
+
+test('monstros: o dano é 1/10 do original na escala das naves, e a Medusa bate como no original', () => {
+  assert.equal(FATOR_DANO_MONSTRO, FATOR_ESCALA_HP / 10);
+  assert.equal(FATOR_DANO_M5, FATOR_DANO_MONSTRO);
+  for (const esp of ['xerxes', 'great_xerxes', 'bazit', 'anti', 'sn4']) assert.equal(FATOR_DANO_ESPECIE[esp], FATOR_DANO_MONSTRO, esp);
+  assert.equal(FATOR_DANO_ESPECIE.medusa, FATOR_ESCALA_HP);
+  assert.equal(ESPECIES.sn3.ataques[0].dano, 7.32, 'Disco Voador: 366 no original');
+  assert.equal(ESPECIES.medusa.ataques[2].dano, 266.6, 'Canhão de Pedra: 1333 no original');
 });
 
 test('monstros: as armas de NPC do original ficam no fim do catálogo, fora das do jogador', () => {

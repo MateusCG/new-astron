@@ -32,19 +32,19 @@
 // - velocidade: m/ms do original × 1000 × FATOR_VEL_MONSTRO (a regra de todo monstro);
 // - SN-3 e SN-Zero VI: raio de acerto e modelo do original × FATOR_AREA (0,25, o mesmo
 //   das áreas das armas: o corpo e o tiro ficam na proporção do original entre si e
-//   com o SN-4); HP, dano e XP do original vezes um fator só para os dois
-//   (FATOR_HP_M5, FATOR_DANO_M5, FATOR_XP_M5), escolhido para o acampamento da base
-//   ficar no papel dele no ritmo da partida (os pequenos de antes tinham 160 de HP e ~3
-//   de dano por segundo cada); a relação entre os dois é a do original (o SN-3 aguenta
-//   o dobro, o SN-Zero VI bate mais forte). O original não dá ouro no abate (só drop):
-//   o ouro é a XP × OURO_POR_XP_M5, a relação dos pequenos de antes;
+//   com o SN-4); HP e XP do original vezes um fator só para os dois (FATOR_HP_M5,
+//   FATOR_XP_M5), escolhido para o acampamento da base ficar no papel dele no ritmo da
+//   partida (os pequenos de antes tinham 160 de HP); a relação entre os dois é a do
+//   original (o SN-3 aguenta o dobro, o SN-Zero VI bate mais forte). O original não
+//   dá ouro no abate (só drop): o ouro é a XP × OURO_POR_XP_M5, a relação dos
+//   pequenos de antes;
 // - os do Stage 6 e o SN-4 continuam com o HP, o tamanho, a XP e o ouro do papel
-//   deles no mapa (PESQUISA-MONSTROS.md, seção 6); só o ataque vem do original, e o
-//   dano de cada arma é o do original × o fator da espécie (FATOR_DANO_ESPECIE), que
-//   deixa o dano por segundo de perto perto do de antes; os efeitos no alvo ficam na
-//   escala das armas do jogador (o Magma do lança-chamas tira 20 de HP em 5 s do
-//   Xerxes e 30 do Grande Xerxes, como o Magma das armas de jogador, e é o que mais
-//   machuca na chama: as bolas de fogo valem pouco);
+//   deles no mapa (PESQUISA-MONSTROS.md, seção 6); só o ataque vem do original;
+// - dano: o de cada arma do original × FATOR_DANO_MONSTRO, o mesmo para todo monstro
+//   (a relação de força entre eles é a do original), por espécie em
+//   FATOR_DANO_ESPECIE para ajustar um só; os efeitos no alvo ficam na escala das
+//   armas do jogador (o Magma do lança-chamas tira 20 de HP em 5 s do Xerxes e 30 do
+//   Grande Xerxes, como o Magma das armas de jogador);
 // - alcance: o voo do projétil da arma convertida, até ALCANCE_MAX_ORIGINAL (o
 //   canhão explosivo do Xerxes voa 612 m, mais que a visão de 550).
 // Ataques: cada um tem uma `forma`, que server/jungle.js transforma num golpe no
@@ -70,13 +70,24 @@
 
 import { ARMAS_NPC_ORIGINAL } from '../shared/armas-original.js';
 import { FATOR_AREA, WEAPONS, versaoArma } from '../shared/armas.js';
+import { FATOR_ESCALA_HP } from '../shared/naves.js';
 
 /** Velocidade do original (m/ms) × 1000 × isto = m/s (metade do fator das naves: todo monstro mais lento que qualquer nave). */
 export const FATOR_VEL_MONSTRO = 0.25;
 /** SN-3 e SN-Zero VI: HP do original × isto (SN-3 2500 → 200, SN-Zero VI 1200 → 96). */
 export const FATOR_HP_M5 = 0.08;
-/** SN-3 e SN-Zero VI: dano por projétil das armas do original × isto (Disco Voador 366 → 1,2; Canhão 6 166 → 0,5 por bala, 4 por disparo). */
-export const FATOR_DANO_M5 = 0.0032;
+/**
+ * Dano das armas do original × isto, em todo monstro: 1/10 do original na escala das
+ * naves (o HP e o dano do jogador são o original × 0,2, FATOR_ESCALA_HP). Pedido do
+ * Mateus (out/2026: "o dano da jungle está bem baixo"): antes cada espécie tinha o
+ * seu, 10 a 200 vezes abaixo do original, escolhido pelo dano por segundo dos
+ * monstros de antes. Igual ao original (× 0,2) o acampamento de 4 SN-3 derrubaria a
+ * primeira nave em menos de 1 s. Disco Voador 366 → 7,3 por disco; Canhão SN 6 166 →
+ * 3,3 por bala; míssil cruzador do SN-4 333 → 6,7.
+ */
+export const FATOR_DANO_MONSTRO = 0.02;
+/** SN-3 e SN-Zero VI: dano das armas do original × isto. */
+export const FATOR_DANO_M5 = FATOR_DANO_MONSTRO;
 /** Monstros com arma do original: recarga de cada arma e ritmo entre ataques × isto (2 = atacam na metade da velocidade). */
 export const FATOR_RECARGA_ORIGINAL = 2;
 /** @deprecated o nome antigo (era só do SN-3 e do SN-Zero VI): use FATOR_RECARGA_ORIGINAL. */
@@ -90,13 +101,19 @@ export const FATOR_RECARGA_M5 = FATOR_RECARGA_ORIGINAL;
 export const FATOR_RECARGA_MEDUSA = 6;
 /**
  * Dano das armas do original × isto, por espécie (o SN-3 e o SN-Zero VI usam
- * FATOR_DANO_M5). Escolhido para o dano por segundo de perto, um ataque por vez no
- * ritmo de cima, ficar perto do de antes de cada papel: Xerxes ~4 a 6 e Grande
- * Xerxes ~10 com o Magma (4 e 6 de HP por segundo enquanto a chama pega), Anti ~7,5,
- * Bazit ~3,75; o SN-4 é chefe (dez mísseis em volta, a onda e o campo); a Medusa,
- * chefe de time inteiro, 12 por pedra, um ataque a cada 1,5 s (FATOR_RECARGA_MEDUSA).
+ * FATOR_DANO_M5): troque um para ajustar só aquela espécie. A Medusa bate como no
+ * original, na escala das naves (FATOR_ESCALA_HP, pedido do Mateus: chefe de time
+ * inteiro; pedra 1333 → 267), no ritmo dela (FATOR_RECARGA_MEDUSA). O Magma do lança-chamas não passa por aqui (é o efeito da arma na escala
+ * das do jogador: 20 e 30 de HP em 5 s).
  */
-export const FATOR_DANO_ESPECIE = { xerxes: 0.001, great_xerxes: 0.001, bazit: 0.0031, anti: 0.0098, sn4: 0.02, medusa: 0.009 };
+export const FATOR_DANO_ESPECIE = {
+  xerxes: FATOR_DANO_MONSTRO,
+  great_xerxes: FATOR_DANO_MONSTRO,
+  bazit: FATOR_DANO_MONSTRO,
+  anti: FATOR_DANO_MONSTRO,
+  sn4: FATOR_DANO_MONSTRO,
+  medusa: FATOR_ESCALA_HP,
+};
 /** Alcance máximo de um ataque com arma do original (m): o do Disco Voador do SN-3, perto da visão do time (550). */
 export const ALCANCE_MAX_ORIGINAL = 480;
 /** SN-4: a armadilha de campo elétrico cai embaixo do alvo a até isto (m), como o campo de antes. */
