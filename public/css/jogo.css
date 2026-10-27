@@ -1721,7 +1721,8 @@ dd {
 }
 
 /* As duas armas no painel, uma por encaixe ("Z · ícone nome"), com a recarga de
-   cada uma numa linha fina embaixo; clicar abre o menu daquele encaixe. */
+   cada uma numa linha fina embaixo e, à direita, a arma guardada na troca rápida
+   ("Q ▸ ícone"); clicar troca, como a tecla. */
 #armas-nave {
   display: grid;
   gap: 4px;
@@ -1730,7 +1731,8 @@ dd {
 .arma-encaixe {
   position: relative;
   display: grid;
-  grid-template-columns: auto auto auto;
+  grid-auto-flow: column;
+  justify-content: start;
   align-items: center;
   gap: 7px;
   padding: 5px 10px 9px;
@@ -1800,16 +1802,41 @@ dd {
   color: var(--texto);
 }
 
-.arma-encaixe.trocando {
-  grid-template-columns: auto auto auto auto;
-}
-
 .arma-encaixe.trocando .espera {
   display: inline;
 }
 
 .arma-encaixe.trocando .icone-arma {
   opacity: 0.4;
+}
+
+/* Troca rápida: a tecla e a arma guardada, separadas por um fio; vazia, apagada. */
+.arma-encaixe .casa-troca {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 2px;
+  padding-left: 8px;
+  border-left: 1px solid var(--neon-escuro);
+}
+
+.arma-encaixe .casa-troca kbd {
+  font: 700 13px ui-monospace, monospace;
+  color: var(--neon);
+}
+
+.arma-encaixe .casa-troca kbd::after {
+  content: ' ▸';
+  color: var(--texto);
+  opacity: 0.6;
+}
+
+.arma-encaixe .casa-troca .icone-item {
+  --alt: 18px;
+}
+
+.arma-encaixe .casa-troca.vazia {
+  opacity: 0.45;
 }
 
 /* Ícone de item do original (icones-itens.js): a figura sobre preto, com a moldura
@@ -1860,28 +1887,6 @@ dd {
   box-shadow: 0 0 10px rgba(0, 239, 192, 0.4);
 }
 
-/* ---------- Menu de armas (Q edita o Z, E edita o X) ---------- */
-
-/* Em cima, no centro: a nave (terço de baixo) continua à vista com o menu aberto. */
-#menu-armas {
-  position: absolute;
-  z-index: 10; /* na frente do minimapa e do feed em telas pequenas */
-  top: 12px;
-  left: calc((100% - var(--lateral)) / 2);
-  transform: translateX(-50%);
-  width: min(920px, calc(100% - 32px - var(--lateral)));
-  padding: 10px 16px 8px;
-  border: 2px solid var(--chapa-clara);
-  border-radius: 14px 14px 8px 8px;
-  background: linear-gradient(180deg, var(--chapa-clara), var(--chapa) 30%, #0c1a19);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
-    0 0 0 1px var(--neon-escuro),
-    0 4px 20px rgba(0, 0, 0, 0.5);
-  pointer-events: auto;
-  animation: desce 0.15s ease-out;
-}
-
 @keyframes desce {
   from {
     opacity: 0;
@@ -1889,214 +1894,11 @@ dd {
   }
 }
 
-#menu-armas h2 {
-  margin: 0 0 8px;
-  font: 700 16px system-ui, sans-serif;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--neon);
-}
-
-#menu-armas .opcoes {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
-  gap: 6px;
-  max-height: min(56vh, 620px);
-  overflow-y: auto;
-  touch-action: pan-y;
-  padding-right: 2px;
-}
-
-/* Grupo do menu: "Suas armas" (com as teclas) e as categorias da Loja, apagadas. */
-#menu-armas .grupo-armas {
-  grid-column: 1 / -1;
-  margin: 4px 0 0;
-  font: 700 14px system-ui, sans-serif;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--neon);
-}
-
-#menu-armas .grupo-armas.loja {
-  color: var(--texto);
-  opacity: 0.55;
-}
-
-.opcao-arma.sem-tecla .cab {
-  padding-left: 0;
-}
-
 /* Nome do original (inglês), pequeno, como referência. */
 small.original {
   display: block;
   font: 400 13px system-ui, sans-serif;
   opacity: 0.55;
-}
-
-/* Carta compacta (dez armas em duas fileiras): ícone e nome numa linha, os três
-   números lado a lado, o efeito e o selo de onde a arma está equipada. */
-.opcao-arma {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr); /* nome longo não alarga a carta */
-  gap: 3px;
-  padding: 6px 6px 5px;
-  border: 1px solid var(--chapa-clara);
-  border-radius: 6px;
-  background: #0f1e1d;
-  color: var(--texto);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.opcao-arma:hover {
-  border-color: var(--neon-escuro);
-}
-
-.opcao-arma.sel {
-  border-color: var(--neon);
-  box-shadow: 0 0 14px rgba(0, 239, 192, 0.35);
-}
-
-/* Equipada no outro encaixe: borda tracejada, sem o brilho. */
-.opcao-arma.no-outro:not(.sel) {
-  border-style: dashed;
-  border-color: var(--neon-escuro);
-}
-
-.opcao-arma.travada {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.opcao-arma > kbd {
-  position: absolute;
-  top: 5px;
-  left: 5px;
-}
-
-.opcao-arma .cab {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-height: 28px;
-  padding-left: 24px;
-}
-
-/* A figura tem a largura do original (76 × 39), quase o dobro da altura: o nome fica
-   com pouco espaço, então só a primeira linha dele desvia do nível (o "NV n" no canto
-   de cima), por um float vazio, e as outras usam a largura toda. */
-.opcao-arma .icone-arma {
-  --alt: 30px;
-}
-
-.opcao-arma strong {
-  display: block;
-  min-width: 0;
-  font-size: 16px;
-  line-height: 1.15;
-}
-
-.opcao-arma strong::before {
-  content: '';
-  float: right;
-  width: 34px;
-  height: 1.15em;
-}
-
-.opcao-arma dl {
-  grid-template-columns: repeat(3, auto);
-  grid-template-rows: auto auto;
-  grid-auto-flow: column;
-  justify-content: space-between;
-  gap: 0 4px;
-  width: 100%;
-  font-size: 14.5px;
-}
-
-.opcao-arma dt {
-  font-size: 13px;
-  text-transform: uppercase;
-}
-
-.opcao-arma dd {
-  min-width: 0;
-  overflow: hidden;
-  text-align: left;
-  white-space: nowrap;
-  font-size: 14px;
-}
-
-/* Tela baixa (celular deitado, janela pequena): sem a linha do efeito, para o menu
-   não cobrir a nave; o efeito continua no title da carta. */
-@media (max-height: 520px) {
-  .opcao-arma .efeito {
-    display: none;
-  }
-}
-
-.opcao-arma .efeito {
-  min-height: 2.6em;
-  font-size: 14px;
-  line-height: 1.3;
-  opacity: 0.85;
-}
-
-.opcao-arma .selo {
-  min-height: 12px;
-  font: 700 13.5px system-ui, sans-serif;
-  letter-spacing: 0.08em;
-  color: var(--neon);
-}
-
-.opcao-arma.no-outro:not(.sel) .selo,
-.opcao-arma.travada .selo {
-  color: var(--texto);
-  opacity: 0.75;
-}
-
-#menu-armas h2 kbd {
-  color: var(--neon);
-}
-
-#menu-armas .dica {
-  margin: 8px 0 0;
-  font-size: 15px;
-  opacity: 0.7;
-  text-align: center;
-}
-
-/* Linha da troca de arma, entre o título e as cartas: "Na base: troca livre" em
-   neon, a regra de fora da base em texto, e a contagem (troca em recarga) como
-   mensagem ruim. */
-#menu-armas .aviso-troca {
-  margin: -4px 0 6px;
-  font-size: 15px;
-  opacity: 0.8;
-}
-
-#menu-armas .aviso-troca.livre {
-  color: var(--neon);
-}
-
-#menu-armas.trocando .aviso-troca {
-  color: #ff8a70;
-  opacity: 1;
-}
-
-#menu-armas .aviso-troca b {
-  font-family: ui-monospace, monospace;
-}
-
-/* Troca em recarga: as outras armas apagadas (tocar só avisa quanto falta). */
-.opcao-arma.espera {
-  opacity: 0.4;
-  cursor: wait;
-}
-
-.opcao-arma.espera .selo {
-  color: #ff8a70;
 }
 
 /* Tipo de dano e função ("Laser · Dano") e, no cartão de evoluir, os tracinhos do
@@ -2131,21 +1933,6 @@ small.original {
 .etiquetas .funcao.controle {
   border-color: var(--neon-escuro);
   color: var(--neon);
-}
-
-/* Nível da arma (evoluído na Loja) no canto de cima da carta, oposto à tecla. */
-.opcao-arma .nivel {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  font: 700 13px ui-monospace, monospace;
-  color: var(--neon);
-  white-space: nowrap;
-}
-
-.opcao-arma .nivel.base {
-  color: var(--texto);
-  opacity: 0.5;
 }
 
 .pips {
@@ -2818,45 +2605,6 @@ body.dano::after {
   background: rgba(0, 239, 192, 0.3);
 }
 
-/* No celular o menu fica entre o minimapa e os botões da direita, sem cobrir ARMA Z/X. */
-.toque #menu-armas {
-  left: 12px;
-  right: 190px;
-  width: auto;
-  transform: none;
-  padding: 8px 10px 6px;
-  animation: none;
-}
-
-.toque #menu-armas .opcoes {
-  gap: 6px;
-}
-
-.toque .opcao-arma {
-  padding: 4px;
-  gap: 2px;
-}
-
-.toque .opcao-arma .icone-arma {
-  --alt: 18px;
-}
-
-.toque .opcao-arma strong {
-  font-size: 11px;
-}
-
-/* No celular a carta mostra só o essencial: ícone, nome, nível e selo. */
-.toque .opcao-arma dl,
-.toque .opcao-arma .efeito,
-.toque .opcao-arma .etiquetas,
-.toque .opcao-arma > kbd {
-  display: none;
-}
-
-.toque .opcao-arma .cab {
-  padding-left: 0;
-}
-
 .so-toque,
 .toque .so-teclado {
   display: none;
@@ -2870,8 +2618,10 @@ body.dano::after {
   display: none;
 }
 
-.toque .arma-encaixe {
-  grid-template-columns: auto auto;
+/* No celular a arma guardada não cabe no painel (empurraria R e F para baixo do
+   botão Z): o TROCA Z/X faz a troca, e o que está guardado se vê no INVENTÁRIO. */
+.toque .arma-encaixe .casa-troca {
+  display: none;
 }
 
 /* No celular a figura das armas e dos itens do painel fica baixa (18 px de altura),
@@ -2879,10 +2629,6 @@ body.dano::after {
 .toque .arma-encaixe .icone-arma,
 .toque .item-nave .icone-consumivel {
   --alt: 18px;
-}
-
-.toque .arma-encaixe.trocando {
-  grid-template-columns: auto auto auto;
 }
 
 /* No celular o painel fica à esquerda do placar e dos botões da direita, com o
@@ -3409,10 +3155,6 @@ body.dano::after {
 @media (max-height: 520px) {
   #atalhos-hud {
     top: 94px;
-  }
-
-  #menu-armas .opcoes {
-    max-height: 62vh;
   }
 }
 
@@ -4098,6 +3840,19 @@ body.dano::after {
 
 .slot.vazio {
   border-style: dashed;
+}
+
+/* Troca rápida: as duas primeiras casas do compartimento, lado a lado como os
+   encaixes, com a tecla (Q, E) na faixa do nome. */
+.casas-troca {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.slot.casa .rot kbd {
+  margin-right: 3px;
+  font: 700 13px ui-monospace, monospace;
 }
 
 .slot.vazio .nm {
