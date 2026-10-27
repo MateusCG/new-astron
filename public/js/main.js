@@ -129,7 +129,7 @@ import { Controles } from './controles.js';
 import { Hud, BONUS_NAVE } from './hud.js';
 import { ObjetivosNaTela, LUGARES_OBJETIVO, NOME_OBJETIVO } from './objetivos.js';
 import { criarLimitador } from './quadros.js';
-import { criarMonstro, animarMonstro, criarMarcadorNucleo, EXPLOSAO_MONSTRO, ROTULO_MONSTRO } from './monstros.js';
+import { criarMonstro, animarMonstro, surgirMonstro, criarMarcadorNucleo, EXPLOSAO_MONSTRO, ROTULO_MONSTRO } from './monstros.js';
 import { TorretasNaTela } from './torretas.js';
 import { Rede } from './rede.js';
 import { mostrarPrevia, pararPrevia } from './vitrine.js';
@@ -181,6 +181,9 @@ const GANHO_OBJETIVO = {
 };
 // Mais que isto para dentro da planta, a câmera estaria dentro da casca do modelo de
 // rocha (que fica até 4 m para fora da planta): a câmera confere uma volta deste raio.
+// Janela (s) entre o evento de que a Medusa apareceu e a entidade dela chegar para ela
+// subir da água (a névoa pode atrasar a entidade um pouco).
+const MEDUSA_SOBE_JANELA_S = 2;
 const CAMERA_FOLGA_ROCHA = 5;
 const CAMERAS = [
   { dist: 22, alt: 8, olhar: 14 },
@@ -637,6 +640,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
   let camYaw = 0;
   let camEscala = 1; // afastamento da câmera pelo tamanho da nave (suavizado na troca)
   let tempo = 0;
+  // A Medusa sobe da água quando aparece: o evento chega e, na entidade dela (no mesmo
+  // snapshot ou logo depois, dentro desta janela), começa a subida.
+  let medusaSobeAte = -Infinity;
   let renasceAte = 0; // performance.now() em que a nave renasce (do renasceEm do servidor)
   let localSeq = 0;
   let saltoCamera = false; // a nave saltou (recall, renascimento): câmera vai junto
@@ -1024,6 +1030,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
         else hud.noticia(`${e.nome} trocou de nave: ${e.nave}`, e.time === meuTime ? 'bom' : 'ruim');
       } else if (e.e === 'objetivo') {
         noticiaObjetivo(e);
+        // A Medusa apareceu no poço: ela sobe da água (o movimento do original).
+        if (e.id === 'MEDUSA' && e.acao === 'apareceu') medusaSobeAte = tempo + MEDUSA_SOBE_JANELA_S;
       } else if (e.e === 'bonusNave' && e.id === meuId) {
         const b = BONUS_NAVE[e.nome];
         hud.noticia(`Bônus de ${b?.nome.toLowerCase() ?? e.nome}: ${b?.efeito ?? ''} por ${Math.round(e.s)} s`, 'bom');
@@ -1236,6 +1244,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
       o.obj.rotation.y = e.yaw;
       o.obj.userData.corpo.rotation.z = e.roll;
       if (e.tipo === 'monstro') {
+        if (e.esp === 'medusa' && tempo < medusaSobeAte) {
+          surgirMonstro(o.obj);
+          medusaSobeAte = -Infinity;
+        }
         animarMonstro(o.obj, tempo, dt, e.id);
         if (e.esp === 'sonda') sonda = o.obj.position;
       } else if (e.tipo === 'minerador') animarMinerador(o.obj, e, tempo, e.id);

@@ -28,11 +28,9 @@
 // fora, o da sonda azul em três arcos girando, o da Medusa violeta largo e lento),
 // para dar para empilhar e ler de longe.
 //
-// Monstros da jungle (server/jungle.js): o tiro de cada ataque (`atq` nos eventos e
-// nos `guiados`) tem forma própria, sempre com o brilho no vermelho de perigo
-// #ff4a2a: bala explosiva laranja, pedra gigante, feixes ópticos, raios de controle,
-// orbes da armadilha pulsando (a Medusa). Os outros atiram com as armas de NPC do
-// original (`kind` 'n511080'...), desenhadas com os EFEITOS DO ORIGINAL tocados como no
+// Monstros da jungle (server/jungle.js): todos atiram com as armas de NPC do original
+// (`kind` 'n511080'...; o ataque, `atq`, vai nos eventos e nos `guiados`),
+// desenhadas com os EFEITOS DO ORIGINAL tocados como no
 // original (efeitos-original.js: o .eff + .3dx + .MPL de cada um; os golpes na escala
 // do monstro, ESCALA_TIRO_ORIGINAL, o que fica preso na nave na dela,
 // ESCALA_ORIGINAL): o projétil em voo (as bolas de fogo do Xerxes, o feixe do Bazit,
@@ -91,13 +89,6 @@ const ANEIS_BONUS = {
   medusa: { cor: new THREE.Color('#e7a6ff'), raio: 9.6, jeito: 'lento' },
 };
 const BONUS_OPACIDADE = 0.85;
-// Monstros: o vermelho de perigo de todo tiro de monstro e a forma de cada ataque (atq).
-const COR_PERIGO = new THREE.Color('#ff4a2a');
-const FORMA_ATQ = {
-  pedra_gigante: { forma: 'pedra', raio: 3.2, cor: '#6e4f36', brilho: 9 },
-  controle: { forma: 'barra', barra: 5, grossura: 0.22, cor: '#9fb0ff', brilho: 2.4 },
-  armadilha: { forma: 'orbe', raio: 1.1, cor: '#ffd0c8', brilho: 5 },
-};
 // Efeitos do original: o que fica preso na nave (ícones de estado, o Magma) na escala
 // das naves (o modelo das naves é o do original × isto); os golpes do monstro
 // (projétil, clarão, impacto, explosão) na escala dos monstros e do raio de acerto dos
@@ -268,7 +259,7 @@ export class Efeitos {
     this.matsPorCor.clear();
     for (const g of this.geoPulso.values()) g.dispose();
     this.geoPulso.clear();
-    for (const r of [this.geoMina, this.geoEspinho, this.geoLuzMina, this.matMina, this.geoMissil, this.geoNarizMissil, this.matMissil, this.geoAnel, this.geoColuna, this.geoAnelRecall, this.geoPedra, this.geoBola, this.geoCascaPulso, this.geoAnelNivel]) {
+    for (const r of [this.geoMina, this.geoEspinho, this.geoLuzMina, this.matMina, this.geoMissil, this.geoNarizMissil, this.matMissil, this.geoAnel, this.geoColuna, this.geoAnelRecall, this.geoCascaPulso, this.geoAnelNivel]) {
       r.dispose();
     }
   }
@@ -346,9 +337,6 @@ export class Efeitos {
     this.reservaParticulas = [];
     this.camera = null; // quem desenha a cena põe a câmera (peças viradas para ela)
     this.pulsos = []; // pulsos do Núcleo de He-3
-    // Peças dos tiros de monstro (uma geometria por forma, liberadas em liberar()).
-    this.geoPedra = new THREE.IcosahedronGeometry(1, 0);
-    this.geoBola = new THREE.IcosahedronGeometry(1, 1);
     // Geometrias de tamanho 1 (a malha escala): pulso e anel de nível.
     this.geoCascaPulso = new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2);
     this.geoPulso = new Map(); // grossura do anel do pulso (em degraus) -> TorusGeometry
@@ -443,7 +431,6 @@ export class Efeitos {
     if (!m) {
       const aditivo = { color: c, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false };
       if (jeito === 'brilho') m = new THREE.SpriteMaterial({ map: brilho(), ...aditivo });
-      else if (jeito === 'pedra') m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.95, flatShading: true });
       else m = new THREE.MeshBasicMaterial({ color: c });
       this.matsPorCor.set(chave, m);
     }
@@ -762,13 +749,14 @@ export class Efeitos {
     for (const m of lista ?? []) {
       vistas.add(m.id);
       let v = this.minas.get(m.id);
-      if (!v && m.campo) {
-        // Campo de arma do original de monstro (o campo elétrico do SN-4): o efeito do
-        // original repetindo, esticado até a área.
-        const id = this.#idOriginal(m.kind, 'a') ?? this.#idOriginal(m.kind, 'p');
+      if (!v) {
+        // Mina ou campo de arma do original de monstro (a armadilha da Medusa, o campo
+        // elétrico do SN-4): o efeito do original repetindo; o campo esticado até a área.
+        const id = this.#idOriginal(m.kind, 'a', m.p ?? 0) ?? this.#idOriginal(m.kind, 'p', m.p ?? 0);
         if (id) {
           const raio = Math.max(3, m.raio ?? 10);
-          const inst = criarEfeitoOriginal(id, { escala: raio / Math.max(1, raioEfeitoOriginal(id)), loop: true });
+          const escala = m.campo ? raio / Math.max(1, raioEfeitoOriginal(id)) : ESCALA_TIRO_ORIGINAL;
+          const inst = criarEfeitoOriginal(id, { escala, loop: true });
           this.scene.add(inst.obj);
           v = { g: inst.obj, original: inst, campo: true };
           this.minas.set(m.id, v);
@@ -868,7 +856,6 @@ export class Efeitos {
    * dela (efeitos-armas.js); `boca` (Vector3) é de onde o desenho sai.
    */
   tiro(b, inimigo = false, cor = null, boca = null) {
-    if (b.atq && FORMA_ATQ[b.atq]) return this.#tiroMonstro(b);
     if (b.atq && this.#tiroOriginal(b)) return;
     const w = WEAPONS[b.kind];
     // Arma do original: a do jogador, ou a de NPC do original que um monstro usa (o
@@ -935,7 +922,7 @@ export class Efeitos {
     const missil = vis.tipo === 'missil_com_rastro';
     const corRastro = vis.r ? new THREE.Color(visualEfeito(vis.r)?.cores?.[0] ?? '#8f8a83') : null;
     const pt = particulaOriginal(id);
-    const particula = pt?.tex ? { tex: pt.tex, tam: pt.raio * 2 * ESCALA_TIRO_ORIGINAL, x: b.x, y: b.y, z: b.z } : null;
+    const particula = pt?.texs.length ? { texs: pt.texs, tam: pt.raio * 2 * ESCALA_TIRO_ORIGINAL, x: b.x, y: b.y, z: b.z } : null;
     this.tiros.set(b.id, { b, g: inst.obj, original: inst, guiado: missil, corRastro, particula, rastro: { x: b.x, y: b.y, z: b.z } });
     return true;
   }
@@ -951,7 +938,7 @@ export class Efeitos {
       if (!s) {
         s = new THREE.Sprite(new THREE.SpriteMaterial({ blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
       }
-      const mapa = texturaEfeito(r.tex);
+      const mapa = texturaEfeito(r.texs[Math.floor(Math.random() * r.texs.length)]);
       if (s.material.map !== mapa) {
         s.material.map = mapa;
         s.material.needsUpdate = true;
@@ -1022,47 +1009,6 @@ export class Efeitos {
     const id = this.#idOriginal(kind, 'p', prof);
     if (id) this.#umaVez(id, x, y, z, raio / Math.max(1, raioEfeitoOriginal(id, true)));
     else this.armas.nova(kind, 1, prof, x, y, z, raio, vel);
-  }
-
-  /**
-   * Tiro de monstro pelo ataque (`b.atq`, FORMA_ATQ): a peça do ataque e o brilho no
-   * vermelho de perigo. Mísseis viram com a curva e deixam fumaça, como os outros.
-   */
-  #tiroMonstro(b) {
-    const f = FORMA_ATQ[b.atq];
-    const g = new THREE.Group();
-    let animar = null;
-    if (f.forma === 'pedra') {
-      const pedra = new THREE.Mesh(this.geoPedra, this.#matPorCor('pedra', f.cor));
-      pedra.scale.setScalar(f.raio);
-      g.add(pedra);
-      animar = (dt) => {
-        pedra.rotation.x += dt * 5;
-        pedra.rotation.y += dt * 3;
-      };
-    } else if (f.forma === 'bola' || f.forma === 'orbe') {
-      const bola = new THREE.Mesh(this.geoBola, this.#matPorCor('solido', f.cor));
-      bola.scale.setScalar(f.raio);
-      g.add(bola);
-      if (f.forma === 'orbe') animar = (dt, t) => bola.scale.setScalar(f.raio * (0.8 + 0.35 * Math.sin(t * 9)));
-    } else if (f.forma === 'barra') {
-      g.add(new THREE.Mesh(this.#barra(f), this.#matPorCor('solido', new THREE.Color(f.cor).lerp(COR_BRANCO, 0.35))));
-    } else if (f.forma === 'missil') {
-      const casco = new THREE.Mesh(this.geoMissil, this.matMissil);
-      casco.rotation.x = Math.PI / 2;
-      const nariz = new THREE.Mesh(this.geoNarizMissil, this.matMissil);
-      nariz.rotation.x = Math.PI / 2;
-      nariz.position.z = 1.6;
-      g.add(casco, nariz);
-    }
-    const s = new THREE.Sprite(this.#matPorCor('brilho', COR_PERIGO));
-    s.scale.setScalar(f.brilho);
-    if (f.forma === 'missil') s.position.z = -1.5;
-    g.add(s);
-    g.position.set(b.x, b.y, b.z);
-    g.lookAt(b.x + b.vx, b.y + b.vy, b.z + b.vz);
-    this.scene.add(g);
-    this.tiros.set(b.id, { b, g, guiado: f.forma === 'missil', corRastro: null, animar, rastro: { x: b.x, y: b.y, z: b.z } });
   }
 
   /**
@@ -1154,7 +1100,6 @@ export class Efeitos {
         continue;
       }
       t.g.position.set(t.b.x, t.b.y, t.b.z);
-      t.animar?.(dt, this.tempo);
       if (t.desvio) {
         // Sai da boca da arma e encontra a linha do tiro de verdade.
         t.desvio.t += dt;

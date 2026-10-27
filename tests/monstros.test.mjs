@@ -11,7 +11,8 @@ import { readFileSync } from 'node:fs';
 import { ESPECIES, alcanceMaximo, FATOR_HP_M5, FATOR_DANO_M5, FATOR_XP_M5, FATOR_RECARGA_ORIGINAL, FATOR_VEL_MONSTRO, FATOR_DANO_ESPECIE, ALCANCE_MAX_ORIGINAL } from '../server/especies.js';
 import { ARMAS_NPC_ORIGINAL } from '../shared/armas-original.js';
 import { RAIVA_S, corpoLivre, golpeDoAtaque } from '../server/jungle.js';
-import { WEAPONS, ARMAS, FATOR_AREA, armasDisponiveis, visualDoOriginal } from '../shared/armas.js';
+import { MINA_MAX_MONSTRO } from '../server/golpes.js';
+import { WEAPONS, ARMAS, FATOR_AREA, MINA_MAX, armasDisponiveis, visualDoOriginal } from '../shared/armas.js';
 import { RACAS_JOGAVEIS, ORDEM_CLASSES } from '../shared/naves.js';
 import { CAMPO } from './lugares.mjs';
 
@@ -176,7 +177,7 @@ test('monstros: a Medusa alterna os ataques um de cada vez; o SN-4 solta míssei
     }
   }
   const atqs = new Set([...porTick.values()].flatMap((s) => [...s]));
-  assert.ok(atqs.has('pedra_gigante') && atqs.has('controle'), `pedras e controle (${[...atqs]})`);
+  assert.ok(atqs.has('canhao_pedra') && atqs.has('disparo_controle'), `pedras e controle (${[...atqs]})`);
   assert.ok([...porTick.values()].every((s) => s.size === 1), 'um ataque por vez');
   assert.ok(j.ship.desgov > 0 || j.ship.hp < j.ship.maxHp, 'acertou');
 
@@ -289,7 +290,7 @@ test('SN-3 e SN-Zero VI: números do original (unidade, NPC e armas) na escala d
 
 test('monstros: as armas de NPC do original ficam no fim do catálogo, fora das do jogador', () => {
   const npc = ARMAS_NPC_ORIGINAL.map((a) => `n${a.id}`);
-  assert.deepEqual(npc, ['n510372', 'n510373', 'n511080', 'n511090', 'n550120', 'n550130', 'n550140', 'n511150', 'n511160', 'n511155', 'n511140', 'n511170', 'n511180']);
+  assert.deepEqual(npc, ['n510372', 'n510373', 'n511080', 'n511090', 'n550120', 'n550130', 'n550140', 'n511150', 'n511160', 'n511155', 'n511140', 'n511170', 'n511180', 'n550150', 'n550160', 'n550170']);
   assert.deepEqual(ARMAS.slice(-npc.length), npc);
   for (const k of npc) {
     assert.ok(WEAPONS[k].npc && WEAPONS[k].original && visualDoOriginal(k), k);
@@ -389,15 +390,17 @@ test('SN-3: o Disco Voador sai em leque de 3 e o míssil teleguiado descarrega a
   assert.ok(outro.j.ship.en < outro.j.ship.maxEn * 0.1, `energia descarregada (${outro.j.ship.en.toFixed(1)})`);
 });
 
-test('Stage 6 e SN-4: as armas e os pesos do initnpc.cfg, um ataque por vez no ritmo da arma mais rápida', () => {
+test('Stage 6, SN-4 e Medusa: as armas e os pesos do initnpc.cfg, um ataque por vez no ritmo da arma mais rápida', () => {
   // cols 13–16 (armas) e 22–25 (pesos) do initnpc.cfg: 705050 Xerxes, 705055 Great
-  // Xerxes, 705040 Bazit (a mesma arma nos dois encaixes), 705060 Anti, 702600 SN-4.
+  // Xerxes, 705040 Bazit (a mesma arma nos dois encaixes), 705060 Anti, 702600 SN-4,
+  // 702700 Ancient Medusa.
   const esperado = {
     xerxes: [['n511150', 30], ['n511160', 70]],
     great_xerxes: [['n511155', 100]],
     bazit: [['n511140', 100]],
     anti: [['n511170', 50], ['n511180', 50]],
     sn4: [['n550120', 40], ['n550130', 40], ['n550140', 40]],
+    medusa: [['n550150', 40], ['n550160', 40], ['n550170', 70]],
   };
   for (const [esp, armas] of Object.entries(esperado)) {
     const e = ESPECIES[esp];
@@ -478,4 +481,88 @@ test('SN-3 e SN-Zero VI: o glb traz a animação STAND do original (24 quadros p
   }
   const luz = glb('snzero').materials.find((m) => m.name === 'nu0040_light');
   assert.ok(luz?.extras?.aditivo && luz.alphaMode === 'BLEND', 'o cone de luz do SN-Zero VI');
+});
+
+test('Medusa: a armadilha paralisante solta 8 cargas em volta que viram minas; com a nave perto, a mina atira e impede o tiro', () => {
+  const { w, j } = mundo(0, 877 - 120);
+  j.ship.maxHp = j.ship.hp = 1e6;
+  const m = w.jungle.criarMonstro('medusa', 0, 877);
+  soAtaque(m, 'armadilha_paralisante');
+  w.jungle.provocar(m, j.id);
+  const ev = eventosDe(w, m, 3);
+  const cargas = ev.filter(([, e]) => e.e === 'tiro' && e.dono === m.id && e.atq === 'armadilha_paralisante' && e.p === 0);
+  const t0 = cargas[0][0];
+  const salva = cargas.filter(([t]) => t === t0).map(([, e]) => Math.atan2(-e.vx, -e.vz));
+  assert.equal(salva.length, 8, '8 cargas por salva');
+  const passo = Math.PI / 4;
+  const angs = salva.map((a) => ((a - salva[0]) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI)).sort((a, b) => a - b);
+  angs.forEach((a, i) => assert.ok(Math.abs(a - i * passo) < 0.01, `a cada 45° (${((a * 180) / Math.PI).toFixed(1)}°)`));
+  const minas = w.minas.filter((x) => x.dono === m.id);
+  assert.ok(minas.length >= 7, `viraram minas (${minas.length})`);
+  assert.ok(minas.every((x) => x.kind === 'n550150' && (x.fimTick - w.tick) / 30 > 25), 'minas de 30 s');
+  assert.ok(j.ship.semTiro > 0, 'a mina perto atirou e impediu o tiro');
+  const deb = ev.map(([, e]) => e).find((e) => e.e === 'debuff' && e.para === j.id);
+  assert.equal(deb?.ef, 'semTiro');
+  assert.equal(deb.dur, 2.5);
+  const fx = w.snapshotPara(j, w.entidades(), []).ents.find((e) => e.id === j.id)?.fx ?? [];
+  assert.ok(fx.includes('semTiro') && !fx.includes('para'), `só o tiro impedido: a espada, não o LD (${fx})`);
+});
+
+test('Medusa: monstro guarda as minas do original (três salvas), o piloto continua no teto dele', () => {
+  // A nave longe das minas (a 120 m da Medusa, fora dos 48 m em que a mina atira).
+  const { w, j } = mundo(0, 877 - 120);
+  j.ship.maxHp = j.ship.hp = 1e6;
+  const m = w.jungle.criarMonstro('medusa', 0, 877);
+  soAtaque(m, 'armadilha_paralisante');
+  w.jungle.provocar(m, j.id);
+  for (let i = 0; i < 3; i++) {
+    m.livreAte = 0;
+    m.prox[0] = 0;
+    rodar(w, 1.2);
+  }
+  assert.ok(w.minas.filter((x) => x.dono === m.id).length > MINA_MAX, 'mais que as 8 de um piloto');
+  assert.ok(w.minas.filter((x) => x.dono === m.id).length <= MINA_MAX_MONSTRO);
+});
+
+test('Medusa: o disparo de controle sai em leque de 10 com área e desgoverna; a pedra sai em rajada de 2', () => {
+  const { w, j } = mundo(0, 877 - 150);
+  j.ship.maxHp = j.ship.hp = 1e6;
+  const m = w.jungle.criarMonstro('medusa', 0, 877);
+  soAtaque(m, 'disparo_controle');
+  w.jungle.provocar(m, j.id);
+  const ev = eventosDe(w, m, 2);
+  const tiros = ev.filter(([, e]) => e.e === 'tiro' && e.atq === 'disparo_controle');
+  assert.equal(tiros.filter(([t]) => t === tiros[0][0]).length, 10, '10 tiros por disparo');
+  assert.ok(ev.some(([, e]) => e.e === 'explosao' && e.atq === 'disparo_controle'), 'com área');
+  assert.ok(j.ship.desgov > 0, 'desgovernou');
+  assert.equal(ev.map(([, e]) => e).find((e) => e.e === 'debuff')?.ef, 'desgoverno');
+
+  const outro = mundo(0, 877 - 150);
+  outro.j.ship.maxHp = outro.j.ship.hp = 1e6;
+  const med = outro.w.jungle.criarMonstro('medusa', 0, 877);
+  soAtaque(med, 'canhao_pedra');
+  outro.w.jungle.provocar(med, outro.j.id);
+  const ev2 = eventosDe(outro.w, med, 2.5);
+  const pedras = ev2.filter(([, e]) => e.e === 'tiro' && e.atq === 'canhao_pedra');
+  assert.ok(pedras.length >= 2 && pedras[1][0] - pedras[0][0] <= 1, '2 pedras em seguida');
+  assert.ok(outro.j.ship.hp < outro.j.ship.maxHp, 'a pedra acertou');
+});
+
+test('Medusa: o glb traz a pele do original (112 ossos) e os movimentos do .eff: o laço STAND e a subida da água', () => {
+  const b = readFileSync(new URL('../public/modelos/monstros/medusa.glb', import.meta.url));
+  const g = JSON.parse(b.subarray(20, 20 + b.readUInt32LE(12)).toString());
+  assert.equal(g.skins.length, 1);
+  assert.equal(g.skins[0].joints.length, 112, '112 ossos');
+  assert.equal(g.accessors[g.skins[0].inverseBindMatrices].count, 112);
+  const comPele = g.nodes.filter((n) => n.skin === 0);
+  assert.equal(comPele.length, 2, 'a cúpula e os tentáculos');
+  for (const n of comPele) {
+    const at = g.meshes[n.mesh].primitives[0].attributes;
+    assert.ok(at.JOINTS_0 !== undefined && at.WEIGHTS_0 !== undefined);
+  }
+  const nomes = g.animations.map((a) => a.name);
+  for (const n of ['STAND', 'STAND02', 'STAND03', 'STAND04']) assert.ok(nomes.includes(n), n);
+  const dur = (n) => g.accessors[g.animations.find((a) => a.name === n).samplers.find((s) => g.accessors[s.input].count > 1).input].max[0];
+  assert.ok(Math.abs(dur('STAND') - 56 / 24) < 1e-6, 'o laço: quadros 146–202 do .eff, 24 por segundo');
+  for (const n of ['STAND02', 'STAND03', 'STAND04']) assert.ok(Math.abs(dur(n) - 23 / 24) < 1e-6, `${n}: 24 quadros`);
 });

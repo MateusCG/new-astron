@@ -18,9 +18,9 @@
 //
 // Armas do original (pedido do Mateus, out/2026: "exatamente iguais ao old-astron";
 // primeiro o SN-3 e o SN-Zero VI, depois o padrão de ataque do SN-4, do Grande Xerxes,
-// do Xerxes, do Bazit e do Anti): cada um é o NPC do original (initnpc.cfg) com a
-// unidade dele (initunit.cfg) e as armas "(NPC)" dele (inititemweapon.cfg, cols 13+ do
-// initnpc), que entram no catálogo como as do jogador (WEAPONS 'n511080'...,
+// do Xerxes, do Bazit e do Anti, e por fim o da Medusa): cada um é o NPC do original
+// (initnpc.cfg) com a unidade dele (initunit.cfg) e as armas "(NPC)" dele
+// (inititemweapon.cfg, cols 13+ do initnpc), que entram no catálogo como as do jogador (WEAPONS 'n511080'...,
 // shared/armas.js): forma do golpe, canos, leque, rajada, teleguiado, área, nova,
 // campo, armadilha, efeito no alvo (o Magma do lança-chamas, a quebra de resistências
 // do campo elétrico, a descarga de energia do míssil do SN-3), visual e som saem do
@@ -60,14 +60,13 @@
 // - 'nova': onda em volta do monstro até `alcance` m (só com alguém dentro);
 // - 'campo': área no chão embaixo do alvo, fere a cada `intervaloCampoS` por `vidaS`;
 // - 'arma': a arma de NPC do original `kind` ('n511080'...), com o golpe dela inteiro
-//   (todos menos a Medusa; a armadilha e o campo caem embaixo do alvo, a nova abre em
-//   volta do monstro).
+//   (todos; a armadilha do SN-Zero VI e o campo do SN-4 caem embaixo do alvo, a nova
+//   abre em volta do monstro, as armadilhas da Medusa saem dela em volta e viram minas).
 // `kind` é o tiro de NPC do catálogo ('laser' ou 'plasma'), para quem já desenha
 // esses; `atq` é o nome do ataque no protocolo (o cliente desenha cada um do seu
 // jeito: ver o comentário do topo de server/index.js). `efeito` vai no alvo (lento,
-// desgoverno, sem tiro), com os mesmos efeitos das armas. `peso` (Medusa) é a chance
-// de escolher o ataque entre os prontos, do original (pedras 70, controle 40,
-// armadilhas 40).
+// desgoverno, sem tiro), com os mesmos efeitos das armas. `peso` é a chance de
+// escolher o ataque entre os prontos, do original (cols 22–25 do initnpc).
 
 import { ARMAS_NPC_ORIGINAL } from '../shared/armas-original.js';
 import { FATOR_AREA, WEAPONS, versaoArma } from '../shared/armas.js';
@@ -87,9 +86,10 @@ export const FATOR_RECARGA_M5 = FATOR_RECARGA_ORIGINAL;
  * FATOR_DANO_M5). Escolhido para o dano por segundo de perto, um ataque por vez no
  * ritmo de cima, ficar perto do de antes de cada papel: Xerxes ~4 a 6 e Grande
  * Xerxes ~10 com o Magma (4 e 6 de HP por segundo enquanto a chama pega), Anti ~7,5,
- * Bazit ~3,75; o SN-4 é chefe (dez mísseis em volta, a onda e o campo).
+ * Bazit ~3,75; o SN-4 é chefe (dez mísseis em volta, a onda e o campo); a Medusa,
+ * chefe de time inteiro, ~30 no alvo das pedras (12 por pedra, um ataque a cada 0,5 s).
  */
-export const FATOR_DANO_ESPECIE = { xerxes: 0.001, great_xerxes: 0.001, bazit: 0.0031, anti: 0.0098, sn4: 0.02 };
+export const FATOR_DANO_ESPECIE = { xerxes: 0.001, great_xerxes: 0.001, bazit: 0.0031, anti: 0.0098, sn4: 0.02, medusa: 0.009 };
 /** Alcance máximo de um ataque com arma do original (m): o do Disco Voador do SN-3, perto da visão do time (550). */
 export const ALCANCE_MAX_ORIGINAL = 480;
 /** SN-4: a armadilha de campo elétrico cai embaixo do alvo a até isto (m), como o campo de antes. */
@@ -107,10 +107,6 @@ export const ALCANCE_ARMADILHA = 150;
 /** Território (m) que o monstro não passa: col 7 do initnpc (1000 nos comuns, 700 nos chefes) × 0,25. */
 export const TERRITORIO_COMUM = 250;
 export const TERRITORIO_CHEFE = 175;
-
-/** Efeitos no alvo (mesmo formato dos efeitos das armas, shared/armas.js). */
-const DESGOVERNO = { tipo: 'desgoverno', alvo: 'inimigo', dur: 1.5 };
-const SEM_TIRO = { tipo: 'semTiro', alvo: 'inimigo', dur: 2 };
 
 /**
  * Ataque com a arma "(NPC)" `id` do original: dano do original × `fatorDano`; recarga
@@ -223,14 +219,21 @@ export const ESPECIES = {
       ataqueDoOriginal('campo_eletrico', '550140', 40, { alcance: ALCANCE_CAMPO_SN4 }, FATOR_DANO_ESPECIE.sn4),
     ],
   },
+  // Ancient Medusa (chefe do Stage M6, npc 702700): Armadilha Paralisante (550150, 40:
+  // 8 cargas em volta, a cada 45°, que freiam e viram minas de 30 s; com inimigo perto,
+  // a mina solta um teleguiado que impede o tiro por 2,5 s), Disparo de Controle
+  // (550160, 40: 10 tiros em leque de 36° com área, desgoverno de 3 s) e Canhão de
+  // Pedra (550170, 70: 2 pedras que atravessam). Não se teleporta (decisão do Mateus):
+  // fica no poço atirando.
   medusa: {
     nome: 'Medusa Anciã', hp: 12000, regenHpS: 10, velocidade: 12, raio: 20, tamanho: 48, alturaCentro: 18,
     xp: 220, ouro: 150, doTime: true, // XP e ouro para CADA piloto do time de quem deu o golpe final
-    territorio: TERRITORIO_CHEFE, chefe: true, entreAtaquesS: 1.5,
+    territorio: TERRITORIO_CHEFE, chefe: true,
+    entreAtaquesS: ritmoDoOriginal('550150', '550160', '550170'),
     ataques: [
-      { atq: 'pedra_gigante', peso: 70, forma: 'projetil', kind: 'plasma', tipoDano: 'fisico', dano: 30, tiros: 2, leque: 0.06, intervaloS: 3, alcance: 300, vel: 160, raioTiro: 8 },
-      { atq: 'controle', peso: 40, forma: 'projetil', kind: 'laser', tipoDano: 'eletrico', dano: 3, tiros: 10, leque: 0.1, intervaloS: 7, alcance: 250, vel: 200, efeito: DESGOVERNO },
-      { atq: 'armadilha', peso: 40, forma: 'guiado', kind: 'plasma', tipoDano: 'eletrico', dano: 10, tiros: 8, leque: 0.35, intervaloS: 12, alcance: 100, vel: 45, giro: 3, efeito: SEM_TIRO },
+      ataqueDoOriginal('armadilha_paralisante', '550150', 40, {}, FATOR_DANO_ESPECIE.medusa),
+      ataqueDoOriginal('disparo_controle', '550160', 40, {}, FATOR_DANO_ESPECIE.medusa),
+      ataqueDoOriginal('canhao_pedra', '550170', 70, {}, FATOR_DANO_ESPECIE.medusa),
     ],
   },
   sonda: {

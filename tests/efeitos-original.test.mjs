@@ -42,8 +42,8 @@ test('efeitos do original: cada um convertido, com as peças, os quadros e as te
   }
 });
 
-test('efeitos do original: as armas do SN-3, SN-4, Xerxes, Grande Xerxes, Bazit e Anti têm o projétil e o impacto do original', () => {
-  for (const esp of ['sn3', 'sn4', 'xerxes', 'great_xerxes', 'bazit', 'anti']) {
+test('efeitos do original: as armas do SN-3, SN-4, Xerxes, Grande Xerxes, Bazit, Anti e Medusa têm o projétil e o impacto do original', () => {
+  for (const esp of ['sn3', 'sn4', 'xerxes', 'great_xerxes', 'bazit', 'anti', 'medusa']) {
     for (const a of ESPECIES[esp].ataques) {
       const vis = golpeDaArma(a.kind, 1, 0).vis;
       for (const campo of ['d', 'p', 'i', 'f', 'a']) {

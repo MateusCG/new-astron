@@ -39,6 +39,9 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
   '1361153', '1361253', '1412001', '1322060', '1421001', '1421002',
   // Bazit: o feixe óptico. Anti: o canhão teleguiado, o impacto do míssil e o fim do canhão.
   '1322065', '1322061', '1401007', '2432001',
+  // Medusa: a armadilha paralisante (a esfera ciano), a pedra e o disparo de controle
+  // (as partículas verdes) e o respingo verde da pedra.
+  '1322063', '1322064', '1421030',
   // Estados na nave: o fogo do Magma e os ícones.
   '1164001', 'cross003', 'cross002', 'cross007', 'cross008', 'cross010', 'cross013',
 ]);
@@ -46,13 +49,13 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
 /**
  * Ícone 3D do original em cima da nave para cada estado da lista `fx` (os que o
  * original marca: CUnit::ChangeEffectFlag), na ordem em que empilham: o capacete das
- * resistências (quebraResistencias, o campo do SN-4; o capacete azul dentro do círculo
- * vermelho), o "LD" da paralisia, o avião
- * proibido do desgoverno, o "E" da energia (a descarga do míssil do SN-3, o dreno e a
- * recarga cortada) e a espada proibida do ataque enfraquecido. Os mesmos símbolos das
- * mensagens de debuff (debuffs.js).
+ * resistências quebradas (o campo do SN-4; azul, dentro do círculo vermelho), o "LD" da
+ * paralisia, a espada proibida do tiro impedido (a armadilha da Medusa), as setas
+ * proibidas do desgoverno (o disparo de controle da Medusa), o "E" da energia (a
+ * descarga do míssil do SN-3, o dreno e a recarga cortada) e a espada proibida do
+ * ataque enfraquecido. Os mesmos símbolos das mensagens de debuff (debuffs.js).
  */
-export const ICONES_ESTADO = Object.freeze({ resist: 'cross003', para: 'cross002', desg: 'cross010', descarga: 'cross013', energia: 'cross013', fraco: 'cross008' });
+export const ICONES_ESTADO = Object.freeze({ resist: 'cross003', para: 'cross002', semTiro: 'cross008', desg: 'cross010', descarga: 'cross013', energia: 'cross013', fraco: 'cross008' });
 /** O fogo do Magma na nave (o dreno de HP do original: faíscas vermelhas subindo). */
 export const MAGMA_NA_NAVE = '1164001';
 

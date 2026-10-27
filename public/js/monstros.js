@@ -15,10 +15,16 @@
 //   por monstro, cada um numa fase) e eles não ganham o balanço inventado. O cone de
 //   luz (material `extras.aditivo` no glb) é desenhado aditivo, como os efeitos do
 //   original.
+// - A Medusa é a do original com o esqueleto: a pele (112 ossos, até 4 por vértice) e
+//   os movimentos do .eff dela (tools/monstros_do_original.py): parada, toca o laço
+//   STAND (os tentáculos e os braços com garras ondulando) e, quando aparece no poço,
+//   SOBE DA ÁGUA como no original (STAND02 → 03 → 04: ela nasce ~85 m abaixo, o alfa
+//   abre no STAND02, e emenda no STAND; surgirMonstro). O original usava esses
+//   movimentos no teletransporte, que aqui não existe (decisão do Mateus). Fica com o
+//   centro a MEDUSA_CENTRO m (a física põe todo monstro na altura de voo; ela é
+//   desenhada mais alta, com os tentáculos chegando na água), sem o balanço inventado.
 // - As outras espécies sobem e descem devagar e balançam de leve (os modelos são a pose
-//   parada, sem ossos); a sonda zumbe mais rápido; a Medusa "respira" (a cúpula estica) e
-//   fica com o centro a MEDUSA_CENTRO m (a física põe todo monstro na altura de voo;
-//   ela é desenhada mais alta, com os tentáculos chegando na água).
+//   parada, sem ossos); a sonda zumbe mais rápido.
 // - O SN-4 (chefe do buff de ataque) é desenhado ESCALA_MONSTRO.sn4 = 2× o glb (60 m
 //   de comprimento), casando com o raio de acerto dobrado do servidor
 //   (server/especies.js); o centro sobe para CENTRO_MONSTRO.sn4, para a quilha não
@@ -30,6 +36,7 @@
 
 import * as THREE from 'three';
 import { HOVER } from '/shared/sim.js';
+import { clone as clonarComOssos } from 'three/addons/utils/SkeletonUtils.js';
 import { PASTA_MODELOS_MONSTRO, ESPECIES_MONSTRO } from './insumos.js';
 
 /** Tamanho do ponto de cada espécie no minimapa (px): quanto mais perigoso, maior. */
@@ -57,8 +64,14 @@ const BALANCO = {
   bazit: { sobe: 0.8, freq: 2.4, rola: 0.14 },
   anti: { sobe: 0.6, freq: 1.4, rola: 0.05 },
   sn4: { sobe: 2.0, freq: 0.7, rola: 0.03 }, // o dobro do tamanho: balança mais alto e mais devagar
-  medusa: { sobe: 1.5, freq: 0.7, rola: 0.03 },
+  medusa: { sobe: 0, freq: 0, rola: 0 }, // o laço do original já mexe tudo
 };
+/**
+ * Subida da água (os movimentos do original, na ordem) e quanto do começo dela o alfa
+ * leva para abrir (o STAND02 inteiro: 24 quadros, de 0 a 1 de 0,05 em 0,05).
+ */
+const SUBIDA = ['STAND02', 'STAND03', 'STAND04'];
+const SUBIDA_ALFA_S = 1;
 /** Efeitos em volta da Medusa: até quantos ao mesmo tempo, a cada quanto nasce um, e o raio (m). */
 const MEDUSA_FX = { max: 12, intervaloS: 0.35, raioSangue: 17, raioBolha: 15 };
 
@@ -111,7 +124,11 @@ export function carregarMonstro(nome) {
         o.material = Array.isArray(o.material) ? o.material.map(prepararMaterial) : prepararMaterial(o.material);
         o.castShadow = ![o.material].flat().some((mat) => mat.userData.aditivo);
       });
-      raiz.userData.clipes = gltf.animations ?? []; // a animação do original (SN-3, SN-Zero VI)
+      raiz.userData.clipes = gltf.animations ?? []; // a animação do original (SN-3, SN-Zero VI, Medusa)
+      raiz.userData.comOssos = false;
+      raiz.traverse((o) => {
+        if (o.isSkinnedMesh) raiz.userData.comOssos = true;
+      });
       prontos.set(nome, raiz);
       return raiz;
     })();
@@ -136,7 +153,14 @@ function montar(raiz, modelo) {
   const { corpo } = raiz.userData;
   if (raiz.userData.casco) corpo.remove(raiz.userData.casco);
   let casco;
-  if (modelo) casco = modelo.clone(true);
+  // Malha com pele (a Medusa) precisa clonar o esqueleto junto; e o material é só dela
+  // (o alfa abre na subida da água).
+  if (modelo?.userData.comOssos) {
+    casco = clonarComOssos(modelo);
+    casco.traverse((o) => {
+      if (o.isMesh) o.material = o.material.clone();
+    });
+  } else if (modelo) casco = modelo.clone(true);
   else {
     matLugar ??= new THREE.MeshStandardMaterial({ color: '#ff4a2a', emissive: '#ff4a2a', emissiveIntensity: 0.9, flatShading: true });
     casco = new THREE.Mesh(GEO_LUGAR, matLugar);
@@ -145,16 +169,69 @@ function montar(raiz, modelo) {
   casco.scale.multiplyScalar(ESCALA_MONSTRO[raiz.userData.esp] ?? 1);
   corpo.add(casco);
   raiz.userData.casco = casco;
-  // Animação do original em laço, começando num quadro qualquer (o acampamento não bate as asas junto).
-  const clipe = modelo?.userData.clipes?.[0];
+  // Animação do original em laço (STAND), começando num quadro qualquer (o acampamento
+  // não bate as asas junto).
+  const clipes = modelo?.userData.clipes ?? [];
+  const clipe = clipes.find((c) => c.name === 'STAND') ?? clipes[0];
   raiz.userData.mixer = null;
+  raiz.userData.clipes = clipes;
   if (clipe) {
     const mixer = new THREE.AnimationMixer(casco);
     const acao = mixer.clipAction(clipe);
     acao.play();
     acao.time = Math.random() * clipe.duration;
     raiz.userData.mixer = mixer;
+    raiz.userData.parado = acao;
   }
+  if (raiz.userData.subirAoMontar) surgirMonstro(raiz);
+}
+
+/**
+ * O monstro sobe da água como no original (a Medusa: STAND02, 03 e 04 em seguida, o
+ * alfa abrindo no STAND02, e o laço STAND no fim). Sem os movimentos (ou com o modelo
+ * ainda chegando), sobe quando o modelo montar.
+ */
+export function surgirMonstro(raiz) {
+  const ud = raiz.userData;
+  const clipes = SUBIDA.map((n) => ud.clipes?.find((c) => c.name === n));
+  if (!ud.mixer || clipes.some((c) => !c)) {
+    ud.subirAoMontar = !ud.casco || ud.casco.isMesh; // ainda o losango: espera o modelo
+    return;
+  }
+  ud.subirAoMontar = false;
+  const mixer = ud.mixer;
+  mixer.stopAllAction();
+  const acoes = clipes.map((c) => {
+    const a = mixer.clipAction(c);
+    a.setLoop(THREE.LoopOnce, 1);
+    a.clampWhenFinished = true;
+    return a;
+  });
+  let i = 0;
+  acoes[0].reset().play();
+  const proxima = (ev) => {
+    if (ev.action !== acoes[i]) return;
+    acoes[i].stop();
+    i++;
+    if (i < acoes.length) acoes[i].reset().play();
+    else {
+      mixer.removeEventListener('finished', proxima);
+      ud.parado?.reset().play();
+    }
+  };
+  mixer.addEventListener('finished', proxima);
+  ud.subida = { t: 0 };
+  alfaDoCasco(ud.casco, 0);
+}
+
+/** Alfa do casco (subida da água): `k` 0 some, 1 normal (sólido de novo). */
+function alfaDoCasco(casco, k) {
+  casco?.traverse((o) => {
+    if (!o.isMesh || o.material.userData.aditivo) return;
+    o.material.transparent = k < 1;
+    o.material.depthWrite = k >= 1;
+    o.material.opacity = k;
+  });
 }
 
 /**
@@ -228,7 +305,7 @@ export function prepararFxMedusa(raiz) {
   nascerFxMedusa(raiz, false);
 }
 
-/** Anima o monstro (chamar a cada quadro): balanço da espécie e, na Medusa, a respiração e os efeitos. */
+/** Anima o monstro (chamar a cada quadro): a animação do original, o balanço da espécie, a subida da água e, na Medusa, os efeitos em volta. */
 export function animarMonstro(raiz, t, dt, fase = 0) {
   const ud = raiz.userData;
   ud.mixer?.update(dt);
@@ -236,10 +313,13 @@ export function animarMonstro(raiz, t, dt, fase = 0) {
   const base = CENTRO_MONSTRO[ud.esp] ? CENTRO_MONSTRO[ud.esp] - HOVER : 0;
   ud.corpo.position.y = base + Math.sin(t * b.freq + fase) * b.sobe;
   ud.corpo.rotation.z = Math.sin(t * b.freq * 0.5 + fase * 1.7) * b.rola;
+  if (ud.subida) {
+    ud.subida.t += dt;
+    const k = Math.min(1, ud.subida.t / SUBIDA_ALFA_S);
+    alfaDoCasco(ud.casco, k);
+    if (k >= 1) ud.subida = null;
+  }
   if (ud.esp !== 'medusa' || !ud.casco) return;
-  // A cúpula estica e encolhe devagar, como água-viva nadando.
-  const k = Math.sin(t * 1.1 + fase);
-  ud.casco.scale.set(1 - 0.03 * k, 1 + 0.05 * k, 1 - 0.03 * k);
   ud.accFx += dt;
   while (ud.accFx >= MEDUSA_FX.intervaloS) {
     ud.accFx -= MEDUSA_FX.intervaloS;
