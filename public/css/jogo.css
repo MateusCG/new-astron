@@ -1607,9 +1607,8 @@ kbd {
 }
 
 #carregando .ic .icone-item {
+  --alt: 22px;
   display: block;
-  width: 22px;
-  height: 22px;
 }
 
 #carregando .seg {
@@ -1731,7 +1730,7 @@ dd {
 .arma-encaixe {
   position: relative;
   display: grid;
-  grid-template-columns: auto 26px auto;
+  grid-template-columns: auto auto auto;
   align-items: center;
   gap: 7px;
   padding: 5px 10px 9px;
@@ -1757,8 +1756,7 @@ dd {
 }
 
 .arma-encaixe .icone-arma {
-  width: 26px;
-  height: 26px;
+  --alt: 26px;
 }
 
 .arma-encaixe .recarga {
@@ -1803,7 +1801,7 @@ dd {
 }
 
 .arma-encaixe.trocando {
-  grid-template-columns: auto 26px auto auto;
+  grid-template-columns: auto auto auto auto;
 }
 
 .arma-encaixe.trocando .espera {
@@ -1814,16 +1812,24 @@ dd {
   opacity: 0.4;
 }
 
-/* Ícone de item do original (icones-itens.js): a figura de 64 × 64 sobre preto, com
-   a moldura na cor do tipo de dano já desenhada nela, e o número da versão (V2 a V8)
-   no canto de baixo à direita, como no INVENTÁRIO do original. Cada painel diz o
-   tamanho (largura e altura); o número acompanha. */
+/* Ícone de item do original (icones-itens.js): a figura sobre preto, com a moldura
+   na cor do tipo de dano já desenhada nela, e o número da versão (V2 a V8) no canto
+   de baixo à direita, como no INVENTÁRIO do original.
+   A textura é de 64 × 64, mas o original NÃO a mostra quadrada: estica no botão do
+   item, que tem 76 × 39 na tela dele (gameinterface.txt: os encaixes WEAPON/SHIELD/
+   ARMOR/ENHANCER e o compartimento, "Width = #(102)-(26)", "Height = #(329+39)-(329)").
+   A peça foi desenhada espremida na horizontal para isso; em quadrado ela fica
+   estreita e alta. Por isso aqui a figura tem a proporção 76 × 39 do botão.
+   Cada painel diz só a altura (--alt); a largura e o número saem dela. O número é um
+   quadrado de 12 × 12 do original (item_lv), a 4 da direita e 3 de baixo no botão de
+   76 × 39: não estica junto com a figura. */
 .icone-item {
+  --alt: 40px;
   position: relative;
   display: inline-block;
   flex: none;
-  width: 40px;
-  height: 40px;
+  width: calc(var(--alt) * 76 / 39);
+  height: var(--alt);
   background: #000;
 }
 
@@ -1835,10 +1841,10 @@ dd {
 
 .icone-item img.versao {
   position: absolute;
-  right: 7%;
-  bottom: 8%;
-  width: 27%;
-  height: 27%;
+  right: calc(var(--alt) * 4 / 39);
+  bottom: calc(var(--alt) * 3 / 39);
+  width: calc(var(--alt) * 12 / 39);
+  height: calc(var(--alt) * 12 / 39);
   image-rendering: pixelated;
 }
 
@@ -1932,6 +1938,7 @@ small.original {
 .opcao-arma {
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr); /* nome longo não alarga a carta */
   gap: 3px;
   padding: 6px 6px 5px;
   border: 1px solid var(--chapa-clara);
@@ -1975,18 +1982,27 @@ small.original {
   gap: 5px;
   min-height: 28px;
   padding-left: 24px;
-  padding-right: 40px; /* o nível fica no canto */
 }
 
+/* A figura tem a largura do original (76 × 39), quase o dobro da altura: o nome fica
+   com pouco espaço, então só a primeira linha dele desvia do nível (o "NV n" no canto
+   de cima), por um float vazio, e as outras usam a largura toda. */
 .opcao-arma .icone-arma {
-  flex: none;
-  width: 36px;
-  height: 36px;
+  --alt: 30px;
 }
 
 .opcao-arma strong {
+  display: block;
+  min-width: 0;
   font-size: 16px;
   line-height: 1.15;
+}
+
+.opcao-arma strong::before {
+  content: '';
+  float: right;
+  width: 34px;
+  height: 1.15em;
 }
 
 .opcao-arma dl {
@@ -2147,7 +2163,7 @@ small.original {
 .item-nave {
   position: relative;
   display: grid;
-  grid-template-columns: auto 26px auto;
+  grid-template-columns: auto auto auto;
   align-items: center;
   gap: 7px;
   padding: 5px 10px 9px;
@@ -2182,8 +2198,7 @@ small.original {
 }
 
 .item-nave .icone-consumivel {
-  width: 26px;
-  height: 26px;
+  --alt: 26px;
 }
 
 .item-nave .recarga {
@@ -2482,8 +2497,7 @@ small.original {
 
 /* Arma, equipamento e consumível: a figura do original pede mais espaço que o traço. */
 .carta-servico .icone-item {
-  width: 46px;
-  height: 46px;
+  --alt: 46px;
 }
 
 .carta-servico strong {
@@ -2824,8 +2838,7 @@ body.dano::after {
 }
 
 .toque .opcao-arma .icone-arma {
-  width: 18px;
-  height: 18px;
+  --alt: 18px;
 }
 
 .toque .opcao-arma strong {
@@ -2858,11 +2871,18 @@ body.dano::after {
 }
 
 .toque .arma-encaixe {
-  grid-template-columns: auto 18px;
+  grid-template-columns: auto auto;
+}
+
+/* No celular a figura das armas e dos itens do painel fica baixa (18 px de altura),
+   na mesma proporção do original. */
+.toque .arma-encaixe .icone-arma,
+.toque .item-nave .icone-consumivel {
+  --alt: 18px;
 }
 
 .toque .arma-encaixe.trocando {
-  grid-template-columns: auto 18px auto;
+  grid-template-columns: auto auto auto;
 }
 
 /* No celular o painel fica à esquerda do placar e dos botões da direita, com o
@@ -2892,7 +2912,7 @@ body.dano::after {
 }
 
 .toque .item-nave {
-  grid-template-columns: auto 18px auto;
+  grid-template-columns: auto auto auto;
 }
 
 @media (max-height: 520px) {
@@ -3641,8 +3661,7 @@ body.dano::after {
 }
 
 .detalhe-cab .icone-item {
-  width: 48px;
-  height: 48px;
+  --alt: 48px;
 }
 
 .detalhe-cab strong {
@@ -4035,9 +4054,10 @@ body.dano::after {
   cursor: pointer;
 }
 
+/* Figura e nome: a versão não vai em texto, o número já está no canto da figura. */
 .slot {
   display: grid;
-  grid-template-columns: 48px 1fr auto;
+  grid-template-columns: auto 1fr;
   grid-template-rows: auto auto;
   align-items: center;
   gap: 2px 6px;
@@ -4066,21 +4086,14 @@ body.dano::after {
 
 .slot .ic .icone-item,
 .item-inv .ic .icone-item {
+  --alt: 48px;
   display: block;
-  width: 48px;
-  height: 48px;
 }
 
 .slot .nm {
   min-width: 0;
   font-size: 15.5px;
   line-height: 1.2;
-}
-
-.slot .v,
-.item-inv .v {
-  font: 700 14px ui-monospace, monospace;
-  color: var(--neon);
 }
 
 .slot.vazio {

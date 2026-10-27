@@ -4,7 +4,7 @@
 // todos os da raça e da classe, e o número da versão sai da V2 à V8.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { iconesDaNave, insumosDaPartida, iconeVersao, ICONE_CONSUMIVEL } from '../public/js/insumos.js';
@@ -78,4 +78,19 @@ test('ícones: o número da versão só da V2 à V8, e o encaixe vazio sem image
   assert.match(htmlIcone('aw001', 3, 'icone-arma'), /class="icone-item icone-arma"/);
   assert.match(htmlIcone(null, 1, 'icone-equip'), /icone-item vazio icone-equip/);
   assert.doesNotMatch(htmlIcone(null), /<img/);
+});
+
+// O original estica a textura de 64 × 64 no botão do item, de 76 × 39 (gameinterface.txt);
+// a peça foi desenhada espremida para isso, e em quadrado fica estreita. O CSS dá a
+// proporção uma vez (.icone-item) e cada painel só diz a altura (--alt): nenhum
+// seletor de ícone pode voltar a fixar largura e altura, senão a figura deforma.
+test('ícones: a figura tem a proporção 76 × 39 do botão do original em todo painel', () => {
+  const css = readFileSync(path.join(PASTA, '..', '..', 'css', 'jogo.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const regras = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map(([, sel, corpo]) => ({ sel: sel.trim(), corpo }));
+  const base = regras.find((r) => r.sel === '.icone-item');
+  assert.match(base.corpo, /width: calc\(var\(--alt\) \* 76 \/ 39\)/);
+  assert.match(base.corpo, /height: var\(--alt\)/);
+  const doIcone = regras.filter((r) => /\.icone-(item|arma|equip|consumivel)\b/.test(r.sel) && !/img/.test(r.sel) && r.sel !== '.icone-item');
+  assert.ok(doIcone.length >= 8, `${doIcone.length} regras de tamanho de ícone`);
+  for (const r of doIcone) assert.doesNotMatch(r.corpo, /(^|[^-])(width|height):/, r.sel);
 });

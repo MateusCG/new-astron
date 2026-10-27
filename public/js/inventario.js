@@ -410,7 +410,8 @@ export class PainelInventario {
     this.tabela.innerHTML = tabelaTipos({ encaixes, nivEnc, status: s.status });
     this.#desenharNave();
 
-    // Encaixes da nave.
+    // Encaixes da nave. A versão não vai em texto ao lado do nome: o número (V2 a V8)
+    // já está desenhado no canto da figura, como no original (htmlIcone).
     const caixaSlot = this.caixa?.slot;
     this.slotsEl.innerHTML = ENCAIXES_INV.map((enc) => {
       const inst = this.#instDoSlot(enc.slot);
@@ -419,12 +420,12 @@ export class PainelInventario {
         const i = encaixes[enc.arma];
         const nv = inst?.nivel ?? nivEnc[enc.arma];
         return `<button type="button" class="slot arma${marcado}" data-slot="${enc.slot}" title="Clique para trocar ou evoluir">
-          <span class="rot">${enc.nome}</span><span class="ic">${ARMAS[i] ? iconeArma(ARMAS[i], nv) : ''}</span><span class="nm">${ARMAS[i] ? nomeArma(ARMAS[i]) : ''}</span><b class="v">V${nv}</b>
+          <span class="rot">${enc.nome}</span><span class="ic">${ARMAS[i] ? iconeArma(ARMAS[i], nv) : ''}</span><span class="nm">${ARMAS[i] ? nomeArma(ARMAS[i]) : ''}</span>
         </button>`;
       }
       const k = inst?.chave ?? null;
       return `<button type="button" class="slot${k ? '' : ' vazio'}${marcado}" data-slot="${enc.slot}" title="${k ? 'Clique para tirar ou evoluir' : 'Vazio: equipe pelo compartimento'}">
-        <span class="rot">${enc.nome}</span><span class="ic">${iconeEquip(k, inst?.nivel)}</span><span class="nm">${k ? EQUIPAMENTOS[k].nomePt : 'Vazio'}</span>${k ? `<b class="v">V${inst.nivel}</b>` : ''}
+        <span class="rot">${enc.nome}</span><span class="ic">${iconeEquip(k, inst?.nivel)}</span><span class="nm">${k ? EQUIPAMENTOS[k].nomePt : 'Vazio'}</span>
       </button>`;
     }).join('');
 
@@ -440,7 +441,7 @@ export class PainelInventario {
       const ic = x.tipo === 'arma' ? iconeArma(x.chave, x.nivel) : iconeEquip(x.chave, x.nivel);
       const nm = x.tipo === 'arma' ? nomeArma(x.chave) : (EQUIPAMENTOS[x.chave]?.nomePt ?? x.chave);
       const marcado = caixaInst === x.id ? ' com-caixa' : '';
-      return `<button type="button" class="item-inv${marcado}" data-inst="${x.id}"><span class="ic">${ic}</span><span class="nm">${esc(nm)}</span><b class="v">V${x.nivel}</b></button>`;
+      return `<button type="button" class="item-inv${marcado}" data-inst="${x.id}"><span class="ic">${ic}</span><span class="nm">${esc(nm)}</span></button>`;
     });
     this.conta.textContent = `${comp.length}/${s.compMax}`;
     this.conta.classList.toggle('cheio', comp.length >= s.compMax);
