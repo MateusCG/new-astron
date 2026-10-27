@@ -279,7 +279,8 @@
 //         (VAGAS_BACIA), despejando o minério (só enquanto despeja; a entrega
 //         sai no fim);
 //         esc = fração (0 a 1) do escudo do equipamento, só em jogador com escudo;
-//         fx = efeitos de arma visíveis ('para', 'desg', 'energia', 'descarga' (a
+//         fx = efeitos de arma visíveis ('para' (movimento paralisado), 'semTiro' (só o
+//         tiro impedido), 'desg', 'energia', 'descarga' (a
 //         energia descarregada, o ícone fica a duração do original), 'magma' (o dreno
 //         de HP do original), 'resist' (todas as resistências quebradas), 'invul',
 //         'escudo', 'fraco', 'regen', 'acel', 'inv'); arm = [arma do Z, arma do X]
@@ -338,12 +339,14 @@
 //                                    10 teleguiados em volta), 'onda_feixe' (SN-4,
 //                                    nova), 'campo_eletrico' (SN-4, campo de 20 s
 //                                    embaixo do alvo que quebra as resistências),
-//                                    'pedra_gigante' (Medusa, 2 pedras), 'controle'
-//                                    (Medusa, leque de 10, desgoverno), 'armadilha'
-//                                    (Medusa, 8 teleguiados lentos, sem tiro); kind =
-//                                    'laser' ou 'plasma' (tiro de NPC, a Medusa) ou a
-//                                    arma de NPC do original ('n511080'... em WEAPONS:
-//                                    o cliente desenha com os efeitos do original)
+//                                    'armadilha_paralisante' (Medusa, 8 cargas em
+//                                    volta que viram minas de 30 s; a mina solta um
+//                                    teleguiado que impede o tiro), 'disparo_controle'
+//                                    (Medusa, leque de 10 com área, desgoverno),
+//                                    'canhao_pedra' (Medusa, 2 pedras que atravessam);
+//                                    kind = a arma de NPC do original ('n511080'... em
+//                                    WEAPONS: o cliente desenha com os efeitos do
+//                                    original)
 //         {e:'tiro', ..., fonte, time, guiado?, alvo?, vida?}   tiro de torreta (fonte
 //                                    'torreta', dono = id dela; míssil teleguiado:
 //                                    guiado true, alvo = id travado, vai também em

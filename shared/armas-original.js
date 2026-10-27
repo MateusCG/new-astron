@@ -3,7 +3,7 @@
 // As 140 armas das lojas do Astro-N original (Acron, Bellico e Shrewdo), na
 // ordem das lojas, com as versões V1 a V8 (níveis 1 a 8 da arma). Números nas
 // unidades do original (ms, metro, m/ms, HP e energia do original): a conversão para
-// o jogo novo é de shared/armas.js. ARMAS_NPC_ORIGINAL: as 13 armas "(NPC)" dos
+// o jogo novo é de shared/armas.js. ARMAS_NPC_ORIGINAL: as 16 armas "(NPC)" dos
 // monstros da jungle que vêm do original (uma versão cada). EFEITOS_VISUAIS: id do
 // efeito do original -> modelos e texturas (public/texturas/efeitos/<png>.png) com a
 // cor dominante.
@@ -165,6 +165,9 @@ export const ARMAS_NPC_ORIGINAL = [
 {"id":"511140","nome":"Lançador de Feixe Óptico Bazit (NPC)","nomeEn":"Optical Beam Launcher","raca":"npc","categoria":"outro","papel":"ataque","auxiliar":true,"tipoDano":"laser","icone":"ITEM_OBJECT11","modelo":["sw101","sw101"],"som":"npcfire2","somImpacto":"c_explo","versoes":[{"id":"511140","nivel":1,"preco":10,"recargaMs":1000,"energia":20,"golpe":{"forma":"projetil","dano":400,"raio":8,"vidaMs":2500,"atravessa":true,"inimigo":true,"n":3,"leque":5,"a0":-5,"vel":0.3,"velMedia":0.125,"vis":{"p":"1322065","i":"1412001"}}}]},
 {"id":"511170","nome":"Míssil de Longo Alcance Anti (NPC)","nomeEn":"Anti Long Range Missile","raca":"npc","categoria":"missil","papel":"ataque","tipoDano":"fisico","icone":"ITEM_OBJECT02","modelo":["bw214_l","bw214_r"],"som":"shot_ct","somImpacto":"c_explo","versoes":[{"id":"511170","nivel":1,"preco":160,"recargaMs":2000,"energia":20,"golpe":{"forma":"projetil","dano":600,"raio":2,"vidaMs":3300,"inimigo":true,"fim":true,"n":4,"vao":20,"vel":0.4,"velMedia":0.279,"vis":{"tipo":"missil_com_rastro","p":"2341024","r":"2341102","i":"1401007"}}}]},
 {"id":"511180","nome":"Canhão Teleguiado Anti (NPC)","nomeEn":"Anti Homingcannon","raca":"npc","categoria":"canhao","papel":"bloqueio","tipoDano":"laser","icone":"ITEM_OBJECT04","modelo":["sw219_l","sw219_r"],"som":"shot_cc","somImpacto":"c_explo","versoes":[{"id":"511180","nivel":1,"preco":160,"recargaMs":2000,"energia":20,"golpe":{"forma":"projetil","dano":333,"area":70,"raio":5,"vidaMs":1760,"inimigo":true,"fim":true,"n":2,"vao":30,"vel":0.6,"velMedia":0.486,"guia":{"comecaMs":100,"giro":57.3},"mira":{"modo":"mais_perto_no_raio","raio":500},"vis":{"p":"1322061","i":"1502004","f":"2432001"}}}]},
+{"id":"550150","nome":"Armadilha Paralisante da Medusa (NPC)","nomeEn":"boss6Attack ParalysisCruise Trap","raca":"npc","categoria":"mina","papel":"ataque","tipoDano":"eletrico","icone":"ITEM_OBJECT02","modelo":["sw206_l","sw206_r"],"som":"u_mine","somImpacto":"c_explo","versoes":[{"id":"550150","nivel":40,"preco":160,"recargaMs":5000,"energia":135,"golpe":{"forma":"projetil","dano":200,"efeitos":[{"t":"paralisaAtaque","ms":2500}],"raio":8,"vidaMs":1000,"inimigo":true,"n":8,"leque":45,"vel":0.4,"velMedia":0.275,"divide":{"forma":"mina","dano":200,"efeitos":[{"t":"paralisaAtaque","ms":2500}],"raio":8,"vidaMs":30000,"inimigo":true,"fim":true,"mina":{"gatilho":8,"ativa":"inimigo_perto","ativaParam":80,"acao":"explode_ou_dano_em_volta","raioDisparo":80},"dispara":{"forma":"projetil","dano":200,"efeitos":[{"t":"paralisaAtaque","ms":2500}],"raio":8,"vidaMs":1400,"inimigo":true,"fim":true,"n":1,"vel":0.4,"velMedia":0.305,"guia":{"comecaMs":100,"giro":286.5},"mira":{"modo":"mais_perto_no_raio","raio":500},"vis":{"d":"1150005","p":"1322063","i":"1401307"},"som":"u_mine","somImpacto":"c_explo"},"vis":{"p":"1322063","i":"1401307","a":"1322063"},"somImpacto":"c_explo"},"vis":{"d":"1150005","p":"1322063","i":"1401307"}}}]},
+{"id":"550160","nome":"Disparo de Controle da Medusa (NPC)","nomeEn":"boss6 10shots Control Disturbinggun","raca":"npc","categoria":"gun","papel":"ataque","tipoDano":"eletrico","icone":"ITEM_OBJECT02","modelo":["sw101","sw101"],"som":"shot_30m","somImpacto":"b_impact","versoes":[{"id":"550160","nivel":40,"preco":160,"recargaMs":500,"golpe":{"forma":"projetil","dano":333,"efeitos":[{"t":"atrapalhaControle","ms":3000,"raio":105}],"area":105,"raio":2,"vidaMs":2500,"inimigo":true,"n":10,"leque":4,"a0":-18,"vel":0.4,"vis":{"d":"1121001","p":"1322064","i":"1421001","f":"1421002"}}}]},
+{"id":"550170","nome":"Canhão de Pedra da Medusa (NPC)","nomeEn":"boss6 Ph. Rock Gun","raca":"npc","categoria":"outro","papel":"ataque","tipoDano":"fisico","icone":"ITEM_OBJECT11","modelo":["sw101","sw101"],"som":"npcfire2","somImpacto":"n2_explo","versoes":[{"id":"550170","preco":10,"recargaMs":800,"energia":333,"golpe":{"forma":"projetil","dano":1333,"raio":10,"vidaMs":3000,"atravessa":true,"inimigo":true,"fim":true,"n":1,"leque":5,"rajada":2,"vel":0.4,"velMedia":0.222,"vis":{"p":"1322064","i":"1421030"}}}]},
 ];
 
 export const EFEITOS_VISUAIS = {
@@ -239,9 +242,11 @@ export const EFEITOS_VISUAIS = {
 "1321351": {"modelos":["1321351"],"tex":[["gun","#748349"],["1321051_light","#95eb7b"]]},
 "1321441": {"modelos":["1321441"],"tex":[["gun","#748349"],["gun_light","#95eb7b"],["1321041","#18ab16"]]},
 "1321451": {"modelos":["1321451"],"tex":[["gun","#748349"],["1321051_light","#95eb7b"]]},
-"1322060": {"modelos":["1322060"],"tex":[[null,"#89ff68"]]},
-"1322061": {"modelos":["1322061","particle_dummy"],"tex":[[null,"#c9395e"],[null,null]]},
-"1322065": {"modelos":["1322065","particle_dummy"],"tex":[[null,"#e37385"],[null,null]]},
+"1322060": {"modelos":["1322060"],"tex":[["1322060","#89ff68"]]},
+"1322061": {"modelos":["1322061","particle_dummy"],"tex":[["1322061","#c9395e"],[null,null]]},
+"1322063": {"modelos":["1322063"],"tex":[[null,"#1eadfe"]]},
+"1322064": {"modelos":["particle_dummy"],"tex":[[null,null]]},
+"1322065": {"modelos":["1322065","particle_dummy"],"tex":[["1322065","#e37385"],[null,null]]},
 "1331015": {"modelos":["1331015"],"tex":[["1331015","#55ff00"]]},
 "1331016": {"modelos":["1331016"],"tex":[["1331015","#55ff00"]]},
 "1331017": {"modelos":["1331017"],"tex":[["1331015","#55ff00"]]},
@@ -292,8 +297,8 @@ export const EFEITOS_VISUAIS = {
 "1361059": {"modelos":["1361059"],"tex":[["1361057_02","#f05cc4"],["1361057_01","#b647af"]]},
 "1361060": {"modelos":["1361060"],"tex":[["1361057_02","#f05cc4"],["1361057_01","#b647af"]]},
 "1361061": {"modelos":["1361061"],"tex":[["1361057_02","#f05cc4"],["1361057_01","#b647af"]]},
-"1361153": {"modelos":["1361153","1361053"],"tex":[[null,null]]},
-"1361253": {"modelos":["1361253","1361053"],"tex":[[null,null]]},
+"1361153": {"modelos":["1361153","1361053"],"tex":[["1361053_01",null]]},
+"1361253": {"modelos":["1361253","1361053"],"tex":[["1361053_01",null]]},
 "1401007": {"modelos":["1401007"],"tex":[["1401007_01","#a8b3c5"]]},
 "1401107": {"modelos":["1401107","1401007"],"tex":[["1401007_01","#a8b3c5"]]},
 "1401207": {"modelos":["1401207","1401007"],"tex":[["1401007_01","#a8b3c5"]]},
@@ -311,6 +316,7 @@ export const EFEITOS_VISUAIS = {
 "1413005": {"modelos":["1413005"],"tex":[["1413001","#5729f0"]]},
 "1421001": {"modelos":["1421001"],"tex":[["1150005","#ffffff"],["1421001_01","#67b867"]]},
 "1421002": {"modelos":["1421002"],"tex":[["1421002","#5be736"]]},
+"1421030": {"modelos":["1421030"],"tex":[[null,"#4ed204"]]},
 "1502004": {"modelos":["1502004"],"tex":[["1502004","#bc165f"]]},
 "1503009": {"modelos":["1503009"],"tex":[["1503009","#284b92"]]},
 "1503010": {"modelos":["1503010"],"tex":[["1503010","#ffffff"]]},

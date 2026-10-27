@@ -56,6 +56,8 @@ const ticks = (s) => Math.round(s * TICK_HZ);
 
 /** Estados de inimigo que a limpeza (Nova/Canhão Antiparalisia) tira. */
 const NA_NAVE_DEBUFF = ['lento', 'emp', 'semTiro', 'trava', 'desgov', 'semRegen', 'cadencia', 'enCara', 'drenoEn'];
+// Minas e campos ativos de um monstro (as três salvas de 8 armadilhas da Medusa).
+export const MINA_MAX_MONSTRO = 24;
 const NA_ENT_DEBUFF = ['vulneravel', 'fraco', 'recuo', 'cego', 'descarga'];
 // O ícone da descarga de energia (o "E" do míssil do SN-3) fica na nave por isto (s),
 // se o golpe não traz duração (a do original, 2 s no míssil do SN-3).
@@ -580,7 +582,9 @@ export class Golpes {
   #mina(f, g, x, y, z) {
     const w = this.world;
     const minhas = w.minas.filter((m) => m.dono === f.id);
-    if (minhas.length >= MINA_MAX) {
+    // O teto é do piloto; monstro (não é jogador) solta as do original: a Medusa deixa
+    // 8 armadilhas por salva, que duram 30 s.
+    if (minhas.length >= (w.players.get(f.id) ? MINA_MAX : MINA_MAX_MONSTRO)) {
       const velha = minhas[0];
       w.minas = w.minas.filter((m) => m !== velha);
     }
@@ -745,7 +749,10 @@ export class Golpes {
   visiveis(ent) {
     const fx = [];
     const s = ent.ship;
-    if (s.semTiro > 0 || (s.lento > 0 && s.lentoMult === 0) || s.trava > 0) fx.push('para');
+    // Paralisia de movimento (com ou sem o tiro) é o "LD" do original; só o tiro
+    // impedido (a armadilha da Medusa) é a espada proibida.
+    if ((s.lento > 0 && s.lentoMult === 0) || s.trava > 0) fx.push('para');
+    else if (s.semTiro > 0) fx.push('semTiro');
     if (s.desgov > 0) fx.push('desg');
     if (s.drenoEn > 0 || s.semRegen > 0) fx.push('energia');
     if (this.st(ent, 'descarga')) fx.push('descarga');
