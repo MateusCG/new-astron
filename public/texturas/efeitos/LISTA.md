@@ -414,3 +414,11 @@ Copiadas por `tools/efeitos3d_do_original.py` junto com os efeitos que as usam (
 | `1322064_01.png` | 128×128 px, 6.0 KB | #75d269 | 1322064 |
 | `1322064_02.png` | 128×128 px, 7.7 KB | #30ac63 | 1322064 |
 | `1121030.png` | 64×64 px, 1.7 KB | #4fd206 | 1421030 |
+| `lvup001_02.png` | 128×128 px, 1.3 KB | #11ff00 | lvup001 |
+| `lvup002.png` | 128×128 px, 1.8 KB | #d40a00 | lvup002 |
+| `lvup002_01.png` | 64×64 px, 3.7 KB | #ff6575 | lvup002 |
+| `lvup002_02.png` | 64×64 px, 3.3 KB | #f28288 | lvup002 |
+| `lvup003.png` | 128×128 px, 1.2 KB | #0e00d4 | lvup003 |
+| `lvup003_01.png` | 64×64 px, 3.7 KB | #648fff | lvup003 |
+| `lvup003_02.png` | 64×64 px, 3.4 KB | #839af1 | lvup003 |
+| `propulsion01.png` | 64×64 px, 3.7 KB | #a3ff72 | lvup001 |

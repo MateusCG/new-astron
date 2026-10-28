@@ -72,7 +72,35 @@ def ler_eff(d):
             du, dv = struct.unpack_from('<2f', d, o + 140)
             linha.append([fr, mat, fl, *[round(x, 3) for x in dif], round(du, 4), round(dv, 4)])
         blocos.append(linha)
-    return {'nf': nf, 'no': no, 'modelo': nome(0x30), 'mpal': nome(0x50), 'blocos': blocos}
+    return {'nf': nf, 'no': no, 'modelo': nome(0x30), 'mpal': nome(0x50), 'blocos': blocos, 'ordem': ordem_dos_quadros(d, nf, na)}
+
+
+def ordem_dos_quadros(d, nf, na):
+    """A ordem em que o original toca os quadros do primeiro movimento, ou None.
+
+    CEffectSprite::NextFrame anda pelos registros de 0x40 bytes de cada quadro: u16 +2 =
+    quantos passos o quadro dura, +4 = o quadro seguinte (vale com a flag 1 do byte +8),
+    +6 = o anterior (flag 2), flag 4 = vai e volta. O movimento começa no quadro de
+    +0x22 do seu registro e um quadro sem a flag 1 (e sem a 4) encerra o efeito. A
+    corrente nem sempre segue a numeração: no lvup001 o quadro 71 vem entre o 60 e o 61
+    (e os que ficam fora da corrente não tocam). None se o efeito repete (a corrente
+    fecha em volta) ou vai e volta: nesses o json guarda os quadros na ordem do arquivo.
+    """
+    if na < 1:
+        return None
+    q = struct.unpack_from('<H', d, 0x80 + 0x22)[0]
+    ini = 0x80 + na * 0x80
+    ordem = [q]
+    while True:
+        fl = d[ini + q * 0x40 + 8]
+        if fl & 4:
+            return None
+        if not fl & 1:
+            return ordem
+        q = struct.unpack_from('<H', d, ini + q * 0x40 + 4)[0]
+        if q in ordem or q >= nf:
+            return None
+        ordem.append(q)
 
 
 def ler_mpal(d):
@@ -119,7 +147,7 @@ def converter(old, saida, pasta_tex, eid):
             'm': [r4(x) for x in o['matriz']],
             'q': [[r4(x) for x in m] for m in o['quadros']],
         })
-    blocos = e['blocos']
+    blocos = [e['blocos'][q] for q in e['ordem']] if e['ordem'] else e['blocos']
     if particula:
         # Sem blocos de verdade (a peça do .eff é a linha do emissor): um bloco por
         # quadro do .3dx, virado para a câmera, com o material do próprio modelo.
