@@ -77,11 +77,20 @@ function preparar(j) {
     geo.setAttribute('uv', new THREE.Float32BufferAttribute(p.uv, 2));
     geo.setIndex(p.idx);
     geo.computeBoundingSphere();
+    const quadros = p.q.map(matrizDe);
     return {
       geo,
       tex: p.tex,
       base: matrizDe(p.m),
-      quadros: p.q.map(matrizDe),
+      quadros,
+      // O alto da peça (y do jogo, unidades do original) em cada quadro do .3dx.
+      topos: quadros.map((m) => {
+        const mc = new THREE.Matrix4().multiplyMatrices(C, m);
+        const v = new THREE.Vector3();
+        let topo = -Infinity;
+        for (let k = 0; k < geo.attributes.position.count; k++) topo = Math.max(topo, v.fromBufferAttribute(geo.attributes.position, k).applyMatrix4(mc).y);
+        return topo;
+      }),
     };
   });
   // Raio no chão (x, y do original) do efeito no primeiro quadro e no maior, em
@@ -185,6 +194,26 @@ export function raioEfeitoOriginal(id, maior = false) {
 }
 
 /**
+ * O alto (y do jogo, unidades do original) da peça `i` do efeito `id` em cada quadro
+ * do .3dx dela, para quem escolhe o quadro pela altura (a luz do lvup subindo só até
+ * cobrir a nave). [] se o efeito não está pronto.
+ */
+export function toposDaPeca(id, i) {
+  return dados.get(id)?.pecas[i]?.topos ?? [];
+}
+
+/**
+ * Desenha uma linha de blocos montada por quem chama (o formato do .eff: [quadro,
+ * material, flags, r, g, b, alfa] por peça) em vez da linha do tempo do efeito.
+ */
+export function mostrarLinhaOriginal(inst, linha, camera) {
+  aplicarLinha(inst, linha, camera);
+}
+
+/** As flags do bloco do .eff, para quem monta a linha (mostrarLinhaOriginal). */
+export const FLAGS_BLOCO = Object.freeze({ material: F_MATERIAL, escondido: F_ESCONDIDO });
+
+/**
  * Avança `dt` s e desenha o quadro da vez; `camera` vira as peças que olham para ela.
  * Devolve false quando acabou (sem loop).
  */
@@ -200,8 +229,11 @@ export function tocarEfeitoOriginal(inst, dt, camera) {
 }
 
 function aplicarQuadro(inst, q, camera) {
+  aplicarLinha(inst, inst.d.blocos[q] ?? inst.d.blocos[0], camera);
+}
+
+function aplicarLinha(inst, linha, camera) {
   const { d, malhas, obj } = inst;
-  const linha = d.blocos[q] ?? d.blocos[0];
   let precisaMundo = false;
   for (let i = 0; i < malhas.length; i++) {
     const malha = malhas[i];
