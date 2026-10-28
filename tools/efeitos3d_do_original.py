@@ -2,6 +2,8 @@
 
 Uso:
   python3 -I tools/efeitos3d_do_original.py <old-astron> <public/modelos/efeitos> <public/texturas/efeitos> <id> [<id>...]
+  python3 -I tools/efeitos3d_do_original.py --malha <old-astron> <saída> <texturas> <modelo> [...]
+      (malha solta, só o .3dx: os destroços ex_particl01 a 04 da unidade destruída)
 
   <old-astron>  raiz do old-astron (lê assets_obb/effect, assets_obb/3dx, assets_obb/mpal
                 e reference/textures_png)
@@ -173,10 +175,52 @@ def converter(old, saida, pasta_tex, eid):
           f', paleta {len(mpal)}, texturas novas {copiadas or "-"}')
 
 
+def copiar_textura(old, pasta_tex, t):
+    """Copia a textura `t` do original se ainda não está na pasta; devolve se é sólida (sem alfa)."""
+    destino = os.path.join(pasta_tex, t + '.png')
+    origem = os.path.join(old, 'reference/textures_png', t + '.png')
+    if not os.path.exists(destino) and os.path.exists(origem):
+        shutil.copyfile(origem, destino)
+    return os.path.exists(destino) and Image.open(destino).convert('RGBA').getchannel('A').getextrema()[0] == 255
+
+
+def converter_malha(old, saida, pasta_tex, nome):
+    """
+    Malha solta do original (um .3dx sem .eff) no mesmo formato de efeito, com um
+    quadro só, parada: os destroços da unidade destruída (ex_particl01 a 04, que o
+    CUnitWreck desenha com a textura da própria unidade; a do .3dx fica de reserva).
+    """
+    mats, objs = ler_3dx(open(os.path.join(old, 'assets_obb', '3dx', nome + '.3dx'), 'rb').read())
+    objs = [o for o in objs if not o['flags'] & 4]
+    pecas = []
+    for o in objs:
+        tex = mats[o['mat']].lower() if 0 <= o['mat'] < len(mats) and mats[o['mat']] else None
+        pecas.append({
+            'nome': o['nome'],
+            'tex': tex,
+            'pos': [r4(x) for v in o['verts'] for x in v[0]],
+            'uv': [r4(x) for v in o['verts'] for x in v[2]],
+            'idx': o['idx'],
+            'm': [r4(x) for x in o['matriz']],
+            'q': [],
+        })
+    texturas = sorted({p['tex'] for p in pecas if p['tex']})
+    opacas = [t for t in texturas if copiar_textura(old, pasta_tex, t)]
+    out = {'id': nome, 'quadros': 1, 'pecas': pecas, 'mpal': [], 'opacas': opacas,
+           'blocos': [[[0, 0, 0, 1, 1, 1, 1, 0, 0] for _ in pecas]], 'malha': True}
+    with open(os.path.join(saida, nome + '.json'), 'w') as f:
+        json.dump(out, f, separators=(',', ':'))
+    print(f'{nome}: malha de {len(pecas)} peça(s), texturas {texturas or "-"}')
+
+
 if __name__ == '__main__':
-    if len(sys.argv) < 5:
+    args = sys.argv[1:]
+    malha = '--malha' in args
+    if malha:
+        args.remove('--malha')
+    if len(args) < 4:
         print(__doc__)
         sys.exit(1)
-    os.makedirs(sys.argv[2], exist_ok=True)
-    for i in sys.argv[4:]:
-        converter(sys.argv[1], sys.argv[2], sys.argv[3], i)
+    os.makedirs(args[1], exist_ok=True)
+    for i in args[3:]:
+        (converter_malha if malha else converter)(args[0], args[1], args[2], i)

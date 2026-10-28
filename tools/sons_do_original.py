@@ -31,6 +31,9 @@ SONS = [
     'off_device2', 'cure',
     # Armas dos monstros da jungle que vêm do original (Bazit e Xerxes)
     'npcfire2', 'npcfire3',
+    # Morte dos monstros (initunit.cfg col. 14: SN-3, SN-Zero VI e SN-4; Xerxes;
+    # Bazit; Medusa; sonda A-Fly), tocada no CBasePilot::Dead
+    'snzerod1', 'sekisd1', 'vajytd1', 'medusad1', 'aflyd1',
     # Nave
     'hyper', 'repair', 'usehpbattery', 'usehebattery', 'level_up',
     # Interface
