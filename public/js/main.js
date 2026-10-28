@@ -637,7 +637,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
   const snaps = [];
   const outras = new Map(); // id -> { obj, drone, nome, race }
   const nomes = new Map(TORRETAS.map((t) => [t.id, 'Torreta'])); // "destruído por Torreta"
-  // Subiu de nível ou evoluiu a nave (CUnit::EffectLevelUp do original): o efeito da raça
+  // Subiu de nível ou evoluiu a nave (CUnit::EffectLevelUp do original): o emblema da raça
   // na nave de quem foi e o som LEVEL_UP, um som de interface (sem posição) que o
   // original toca sempre que mostra o efeito, de quem for a nave. O seu sempre toca.
   function subidaDeNave(id) {
@@ -1052,12 +1052,12 @@ function montarJogo(rede, boas, renderer, race, classe) {
         if (e.assist?.includes(meuId)) hud.noticia(`Assistência no abate de ${quem} · +${e.ouroAssist} ouro`, 'bom');
         if (e.seqPor >= 2) hud.noticia(`${matador} está em sequência de ${e.seqPor} abates`, e.por === meuId ? 'bom' : '');
       } else if (e.e === 'nivel') {
-        // Subiu de nível: o efeito do original na nave de quem subiu (você ou outro).
+        // Subiu de nível: o emblema da raça na nave de quem subiu (você ou outro).
         subidaDeNave(e.id);
         if (e.id === meuId) hud.noticia(`Nível ${e.nivel}! HP máximo maior`, 'bom');
       } else if (e.e === 'nave') {
-        // Nave nova na Evolução: o mesmo efeito do original, que segue o piloto e fica
-        // quando o modelo troca (pelo snapshot), e a notícia.
+        // Nave nova na Evolução: o mesmo emblema, que segue o piloto e fica quando o
+        // modelo troca (pelo snapshot), e a notícia.
         subidaDeNave(e.id);
         if (e.id === meuId) hud.noticia(`Nave nova: ${e.nave}`, 'bom');
         else hud.noticia(`${e.nome} trocou de nave: ${e.nave}`, e.time === meuTime ? 'bom' : 'ruim');
