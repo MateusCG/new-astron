@@ -62,7 +62,7 @@ Na partida 3 contra 3 a cor de time é sempre **relativa a quem olha**: o que é
 
 | Onde | Como |
 |---|---|
-| Nave de jogador | **Marca de luz do time**: uma luz de neon em cada ponta de asa, nos encaixes de arma da ponta do modelo (`l_fire01`/`r_fire01`), o que mais aparece na câmera de perseguição. A sua nave é sempre turquesa. A cor da raça continua na propulsão (ver "Propulsão" abaixo). Enquanto o modelo de uma nave ainda está baixando, um **losango neon** na cor do time segura o lugar |
+| Nave de jogador | O modelo do original como ele é, **sem marca de time no casco** (as luzes de neon nas pontas das asas saíram: eram nossas, não do original); o time se lê no rótulo, na barra de vida e no minimapa. A cor da raça continua na propulsão (ver "Propulsão" abaixo). Enquanto o modelo de uma nave ainda está baixando, um **losango neon** na cor do time segura o lugar |
 | Minerador | Faixas de neon nos dois lados do casco e brilho dos motores na cor do time |
 | Rótulo sobre a nave | Nome turquesa e **barra de vida azul `--vida-aliado`** no aliado (pedido do Mateus: azul é "do meu lado", vermelho é "inimigo"); nome e barra vermelhos no inimigo (outro time e monstros). Nas naves de jogador, só a barra em cima. Vale para naves, mineradores, escoltas e torretas |
 | Etiqueta do piloto | **Embaixo** de toda nave de jogador (a sua inclusive): plaquinha de chapa escura (`rgba(8,20,19,.72)`, cantos de 8 px) com o nick na cor do time e "NV n" em `--xp` mono; borda `--neon-escuro` no aliado, vermelha apagada no inimigo e `--neon` na sua |
@@ -184,7 +184,7 @@ Cada planeta é definido por **céu (3 tons) + neblina + rocha + chão**. A nebl
 - **Modelos novos no padrão mid-poly PBR** (seção abaixo); as peças low-poly antigas continuam facetadas (`flatShading: true`) até serem refeitas. Nada de superfícies lisas brilhantes nem de plástico: o metal é gasto e fosco.
 - **Metal sem mapa de ambiente:** `metalness` até **0.5** e `roughness` de **0.4 a 0.8** (nas peças PBR a textura varia a rugosidade de 0,38 a 0,92 em volta disso: risco liso, sujeira áspera). Metal alto sem nada para refletir fica preto ou estoura no reflexo do sol; as chapas PBR usam 0,3.
 - **Neon:** material com `color` e `emissive` iguais e `emissiveIntensity` entre **0.8 e 1.2**. Acima disso o tone mapping (ACES) puxa para o branco e a cor some. Luz piscando vai de 0.1 a 1.2.
-- **Uma cor de destaque por objeto.** Hangar e portal: cinza + neon da base (turquesa na sua, vermelho na do outro time). Nave de jogador: a textura do modelo do original + neon do time nas pontas das asas.
+- **Uma cor de destaque por objeto.** Hangar e portal: cinza + neon da base (turquesa na sua, vermelho na do outro time). Nave de jogador: só a textura do modelo do original (o time fica no rótulo e na barra de vida).
 - **Monstros são os do original** (Stage 6, o SN-4 e os SN-3 e SN-Zero VI do Stage M5), cada um com a textura própria; a regra antiga "pele escura e olho vermelho" não vale para eles. **O perigo fica no vermelho da interface:** rótulo e barra vermelhos, ponto vermelho no minimapa e o brilho `#ff4a2a` em todo tiro de monstro. Cada um tem silhueta própria (`public/js/monstros.js`):
 
   | Monstro | Forma | Papel |

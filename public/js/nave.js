@@ -2,11 +2,10 @@
 //
 // A nave olha para -z (convenção do Three.js e de shared/sim.js). A nave de
 // jogador é o modelo do Astro-N original da raça, classe e tier dela (glTF, com a
-// propulsão do original nos encaixes: propulsao.js), e o time vem marcado por luzes nas pontas
-// das asas (turquesa = do seu time, vermelho = do outro, relativo a quem olha); o
-// minerador e a escolta armada, naves do servidor, são os modelos nossos do mapa
-// (minerador.glb e escolta.glb, mid-poly PBR, via mapa-modelos.js), com a mesma marca
-// de time. Os monstros da jungle (modelos do original) ficam em monstros.js.
+// propulsão do original nos encaixes: propulsao.js), sem marca de time no casco (o
+// time aparece no rótulo e na barra de vida); o minerador e a escolta armada, naves
+// do servidor, são os modelos nossos do mapa (minerador.glb e escolta.glb, mid-poly
+// PBR, via mapa-modelos.js), com as faixas `neon_time` na cor do time. Os monstros da jungle (modelos do original) ficam em monstros.js.
 
 import * as THREE from 'three';
 import { RACES, WEAPONS, ARMAS, INCLINACAO_CURVA } from '/shared/sim.js';
@@ -122,7 +121,7 @@ function matCasco(map) {
 // para e o tiro acerta é o raio da nave, na mesma escala. Os pontos de encaixe (nós l_/r_/c_)
 // passam pela mesma conta e dizem onde ficam a propulsão (os motores *_propulsion, a
 // Eagle tem quatro, o nariz c_fire0n e as pontas das asas l_/r_fire0n, com o giro de
-// cada nó: propulsao.js) e as pontas das asas (l_fire01/r_fire01, a luz do time).
+// cada nó: propulsao.js).
 //
 // Trocar de nave (Evolução) troca o modelo na hora: definirNave(raiz, ...) monta o
 // modelo novo dentro do mesmo grupo, então o que estiver pendurado nele (auras,
@@ -144,7 +143,7 @@ const PERNA_MIN = 0.8;
 let carregador = null; // GLTFLoader, importado na primeira nave
 const modelos = new Map(); // URL -> Promise do modelo preparado
 const prontos = new Map(); // URL -> { partes: [{ geometria, material }], encaixes, propulsao, caixa, itens }
-const matNeonTime = {}; // 'aliado' | 'inimigo' -> material compartilhado da luz do time
+const matNeonTime = {}; // 'aliado' | 'inimigo' -> material compartilhado do neon do time
 
 /** A nave do catálogo para a raça, classe e tier (classe ou tier inválido: a primeira Assault). */
 function naveDoCatalogo(race, classe, tier) {
@@ -379,16 +378,16 @@ export function texturasDosModelos() {
 }
 
 /**
- * Nave de jogador da raça, classe e tier dados. `aliado` decide a marca do time
- * (luzes nas pontas das asas): turquesa se é do seu time, vermelho se não. A cor
- * da raça vai no brilho dos motores. Se o modelo ainda não chegou, aparece o
- * losango neon do time e o modelo entra sozinho quando carregar.
+ * Nave de jogador da raça, classe e tier dados. `aliado` decide a cor do losango
+ * neon que segura o lugar enquanto o modelo não chega (turquesa se é do seu time,
+ * vermelho se não); o modelo entra sozinho quando carregar. A cor da raça vai no
+ * brilho dos motores.
  * userData: corpo (inclina nas curvas), propulsao (propulsao.js), trem (pouso), nave
  * (URL do modelo desenhado).
  */
 export function criarNave(race, { aliado = true, classe = 'assault', tier = 0 } = {}) {
   // O grupo de fora gira em yaw; o de dentro (corpo) inclina (roll) nas curvas. O
-  // casco (modelo, luzes, motores e trem) fica dentro do corpo e é o que troca.
+  // casco (modelo, motores e trem) fica dentro do corpo e é o que troca.
   const raiz = new THREE.Group();
   const corpo = new THREE.Group();
   const efeitos = new THREE.Group(); // anéis e auras de public/js/efeitos.js, na escala da nave
@@ -438,7 +437,6 @@ function neonDoTime(aliado) {
   return (matNeonTime[k] ??= matNeon(aliado ? COR_TIME.aliado : COR_TIME.inimigo));
 }
 
-const GEO_PONTA = new THREE.BoxGeometry(0.35, 0.35, 1.4);
 const GEO_PE = new THREE.CylinderGeometry(0.35, 0.35, 0.15, 8);
 const GEO_LOSANGO = new THREE.OctahedronGeometry(1, 0);
 let materialEscuro = null;
@@ -478,16 +476,6 @@ function montarCasco(raiz, modelo, race, chave = null) {
       { nome: 'l_propulsion', matriz: atras(-lx * 0.3) },
       { nome: 'r_propulsion', matriz: atras(lx * 0.3) },
     ];
-  }
-
-  // Marca do time: uma luz em cada ponta de asa (o que mais aparece na câmera de
-  // perseguição), nos encaixes de arma da ponta (l_/r_fire01).
-  for (const nome of ['l_fire01', 'r_fire01']) {
-    const p = encaixes.get(nome);
-    if (!p) continue;
-    const ponta = new THREE.Mesh(GEO_PONTA, neonTime);
-    ponta.position.copy(p);
-    casco.add(ponta);
   }
 
   // Propulsão do original em cada encaixe (motores, nariz e pontas das asas).
