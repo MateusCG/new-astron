@@ -172,16 +172,17 @@ const AURA_PARTICULA_S = 0.07; // intervalo entre partículas por nave afetada
 // Segue a posição da nave e fica deitado (não inclina com ela): vai na cena, não no
 // grupo `efeitos` da nave. Dois "subiu" na mesma nave a menos de SUBIDA_JUNTA_S (vários
 // níveis de uma vez) viram um só.
-const SUBIDA_S = 1.4;
-const SUBIDA_ENTRA_S = 0.2; // acende neste tempo e apaga no resto
-const SUBIDA_OPACIDADE = 0.5;
-const SUBIDA_LADO = 2.2; // lado do emblema, em corpos da nave (userData.tamanho)
+const SUBIDA_S = 2.2;
+const SUBIDA_ENTRA_S = 0.2; // acende neste tempo,
+const SUBIDA_FICA_S = 1; // fica aceso até aqui e apaga no resto
+const SUBIDA_OPACIDADE = 0.8;
+const SUBIDA_LADO = 2.6; // lado do emblema, em corpos da nave (userData.tamanho)
 const SUBIDA_ABRE = 0.25; // cresce esta fração do lado no efeito todo
 const SUBIDA_ABAIXO = 0.4; // abaixo do centro da nave, em corpos
 const SUBIDA_GIRO = Math.PI / 3; // rad no efeito todo
 const SUBIDA_BRILHO = 1.5; // tamanho do brilho, em corpos
-const SUBIDA_BRILHO_S = 0.5;
-const SUBIDA_BRILHO_OPACIDADE = 0.35;
+const SUBIDA_BRILHO_S = 0.6;
+const SUBIDA_BRILHO_OPACIDADE = 0.45;
 const SUBIDA_CORPO_PADRAO = 5; // m, nave sem userData.tamanho
 const SUBIDA_JUNTA_S = 0.3;
 // O desenho do tiro sai da boca da arma e encontra a linha da física neste tempo (s).
@@ -569,8 +570,8 @@ export class Efeitos {
     emblema.scale.setScalar(corpo * SUBIDA_LADO * (1 + SUBIDA_ABRE * sai));
     emblema.rotation.y = SUBIDA_GIRO * sai;
     const entra = Math.min(1, vida / SUBIDA_ENTRA_S);
-    const apaga = 1 - Math.max(0, (vida - SUBIDA_ENTRA_S) / (SUBIDA_S - SUBIDA_ENTRA_S));
-    emblema.material.opacity = SUBIDA_OPACIDADE * entra * apaga * apaga;
+    const apaga = 1 - Math.max(0, (vida - SUBIDA_FICA_S) / (SUBIDA_S - SUBIDA_FICA_S));
+    emblema.material.opacity = SUBIDA_OPACIDADE * entra * apaga;
     const kb = Math.min(1, vida / SUBIDA_BRILHO_S);
     luz.visible = kb < 1;
     luz.material.opacity = SUBIDA_BRILHO_OPACIDADE * (1 - kb);
