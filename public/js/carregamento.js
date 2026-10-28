@@ -351,7 +351,7 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
   const restaurar = []; // [objeto, visible, frustumCulled] da cena, para desfazer
   const programasAntes = renderer.info.programs?.length ?? 0;
   try {
-    // Todas as naves (aliada e inimiga: a luz do time muda de material), com motor e trem.
+    // Todas as naves (aliada e inimiga: o losango do time muda de material), com motor e trem.
     for (const nave of ins.naves) {
       for (const aliado of [true, false]) {
         const obj = lugar(criarNave(nave.race, { aliado, classe: nave.classe, tier: nave.tier }));
