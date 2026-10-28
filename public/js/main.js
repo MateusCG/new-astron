@@ -22,7 +22,10 @@
 // nave prevista (armasNave.nave) para travar o encaixe enquanto conta e mostrar a
 // arma que a nave tem de fato. As armas penduram nas asas (nave.js, definirArmas): a
 // sua pela nave prevista, as dos outros pelo `arm` de cada jogador no snapshot; o
-// clarão e o desenho do tiro saem da boca delas.
+// clarão e o desenho do tiro saem da boca delas. As armas de início desenham como no
+// original (efeitos.disparo, disparo-original.js): um clarão por projétil preso na
+// boca, o impacto no casco do alvo (o seu na hora em que o tiro encosta nele na tela)
+// e no chão, e o fim da Metralha Shrewdo do tamanho da área.
 //
 // Som (sons.js): o contexto de áudio nasce no primeiro gesto (clique ou tecla). Cada
 // disparo toca o som da arma do original na posição dele (o seu na hora, pela
@@ -588,6 +591,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
     return versaoArma(kind, nv)?.som ?? WEAPONS[kind]?.som ?? null;
   };
   const somImpacto = (kind, nv = 1, prof = 0) => golpeDaArma(kind, nv, prof)?.somImpacto ?? WEAPONS[kind]?.somImpacto ?? null;
+  // Tiro de arma de início que bate no chão, numa construção ou no campo: o som de
+  // impacto do original no lugar (o desenho do impacto sai em efeitos.js).
+  efeitos.aoImpacto = (kind, x, y, z) => somNoMundo(somImpacto(kind), x, z, 0.8);
   const boca = new THREE.Vector3();
   document.querySelector('#hud').hidden = false;
   const objetivos = new ObjetivosNaTela({ definirObjetivo, meuTime, container: document.querySelector('#rotulos-obj') });
@@ -666,7 +672,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
       );
     }
     // Disparos previstos: o projétil reto já sai desenhado (da boca da arma na asa);
-    // o clarão e o som, um por encaixe e tiro da rajada.
+    // o clarão e o som, um por encaixe e tiro da rajada (a arma de início: o clarão do
+    // original em cada projétil, como lá).
     const tocados = new Set();
     for (const d of stepShip(pred, inp)) {
       const g = golpeDaArma(d.kind, d.nivel, 0);
@@ -675,12 +682,13 @@ function montarJogo(rede, boas, renderer, race, classe) {
         const b = createBullet(pred, d.kind, 'l' + localSeq++, meuId, d.off, d.ang, d.nivel, g);
         b.nv = d.nivel;
         b.p = 0;
-        efeitos.tiro(b, false, null, daBoca);
+        efeitos.tiro(b, false, null, efeitos.disparo.inicio(b, pred, daBoca));
       }
+      const original = efeitos.disparo.clarao(d.kind, d.nivel, minhaNave, d.enc);
       const chave = `${d.enc}:${d.k}`;
       if (tocados.has(chave)) continue;
       tocados.add(chave);
-      if (daBoca) efeitos.armas.clarao(d.kind, daBoca.x, daBoca.y, daBoca.z, d.nivel);
+      if (daBoca && !original) efeitos.armas.clarao(d.kind, daBoca.x, daBoca.y, daBoca.z, d.nivel);
       somNoMundo(somDaArma(d.kind, d.nivel), pred.x, pred.z);
     }
     // Recarga de troca e a arma que a nave tem de fato (troca recusada volta atrás).
@@ -844,6 +852,12 @@ function montarJogo(rede, boas, renderer, race, classe) {
       tocados.add(chave);
       somNoMundo(nome, x, z, volume);
     };
+    // Quem levou o acerto, para o impacto sair no casco dele (o raio de acerto da nave;
+    // monstro e torre sem raio no snapshot: o tamanho do modelo, ou o ponto do evento).
+    const alvoDoAcerto = (e) => {
+      const o = e.alvo === meuId ? { obj: minhaNave, raio: pred?.raio } : outras.get(e.alvo);
+      return { id: e.alvo, obj: o?.obj, raio: o?.raio, x: e.x, y: e.y, z: e.z };
+    };
     // Golpe final crítico: o "CRÍTICO" sai junto do ouro e do XP (evento 'ganho'), não duas vezes.
     const critFinal = new Set();
     for (const e of ev) if (e.e === 'ganho' && e.crit) critFinal.add(e.id);
@@ -867,9 +881,14 @@ function montarJogo(rede, boas, renderer, race, classe) {
         // O tiro direto sai da nave: o primeiro passo do campo de força da base conta de
         // onde ela está (stepBullet), para o tiro que nasce já do outro lado parar no plano.
         const origem = p === 0 && dono?.obj ? { ox: dono.obj.position.x, oz: dono.obj.position.z } : {};
-        efeitos.tiro({ id: e.id, kind: e.kind, atq: e.atq, nv: e.nv, p, x: e.x, y: e.y, z: e.z, vx: e.vx, vy: e.vy, vz: e.vz, vida: e.vida ?? 2.5, ...origem }, !!dono?.drone, null, daBoca);
+        const b = { id: e.id, kind: e.kind, atq: e.atq, nv: e.nv, p, x: e.x, y: e.y, z: e.z, vx: e.vx, vy: e.vy, vz: e.vz, vida: e.vida ?? 2.5, ...origem };
+        const nave = dono?.obj && { x: dono.obj.position.x, z: dono.obj.position.z, yaw: dono.obj.rotation.y };
+        efeitos.tiro(b, !!dono?.drone, null, efeitos.disparo.inicio(b, nave, daBoca));
         if (proprio && p === 0) continue; // clarão e som já saíram na predição
-        if (p === 0 && daBoca) efeitos.armas.clarao(e.kind, daBoca.x, daBoca.y, daBoca.z, e.nv);
+        if (p === 0 && daBoca) {
+          // Arma de início: o clarão do original preso na boca; as outras, o de antes.
+          if (!efeitos.disparo.clarao(e.kind, e.nv, dono.obj, e.enc)) efeitos.armas.clarao(e.kind, daBoca.x, daBoca.y, daBoca.z, e.nv);
+        }
         // Monstro com arma do original: o clarão do original sai dele, no rumo do tiro.
         else if (p === 0 && e.atq && WEAPONS[e.kind]?.original) efeitos.claraoMonstro(e.kind, e.x, e.y, e.z, { x: e.vx, y: e.vy, z: e.vz }, e.nv);
         tocarUmaVez(`t${e.dono}:${e.kind}:${p}`, somDaArma(e.kind, e.nv, p), e.x, e.z);
@@ -898,7 +917,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
         efeitos.armas.clarao(e.kind, e.x, e.y, e.z, e.nv);
         if (e.id !== meuId) tocarUmaVez(`e${e.id}:${e.kind}`, somDaArma(e.kind, e.nv), e.x, e.z);
       } else if (e.e === 'explosao' && e.arma !== 'mina') {
-        efeitos.armas.area(e.arma, e.nv, e.p, e.x, e.y, e.z, e.raio);
+        // A Metralha Shrewdo: o efeito de fim do original, esticado até a área.
+        if (!efeitos.disparo.area(e.arma, e.nv, e.x, e.y, e.z, e.raio)) efeitos.armas.area(e.arma, e.nv, e.p, e.x, e.y, e.z, e.raio);
         tocarUmaVez(`x${e.arma}:${Math.round(e.x / 20)}:${Math.round(e.z / 20)}`, somImpacto(e.arma, e.nv, e.p), e.x, e.z);
       } else if (e.e === 'cura') {
         efeitos.explosao(e.x, e.y, e.z, 0.6, '#7dff9a');
@@ -917,15 +937,18 @@ function montarJogo(rede, boas, renderer, race, classe) {
         efeitos.explosao(e.x, e.y, e.z, 0.8, e.kind === 'pulso' ? '#9fe8ff' : '#ff4a2a');
         if (e.alvo === meuId && e.dano > 0) hud.levarDano();
       } else if (e.e === 'acerto') {
-        efeitos.removerTiro(e.bala);
+        const bala = efeitos.removerTiro(e.bala);
+        // O acerto numa torre não traz a arma: vem do tiro que bateu.
+        const kind = e.kind ?? bala?.kind;
         if (e.atq && WEAPONS[e.kind]?.original) {
           // Golpe de monstro com arma do original: o impacto do original fica onde bateu
           // (a esfera azul da descarga do SN-3, as explosões dos canhões).
           efeitos.impactoMonstro(e.kind, e.x, e.y, e.z);
           tocarUmaVez(`a${e.kind}:${e.alvo}`, somImpacto(e.kind), e.x, e.z, 0.8);
-        } else if (visualDoOriginal(e.kind)) {
-          efeitos.armas.impacto(e.kind, 1, 0, e.x, e.y, e.z, 3.5);
-          tocarUmaVez(`a${e.kind}:${e.alvo}`, somImpacto(e.kind), e.x, e.z, 0.8);
+        } else if (visualDoOriginal(kind)) {
+          // Arma de início: o impacto do original no casco do alvo; as outras, o de antes.
+          if (!efeitos.disparo.impacto(kind, alvoDoAcerto(e), bala, e.por === meuId)) efeitos.armas.impacto(kind, 1, 0, e.x, e.y, e.z, 3.5);
+          tocarUmaVez(`a${kind}:${e.alvo}`, somImpacto(kind), e.x, e.z, 0.8);
         } else efeitos.explosao(e.x, e.y, e.z, 0.7, '#ffd080');
         if (e.alvo === meuId && e.dano > 0) hud.levarDano();
         // Seu golpe crítico: "CRÍTICO" sobe do alvo.
@@ -943,6 +966,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
         if (e.xp > 0) linhas.push({ txt: `+${e.xp} XP`, classe: 'xp' });
         hud.flutuante(e.x, e.y + 7 + (ROTULO_MONSTRO[e.esp] ?? 0), e.z, linhas);
       } else if (e.e === 'fim') {
+        // Arma de início que bateu em algo antes de a vida acabar: o impacto ali.
+        efeitos.disparo.fim(efeitos.tiros.get(e.bala), e.x, e.y, e.z);
         efeitos.removerTiro(e.bala);
         // O tiro parou no campo de força de uma base: um anel se abre onde bateu.
         if (e.campo !== undefined && e.x !== undefined) atingirCampo(e.campo, e.x, e.y, e.z);
@@ -1272,11 +1297,11 @@ function montarJogo(rede, boas, renderer, race, classe) {
     // Tiros: o nosso some ao encostar em alguém na tela (o dano vem do servidor).
     // Aliado não: no servidor o tiro atravessa quem é do mesmo time.
     efeitos.atualizar(dt, (b) => {
-      if (b.owner !== meuId) return false;
-      for (const o of outras.values()) {
-        if (o.obj.visible && !o.aliado && bulletHits(b, { x: o.obj.position.x, y: o.obj.position.y, z: o.obj.position.z, raio: o.raio })) return true;
+      if (b.owner !== meuId) return null;
+      for (const [id, o] of outras) {
+        if (o.obj.visible && !o.aliado && bulletHits(b, { x: o.obj.position.x, y: o.obj.position.y, z: o.obj.position.z, raio: o.raio })) return { id, obj: o.obj, raio: o.raio };
       }
-      return false;
+      return null;
     });
 
     // Câmera de perseguição, como no AstroN: atrás e um pouco acima da nave.
