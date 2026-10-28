@@ -71,6 +71,9 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
   '1322063', '1322064', '1421030',
   // Estados na nave: o fogo do Magma e os ícones.
   '1164001', 'cross003', 'cross002', 'cross007', 'cross008', 'cross010', 'cross013',
+  // Subir de nível e evoluir a nave: a coluna de luz, o anel e a espiral de cada raça
+  // (todas baixam: o piloto vê subir de nível a nave de qualquer raça).
+  'lvup001', 'lvup002', 'lvup003',
 ]);
 
 /**
@@ -83,6 +86,12 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
  * ataque enfraquecido. Os mesmos símbolos das mensagens de debuff (debuffs.js).
  */
 export const ICONES_ESTADO = Object.freeze({ resist: 'cross003', para: 'cross002', semTiro: 'cross008', desg: 'cross010', descarga: 'cross013', energia: 'cross013', fraco: 'cross008' });
+/**
+ * O efeito de subir de nível e de evoluir a nave por raça (CUnit::EffectLevelUp do
+ * original: o `CBasePilot::m_brood` 0, 1 e 2 carrega lvup003, lvup002 e lvup001): azul
+ * no Acron, vermelho no Bellico, verde no Shrewdo. Sem raça conhecida, o do Acron.
+ */
+export const EFEITO_SUBIDA = Object.freeze({ acron: 'lvup003', bellico: 'lvup002', shrewdo: 'lvup001' });
 /** O fogo do Magma na nave (o dreno de HP do original: faíscas vermelhas subindo). */
 export const MAGMA_NA_NAVE = '1164001';
 

@@ -62,7 +62,7 @@ import { FATOR_AREA, golpeDaArma, visualDoOriginal, visualEfeito } from '/shared
 import { FATOR_TAMANHO_NAVE } from '/shared/naves.js';
 import { brilho } from './nave.js';
 import { VisualArmas } from './efeitos-armas.js';
-import { ICONES_ESTADO, MAGMA_NA_NAVE } from './insumos.js';
+import { EFEITO_SUBIDA, ICONES_ESTADO, MAGMA_NA_NAVE } from './insumos.js';
 import { criarEfeitoOriginal, tocarEfeitoOriginal, soltarEfeitoOriginal, raioEfeitoOriginal, efeitoOriginalPronto, particulaOriginal } from './efeitos-original.js';
 import { texturaEfeito } from './efeitos-armas.js';
 
@@ -161,11 +161,14 @@ const MINA_RAIO_CORPO = 1.6;
 // Aura de quem está sob efeito: brilho em volta da nave + partículas. O dreno
 // "puxa" a vida para fora (partículas violeta subindo); o gelo cai em cristais.
 const AURA_PARTICULA_S = 0.07; // intervalo entre partículas por nave afetada
-// Subiu de nível: dois anéis de luz verde-lima (a cor do XP no HUD) abrindo em
-// volta da nave e subindo, presos a ela (vão junto enquanto ela voa).
-const COR_NIVEL = new THREE.Color('#b6f05a');
-const ANEL_NIVEL_S = 1.2;
-const ANEL_NIVEL_RAIO = 14; // m no fim da animação
+// Subiu de nível ou evoluiu a nave: o efeito lvup do original (a coluna de luz, o anel
+// e a espiral da raça; CUnit::EffectLevelUp). O CUnitFire dele segue só a posição da
+// nave (a matriz vira identidade mais a posição do piloto, a escala do raio da nave
+// que a função calcula é descartada), então toca de pé, sem girar com ela e no mesmo
+// tamanho em qualquer nave: o efeito vai na cena, não no grupo `efeitos` da nave.
+// Dois "subiu" na mesma nave a menos desta distância no tempo (vários níveis de uma
+// vez) viram um só.
+const SUBIDA_JUNTA_S = 0.3;
 // O desenho do tiro sai da boca da arma e encontra a linha da física neste tempo (s).
 const DESVIO_S = 0.15;
 // Efeitos das armas na nave atingida (lista `fx` do servidor): cor da aura de cada um.
@@ -192,7 +195,7 @@ const RECALL_FEIXE_S = 0.7;
 // Quantos de cada efeito passageiro já nascem prontos na tela de carregamento (a
 // reserva cresce sozinha se a partida pedir mais). Uma briga de 6 naves com mísseis
 // passa de cem faíscas e baforadas de fumaça ao mesmo tempo.
-const RESERVA_INICIAL = { brilho: 160, fumaca: 120, faiscas: 12, anelArea: 12, anelNivel: 4, pulsoAnel: 4, pulsoCasca: 4, feixe: 4 };
+const RESERVA_INICIAL = { brilho: 160, fumaca: 120, faiscas: 12, anelArea: 12, pulsoAnel: 4, pulsoCasca: 4, feixe: 4 };
 // Faíscas de uma explosão: 14 por tamanho, até este tanto (o buffer da reserva é deste tamanho).
 const FAISCAS_MAX = 128;
 
@@ -259,7 +262,7 @@ export class Efeitos {
     this.matsPorCor.clear();
     for (const g of this.geoPulso.values()) g.dispose();
     this.geoPulso.clear();
-    for (const r of [this.geoMina, this.geoEspinho, this.geoLuzMina, this.matMina, this.geoMissil, this.geoNarizMissil, this.matMissil, this.geoAnel, this.geoColuna, this.geoAnelRecall, this.geoCascaPulso, this.geoAnelNivel]) {
+    for (const r of [this.geoMina, this.geoEspinho, this.geoLuzMina, this.matMina, this.geoMissil, this.geoNarizMissil, this.matMissil, this.geoAnel, this.geoColuna, this.geoAnelRecall, this.geoCascaPulso]) {
       r.dispose();
     }
   }
@@ -284,7 +287,8 @@ export class Efeitos {
     for (const a of this.aneisArea) this.#devolver(a.anel);
     for (const f of this.feixes) this.#devolver(f.m);
     for (const p of [...this.fumacas, ...this.auras]) this.#devolver(p.s);
-    for (const a of this.aneis) this.#devolver(a.anel);
+    for (const s of this.subidas) soltarEfeitoOriginal(s.inst);
+    this.subidas = [];
     for (const c of this.pulsos) this.#devolver(c.m);
     for (const o of this.originais) soltarEfeitoOriginal(o.inst);
     this.originais = [];
@@ -295,7 +299,6 @@ export class Efeitos {
     this.aneisArea = [];
     this.feixes = [];
     this.fumacas = [];
-    this.aneis = [];
     this.auras = [];
     this.armas.esquecer();
   }
@@ -306,7 +309,7 @@ export class Efeitos {
     this.particulas = [];
     this.geoBarra = new Map();
     this.auras = [];
-    this.aneis = [];
+    this.subidas = []; // lvup do original seguindo uma nave: { obj, inst }
     this.aneisArea = [];
     this.fumacas = [];
     this.minas = new Map(); // id -> { g, luz, brilho, armada, fase }
@@ -337,10 +340,9 @@ export class Efeitos {
     this.reservaParticulas = [];
     this.camera = null; // quem desenha a cena põe a câmera (peças viradas para ela)
     this.pulsos = []; // pulsos do Núcleo de He-3
-    // Geometrias de tamanho 1 (a malha escala): pulso e anel de nível.
+    // Geometrias de tamanho 1 (a malha escala): o pulso.
     this.geoCascaPulso = new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2);
     this.geoPulso = new Map(); // grossura do anel do pulso (em degraus) -> TorusGeometry
-    this.geoAnelNivel = new THREE.TorusGeometry(1, 0.035, 4, 48);
     const aditivo = { blending: THREE.AdditiveBlending, transparent: true, depthWrite: false };
     this.matsPorCor = new Map(); // materiais dos tiros de NPC e de monstro, um por cor e jeito
     // Reservas dos efeitos passageiros (#pegar/#devolver) e como nasce cada um.
@@ -358,11 +360,6 @@ export class Efeitos {
       anelArea: () => {
         const m = new THREE.Mesh(this.geoAnel, new THREE.MeshBasicMaterial({ ...aditivo, side: THREE.DoubleSide }));
         m.rotation.x = -Math.PI / 2;
-        return m;
-      },
-      anelNivel: () => {
-        const m = new THREE.Mesh(this.geoAnelNivel, new THREE.MeshBasicMaterial({ color: COR_NIVEL, ...aditivo }));
-        m.rotation.x = Math.PI / 2;
         return m;
       },
       pulsoAnel: () => {
@@ -507,18 +504,22 @@ export class Efeitos {
     this.auras.push({ s, subida: 0, vida: 0, dur: 0.5, tamanho: 18 });
   }
 
-  /** Anel de luz de "subiu de nível" em volta da nave (grupo do Three.js). */
-  anelNivel(obj) {
-    for (const atraso of [0, 0.25]) {
-      const anel = this.#pegar('anelNivel');
-      anel.visible = false;
-      efeitosDa(obj).add(anel);
-      this.aneis.push({ obj, anel, vida: -atraso });
-    }
-    const clarao = this.#brilhoSolto(COR_NIVEL, 8);
-    clarao.position.set(0, 0, 0);
-    efeitosDa(obj).add(clarao);
-    this.aneis.push({ obj, anel: clarao, vida: 0, clarao: true });
+  /**
+   * "Subiu de nível" ou "evoluiu a nave": toca na nave (grupo do Three.js, de uma
+   * nave da `race`) o efeito lvup do original, a coluna de luz com o anel e a espiral
+   * na cor da raça, e acompanha a posição dela enquanto voa. Devolve false se o efeito
+   * não está pronto ou se a nave acabou de ganhar um (vários níveis juntos): quem chama
+   * só toca o som quando devolve true.
+   */
+  subirNivel(obj, race) {
+    const id = EFEITO_SUBIDA[race] ?? EFEITO_SUBIDA.acron;
+    if (!efeitoOriginalPronto(id)) return false;
+    if (this.subidas.some((s) => s.obj === obj && s.inst.t < SUBIDA_JUNTA_S)) return false;
+    const inst = criarEfeitoOriginal(id, { escala: ESCALA_ORIGINAL });
+    inst.obj.position.copy(obj.position);
+    this.scene.add(inst.obj);
+    this.subidas.push({ obj, inst });
+    return true;
   }
 
   /**
@@ -1228,25 +1229,13 @@ export class Efeitos {
       return true;
     });
 
-    this.aneis = this.aneis.filter((a) => {
-      a.vida += dt;
-      const k = a.vida / ANEL_NIVEL_S;
-      if (k >= 1) {
-        this.#devolver(a.anel);
-        return false;
-      }
-      if (k < 0) return true;
-      a.anel.visible = true;
-      const sai = 1 - (1 - k) * (1 - k); // abre rápido e freia
-      if (a.clarao) {
-        a.anel.scale.setScalar(8 + 6 * sai);
-        a.anel.material.opacity = (1 - k) * 0.45;
-      } else {
-        a.anel.scale.setScalar(3 + (ANEL_NIVEL_RAIO - 3) * sai);
-        a.anel.position.y = -2 + 7 * k;
-        a.anel.material.opacity = (1 - k) * 0.8;
-      }
-      return true;
+    // O lvup vai junto com a nave (a nave que saiu da cena ou foi desfeita deixa o
+    // efeito acabar onde estava: ele não depende dela para tocar).
+    this.subidas = this.subidas.filter((s) => {
+      if (s.obj.parent) s.inst.obj.position.copy(s.obj.position);
+      if (tocarEfeitoOriginal(s.inst, dt, this.camera)) return true;
+      soltarEfeitoOriginal(s.inst);
+      return false;
     });
 
     this.auras = this.auras.filter((p) => {

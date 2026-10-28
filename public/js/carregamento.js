@@ -316,7 +316,7 @@ export class Carregamento {
  * base do piloto, um exemplar de cada coisa que a partida pode desenhar:
  * - as 45 naves (todas as raças, classes e tiers, aliadas e inimigas) e naves com
  *   cada modelo de arma na asa, com motor, trem de pouso, auras, bônus, recall,
- *   camuflagem e o anel de nível;
+ *   camuflagem;
  * - o projétil de cada versão de cada arma (e dos filhos), os passageiros (clarão,
  *   impacto, área, nova), campos e minas;
  * - os monstros (com o sangue e as bolhas da Medusa), mineradores dos dois times, o
@@ -366,7 +366,7 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
       definirArmas(obj, [a.idx, b.idx]);
       definirArmas(lugar(criarNave(race, { aliado: true, classe, tier: 1 })), [b.idx, a.idx]);
     }
-    // Auras, recall, bônus, camuflagem e o anel de nível, em duas naves só para isso.
+    // Auras, recall, bônus, camuflagem, em duas naves só para isso (o efeito de subir de nível é um dos efeitos do original, aquecido abaixo).
     const auras = lugar(criarNave(race, { aliado: true, classe, tier: 0 }));
     efeitos.estadoNave(
       auras,
@@ -375,7 +375,6 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
       0,
     );
     efeitos.recall(auras, 0.5, COR_TIME.meu, 0.016, 0);
-    efeitos.anelNivel(auras);
     const fantasma = lugar(criarNave(race, { aliado: true, classe, tier: 0 }));
     efeitos.estadoNave(fantasma, { fx: ['inv'] }, 0.016, 0);
     // Monstros (modelos do original; a Medusa com o sangue e as bolhas, que são
