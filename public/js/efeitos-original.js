@@ -110,6 +110,7 @@ function preparar(j) {
 }
 
 const mCam = new THREE.Matrix4();
+const mGiro = new THREE.Matrix4();
 const vPos = new THREE.Vector3();
 const vEsc = new THREE.Vector3();
 const qTmp = new THREE.Quaternion();
@@ -145,6 +146,7 @@ export function criarEfeitoOriginal(id, { escala = 1, loop = false } = {}) {
   }
   inst.t = 0;
   inst.loop = loop;
+  inst.giro = 0; // rad, só nas peças viradas para a câmera (a fumaça da queda)
   inst.obj.scale.setScalar(escala);
   inst.obj.position.set(0, 0, 0);
   inst.obj.quaternion.identity();
@@ -239,6 +241,8 @@ function aplicarQuadro(inst, q, camera) {
       camera.matrixWorld.extractBasis(eixos[1], eixos[0], eixos[2]); // direita, cima, para trás
       eixos[2].negate();
       mCam.makeBasis(eixos[0], eixos[1], eixos[2]).scale(vEsc).setPosition(vPos);
+      // A fumaça da unidade caindo gira na tela (CUnitWarningSmoke: rotação em z da câmera).
+      if (inst.giro) mCam.multiply(mGiro.makeRotationZ(inst.giro));
       malha.matrixWorldAutoUpdate = false;
       malha.matrixWorld.multiplyMatrices(mCam, m);
       malha.matrix.identity();

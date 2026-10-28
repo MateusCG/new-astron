@@ -17,6 +17,7 @@ import { WEAPONS, ARMAS, armasDisponiveis, visualEfeito, visualDoOriginal } from
 import { linhaDe, RACAS_JOGAVEIS, ORDEM_CLASSES } from '../../shared/naves.js';
 import { EQUIPAMENTOS, equipamentosAVenda } from '../../shared/equipamentos.js';
 import { SONS_INTERFACE, SONS_ARMA } from './sons.js';
+import { EFEITOS_DESTRUICAO, SONS_DESTRUICAO } from './destruicao.js';
 
 /** Pasta das texturas dos efeitos de arma do original. */
 export const PASTA_TEXTURAS_EFEITO = '/texturas/efeitos/';
@@ -58,6 +59,9 @@ export function iconesDaNave(race, classe) {
  * tools/efeitos3d_do_original.py e ponha aqui.
  */
 export const EFEITOS_ORIGINAIS = Object.freeze([
+  // Destruição de nave, torre e monstro (destruicao.js): as explosões EXP001 a EXP007,
+  // a fagulha e a fumaça da queda, a faísca e as peças dos destroços.
+  ...EFEITOS_DESTRUICAO,
   // SN-3: clarão, Disco Voador, impacto; clarão do míssil, o míssil com o "E", a esfera azul da descarga.
   '1121001', '1361031', '1401307', '1150005', '2343012', '1503009',
   // SN-4: Míssil Cruzador, Onda de Feixe Óptico (e o impacto), Campo Elétrico.
@@ -228,6 +232,8 @@ export function insumosDaPartida(race, classe) {
   // Sons de todas as armas, as de NPC também (torres, escoltas e drones atiram com elas).
   for (const kind of ARMAS) for (const s of sonsDaArma(kind)) sons.add(s);
   for (const s of Object.values(SONS_ARMA)) sons.add(s);
+  // Os sons de morte das unidades e o da explosão (destruicao.js).
+  for (const s of SONS_DESTRUICAO) sons.add(s);
   return { naves, armas, armasMonstro, texturas: [...texturas], sons: [...sons], icones: propria.icones, efeitosOriginais: [...EFEITOS_ORIGINAIS] };
 }
 

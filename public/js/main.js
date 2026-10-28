@@ -130,7 +130,7 @@ import { Controles } from './controles.js';
 import { Hud, BONUS_NAVE } from './hud.js';
 import { ObjetivosNaTela, LUGARES_OBJETIVO, NOME_OBJETIVO } from './objetivos.js';
 import { criarLimitador } from './quadros.js';
-import { criarMonstro, animarMonstro, surgirMonstro, criarMarcadorNucleo, EXPLOSAO_MONSTRO, ROTULO_MONSTRO } from './monstros.js';
+import { criarMonstro, animarMonstro, surgirMonstro, criarMarcadorNucleo, ROTULO_MONSTRO } from './monstros.js';
 import { TorretasNaTela } from './torretas.js';
 import { Rede } from './rede.js';
 import { mostrarPrevia, pararPrevia } from './vitrine.js';
@@ -144,6 +144,8 @@ import { PainelServicos } from './servicos.js';
 import { PainelStatus } from './status.js';
 import { PainelInventario } from './inventario.js';
 import { ListaDebuffs } from './debuffs.js';
+import { Destruicoes } from './destruicao-3d.js';
+import { destruicaoDe } from './destruicao.js';
 import { TelaCarregamento, Carregamento, aquecerGpu } from './carregamento.js';
 import { MELHORIAS_MINERADOR, MELHORIA_TORRETAS } from '/shared/evolucao.js';
 import { RECALL_S } from '/shared/recall.js';
@@ -530,6 +532,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
   const { scene, atualizar: atualizarCena, definirObjetivo, definirMineracao, definirBacias, atingirCampo } = criarCena({ meuTime });
   const efeitos = new Efeitos(scene);
   efeitos.camera = camera; // as peças dos efeitos do original que olham para a câmera
+  // Nave, torre e monstro destruídos como no original: caem e explodem (destruicao-3d.js).
+  const destruicoes = new Destruicoes({ scene, camera, som: (nome, x, z) => somNoMundo(nome, x, z) });
   const nevoa = new Nevoa({ renderer, scene, meuTime }); // névoa de guerra (visão do time)
   const controles = new Controles(document.body);
   const hud = new Hud({ meuTime });
@@ -689,6 +693,22 @@ function montarJogo(rede, boas, renderer, race, classe) {
     if (pendentes.length > 120) pendentes.shift();
   }
 
+  /**
+   * Destruição da entidade do evento `e` (morte com lugar) como no original
+   * (destruicao.js): o modelo dela na tela cai e explode, ou explode ali. Quem morreu
+   * some da tela na hora (o desenho dos outros vem INTERP_MS atrás e ainda a mostraria
+   * voando por um instante ao lado da que cai).
+   */
+  function destruir(e, tipo) {
+    const o = outras.get(e.id);
+    const obj = e.id === meuId ? minhaNave : o?.obj;
+    if (o) o.destruidoAte = performance.now() + INTERP_MS + 100;
+    let ent = null;
+    for (let i = snaps.length - 1; i >= 0 && !ent; i--) ent = snaps[i].ents.find((x) => x.id === e.id);
+    const d = destruicaoDe({ tipo, esp: e.esp ?? ent?.esp, race: ent?.race ?? (e.id === meuId ? race : null), nucleo: o?.nucleo, corpo: obj?.userData.tamanho });
+    destruicoes.destruir({ x: e.x, y: e.y, z: e.z, d, obj: obj?.visible ? obj : null });
+  }
+
   function aoSnapshot(m) {
     const ouroAntes = extra.ouro;
     extra = { ouro: m.ouro, abates: m.abates, mortes: m.mortes, nivel: m.nivel, xp: m.xp, xpProx: m.xpProx };
@@ -713,15 +733,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
       m.ents.filter((e) => e.tipo === 'minerador' && e.descarga && e.vivo !== false).map((e) => ({ x: e.x, y: e.y, z: e.z, time: e.time })),
     );
     // Antes da predição: a torre de suporte caída já sai da física daqui em diante.
-    for (const t of objetivos.atualizar(m.obj)) {
-      efeitos.explosao(t.x, t.y, t.z, 6, '#ff9a3a');
-      efeitos.explosao(t.x, t.y + 12, t.z, 3, '#ffb627');
-    }
-    // Torreta que caiu: explosão laranja e faíscas na cor do time dela.
-    for (const t of torretas.atualizar(m.torretas)) {
-      efeitos.explosao(t.x, t.y, t.z, 5, '#ff9a3a');
-      efeitos.explosao(t.x, t.y + 4, t.z, 2.5, TORRETAS.find((x) => x.id === t.id).time === meuTime ? '#00efc0' : '#ff3b2a');
-    }
+    for (const t of objetivos.atualizar(m.obj)) destruicoes.destruir({ ...t, d: destruicaoDe({ tipo: 'torreSuporte' }) });
+    // Torreta que caiu: a explosão do original (os destroços com a textura dela).
+    for (const t of torretas.atualizar(m.torretas)) destruicoes.destruir({ ...t, d: destruicaoDe({ tipo: 'torreta' }), obj: torretas.lista.get(t.id)?.obj });
     tratarEventos(m.ev);
     efeitos.corrigirGuiados(m.guiados);
     efeitos.atualizarMinas(m.minas, meuTime);
@@ -947,7 +961,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
         // O tiro parou no campo de força de uma base: um anel se abre onde bateu.
         if (e.campo !== undefined && e.x !== undefined) atingirCampo(e.campo, e.x, e.y, e.z);
       } else if (e.e === 'morte' && e.tipo === 'minerador') {
-        efeitos.explosao(e.x, e.y, e.z, outras.get(e.id)?.nucleo ? 6 : 3, '#ff9a3a');
+        if (e.x !== undefined) destruir(e, 'minerador');
         const por = nomes.get(e.por) ?? '?';
         if (e.time === meuTime) hud.noticia(`${por} destruiu um minerador do seu time`, 'ruim');
         else if (e.por === meuId) hud.noticia(`Você destruiu um minerador inimigo${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
@@ -957,7 +971,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
       } else if (e.e === 'teleporte') {
         eventoTeleporte(e);
       } else if (e.e === 'morte' && e.tipo === 'escolta') {
-        efeitos.explosao(e.x, e.y, e.z, 3.5, '#ff9a3a');
+        if (e.x !== undefined) destruir(e, 'escolta');
         const por = nomes.get(e.por) ?? '?';
         if (e.time === meuTime) hud.noticia(`${por} destruiu a escolta do seu time`, 'ruim');
         else if (e.por === meuId) hud.noticia(`Você destruiu a escolta inimiga${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
@@ -981,11 +995,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
       } else if (e.e === 'morte') {
         const tipo = e.tipo ?? outras.get(e.id)?.tipo;
         // Fora da visão (névoa) a morte de jogador vem sem lugar: só a notícia.
-        if (e.x !== undefined) {
-          const tam = tipo === 'nucleo' ? 12 : (EXPLOSAO_MONSTRO[e.esp] ?? 4);
-          efeitos.explosao(e.x, e.y, e.z, tam, tipo === 'nucleo' ? '#9fe8ff' : '#ff9a3a');
-          somNoMundo(tipo === 'jogador' || tam >= 5 ? 'h_explo' : 'n2_explo', e.x, e.z);
-        }
+        if (e.x !== undefined) destruir(e, tipo);
         const quem = nomes.get(e.id) ?? '?';
         const matador = e.por === meuId ? 'Você' : (nomes.get(e.por) ?? '?');
         if (e.motivo === 'campo') {
@@ -1228,7 +1238,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
         definirArmas(o.obj, e.arm);
         o.raio = naveDe(e.race, e.classe, e.tier)?.raio; // raio de acerto, que cresce com o tier
       }
-      o.obj.visible = e.vivo;
+      o.obj.visible = e.vivo && !(o.destruidoAte > agora);
       o.pos = o.obj.position;
       if (!e.vivo) continue;
       const bicho = e.tipo === 'monstro' || e.tipo === 'nucleo';
@@ -1268,6 +1278,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
         outras.delete(id);
       }
     }
+
+    // Quem foi destruído caindo, explodindo e soltando destroços.
+    destruicoes.atualizar(dt);
 
     // Tiros: o nosso some ao encostar em alguém na tela (o dano vem do servidor).
     // Aliado não: no servidor o tiro atravessa quem é do mesmo time.
