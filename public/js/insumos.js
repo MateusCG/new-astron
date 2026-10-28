@@ -82,6 +82,9 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
   '1322063', '1322064', '1421030',
   // Estados na nave: o fogo do Magma e os ícones.
   '1164001', 'cross003', 'cross002', 'cross007', 'cross008', 'cross010', 'cross013',
+  // Subir de nível e evoluir a nave: o emblema e a espiral de cada raça (a coluna fica
+  // escondida; todas baixam: o piloto vê subir de nível a nave de qualquer raça).
+  'lvup001', 'lvup002', 'lvup003',
 ]);
 
 /**
@@ -95,13 +98,21 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
  */
 export const ICONES_ESTADO = Object.freeze({ resist: 'cross003', para: 'cross002', semTiro: 'cross008', desg: 'cross010', descarga: 'cross013', energia: 'cross013', fraco: 'cross008' });
 /**
- * O emblema de cada raça que marca a subida de nível e a nave nova: a textura do anel
- * do lvup do original (CUnit::EffectLevelUp: o `CBasePilot::m_brood` 0, 1 e 2 carrega
- * lvup003, lvup002 e lvup001), o gancho azul do Acron, as lâminas vermelhas do Bellico
- * e o trevo verde do Shrewdo. Só ela: a coluna de luz e a espiral do efeito inteiro
- * chamavam atenção demais. Sem raça conhecida, o do Acron.
+ * O efeito de subir de nível e de evoluir a nave por raça (CUnit::EffectLevelUp do
+ * original: o `CBasePilot::m_brood` 0, 1 e 2 carrega lvup003, lvup002 e lvup001): o
+ * emblema e a luz azuis no Acron, vermelhos no Bellico, verdes no Shrewdo. Sem raça
+ * conhecida, o do Acron.
  */
-export const EMBLEMA_SUBIDA = Object.freeze({ acron: 'lvup003', bellico: 'lvup002', shrewdo: 'lvup001_02' });
+export const EFEITO_SUBIDA = Object.freeze({ acron: 'lvup003', bellico: 'lvup002', shrewdo: 'lvup001' });
+/**
+ * O quadro do .3dx de uma peça cujo alto (`topos`, um por quadro) fica mais perto de
+ * `alvo`: a espiral do lvup sobe escolhendo o quadro pela altura até cobrir a nave.
+ */
+export function quadroPelaAltura(topos, alvo) {
+  let melhor = 0;
+  for (let i = 1; i < topos.length; i++) if (Math.abs(topos[i] - alvo) < Math.abs(topos[melhor] - alvo)) melhor = i;
+  return melhor;
+}
 /** O fogo do Magma na nave (o dreno de HP do original: faíscas vermelhas subindo). */
 export const MAGMA_NA_NAVE = '1164001';
 
@@ -244,8 +255,6 @@ export function insumosDaPartida(race, classe) {
   const sons = new Set(propria.sons);
   const armasMonstro = armasDeMonstro();
   for (const { kind } of [...armas, ...armasMonstro]) for (const t of texturasDaArma(kind)) texturas.add(t);
-  // Os emblemas de subir de nível de todas as raças (o piloto vê subir a nave de qualquer uma).
-  for (const t of Object.values(EMBLEMA_SUBIDA)) texturas.add(t);
   // Sons de todas as armas, as de NPC também (torres, escoltas e drones atiram com elas).
   for (const kind of ARMAS) for (const s of sonsDaArma(kind)) sons.add(s);
   for (const s of Object.values(SONS_ARMA)) sons.add(s);

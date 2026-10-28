@@ -59,14 +59,25 @@
 // carregamento (preencherReservas, chamado pelo aquecimento da placa de vídeo).
 
 import * as THREE from 'three';
-import { RACES, stepBullet, WEAPONS } from '/shared/sim.js';
+import { stepBullet, WEAPONS } from '/shared/sim.js';
+import { heightAt, topoPouso } from '/shared/terrain.js';
 import { FATOR_AREA, golpeDaArma, visualDoOriginal, visualEfeito } from '/shared/armas.js';
 import { FATOR_TAMANHO_NAVE } from '/shared/naves.js';
 import { brilho } from './nave.js';
 import { VisualArmas } from './efeitos-armas.js';
 import { DisparoOriginal } from './disparo-original.js';
-import { EMBLEMA_SUBIDA, ICONES_ESTADO, MAGMA_NA_NAVE } from './insumos.js';
-import { criarEfeitoOriginal, tocarEfeitoOriginal, soltarEfeitoOriginal, raioEfeitoOriginal, efeitoOriginalPronto, particulaOriginal } from './efeitos-original.js';
+import { EFEITO_SUBIDA, ICONES_ESTADO, MAGMA_NA_NAVE, quadroPelaAltura } from './insumos.js';
+import {
+  criarEfeitoOriginal,
+  tocarEfeitoOriginal,
+  soltarEfeitoOriginal,
+  raioEfeitoOriginal,
+  efeitoOriginalPronto,
+  particulaOriginal,
+  toposDaPeca,
+  mostrarLinhaOriginal,
+  FLAGS_BLOCO,
+} from './efeitos-original.js';
 import { texturaEfeito } from './efeitos-armas.js';
 
 // Cores dos efeitos de arma (ver IDENTIDADE-VISUAL.md): o dreno é violeta e o
@@ -164,26 +175,30 @@ const MINA_RAIO_CORPO = 1.6;
 // Aura de quem está sob efeito: brilho em volta da nave + partículas. O dreno
 // "puxa" a vida para fora (partículas violeta subindo); o gelo cai em cristais.
 const AURA_PARTICULA_S = 0.07; // intervalo entre partículas por nave afetada
-// Subiu de nível ou evoluiu a nave: o emblema da raça do lvup do original
-// (EMBLEMA_SUBIDA) deitado logo abaixo da nave, abrindo um pouco e girando devagar
-// enquanto apaga, com um brilho curto na cor da raça (a dos motores, RACES). O efeito
-// inteiro do original (a coluna de luz de 150 m e as paredes da espiral por 3 s)
-// chamava atenção demais no meio da luta; fica só a marca da raça, no tamanho da nave.
-// Segue a posição da nave e fica deitado (não inclina com ela): vai na cena, não no
-// grupo `efeitos` da nave. Dois "subiu" na mesma nave a menos de SUBIDA_JUNTA_S (vários
-// níveis de uma vez) viram um só.
+// Subiu de nível ou evoluiu a nave: o lvup do original da raça (CUnit::EffectLevelUp,
+// EFEITO_SUBIDA) sem a coluna de luz de 150 m: o emblema da raça no pé e as paredes de
+// luz da espiral subindo dele só até cobrir a nave inteira, e apagando. O original faz
+// a espiral nascer com 21 m e descer até o emblema; o Mateus escolheu o quadro em que
+// ela está da altura da nave (1,9 s), então aqui ela sobe do emblema até o alto da
+// nave (o quadro do .3dx pela altura, toposDaPeca), fica um pouco e apaga. O alto é
+// medido no modelo a cada quadro (na evolução o modelo troca pelo maior no meio). No
+// tamanho do original × 0,5 na primeira nave (a Warrior), crescendo com o corpo das
+// maiores. Segue a posição da nave, de pé (não inclina nem gira com ela): vai na cena,
+// não no grupo `efeitos` da nave. Dois "subiu" na mesma nave a menos de SUBIDA_JUNTA_S
+// (vários níveis de uma vez) viram um só.
 const SUBIDA_S = 2.2;
-const SUBIDA_ENTRA_S = 0.2; // acende neste tempo,
-const SUBIDA_FICA_S = 1; // fica aceso até aqui e apaga no resto
-const SUBIDA_OPACIDADE = 0.8;
-const SUBIDA_LADO = 2.6; // lado do emblema, em corpos da nave (userData.tamanho)
-const SUBIDA_ABRE = 0.25; // cresce esta fração do lado no efeito todo
-const SUBIDA_ABAIXO = 0.4; // abaixo do centro da nave, em corpos
-const SUBIDA_GIRO = Math.PI / 3; // rad no efeito todo
-const SUBIDA_BRILHO = 1.5; // tamanho do brilho, em corpos
-const SUBIDA_BRILHO_S = 0.6;
-const SUBIDA_BRILHO_OPACIDADE = 0.45;
+const SUBIDA_ENTRA_S = 0.2; // acende neste tempo
+const SUBIDA_SOBE_S = 0.9; // a luz chega ao alto da nave neste tempo
+const SUBIDA_FICA_S = 1.4; // fica acesa até aqui e apaga no resto
+const SUBIDA_FOLGA = 0.6; // m de luz acima do alto da nave
+const SUBIDA_EMBLEMA_CHAO = 0.3; // m: pousada, o emblema fica no piso (sobe o efeito), não embaixo dele
+const SUBIDA_CORPO_REF = 7.5; // corpo da Warrior, m: até ela, o tamanho do original × 0,5
 const SUBIDA_CORPO_PADRAO = 5; // m, nave sem userData.tamanho
+// As peças do lvup (a ordem do .eff): a coluna, o emblema (o anel) e a espiral.
+const LVUP_COLUNA = 0;
+const LVUP_EMBLEMA = 1;
+const LVUP_ESPIRAL = 2;
+const caixaSubida = new THREE.Box3();
 const SUBIDA_JUNTA_S = 0.3;
 // O desenho do tiro sai da boca da arma e encontra a linha da física neste tempo (s).
 const DESVIO_S = 0.15;
@@ -211,7 +226,7 @@ const RECALL_FEIXE_S = 0.7;
 // Quantos de cada efeito passageiro já nascem prontos na tela de carregamento (a
 // reserva cresce sozinha se a partida pedir mais). Uma briga de 6 naves com mísseis
 // passa de cem faíscas e baforadas de fumaça ao mesmo tempo.
-const RESERVA_INICIAL = { brilho: 160, fumaca: 120, faiscas: 12, anelArea: 12, pulsoAnel: 4, pulsoCasca: 4, feixe: 4, emblema: 2 };
+const RESERVA_INICIAL = { brilho: 160, fumaca: 120, faiscas: 12, anelArea: 12, pulsoAnel: 4, pulsoCasca: 4, feixe: 4 };
 // Faíscas de uma explosão: 14 por tamanho, até este tanto (o buffer da reserva é deste tamanho).
 const FAISCAS_MAX = 128;
 
@@ -278,7 +293,7 @@ export class Efeitos {
     this.matsPorCor.clear();
     for (const g of this.geoPulso.values()) g.dispose();
     this.geoPulso.clear();
-    for (const r of [this.geoMina, this.geoEspinho, this.geoLuzMina, this.matMina, this.geoMissil, this.geoNarizMissil, this.matMissil, this.geoAnel, this.geoColuna, this.geoAnelRecall, this.geoCascaPulso, this.geoEmblema]) {
+    for (const r of [this.geoMina, this.geoEspinho, this.geoLuzMina, this.matMina, this.geoMissil, this.geoNarizMissil, this.matMissil, this.geoAnel, this.geoColuna, this.geoAnelRecall, this.geoCascaPulso]) {
       r.dispose();
     }
   }
@@ -303,10 +318,7 @@ export class Efeitos {
     for (const a of this.aneisArea) this.#devolver(a.anel);
     for (const f of this.feixes) this.#devolver(f.m);
     for (const p of [...this.fumacas, ...this.auras]) this.#devolver(p.s);
-    for (const s of this.subidas) {
-      this.#devolver(s.emblema);
-      this.#devolver(s.luz);
-    }
+    for (const s of this.subidas) soltarEfeitoOriginal(s.inst);
     this.subidas = [];
     for (const c of this.pulsos) this.#devolver(c.m);
     for (const o of this.originais) soltarEfeitoOriginal(o.inst);
@@ -329,7 +341,7 @@ export class Efeitos {
     this.particulas = [];
     this.geoBarra = new Map();
     this.auras = [];
-    this.subidas = []; // emblema de subir de nível seguindo uma nave: { obj, emblema, luz, vida, corpo }
+    this.subidas = []; // lvup seguindo uma nave: { obj, inst, id, vida, linha }
     this.aneisArea = [];
     this.fumacas = [];
     this.minas = new Map(); // id -> { g, luz, brilho, armada, fase }
@@ -360,11 +372,7 @@ export class Efeitos {
     this.reservaParticulas = [];
     this.camera = null; // quem desenha a cena põe a câmera (peças viradas para ela)
     this.pulsos = []; // pulsos do Núcleo de He-3
-    // Geometrias de tamanho 1 (a malha escala): o pulso e o emblema de subir de nível.
-    // O emblema deixa de fora a beira da textura (as do original têm um fio de 1 px na borda).
-    this.geoEmblema = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
-    const uv = this.geoEmblema.attributes.uv;
-    for (let i = 0; i < uv.count; i++) uv.setXY(i, 0.016 + uv.getX(i) * 0.968, 0.016 + uv.getY(i) * 0.968);
+    // Geometrias de tamanho 1 (a malha escala): o pulso.
     this.geoCascaPulso = new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2);
     this.geoPulso = new Map(); // grossura do anel do pulso (em degraus) -> TorusGeometry
     const aditivo = { blending: THREE.AdditiveBlending, transparent: true, depthWrite: false };
@@ -393,8 +401,6 @@ export class Efeitos {
       },
       pulsoCasca: () => new THREE.Mesh(this.geoCascaPulso, new THREE.MeshBasicMaterial({ ...aditivo, side: THREE.DoubleSide })),
       feixe: () => new THREE.Mesh(this.geoColuna, new THREE.MeshBasicMaterial({ ...aditivo, vertexColors: true, side: THREE.DoubleSide })),
-      // Já nasce com um emblema (trocar de textura depois não recompila o shader).
-      emblema: () => new THREE.Mesh(this.geoEmblema, new THREE.MeshBasicMaterial({ map: texturaEfeito(EMBLEMA_SUBIDA.acron), ...aditivo, side: THREE.DoubleSide })),
     };
     this.armas = new VisualArmas(scene);
     // Armas de início desenhadas como no original (clarão, projétil, impacto e fim);
@@ -536,45 +542,55 @@ export class Efeitos {
   }
 
   /**
-   * "Subiu de nível" ou "evoluiu a nave": o emblema da raça (`race`) abrindo embaixo
-   * da nave (grupo do Three.js) e um brilho curto na cor dela, acompanhando a nave
-   * enquanto voa. Devolve false se a nave acabou de ganhar um (vários níveis juntos):
-   * quem chama só toca o som quando devolve true.
+   * "Subiu de nível" ou "evoluiu a nave": o lvup do original da raça (`race`) na nave
+   * (grupo do Three.js), o emblema e a luz subindo até cobrir a nave, acompanhando-a
+   * enquanto voa. Devolve false se o efeito não está pronto ou se a nave acabou de
+   * ganhar um (vários níveis juntos): quem chama só toca o som quando devolve true.
    */
   subirNivel(obj, race) {
+    const id = EFEITO_SUBIDA[race] ?? EFEITO_SUBIDA.acron;
+    if (!efeitoOriginalPronto(id)) return false;
     if (this.subidas.some((s) => s.obj === obj && s.vida < SUBIDA_JUNTA_S)) return false;
-    const corpo = obj.userData.tamanho ?? SUBIDA_CORPO_PADRAO;
-    const emblema = this.#pegar('emblema');
-    const mapa = texturaEfeito(EMBLEMA_SUBIDA[race] ?? EMBLEMA_SUBIDA.acron);
-    if (emblema.material.map !== mapa) emblema.material.map = mapa;
-    emblema.material.opacity = 0;
-    emblema.rotation.y = 0;
-    const luz = this.#brilhoSolto(RACES[race]?.cor ?? RACES.acron.cor, corpo * SUBIDA_BRILHO, true, SUBIDA_BRILHO_OPACIDADE);
-    this.scene.add(emblema, luz);
-    const s = { obj, emblema, luz, vida: 0, corpo };
+    const inst = criarEfeitoOriginal(id);
+    this.scene.add(inst.obj);
+    // A linha de blocos que o efeito desenha (montada a cada quadro): a coluna escondida.
+    const linha = [];
+    linha[LVUP_COLUNA] = [0, 0, FLAGS_BLOCO.escondido, 1, 1, 1, 0];
+    linha[LVUP_EMBLEMA] = [0, 0, FLAGS_BLOCO.material, 1, 1, 1, 0];
+    linha[LVUP_ESPIRAL] = [0, 0, FLAGS_BLOCO.material, 1, 1, 1, 0];
+    const s = { obj, inst, id, vida: 0, linha };
     this.subidas.push(s);
     this.#seguirSubida(s);
     return true;
   }
 
-  /** Põe o emblema e o brilho de subir de nível no lugar e no tempo `s.vida`. */
+  /** Põe o lvup no lugar, no tamanho e no tempo `s.vida` (a luz até o alto da nave). */
   #seguirSubida(s) {
-    const { emblema, luz, corpo, vida } = s;
-    const k = vida / SUBIDA_S;
-    if (s.obj.parent) {
-      emblema.position.copy(s.obj.position);
-      emblema.position.y -= corpo * SUBIDA_ABAIXO;
-      luz.position.copy(s.obj.position);
+    const { obj, inst, linha, vida } = s;
+    const escala = ESCALA_ORIGINAL * Math.max(1, (obj.userData.tamanho ?? SUBIDA_CORPO_PADRAO) / SUBIDA_CORPO_REF);
+    inst.obj.scale.setScalar(escala);
+    let alto = (obj.userData.tamanho ?? SUBIDA_CORPO_PADRAO) * 0.3; // sem modelo medido
+    if (obj.parent) {
+      // O emblema fica abaixo da nave; perto do chão (pousada), o efeito sobe até ele
+      // ficar no piso, e a luz nasce dali.
+      const { x, y, z } = obj.position;
+      const chao = Math.max(heightAt(x, z), topoPouso(x, z) ?? -Infinity);
+      const pe = toposDaPeca(s.id, LVUP_EMBLEMA)[0] * escala;
+      inst.obj.position.set(x, Math.max(y, chao + SUBIDA_EMBLEMA_CHAO - pe), z);
+      caixaSubida.setFromObject(obj.userData.casco ?? obj.userData.corpo ?? obj);
+      if (!caixaSubida.isEmpty()) alto = caixaSubida.max.y - inst.obj.position.y;
     }
-    const sai = 1 - (1 - k) * (1 - k); // abre rápido e freia
-    emblema.scale.setScalar(corpo * SUBIDA_LADO * (1 + SUBIDA_ABRE * sai));
-    emblema.rotation.y = SUBIDA_GIRO * sai;
+    const topos = toposDaPeca(s.id, LVUP_ESPIRAL);
+    const baixo = Math.min(...topos);
+    const k = Math.min(1, vida / SUBIDA_SOBE_S);
+    const sobe = 1 - (1 - k) * (1 - k); // sobe rápido e freia no alto
+    const topo = baixo + ((alto + SUBIDA_FOLGA) / escala - baixo) * sobe;
     const entra = Math.min(1, vida / SUBIDA_ENTRA_S);
     const apaga = 1 - Math.max(0, (vida - SUBIDA_FICA_S) / (SUBIDA_S - SUBIDA_FICA_S));
-    emblema.material.opacity = SUBIDA_OPACIDADE * entra * apaga;
-    const kb = Math.min(1, vida / SUBIDA_BRILHO_S);
-    luz.visible = kb < 1;
-    luz.material.opacity = SUBIDA_BRILHO_OPACIDADE * (1 - kb);
+    linha[LVUP_EMBLEMA][6] = entra * apaga;
+    linha[LVUP_ESPIRAL][0] = quadroPelaAltura(topos, topo);
+    linha[LVUP_ESPIRAL][6] = entra * apaga;
+    mostrarLinhaOriginal(inst, linha, this.camera);
   }
 
   /**
@@ -1294,7 +1310,7 @@ export class Efeitos {
       return true;
     });
 
-    // O emblema vai junto com a nave (a nave que saiu da cena ou foi desfeita deixa o
+    // O lvup vai junto com a nave (a nave que saiu da cena ou foi desfeita deixa o
     // efeito acabar onde estava).
     this.subidas = this.subidas.filter((s) => {
       s.vida += dt;
@@ -1302,8 +1318,7 @@ export class Efeitos {
         this.#seguirSubida(s);
         return true;
       }
-      this.#devolver(s.emblema);
-      this.#devolver(s.luz);
+      soltarEfeitoOriginal(s.inst);
       return false;
     });
 

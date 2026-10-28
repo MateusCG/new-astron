@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { EFEITOS_ORIGINAIS, EMBLEMA_SUBIDA, ICONES_ESTADO, MAGMA_NA_NAVE, insumosDaPartida } from '../public/js/insumos.js';
+import { EFEITOS_ORIGINAIS, EFEITO_SUBIDA, ICONES_ESTADO, MAGMA_NA_NAVE, insumosDaPartida, quadroPelaAltura } from '../public/js/insumos.js';
 import { DEBUFFS, textoDebuff } from '../public/js/debuffs.js';
 import { mensagemDebuff } from '../server/golpes.js';
 import { ESPECIES } from '../server/especies.js';
@@ -74,20 +74,35 @@ test('estados na nave: o ícone de cada estado e o fogo do Magma são efeitos do
   assert.ok(x1 > x0 + 30, `sobe (${x0} → ${x1})`);
 });
 
-test('subir de nível e evoluir a nave: o emblema da raça, a textura do anel do lvup do original', () => {
-  // CUnit::EffectLevelUp: o brood 0 (Acron) carrega lvup003, o 1 (Bellico) lvup002 e o 2
-  // (Shrewdo) lvup001. Do efeito, o jogo usa só o anel (Rectangle11), que é o emblema da raça.
-  const LVUP = { acron: 'lvup003', bellico: 'lvup002', shrewdo: 'lvup001' };
-  const ins = insumosDaPartida('acron', 'assault');
+test('subir de nível e evoluir a nave: o lvup da raça, o emblema e a espiral subindo só até cobrir a nave', () => {
+  // CUnit::EffectLevelUp: o brood 0 (Acron) carrega lvup003, o 1 (Bellico) lvup002 e o 2 (Shrewdo) lvup001.
+  assert.deepEqual({ ...EFEITO_SUBIDA }, { acron: 'lvup003', bellico: 'lvup002', shrewdo: 'lvup001' });
   for (const raca of RACAS_JOGAVEIS) {
-    const anel = efeito(LVUP[raca]).pecas.find((p) => p.nome === 'Rectangle11');
-    assert.equal(EMBLEMA_SUBIDA[raca], anel.tex, `${raca}: o emblema é a textura do anel`);
-    assert.ok(existsSync(path.join(RAIZ, 'public/texturas/efeitos', `${anel.tex}.png`)), anel.tex);
-    // Baixa na tela de carregamento, de todas as raças (o piloto vê a nave de qualquer uma subir).
-    assert.ok(ins.texturas.includes(anel.tex), `${anel.tex} na lista do carregamento`);
+    const id = EFEITO_SUBIDA[raca];
+    assert.ok(EFEITOS_ORIGINAIS.includes(id), `${id} baixa na tela de carregamento`);
+    const e = efeito(id);
+    // A ordem das peças que efeitos.js usa: a coluna (escondida), o emblema e a espiral.
+    assert.deepEqual(e.pecas.map((p) => p.nome.replace(/\d+$/, '')), ['Cylinder', 'Rectangle', 'Line'], id);
+    for (const p of e.pecas) assert.ok(existsSync(path.join(RAIZ, 'public/texturas/efeitos', `${p.tex}.png`)), p.tex);
+    // O alto da espiral em cada quadro (y do jogo = z do original, com a matriz da peça):
+    // no original ela nasce alta (~42 unidades, 21 m) e desce até o pé (perto do emblema).
+    const espiral = e.pecas[2];
+    const topos = espiral.q.map((m) => {
+      let t = -Infinity;
+      for (let i = 0; i < espiral.pos.length; i += 3) {
+        const [x, y, z] = espiral.pos.slice(i, i + 3);
+        t = Math.max(t, x * m[2] + y * m[6] + z * m[10] + m[14]);
+      }
+      return t;
+    });
+    assert.ok(topos[0] > 40 && Math.min(...topos) < 0, `${id}: de ${topos[0]} a ${Math.min(...topos)}`);
+    // Subindo pela altura: do pé ao alto de uma nave de ~2 m (4 unidades na escala × 0,5),
+    // os quadros escolhidos andam para trás na corrente e o alto nunca passa muito do alvo.
+    const alvos = [Math.min(...topos), 0, 2, 4, 5.2];
+    const quadros = alvos.map((a) => quadroPelaAltura(topos, a));
+    for (let i = 1; i < quadros.length; i++) assert.ok(quadros[i] <= quadros[i - 1], `${id}: ${quadros}`);
+    for (const [i, q] of quadros.entries()) assert.ok(Math.abs(topos[q] - alvos[i]) < 0.6, `${id}: alto ${topos[q]} para ${alvos[i]}`);
   }
-  // A coluna de luz e a espiral do efeito inteiro não entram mais.
-  for (const id of Object.values(LVUP)) assert.ok(!EFEITOS_ORIGINAIS.includes(id), id);
 });
 
 test('carregamento: os efeitos do original vão na lista da partida', () => {
