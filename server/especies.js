@@ -177,13 +177,16 @@ function doOriginal({ hp, velMs, raio, xp }) {
 export const ESPECIES = {
   // SN-3 (Stage M5): npc 705010, unidade 502020 "Sn-Three" (HP 2500, 0,15 m/ms, raio 49,
   // modelo NU0230: 92 m, ×0,25 = 23 m), XP 75. Armas: Disco Voador (511080, 70%) e
-  // Míssil Descarregador de Energia (511090, 30%).
+  // Míssil Descarregador de Energia (511090, 30%). O míssil azul, que tira toda a
+  // energia da nave, só 1 em cada 4 SN-3 leva (pedido do Mateus): o primeiro de cada
+  // quatro do acampamento, na ordem dos lugares (`ataquesDeUmEm`); os outros só têm o disco.
   sn3: {
     nome: 'SN-3',
     ...doOriginal({ hp: 2500, velMs: 0.15, raio: 49, xp: 75 }),
     tamanho: 23,
     entreAtaquesS: ritmoDoOriginal(['511080', '511090']),
     ataques: [ataqueDoOriginal('disco_voador', '511080', 70), ataqueDoOriginal('missil_descarga', '511090', 30)],
+    ataquesDeUmEm: { missil_descarga: 4 },
   },
   // SN-Zero VI (Stage M5): npc 700405, unidade 500405 "Sn-Zero Unit6" (HP 1200, 0,17
   // m/ms, raio 47, modelo NU0045: corpo de 73 m, ×0,25 = 18 m, mais o cone de luz), XP

@@ -483,9 +483,10 @@ export class Jungle {
   /**
    * Monstro novo da espécie `esp` com ponto (casa) em (x, z). `covil` = o lugar dele
    * (null num monstro avulso, que não renasce: testes e modo de teste). `territorio`
-   * troca o da espécie.
+   * troca o da espécie. `ordem` = quantos da mesma espécie vieram antes dele no lugar:
+   * o ataque de `ataquesDeUmEm` (o míssil azul do SN-3) só o de ordem 0, n, 2n...
    */
-  criarMonstro(esp, x, z, { covil = null, yaw = 0, territorio } = {}) {
+  criarMonstro(esp, x, z, { covil = null, yaw = 0, territorio, ordem = 0 } = {}) {
     const cfg = ESPECIES[esp];
     if (!cfg) throw new Error(`espécie desconhecida: ${esp}`);
     const ship = createShip('mechan', x, z, yaw); // 'mechan' só para a física (stepShip)
@@ -509,6 +510,7 @@ export class Jungle {
       ultimoDano: 0,
       raiva: new Map(),
       prox: cfg.ataques.map(() => 0), // tick em que cada ataque fica pronto
+      semAtaque: cfg.ataques.map((a) => !!cfg.ataquesDeUmEm?.[a.atq] && ordem % cfg.ataquesDeUmEm[a.atq] !== 0),
       livreAte: 0, // Medusa e os de arma do original: entre um ataque e outro
       rajadas: [], // disparos da rajada que ainda vão sair: { a, alvo, k, tick }
       voltando: false,
@@ -541,7 +543,9 @@ export class Jungle {
   /** O monstro `i` do lugar `c` (espécie e ponto da vez), olhando para o centro do mapa. */
   #criarNoLugar(c, i) {
     const p = c.lugares[i] ?? { x: c.x, z: c.z };
-    return this.criarMonstro(c.especies[i], p.x, p.z, { covil: c, yaw: yawPara(p.x, p.z, 0, 0) });
+    const esp = c.especies[i];
+    const ordem = c.especies.slice(0, i).filter((e) => e === esp).length;
+    return this.criarMonstro(esp, p.x, p.z, { covil: c, yaw: yawPara(p.x, p.z, 0, 0), ordem });
   }
 
   // ---------- Passo ----------
@@ -749,7 +753,7 @@ export class Jungle {
     const raioAlvo = alvo.ship.raio ?? SHIP_RADIUS;
     const prontos = m.cfg.ataques
       .map((a, i) => ({ a, i }))
-      .filter(({ a, i }) => t >= m.prox[i] && d <= a.alcance + raioAlvo && !(a.minimo !== undefined && d < a.minimo));
+      .filter(({ a, i }) => !m.semAtaque[i] && t >= m.prox[i] && d <= a.alcance + raioAlvo && !(a.minimo !== undefined && d < a.minimo));
     if (!prontos.length) return;
     if (m.cfg.entreAtaquesS !== undefined) {
       // Medusa e os monstros com armas do original: um ataque de cada vez,

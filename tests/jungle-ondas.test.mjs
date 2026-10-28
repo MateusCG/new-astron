@@ -214,3 +214,38 @@ test('ondas: o ouro de cada monstro de acampamento sobe com o degrau; SN-4 e XP 
   const ganho = w.tirarEventos().find((e) => e.e === 'ganho' && e.id === m.id);
   assert.equal(ganho.ouro, Math.round(ESPECIES.snzero.ouro * 2.5));
 });
+
+test('SN-3: só 1 em cada 4 leva o míssil azul que tira a energia, em todo degrau e no reforço', () => {
+  const todosJa = { acampamento: { primeiroS: 0, voltaS: 60 }, ataque: { primeiroS: 0 }, medusa: { primeiroS: 0 } };
+  const { w } = mundo({ tempos: todosJa });
+  const descarga = ESPECIES.sn3.ataques.findIndex((a) => a.atq === 'missil_descarga');
+  assert.ok(descarga >= 0);
+  const comMissil = () => w.monstros.filter((m) => m.esp === 'sn3' && !m.semAtaque[descarga]);
+  const sn3 = () => w.monstros.filter((m) => m.esp === 'sn3');
+  w.step();
+  for (const mult of [1, 2, 3, 4]) {
+    assert.equal(w.jungle.mult, mult);
+    assert.equal(sn3().length, 8 * mult, `×${mult}: SN-3 nos 2 acampamentos (um por território)`);
+    assert.equal(comMissil().length, sn3().length / 4, `×${mult}: 1 em cada 4 com o míssil`);
+    // Em cada acampamento, o primeiro de cada quatro (o reforço segue a conta).
+    for (const a of ACAMPAMENTOS.filter((c) => COMPOSICAO[idNoTime0(c)][0] === 'sn3')) {
+      const membros = w.jungle.covil(a.id).membros;
+      assert.deepEqual(membros.map((m) => !m.semAtaque[descarga]), membros.map((_, i) => i % 4 === 0), a.id);
+    }
+    if (mult < 4) passos(w, 5.05);
+  }
+  // O disco continua com todos; o de fora da conta nunca escolhe o míssil.
+  assert.ok(sn3().every((m) => !m.semAtaque[ESPECIES.sn3.ataques.findIndex((a) => a.atq === 'disco_voador')]));
+});
+
+test('SN-3 sem o míssil azul só atira o disco; outras espécies não mudam', () => {
+  const w = new World({ preparacaoS: 0, jungle: true, torretas: false, ouroPorSegundo: 0, rng: rngFixo(7) });
+  const j = w.addPlayer('Alvo', 'acron');
+  j.protegidoAte = 0;
+  const p = pontoLivre(rngFixo(11));
+  const sem = w.jungle.criarMonstro('sn3', p.x, p.z, { ordem: 1 });
+  const com = w.jungle.criarMonstro('sn3', p.x, p.z, { ordem: 4 });
+  assert.deepEqual(sem.semAtaque, [false, true]);
+  assert.deepEqual(com.semAtaque, [false, false]);
+  for (const esp of ['snzero', 'xerxes', 'anti']) assert.ok(w.jungle.criarMonstro(esp, p.x, p.z, { ordem: 3 }).semAtaque.every((x) => !x), esp);
+});
