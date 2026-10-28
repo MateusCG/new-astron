@@ -53,11 +53,18 @@ export function iconesDaNave(race, classe) {
 
 /**
  * Os efeitos do original convertidos (.eff + .3dx + .MPL → public/modelos/efeitos):
- * os das armas de NPC do original que os monstros usam (projétil, clarão, impacto,
- * fim e armadilha) e os de estado na nave. Efeito novo: converta com o
- * tools/efeitos3d_do_original.py e ponha aqui.
+ * os das armas de início do jogador (disparo-original.js), os das armas de NPC do
+ * original que os monstros usam (projétil, clarão, impacto, fim e armadilha) e os de
+ * estado na nave. Efeito novo: converta com o tools/efeitos3d_do_original.py e ponha aqui.
  */
 export const EFEITOS_ORIGINAIS = Object.freeze([
+  // Armas de início (as duas de fábrica de cada raça; disparo-regras.js): o clarão dos
+  // feixes, os projéteis de cada versão (V1–V3, V4–V6, V7–V8) do Feixe Rifle Triplo e
+  // do Feixe Duplo, do Feixe Bellico, dos Vulcans e da Metralha Shrewdo. O clarão dos
+  // Vulcans e da Metralha (1121001), os impactos (1412001, 1421001) e o fim da Metralha
+  // (1421002) são os mesmos dos monstros, mais abaixo.
+  '2112001', '1312003', '1312004', '1312005', '1312073', '1312074', '1312075',
+  '1321013', '1321014', '1321015', '1321003', '1321004', '1321005',
   // SN-3: clarão, Disco Voador, impacto; clarão do míssil, o míssil com o "E", a esfera azul da descarga.
   '1121001', '1361031', '1401307', '1150005', '2343012', '1503009',
   // SN-4: Míssil Cruzador, Onda de Feixe Óptico (e o impacto), Campo Elétrico.

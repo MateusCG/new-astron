@@ -17,8 +17,10 @@
 // clarão, impacto, área, nova e o decalque das minas e campos vêm de
 // efeitos-armas.js, com as texturas e as cores do original. O tiro nasce na boca da
 // arma pendurada na asa e escorrega para a linha do tiro de verdade (a da física) em
-// DESVIO_S, para o desenho sair da arma sem mentir onde a bala está. Os tiros dos NPCs
-// (laser e plasma) continuam com a forma de antes. As naves atingidas mostram os
+// DESVIO_S, para o desenho sair da arma sem mentir onde a bala está. As armas de início
+// (as duas de fábrica de cada raça) saem com os efeitos do original tocados como no
+// original, do clarão preso na boca ao impacto no casco (disparo-original.js). Os tiros
+// dos NPCs (laser e plasma) continuam com a forma de antes. As naves atingidas mostram os
 // efeitos das armas pela lista `fx` de cada entidade (paralisia, desgoverno, energia,
 // invulnerável, escudo, fraco, conserto, aceleração, camuflagem).
 //
@@ -62,6 +64,7 @@ import { FATOR_AREA, golpeDaArma, visualDoOriginal, visualEfeito } from '/shared
 import { FATOR_TAMANHO_NAVE } from '/shared/naves.js';
 import { brilho } from './nave.js';
 import { VisualArmas } from './efeitos-armas.js';
+import { DisparoOriginal } from './disparo-original.js';
 import { EFEITO_SUBIDA, ICONES_ESTADO, MAGMA_NA_NAVE } from './insumos.js';
 import { criarEfeitoOriginal, tocarEfeitoOriginal, soltarEfeitoOriginal, raioEfeitoOriginal, efeitoOriginalPronto, particulaOriginal } from './efeitos-original.js';
 import { texturaEfeito } from './efeitos-armas.js';
@@ -301,6 +304,7 @@ export class Efeitos {
     this.fumacas = [];
     this.auras = [];
     this.armas.esquecer();
+    this.disparo.esquecer();
   }
 
   constructor(scene) {
@@ -371,6 +375,11 @@ export class Efeitos {
       feixe: () => new THREE.Mesh(this.geoColuna, new THREE.MeshBasicMaterial({ ...aditivo, vertexColors: true, side: THREE.DoubleSide })),
     };
     this.armas = new VisualArmas(scene);
+    // Armas de início desenhadas como no original (clarão, projétil, impacto e fim);
+    // `aoImpacto(kind, x, y, z)` (quem desenha a partida liga) toca o som do impacto no
+    // chão, que só o cliente vê.
+    this.disparo = new DisparoOriginal(this);
+    this.aoImpacto = null;
   }
 
   /**
@@ -858,6 +867,7 @@ export class Efeitos {
    */
   tiro(b, inimigo = false, cor = null, boca = null) {
     if (b.atq && this.#tiroOriginal(b)) return;
+    if (!inimigo && !cor && this.disparo.tiro(b, boca)) return;
     const w = WEAPONS[b.kind];
     // Arma do original: a do jogador, ou a de NPC do original que um monstro usa (o
     // SN-3 e o SN-Zero VI atiram com as armas deles, desenhadas como no original).
@@ -1079,24 +1089,32 @@ export class Efeitos {
   }
 
   /**
-   * Avança tiros e partículas. aoAvancar(b) pode devolver true para o tiro sumir
-   * (usado no tiro do próprio jogador, que some ao encostar num alvo na tela).
+   * Avança tiros e partículas. aoAvancar(b) pode devolver o alvo ({ id, obj, raio })
+   * para o tiro sumir (usado no tiro do próprio jogador, que some ao encostar num alvo
+   * na tela; a arma de início desenha o impacto nele na hora).
    */
   atualizar(dt, aoAvancar) {
     for (const [id, t] of this.tiros) {
       let vivo = true;
+      let tocou = false;
       // Tiros andam no mesmo passo fixo da simulação, para bater com o servidor.
       t.acc = (t.acc ?? 0) + dt;
       while (vivo && t.acc >= 1 / 30) {
         t.acc -= 1 / 30;
         vivo = stepBullet(t.b);
-        if (vivo && aoAvancar?.(t.b)) {
+        const alvo = vivo && aoAvancar?.(t.b);
+        if (alvo) {
           vivo = false;
-          this.explosao(t.b.x, t.b.y, t.b.z, 0.6, '#9ff');
+          tocou = true;
+          // Arma de início: o impacto do original no casco do alvo; as outras, a faísca.
+          if (!(t.armaInicio && this.disparo.impactoLocal(t, alvo))) this.explosao(t.b.x, t.b.y, t.b.z, 0.6, '#9ff');
         }
       }
       if (!vivo) {
-        if (t.b.vida > 0 && !t.visual) this.explosao(t.b.x, t.b.y, t.b.z, 0.4, '#ffcf90');
+        // Parou antes da vida acabar: bateu no chão, numa construção ou no campo.
+        if (t.armaInicio) {
+          if (!tocou && t.b.vida > 0) this.disparo.bateu(t);
+        } else if (t.b.vida > 0 && !t.visual) this.explosao(t.b.x, t.b.y, t.b.z, 0.4, '#ffcf90');
         this.removerTiro(id);
         continue;
       }
@@ -1133,6 +1151,7 @@ export class Efeitos {
 
     this.tempo += dt;
     this.armas.atualizar(dt);
+    this.disparo.atualizar(dt, this.camera);
     for (const m of this.minas.values()) {
       if (m.original) {
         tocarEfeitoOriginal(m.original, dt, this.camera);
