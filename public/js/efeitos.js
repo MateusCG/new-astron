@@ -59,25 +59,17 @@
 // carregamento (preencherReservas, chamado pelo aquecimento da placa de vídeo).
 
 import * as THREE from 'three';
-import { stepBullet, WEAPONS } from '/shared/sim.js';
+import { RACES, stepBullet, WEAPONS } from '/shared/sim.js';
 import { heightAt, topoPouso } from '/shared/terrain.js';
 import { FATOR_AREA, golpeDaArma, visualDoOriginal, visualEfeito } from '/shared/armas.js';
 import { FATOR_TAMANHO_NAVE } from '/shared/naves.js';
 import { brilho } from './nave.js';
 import { VisualArmas } from './efeitos-armas.js';
 import { DisparoOriginal } from './disparo-original.js';
-import { EFEITO_SUBIDA, ICONES_ESTADO, MAGMA_NA_NAVE, quadroPelaAltura } from './insumos.js';
-import {
-  criarEfeitoOriginal,
-  tocarEfeitoOriginal,
-  soltarEfeitoOriginal,
-  raioEfeitoOriginal,
-  efeitoOriginalPronto,
-  particulaOriginal,
-  toposDaPeca,
-  mostrarLinhaOriginal,
-  FLAGS_BLOCO,
-} from './efeitos-original.js';
+import { ICONES_ESTADO, MAGMA_NA_NAVE } from './insumos.js';
+import { criarEfeitoOriginal, tocarEfeitoOriginal, soltarEfeitoOriginal, raioEfeitoOriginal, efeitoOriginalPronto, particulaOriginal } from './efeitos-original.js';
+import { criarSubida, desenharSubida, soltarSubida } from './subida.js';
+import { quadroSubida } from './subida-regras.js';
 import { texturaEfeito } from './efeitos-armas.js';
 
 // Cores dos efeitos de arma (ver IDENTIDADE-VISUAL.md): o dreno é violeta e o
@@ -175,29 +167,15 @@ const MINA_RAIO_CORPO = 1.6;
 // Aura de quem está sob efeito: brilho em volta da nave + partículas. O dreno
 // "puxa" a vida para fora (partículas violeta subindo); o gelo cai em cristais.
 const AURA_PARTICULA_S = 0.07; // intervalo entre partículas por nave afetada
-// Subiu de nível ou evoluiu a nave: o lvup do original da raça (CUnit::EffectLevelUp,
-// EFEITO_SUBIDA) sem a coluna de luz de 150 m: o emblema da raça no pé e as paredes de
-// luz da espiral subindo dele só até cobrir a nave inteira, e apagando. O original faz
-// a espiral nascer com 21 m e descer até o emblema; o Mateus escolheu o quadro em que
-// ela está da altura da nave (1,9 s), então aqui ela sobe do emblema até o alto da
-// nave (o quadro do .3dx pela altura, toposDaPeca), fica um pouco e apaga. O alto é
-// medido no modelo a cada quadro (na evolução o modelo troca pelo maior no meio). No
-// tamanho do original × 0,5 na primeira nave (a Warrior), crescendo com o corpo das
-// maiores. Segue a posição da nave, de pé (não inclina nem gira com ela): vai na cena,
-// não no grupo `efeitos` da nave. Dois "subiu" na mesma nave a menos de SUBIDA_JUNTA_S
-// (vários níveis de uma vez) viram um só.
-const SUBIDA_S = 2.2;
-const SUBIDA_ENTRA_S = 0.2; // acende neste tempo
-const SUBIDA_SOBE_S = 0.9; // a luz chega ao alto da nave neste tempo
-const SUBIDA_FICA_S = 1.4; // fica acesa até aqui e apaga no resto
-const SUBIDA_FOLGA = 0.6; // m de luz acima do alto da nave
-const SUBIDA_EMBLEMA_CHAO = 0.3; // m: pousada, o emblema fica no piso (sobe o efeito), não embaixo dele
-const SUBIDA_CORPO_REF = 7.5; // corpo da Warrior, m: até ela, o tamanho do original × 0,5
+// Subiu de nível ou evoluiu a nave: o efeito nosso (subida-regras.js e subida.js), a luz
+// que sobe da nave até o alto da tela, na cor da raça. Segue a posição da nave, de pé (não
+// inclina nem gira com ela): vai na cena, não no grupo `efeitos` da nave. O pé (o selo e
+// o começo do feixe) fica logo abaixo da barriga da nave, medida no modelo a cada quadro
+// (na evolução o modelo troca pelo maior no meio); pousada, no piso. Dois "subiu" na
+// mesma nave a menos de SUBIDA_JUNTA_S (vários níveis de uma vez) viram um só.
+const SUBIDA_ABAIXO = 0.35; // m abaixo da barriga da nave
+const SUBIDA_PISO = 0.25; // m acima do chão ou da plataforma, no mínimo
 const SUBIDA_CORPO_PADRAO = 5; // m, nave sem userData.tamanho
-// As peças do lvup (a ordem do .eff): a coluna, o emblema (o anel) e a espiral.
-const LVUP_COLUNA = 0;
-const LVUP_EMBLEMA = 1;
-const LVUP_ESPIRAL = 2;
 const caixaSubida = new THREE.Box3();
 const SUBIDA_JUNTA_S = 0.3;
 // O desenho do tiro sai da boca da arma e encontra a linha da física neste tempo (s).
@@ -318,7 +296,10 @@ export class Efeitos {
     for (const a of this.aneisArea) this.#devolver(a.anel);
     for (const f of this.feixes) this.#devolver(f.m);
     for (const p of [...this.fumacas, ...this.auras]) this.#devolver(p.s);
-    for (const s of this.subidas) soltarEfeitoOriginal(s.inst);
+    for (const s of this.subidas) {
+      soltarSubida(s.desenho);
+      this.#devolver(s.clarao);
+    }
     this.subidas = [];
     for (const c of this.pulsos) this.#devolver(c.m);
     for (const o of this.originais) soltarEfeitoOriginal(o.inst);
@@ -341,7 +322,7 @@ export class Efeitos {
     this.particulas = [];
     this.geoBarra = new Map();
     this.auras = [];
-    this.subidas = []; // lvup seguindo uma nave: { obj, inst, id, vida, linha }
+    this.subidas = []; // subida de nível seguindo uma nave: { obj, desenho, clarao, cor, forte, vida }
     this.aneisArea = [];
     this.fumacas = [];
     this.minas = new Map(); // id -> { g, luz, brilho, armada, fase }
@@ -542,55 +523,46 @@ export class Efeitos {
   }
 
   /**
-   * "Subiu de nível" ou "evoluiu a nave": o lvup do original da raça (`race`) na nave
-   * (grupo do Three.js), o emblema e a luz subindo até cobrir a nave, acompanhando-a
-   * enquanto voa. Devolve false se o efeito não está pronto ou se a nave acabou de
-   * ganhar um (vários níveis juntos): quem chama só toca o som quando devolve true.
+   * "Subiu de nível" ou "evoluiu a nave" (`forte`): a luz da raça (`race`) subindo da nave
+   * (grupo do Three.js) até o alto da tela, acompanhando-a enquanto voa. Devolve false se
+   * o modelo do efeito não chegou ou se a nave acabou de ganhar um (vários níveis juntos):
+   * quem chama só toca o som quando devolve true. `t0` começa no meio (a tela de
+   * carregamento aquece com todas as peças à mostra).
    */
-  subirNivel(obj, race) {
-    const id = EFEITO_SUBIDA[race] ?? EFEITO_SUBIDA.acron;
-    if (!efeitoOriginalPronto(id)) return false;
+  subirNivel(obj, race, forte = false, t0 = 0) {
     if (this.subidas.some((s) => s.obj === obj && s.vida < SUBIDA_JUNTA_S)) return false;
-    const inst = criarEfeitoOriginal(id);
-    this.scene.add(inst.obj);
-    // A linha de blocos que o efeito desenha (montada a cada quadro): a coluna escondida.
-    const linha = [];
-    linha[LVUP_COLUNA] = [0, 0, FLAGS_BLOCO.escondido, 1, 1, 1, 0];
-    linha[LVUP_EMBLEMA] = [0, 0, FLAGS_BLOCO.material, 1, 1, 1, 0];
-    linha[LVUP_ESPIRAL] = [0, 0, FLAGS_BLOCO.material, 1, 1, 1, 0];
-    const s = { obj, inst, id, vida: 0, linha };
+    const desenho = criarSubida();
+    if (!desenho) return false;
+    const cor = new THREE.Color(RACES[race]?.cor ?? RACES.acron.cor);
+    const clarao = this.#brilhoSolto(cor, 1, true, 0);
+    this.scene.add(desenho.obj, clarao);
+    const s = { obj, desenho, clarao, cor, forte, vida: t0 };
     this.subidas.push(s);
-    this.#seguirSubida(s);
+    this.#seguirSubida(s, quadroSubida(t0, forte));
     return true;
   }
 
-  /** Põe o lvup no lugar, no tamanho e no tempo `s.vida` (a luz até o alto da nave). */
-  #seguirSubida(s) {
-    const { obj, inst, linha, vida } = s;
-    const escala = ESCALA_ORIGINAL * Math.max(1, (obj.userData.tamanho ?? SUBIDA_CORPO_PADRAO) / SUBIDA_CORPO_REF);
-    inst.obj.scale.setScalar(escala);
-    let alto = (obj.userData.tamanho ?? SUBIDA_CORPO_PADRAO) * 0.3; // sem modelo medido
+  /** Põe a subida `s` no lugar da nave e desenha o quadro `q`. */
+  #seguirSubida(s, q) {
+    const { obj, desenho, clarao } = s;
+    const corpo = obj.userData.tamanho ?? SUBIDA_CORPO_PADRAO;
     if (obj.parent) {
-      // O emblema fica abaixo da nave; perto do chão (pousada), o efeito sobe até ele
-      // ficar no piso, e a luz nasce dali.
       const { x, y, z } = obj.position;
-      const chao = Math.max(heightAt(x, z), topoPouso(x, z) ?? -Infinity);
-      const pe = toposDaPeca(s.id, LVUP_EMBLEMA)[0] * escala;
-      inst.obj.position.set(x, Math.max(y, chao + SUBIDA_EMBLEMA_CHAO - pe), z);
+      let baixo = y - corpo * 0.3;
+      s.alto = y + corpo * 0.3; // sem modelo medido
       caixaSubida.setFromObject(obj.userData.casco ?? obj.userData.corpo ?? obj);
-      if (!caixaSubida.isEmpty()) alto = caixaSubida.max.y - inst.obj.position.y;
+      if (!caixaSubida.isEmpty()) {
+        baixo = caixaSubida.min.y;
+        s.alto = caixaSubida.max.y;
+      }
+      const chao = Math.max(heightAt(x, z), topoPouso(x, z) ?? -Infinity);
+      s.pe = Math.max(baixo - SUBIDA_ABAIXO, chao + SUBIDA_PISO);
+      desenho.obj.position.set(x, 0, z);
+      clarao.position.copy(obj.position);
     }
-    const topos = toposDaPeca(s.id, LVUP_ESPIRAL);
-    const baixo = Math.min(...topos);
-    const k = Math.min(1, vida / SUBIDA_SOBE_S);
-    const sobe = 1 - (1 - k) * (1 - k); // sobe rápido e freia no alto
-    const topo = baixo + ((alto + SUBIDA_FOLGA) / escala - baixo) * sobe;
-    const entra = Math.min(1, vida / SUBIDA_ENTRA_S);
-    const apaga = 1 - Math.max(0, (vida - SUBIDA_FICA_S) / (SUBIDA_S - SUBIDA_FICA_S));
-    linha[LVUP_EMBLEMA][6] = entra * apaga;
-    linha[LVUP_ESPIRAL][0] = quadroPelaAltura(topos, topo);
-    linha[LVUP_ESPIRAL][6] = entra * apaga;
-    mostrarLinhaOriginal(inst, linha, this.camera);
+    desenharSubida(desenho, q, { cor: s.cor, corpo, pe: s.pe, alto: s.alto, t: s.vida });
+    clarao.scale.setScalar(q.clarao.tamanho * corpo);
+    clarao.material.opacity = q.clarao.alfa;
   }
 
   /**
@@ -1310,15 +1282,17 @@ export class Efeitos {
       return true;
     });
 
-    // O lvup vai junto com a nave (a nave que saiu da cena ou foi desfeita deixa o
+    // A subida vai junto com a nave (a nave que saiu da cena ou foi desfeita deixa o
     // efeito acabar onde estava).
     this.subidas = this.subidas.filter((s) => {
       s.vida += dt;
-      if (s.vida < SUBIDA_S) {
-        this.#seguirSubida(s);
+      const q = quadroSubida(s.vida, s.forte);
+      if (q) {
+        this.#seguirSubida(s, q);
         return true;
       }
-      soltarEfeitoOriginal(s.inst);
+      soltarSubida(s.desenho);
+      this.#devolver(s.clarao);
       return false;
     });
 

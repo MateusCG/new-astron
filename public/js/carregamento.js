@@ -375,7 +375,7 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
       0,
     );
     efeitos.recall(auras, 0.5, COR_TIME.meu, 0.016, 0);
-    efeitos.subirNivel(auras, race);
+    efeitos.subirNivel(auras, race, true, 0.3); // com todas as peças à mostra
     const fantasma = lugar(criarNave(race, { aliado: true, classe, tier: 0 }));
     efeitos.estadoNave(fantasma, { fx: ['inv'] }, 0.016, 0);
     // Monstros (modelos do original; a Medusa com o sangue e as bolhas, que são

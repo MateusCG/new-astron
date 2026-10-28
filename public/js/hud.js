@@ -688,11 +688,13 @@ export class Hud {
 
   /**
    * Texto que sobe de um ponto do mundo e some em FLUTUANTE_S (o ouro e o XP do
-   * monstro que você abateu, o "CRÍTICO" do seu golpe). `linhas`: [{ txt, classe }]
-   * (classe 'ouro', 'xp' ou 'crit', as cores em jogo.css). Os valores vêm sempre do
-   * servidor (evento 'ganho' e o `crit` do 'acerto'); aqui é só o desenho.
+   * monstro que você abateu, o "CRÍTICO" do seu golpe, o "NÍVEL n" da sua subida).
+   * `linhas`: [{ txt, classe }] (classe 'ouro', 'xp', 'crit' ou 'nivel', as cores em
+   * jogo.css). Com `segue` (um objeto da cena, a sua nave), o ponto anda junto com ele.
+   * Os valores vêm sempre do servidor (evento 'ganho', o `crit` do 'acerto', o 'nivel');
+   * aqui é só o desenho.
    */
-  flutuante(x, y, z, linhas) {
+  flutuante(x, y, z, linhas, segue = null) {
     if (!linhas.length) return;
     // Muitos de uma vez (metralhadora crítica): o mais velho sai.
     while (this.flutuantes.length >= FLUTUANTES_MAX) this.flutuantes.shift().el.remove();
@@ -705,7 +707,8 @@ export class Hud {
       el.append(l);
     }
     this.camadaFlutuantes.append(el);
-    this.flutuantes.push({ el, p: new THREE.Vector3(x, y, z), t0: performance.now() });
+    const p = new THREE.Vector3(x, y, z);
+    this.flutuantes.push({ el, p, segue, desvio: segue ? p.clone().sub(segue.position) : null, t0: performance.now() });
   }
 
   /** Posiciona os flutuantes na tela a cada quadro: seguem o ponto do mundo, sobem e apagam. */
@@ -718,6 +721,7 @@ export class Hud {
         f.el.remove();
         return false;
       }
+      if (f.segue?.parent) f.p.copy(f.segue.position).add(f.desvio);
       this.v.copy(f.p).project(camera);
       if (this.v.z > 1) {
         f.el.style.opacity = '0';

@@ -1169,7 +1169,8 @@ kbd {
   overflow: hidden;
 }
 
-/* Ouro e XP que sobem do monstro abatido e o "CRÍTICO" do seu golpe (hud.flutuante):
+/* Ouro e XP que sobem do monstro abatido, o "CRÍTICO" do seu golpe e o "NÍVEL n" da sua
+   subida (hud.flutuante):
    mono, com contorno escuro para ler sobre a água clara, por cima dos rótulos. */
 #flutuantes {
   position: absolute;
@@ -1202,6 +1203,16 @@ kbd {
 
 .flutuante .xp {
   color: var(--xp);
+}
+
+.flutuante .nivel {
+  color: var(--xp);
+  font: 800 18px/1.15 system-ui, sans-serif;
+  letter-spacing: 0.18em;
+  text-shadow:
+    0 0 2px #000,
+    0 1px 3px #000,
+    0 0 12px rgba(182, 240, 90, 0.7);
 }
 
 .flutuante .crit {

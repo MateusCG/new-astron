@@ -637,15 +637,19 @@ function montarJogo(rede, boas, renderer, race, classe) {
   const snaps = [];
   const outras = new Map(); // id -> { obj, drone, nome, race }
   const nomes = new Map(TORRETAS.map((t) => [t.id, 'Torreta'])); // "destruído por Torreta"
-  // Subiu de nível ou evoluiu a nave (CUnit::EffectLevelUp do original): o emblema da raça
-  // na nave de quem foi e o som LEVEL_UP, um som de interface (sem posição) que o
-  // original toca sempre que mostra o efeito, de quem for a nave. O seu sempre toca.
-  function subidaDeNave(id) {
+  // Subiu de nível ou evoluiu a nave (`forte`): a luz da raça subindo da nave de quem foi
+  // (efeitos.subirNivel) e o som LEVEL_UP, um som de interface (sem posição), de quem for
+  // a nave; o seu sempre toca. Na sua, o `texto` sobe da nave junto ("NÍVEL 5").
+  function subidaDeNave(id, forte, texto) {
     const meu = id === meuId;
     const nave = meu ? minhaNave : outras.get(id)?.obj;
     const raca = meu ? race : outras.get(id)?.race;
-    const tocou = nave?.visible && efeitos.subirNivel(nave, raca);
+    const tocou = nave?.visible && efeitos.subirNivel(nave, raca, forte);
     if (tocou || meu) sons.tocarInterface(SONS_INTERFACE.nivel);
+    if (meu && nave?.visible) {
+      const { x, y, z } = nave.position;
+      hud.flutuante(x, y + (nave.userData.tamanho ?? 5) * 0.4, z, [{ txt: texto, classe: 'nivel' }], nave);
+    }
   }
 
   let camModo = 0;
@@ -1052,13 +1056,13 @@ function montarJogo(rede, boas, renderer, race, classe) {
         if (e.assist?.includes(meuId)) hud.noticia(`Assistência no abate de ${quem} · +${e.ouroAssist} ouro`, 'bom');
         if (e.seqPor >= 2) hud.noticia(`${matador} está em sequência de ${e.seqPor} abates`, e.por === meuId ? 'bom' : '');
       } else if (e.e === 'nivel') {
-        // Subiu de nível: o emblema da raça na nave de quem subiu (você ou outro).
-        subidaDeNave(e.id);
+        // Subiu de nível: a luz da raça na nave de quem subiu (você ou outro).
+        subidaDeNave(e.id, false, `NÍVEL ${e.nivel}`);
         if (e.id === meuId) hud.noticia(`Nível ${e.nivel}! HP máximo maior`, 'bom');
       } else if (e.e === 'nave') {
-        // Nave nova na Evolução: o mesmo emblema, que segue o piloto e fica quando o
-        // modelo troca (pelo snapshot), e a notícia.
-        subidaDeNave(e.id);
+        // Nave nova na Evolução: a mesma luz, mais forte, que segue o piloto e acompanha o
+        // modelo novo (troca pelo snapshot), e a notícia.
+        subidaDeNave(e.id, true, 'NAVE NOVA');
         if (e.id === meuId) hud.noticia(`Nave nova: ${e.nave}`, 'bom');
         else hud.noticia(`${e.nome} trocou de nave: ${e.nave}`, e.time === meuTime ? 'bom' : 'ruim');
       } else if (e.e === 'objetivo') {

@@ -202,3 +202,21 @@ Os campos de `ASTEROIDES` (passáveis, escondem quem está dentro) eram pedaços
 (`asteroide-1.glb` … `asteroide-4.glb`); viraram **nuvens de gás e poeira** feitas em código
 (`public/js/nuvens.js`: tufos instanciados virados para a câmera, textura gerada na hora). Os quatro `.glb` saíram
 da pasta e da tela de carregamento; as fontes `.blend` continuam em `new-astron-progresso/mapa-stage6/blender/`.
+
+## Efeito de subir de nível e de evoluir a nave: `subida-nivel.glb`
+
+Não é peça do cenário: são as malhas de luz do efeito de subir de nível e de nave nova (`public/js/subida.js`,
+linha do tempo em `public/js/subida-regras.js`). Mora aqui para usar o mesmo carregador (Draco) e baixar na tela de
+carregamento com o mapa. Nossas, feitas no Blender (`subida_nivel.py` em `new-astron-progresso/mapa-stage6/tmp/cenario/`,
+fonte `blender/subida-nivel.blend`); inspiradas no "level up" do LoL e do Dota 2, nada do AstroN original. Como na
+água, a malha é do Blender e a cor e o movimento são do shader: um material só, `luz_subida`, que o cliente troca
+pelos shaders aditivos. ~1.840 triângulos, 12 KB, com normal e UV, tudo de tamanho 1 (o cliente escala pelo corpo da
+nave), centro na origem, y para cima:
+
+- `subida_feixe`: tubo aberto de raio 1 na base afinando a 0,45 no alto, altura 1, anéis mais juntos embaixo; u em
+  volta, v na altura.
+- `subida_onda`: coroa deitada de raio 0,82 a 1; u em volta, v no raio da coroa.
+- `subida_selo`: o selo holográfico deitado: aro, aro fino, tracejado de 24 traços, três chevrons apontando para fora
+  e o hexágono do meio (lados retos de frente para os chevrons); u = ângulo / 2π, v = raio.
+- `subida_helice`: duas fitas em hélice de 1,5 volta, de pé, raio 1 embaixo e 0,8 no alto, altura 1; u ao longo da
+  fita, v na largura.
