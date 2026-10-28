@@ -17,6 +17,7 @@ import { WEAPONS, ARMAS, armasDisponiveis, visualEfeito, visualDoOriginal } from
 import { linhaDe, RACAS_JOGAVEIS, ORDEM_CLASSES } from '../../shared/naves.js';
 import { EQUIPAMENTOS, equipamentosAVenda } from '../../shared/equipamentos.js';
 import { SONS_INTERFACE, SONS_ARMA } from './sons.js';
+import { EFEITOS_DESTRUICAO, SONS_DESTRUICAO } from './destruicao.js';
 
 /** Pasta das texturas dos efeitos de arma do original. */
 export const PASTA_TEXTURAS_EFEITO = '/texturas/efeitos/';
@@ -53,11 +54,21 @@ export function iconesDaNave(race, classe) {
 
 /**
  * Os efeitos do original convertidos (.eff + .3dx + .MPL → public/modelos/efeitos):
- * os das armas de NPC do original que os monstros usam (projétil, clarão, impacto,
- * fim e armadilha) e os de estado na nave. Efeito novo: converta com o
- * tools/efeitos3d_do_original.py e ponha aqui.
+ * os das armas de início do jogador (disparo-original.js), os das armas de NPC do
+ * original que os monstros usam (projétil, clarão, impacto, fim e armadilha) e os de
+ * estado na nave. Efeito novo: converta com o tools/efeitos3d_do_original.py e ponha aqui.
  */
 export const EFEITOS_ORIGINAIS = Object.freeze([
+  // Armas de início (as duas de fábrica de cada raça; disparo-regras.js): o clarão dos
+  // feixes, os projéteis de cada versão (V1–V3, V4–V6, V7–V8) do Feixe Rifle Triplo e
+  // do Feixe Duplo, do Feixe Bellico, dos Vulcans e da Metralha Shrewdo. O clarão dos
+  // Vulcans e da Metralha (1121001), os impactos (1412001, 1421001) e o fim da Metralha
+  // (1421002) são os mesmos dos monstros, mais abaixo.
+  '2112001', '1312003', '1312004', '1312005', '1312073', '1312074', '1312075',
+  '1321013', '1321014', '1321015', '1321003', '1321004', '1321005',
+  // Destruição de nave, torre e monstro (destruicao.js): as explosões EXP001 a EXP007,
+  // a fagulha e a fumaça da queda, a faísca e as peças dos destroços.
+  ...EFEITOS_DESTRUICAO,
   // SN-3: clarão, Disco Voador, impacto; clarão do míssil, o míssil com o "E", a esfera azul da descarga.
   '1121001', '1361031', '1401307', '1150005', '2343012', '1503009',
   // SN-4: Míssil Cruzador, Onda de Feixe Óptico (e o impacto), Campo Elétrico.
@@ -71,6 +82,9 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
   '1322063', '1322064', '1421030',
   // Estados na nave: o fogo do Magma e os ícones.
   '1164001', 'cross003', 'cross002', 'cross007', 'cross008', 'cross010', 'cross013',
+  // Subir de nível e evoluir a nave: a coluna de luz, o anel e a espiral de cada raça
+  // (todas baixam: o piloto vê subir de nível a nave de qualquer raça).
+  'lvup001', 'lvup002', 'lvup003',
 ]);
 
 /**
@@ -83,6 +97,12 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
  * ataque enfraquecido. Os mesmos símbolos das mensagens de debuff (debuffs.js).
  */
 export const ICONES_ESTADO = Object.freeze({ resist: 'cross003', para: 'cross002', semTiro: 'cross008', desg: 'cross010', descarga: 'cross013', energia: 'cross013', fraco: 'cross008' });
+/**
+ * O efeito de subir de nível e de evoluir a nave por raça (CUnit::EffectLevelUp do
+ * original: o `CBasePilot::m_brood` 0, 1 e 2 carrega lvup003, lvup002 e lvup001): azul
+ * no Acron, vermelho no Bellico, verde no Shrewdo. Sem raça conhecida, o do Acron.
+ */
+export const EFEITO_SUBIDA = Object.freeze({ acron: 'lvup003', bellico: 'lvup002', shrewdo: 'lvup001' });
 /** O fogo do Magma na nave (o dreno de HP do original: faíscas vermelhas subindo). */
 export const MAGMA_NA_NAVE = '1164001';
 
@@ -228,6 +248,8 @@ export function insumosDaPartida(race, classe) {
   // Sons de todas as armas, as de NPC também (torres, escoltas e drones atiram com elas).
   for (const kind of ARMAS) for (const s of sonsDaArma(kind)) sons.add(s);
   for (const s of Object.values(SONS_ARMA)) sons.add(s);
+  // Os sons de morte das unidades e o da explosão (destruicao.js).
+  for (const s of SONS_DESTRUICAO) sons.add(s);
   return { naves, armas, armasMonstro, texturas: [...texturas], sons: [...sons], icones: propria.icones, efeitosOriginais: [...EFEITOS_ORIGINAIS] };
 }
 

@@ -126,7 +126,7 @@ function matCasco(map) {
 //
 // Trocar de nave (Evolução) troca o modelo na hora: definirNave(raiz, ...) monta o
 // modelo novo dentro do mesmo grupo, então o que estiver pendurado nele (auras,
-// recall, anel de nível) continua.
+// recall) continua.
 //
 // Armas na asa (como no original): o modelo da arma do Z vai pendurado no encaixe
 // l_item da nave e o da do X no r_item (public/modelos/armas/<modelo>.glb, a peça da

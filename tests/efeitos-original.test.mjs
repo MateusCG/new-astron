@@ -6,11 +6,12 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { EFEITOS_ORIGINAIS, ICONES_ESTADO, MAGMA_NA_NAVE, insumosDaPartida } from '../public/js/insumos.js';
+import { EFEITOS_ORIGINAIS, EFEITO_SUBIDA, ICONES_ESTADO, MAGMA_NA_NAVE, insumosDaPartida } from '../public/js/insumos.js';
 import { DEBUFFS, textoDebuff } from '../public/js/debuffs.js';
 import { mensagemDebuff } from '../server/golpes.js';
 import { ESPECIES } from '../server/especies.js';
 import { golpeDaArma, WEAPONS } from '../shared/armas.js';
+import { RACAS_JOGAVEIS } from '../shared/naves.js';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const efeito = (id) => JSON.parse(readFileSync(path.join(RAIZ, 'public/modelos/efeitos', `${id}.json`), 'utf8'));
@@ -71,6 +72,38 @@ test('estados na nave: o ícone de cada estado e o fogo do Magma são efeitos do
   const x0 = magma.pecas[0].q[0][12];
   const x1 = magma.pecas[0].q[magma.pecas[0].q.length - 1][12];
   assert.ok(x1 > x0 + 30, `sobe (${x0} → ${x1})`);
+});
+
+test('subir de nível e evoluir a nave: o lvup do original de cada raça, três segundos, a coluna de luz sobe', () => {
+  // CUnit::EffectLevelUp: o brood 0 (Acron) carrega lvup003, o 1 (Bellico) lvup002 e o 2 (Shrewdo) lvup001.
+  assert.deepEqual({ ...EFEITO_SUBIDA }, { acron: 'lvup003', bellico: 'lvup002', shrewdo: 'lvup001' });
+  for (const raca of RACAS_JOGAVEIS) assert.ok(EFEITO_SUBIDA[raca], `${raca} tem o efeito`);
+  // A corrente de quadros do lvup001 (CEffectSprite::NextFrame): ..., 60, 71, 61, ..., 70. O
+  // quadro 71 (alfa 0,1 na espiral) toca entre o 60 e o 61 (alfa 1), não depois do 70.
+  const verde = efeito('lvup001').blocos;
+  assert.equal(verde.length, 72);
+  assert.deepEqual([60, 61, 62].map((i) => verde[i][2][6]), [0.1, 0.1, 1]);
+  assert.equal(verde.at(-1)[0][6], 0.1, 'acaba apagado');
+  for (const id of Object.values(EFEITO_SUBIDA)) {
+    assert.ok(EFEITOS_ORIGINAIS.includes(id), `${id} baixa na tela de carregamento`);
+    const e = efeito(id);
+    // Uma vez só, de ponta a ponta (71 ou 72 quadros, na ordem da corrente do .eff: no lvup001 o
+    // quadro solto 71 toca entre o 60 e o 61, não no fim) a 24 por segundo: ~3 s.
+    assert.ok(e.quadros >= 71 && e.quadros <= 72, `${id}: ${e.quadros} quadros`);
+    assert.equal(e.pecas.length, 3, 'a coluna, o anel e a espiral');
+    const [coluna, anel] = e.pecas;
+    // A coluna: cilindro fino e comprido que, com a matriz da peça (giro de 180° em x), sobe do 0 ao alto.
+    assert.equal(coluna.m[10], -1, 'o eixo z da coluna inverte: o que era -z vira para cima');
+    const zs = coluna.pos.filter((_, i) => i % 3 === 2);
+    assert.ok(-Math.min(...zs) > 250 && Math.max(...zs) < 50, `${id}: coluna de ~300 m em -z`);
+    // O anel: um quadrado de 39 m deitado no plano do chão.
+    const ys = anel.pos.filter((_, i) => i % 3 === 1);
+    assert.ok(Math.max(...ys) - Math.min(...ys) > 38);
+    // A luz some no fim: a alfa do último quadro é baixa.
+    assert.ok(e.blocos[e.quadros - 1].every((b) => b[2] & 16 || b[6] < 0.2), `${id}: apaga no fim`);
+    // Cada textura existe (a cor da raça está nelas).
+    for (const p of e.pecas) assert.ok(existsSync(path.join(RAIZ, 'public/texturas/efeitos', `${p.tex}.png`)), p.tex);
+  }
 });
 
 test('carregamento: os efeitos do original vão na lista da partida', () => {

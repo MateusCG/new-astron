@@ -41,8 +41,6 @@ import { PASTA_MODELOS_MONSTRO, ESPECIES_MONSTRO } from './insumos.js';
 
 /** Tamanho do ponto de cada espécie no minimapa (px): quanto mais perigoso, maior. */
 export const PONTO_MONSTRO = { sonda: 3, sn3: 3.5, snzero: 3.5, xerxes: 4, bazit: 4, great_xerxes: 5.5, anti: 5.5, sn4: 7.5, medusa: 8 };
-/** Tamanho da explosão da morte de cada espécie (efeitos.explosao). */
-export const EXPLOSAO_MONSTRO = { sonda: 2, sn3: 3, snzero: 4, xerxes: 3, bazit: 3, great_xerxes: 5, anti: 5, sn4: 12, medusa: 10 };
 /**
  * Quanto o rótulo (nome e barra) de cada espécie sobe além do de uma nave: os
  * grandes têm o alto bem acima do centro (a Medusa, desenhada mais alta, mais ainda).
