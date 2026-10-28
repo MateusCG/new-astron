@@ -414,3 +414,119 @@ Copiadas por `tools/efeitos3d_do_original.py` junto com os efeitos que as usam (
 | `1322064_01.png` | 128×128 px, 6.0 KB | #75d269 | 1322064 |
 | `1322064_02.png` | 128×128 px, 7.7 KB | #30ac63 | 1322064 |
 | `1121030.png` | 64×64 px, 1.7 KB | #4fd206 | 1421030 |
+
+### Destruição de nave, torre e monstro
+
+Copiadas pelo mesmo `tools/efeitos3d_do_original.py` com as explosões do original (`EXP001` a `EXP007`, a coluna 25 do `initunit.cfg`), a fagulha (`STATE001_01`) e a fumaça (`STATE001_02`, `_03`) da unidade caindo, a faísca do destroço (`EXP_Particle`) e as peças dos destroços (`ex_particl01` a `04`, que no jogo levam a textura da própria unidade; a `ex_particle` é a de reserva). As `exp01` a `exp24`, `exp002_01` a `_30`, `exp003_01` a `_24` e `exp004_01` a `_23` são os quadros da bola de fogo (a paleta `.MPL` troca a textura a cada quadro); `exp_flash01`/`02` e `exp2_flash01` são o clarão e o anel que abre. Quem escolhe qual: `public/js/destruicao.js`.
+
+| Arquivo | Tamanho | Cor dominante | Efeitos |
+|---|---|---|---|
+| `ex_particle.png` | 32×32 px, 0.1 KB | #45322e | ex_particl01, ex_particl02, ex_particl03, ex_particl04 |
+| `exp002_01.png` | 128×128 px, 1.4 KB | #c46f35 | exp002 |
+| `exp002_02.png` | 128×128 px, 2.7 KB | #d97d3a | exp002 |
+| `exp002_03.png` | 128×128 px, 3.9 KB | #d87a3b | exp002 |
+| `exp002_04.png` | 128×128 px, 4.7 KB | #ce7134 | exp002 |
+| `exp002_05.png` | 128×128 px, 5.1 KB | #c96f33 | exp002 |
+| `exp002_06.png` | 128×128 px, 5.5 KB | #c87438 | exp002 |
+| `exp002_07.png` | 128×128 px, 5.9 KB | #c8793e | exp002 |
+| `exp002_08.png` | 128×128 px, 6.3 KB | #c87b3f | exp002 |
+| `exp002_09.png` | 128×128 px, 6.8 KB | #c6793e | exp002 |
+| `exp002_10.png` | 128×128 px, 7.0 KB | #c3773d | exp002 |
+| `exp002_11.png` | 128×128 px, 7.4 KB | #c2763e | exp002 |
+| `exp002_12.png` | 128×128 px, 7.6 KB | #c37840 | exp002 |
+| `exp002_13.png` | 128×128 px, 7.8 KB | #c37941 | exp002 |
+| `exp002_14.png` | 128×128 px, 7.5 KB | #bf7741 | exp002 |
+| `exp002_15.png` | 128×128 px, 7.6 KB | #ba723f | exp002 |
+| `exp002_16.png` | 128×128 px, 7.5 KB | #b46c3d | exp002 |
+| `exp002_17.png` | 128×128 px, 7.1 KB | #ae673c | exp002 |
+| `exp002_18.png` | 128×128 px, 6.9 KB | #a7633c | exp002 |
+| `exp002_19.png` | 128×128 px, 6.6 KB | #a2603c | exp002 |
+| `exp002_20.png` | 128×128 px, 6.2 KB | #a76540 | exp002 |
+| `exp002_21.png` | 128×128 px, 5.6 KB | #995837 | exp002 |
+| `exp002_22.png` | 128×128 px, 4.8 KB | #945130 | exp002 |
+| `exp002_23.png` | 128×128 px, 4.5 KB | #8e4a2a | exp002 |
+| `exp002_24.png` | 128×128 px, 4.5 KB | #874426 | exp002 |
+| `exp002_25.png` | 128×128 px, 4.3 KB | #803e21 | exp002 |
+| `exp002_26.png` | 128×128 px, 3.9 KB | #7a391d | exp002 |
+| `exp002_27.png` | 128×128 px, 3.9 KB | #72341a | exp002 |
+| `exp002_28.png` | 128×128 px, 4.1 KB | #6a321a | exp002 |
+| `exp002_29.png` | 128×128 px, 3.0 KB | #63311b | exp002 |
+| `exp002_30.png` | 128×128 px, 2.1 KB | #5e3523 | exp002 |
+| `exp003_001.png` | 64×64 px, 3.4 KB | #818dff | exp003 |
+| `exp003_01.png` | 128×128 px, 2.0 KB | #cc9c9c | exp003 |
+| `exp003_02.png` | 128×128 px, 3.0 KB | #edc8cd | exp003 |
+| `exp003_03.png` | 128×128 px, 4.1 KB | #f3d7d8 | exp003 |
+| `exp003_04.png` | 128×128 px, 5.0 KB | #f4dcda | exp003 |
+| `exp003_05.png` | 128×128 px, 5.7 KB | #f3dad9 | exp003 |
+| `exp003_06.png` | 128×128 px, 6.4 KB | #f1d6d5 | exp003 |
+| `exp003_07.png` | 128×128 px, 7.1 KB | #eed0cf | exp003 |
+| `exp003_08.png` | 128×128 px, 7.7 KB | #ebcac7 | exp003 |
+| `exp003_09.png` | 128×128 px, 8.0 KB | #e8c5c0 | exp003 |
+| `exp003_10.png` | 128×128 px, 8.4 KB | #e6c2bd | exp003 |
+| `exp003_11.png` | 128×128 px, 8.4 KB | #e1bcb9 | exp003 |
+| `exp003_12.png` | 128×128 px, 8.4 KB | #dab5b6 | exp003 |
+| `exp003_13.png` | 128×128 px, 8.4 KB | #d3adb3 | exp003 |
+| `exp003_14.png` | 128×128 px, 8.2 KB | #cca7ae | exp003 |
+| `exp003_15.png` | 128×128 px, 8.3 KB | #c5a0aa | exp003 |
+| `exp003_16.png` | 128×128 px, 8.0 KB | #bc99a9 | exp003 |
+| `exp003_17.png` | 128×128 px, 7.5 KB | #b091a8 | exp003 |
+| `exp003_18.png` | 128×128 px, 7.5 KB | #9c85a6 | exp003 |
+| `exp003_19.png` | 128×128 px, 6.9 KB | #81759d | exp003 |
+| `exp003_20.png` | 128×128 px, 6.7 KB | #645f89 | exp003 |
+| `exp003_21.png` | 128×128 px, 6.0 KB | #4c4a70 | exp003 |
+| `exp003_22.png` | 128×128 px, 5.6 KB | #373756 | exp003 |
+| `exp003_23.png` | 128×128 px, 4.9 KB | #26283c | exp003 |
+| `exp003_24.png` | 128×128 px, 3.0 KB | #1c1c26 | exp003 |
+| `exp004_01.png` | 64×64 px, 0.9 KB | #d5cad2 | exp004, exp007 |
+| `exp004_02.png` | 64×64 px, 1.9 KB | #d0c4c2 | exp004, exp007 |
+| `exp004_03.png` | 64×64 px, 2.3 KB | #d4c7c6 | exp004, exp007 |
+| `exp004_04.png` | 64×64 px, 2.5 KB | #dac9c9 | exp004, exp007 |
+| `exp004_05.png` | 64×64 px, 2.4 KB | #d8bbb9 | exp004, exp007 |
+| `exp004_06.png` | 64×64 px, 2.4 KB | #d1aaa2 | exp004, exp007 |
+| `exp004_07.png` | 64×64 px, 2.3 KB | #cb9d90 | exp004, exp007 |
+| `exp004_08.png` | 64×64 px, 2.2 KB | #c19182 | exp004, exp007 |
+| `exp004_09.png` | 64×64 px, 2.2 KB | #b58878 | exp004, exp007 |
+| `exp004_10.png` | 64×64 px, 2.2 KB | #ab8070 | exp004, exp007 |
+| `exp004_11.png` | 64×64 px, 2.3 KB | #a37969 | exp004, exp007 |
+| `exp004_12.png` | 64×64 px, 2.3 KB | #9a6f61 | exp004, exp007 |
+| `exp004_13.png` | 64×64 px, 2.4 KB | #906556 | exp004, exp007 |
+| `exp004_14.png` | 64×64 px, 2.4 KB | #865b4b | exp004, exp007 |
+| `exp004_15.png` | 64×64 px, 2.4 KB | #784f3d | exp004, exp007 |
+| `exp004_16.png` | 64×64 px, 2.5 KB | #6b4434 | exp004, exp007 |
+| `exp004_17.png` | 64×64 px, 2.5 KB | #5e3b2d | exp004, exp007 |
+| `exp004_18.png` | 64×64 px, 2.6 KB | #56372c | exp004, exp007 |
+| `exp004_19.png` | 64×64 px, 2.6 KB | #51342b | exp004, exp007 |
+| `exp004_20.png` | 64×64 px, 2.6 KB | #4d3229 | exp004, exp007 |
+| `exp004_21.png` | 64×64 px, 2.7 KB | #4a3129 | exp004, exp007 |
+| `exp004_22.png` | 64×64 px, 2.8 KB | #483029 | exp004, exp007 |
+| `exp004_23.png` | 64×64 px, 2.8 KB | #473029 | exp004, exp007 |
+| `exp01.png` | 128×128 px, 2.3 KB | #e5a594 | exp001, exp005, exp006 |
+| `exp02.png` | 128×128 px, 4.2 KB | #f5d9ac | exp001, exp005, exp006 |
+| `exp03.png` | 128×128 px, 6.5 KB | #f7e6b5 | exp001, exp005, exp006 |
+| `exp04.png` | 128×128 px, 7.6 KB | #f7e8ba | exp001, exp005, exp006 |
+| `exp05.png` | 128×128 px, 8.3 KB | #f6e5b9 | exp001, exp005, exp006 |
+| `exp06.png` | 128×128 px, 9.1 KB | #f4dab1 | exp001, exp005, exp006 |
+| `exp07.png` | 128×128 px, 9.5 KB | #edc9a5 | exp001, exp005, exp006 |
+| `exp08.png` | 128×128 px, 9.4 KB | #dbaf92 | exp001, exp005, exp006 |
+| `exp09.png` | 128×128 px, 8.8 KB | #c7957b | exp001, exp005, exp006 |
+| `exp10.png` | 128×128 px, 8.8 KB | #bb8569 | exp001, exp005, exp006 |
+| `exp11.png` | 128×128 px, 9.1 KB | #b47859 | exp001, exp005, exp006 |
+| `exp12.png` | 128×128 px, 9.2 KB | #aa6949 | exp001, exp005, exp006 |
+| `exp13.png` | 128×128 px, 9.4 KB | #a05d39 | exp001, exp005, exp006 |
+| `exp14.png` | 128×128 px, 9.3 KB | #96532d | exp001, exp005, exp006 |
+| `exp15.png` | 128×128 px, 9.3 KB | #8f4c24 | exp001, exp005, exp006 |
+| `exp16.png` | 128×128 px, 9.9 KB | #8c4a1e | exp001, exp005, exp006 |
+| `exp17.png` | 128×128 px, 9.6 KB | #8b491a | exp001, exp005, exp006 |
+| `exp18.png` | 128×128 px, 9.7 KB | #8d4a1a | exp001, exp005, exp006 |
+| `exp19.png` | 128×128 px, 9.7 KB | #904d1c | exp001, exp005, exp006 |
+| `exp20.png` | 128×128 px, 8.8 KB | #8d4c1c | exp001, exp005, exp006 |
+| `exp21.png` | 128×128 px, 8.9 KB | #8b4b1c | exp001, exp005, exp006 |
+| `exp22.png` | 128×128 px, 8.9 KB | #8d5021 | exp001, exp005, exp006 |
+| `exp23.png` | 128×128 px, 7.9 KB | #8d5424 | exp001, exp005, exp006 |
+| `exp24.png` | 128×128 px, 6.3 KB | #70401e | exp001, exp005, exp006 |
+| `exp2_flash01.png` | 128×128 px, 6.3 KB | #ff4800 | exp002 |
+| `exp_flash01.png` | 128×128 px, 3.6 KB | #ffbf00 | exp001, exp005, exp006 |
+| `exp_flash02.png` | 128×128 px, 7.9 KB | #edcc91 | exp001, exp002, exp003, exp004, exp005, exp006, exp007 |
+| `state001_01.png` | 64×64 px, 0.9 KB | #ff8300 | exp_particle, state001_01 |
+| `state001_02.png` | 64×64 px, 2.5 KB | #a9a9a9 | state001_02 |
+| `state001_03.png` | 64×64 px, 3.4 KB | #d2b47f | state001_03 |
