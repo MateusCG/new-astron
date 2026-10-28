@@ -1,6 +1,6 @@
 # Sons do AstroN original
 
-Efeitos sonoros tirados de `old-astron/reference/audio/sfx/` por `tools/sons_do_original.py`: WAV PCM mono, 22 050 Hz, 16 bits (o formato do original), só com o silêncio do fim cortado. Ficaram em WAV porque o ffmpeg da máquina não tem codificador de áudio e WAV decodifica em qualquer navegador. Total: 63 arquivos, ~4,2 MB. O uso de cada som vem do próprio jogo: colunas de som de disparo e de impacto de `inititemweapon.cfg` (armas) e as listas `commonsound.cfg` (sons no mundo, 3D) e `commonsound2d.cfg` (interface). Quem toca é `public/js/sons.js`.
+Efeitos sonoros tirados de `old-astron/reference/audio/sfx/` por `tools/sons_do_original.py`: WAV PCM mono, 22 050 Hz, 16 bits (o formato do original), só com o silêncio do fim cortado. Ficaram em WAV porque o ffmpeg da máquina não tem codificador de áudio e WAV decodifica em qualquer navegador. Total: 68 arquivos, ~4,8 MB. O uso de cada som vem do próprio jogo: colunas de som de disparo e de impacto de `inititemweapon.cfg` (armas) e as listas `commonsound.cfg` (sons no mundo, 3D) e `commonsound2d.cfg` (interface). Quem toca é `public/js/sons.js`.
 
 ## Disparo das armas
 
@@ -51,6 +51,18 @@ Efeitos sonoros tirados de `old-astron/reference/audio/sfx/` por `tools/sons_do_
 | `off_device2` | 1,82 s | Impacto que paralisa (Paralyzing, Lock-Down, Cloak Sensing, Radar Disturbing) |
 | `cure` | 1,37 s | Impacto de cura (Repair Druid, Repair Nova) |
 
+## Morte das unidades
+
+Tocados como no original (`CBasePilot::Dead`): o som de morte da unidade (coluna 14 do `initunit.cfg`) quando ela é destruída, e o `h_explo` quando explode (logo, ou quando bate no chão depois de cair). Quem decide qual é `public/js/destruicao.js`.
+
+| Arquivo | Duração | Unidade no original |
+|---|---|---|
+| `snzerod1` | 3,30 s | SN-Zero, SN-3 e SN-4 ("snzeroD1") |
+| `sekisd1` | 1,27 s | Xerxes e Grande Xerxes ("sekisD1") |
+| `vajytd1` | 2,86 s | Bazit ("vajytD1") |
+| `medusad1` | 4,27 s | Ancient Medusa ("medusaD1") |
+| `aflyd1` | 0,57 s | A-Fly, a sonda errante ("AflyD1") |
+
 ## Nave
 
 | Arquivo | Duração | Uso |
@@ -77,4 +89,4 @@ Efeitos sonoros tirados de `old-astron/reference/audio/sfx/` por `tools/sons_do_
 | `st_warn` | 1,05 s | Alerta curto (estado crítico) |
 | `sm_warn` | 8,83 s | Alerta longo de missão |
 
-Ficaram de fora: as falas dos NPCs da base (`*_buy`, `*_bye`, `*_enter`, `*_lack`, `*_de`, `*_act`, em coreano), os sons dos monstros e chefes (`*p1`, `*d1`, `npcfire*`, `boss*`), `logo`, `fadein`/`fadeout`, `h_rotate`, `dc1`/`dc2`, `i_munit` e os jingles longos `exwin`/`exlose` (35 s cada, vitória e derrota de fase, não são explosão). A música (`reference/audio/music/*.mp3`, 15 MB) também ficou de fora.
+Ficaram de fora: as falas dos NPCs da base (`*_buy`, `*_bye`, `*_enter`, `*_lack`, `*_de`, `*_act`, em coreano), os outros sons dos monstros e chefes (`*p1`, os `*d1` de monstros que não estão no jogo, `boss*`), `logo`, `fadein`/`fadeout`, `h_rotate`, `dc1`/`dc2`, `i_munit` e os jingles longos `exwin`/`exlose` (35 s cada, vitória e derrota de fase, não são explosão). A música (`reference/audio/music/*.mp3`, 15 MB) também ficou de fora.
