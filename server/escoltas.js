@@ -48,10 +48,10 @@ export const ESCOLTA = {
   saidaS: 8, // entre uma saída e a seguinte enquanto há vaga
   intervaloS: 30, // da vaga aberta (escolta destruída) até sair a reposição
   primeiraS: 3, // s depois do começo da partida (logo atrás do primeiro minerador)
-  hp: 220, // o minerador tem 120
+  hp: 1100, // o minerador tem 600
   velocidade: 45, // m/s: mais que o minerador (30), para alcançá-lo e trocar de lado
   alcance: 110, // m (no plano) até onde ela mira
-  dano: 6, // por tiro
+  dano: 30, // por tiro
   cadenciaS: 0.6,
   kind: 'laser', // forma do projétil (a cor vem do time no cliente)
   lado: 14, // m para fora da lane, ao lado do minerador

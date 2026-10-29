@@ -61,7 +61,7 @@ export const TEMPOS = {
   nucleo: { aparicoesS: [480, 900] },
 };
 /** Torre do buff de suporte: vida e recompensa de quem dá o último tiro (como o SN-4 do buff de ataque). */
-export const SUPORTE = { hp: 900, xp: 150, ouro: 100 };
+export const SUPORTE = { hp: 4500, xp: 150, ouro: 100 };
 /** Ouro da plataforma de pouso para cada piloto do time e o a mais de quem estava pousado. */
 export const OURO_PLATAFORMA = 200;
 export const OURO_PLATAFORMA_POUSOU = 50;
@@ -72,14 +72,14 @@ export const OURO_PLATAFORMA_POUSOU = 50;
  * vida) e a recompensa de cada piloto do time de quem matou.
  */
 export const NUCLEO_CFG = {
-  hp: 6000,
+  hp: 30000,
   y: HOVER + 4,
   raio: 14,
   regenEsperaS: 10,
   regenFrac: 0.02,
   pulsoS: 4,
   raioPulso: 80,
-  danoPulso: 30,
+  danoPulso: 150,
   pulsoExtra: 1.5,
   xp: 250,
   ouro: 150,

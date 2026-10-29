@@ -10,7 +10,7 @@
 //
 // Como o original vira jogo novo (fatores nomeados, os mesmos das naves em
 // shared/naves.js):
-// - HP e dano ÷ 5 (FATOR_DANO); energia por disparo × 0,3 (FATOR_ENERGIA_ARMA, o
+// - HP e dano iguais ao original (FATOR_DANO = 1); energia por disparo × 0,3 (FATOR_ENERGIA_ARMA, o
 //   mesmo da energia das naves); recarga e intervalo da rajada × 0,5
 //   (FATOR_RECARGA_ARMA; a regeneração de energia das naves já conta com isso).
 // - Velocidade m/ms × 1000 × 0,5 = m/s (FATOR_VEL); alcance da mira, do teleporte e
@@ -48,7 +48,7 @@ import { NIVEL_ITEM_MAX } from './versoes.js';
 
 export { EFEITOS_VISUAIS };
 
-export const FATOR_DANO = FATOR_ESCALA_HP; // 0,2: dano, cura e HP dos efeitos
+export const FATOR_DANO = FATOR_ESCALA_HP; // 1: dano, cura e HP dos efeitos
 export const FATOR_ENERGIA_ARMA = FATOR_ENERGIA; // 0,3: energia por disparo (e por s nas de segurar)
 export const FATOR_RECARGA_ARMA = FATOR_RECARGA; // 0,5: recarga e intervalo da rajada
 export const FATOR_VEL = FATOR_VELOCIDADE; // 0,5: m/ms × 1000 × FATOR_VEL = m/s
@@ -88,7 +88,7 @@ export const RESIST_MAX = 0.75; // nenhuma resistência segura mais que isso
 export const ESCUDO_EQUIV_HP = 0.15; // "escudo" do original = esta fração do HP máximo
 export const REGEN_ESCUDO_FRAC = 0.01; // "+100% de recuperação do escudo" = 1% do HP máximo por s
 export const ENERGIA_POR_HP_FATOR = 1.8; // Amplificador de Energia: valor × isto = energia por s
-export const CONVERTE_ENERGIA_POR_HP = 0.5; // Conversor de Impacto: energia gasta por HP convertido
+export const CONVERTE_ENERGIA_POR_HP = 0.1; // Conversor de Impacto: energia gasta por HP convertido (o HP é o do original, a energia × 0,3)
 
 /** Nome de cada categoria (a forma da arma no original), na ordem do menu e da Loja. */
 export const CATEGORIAS = {
@@ -500,8 +500,8 @@ function converterArma(a) {
  * 'laser' e 'plasma' só como o desenho do tiro: o dano, o tipo e o alcance vêm do
  * ataque da espécie (server/especies.js).
  */
-export const NPC_LASER = { dano: 12, vel: 340, cd: 0.16, energia: 2, vida: 1.3, raio: 5 };
-export const NPC_PLASMA = { dano: 42, vel: 190, cd: 0.9, energia: 14, vida: 2.2, raio: 6.5 };
+export const NPC_LASER = { dano: 60, vel: 340, cd: 0.16, energia: 2, vida: 1.3, raio: 5 };
+export const NPC_PLASMA = { dano: 210, vel: 190, cd: 0.9, energia: 14, vida: 2.2, raio: 6.5 };
 
 function armaNpc(chave, nome, n, tipoDano) {
   const golpe = {

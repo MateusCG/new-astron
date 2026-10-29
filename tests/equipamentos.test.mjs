@@ -104,7 +104,7 @@ test('equipamentos: tipo de dano e classes como no original', () => {
   assert.equal(CATEGORIA_DO_SLOT.pot2, 'potenciador');
 });
 
-test('equipamentos: números dos prints do original (escudo e armadura iguais; potenciadores na escala do jogo)', () => {
+test('equipamentos: números dos prints do original, na escala do jogo', () => {
   // Op. Neutron Shield V7: escudo 1369, recupera 8,0 por s, resistência Op 6.
   const o = EQUIPAMENTOS_ORIGINAL.find((e) => e.id === '330010').versoes[6];
   assert.equal(o.escudo, 1369);
@@ -129,7 +129,7 @@ test('equipamentos: números dos prints do original (escudo e armadura iguais; p
   // Energia (× 0,3), regeneração de energia (por ms × 1000 × 0,3 ÷ 0,5), penetração (pontos × 0,01).
   perto(efeito('e340004', 1, 'energia').valor, 50 * 0.3);
   perto(efeito('e340005', 1, 'regenEn').valor, 0.003 * 1000 * 0.6);
-  perto(efeito('e340017', 1, 'regenHp').valor, 0.0025 * 1000 * 0.2);
+  perto(efeito('e340017', 1, 'regenHp').valor, 0.0025 * 1000);
   perto(efeito('e340028', 1, 'penetra', 'fisico').valor, 4 * 0.01);
   perto(efeito('e340027', 8, 'critico').valor, 0.4);
   perto(efeito('e340015', 8, 'velocidade').valor, 0.08);

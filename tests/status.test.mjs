@@ -115,9 +115,9 @@ test('pontos: Durabilidade dá HP (Skill HP + 3% do HP base) e regeneração de 
   assert.deepEqual([t.hp, t.hpPct, t.regenHpMs], [40, 0.03, 0.0001]);
   const nave = naveDe('bellico', 'assault', 0);
   const um = efeitoDosPontos('bellico', 'assault', { durabilidade: 1 }, 0, nave.hp);
-  perto(um.hp, 40 * 0.2 + 0.03 * nave.hp);
-  // "Recovery +0,1" por ponto no original (0,0001/ms), na escala do HP do jogo (× 0,2).
-  perto(um.regenHp, 0.1 * 0.2);
+  perto(um.hp, 40 + 0.03 * nave.hp);
+  // "Recovery +0,1" por ponto no original (0,0001/ms), igual.
+  perto(um.regenHp, 0.1);
   const dois = efeitoDosPontos('bellico', 'assault', { durabilidade: 2 }, 0, nave.hp);
   perto(dois.hp, 2 * um.hp);
   perto(dois.regenHp, 2 * um.regenHp);

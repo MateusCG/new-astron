@@ -61,9 +61,9 @@ import { recompensar, ouroTorreta } from './progressao.js';
 
 /** Números de balanceamento da torreta no nível 1 (o nível multiplica HP e dano). */
 export const TORRETA = {
-  hp: 1400,
+  hp: 7000,
   alcance: VISAO_TORRETA, // m (no plano) até onde ela mira e enxerga: 560
-  dano: 16, // por míssil (13 de dano por s, como a torre antiga de 10 a cada 0,75 s)
+  dano: 80, // por míssil (67 de dano por s)
   cadenciaS: 1.2, // s entre tiros
   velTiro: 180, // m/s: dá para ver o míssil curvar
   giro: 3, // rad/s que o míssil vira atrás do alvo

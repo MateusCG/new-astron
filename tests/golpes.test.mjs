@@ -96,7 +96,7 @@ test('projétil: canos paralelos acertam juntos e o tiro leva o dano da versão'
   const hp2 = js2[1].ship.hp;
   disparar(w2, js2[0], '111001');
   passos(w2, SEGUNDO);
-  assert.ok(hp2 - js2[1].ship.hp > 3 * versaoArma(idx('111001'), 5).golpe.dano - 3);
+  assert.ok(hp2 - js2[1].ship.hp > 3 * versaoArma(idx('111001'), 5).golpe.dano - js2[1].ship.regenHpVoo - 1);
 });
 
 test('projétil: área no impacto pega todos no raio, e não o aliado', () => {
@@ -476,5 +476,5 @@ test('npc: o tiro de NPC e de torreta segue com os números de antes', () => {
   assert.deepEqual(m.ship.encaixes, [IDX_ARMA.laser, IDX_ARMA.plasma], 'monstro sem raça jogável fica com os tiros de NPC');
   assert.equal(m.danoMult, 1, 'o dano do monstro já vem no ataque da espécie');
   assert.equal(WEAPONS.laser.raio, 5);
-  assert.equal(w.danoDoTiro({ kind: 'laser', mult: 0.5, drone: true }), 6);
+  assert.equal(w.danoDoTiro({ kind: 'laser', mult: 0.5, drone: true }), 30);
 });

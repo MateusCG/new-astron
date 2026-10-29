@@ -22,7 +22,8 @@
 //
 // Conversão (constantes nomeadas, as mesmas da frente das armas, para dano, custo e
 // recarga baterem com HP e energia):
-// - HP: o do original vezes FATOR_ESCALA_HP (HP/5, a mesma escala do dano das armas).
+// - HP: o do original vezes FATOR_ESCALA_HP (1: o HP do original, na mesma escala do
+//   dano das armas; pedido do Mateus, out/2026, antes era ÷5).
 // - Regeneração de HP em voo (regenHpVoo, a coluna 0x20c; só as Bellico têm): HP/ms
 //   do original vezes 1000 (MS_POR_S) e FATOR_ESCALA_HP, em HP por segundo. É
 //   contínua: vale até no meio da briga.
@@ -81,7 +82,7 @@ export const NIVEL_POR_TIER = [1, 5, 10, 15, 20];
  */
 export const PRECO_POR_TIER = [0, 200, 400, 650, 900];
 
-export const FATOR_ESCALA_HP = 0.2; // HP e dano do original divididos por 5
+export const FATOR_ESCALA_HP = 1; // HP e dano do original, iguais (era 0,2: ÷5)
 export const MS_POR_S = 1000; // tempos do original são em ms (regenerações por ms, velocidade em m/ms)
 export const FATOR_ENERGIA = 0.3; // energia máxima (e custo das armas) do original
 export const FATOR_RECARGA = 0.5; // recarga das armas do original (entra na regeneração de energia)
