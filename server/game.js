@@ -457,7 +457,8 @@ export class World {
   /**
    * Pedido do modo de teste ({t:'teste', acao}): só vale no mundo de teste (no mundo
    * de verdade responde 'invalido'). acao: 'ouro' (+TESTE_OURO), 'xp' (+TESTE_XP),
-   * 'nivel' (sobe um nível) ou 'nivelMax' (vai ao NIVEL_MAX). Responde como a Loja:
+   * 'nivel' (sobe um nível), 'nivelMax' (vai ao NIVEL_MAX) ou 'nucleo' (o Núcleo de
+   * He-3 volta ao começo na hora: nível 1, barreira cheia). Responde como a Loja:
    * {t:'resultado', acao:'teste', item: acao, ok, codigo?}.
    */
   pedidoTeste(id, msg) {
@@ -472,7 +473,8 @@ export class World {
       if (acao === 'xp') ganharXp(j, TESTE_XP, this.eventos);
       else if (acao === 'nivel') ganharXp(j, falta, this.eventos);
       else while (j.nivel < NIVEL_MAX) ganharXp(j, xpParaNivel(j.nivel) - j.xp, this.eventos);
-    } else return resposta(false, 'invalido');
+    } else if (acao === 'nucleo') this.objetivos.resetarNucleo();
+    else return resposta(false, 'invalido');
     return resposta(true);
   }
 

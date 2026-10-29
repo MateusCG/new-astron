@@ -1109,6 +1109,11 @@ kbd {
   cursor: pointer;
 }
 
+/* Resetar Núcleo: a linha inteira, embaixo dos quatro de progressão. */
+#painel-teste button[data-acao='nucleo'] {
+  grid-column: 1 / -1;
+}
+
 #painel-teste button:hover {
   border-color: var(--ouro);
   color: var(--ouro);

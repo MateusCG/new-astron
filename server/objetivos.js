@@ -352,18 +352,7 @@ export class Objetivos {
     if (!n.vivo) {
       const t = this.#proximaAparicao();
       if (t == null || w.tick < t) return;
-      const f = forcaNucleo(n.mortes);
-      n.aparicao++;
-      n.vivo = true;
-      s.hp = s.maxHp = f.barreira;
-      n.regen = f.regen;
-      n.reflexo = f.reflexo;
-      n.refletir = 0;
-      n.atacantes = new Set();
-      n.reflexoTick = w.tick + ticks(NUCLEO_CFG.reflexoS);
-      n.ultimoDano = w.tick;
-      n.st = {};
-      w.eventos.push({ e: 'objetivo', id: 'NUCLEO', acao: 'apareceu', time: null, quem: null, nivel: n.mortes + 1, x: s.x, z: s.z });
+      this.#surgirNucleo();
       return;
     }
     // O escudo regenera o tempo todo, até apanhando.
@@ -372,6 +361,37 @@ export class Objetivos {
       n.reflexoTick = w.tick + ticks(NUCLEO_CFG.reflexoS);
       this.#refletir();
     }
+  }
+
+  /** O Núcleo aparece agora, com a força das mortes que ele já teve e a barreira cheia. */
+  #surgirNucleo() {
+    const w = this.world;
+    const n = this.nucleo;
+    const s = n.ship;
+    const f = forcaNucleo(n.mortes);
+    n.aparicao++;
+    n.vivo = true;
+    s.hp = s.maxHp = f.barreira;
+    n.regen = f.regen;
+    n.reflexo = f.reflexo;
+    n.refletir = 0;
+    n.atacantes = new Set();
+    n.reflexoTick = w.tick + ticks(NUCLEO_CFG.reflexoS);
+    n.ultimoDano = w.tick;
+    n.st = {};
+    w.eventos.push({ e: 'objetivo', id: 'NUCLEO', acao: 'apareceu', time: null, quem: null, nivel: n.mortes + 1, x: s.x, z: s.z });
+  }
+
+  /**
+   * Modo de teste: o Núcleo volta ao começo, na hora: a força da primeira aparição
+   * (nenhuma morte contada), a barreira cheia e ninguém como dono, vivo ou não.
+   */
+  resetarNucleo() {
+    const n = this.nucleo;
+    n.vivo = false;
+    n.mortes = 0;
+    n.timeTomou = null;
+    this.#surgirNucleo();
   }
 
   /**

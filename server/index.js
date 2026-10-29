@@ -26,7 +26,8 @@
 //                        'functional', inválida ou ausente vira 'assault'; o piloto
 //                        começa na primeira nave da linha, shared/naves.js)
 //                       {t:'teste', acao}   só no modo de teste: 'ouro' (+1000), 'xp'
-//                        (+100), 'nivel' (sobe um), 'nivelMax' (vai ao 25); resposta
+//                        (+100), 'nivel' (sobe um), 'nivelMax' (vai ao 25), 'nucleo'
+//                        (o Núcleo de He-3 volta ao começo na hora: nível 1, cheio); resposta
 //                        {t:'resultado', acao:'teste', item, ok, codigo?} ('limite' no
 //                        nível máximo, 'invalido' fora do modo de teste)
 //                       {t:'in', s:seq, th, tu, b, f1, f2, p, r, a, a2}   um por passo de 1/30 s

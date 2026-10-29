@@ -4,6 +4,7 @@ import WebSocket from 'ws';
 import { iniciar } from '../server/index.js';
 import { World } from '../server/game.js';
 import { NIVEL_MAX, xpParaNivel } from '../server/progressao.js';
+import { forcaNucleo } from '../server/objetivos.js';
 
 // Modo de teste: um mundo só do piloto, com a partida sem relógio e os pedidos de
 // ouro e XP para testar a progressão da nave (pedido do Mateus).
@@ -43,6 +44,28 @@ test('teste: ouro, XP, nível e nível máximo pelos pedidos do modo de teste', 
   assert.deepEqual(w.pedidoTeste(j.id, { acao: 'nivel' }), { t: 'resultado', acao: 'teste', item: 'nivel', ok: false, codigo: 'limite' });
   assert.equal(w.pedidoTeste(j.id, { acao: 'bobagem' }).codigo, 'invalido');
   assert.ok(w.tirarEventos().some((e) => e.e === 'nivel' && e.nivel === NIVEL_MAX), 'avisa a subida');
+});
+
+test('teste: o Núcleo de He-3 volta ao começo quando o piloto pede, vivo ou destruído', () => {
+  const w = mundoTeste();
+  const j = w.addPlayer('Testador', 'acron');
+  w.step();
+  const n = w.objetivos.nucleo;
+  const f0 = forcaNucleo(0);
+  assert.equal(n.vivo, false, 'antes dos 8:00 ainda não apareceu');
+  assert.deepEqual(w.pedidoTeste(j.id, { acao: 'nucleo' }), { t: 'resultado', acao: 'teste', item: 'nucleo', ok: true });
+  assert.ok(n.vivo, 'apareceu na hora');
+  assert.deepEqual([n.ship.hp, n.ship.maxHp, n.regen, n.reflexo], [f0.barreira, f0.barreira, f0.regen, f0.reflexo]);
+  // Destruído duas vezes (mais forte, do outro time): o reset volta à primeira força, sem dono.
+  Object.assign(n, { vivo: false, mortes: 2, timeTomou: 1 });
+  w.pedidoTeste(j.id, { acao: 'nucleo' });
+  assert.ok(n.vivo);
+  assert.deepEqual([n.mortes, n.timeTomou, n.ship.maxHp], [0, null, f0.barreira]);
+  // Vivo e ferido: enche de novo.
+  n.ship.hp = 100;
+  w.pedidoTeste(j.id, { acao: 'nucleo' });
+  assert.equal(n.ship.hp, f0.barreira);
+  assert.equal(w.snapshotPara(j, [], []).obj.NUCLEO.nivel, 1);
 });
 
 test('teste: na partida de verdade os pedidos de teste são recusados', () => {
