@@ -31,8 +31,8 @@
 // nunca acaba nem entra na fase final; o snapshot avisa com semTempo.
 //
 // Relógio da partida (decorrido): os objetivos do mapa aparecem em tempos fixos da
-// partida (buff de suporte aos 1:30, plataformas aos 2:00, Núcleo aos 8:00 e aos
-// 15:00; server/objetivos.js), contados de quando ela começou. decorrido() vale
+// partida (buff de suporte aos 1:30, plataformas aos 2:00, Núcleo aos 8:00 e 5:00
+// depois de cada morte; server/objetivos.js), contados de quando ela começou. decorrido() vale
 // também no modo de teste (a partida não acaba, mas o relógio anda).
 
 import { DT } from '../shared/sim.js';

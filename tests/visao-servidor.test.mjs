@@ -249,7 +249,7 @@ test('visão: custo do filtro com 6 jogadores e os monstros do mapa', () => {
   assert.ok(porSnap < 5, `${porSnap.toFixed(3)} ms por rodada de snapshots`);
 });
 
-test('visão: míssil da torre sentinela chega a quem ele persegue; pulso do Núcleo longe não chega', () => {
+test('visão: míssil da torre sentinela chega a quem ele persegue; o reflexo do Núcleo só mostra o que o time vê', () => {
   const { w, js } = mundo(2);
   const [a, b] = js;
   colocar(a, -900, 0);
@@ -258,11 +258,15 @@ test('visão: míssil da torre sentinela chega a quem ele persegue; pulso do Nú
   // Míssil de torre do time 0 (dono = id da torre) travado em b, saindo de longe dele.
   const missil = { e: 'tiro', id: 8101, dono: 'T0-1', kind: 'laser', x: -400, y: 10, z: 171, vx: 300, vy: 0, vz: 0, fonte: 'torreta', time: 0, guiado: true, alvo: b.id, vida: 2 };
   assert.ok(w.snapshotPara(b, [], [missil]).ev.includes(missil), 'o alvo recebe o míssil que vem atrás dele');
-  const pulso = { e: 'pulso', id: 4242, x: 0, y: 18, z: -877, raio: 80, forca: 1 };
-  assert.ok(!w.snapshotPara(a, [], [pulso]).ev.length, 'pulso do Núcleo fora da visão não chega');
-  colocar(a, -200, -700);
+  // Reflexo do Núcleo em b (time 1), longe de a: a não vê o poço nem b.
+  const reflexo = { e: 'reflexo', id: 4242, x: 0, y: 14, z: -877, dano: 40, alvos: [{ id: b.id, x: 900, y: 10, z: 0 }] };
+  assert.ok(!w.snapshotPara(a, [], [reflexo]).ev.length, 'reflexo longe, em nave que o time não vê, não chega');
+  assert.deepEqual(w.snapshotPara(b, [], [reflexo]).ev, [reflexo], 'quem levou recebe');
+  colocar(a, 0, -560); // na entrada do poço
   w.step();
-  assert.equal(w.snapshotPara(a, [], [pulso]).ev.length, 1, 'perto do poço, chega');
+  const visto = w.snapshotPara(a, [], [reflexo]).ev;
+  assert.equal(visto.length, 1, 'vendo o poço, chega');
+  assert.deepEqual(visto[0].alvos, [], 'sem o raio até a nave que o time não vê');
 });
 
 test('visão: o Núcleo de He-3 (neutro) só vem com alguém vendo o poço', () => {

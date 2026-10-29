@@ -546,7 +546,7 @@ test('computador: partida acelerada de 3 contra 3 computadores termina sem erro,
       sonda: { primeiroS: 90, voltaS: 60 },
       medusa: { primeiroS: 180, voltaS: 150 },
     },
-    objetivos: { suporte: { primeiroS: 45, voltaS: 120 }, plataforma: { primeiroS: 60, recargaS: 75 }, nucleo: { aparicoesS: [210, 330] } },
+    objetivos: { suporte: { primeiroS: 45, voltaS: 120 }, plataforma: { primeiroS: 60, recargaS: 75 }, nucleo: { primeiroS: 210, renasceS: 120 } },
   });
   assert.deepEqual(bots.map((j) => j.time).sort(), [0, 0, 0, 1, 1, 1]);
   const papeis = new Set();

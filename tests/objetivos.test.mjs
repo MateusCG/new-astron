@@ -1,12 +1,13 @@
 // Objetivos do mapa do Stage 6 (server/objetivos.js): a torre do buff de suporte, as
-// plataformas de pouso que dão ouro ao time e o Núcleo de He-3 (com o pulso e a
-// onda do Núcleo), o estado `obj` do snapshot e a partida nova. Os tempos de
+// plataformas de pouso que dão ouro ao time e o Núcleo de He-3 (as regras do Tormentor
+// do Dota 2: o escudo que regenera sempre, o reflexo dividido, o renascer mais forte, e
+// a onda do Núcleo), o estado `obj` do snapshot e a partida nova. Os tempos de
 // aparição vêm encurtados pelo World({ objetivos }).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World } from '../server/game.js';
-import { TEMPOS, SUPORTE, OURO_PLATAFORMA, OURO_PLATAFORMA_POUSOU, NUCLEO_CFG } from '../server/objetivos.js';
+import { TEMPOS, SUPORTE, OURO_PLATAFORMA, OURO_PLATAFORMA_POUSOU, NUCLEO_CFG, TORMENTOR, forcaNucleo } from '../server/objetivos.js';
 import { MINERADOR_NUCLEO } from '../server/mineradores.js';
 import { DT, HOVER, WEAPONS, createShip, createBullet, stepShip, INPUT_VAZIO } from '../shared/sim.js';
 import { OBJETIVOS, BUFFS, PLATAFORMAS_POUSO, NUCLEO, areaPouso } from '../shared/terrain.js';
@@ -17,7 +18,7 @@ const SEGUNDO = Math.round(1 / DT);
 const RAPIDO = {
   suporte: { primeiroS: 2, voltaS: 4 },
   plataforma: { primeiroS: 2, recargaS: 3, pousoS: 2 },
-  nucleo: { aparicoesS: [2, 8] },
+  nucleo: { primeiroS: 2, renasceS: 6 },
 };
 
 /** Mundo sem monstros e sem mineradores andando, com A e C no time 0 e B no 1. */
@@ -62,7 +63,7 @@ const obj = (w, j, id) => w.snapshotPara(j, [], []).obj[id];
 
 test('objetivos: os A/B/C antigos saíram e o obj traz BS0, BS1, P0, P1 e NUCLEO à espera', () => {
   assert.deepEqual(OBJETIVOS, []);
-  assert.deepEqual(TEMPOS, { suporte: { primeiroS: 90, voltaS: 240 }, plataforma: { primeiroS: 120, recargaS: 150, pousoS: 6 }, nucleo: { aparicoesS: [480, 900] } });
+  assert.deepEqual(TEMPOS, { suporte: { primeiroS: 90, voltaS: 240 }, plataforma: { primeiroS: 120, recargaS: 150, pousoS: 6 }, nucleo: { primeiroS: 480, renasceS: 300 } });
   const w = new World({ preparacaoS: 0, jungle: false });
   const a = w.addPlayer('A', 'bellico');
   w.step();
@@ -70,7 +71,7 @@ test('objetivos: os A/B/C antigos saíram e o obj traz BS0, BS1, P0, P1 e NUCLEO
   assert.deepEqual(Object.keys(o).sort(), ['BS0', 'BS1', 'NUCLEO', 'P0', 'P1']);
   assert.deepEqual(o.BS0, { time: null, estado: 'espera', volta: 90, vida: 1 });
   assert.deepEqual(o.P1, { time: null, estado: 'espera', volta: 120 });
-  assert.deepEqual(o.NUCLEO, { time: null, aparicao: 0, estado: 'espera', volta: 480 });
+  assert.deepEqual(o.NUCLEO, { time: null, aparicao: 0, nivel: 1, estado: 'espera', volta: 480 });
   assert.equal(w.entidades().filter((e) => e.tipo === 'guardiao').length, 0, 'sem guardião');
   assert.equal(w.entidades().filter((e) => e.tipo === 'nucleo').length, 0, 'o Núcleo ainda não está no mapa');
 });
@@ -196,54 +197,123 @@ test('objetivos: os dois times pousados contestam (trava); sozinho, o outro reco
   assert.ok(obj(w, a, 'P0').prog < 0.1, 'recomeçou para o outro time');
 });
 
-test('objetivos: o Núcleo aparece como entidade, só jogador fere, e pulsa mais forte com menos vida', () => {
+test('objetivos: o Núcleo segue o Tormentor do Dota 2, na escala do jogo', () => {
+  assert.deepEqual(TORMENTOR, { barreira: 2500, regen: 100, reflexo: 0.7, barreiraPorMorte: 200, regenPorMorte: 100, reflexoPorMorte: 0.2 });
+  const [f0, f1, f2] = [0, 1, 2].map(forcaNucleo);
+  assert.deepEqual(f0, { barreira: 30000, regen: 800, reflexo: 0.14 });
+  // A cada morte, mais barreira, mais regeneração e mais reflexo.
+  for (const [antes, depois] of [[f0, f1], [f1, f2]]) {
+    assert.ok(depois.barreira > antes.barreira && depois.regen > antes.regen && depois.reflexo > antes.reflexo);
+  }
+  // Na escala do jogo: a barreira é a rajada de duas ou três naves, a regeneração o que
+  // uma sustenta, e o reflexo bem abaixo dos 70% do Dota (a nave aqui morre em segundos).
+  assert.ok(f0.barreira / f0.regen > 25, 'esvaziar a barreira pede dano concentrado');
+  assert.ok(f0.reflexo < TORMENTOR.reflexo / 3);
+});
+
+test('objetivos: o Núcleo aparece como entidade, só jogador fere, não ataca e o escudo regenera até apanhando', () => {
   const { w, a, b } = mundo();
   passos(w, 2.1);
   const n = w.objetivos.nucleo;
+  const f = forcaNucleo(0);
   assert.equal(n.vivo, true);
   const ent = w.entidades().find((e) => e.tipo === 'nucleo');
   assert.ok(ent, 'vai nas entidades');
-  assert.deepEqual([ent.x, ent.z, ent.hp, ent.maxHp], [NUCLEO.x, NUCLEO.z, NUCLEO_CFG.hp, NUCLEO_CFG.hp]);
-  assert.equal(obj(w, a, 'NUCLEO').estado, 'ativo');
+  assert.deepEqual([ent.x, ent.z, ent.hp, ent.maxHp], [NUCLEO.x, NUCLEO.z, f.barreira, f.barreira]);
+  assert.deepEqual([obj(w, a, 'NUCLEO').estado, obj(w, a, 'NUCLEO').nivel], ['ativo', 1]);
   // Monstro não fere, jogador fere.
   colocar(a, NUCLEO.x, NUCLEO.z + 200);
   colocar(b, NUCLEO.x, NUCLEO.z + 210);
-  tiro(w, null, NUCLEO.x, NUCLEO.z + 40, 0);
-  assert.equal(n.ship.hp, NUCLEO_CFG.hp);
-  tiro(w, a, NUCLEO.x, NUCLEO.z + 40, 0);
-  assert.equal(n.ship.hp, NUCLEO_CFG.hp - WEAPONS.plasma.dano);
-  // Pulso: pega as naves de jogador perto, dos dois times; com menos vida, mais forte.
+  tiro(w, null, NUCLEO.x, NUCLEO.z + 60, 0);
+  assert.equal(n.ship.hp, f.barreira);
+  const antes = n.ship.hp;
+  tiro(w, a, NUCLEO.x, NUCLEO.z + 60, 0);
+  assert.equal(n.ship.hp, antes - WEAPONS.plasma.dano);
+  // A barreira regenera o tempo todo, até logo depois de levar dano.
+  n.ship.hp = f.barreira / 2;
+  n.ultimoDano = w.tick;
+  passos(w, 1);
+  assert.ok(Math.abs(n.ship.hp - (f.barreira / 2 + f.regen)) < 1, `regenerou ${n.ship.hp - f.barreira / 2}`);
+  // Não ataca: quem fica em volta sem bater não leva nada.
   colocar(a, NUCLEO.x + 30, NUCLEO.z);
   colocar(b, NUCLEO.x - 30, NUCLEO.z);
-  const pulsos = [];
-  const hpA = a.ship.hp;
-  const hpB = b.ship.hp;
-  for (let i = 0; i < (NUCLEO_CFG.pulsoS + 0.2) * SEGUNDO; i++) {
-    w.step();
-    for (const e of w.tirarEventos()) if (e.e === 'pulso') pulsos.push(e);
-  }
-  assert.equal(pulsos.length, 1);
-  assert.deepEqual([pulsos[0].raio, pulsos[0].x, pulsos[0].z], [NUCLEO_CFG.raioPulso, NUCLEO.x, NUCLEO.z]);
-  assert.ok(a.ship.hp < hpA && b.ship.hp < hpB, 'os dois times levam');
-  n.ship.hp = n.ship.maxHp * 0.2;
-  assert.ok(w.objetivos.forcaPulso() > pulsos[0].forca + 1, 'mais forte com menos vida');
-  // Fora do raio, nada.
-  colocar(a, NUCLEO.x, NUCLEO.z + 200);
-  const hp = a.ship.hp;
-  passos(w, NUCLEO_CFG.pulsoS + 0.2);
-  assert.ok(a.ship.hp >= hp);
+  w.tirarEventos();
+  passos(w, 6);
+  const ev = w.tirarEventos();
+  assert.ok(!ev.some((e) => e.e === 'acerto' && (e.alvo === a.id || e.alvo === b.id)), 'ninguém leva dano');
+  assert.ok(!ev.some((e) => e.e === 'reflexo' || e.e === 'pulso'));
 });
 
-test('objetivos: matar o Núcleo dá a onda do Núcleo e a recompensa ao time; volta aos 15:00 e depois fica tomado', () => {
+/** Dano do reflexo que cada nave levou nos eventos (escudo + HP). */
+function reflexoLevado(ev) {
+  const r = new Map();
+  for (const e of ev) if (e.e === 'acerto' && e.kind === 'reflexo') r.set(e.alvo, (r.get(e.alvo) ?? 0) + e.dano);
+  return r;
+}
+
+test('objetivos: o reflexo divide o dano entre as naves em volta, e quem bate leva de qualquer distância', () => {
+  const { w, a, b, c } = mundo();
+  passos(w, 2.1);
+  const n = w.objetivos.nucleo;
+  // Sozinho: quem bate leva o reflexo inteiro, mesmo longe do poço.
+  colocar(a, NUCLEO.x + 900, NUCLEO.z + 500);
+  colocar(b, NUCLEO.x - 900, NUCLEO.z + 500);
+  colocar(c, NUCLEO.x, NUCLEO.z + 1000);
+  w.tirarEventos();
+  tiro(w, a, NUCLEO.x, NUCLEO.z + 60, 0);
+  passos(w, NUCLEO_CFG.reflexoS + 0.1);
+  const volta = WEAPONS.plasma.dano * n.reflexo;
+  let ev = w.tirarEventos();
+  assert.ok(Math.abs(reflexoLevado(ev).get(a.id) - volta) < 0.2, `levou ${reflexoLevado(ev).get(a.id)}, esperado ${volta}`);
+  const reflexo = ev.find((e) => e.e === 'reflexo');
+  assert.deepEqual(reflexo.alvos.map((x) => x.id), [a.id]);
+  assert.deepEqual([reflexo.x, reflexo.z], [NUCLEO.x, NUCLEO.z]);
+  // Com mais naves no raio (de qualquer time), cada uma leva um pedaço; fora dele, nada.
+  colocar(b, NUCLEO.x + 100, NUCLEO.z + 200);
+  colocar(c, NUCLEO.x, NUCLEO.z + NUCLEO_CFG.raioReflexo + 50);
+  tiro(w, a, NUCLEO.x, NUCLEO.z + 60, 0);
+  passos(w, NUCLEO_CFG.reflexoS + 0.1);
+  ev = w.tirarEventos();
+  const levou = reflexoLevado(ev);
+  assert.ok(Math.abs(levou.get(a.id) - volta / 2) < 0.2, `quem bateu levou ${levou.get(a.id)}`);
+  assert.ok(Math.abs(levou.get(b.id) - volta / 2) < 0.2, `quem estava perto levou ${levou.get(b.id)}`);
+  assert.equal(levou.has(c.id), false, 'fora do raio');
+  // A resistência não segura o reflexo (penetrante).
+  a.status.resist.fisico = a.status.resist.laser = a.status.resist.eletrico = 0.9;
+  colocar(b, NUCLEO.x - 900, NUCLEO.z + 500);
+  tiro(w, a, NUCLEO.x, NUCLEO.z + 60, 0);
+  passos(w, NUCLEO_CFG.reflexoS + 0.1);
+  ev = w.tirarEventos();
+  assert.ok(Math.abs(reflexoLevado(ev).get(a.id) - volta) < 0.2, `com 90% de resistência levou ${reflexoLevado(ev).get(a.id)}`);
+});
+
+test('objetivos: morrer do reflexo não dá abate a ninguém', () => {
+  const { w, a, b } = mundo();
+  passos(w, 2.1);
+  colocar(a, NUCLEO.x, NUCLEO.z + 200);
+  colocar(b, NUCLEO.x - 900, NUCLEO.z + 500);
+  a.ship.hp = 1;
+  a.ship.escudo = 0;
+  const abates = b.abates;
+  w.tirarEventos();
+  tiro(w, a, NUCLEO.x, NUCLEO.z + 60, 0);
+  passos(w, NUCLEO_CFG.reflexoS + 0.1);
+  assert.equal(a.vivo, false);
+  const morte = w.tirarEventos().find((e) => e.e === 'morte' && e.id === a.id);
+  assert.equal(morte.por, w.objetivos.nucleo.id);
+  assert.equal(b.abates, abates);
+});
+
+test('objetivos: destruído, o Núcleo dá a onda e a recompensa ao time, devolve o golpe final e renasce mais forte', () => {
   const { w, a, b, c } = mundo();
   passos(w, 2.1);
   const n = w.objetivos.nucleo;
   colocar(a, NUCLEO.x, NUCLEO.z + 200);
-  colocar(b, NUCLEO.x, NUCLEO.z + 220);
+  colocar(b, NUCLEO.x - 900, NUCLEO.z + 500);
   n.ship.hp = 5;
   const ouro = { a: a.ouro, b: b.ouro, c: c.ouro };
   w.tirarEventos();
-  tiro(w, a, NUCLEO.x, NUCLEO.z + 40, 0);
+  tiro(w, a, NUCLEO.x, NUCLEO.z + 60, 0);
   assert.equal(n.vivo, false);
   assert.equal(c.ouro - ouro.c, NUCLEO_CFG.ouro, 'o time inteiro ganha');
   assert.equal(a.ouro - ouro.a, NUCLEO_CFG.ouro);
@@ -252,48 +322,39 @@ test('objetivos: matar o Núcleo dá a onda do Núcleo e a recompensa ao time; v
   assert.equal(onda.length, MINERADOR_NUCLEO.quantos);
   assert.ok(onda.every((m) => m.time === 0));
   const ev = w.tirarEventos();
+  assert.ok(reflexoLevado(ev).get(a.id) > 0, 'o golpe final também volta');
+  assert.ok(ev.some((e) => e.e === 'reflexo' && e.alvos.some((x) => x.id === a.id)));
   assert.ok(ev.some((e) => e.e === 'objetivo' && e.id === 'NUCLEO' && e.acao === 'tomado' && e.time === 0 && e.quem === 'A'));
   assert.ok(ev.some((e) => e.e === 'ondaNucleo' && e.time === 0));
   assert.equal(w.entidades().some((e) => e.tipo === 'nucleo'), false);
   const o = obj(w, a, 'NUCLEO');
-  assert.deepEqual([o.estado, o.time, o.aparicao], ['recarga', 0, 1]);
+  assert.deepEqual([o.estado, o.time, o.aparicao, o.nivel], ['recarga', 0, 1, 2]);
   assert.ok(o.volta > 5 && o.volta <= 6, `volta ${o.volta}`);
   passos(w, 6);
-  assert.equal(n.vivo, true, 'segunda aparição');
-  assert.equal(n.ship.hp, NUCLEO_CFG.hp);
+  assert.equal(n.vivo, true, 'renasceu');
+  const f1 = forcaNucleo(1);
+  assert.deepEqual([n.ship.hp, n.ship.maxHp, n.regen, n.reflexo], [f1.barreira, f1.barreira, f1.regen, f1.reflexo]);
+  assert.equal(obj(w, a, 'NUCLEO').nivel, 2);
+  assert.ok(w.tirarEventos().some((e) => e.e === 'objetivo' && e.id === 'NUCLEO' && e.acao === 'apareceu' && e.nivel === 2));
+  // De novo: mais forte ainda (sem regenerar enquanto o tiro voa).
+  n.regen = 0;
   n.ship.hp = 5;
-  tiro(w, b, NUCLEO.x, NUCLEO.z + 40, 0);
+  tiro(w, b, NUCLEO.x, NUCLEO.z + 60, 0);
   assert.equal(n.vivo, false);
-  assert.deepEqual(obj(w, a, 'NUCLEO'), { time: 1, aparicao: 2, estado: 'tomado' });
-  passos(w, 10);
-  assert.equal(n.vivo, false, 'só duas vezes');
+  assert.equal(obj(w, a, 'NUCLEO').time, 1);
+  passos(w, 6.1);
+  assert.equal(n.ship.maxHp, forcaNucleo(2).barreira);
 });
 
-test('objetivos: o Núcleo vivo na hora da segunda aparição não muda; tomado depois dela, acabou', () => {
-  const { w, a } = mundo();
+test('objetivos: destruído sem tempo de voltar antes do fim da partida, o Núcleo fica tomado', () => {
+  const { w, a } = mundo({ duracaoPartidaS: 7 });
   passos(w, 2.1);
   const n = w.objetivos.nucleo;
-  n.ship.hp = 3000;
-  n.ultimoDano = w.tick + 100 * SEGUNDO; // sem regenerar
-  passos(w, 7);
-  assert.equal(n.ship.hp, 3000, 'continua o mesmo');
-  assert.equal(n.aparicao, 1);
   colocar(a, NUCLEO.x, NUCLEO.z + 200);
   n.ship.hp = 5;
-  tiro(w, a, NUCLEO.x, NUCLEO.z + 40, 0);
-  assert.equal(obj(w, a, 'NUCLEO').estado, 'tomado');
-});
-
-test('objetivos: fora de briga o Núcleo recupera vida', () => {
-  const { w } = mundo();
-  passos(w, 2.1);
-  const n = w.objetivos.nucleo;
-  n.ship.hp = 1000;
-  n.ultimoDano = w.tick;
-  passos(w, NUCLEO_CFG.regenEsperaS - 1);
-  assert.equal(n.ship.hp, 1000);
-  passos(w, 3);
-  assert.ok(n.ship.hp > 1000);
+  tiro(w, a, NUCLEO.x, NUCLEO.z + 60, 0);
+  assert.equal(n.vivo, false);
+  assert.deepEqual(obj(w, a, 'NUCLEO'), { time: 0, aparicao: 1, nivel: 2, estado: 'tomado' });
 });
 
 test('objetivos: a partida nova volta tudo à espera, com as torres de pé', () => {

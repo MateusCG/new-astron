@@ -8,7 +8,7 @@
 // "aparece" num tempo fixo e volta um tempo depois de tomado (TEMPOS; os testes os
 // encurtam pelo World({ objetivos })). Estado de cada um no snapshot:
 // 'espera' (ainda não apareceu; volta = s até aparecer), 'ativo', 'recarga' (tomado,
-// volta = s até voltar) ou 'tomado' (o Núcleo depois da última aparição).
+// volta = s até voltar) ou 'tomado' (o Núcleo destruído que não volta antes do fim).
 //
 // Torre do buff de suporte (uma em cada metade do mapa, BUFFS de shared/terrain.js;
 // a construção sólida é a de shared/obstaculos.js): fica de pé desde o começo, mas
@@ -34,22 +34,35 @@
 // já corta todo tiro com s.pousado, na predição também). Coletada, a plataforma
 // apaga por TEMPOS.plataforma.recargaS (2:30).
 //
-// Núcleo de He-3 (NUCLEO, poço de cima): uma ENTIDADE (tipo 'nucleo', parada,
-// flutuando, não sólida) que aparece aos 8:00 e, se tiver sido tomado, de novo aos
-// 15:00 (TEMPOS.nucleo.aparicoesS; só essas vezes). NUCLEO_CFG.hp de vida, só
-// jogador (de qualquer time) fere (soJogador: World#ferir ignora o resto); tiros,
-// áreas e mísseis pegam nele como num monstro. Fora de briga por NUCLEO_CFG.regenEsperaS,
-// recupera NUCLEO_CFG.regenFrac do HP por s (não dá para tirar aos poucos). A cada
-// NUCLEO_CFG.pulsoS solta um PULSO em área (NUCLEO_CFG.raioPulso) que fere as naves
-// de jogador perto, de qualquer time, mais forte conforme perde vida (forca de 1 a
-// 1 + NUCLEO_CFG.pulsoExtra; evento 'pulso'). Golpe final: o time de quem matou
-// ganha a ONDA DO NÚCLEO (Mineradores.ondaDoNucleo: 3 mineradores de carga 50) e
-// NUCLEO_CFG.xp / NUCLEO_CFG.ouro para cada piloto do time.
+// Núcleo de He-3 (NUCLEO, poço de cima): o evento épico principal, com as regras do
+// TORMENTOR do Dota 2 (pedido do Mateus, 29/out/2026). Uma ENTIDADE (tipo 'nucleo',
+// parada, flutuando, não sólida) que NÃO ATACA e tem só duas passivas:
+// - Escudo que se regenera rápido (o Unyielding Shield): a vida dele é uma barreira que
+//   regenera o tempo todo, até apanhando (o Tormentor tem 1 de vida atrás dela; aqui a
+//   barreira é a vida). Com dano baixo ele recupera mais do que perde: bater aos poucos
+//   não funciona, precisa de dano concentrado.
+// - Reflexo de dano (o Reflect): devolve uma fração do dano que leva às naves de jogador
+//   em volta (NUCLEO_CFG.raioReflexo, de qualquer time), DIVIDIDA por igual entre elas;
+//   quem bateu leva sempre, de qualquer distância (como no Dota desde o 7.33c). Sozinho,
+//   você leva o reflexo inteiro; com o time, cada um leva um pedaço. É dano penetrante
+//   (nenhuma resistência segura, como o dano puro), no escudo da nave e depois no HP, e
+//   quem morre dele não dá abate a ninguém. O servidor junta o dano de
+//   NUCLEO_CFG.reflexoS em NUCLEO_CFG.reflexoS (e o que falta no golpe final) e devolve
+//   de uma vez: evento 'reflexo' (o cliente desenha os raios) e um 'acerto' kind
+//   'reflexo' por nave.
+// Só jogador (de qualquer time) fere (soJogador: World#ferir ignora o resto); tiros,
+// áreas e mísseis pegam nele como num monstro, no raio do escudo (NUCLEO_CFG.raio).
+// Aparece aos TEMPOS.nucleo.primeiroS (8:00) e, destruído, renasce
+// TEMPOS.nucleo.renasceS (5:00, os 10:00 do Dota na partida de 20) depois, MAIS FORTE: a
+// cada morte, a barreira, a regeneração e o reflexo sobem como os do Tormentor
+// (forcaNucleo). Se a volta cair depois do fim da partida, fica 'tomado'. Golpe final: o
+// time de quem matou ganha a ONDA DO NÚCLEO (Mineradores.ondaDoNucleo: 3 mineradores de
+// carga 50) e NUCLEO_CFG.xp / NUCLEO_CFG.ouro para cada piloto do time.
 //
 // Partida nova (ou servidor vazio): tudo volta à 'espera', torres de pé.
 
 import { PLATAFORMAS_POUSO, BUFFS, NUCLEO, areaPouso } from '../shared/terrain.js';
-import { DT, HOVER, VEL_TOQUE, SHIP_RADIUS, AREA_ALTURA } from '../shared/sim.js';
+import { DT, HOVER, VEL_TOQUE, SHIP_RADIUS } from '../shared/sim.js';
 import { TORRE_SUPORTE, OBSTACULOS, definirObstaculoAtivo } from '../shared/obstaculos.js';
 import { ganharXp } from './progressao.js';
 import { BONUS_NAVE } from './bonus.js';
@@ -58,7 +71,7 @@ import { BONUS_NAVE } from './bonus.js';
 export const TEMPOS = {
   suporte: { primeiroS: 90, voltaS: 240 },
   plataforma: { primeiroS: 120, recargaS: 150, pousoS: 6 },
-  nucleo: { aparicoesS: [480, 900] },
+  nucleo: { primeiroS: 480, renasceS: 300 },
 };
 /** Torre do buff de suporte: vida e recompensa de quem dá o último tiro (como o SN-4 do buff de ataque). */
 export const SUPORTE = { hp: 4500, xp: 150, ouro: 100 };
@@ -66,21 +79,56 @@ export const SUPORTE = { hp: 4500, xp: 150, ouro: 100 };
 export const OURO_PLATAFORMA = 200;
 export const OURO_PLATAFORMA_POUSOU = 50;
 /**
- * Núcleo de He-3: vida, altura do centro (a do tiro das naves, HOVER, + um pouco:
- * o acerto de tiro aceita 7 m de diferença), raio de acerto, regeneração fora de
- * briga, pulso (intervalo, raio, dano com a vida cheia e quanto mais forte fica sem
- * vida) e a recompensa de cada piloto do time de quem matou.
+ * O Tormentor do Dota 2 no patch 7.33 (a versão de referência): barreira de 2500 que
+ * regenera 100/s; reflete 70% do dano que leva, dividido entre os heróis em volta;
+ * renasce 10:00 depois de morto e, a cada morte, a barreira +200, a regeneração +100/s e
+ * o reflexo +20 pontos.
+ */
+export const TORMENTOR = { barreira: 2500, regen: 100, reflexo: 0.7, barreiraPorMorte: 200, regenPorMorte: 100, reflexoPorMorte: 0.2 };
+/**
+ * Da escala do Dota para a nossa, medida nos computadores (que evoluem as armas como um
+ * piloto que sabe jogar). Aqui a briga é rajada de energia: aos 8:00 cada nave tira de
+ * 4 a 14 mil por segundo por 2 a 5 s (a energia cheia, armas de fábrica em V5 a V8) e
+ * depois só 500 a 1000 por segundo (o que a energia regenera), com 3 a 5 mil de vida.
+ * Nas regras do Tormentor isso pede:
+ * - regeneração × 8 (800/s): empata com o que uma nave sustenta; sozinho, depois da
+ *   rajada, ele recupera mais do que você tira;
+ * - barreira × 12 (30 mil): o tamanho da rajada de duas ou três naves juntas, o dano
+ *   concentrado (uma nave sozinha esvazia a energia antes);
+ * - reflexo × 0,2 (14%): a nave aqui morre em segundos, não em 30 como um herói; com os
+ *   70% do Dota o próprio time morreria do reflexo. Com 14%, quem tenta sozinho leva de
+ *   volta mais do que a vida que tem (a rajada e a meia minuto batendo), e em três cada um
+ *   perde uns 25 a 45% da vida até derrubar.
+ */
+export const FATOR_NUCLEO_BARREIRA = 12;
+export const FATOR_NUCLEO_REGEN = 8;
+export const FATOR_NUCLEO_REFLEXO = 0.2;
+
+/**
+ * A força do Núcleo depois de `mortes` mortes na partida: barreira (a vida), regeneração
+ * (por s) e a fração do dano que ele reflete.
+ */
+export function forcaNucleo(mortes = 0) {
+  const T = TORMENTOR;
+  return {
+    barreira: (T.barreira + T.barreiraPorMorte * mortes) * FATOR_NUCLEO_BARREIRA,
+    regen: (T.regen + T.regenPorMorte * mortes) * FATOR_NUCLEO_REGEN,
+    reflexo: +((T.reflexo + T.reflexoPorMorte * mortes) * FATOR_NUCLEO_REFLEXO).toFixed(4),
+  };
+}
+
+/**
+ * Núcleo de He-3: altura do centro (a do tiro das naves, HOVER, + um pouco: o acerto de
+ * tiro aceita 7 m de diferença), raio de acerto (o escudo: a casca de 29 m do cliente, no
+ * prato emissor, menos o raio do tiro), o raio do reflexo (o poço inteiro, como os 1200
+ * do Dota cobrem o fosso do Tormentor), de quanto em quanto tempo ele devolve o dano, e
+ * a recompensa de cada piloto do time de quem matou.
  */
 export const NUCLEO_CFG = {
-  hp: 30000,
   y: HOVER + 4,
-  raio: 14,
-  regenEsperaS: 10,
-  regenFrac: 0.02,
-  pulsoS: 4,
-  raioPulso: 80,
-  danoPulso: 150,
-  pulsoExtra: 1.5,
+  raio: 24,
+  raioReflexo: 350,
+  reflexoS: 1,
   xp: 250,
   ouro: 150,
 };
@@ -91,9 +139,9 @@ const restaS = (ate, tick) => Math.max(0, Math.ceil((ate - tick) * DT - 1e-9));
 export class Objetivos {
   /**
    * @param {import('./game.js').World} world
-   * @param {{ ferir: Function, tempos?: object }} ctx ferir = World#ferir (o pulso do
-   *   Núcleo passa por escudo, resistência e morte como qualquer golpe); tempos =
-   *   troca partes de TEMPOS (testes).
+   * @param {{ ferir: Function, tempos?: object }} ctx ferir = World#ferir (o reflexo do
+   *   Núcleo passa pelo escudo e pela morte como qualquer golpe); tempos = troca partes
+   *   de TEMPOS (testes).
    */
   constructor(world, { ferir, tempos } = {}) {
     this.world = world;
@@ -121,6 +169,7 @@ export class Objetivos {
     this.suportes = BUFFS.filter((b) => b.tipo === 'suporte').map((b) => ({ id: b.id, x: b.x, z: b.z, hp: SUPORTE.hp, caida: false, voltaTick: 0, time: null }));
     for (const t of this.suportes) definirObstaculoAtivo(t.id, true);
     this.plataformas = PLATAFORMAS_POUSO.map((p) => ({ id: p.id, x: p.x, z: p.z, ativa: false, voltaTick: 0, prog: 0, quem: null, contestado: false, vistoAte: 0, time: null }));
+    const f = forcaNucleo(0);
     this.nucleo = {
       id: this.world.nextId++,
       tipo: 'nucleo',
@@ -128,13 +177,19 @@ export class Objetivos {
       drone: true, // neutro: não é de time nenhum (tiro de monstro não o acerta)
       soJogador: true, // só jogador fere (World#ferir)
       vivo: false,
-      ship: { x: NUCLEO.x, y: NUCLEO_CFG.y, z: NUCLEO.z, yaw: 0, roll: 0, vx: 0, vz: 0, hp: 0, maxHp: NUCLEO_CFG.hp, raio: NUCLEO_CFG.raio, boost: false, pousado: false },
+      ship: { x: NUCLEO.x, y: NUCLEO_CFG.y, z: NUCLEO.z, yaw: 0, roll: 0, vx: 0, vz: 0, hp: 0, maxHp: f.barreira, raio: NUCLEO_CFG.raio, boost: false, pousado: false },
       respawnTick: 0,
       ultimoDano: 0,
       aparicao: 0, // quantas vezes já apareceu
+      mortes: 0, // quantas vezes foi destruído (cada uma o deixa mais forte: forcaNucleo)
+      mortoTick: 0,
+      regen: f.regen, // barreira por s
+      reflexo: f.reflexo, // fração do dano que volta
+      refletir: 0, // dano a devolver no próximo reflexo
+      atacantes: new Set(), // ids de quem bateu desde o último reflexo
+      reflexoTick: 0,
       time: undefined,
       timeTomou: null,
-      pulsoTick: 0,
     };
   }
 
@@ -278,16 +333,16 @@ export class Objetivos {
 
   // ---------- Núcleo de He-3 ----------
 
-  /** Tick da próxima aparição do Núcleo (null se já apareceu todas as vezes). */
+  /**
+   * Tick em que o Núcleo aparece de novo: a primeira aparição na hora marcada e, depois
+   * de destruído, TEMPOS.nucleo.renasceS depois da morte. null se cair depois do fim da
+   * partida (não volta mais).
+   */
   #proximaAparicao() {
     const n = this.nucleo;
-    const lista = this.tempos.nucleo.aparicoesS;
-    // Depois de tomado, só volta numa aparição que ainda não passou.
-    for (let i = n.aparicao; i < lista.length; i++) {
-      const t = this.#naPartida(lista[i]);
-      if (n.aparicao === 0 || t > n.mortoTick) return { i, t };
-    }
-    return null;
+    const T = this.tempos.nucleo;
+    const t = n.aparicao === 0 ? this.#naPartida(T.primeiroS) : n.mortoTick + ticks(T.renasceS);
+    return t < this.world.partida.fimTick ? t : null;
   }
 
   #passoNucleo() {
@@ -295,45 +350,70 @@ export class Objetivos {
     const n = this.nucleo;
     const s = n.ship;
     if (!n.vivo) {
-      const prox = this.#proximaAparicao();
-      if (!prox || w.tick < prox.t) return;
-      n.aparicao = prox.i + 1;
+      const t = this.#proximaAparicao();
+      if (t == null || w.tick < t) return;
+      const f = forcaNucleo(n.mortes);
+      n.aparicao++;
       n.vivo = true;
-      s.hp = s.maxHp = NUCLEO_CFG.hp;
-      n.pulsoTick = w.tick + ticks(NUCLEO_CFG.pulsoS);
+      s.hp = s.maxHp = f.barreira;
+      n.regen = f.regen;
+      n.reflexo = f.reflexo;
+      n.refletir = 0;
+      n.atacantes = new Set();
+      n.reflexoTick = w.tick + ticks(NUCLEO_CFG.reflexoS);
       n.ultimoDano = w.tick;
       n.st = {};
-      w.eventos.push({ e: 'objetivo', id: 'NUCLEO', acao: 'apareceu', time: null, quem: null, x: s.x, z: s.z });
+      w.eventos.push({ e: 'objetivo', id: 'NUCLEO', acao: 'apareceu', time: null, quem: null, nivel: n.mortes + 1, x: s.x, z: s.z });
       return;
     }
-    // Uma aparição nova enquanto ele ainda está vivo não faz nada (aparecer de novo
-    // só se tiver sido tomado).
-    if (w.tick - n.ultimoDano > ticks(NUCLEO_CFG.regenEsperaS)) s.hp = Math.min(s.maxHp, s.hp + s.maxHp * NUCLEO_CFG.regenFrac * DT);
-    if (w.tick >= n.pulsoTick) {
-      n.pulsoTick = w.tick + ticks(NUCLEO_CFG.pulsoS);
-      this.#pulso();
+    // O escudo regenera o tempo todo, até apanhando.
+    s.hp = Math.min(s.maxHp, s.hp + n.regen * DT);
+    if (w.tick >= n.reflexoTick) {
+      n.reflexoTick = w.tick + ticks(NUCLEO_CFG.reflexoS);
+      this.#refletir();
     }
   }
 
-  /** Força do pulso agora: 1 com a vida cheia, até 1 + pulsoExtra sem vida. */
-  forcaPulso() {
-    const s = this.nucleo.ship;
-    return 1 + NUCLEO_CFG.pulsoExtra * (1 - Math.max(0, s.hp) / s.maxHp);
+  /**
+   * Gancho do World#ferir: o Núcleo levou `dano` (já com tudo o que o reduz) de `quem`
+   * (jogador). A fração do reflexo fica guardada para o próximo reflexo, e quem bateu
+   * entra na divisão dele de qualquer distância.
+   */
+  aoFerir(alvo, dano, quem) {
+    const n = this.nucleo;
+    if (alvo !== n || !(dano > 0)) return;
+    n.refletir += dano * n.reflexo;
+    if (quem) n.atacantes.add(quem.id);
   }
 
-  #pulso() {
+  /**
+   * Devolve o dano guardado: dividido por igual entre as naves de jogador vivas no raio
+   * do reflexo e as que bateram desde o último (de qualquer distância).
+   */
+  #refletir() {
     const w = this.world;
     const n = this.nucleo;
     const s = n.ship;
-    const forca = +this.forcaPulso().toFixed(2);
-    const raio = NUCLEO_CFG.raioPulso;
-    w.eventos.push({ e: 'pulso', id: n.id, x: s.x, y: s.y, z: s.z, raio, forca });
-    const dano = NUCLEO_CFG.danoPulso * forca;
-    for (const j of [...w.players.values()]) {
-      if (!j.vivo) continue;
-      const d = Math.hypot(j.ship.x - s.x, j.ship.z - s.z);
-      if (d > raio + SHIP_RADIUS || Math.abs(j.ship.y - s.y) > AREA_ALTURA + NUCLEO_CFG.raio) continue;
-      this.ferir(j, dano, n.id, { e: 'acerto', kind: 'pulso', x: +j.ship.x.toFixed(2), y: +j.ship.y.toFixed(2), z: +j.ship.z.toFixed(2) }, { tipoDano: 'eletrico', direto: false });
+    const total = n.refletir;
+    const atacantes = n.atacantes;
+    n.refletir = 0;
+    n.atacantes = new Set();
+    if (!(total > 0)) return;
+    const alvos = [...w.players.values()].filter((j) => j.vivo && (atacantes.has(j.id) || Math.hypot(j.ship.x - s.x, j.ship.z - s.z) <= NUCLEO_CFG.raioReflexo));
+    if (!alvos.length) return;
+    const parte = total / alvos.length;
+    const r2 = (v) => +v.toFixed(2);
+    w.eventos.push({
+      e: 'reflexo',
+      id: n.id,
+      x: r2(s.x),
+      y: r2(s.y),
+      z: r2(s.z),
+      dano: +parte.toFixed(1),
+      alvos: alvos.map((j) => ({ id: j.id, x: r2(j.ship.x), y: r2(j.ship.y), z: r2(j.ship.z) })),
+    });
+    for (const j of alvos) {
+      this.ferir(j, parte, n.id, { e: 'acerto', kind: 'reflexo', x: r2(j.ship.x), y: r2(j.ship.y), z: r2(j.ship.z) }, { tipoDano: 'eletrico', penetrante: true });
     }
   }
 
@@ -345,7 +425,10 @@ export class Objetivos {
     if (alvo !== this.nucleo) return;
     const w = this.world;
     const n = this.nucleo;
+    // O golpe final também volta: o que faltava devolver sai agora.
+    this.#refletir();
     n.vivo = false;
+    n.mortes++;
     n.mortoTick = w.tick;
     n.respawnTick = Infinity; // quem decide a volta é #proximaAparicao
     if (!matador) return;
@@ -364,8 +447,9 @@ export class Objetivos {
   /**
    * Estado de cada objetivo para o `obj` do snapshot, por id: BS0/BS1 (torre de
    * suporte: estado, vida, volta, time), P0/P1 (plataforma: estado, prog = s pousado,
-   * quem = time pousando, contestado, volta, time) e NUCLEO (estado, vida, volta,
-   * time, aparicao). volta = s até aparecer/voltar (só em 'espera' e 'recarga').
+   * quem = time pousando, contestado, volta, time) e NUCLEO (estado, vida = a barreira,
+   * volta, time, aparicao, nivel). volta = s até aparecer/voltar (só em 'espera' e
+   * 'recarga').
    */
   estado() {
     const w = this.world;
@@ -394,12 +478,14 @@ export class Objetivos {
       r[p.id] = e;
     }
     const n = this.nucleo;
-    const e = { time: n.timeTomou, aparicao: n.aparicao };
+    // nivel: a força dele, 1 na primeira aparição e +1 a cada morte (fora do mapa, a da
+    // próxima volta).
+    const e = { time: n.timeTomou, aparicao: n.aparicao, nivel: n.mortes + 1 };
     if (n.vivo) Object.assign(e, { estado: 'ativo', vida: +(Math.max(0, n.ship.hp) / n.ship.maxHp).toFixed(3) });
     else {
-      const prox = relogio ? this.#proximaAparicao() : { t: tick };
-      if (!prox) e.estado = 'tomado';
-      else Object.assign(e, { estado: n.aparicao === 0 ? 'espera' : 'recarga', volta: restaS(prox.t, tick) });
+      const t = relogio ? this.#proximaAparicao() : tick;
+      if (t == null) e.estado = 'tomado';
+      else Object.assign(e, { estado: n.aparicao === 0 ? 'espera' : 'recarga', volta: restaS(t, tick) });
     }
     r.NUCLEO = e;
     return r;

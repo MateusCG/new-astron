@@ -54,12 +54,14 @@
 // lá dentro, ele larga. Caiu a torre, a área dela fica livre.
 //
 // Objetivos épicos (o time de computadores vai junto, nunca um só):
-// - Ancient Medusa (5:00) e Núcleo de He-3 (8:00 e 15:00): com pelo menos IA.epicoMin
+// - Ancient Medusa (5:00) e Núcleo de He-3 (8:00, e 5:00 depois de destruído): com pelo menos IA.epicoMin
 //   computadores vivos no time e o nível médio deles (IA.medusaNivel, IA.nucleoNivel),
 //   todos vão a um ponto de reunião fora do alcance do chefe (e das torres) e só
 //   atacam quando o grupo chegou (ou alguém do time já está brigando lá). Grupo
 //   desfeito (menos de IA.epicoMin vivos perto) com o chefe ainda forte: desistem por
-//   IA.desistirS.
+//   IA.desistirS. O Núcleo não ataca, mas devolve parte do dano a quem bate (o
+//   reflexo, dividido entre o grupo): ninguém vai sozinho, e quem fica com pouca vida
+//   larga como de costume (IA.vidaFugir).
 // - Onda do Núcleo (os 3 mineradores grandes): a do outro time é caçada pelo grupo
 //   (com o grupo, pode entrar no alcance das torres); a do time é escoltada pela lane.
 //   O time sabe quem tomou o Núcleo pelo `obj` (público), e conta IA.ondaS da onda.
@@ -216,7 +218,6 @@ export const IA = {
   desistirS: 45, // grupo desfeito com o chefe ainda forte: desiste por isto
   desistirVida: 0.4, // ...se o chefe tem mais vida que isto
   ondaS: 130, // s que a onda do Núcleo fica no mapa depois de tomado
-  nucleoPerto: 130, // m: não chega mais perto do Núcleo (o pulso vai a 80 m)
   medusaFolga: 40, // m além do alcance da Medusa: sem o time, não chega perto
 
   // Memória e pilotagem.
@@ -1508,7 +1509,6 @@ export class Bots {
       if (am + 40 < alc.min * 0.9) return am + 40;
       return alc.min * 0.6;
     }
-    if (alvo.tipo === 'nucleo') return Math.max(IA.nucleoPerto, alc.min * 0.6);
     if (alvo.estrutura) return alc.min * 0.7;
     return alc.min * 0.6;
   }

@@ -25,6 +25,8 @@
 //     vai;
 //   - 'recall' de outro time: só o 'chegou', sem a ponta (de onde saiu ou aonde
 //     chegou) que o time não vê;
+//   - 'reflexo' do Núcleo de He-3: só os raios até as naves do time e as que ele vê
+//     (sem nenhuma, só se ele vê o Núcleo);
 //   - eventos privados (PRIVADOS, campo `para`: o 'ganho' do abate de monstro e o
 //     'debuff' recebido) só para o próprio jogador, nunca para o time;
 //   - eventos de jogo sem lugar (entrou, saiu, partida, nivel, nave, melhoria,
@@ -77,7 +79,6 @@ const ENVOLVIDOS = {
   morte: ['id', 'por'],
   garra: ['id', 'alvo'],
   recall: ['id'],
-  pulso: [],
   desarmou: [],
   fim: [],
 };
@@ -259,6 +260,7 @@ export class Visao {
       return visto || noCampo || this.#doTimeEv(e, time) ? e : null;
     }
     if (e.e === 'recall') return this.#recallParaTime(e, time, olhos);
+    if (e.e === 'reflexo') return this.#reflexoParaTime(e, time, olhos);
     if (this.#doTimeEv(e, time)) return e;
     if (e.e === 'acerto' && e.bala !== undefined && anunciados?.has(e.bala)) return e;
     if (!temPosicao(e)) return e;
@@ -279,6 +281,16 @@ export class Visao {
       if (algumOlhoVe(olhos, e.x + (e.vx ?? 0) * t, e.z + (e.vz ?? 0) * t)) return true;
     }
     return false;
+  }
+
+  /**
+   * Reflexo do Núcleo de He-3: só os raios até as naves que o time vê (as dele sempre).
+   * Nenhuma à vista e o Núcleo fora da visão: nada.
+   */
+  #reflexoParaTime(e, time, olhos) {
+    const alvos = e.alvos.filter((a) => this.timeDe.get(a.id) === time || algumOlhoVe(olhos, a.x, a.z));
+    if (!alvos.length && !algumOlhoVe(olhos, e.x, e.z)) return null;
+    return alvos.length === e.alvos.length ? e : { ...e, alvos };
   }
 
   /** Volta à base de outro time: só a chegada, sem a ponta que o time não vê. */

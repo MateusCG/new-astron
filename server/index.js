@@ -239,15 +239,16 @@
 //   obj:  {[id]: estado}   objetivos do mapa, por id (server/objetivos.js: BS0, BS1,
 //         P0, P1, NUCLEO; server/jungle.js: BA0, BA1, SONDA, MEDUSA). estado =
 //         'espera' (ainda não apareceu) | 'ativo' | 'recarga' (tomado, volta depois) |
-//         'tomado' (o Núcleo depois da última aparição); volta = s até aparecer ou
+//         'tomado' (o Núcleo destruído que não volta antes do fim); volta = s até aparecer ou
 //         voltar (em 'espera' e 'recarga'); time = time de quem tomou por último (ou
 //         null). Torre de suporte (BS0/BS1): vida (0 a 1); em 'recarga' está caída e
 //         o cliente a tira da física (definirObstaculoAtivo(id, false)); de pé em
 //         'espera' e 'ativo' (em 'espera' não aceita dano). Plataforma (P0/P1): prog
 //         (s pousado do time que está coletando), quem (esse time, ou null),
 //         contestado? (os dois times pousados: trava); o feixe de luz acende com
-//         quem != null. Núcleo: vida (0 a 1, ativo), aparicao (quantas vezes já
-//         apareceu: 0, 1 ou 2). Da jungle (BA0/BA1 = SN-4 do buff de ataque, SONDA,
+//         quem != null. Núcleo: vida (a barreira, 0 a 1, ativo), aparicao (quantas
+//         vezes já apareceu), nivel (a força: 1 na primeira aparição, +1 a cada morte;
+//         fora do mapa, a da próxima volta). Da jungle (BA0/BA1 = SN-4 do buff de ataque, SONDA,
 //         MEDUSA): estado 'espera' | 'ativo' | 'recarga', vida (0 a 1, ativo), volta,
 //         time (de quem deu o último golpe final, ou null) e, na SONDA,
 //         bloqueada (true: esperando a Medusa ou o Núcleo morrerem para aparecer)
@@ -355,9 +356,12 @@
 //                                    `guiados`) ou de escolta (fonte 'escolta'): cor do time
 //         {e:'acerto', ..., torre}   tiro que bateu numa torre de suporte (alvo 0;
 //                                    dano 0 se não foi de jogador ou se ela ainda não acendeu)
-//         {e:'acerto', kind:'pulso', alvo, dano, x, y, z}   o pulso do Núcleo pegou a nave
-//         {e:'pulso', id, x, y, z, raio, forca}   pulso de energia do Núcleo (id = o
-//                                    Núcleo; forca de 1, vida cheia, a 2,5, sem vida)
+//         {e:'reflexo', id, x, y, z, dano, alvos:[{id, x, y, z}]}   o Núcleo de He-3
+//                                    devolveu o dano que levou (id = o Núcleo; dano =
+//                                    o pedaço de cada nave, antes do escudo dela;
+//                                    alvos = as naves que dividiram, as que o time de
+//                                    quem recebe não vê ficam de fora, server/visao.js)
+//         {e:'acerto', kind:'reflexo', alvo, dano, x, y, z}   o reflexo do Núcleo pegou a nave
 //         {e:'bonusNave', id, nome, s}   o jogador id ganhou o bônus de nave `nome`
 //                                    ('ataque' | 'suporte' | 'sonda') por s segundos
 //         {e:'ondaNucleo', time, ids}   saíram da base os mineradores do Núcleo
@@ -403,7 +407,7 @@
 //                                    um nível de melhoria dos mineradores (ou das
 //                                    torretas: melhoria 'torretas')
 //         {e:'objetivo', id, acao, time, quem, por?, motivo?, ouro?, ouroPouso?, x?, z?}
-//                                    acao 'apareceu' | 'tomado' (torre de suporte ou
+//                                    acao 'apareceu' (o Núcleo traz o nivel) | 'tomado' (torre de suporte ou
 //                                    Núcleo; time e quem = nome de quem deu o golpe
 //                                    final, por = id) | 'coletou' (plataforma: ouro =
 //                                    de cada piloto do time, ouroPouso = a mais para

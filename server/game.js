@@ -34,8 +34,9 @@
 //
 // XP, nível e ouro por abate ficam em server/progressao.js (na morte, em #ferir); os
 // objetivos do mapa (torre do buff de suporte, plataformas de pouso e o Núcleo de
-// He-3) em server/objetivos.js (no step, no tiro que bate na torre e na morte do
-// Núcleo, que é uma entidade como os monstros), que ligam os bônus em this.bonus. A
+// He-3) em server/objetivos.js (no step, no tiro que bate na torre, no dano e na morte
+// do Núcleo, que é uma entidade como os monstros: objetivos.aoFerir guarda o reflexo),
+// que ligam os bônus em this.bonus. A
 // jungle (server/jungle.js: acampamentos, buff de ataque, Medusa e sonda) tem
 // ganchos no step (jungle.passo), no dano (jungle.provocar: a raiva dos monstros),
 // na morte (jungle.aoMorrer: recarga do lugar e bônus do golpe final), na partida
@@ -710,6 +711,8 @@ export class World {
     }
     s.hp -= dano;
     alvo.ultimoDano = this.tick;
+    // Núcleo de He-3: parte do dano volta para as naves em volta (server/objetivos.js).
+    if (alvo.tipo === 'nucleo') this.objetivos.aoFerir(alvo, total, quem);
     if (total > 0) {
       // Combate (server/bonus.js e server/objetivos.js) e agressão (server/torretas.js).
       if (alvo.tipo === 'jogador') alvo.levouDanoTick = this.tick;
