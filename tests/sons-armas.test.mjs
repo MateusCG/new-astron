@@ -130,15 +130,17 @@ function contextoFalso() {
     destination: {},
     tocando: 0,
     paradas: 0,
-    createGain: () => ({ gain: { value: 1, setTargetAtTime() {} }, connect() {}, disconnect() {} }),
+    inicios: [],
+    createGain: () => ({ gain: { value: 1, alvo: null, setTargetAtTime(v) { this.alvo = v; } }, connect() {}, disconnect() {} }),
     createStereoPanner: () => ({ pan: { value: 0 }, connect() {}, disconnect() {} }),
     createBufferSource: () => ({
       buffer: null,
       playbackRate: { value: 1 },
       connect() {},
       disconnect() {},
-      start() {
+      start(quando = 0, desde = 0) {
         ctx.tocando++;
+        ctx.inicios.push([quando, desde]);
       },
       stop() {
         ctx.paradas++;
@@ -191,6 +193,27 @@ test('sons.js: limita vozes por som e no total, e junta cópias simultâneas', a
   assert.equal(sons.vozes, 5);
   ctx.currentTime += 5;
   assert.equal(sons.vozes, 0, 'vozes que acabaram saem da conta');
+});
+
+test('sons.js: voz controlada começa do ponto pedido, segue a posição e para; o atraso agenda', async () => {
+  const ctx = contextoFalso();
+  const sons = new Sons({ criarContexto: () => ctx, buscar: buscarFalso });
+  sons.desbloquear();
+  await sons.carregar(['carga', 'chegada']);
+  sons.ouvinte(0, 0, 0);
+  // Longe (ganho quase zero) ainda começa: sobe quando a nave chega perto.
+  const voz = sons.tocarControlado('carga', { x: ALCANCE * 0.95, z: 0, desde: 0.6 });
+  assert.ok(voz);
+  assert.deepEqual(ctx.inicios.at(-1), [0, 0.6]);
+  assert.equal(sons.vozes, 1);
+  voz.mover(10, 0, 1);
+  voz.parar();
+  assert.equal(sons.vozes, 0);
+  assert.equal(ctx.paradas, 1);
+  voz.parar(); // de novo não quebra
+  assert.equal(sons.tocar('chegada', { x: 5, z: 0, atraso: 0.12 }), true);
+  assert.deepEqual(ctx.inicios.at(-1), [0.12, 0]);
+  assert.equal(sons.tocarControlado('nunca_pedido'), null);
 });
 
 test('sons.js: volume e mudo ficam guardados no navegador', () => {

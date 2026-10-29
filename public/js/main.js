@@ -126,7 +126,7 @@ import {
   definirArmas,
   bocaDaArma,
 } from './nave.js';
-import { Sons, SONS_INTERFACE } from './sons.js';
+import { Sons, SONS_INTERFACE, SONS_VOLTA } from './sons.js';
 import { PainelVolume } from './volume.js';
 import { Efeitos, COR_TIME } from './efeitos.js';
 import { Controles } from './controles.js';
@@ -161,9 +161,6 @@ const SUBIR_CENA_FRAC = 0.21;
 // Diferença entre a predição e o servidor acima disso é salto (recall, renascimento),
 // não erro de predição: vai direto, sem suavizar, e a câmera acompanha na hora.
 const SALTO_M = 30;
-// Volta à base: o portal carregando (a sua, ao começar) e a nave sumindo e chegando.
-const SOM_CANAL = SONS_INTERFACE.voltaCanal;
-const SOM_VOLTA = SONS_INTERFACE.volta;
 // Por que a volta à base foi cancelada ou recusada (motivo do evento 'recall').
 const MOTIVO_RECALL = {
   cancelado: {
@@ -232,7 +229,7 @@ const sons = new Sons();
 const desbloquearSom = () => sons.desbloquear();
 addEventListener('pointerdown', desbloquearSom, { once: true });
 addEventListener('keydown', desbloquearSom, { once: true });
-sons.carregar(Object.values(SONS_INTERFACE).concat(['h_explo', 'n2_explo', 'cure']));
+sons.carregar(Object.values(SONS_INTERFACE).concat(Object.values(SONS_VOLTA), ['h_explo', 'n2_explo', 'cure']));
 
 /** Liga ou desliga o som (M ou o botão da tela inicial) e mostra o estado. */
 function alternarSom() {
@@ -538,6 +535,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
   const { scene, atualizar: atualizarCena, definirObjetivo, definirMineracao, definirBacias, atingirCampo } = criarCena({ meuTime });
   const efeitos = new Efeitos(scene);
   efeitos.camera = camera; // as peças dos efeitos do original que olham para a câmera
+  efeitos.sons = sons; // a volta à base toca o som junto com a animação
   // Nave, torre e monstro destruídos como no original: caem e explodem (destruicao-3d.js).
   const destruicoes = new Destruicoes({ scene, camera, som: (nome, x, z) => somNoMundo(nome, x, z) });
   const nevoa = new Nevoa({ renderer, scene, meuTime }); // névoa de guerra (visão do time)
@@ -834,9 +832,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
 
   /**
    * Volta à base (evento 'recall'): avisos para quem pediu e, para todos, a nave sugada
-   * pelo portal onde estava e condensando na base (efeitos.partidaRecall e chegadaRecall),
-   * com o som do teletransporte nas duas pontas. A nave dos outros chega INTERP_MS depois
-   * no desenho, e a chegada espera por ela.
+   * pelo portal onde estava e condensando na base (efeitos.partidaRecall e chegadaRecall,
+   * que tocam os sons junto com a animação). A nave dos outros chega INTERP_MS depois no
+   * desenho, e a chegada espera por ela.
    */
   function eventoRecall(e) {
     const meu = e.id === meuId;
@@ -844,19 +842,11 @@ function montarJogo(rede, boas, renderer, race, classe) {
       const time = meu ? meuTime : snaps.at(-1)?.ents.find((x) => x.id === e.id)?.time;
       const cor = time === meuTime ? COR_TIME.meu : COR_TIME.outro;
       const obj = meu ? minhaNave : (outras.get(e.id)?.obj ?? null);
-      if (e.de) {
-        efeitos.partidaRecall(obj, e.de.x, e.de.y, e.de.z, cor);
-        if (!meu) somNoMundo(SOM_VOLTA, e.de.x, e.de.z);
-      }
-      if (e.x !== undefined) {
-        // Névoa: a ponta escondida não vem.
-        efeitos.chegadaRecall(obj, e.x, e.y, e.z, cor, meu ? 0 : INTERP_MS / 1000, meu);
-        if (meu) sons.tocarInterface(SOM_VOLTA);
-        else somNoMundo(SOM_VOLTA, e.x, e.z);
-      }
+      if (e.de) efeitos.partidaRecall(obj, e.de.x, e.de.y, e.de.z, cor, meu);
+      // Névoa: a ponta escondida não vem.
+      if (e.x !== undefined) efeitos.chegadaRecall(obj, e.x, e.y, e.z, cor, meu ? 0 : INTERP_MS / 1000, meu);
     }
     if (!meu) return;
-    if (e.estado === 'inicio') sons.tocarInterface(SOM_CANAL, { volume: 0.7 });
     if (e.estado === 'chegou') saltoForcado = true; // mesmo curto (já estava perto da base), sem suavizar
     if (e.estado === 'inicio') hud.noticia(`Voltando à base em ${e.s} s · sem tiro, sem boost, quase parado`, 'bom');
     else if (e.estado === 'chegou' && !e.partida) hud.noticia('De volta à base', 'bom'); // no começo da partida, a notícia é a do 'partida'
@@ -869,7 +859,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
 
   /**
    * Teleporte até o companheiro (evento 'teleporte'): feixe de luz na saída e na
-   * chegada, na cor do time; o seu marca o snapshot como salto e avisa.
+   * chegada, na cor do time, com os sons da volta à base (a nave sumindo e chegando); o
+   * seu marca o snapshot como salto e avisa.
    */
   function eventoTeleporte(e) {
     const cor = e.time === meuTime ? COR_TIME.meu : COR_TIME.outro;
@@ -877,7 +868,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
     const de = e.id === meuId ? (vivo ? pred : null) : outras.get(e.id)?.obj?.position;
     if (de) efeitos.feixeRecall(de.x, de.y, de.z, cor);
     efeitos.feixeRecall(e.x, e.y, e.z, cor);
-    somNoMundo('up2', e.x, e.z);
+    const meu = e.id === meuId;
+    if (de && !meu) efeitos.somVolta('partida', de.x, de.z);
+    efeitos.somVolta('chegada', e.x, e.z, { propria: meu });
     const alvo = e.alvo === meuId ? 'você' : (nomes.get(e.alvo) ?? 'o companheiro');
     if (e.id === meuId) {
       saltoForcado = true;

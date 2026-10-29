@@ -19,7 +19,9 @@ import {
   SEM_CORTE,
 } from '../public/js/volta-regras.js';
 import { MODELOS_MAPA } from '../public/js/insumos.js';
-import { SONS_INTERFACE } from '../public/js/sons.js';
+import { SONS_VOLTA } from '../public/js/sons.js';
+import { SONS_GERAIS } from '../public/js/insumos.js';
+import { RECALL_S } from '../shared/recall.js';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -93,10 +95,8 @@ function lerGlb(nome) {
   return JSON.parse(b.subarray(20, 20 + b.readUInt32LE(12)).toString('utf8'));
 }
 
-test('volta: as malhas de luz são nossas, do Blender, e baixam na tela de carregamento com os sons', () => {
+test('volta: as malhas de luz são nossas, do Blender, e baixam na tela de carregamento', () => {
   assert.ok(MODELOS_MAPA.includes('volta-base'));
-  assert.equal(SONS_INTERFACE.volta, 'up2');
-  assert.equal(SONS_INTERFACE.voltaCanal, 'u_up');
   const j = lerGlb('volta-base');
   assert.deepEqual(j.nodes.map((n) => n.name).sort(), ['volta_anel', 'volta_disco', 'volta_feixe', 'volta_fitas']);
   assert.ok(j.extensionsRequired?.includes('KHR_draco_mesh_compression'), 'Draco');
@@ -110,4 +110,54 @@ test('volta: as malhas de luz são nossas, do Blender, e baixam na tela de carre
   }
   assert.ok(tris > 500 && tris <= 2500, `${tris} triângulos (mid-poly de efeito, como a decoração)`);
   assert.deepEqual(j.materials.map((m) => m.name), ['luz_volta']);
+});
+
+/** Amostras (-1 a 1) e a taxa de um WAV PCM 16 bits mono de public/sons/. */
+function lerWav(nome) {
+  const b = readFileSync(path.join(RAIZ, 'public/sons', `${nome}.wav`));
+  assert.equal(b.toString('ascii', 0, 4), 'RIFF', nome);
+  const canais = b.readUInt16LE(22);
+  const taxa = b.readUInt32LE(24);
+  const bits = b.readUInt16LE(34);
+  let i = 12;
+  while (b.toString('ascii', i, i + 4) !== 'data') i += 8 + b.readUInt32LE(i + 4);
+  const n = b.readUInt32LE(i + 4) / 2;
+  const a = new Float32Array(n);
+  for (let k = 0; k < n; k++) a[k] = b.readInt16LE(i + 8 + k * 2) / 32768;
+  return { a, taxa, canais, bits };
+}
+const rms = ({ a, taxa }, t0, t1) => {
+  let soma = 0;
+  const i0 = Math.floor(t0 * taxa);
+  const i1 = Math.min(a.length, Math.floor(t1 * taxa));
+  for (let i = i0; i < i1; i++) soma += a[i] * a[i];
+  return Math.sqrt(soma / Math.max(1, i1 - i0));
+};
+
+test('volta: os sons são nossos, baixam na tela de carregamento e acompanham a animação', () => {
+  for (const nome of Object.values(SONS_VOLTA)) {
+    assert.ok(SONS_GERAIS.includes(nome), `${nome} na tela de carregamento`);
+    const w = lerWav(nome);
+    assert.deepEqual([w.canais, w.bits, w.taxa], [1, 16, 44100], nome);
+    let pico = 0;
+    for (const x of w.a) pico = Math.max(pico, Math.abs(x));
+    assert.ok(pico > 0.5 && pico < 0.95, `${nome}: pico ${pico} (sem estourar)`);
+  }
+  // A carga cobre os RECALL_S e segura o pico um pouco (o 'chegou' pode atrasar), e cresce:
+  // o fim é bem mais forte que o meio do começo.
+  const canal = lerWav(SONS_VOLTA.canal);
+  assert.ok(canal.a.length / canal.taxa >= RECALL_S + 0.3);
+  assert.ok(rms(canal, 5.0, 6.0) > 2 * rms(canal, 1.8, 2.8), 'crescendo');
+  assert.ok(rms(canal, 6.0, 6.3) > rms(canal, 3.5, 4.5), 'segura o pico depois dos 6 s');
+  // A chegada: o impacto cai quando o feixe toca a nave (0,12 s da linha do tempo).
+  const chegada = lerWav(SONS_VOLTA.chegada);
+  let maior = 0;
+  let quando = 0;
+  for (let t = 0; t < 0.6; t += 0.005) {
+    const r = rms(chegada, t, t + 0.01);
+    if (r > maior) [maior, quando] = [r, t];
+  }
+  assert.ok(quando > 0.11 && quando < 0.17, `impacto em ${quando.toFixed(3)} s`);
+  assert.ok(rms(chegada, 0, 0.05) < rms(chegada, 0.08, 0.12), 'o raio cresce até o impacto');
+  assert.ok(rms(chegada, 1.2, 1.4) < maior / 10, 'cauda que some');
 });

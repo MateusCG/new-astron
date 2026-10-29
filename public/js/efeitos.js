@@ -14,7 +14,11 @@
 // funil de partículas e fitas subindo, a coluna de luz e a nave acendendo; ao voltar, onde
 // ela estava, clarão, a nave se desfaz de baixo para cima e a luz vai ao céu; na base, o
 // feixe cai do céu, as partículas convergem e a nave se materializa. O teleporte até o
-// companheiro continua com o feixe curto (feixeRecall).
+// companheiro continua com o feixe curto (feixeRecall). O som anda junto com a animação
+// (`sons`, ligado por quem desenha a partida): a carga (SONS_VOLTA.canal, escrita em cima
+// da mesma linha do tempo) toca do ponto do progresso, segue a nave e é cortada na hora em
+// que a nave some (com o som da partida) ou quando a carga cai (com o do cancelamento); a
+// chegada toca quando o feixe cai na nave (também no teleporte, somVolta).
 //
 // Armas do Astro-N original (catálogo de shared/armas.js): o desenho de cada tiro,
 // clarão, impacto, área, nova e o decalque das minas e campos vêm de
@@ -75,6 +79,8 @@ import { criarSubida, desenharSubida, soltarSubida } from './subida.js';
 import { quadroSubida } from './subida-regras.js';
 import { criarVolta, soltarVolta, montarCasca, seguirCasca, desenharVolta } from './volta.js';
 import { quadroCanal, quadroPartida, quadroChegada, VOLTA_APAGA_S, CASCO_ESCONDIDO_S } from './volta-regras.js';
+import { SONS_VOLTA } from './sons.js';
+import { RECALL_S } from '/shared/recall.js';
 import { texturaEfeito } from './efeitos-armas.js';
 
 // Cores dos efeitos de arma (ver IDENTIDADE-VISUAL.md): o dreno é violeta e o
@@ -211,6 +217,10 @@ const TELEPORTE_FEIXE_S = 0.7;
 const VOLTA_IGNORA_S = 0.4;
 const VOLTA_CORPO_PADRAO = 5;
 const VOLTA_ABAIXO = 0.6;
+// Volume da carga da volta à base: a dos outros no mundo, a sua no centro (mais baixa:
+// ela toca o tempo todo atrás da câmera).
+const VOLUME_CANAL = 0.9;
+const VOLUME_CANAL_PROPRIO = 0.7;
 const VOLTA_PISO = 0.3;
 const caixaVolta = new THREE.Box3();
 // Quantos de cada efeito passageiro já nascem prontos na tela de carregamento (a
@@ -313,7 +323,10 @@ export class Efeitos {
       this.#devolver(s.clarao);
     }
     this.subidas = [];
-    for (const c of this.canais.values()) soltarVolta(c.desenho);
+    for (const c of this.canais.values()) {
+      c.som?.parar();
+      soltarVolta(c.desenho);
+    }
     this.canais.clear();
     for (const v of this.voltas) {
       soltarVolta(v.desenho);
@@ -371,6 +384,7 @@ export class Efeitos {
     this.canais = new Map(); // volta à base canalizando: nave -> { desenho, k, t, ligado, apaga, cor, brilho, visto, casco }
     this.voltas = []; // partidas e chegadas da volta à base: { tipo, obj, desenho, clarao, cor, corpo, x, y, z, t, brilho, casco }
     this.ocultos = new Set(); // naves com o casco escondido (a chegada mostra a luz antes)
+    this.sons = null; // quem desenha a partida liga (main.js): os sons da volta à base saem daqui
     this.originais = []; // efeitos do original que tocam uma vez: { inst }
     this.particulasRastro = []; // rastro dos projéteis de partículas do original
     this.reservaParticulas = [];
@@ -501,19 +515,38 @@ export class Efeitos {
       const desenho = criarVolta();
       if (!desenho) return;
       this.scene.add(desenho.obj);
-      c = { desenho, apaga: 0, t: 0, cor: new THREE.Color(), casco: undefined };
+      c = { desenho, apaga: 0, t: 0, cor: new THREE.Color(), casco: undefined, propria };
       this.canais.set(obj, c);
+      // A carga começa do ponto do progresso (quem aparece no meio dela ouve dali).
+      const desde = Math.min(1, Math.max(0, frac)) * RECALL_S;
+      const { x, z } = obj.position;
+      c.som = propria
+        ? this.sons?.tocarControlado(SONS_VOLTA.canal, { volume: VOLUME_CANAL_PROPRIO, desde })
+        : this.sons?.tocarControlado(SONS_VOLTA.canal, { x, z, volume: VOLUME_CANAL, desde });
     }
     Object.assign(c, { ligado: true, k: frac, brilho: propria ? 0.55 : 1, visto: this.tempo });
     c.cor.copy(cor);
   }
 
-  /** Solta o canal da nave `obj` na hora (devolve o desenho, para quem quiser seguir com ele). */
+  /** Solta o canal da nave `obj` na hora (devolve o desenho, para quem quiser seguir com ele); a carga para. */
   #tirarCanal(obj) {
     const c = obj && this.canais.get(obj);
     if (!c) return null;
     this.canais.delete(obj);
+    c.som?.parar(0.03);
     return c.desenho;
+  }
+
+  /**
+   * Som da volta à base (ou do teleporte) `qual` ('partida' ou 'chegada', de SONS_VOLTA)
+   * em (x, z); `propria` toca no centro (a sua nave), `atraso` (s) espera a nave dos
+   * outros chegar no desenho.
+   */
+  somVolta(qual, x, z, { propria = false, atraso = 0 } = {}) {
+    const nome = SONS_VOLTA[qual];
+    if (!this.sons || !nome) return;
+    if (propria) this.sons.tocarInterface(nome, { atraso });
+    else this.sons.tocar(nome, { x, z, atraso });
   }
 
   /**
@@ -522,7 +555,7 @@ export class Efeitos {
    * lugar da partida, a casca sai dela; o círculo e a coluna que já estavam abertos em volta
    * dela seguem daqui, sem pular.
    */
-  partidaRecall(obj, x, y, z, cor) {
+  partidaRecall(obj, x, y, z, cor, propria = false) {
     const corpo = obj?.userData.tamanho ?? VOLTA_CORPO_PADRAO;
     let desenho = this.#tirarCanal(obj);
     if (obj) obj.userData.voltaPartiu = this.tempo;
@@ -540,6 +573,8 @@ export class Efeitos {
     const clarao = this.#brilhoSolto(cor, 1, true, 0);
     this.scene.add(clarao);
     this.voltas.push({ tipo: 'partida', obj: null, desenho, clarao, cor: new THREE.Color(cor), corpo, x, y, z, pe, t: 0, brilho: 1 });
+    // A sua some atrás da câmera, que já está na base: lá, você ouve a chegada.
+    if (!propria) this.somVolta('partida', x, z);
   }
 
   /**
@@ -559,6 +594,7 @@ export class Efeitos {
     if (obj) this.#ocultarCasco(obj, this.tempo + atraso + CASCO_ESCONDIDO_S);
     const corpo = obj?.userData.tamanho ?? VOLTA_CORPO_PADRAO;
     this.voltas.push({ tipo: 'chegada', obj, desenho, clarao, cor: new THREE.Color(cor), corpo, x, y, z, pe: this.#peDaVolta(null, x, y, z, corpo), t: -atraso, brilho: propria ? 0.7 : 1, casco: undefined });
+    if (atraso >= 0) this.somVolta('chegada', x, z, { propria, atraso });
   }
 
   /** Esconde o casco da nave `obj` até `ate` (no relógio dos efeitos). */
@@ -587,6 +623,12 @@ export class Efeitos {
     for (const [obj, c] of this.canais) {
       if (this.tempo - c.visto > 0.2) c.ligado = false; // a nave saiu da cena
       c.apaga = Math.min(1, Math.max(0, c.apaga + ((c.ligado ? 1 : -1) * dt) / VOLTA_APAGA_S));
+      // A carga acompanha a nave; caiu (cancelou), ela desliga com o som do cancelamento.
+      if (c.som && !c.ligado) {
+        c.som.parar(0.05);
+        c.som = null;
+        if (obj.visible && obj.parent) this.somVolta('cancela', obj.position.x, obj.position.z, { propria: c.propria });
+      } else if (c.som && !c.propria) c.som.mover(obj.position.x, obj.position.z, VOLUME_CANAL);
       if (!c.ligado && c.apaga <= 0) {
         soltarVolta(c.desenho);
         this.canais.delete(obj);

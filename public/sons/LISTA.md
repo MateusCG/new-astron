@@ -89,4 +89,15 @@ Tocados como no original (`CBasePilot::Dead`): o som de morte da unidade (coluna
 | `st_warn` | 1,05 s | Alerta curto (estado crítico) |
 | `sm_warn` | 8,83 s | Alerta longo de missão |
 
+## Nossos: volta à base e teleporte
+
+Não são do original: gerados por `tools/sons_volta.py` (Python puro, `python3 -I tools/sons_volta.py`) em cima da linha do tempo de `public/js/volta-regras.js`, misturando o timbre do original (`extra2`, `u_up`, `up2`, `volt`, lidos daqui) com camadas sintetizadas. WAV PCM mono, **44 100 Hz**, 16 bits. Quem toca é `public/js/efeitos.js` (junto com a animação) e o teleporte em `main.js` (`SONS_VOLTA` em `sons.js`).
+
+| Arquivo | Duração | Uso |
+|---|---|---|
+| `volta_canal` | 6,40 s | A carga da volta à base (os 6 s de `RECALL_S` e 0,4 s segurando o pico): o zumbido grave sobe uma oitava e abre, pulsa cada vez mais rápido, o zumbido elétrico do original sobe junto, as faíscas ficam mais densas e na carga final (5,1 s) entra o riser; começa com a carga do original. O jogo toca do ponto do progresso |
+| `volta_cancela` | 0,50 s | A carga desligando (o tom caindo como fita parando) quando a volta à base cai |
+| `volta_partida` | 0,90 s | A nave sumindo onde estava: estalo, golpe grave caindo, sopro subindo ao céu, o teletransporte do original mais agudo e faíscas; também na saída do teleporte |
+| `volta_chegada` | 1,40 s | A nave chegando: o raio descendo até o impacto em 0,125 s (golpe grave, estalo e o estalo elétrico do original) e a materialização (arpejo mi, si, mi subindo, faíscas e cauda de espaço); na volta à base e no teleporte |
+
 Ficaram de fora: as falas dos NPCs da base (`*_buy`, `*_bye`, `*_enter`, `*_lack`, `*_de`, `*_act`, em coreano), os outros sons dos monstros e chefes (`*p1`, os `*d1` de monstros que não estão no jogo, `boss*`), `logo`, `fadein`/`fadeout`, `h_rotate`, `dc1`/`dc2`, `i_munit` e os jingles longos `exwin`/`exlose` (35 s cada, vitória e derrota de fase, não são explosão). A música (`reference/audio/music/*.mp3`, 15 MB) também ficou de fora.

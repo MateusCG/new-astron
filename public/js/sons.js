@@ -30,6 +30,13 @@
 //   respondendo); passou do total, a nova só entra se for mais alta que a mais baixa
 //   tocando, que então é cortada. E duas cópias do mesmo som que começariam juntas
 //   (menos de INTERVALO_MIN_S) viram uma só: somadas, só estourariam o volume.
+// - Voz controlada (`tocarControlado`): a carga da volta à base é um arquivo escrito em
+//   cima da linha do tempo da animação; quem chama começa do ponto do progresso (`desde`),
+//   move a voz junto com a nave e o ouvinte a cada quadro e a corta com rampa curta.
+//   Começa mesmo baixa (longe), para subir quando a nave se aproxima, e entra nos mesmos
+//   limites de vozes.
+// - `atraso` (s) agenda o começo: a chegada de outra nave é desenhada no passado e o som
+//   espera por ela.
 // - `tom` muda a velocidade de reprodução (1 = original). `variacao` sorteia um tom em
 //   volta dele (ex. 0.05 = ±5%), para a mesma metralhadora não soar como máquina de
 //   repetir. Isto é cliente e só visual/sonoro: Math.random aqui não afeta a simulação.
@@ -66,8 +73,18 @@ export const SONS_INTERFACE = Object.freeze({
   contagem: 'count',
   reparo: 'usehpbattery',
   energia: 'usehebattery',
-  voltaCanal: 'u_up', // começou a voltar à base: o portal carregando
-  volta: 'up2', // a nave sumiu pelo portal ou chegou na base (o teletransporte do original)
+});
+
+/**
+ * Volta à base e teleporte até o companheiro: sons nossos, gerados por tools/sons_volta.py
+ * em cima da linha do tempo de volta-regras.js (a carga, que o jogo toca do ponto do
+ * progresso; o cancelamento; a nave sumindo; a nave chegando, também no teleporte).
+ */
+export const SONS_VOLTA = Object.freeze({
+  canal: 'volta_canal',
+  cancela: 'volta_cancela',
+  partida: 'volta_partida',
+  chegada: 'volta_chegada',
 });
 
 /**
@@ -366,38 +383,71 @@ export class Sons {
    *   sem x/z o som toca no ouvinte (cheio e no centro)
    * @returns {boolean} se tocou
    */
-  tocar(nome, { x, z, volume = 1, tom = 1, variacao = 0 } = {}) {
-    let ganho = volume;
-    let pan = 0;
-    if (Number.isFinite(x) && Number.isFinite(z)) {
-      const o = this._ouvinte;
-      ganho *= ganhoPorDistancia(Math.hypot(x - o.x, z - o.z));
-      pan = panPorDirecao(x, z, o.x, o.z, o.yaw);
-    }
-    return this._tocar(nome, ganho, pan, tom, variacao);
+  tocar(nome, { x, z, volume = 1, tom = 1, variacao = 0, atraso = 0 } = {}) {
+    const [ganho, pan] = this._posicao(x, z, volume);
+    return !!this._tocar(nome, ganho, pan, tom, variacao, { atraso });
   }
 
   /** Toca um som de interface: sem posição, cheio e no centro. */
-  tocarInterface(nome, { volume = 1, tom = 1 } = {}) {
-    return this._tocar(nome, volume, 0, tom, 0);
+  tocarInterface(nome, { volume = 1, tom = 1, atraso = 0 } = {}) {
+    return !!this._tocar(nome, volume, 0, tom, 0, { atraso });
   }
 
-  _tocar(nome, ganho, pan, tom, variacao) {
-    if (ganho < GANHO_MIN || !this.ctx || this.ctx.state === 'closed') return false;
+  /**
+   * Toca um som que quem chamou controla, a partir de `desde` s do arquivo (sem x/z, no
+   * ouvinte). Devolve a voz, `{ mover(x, z, volume), parar(s) }`, ou null se não deu
+   * para tocar (sem contexto, som não carregado, vozes cheias de sons mais altos).
+   */
+  tocarControlado(nome, { x, z, volume = 1, desde = 0 } = {}) {
+    const [ganho, pan] = this._posicao(x, z, volume);
+    const voz = this._tocar(nome, ganho, pan, 1, 0, { desde, controlado: true });
+    if (!voz) return null;
+    return {
+      mover: (nx, nz, nv = volume) => {
+        if (!this._vozes.includes(voz)) return;
+        const [g, p] = this._posicao(nx, nz, nv);
+        const t = this.ctx.currentTime;
+        voz.valor = g;
+        voz.ganho.gain.setTargetAtTime?.(Math.min(g, 2), t, 0.05);
+        voz.pan?.pan.setTargetAtTime?.(p, t, 0.05);
+      },
+      parar: (fade = 0.04) => {
+        if (!this._vozes.includes(voz)) return;
+        try {
+          const t = this.ctx.currentTime;
+          voz.ganho.gain.setTargetAtTime?.(0, t, fade / 3);
+          voz.fonte.stop(t + fade * 1.5);
+        } catch {
+          // Já tinha parado.
+        }
+        this._soltar(voz);
+      },
+    };
+  }
+
+  /** Ganho pela distância e pan de um som em (x, z); sem posição, cheio e no centro. */
+  _posicao(x, z, volume) {
+    if (!Number.isFinite(x) || !Number.isFinite(z)) return [volume, 0];
+    const o = this._ouvinte;
+    return [volume * ganhoPorDistancia(Math.hypot(x - o.x, z - o.z)), panPorDirecao(x, z, o.x, o.z, o.yaw)];
+  }
+
+  _tocar(nome, ganho, pan, tom, variacao, { atraso = 0, desde = 0, controlado = false } = {}) {
+    if ((!controlado && ganho < GANHO_MIN) || !this.ctx || this.ctx.state === 'closed') return null;
     const item = this._cache.get(nome);
     if (!item) {
       this._carregar(nome);
-      return false;
+      return null;
     }
-    if (!item.buffer) return false;
+    if (!item.buffer) return null;
     const agora = this.ctx.currentTime;
     this._limpar(agora);
 
     const mesmas = this._vozes.filter((v) => v.nome === nome);
     // Duas cópias começando juntas só somam volume: fica a mais alta.
-    const junto = mesmas.find((v) => agora - v.inicio < INTERVALO_MIN_S);
+    const junto = controlado ? null : mesmas.find((v) => Math.abs(agora + atraso - v.inicio) < INTERVALO_MIN_S);
     if (junto) {
-      if (ganho <= junto.valor) return false;
+      if (ganho <= junto.valor) return null;
       this._parar(junto);
     } else if (mesmas.length >= this.maxPorSom) {
       this._parar(mesmas[0]);
@@ -405,7 +455,7 @@ export class Sons {
     if (this._vozes.length >= this.maxTotal) {
       let menor = this._vozes[0];
       for (const v of this._vozes) if (v.valor < menor.valor) menor = v;
-      if (ganho <= menor.valor) return false;
+      if (ganho <= menor.valor) return null;
       this._parar(menor);
     }
 
@@ -416,22 +466,26 @@ export class Sons {
     const g = this.ctx.createGain();
     g.gain.value = Math.min(ganho, 2);
     let saida = g;
-    if (pan !== 0 && this.ctx.createStereoPanner) {
-      const p = this.ctx.createStereoPanner();
+    let p = null;
+    if ((pan !== 0 || controlado) && this.ctx.createStereoPanner) {
+      p = this.ctx.createStereoPanner();
       p.pan.value = pan;
       g.connect(p);
       saida = p;
     }
     fonte.connect(g);
     saida.connect(this.efeitos);
-    const voz = { nome, fonte, ganho: g, saida, valor: ganho, inicio: agora };
+    // `inicio` é quando o começo do arquivo tocaria: a conta do fim (_limpar) vale com
+    // atraso e com `desde`.
+    const desdeOk = Math.max(0, Math.min(desde, item.buffer.duration ?? 0));
+    const voz = { nome, fonte, ganho: g, pan: p, saida, valor: ganho, inicio: agora + atraso - desdeOk / fonte.playbackRate.value };
     fonte.onended = () => {
       this._soltar(voz);
       this._desligar(voz);
     };
     this._vozes.push(voz);
-    fonte.start(agora);
-    return true;
+    fonte.start(agora + atraso, desdeOk);
+    return voz;
   }
 
   /** Quantas vozes estão tocando (para depuração e testes). */
@@ -444,7 +498,7 @@ export class Sons {
     // Rede de segurança caso algum onended não dispare (aba em segundo plano).
     this._vozes = this._vozes.filter((v) => {
       const dur = (v.fonte.buffer?.duration ?? 0) / (v.fonte.playbackRate?.value || 1);
-      if (agora - v.inicio <= dur + 0.25) return true;
+      if (agora - v.inicio <= dur + 0.25 || agora < v.inicio) return true;
       this._desligar(v);
       return false;
     });

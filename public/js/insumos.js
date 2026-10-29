@@ -16,7 +16,7 @@
 import { WEAPONS, ARMAS, armasDisponiveis, visualEfeito, visualDoOriginal } from '../../shared/armas.js';
 import { linhaDe, RACAS_JOGAVEIS, ORDEM_CLASSES } from '../../shared/naves.js';
 import { EQUIPAMENTOS, equipamentosAVenda } from '../../shared/equipamentos.js';
-import { SONS_INTERFACE, SONS_ARMA } from './sons.js';
+import { SONS_INTERFACE, SONS_ARMA, SONS_VOLTA } from './sons.js';
 import { EFEITOS_DESTRUICAO, SONS_DESTRUICAO } from './destruicao.js';
 
 /** Pasta das texturas dos efeitos de arma do original. */
@@ -114,7 +114,7 @@ export const SEQUENCIAS = {
 const EFEITOS_COM_TEXTURA = ['d', 'p', 'i', 'f', 'a'];
 
 /** Sons que não são de arma: interface, explosões de nave e de monstro, cura. */
-export const SONS_GERAIS = Object.freeze([...new Set([...Object.values(SONS_INTERFACE), 'h_explo', 'n2_explo', 'cure'])]);
+export const SONS_GERAIS = Object.freeze([...new Set([...Object.values(SONS_INTERFACE), ...Object.values(SONS_VOLTA), 'h_explo', 'n2_explo', 'cure'])]);
 
 /** A primeira textura de luz (aditiva) do efeito visual `id`, ou null. */
 export function texturaDoEfeito(id) {
