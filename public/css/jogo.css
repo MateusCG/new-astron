@@ -1669,27 +1669,43 @@ kbd {
   font: 13px ui-monospace, monospace;
 }
 
-/* Etiqueta do piloto embaixo da nave de jogador (a sua inclusive): nick na cor do
-   time e o nível em --xp, numa plaquinha de chapa escura. */
+/* Etiqueta do piloto embaixo da nave de jogador (a sua inclusive), numa plaquinha de
+   chapa escura. O nick leva a cor das resistências do piloto (branco sem nenhuma;
+   hud.js, cor-resistencia.js), como no original; o time fica na borda e no selo do
+   nível (turquesa o seu, vermelho o outro), além da barra de vida em cima. */
 .rotulo.piloto {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 5px;
-  padding: 1px 6px 2px;
-  border: 1px solid var(--neon-escuro);
+  padding: 1px 3px 2px 6px;
+  border: 1px solid rgba(0, 239, 192, 0.6);
   border-radius: 8px;
   background: rgba(8, 20, 19, 0.72);
   font-size: 15px;
   font-weight: 600;
 }
 
+.rotulo.piloto .nome {
+  color: #fff;
+}
+
 .rotulo.piloto.inimigo {
-  border-color: rgba(255, 74, 42, 0.45);
+  border-color: rgba(255, 59, 42, 0.8);
 }
 
 .rotulo.piloto .nv {
-  font-size: 13.5px;
-  font-weight: 700;
+  padding: 0 4px;
+  border-radius: 5px;
+  background: var(--neon);
+  color: #04201a;
+  font-size: 13px;
+  font-weight: 800;
+  text-shadow: none;
+}
+
+.rotulo.piloto.inimigo .nv {
+  background: var(--inimigo);
+  color: #2a0602;
 }
 
 .rotulo.piloto.proprio {

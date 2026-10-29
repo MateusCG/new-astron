@@ -272,13 +272,15 @@
 //         minimapa e dos rótulos
 //   ents: [{id, nome, tipo, drone, vivo, race, x, y, z, yaw, roll, hp, maxHp, boost, pousado,
 //           dreno, lento, emp, fx?, time?, carga?, minerando?, descarga?, nivel?, classe?, tier?,
-//           arm?, esc?, recall?, bn?, nucleo?, esp?}]
+//           arm?, esc?, res?, recall?, bn?, nucleo?, esp?}]
 //         bn = bônus de nave ativos do jogador ('ataque' | 'suporte' | 'sonda');
 //         nucleo = 1 no minerador da onda do Núcleo (maior, mais lento, carga 50);
 //         descarga = 1 no minerador parado em cima de uma vaga da bacia da base
 //         (VAGAS_BACIA), despejando o minério (só enquanto despeja; a entrega
 //         sai no fim);
 //         esc = fração (0 a 1) do escudo do equipamento, só em jogador com escudo;
+//         res = [Ph., Op., El.] resistências do jogador (0 a 0,95, já sem o que a
+//         quebra tira), só com alguma: a cor do nick (o `me` traz o mesmo `res`);
 //         fx = efeitos de arma visíveis ('para' (movimento paralisado), 'semTiro' (só o
 //         tiro impedido), 'desg', 'energia', 'descarga' (a
 //         energia descarregada, o ícone fica a duração do original), 'magma' (o dreno

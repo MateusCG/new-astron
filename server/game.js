@@ -167,6 +167,7 @@ import { Golpes, INVISIVEL_VISTO_M } from './golpes.js';
 import { RECALL_S, motivoRecall } from '../shared/recall.js';
 import { Bots, nomeDeBot } from './bots.js';
 import { Visao } from './visao.js';
+import { ORDEM_TIPOS_DANO } from '../shared/equipamentos.js';
 
 export const TICK_HZ = 30;
 const SNAP_CADA = 2; // ticks entre snapshots (15 Hz)
@@ -1145,6 +1146,9 @@ export class World {
         ent.arm = e.ship.encaixes; // armas do Z e do X (o modelo na asa de cada uma)
         // Fração do escudo do equipamento, para a barra nos rótulos (sem escudo, não vem).
         if (e.ship.maxEscudo > 0) ent.esc = +Math.max(0, Math.min(1, e.ship.escudo / e.ship.maxEscudo)).toFixed(2);
+        // Resistências, para a cor do nick (como no original, todos veem; sem nenhuma, não vem).
+        const res = this.resistVisivel(e);
+        if (res) ent.res = res;
         // Bônus de nave ativos ('ataque', 'suporte', 'sonda'), para a aura.
         const bn = Object.keys(this.bonus.paraNave(e.id, this.tick));
         if (bn.length) ent.bn = bn;
@@ -1173,6 +1177,17 @@ export class World {
    * máximo), o estado dos objetivos (`obj`) e das torretas (`torretas`), iguais
    * para todos: cache por tick.
    */
+  /**
+   * Resistências do piloto agora, [Ph., Op., El.] (0 a RESIST_MAX, duas casas), já sem
+   * o que os debuffs de quebra tiram: o que a cor do nick mostra (public/js/cor-resistencia.js).
+   * null sem nenhuma.
+   */
+  resistVisivel(j) {
+    if (!j.status) return null;
+    const res = ORDEM_TIPOS_DANO.map((t) => +Math.max(0, (j.status.resist[t] ?? 0) - this.golpes.resistQuebrada(j, t)).toFixed(2));
+    return res.some((r) => r > 0) ? res : null;
+  }
+
   snapshotPara(j, ents, eventos) {
     if (this.cacheObj?.tick !== this.tick) {
       this.cacheObj = {
@@ -1196,7 +1211,7 @@ export class World {
       vivo: j.vivo,
       renasceEm: j.vivo ? 0 : Math.max(0, +((j.respawnTick - this.tick) / TICK_HZ).toFixed(1)),
       time: j.time,
-      me: { ...j.ship, ...this.servicos.paraMe(j), ...this.#bonusParaMe(j) },
+      me: { ...j.ship, ...this.servicos.paraMe(j), ...this.#bonusParaMe(j), res: this.resistVisivel(j) },
       st: this.golpes.paraMe(j), // estados das armas no próprio jogador (s restantes), para o HUD
       ouro: j.ouro,
       abates: j.abates,

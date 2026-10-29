@@ -27,6 +27,7 @@ import { CORES_NUVEM } from './nuvens.js';
 import { ITENS, ORDEM_ITENS } from '/shared/loja.js';
 import { relogio, LUGARES_OBJETIVO, ICONE_OBJETIVO, NOME_OBJETIVO, POUSO_PLATAFORMA_S } from './objetivos.js';
 import { PONTO_MONSTRO } from './monstros.js';
+import { corResistencia } from './cor-resistencia.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -607,8 +608,10 @@ export class Hud {
    * Rótulos das naves visíveis. Sobre a nave, o nome e a barra de vida (monstros,
    * mineradores, torretas) ou só a barra (naves de jogador). Embaixo da nave de
    * jogador (`piloto`, a sua inclusive), a etiqueta com o nick e o nível. `aliado`
-   * (do seu time) pinta de turquesa; inimigo (outro time ou monstro) de vermelho.
-   * Entrada: { id, nome, aliado, hp, maxHp, pos, nivel, piloto, proprio, esc }.
+   * (do seu time) pinta de turquesa; inimigo (outro time ou monstro) de vermelho. Na
+   * etiqueta do piloto o time fica na borda e no "NV", e o nick leva a cor das
+   * resistências dele (`res`, [Ph., Op., El.]; corResistencia), como no original.
+   * Entrada: { id, nome, aliado, hp, maxHp, pos, nivel, piloto, proprio, esc, res }.
    * `esc` (fração 0 a 1 do escudo, das naves de jogador com escudo) põe uma barra
    * fina do escudo em cima da de vida.
    */
@@ -630,7 +633,7 @@ export class Hud {
       return tag;
     };
     // `tamanho`: a nave grande (até o dobro da primeira) leva os rótulos mais para fora.
-    for (const { id, nome, aliado, hp, maxHp, pos: p, nivel, piloto, proprio, esc, tamanho = 1 } of lista) {
+    for (const { id, nome, aliado, hp, maxHp, pos: p, nivel, piloto, proprio, esc, res, tamanho = 1 } of lista) {
       const dist = camera.position.distanceTo(p);
       if (dist > 450) continue;
       const opacidade = dist > 300 ? String(1 - (dist - 300) / 150) : '1';
@@ -675,6 +678,11 @@ export class Hud {
           const nv = baixo.querySelector('.nv');
           const txt = `NV ${nivel ?? 1}`;
           if (nv.textContent !== txt) nv.textContent = txt;
+          const cor = corResistencia(res);
+          if (baixo.dataset.cor !== cor) {
+            baixo.dataset.cor = cor;
+            baixo.querySelector('.nome').style.color = cor;
+          }
         }
       }
     }

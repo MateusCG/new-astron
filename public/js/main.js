@@ -750,7 +750,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
 
   function aoSnapshot(m) {
     const ouroAntes = extra.ouro;
-    extra = { ouro: m.ouro, abates: m.abates, mortes: m.mortes, nivel: m.nivel, xp: m.xp, xpProx: m.xpProx };
+    extra = { ouro: m.ouro, abates: m.abates, mortes: m.mortes, nivel: m.nivel, xp: m.xp, xpProx: m.xpProx, res: m.me?.res ?? null };
     ganhoOuro = m.ouro - ouroAntes;
     snaps.push({ t: performance.now(), ents: m.ents });
     while (snaps.length > 30) snaps.shift();
@@ -1328,7 +1328,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
         // Monstro grande: o rótulo sobe até o alto dele (a Medusa é desenhada mais alta).
         let pos = o.obj.position;
         if (e.tipo === 'monstro' && ROTULO_MONSTRO[e.esp]) pos = (o.posRotulo ??= new THREE.Vector3()).copy(pos).setY(pos.y + ROTULO_MONSTRO[e.esp]);
-        rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos, nivel: e.nivel, piloto: e.tipo === 'jogador', esc: e.esc, tamanho: o.obj.userData.efeitos?.scale.x });
+        rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos, nivel: e.nivel, piloto: e.tipo === 'jogador', esc: e.esc, res: e.res, tamanho: o.obj.userData.efeitos?.scale.x });
       }
     }
     objetivos.seguir('SONDA', sonda);
@@ -1336,7 +1336,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     torretas.quadro(dt, tempo, (id) => (id === meuId ? (vivo ? foco : null) : outras.get(id)?.obj.position ?? null));
     rotulos.push(...torretas.rotulos());
     // A sua nave também leva a etiqueta com o nick e o nível embaixo.
-    if (vivo && meuNome) rotulos.push({ id: meuId, nome: meuNome, aliado: true, pos: minhaNave.position, nivel: extra.nivel, piloto: true, proprio: true, tamanho: minhaNave.userData.efeitos.scale.x });
+    if (vivo && meuNome) rotulos.push({ id: meuId, nome: meuNome, aliado: true, pos: minhaNave.position, nivel: extra.nivel, piloto: true, proprio: true, res: extra.res, tamanho: minhaNave.userData.efeitos.scale.x });
     for (const [id, o] of outras) {
       if (!presentes.has(id)) {
         scene.remove(o.obj);

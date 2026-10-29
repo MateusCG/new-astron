@@ -133,6 +133,20 @@ test('status: os debuffs de quebra tiram da resistência, como no original (zera
   perto(quebrada, DANO * (1 - Math.max(0, resist - 0.13)), 'menos 13 pontos');
 });
 
+test('status: o snapshot leva as resistências do piloto (a cor do nick), já sem o que a quebra tira', () => {
+  const resist = versaoEquip(ARMADURA_OP, 1).efeitos.filter((e) => e.tipo === 'resist');
+  const { w, b } = tiro((w, a, b) => equipar(w, b, [ARMADURA_OP]));
+  const esperado = ['fisico', 'laser', 'eletrico'].map((t) => +(resist.find((e) => e.tipoDano === t)?.valor ?? 0).toFixed(2));
+  assert.deepEqual(w.resistVisivel(b), esperado);
+  assert.deepEqual(w.entidades().find((e) => e.id === b.id).res, esperado, 'na entidade');
+  assert.deepEqual(w.snapshotPara(b, [], []).me.res, esperado, 'no me também');
+  b.st = { vulneravel_laser: { fim: w.tick + 100, menos: 1 } };
+  assert.equal(w.resistVisivel(b)[1], 0, 'Op. zerada: o nick mostra');
+  const { b: semNada, w: w2 } = tiro();
+  assert.equal(w2.resistVisivel(semNada), null, 'sem resistência não vem');
+  assert.equal(w2.entidades().find((e) => e.id === semNada.id).res, undefined);
+});
+
 test('status: a resistência chega até 95% (RESIST_MAX), nunca imune', () => {
   assert.equal(RESIST_MAX, 0.95);
   const { perdeu, b } = tiro((w, a, b) => {
