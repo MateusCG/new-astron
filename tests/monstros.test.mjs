@@ -8,7 +8,7 @@ import { createShip } from '../shared/sim.js';
 import { BASES, BUFFS, heightAt } from '../shared/terrain.js';
 import { bloqueiaVisao } from '../shared/visao.js';
 import { readFileSync } from 'node:fs';
-import { ESPECIES, alcanceMaximo, FATOR_HP_M5, FATOR_DANO_M5, FATOR_XP_M5, FATOR_RECARGA_ORIGINAL, FATOR_RECARGA_MEDUSA, FATOR_VEL_MONSTRO, FATOR_DANO_ESPECIE, FATOR_DANO_MONSTRO, ALCANCE_MAX_ORIGINAL } from '../server/especies.js';
+import { ESPECIES, alcanceMaximo, FATOR_HP_M5, FATOR_DANO_M5, FATOR_XP_M5, FATOR_RECARGA_ORIGINAL, FATOR_RECARGA_MEDUSA, FATOR_RECARGA_ESPECIE, FATOR_VEL_MONSTRO, FATOR_DANO_ESPECIE, FATOR_DANO_MONSTRO, ALCANCE_MAX_ORIGINAL } from '../server/especies.js';
 import { ARMAS_NPC_ORIGINAL } from '../shared/armas-original.js';
 import { RAIVA_S, corpoLivre, golpeDoAtaque } from '../server/jungle.js';
 import { MINA_MAX_MONSTRO } from '../server/golpes.js';
@@ -415,7 +415,7 @@ test('Stage 6, SN-4 e Medusa: as armas e os pesos do initnpc.cfg, um ataque por 
     const e = ESPECIES[esp];
     assert.deepEqual(e.ataques.map((a) => [a.kind, a.peso]), armas, esp);
     const cds = e.ataques.map((a) => WEAPONS[a.kind].versoes[0].cd);
-    const fator = esp === 'medusa' ? FATOR_RECARGA_MEDUSA : FATOR_RECARGA_ORIGINAL;
+    const fator = esp === 'medusa' ? FATOR_RECARGA_MEDUSA : FATOR_RECARGA_ESPECIE[esp] ?? FATOR_RECARGA_ORIGINAL;
     assert.equal(e.entreAtaquesS, Math.min(...cds) * fator, `${esp}: ritmo`);
     for (const a of e.ataques) assert.equal(a.intervaloS, WEAPONS[a.kind].versoes[0].cd * fator, `${esp} ${a.atq}: recarga`);
     for (const a of e.ataques) {
@@ -426,6 +426,8 @@ test('Stage 6, SN-4 e Medusa: as armas e os pesos do initnpc.cfg, um ataque por 
       assert.ok(a.alcance > 0 && a.alcance <= ALCANCE_MAX_ORIGINAL, `${esp} ${a.atq}: alcance ${a.alcance}`);
     }
   }
+  // O Xerxes, o Grande Xerxes, o Bazit e o Anti atacam na metade do ritmo dos outros.
+  for (const esp of ['xerxes', 'great_xerxes', 'bazit', 'anti']) assert.equal(FATOR_RECARGA_ESPECIE[esp], FATOR_RECARGA_ORIGINAL * 2, esp);
   // A nova do SN-4 vale até o raio dela; o campo cai embaixo do alvo.
   assert.equal(ESPECIES.sn4.ataques[1].alcance, WEAPONS.n550130.versoes[0].golpe.nova.raio);
 });

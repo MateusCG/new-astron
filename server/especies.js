@@ -100,6 +100,19 @@ export const FATOR_RECARGA_M5 = FATOR_RECARGA_ORIGINAL;
  */
 export const FATOR_RECARGA_MEDUSA = 6;
 /**
+ * Recarga e ritmo entre ataques × isto, por espécie, no lugar de FATOR_RECARGA_ORIGINAL
+ * (quem não está aqui fica nele; a Medusa usa FATOR_RECARGA_MEDUSA). O Xerxes, o
+ * Grande Xerxes, o Bazit e o Anti atacam na metade do ritmo dos outros (pedido do
+ * Mateus: atacavam tão seguido que a nave dos primeiros níveis não conseguia farmar a
+ * jungle no começo). O dano de cada golpe não muda.
+ */
+export const FATOR_RECARGA_ESPECIE = {
+  xerxes: FATOR_RECARGA_ORIGINAL * 2,
+  great_xerxes: FATOR_RECARGA_ORIGINAL * 2,
+  bazit: FATOR_RECARGA_ORIGINAL * 2,
+  anti: FATOR_RECARGA_ORIGINAL * 2,
+};
+/**
  * Dano das armas do original × isto, por espécie (o SN-3 e o SN-Zero VI usam
  * FATOR_DANO_M5): troque um para ajustar só aquela espécie. A Medusa bate como no
  * original, na escala das naves (FATOR_ESCALA_HP, pedido do Mateus: chefe de time
@@ -203,34 +216,34 @@ export const ESPECIES = {
   // (511160, 70%: rajada de 2 balas com área).
   xerxes: {
     nome: 'Xerxes', hp: 240, velocidade: 37, raio: 6, tamanho: 13, xp: 35, ouro: 28,
-    entreAtaquesS: ritmoDoOriginal(['511150', '511160']),
+    entreAtaquesS: ritmoDoOriginal(['511150', '511160'], FATOR_RECARGA_ESPECIE.xerxes),
     ataques: [
-      ataqueDoOriginal('lanca_chamas', '511150', 30, {}, FATOR_DANO_ESPECIE.xerxes),
-      ataqueDoOriginal('canhao_explosivo', '511160', 70, {}, FATOR_DANO_ESPECIE.xerxes),
+      ataqueDoOriginal('lanca_chamas', '511150', 30, {}, FATOR_DANO_ESPECIE.xerxes, FATOR_RECARGA_ESPECIE.xerxes),
+      ataqueDoOriginal('canhao_explosivo', '511160', 70, {}, FATOR_DANO_ESPECIE.xerxes, FATOR_RECARGA_ESPECIE.xerxes),
     ],
   },
   // Grande Xerxes (npc 705055): só o Lança-chamas grande (511155, 100%: Magma de 150).
   great_xerxes: {
     nome: 'Grande Xerxes', hp: 900, velocidade: 30, raio: 11, tamanho: 26, xp: 90, ouro: 70,
-    entreAtaquesS: ritmoDoOriginal(['511155']),
-    ataques: [ataqueDoOriginal('lanca_chamas_g', '511155', 100, {}, FATOR_DANO_ESPECIE.great_xerxes)],
+    entreAtaquesS: ritmoDoOriginal(['511155'], FATOR_RECARGA_ESPECIE.great_xerxes),
+    ataques: [ataqueDoOriginal('lanca_chamas_g', '511155', 100, {}, FATOR_DANO_ESPECIE.great_xerxes, FATOR_RECARGA_ESPECIE.great_xerxes)],
   },
   // Bazit (npc 705040): o Lançador de Feixe Óptico (511140) nos dois encaixes (50/50):
   // três feixes em leque de 5° que atravessam.
   bazit: {
     nome: 'Bazit', hp: 240, velocidade: 37, raio: 6, tamanho: 13, xp: 35, ouro: 28,
-    entreAtaquesS: ritmoDoOriginal(['511140']),
-    ataques: [ataqueDoOriginal('feixe_optico_bazit', '511140', 100, {}, FATOR_DANO_ESPECIE.bazit)],
+    entreAtaquesS: ritmoDoOriginal(['511140'], FATOR_RECARGA_ESPECIE.bazit),
+    ataques: [ataqueDoOriginal('feixe_optico_bazit', '511140', 100, {}, FATOR_DANO_ESPECIE.bazit, FATOR_RECARGA_ESPECIE.bazit)],
   },
   // Anti (npc 705060): Míssil de Longo Alcance (511170, 50%: quatro mísseis retos lado a
   // lado) e Canhão Teleguiado (511180, 50%: duas balas que viram atrás do mais perto e
   // explodem com área).
   anti: {
     nome: 'Anti', hp: 900, velocidade: 30, raio: 11, tamanho: 26, xp: 90, ouro: 70,
-    entreAtaquesS: ritmoDoOriginal(['511170', '511180']),
+    entreAtaquesS: ritmoDoOriginal(['511170', '511180'], FATOR_RECARGA_ESPECIE.anti),
     ataques: [
-      ataqueDoOriginal('missil_longo', '511170', 50, {}, FATOR_DANO_ESPECIE.anti),
-      ataqueDoOriginal('canhao_teleguiado', '511180', 50, {}, FATOR_DANO_ESPECIE.anti),
+      ataqueDoOriginal('missil_longo', '511170', 50, {}, FATOR_DANO_ESPECIE.anti, FATOR_RECARGA_ESPECIE.anti),
+      ataqueDoOriginal('canhao_teleguiado', '511180', 50, {}, FATOR_DANO_ESPECIE.anti, FATOR_RECARGA_ESPECIE.anti),
     ],
   },
   // SN-4 (chefe do Stage M5, npc 702600): Míssil Cruzador (550120: dez mísseis em volta,
