@@ -19,13 +19,10 @@
 # - volta_partida (0,9 s): a descarga onde a nave estava: estalo, o golpe grave caindo, o
 #   sopro subindo ao céu (ruído num filtro que sobe), o teletransporte do original mais
 #   agudo e as faíscas indo embora.
-# - volta_chegada (1,4 s): o raio descendo (sopro e assobio caindo até o impacto em
-#   0,125 s, quando o feixe toca a nave), o impacto (golpe grave, estalo e o estalo
-#   elétrico do original) e a nave se materializando, pesado e mecânico (o arpejo de
-#   notas de antes soava infantil, pedido do Mateus, 29/out/2026): a energia assentando
-#   num "vuum" grave que fecha e cai um pouco, o travamento metálico curto quando o casco
-#   de verdade aparece (CASCO_ESCONDIDO_S, 0,45 s), o chiado de plasma esfriando e o
-#   zumbido do original grave e abafado se apagando, numa cauda de espaço escura e curta.
+# - volta_chegada (1,0 s): o raio descendo (sopro e assobio caindo até o impacto em
+#   0,125 s, quando o feixe toca a nave) e o impacto (golpe grave, estalo e o estalo
+#   elétrico do original), com uma cauda de espaço curta. Só isso: a materialização (as
+#   notas, depois o "vuum" e o travamento) saiu a pedido do Mateus (29/out/2026).
 #
 # Saída: WAV PCM mono, 44 100 Hz, 16 bits, com pico em PICO_DBFS.
 #
@@ -286,8 +283,8 @@ def partida(up2):
     return suavizar_pontas(reverberar(suavizar_pontas(s), 0.22, 0.9), 0.001, 0.08)
 
 
-def chegada(volt, extra2):
-    dur = 1.4
+def chegada(volt):
+    dur = 1.0
     s = [0.0] * int(dur * TAXA)
     impacto = 0.125
     # O raio descendo: sopro e assobio caindo, crescendo até o impacto.
@@ -300,42 +297,6 @@ def chegada(volt, extra2):
               lambda t: min(1, (t - impacto) / 0.003) * math.exp(-(t - impacto) / 0.2), (1.0, 0.35, 0.1))
     ruido_filtrado(s, impacto, impacto + 0.05, 19, 'passa_alta', lambda t: 2200, 0.7, 0.8, lambda t: (1 - (t - impacto) / 0.05) ** 2)
     tocar_amostra(s, volt[0], volt[1], impacto, 0.4)
-    # A energia assentando: duas ondas dente de serra graves desafinadas (ré, 73 Hz, caindo
-    # um pouco) num passa-baixa que fecha, o "vuum".
-    vuum = [0.0] * len(s)
-    fase = [0.0, 0.0]
-    t0 = 0.14
-    for i in range(int(t0 * TAXA), len(s)):
-        t = i / TAXA
-        u = t - t0
-        f = 64 + 9 * math.exp(-u / 0.25)
-        v = 0.0
-        for c, det in enumerate((1.0, 1.012)):
-            fase[c] += 2 * math.pi * f * det / TAXA
-            v += sum(math.sin((n + 1) * fase[c]) / (n + 1) for n in range(10))
-        vuum[i] = 0.19 * v * min(1, u / 0.06) * math.exp(-u / 0.42)
-    filtro = Biquad('passa_baixa', 1.1)
-    for i in range(len(s)):
-        if i % 32 == 0:
-            filtro.ajustar(250 + 1100 * math.exp(-max(0, i / TAXA - t0) / 0.18))
-        s[i] += filtro(vuum[i])
-    # O travamento: o casco aparece e os sistemas engatam. Um estalo seco e um clank
-    # metálico curto (parciais inarmônicas graves, como uma chapa grossa).
-    trava = 0.45
-    ruido_filtrado(s, trava, trava + 0.012, 29, 'passa_faixa', lambda t: 2800, 1.5, 0.7, lambda t: 1 - (t - trava) / 0.012)
-    for razao, amp, tau in ((1.0, 0.32, 0.12), (2.32, 0.2, 0.08), (3.87, 0.12, 0.05), (5.41, 0.07, 0.035)):
-        varredura(s, trava, trava + 0.5, lambda t, r=razao: 138 * r, amp, lambda t, tau=tau: min(1, (t - trava) / 0.002) * math.exp(-(t - trava) / tau))
-    # O plasma esfriando: chiado descendo e sumindo.
-    ruido_filtrado(s, 0.15, dur, 31, 'passa_faixa', lambda t: 2200 * 2 ** (-1.6 * k01(t, 0.15, 1.2)), 1.2, 0.28,
-                   lambda t: min(1, (t - 0.15) / 0.05) * math.exp(-(t - 0.15) / 0.38))
-    # O zumbido elétrico do original, grave e abafado, se apagando.
-    zumbido = [0.0] * len(s)
-    tocar_amostra(zumbido, extra2[0], extra2[1], 0.14, 0.3, tom=lambda t: 0.62, laco=(0.3, 1.4),
-                  env=lambda t: min(1, (t - 0.14) / 0.06) * math.exp(-(t - 0.14) / 0.45))
-    filtro = Biquad('passa_baixa', 0.8)
-    filtro.ajustar(700)
-    for i in range(len(s)):
-        s[i] += filtro(zumbido[i])
     return suavizar_pontas(reverberar(suavizar_pontas(s), 0.18, 0.85), 0.001, 0.12)
 
 
@@ -344,7 +305,7 @@ def main():
     gravar('volta_canal', canal(extra2, u_up))
     gravar('volta_cancela', cancela(extra2))
     gravar('volta_partida', partida(up2))
-    gravar('volta_chegada', chegada(volt, extra2))
+    gravar('volta_chegada', chegada(volt))
 
 
 main()

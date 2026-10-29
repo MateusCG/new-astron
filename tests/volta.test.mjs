@@ -159,5 +159,6 @@ test('volta: os sons são nossos, baixam na tela de carregamento e acompanham a 
   }
   assert.ok(quando > 0.11 && quando < 0.17, `impacto em ${quando.toFixed(3)} s`);
   assert.ok(rms(chegada, 0, 0.05) < rms(chegada, 0.08, 0.12), 'o raio cresce até o impacto');
-  assert.ok(rms(chegada, 1.2, 1.4) < maior / 10, 'cauda que some');
+  assert.ok(chegada.a.length / chegada.taxa <= 1.05, 'só o raio e o impacto, sem a materialização');
+  assert.ok(rms(chegada, 0.85, 1.0) < maior / 10, 'cauda que some');
 });
