@@ -55,7 +55,6 @@ export const NOME_OBJETIVO = {
 const FAZER = {
   ataque: 'SN-4 · bônus de ataque',
   suporte: 'Destrua a torre · bônus de suporte',
-  plataforma: 'Pouse 6 s: ouro para o time',
   sonda: 'Sonda errante · bônus de velocidade',
   medusa: 'Medusa Anciã · bônus do time',
   nucleo: 'Núcleo de He-3 · onda de mineradores',
@@ -164,7 +163,8 @@ export class ObjetivosNaTela {
         const falta = Math.max(0, POUSO_PLATAFORMA_S - (r.prog ?? 0));
         return { txt: `${t[0].toUpperCase() + t.slice(1)} pousado · ${falta.toFixed(0)} s`, classe, barra: (r.prog ?? 0) / POUSO_PLATAFORMA_S };
       }
-      return { txt: FAZER.plataforma, classe: '', barra: null };
+      // Livre: o holograma "OURO" e o "Pouse e ganhe ouro · L" do cenário dizem o que fazer.
+      return { txt: '', classe: '', barra: null };
     }
     return { txt: FAZER[tipo], classe: '', barra: r.vida ?? null };
   }

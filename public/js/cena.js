@@ -84,6 +84,7 @@ export const CORES = {
   minerio: new THREE.Color('#9fe8ff'), // Hélio-3 (azul-gelo)
   evolucao: new THREE.Color('#a58bff'), // plataforma da Evolução (violeta)
   loja: new THREE.Color('#ff6fd8'), // plataforma da Loja (magenta)
+  ouro: new THREE.Color('#ffd166'), // plataforma de ouro disponível (o --ouro do HUD)
   regeneracao: new THREE.Color('#7dff9a'), // anel de pouso da base, onde a nave se regenera (o verde do suporte)
   poeira: new THREE.Color('#e9f3ea'), // gotículas do lago
 };
@@ -167,6 +168,18 @@ const CORTINA_BASE = { ...CORTINA_SERVICO, raio: 70.3, altura: CORTINA_SERVICO.a
 const FAGULHAS_BASE = { ...FAGULHAS_SERVICO, n: 180, altura: FAGULHAS_SERVICO.altura / 2 };
 const BRILHO_AGUA_BASE = { ...BRILHO_AGUA_SERVICO, raio: 100 };
 const BASE_PERTO = 110;
+/**
+ * Plataforma de ouro (P0/P1) disponível (estado 'ativo'): o mesmo jeito da Loja, em
+ * dourado (CORES.ouro), com a cortina no dobro da altura da dos serviços (pedido do
+ * Mateus), o holograma (lingote e "OURO") acima dela e, com qualquer nave a menos de
+ * SERVICO_PERTO m (qualquer time pousa), "Pouse e ganhe ouro · L". Fora de 'ativo'
+ * (espera e recarga) tudo some em uns OURO_APAGA_S e a plataforma fica só com o âmbar.
+ */
+const CORTINA_OURO = { ...CORTINA_SERVICO, raio: 32.3, altura: CORTINA_SERVICO.altura * 2, riscos: 50 };
+const FAGULHAS_OURO = { ...FAGULHAS_SERVICO, n: 84, altura: FAGULHAS_SERVICO.altura * 2 };
+const BRILHO_AGUA_OURO = { ...BRILHO_AGUA_SERVICO, raio: 50 };
+const HOLO_OURO_ALTURA = HOLO_SERVICO.altura + CORTINA_OURO.altura - CORTINA_SERVICO.altura;
+const OURO_APAGA_S = 0.6;
 
 function mulberry32(a) {
   return () => {
@@ -403,12 +416,24 @@ function traco(g, mat, x, y, z, larg, prof, ang = 0) {
 
 /**
  * Desenha o ícone do serviço no canvas, centrado em (cx, cy) com meia largura `r`: a
- * Loja é a moeda (anel com o anel de dentro e o traço, como a marca no deque) e a
- * Evolução, duas setas para cima. A forma separa os dois, não só a cor.
+ * Loja é a moeda (anel com o anel de dentro e o traço, como a marca no deque), a
+ * Evolução, duas setas para cima, e a plataforma de ouro, um lingote. A forma separa
+ * os três, não só a cor.
  */
 function iconeServico(ctx, servico, cx, cy, r) {
   ctx.beginPath();
-  if (servico === 'loja') {
+  if (servico === 'ouro') {
+    // Lingote visto de frente e de cima: a face da frente (trapézio) e o topo.
+    ctx.moveTo(cx - r, cy + r * 0.55);
+    ctx.lineTo(cx + r, cy + r * 0.55);
+    ctx.lineTo(cx + r * 0.62, cy - r * 0.1);
+    ctx.lineTo(cx - r * 0.62, cy - r * 0.1);
+    ctx.closePath();
+    ctx.moveTo(cx - r * 0.62, cy - r * 0.1);
+    ctx.lineTo(cx - r * 0.38, cy - r * 0.55);
+    ctx.lineTo(cx + r * 0.38, cy - r * 0.55);
+    ctx.lineTo(cx + r * 0.62, cy - r * 0.1);
+  } else if (servico === 'loja') {
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.moveTo(cx + r * 0.62, cy);
     ctx.arc(cx, cy, r * 0.62, 0, Math.PI * 2);
@@ -437,17 +462,18 @@ function texturaHolograma(servico, cor) {
   ctx.lineCap = ctx.lineJoin = 'round';
   iconeServico(ctx, servico, 256, 190, 120);
   ctx.strokeStyle = 'rgba(8, 10, 18, 0.7)';
-  ctx.lineWidth = servico === 'loja' ? 34 : 40;
+  const fino = servico !== 'evolucao';
+  ctx.lineWidth = fino ? 34 : 40;
   ctx.stroke();
   ctx.shadowColor = css;
   ctx.shadowBlur = 28;
   ctx.strokeStyle = clara;
-  ctx.lineWidth = servico === 'loja' ? 20 : 26;
+  ctx.lineWidth = fino ? 20 : 26;
   ctx.stroke();
   ctx.font = 'bold 96px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const nome = servico === 'evolucao' ? 'EVOLUÇÃO' : 'LOJA';
+  const nome = { evolucao: 'EVOLUÇÃO', loja: 'LOJA', ouro: 'OURO' }[servico];
   ctx.shadowBlur = 0;
   ctx.lineWidth = 14;
   ctx.strokeStyle = 'rgba(8, 10, 18, 0.75)';
@@ -463,18 +489,24 @@ function texturaHolograma(servico, cor) {
   return tex;
 }
 
-/** Textura da linha "Pouse aqui · L" que aparece embaixo do holograma com a sua nave perto. */
-function texturaPouseAqui(cor) {
+/**
+ * Textura da linha "Pouse aqui · L" (ou outro `texto` antes do L) que aparece embaixo
+ * do holograma com a sua nave perto. O canvas tem 96 de altura e cresce na largura
+ * com o texto (512 no mínimo): a Sprite usa `c.width / c.height` para não esticar.
+ */
+function texturaPouseAqui(cor, texto = 'Pouse aqui ·') {
   const c = document.createElement('canvas');
-  c.width = 512;
+  const fonte = 'bold 54px system-ui, sans-serif';
+  const medir = c.getContext('2d');
+  medir.font = fonte;
+  const larg = medir.measureText(texto).width;
+  c.width = Math.max(512, Math.ceil(larg + 76 + 48));
   c.height = 96;
   const ctx = c.getContext('2d');
   const clara = `#${cor.clone().lerp(new THREE.Color('#ffffff'), 0.6).getHexString()}`;
-  ctx.font = 'bold 54px system-ui, sans-serif';
+  ctx.font = fonte;
   ctx.textBaseline = 'middle';
-  const texto = 'Pouse aqui ·';
-  const larg = ctx.measureText(texto).width;
-  const x0 = (512 - (larg + 76)) / 2;
+  const x0 = (c.width - (larg + 76)) / 2;
   ctx.lineWidth = 10;
   ctx.lineJoin = 'round';
   ctx.strokeStyle = 'rgba(8, 10, 18, 0.75)';
@@ -618,41 +650,49 @@ function brilhoAguaServico(cor, cfg = BRILHO_AGUA_SERVICO) {
  * frente para a câmera) e, embaixo, o "Pouse aqui · L", que só aparece com a sua nave
  * perto. Os dois sem neblina, para o holograma ler de longe.
  */
-function hologramaServico(servico, cor) {
+function hologramaServico(servico, cor, textoPouse) {
   const g = new THREE.Group();
   const l = HOLO_SERVICO.largura;
   const holo = new THREE.Sprite(new THREE.SpriteMaterial({ map: texturaHolograma(servico, cor), transparent: true, depthWrite: false, fog: false }));
   holo.scale.set(l, l, 1);
-  const pouse = new THREE.Sprite(new THREE.SpriteMaterial({ map: texturaPouseAqui(cor), transparent: true, depthWrite: false, fog: false, opacity: 0 }));
-  pouse.scale.set(l, (l * 96) / 512, 1);
+  const texPouse = texturaPouseAqui(cor, textoPouse);
+  const pouse = new THREE.Sprite(new THREE.SpriteMaterial({ map: texPouse, transparent: true, depthWrite: false, fog: false, opacity: 0 }));
+  pouse.scale.set((l * texPouse.image.width) / 512, (l * 96) / 512, 1);
   pouse.position.y = -l * 0.62;
   g.add(holo, pouse);
   return { grupo: g, holo, pouse };
 }
 
 /**
- * Plataforma de serviço (ou o anel de pouso da base) a cada quadro: a `forca` anda para
- * 1 com a sua nave a menos de `sv.perto` m da sua plataforma (fica em 0 longe e nas do
- * outro time), acendendo a cortina, as fagulhas, o brilho na água e o neon do aro e
- * mostrando o "Pouse aqui · L"; o holograma boia, pisca de leve e cresce com a
- * distância para ler de longe. O anel da base não tem holograma nem neon próprio (o
- * neon dele é o do time, do mapa inteiro).
+ * Plataforma de serviço (ou o anel de pouso da base, ou a plataforma de ouro) a cada
+ * quadro: a `forca` anda para 1 com a sua nave a menos de `sv.perto` m da plataforma
+ * (fica em 0 longe e nas do outro time), acendendo a cortina, as fagulhas, o brilho na
+ * água e o neon do aro e mostrando o "Pouse aqui · L"; o holograma boia, pisca de leve
+ * e cresce com a distância para ler de longe. O anel da base não tem holograma nem
+ * neon próprio (o neon dele é o do time, do mapa inteiro). Com `disponivel` false (a
+ * plataforma de ouro fora de 'ativo'), `ligado` cai a 0 e tudo some (`grupo` escondido).
  */
 function atualizarServico(sv, dt, foco) {
   const d = Math.hypot(foco.x - sv.x, foco.z - sv.z);
   const alvo = sv.meu && d < sv.perto ? 1 : 0;
   sv.forca += (alvo - sv.forca) * (1 - Math.exp(-10 * dt));
-  const k = CORTINA_SERVICO.longe + (CORTINA_SERVICO.perto - CORTINA_SERVICO.longe) * sv.forca;
+  if (sv.ligado !== undefined) {
+    const passo = dt / OURO_APAGA_S;
+    sv.ligado = sv.disponivel ? Math.min(1, sv.ligado + passo) : Math.max(0, sv.ligado - passo);
+    sv.grupo.visible = sv.ligado > 0;
+  }
+  const ligado = sv.ligado ?? 1;
+  const k = (CORTINA_SERVICO.longe + (CORTINA_SERVICO.perto - CORTINA_SERVICO.longe) * sv.forca) * ligado;
   for (const u of sv.uniformes) u.value = k;
   if (!sv.holo) return;
   const t = TEMPO_AGUA.value;
-  sv.neon.emissiveIntensity = 0.8 + 0.3 * sv.forca + 0.1 * Math.sin(t * 2.2 + sv.fase);
+  if (sv.neon) sv.neon.emissiveIntensity = 0.8 + 0.3 * sv.forca + 0.1 * Math.sin(t * 2.2 + sv.fase);
   const h = sv.holo;
-  h.grupo.position.y = sv.y + HOLO_SERVICO.altura + Math.sin(t * 1.3 + sv.fase) * HOLO_SERVICO.boia;
+  h.grupo.position.y = sv.y + (sv.alturaHolo ?? HOLO_SERVICO.altura) + Math.sin(t * 1.3 + sv.fase) * HOLO_SERVICO.boia;
   h.grupo.scale.setScalar(Math.min(HOLO_SERVICO.escalaMax, Math.max(1, d / HOLO_SERVICO.distRef)));
   const pisca = Math.sin(t * 17 + sv.fase) * Math.sin(t * 3.1) > 0.92 ? 0.3 : 0;
-  h.holo.material.opacity = 0.85 + 0.15 * sv.forca - pisca;
-  h.pouse.material.opacity = sv.forca;
+  h.holo.material.opacity = (0.85 + 0.15 * sv.forca - pisca) * ligado;
+  h.pouse.material.opacity = sv.forca * ligado;
 }
 
 /** Membrana do portal: redemoinho aditivo na cor do time (troca o portal_time do glb). */
@@ -1000,7 +1040,11 @@ function montarTorres(g) {
   return torres;
 }
 
-/** Plataformas de pouso de ouro (P0/P1): deque âmbar e o feixe com alguém pousado. */
+/**
+ * Plataformas de pouso de ouro (P0/P1): deque âmbar, o feixe com alguém pousado e, com
+ * ela disponível, o holograma, a cortina dourada e as fagulhas (CORTINA_OURO), que
+ * apagam fora de 'ativo' (`sv.disponivel`, em definirObjetivo).
+ */
 function montarPlataformas(g) {
   const plats = new Map();
   for (const p of PLATAFORMAS_POUSO) {
@@ -1013,7 +1057,25 @@ function montarPlataformas(g) {
     feixe.position.set(p.x, y + FEIXE_PLATAFORMA.base, p.z);
     feixe.visible = false;
     g.add(feixe);
-    plats.set(p.id, { m, ambar, feixe, estado: 'espera', quem: null, contestado: false });
+    const fase = p.time === 0 ? 0.9 : 2.3;
+    const grupo = new THREE.Group();
+    grupo.visible = false;
+    const holo = hologramaServico('ouro', CORES.ouro, 'Pouse e ganhe ouro ·');
+    holo.grupo.position.set(p.x, y + HOLO_OURO_ALTURA, p.z);
+    const cortina = cortinaServico(CORES.ouro, fase, CORTINA_OURO);
+    cortina.position.set(p.x, y, p.z);
+    const fagulhas = fagulhasServico(CORES.ouro, fase, CORTINA_OURO, FAGULHAS_OURO);
+    fagulhas.position.set(p.x, y, p.z);
+    const brilho = brilhoAguaServico(CORES.ouro, BRILHO_AGUA_OURO);
+    brilho.position.set(p.x, NIVEL_AGUA + BRILHO_AGUA_OURO.acima, p.z);
+    grupo.add(holo.grupo, cortina, fagulhas, brilho);
+    g.add(grupo);
+    const sv = {
+      x: p.x, z: p.z, y, fase, meu: true, perto: SERVICO_PERTO, forca: 0, holo, alturaHolo: HOLO_OURO_ALTURA,
+      grupo, ligado: 0, disponivel: false,
+      uniformes: [cortina.material.uniforms.uForca, fagulhas.material.uniforms.uForca, brilho.material.uniforms.uForca],
+    };
+    plats.set(p.id, { m, ambar, feixe, sv, estado: 'espera', quem: null, contestado: false });
   }
   return plats;
 }
@@ -1251,6 +1313,7 @@ export function criarCena({ meuTime = 0 } = {}) {
 
     // Plataformas: feixe com alguém pousado (contestado pisca); acesa e livre, o âmbar pulsa.
     for (const pl of plataformas.values()) {
+      atualizarServico(pl.sv, dt, foco);
       if (pl.feixe.visible) pl.feixe.material.opacity = pl.contestado ? (Math.sin(tempo * 14) > 0 ? 0.4 : 0.1) : 0.24 + 0.08 * Math.sin(tempo * 5);
       else if (pl.estado === 'ativo') pl.ambar.emissiveIntensity = 0.75 + 0.25 * Math.sin(tempo * 2.4);
     }
@@ -1304,6 +1367,7 @@ export function criarCena({ meuTime = 0 } = {}) {
       p.estado = r.estado;
       p.quem = r.quem ?? null;
       p.contestado = !!r.contestado;
+      p.sv.disponivel = r.estado === 'ativo';
       p.feixe.visible = r.estado === 'ativo' && r.quem != null;
       if (p.feixe.visible) p.feixe.material.color.copy(p.contestado ? CORES.objetivo : r.quem === meuTime ? CORES.neon : CORES.perigo);
       p.ambar.emissiveIntensity = r.estado === 'ativo' ? OBJ_ACESO : OBJ_APAGADO;
