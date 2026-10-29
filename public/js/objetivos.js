@@ -44,7 +44,7 @@ export const LUGARES_OBJETIVO = [
 /** Nome curto de cada tipo de objetivo (rótulo, notícias e HUD). */
 export const NOME_OBJETIVO = {
   ataque: 'SN-4',
-  suporte: 'Torre de suporte',
+  suporte: 'Torre de comunicação',
   plataforma: 'Plataforma de ouro',
   sonda: 'Sonda errante',
   medusa: 'Medusa Anciã',

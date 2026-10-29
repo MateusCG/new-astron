@@ -180,7 +180,7 @@ const MOTIVO_RECALL = {
 // O que cada objetivo dá a quem o toma, para a notícia (números de server/bonus.js e server/objetivos.js).
 const GANHO_OBJETIVO = {
   ataque: ['derrotou o SN-4', 'bônus de ataque (+20% de dano)'],
-  suporte: ['derrubou a torre de suporte', 'bônus de suporte (vida e energia)'],
+  suporte: ['derrubou a torre de comunicação', 'bônus de suporte (vida e energia)'],
   sonda: ['destruiu a sonda errante', 'bônus de velocidade (+25%)'],
   medusa: ['derrotou a Medusa Anciã', 'o time ganha +15% de dano e de velocidade'],
   nucleo: ['tomou o Núcleo de He-3', 'onda de mineradores do Núcleo'],
