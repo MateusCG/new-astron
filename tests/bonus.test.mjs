@@ -62,7 +62,7 @@ test('bônus: de time e de nave, com renovar, snapshot, evento e limpar', () => 
   assert.deepEqual(b.paraNave(7, 0), {});
   assert.deepEqual(b.paraSnapshot(0), { 0: {}, 1: {} });
   assert.deepEqual(BONUS_NAVE.ataque, { dano: 1.2, s: 90 });
-  assert.deepEqual(BONUS_NAVE.suporte, { hpFrac: 0.02, en: 4, s: 90 });
+  assert.deepEqual(BONUS_NAVE.suporte, { hpFrac: 0.02, en: 13, s: 90 });
   assert.deepEqual(BONUS_NAVE.sonda, { vel: 1.25, s: 40 });
   assert.deepEqual(BONUS.medusa, { dano: 1.15, vel: 1.15, s: 120 });
 });
@@ -137,14 +137,14 @@ test('bônus: medusa dá +15% de velocidade ao time inteiro, junto com a sonda',
   assert.equal(b.ship.velMult, base.b, 'o outro time não');
 });
 
-test('bônus: suporte soma +4 de energia por s no regenEn do me e +2% do HP máximo por s', () => {
+test('bônus: suporte soma +13 de energia por s no regenEn do me e +2% do HP máximo por s', () => {
   const { w, a } = mundo();
   colocar(a, CAMPO.x, CAMPO.z);
   const regen = a.ship.regenEn;
   const hpVoo = a.ship.regenHpVoo;
   w.bonus.ativarNave(a.id, 'suporte', 90, w.tick);
   w.step();
-  assert.equal(w.snapshotPara(a, [], []).me.regenEn, regen + 4);
+  assert.equal(w.snapshotPara(a, [], []).me.regenEn, regen + 13);
   a.ship.hp = a.ship.maxHp / 2;
   const antes = a.ship.hp;
   for (let i = 0; i < 2 * SEGUNDO; i++) w.step();

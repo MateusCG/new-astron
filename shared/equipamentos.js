@@ -23,7 +23,7 @@
 // - HP, escudo e as regenerações de escudo e de HP × FATOR_ESCALA_HP (1: os números
 //   do original, como as naves; a Op. Argon Armor V7 dá +342 de HP, o Op. Neutron
 //   Shield V7 1369 de escudo e 8,0 por s); o que é "por ms" no original × 1000 = por s.
-// - Energia máxima × FATOR_ENERGIA (0,3); regeneração de energia por ms × 1000 ×
+// - Energia máxima × FATOR_ENERGIA (1: a do original); regeneração de energia por ms × 1000 ×
 //   FATOR_ENERGIA ÷ FATOR_RECARGA, a mesma conta da regeneração das naves (as recargas
 //   das armas são × 0,5, então quem regenera acompanha o que as armas gastam).
 // - Resistência em pontos (escudo e armadura) × RESIST_POR_PONTO_EQUIP (0,01: 38 pontos
@@ -48,7 +48,7 @@ export { NIVEL_ITEM_MAX, RESIST_MAX };
 export const FATOR_HP_EQUIP = FATOR_ESCALA_HP; // 1: HP a mais, escudo máximo
 export const FATOR_REGEN_HP_EQUIP = MS_POR_S * FATOR_ESCALA_HP; // por ms do original → HP (ou escudo) por s
 export const RESIST_POR_PONTO_EQUIP = 0.01; // resistência e penetração em pontos → fração (38 = 38%)
-export const FATOR_ENERGIA_EQUIP = FATOR_ENERGIA; // 0,3: energia máxima a mais
+export const FATOR_ENERGIA_EQUIP = FATOR_ENERGIA; // 1: energia máxima a mais
 export const FATOR_REGEN_EN_EQUIP = (MS_POR_S * FATOR_ENERGIA) / FATOR_RECARGA; // por ms do original → energia por s
 export const FATOR_PCT = 0.01; // % do original → fração
 export const ARREDONDA_OURO = 10; // preços de 10 em 10

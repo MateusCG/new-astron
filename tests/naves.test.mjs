@@ -84,17 +84,17 @@ test('naves: 45 naves, cinco por raça e classe, níveis 1/5/10/15/20 e modelo n
   assert.equal(PRECO_POR_TIER[0], 0, 'a primeira é de fábrica');
 });
 
-test('naves: conversão do original (HP igual, energia ×0,3, regen ×0,6, velocidade ×0,5 em m/s)', () => {
+test('naves: conversão do original (HP e energia iguais, regen de energia ×2, velocidade ×0,5 em m/s)', () => {
   const warrior = naveDe('acron', 'assault', 0);
   assert.equal(warrior.nome, 'Warrior');
   assert.equal(warrior.hp, 850); // o do original
-  assert.equal(warrior.energia, 27); // 90 × 0,3
-  assert.equal(warrior.regenEnergia, 9.4); // 0,0156/ms × 1000 × 0,3 / 0,5
+  assert.equal(warrior.energia, 90); // o do original
+  assert.equal(warrior.regenEnergia, 31.2); // 0,0156/ms × 1000 / 0,5
   assert.equal(warrior.velocidade, 55.6); // 0,1111 m/ms = 111 m/s, × 0,5
   assert.equal(warrior.regenHpPousada, 20); // 0,02 HP/ms = 20 HP/s
   assert.equal(warrior.regenHpVoo, 0);
-  assert.equal(naveDe('acron', 'functional', 0).energia, 54);
-  assert.equal(naveDe('acron', 'assault', 4).energia, 132);
+  assert.equal(naveDe('acron', 'functional', 0).energia, 180);
+  assert.equal(naveDe('acron', 'assault', 4).energia, 441);
   assert.equal(naveDe('acron', 'functional', 0).nome, 'Esper');
   assert.equal(naveDe('acron', 'assault', 4).nome, 'Ulysses');
   assert.equal(naveDe('shrewdo', 'mobile', 0).id, 'speed-wing');

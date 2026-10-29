@@ -84,7 +84,7 @@ export const PRECO_POR_TIER = [0, 200, 400, 650, 900];
 
 export const FATOR_ESCALA_HP = 1; // HP e dano do original, iguais (era 0,2: ÷5)
 export const MS_POR_S = 1000; // tempos do original são em ms (regenerações por ms, velocidade em m/ms)
-export const FATOR_ENERGIA = 0.3; // energia máxima (e custo das armas) do original
+export const FATOR_ENERGIA = 1; // energia máxima (e custo das armas): a do original (era 0,3)
 export const FATOR_RECARGA = 0.5; // recarga das armas do original (entra na regeneração de energia)
 export const FATOR_VELOCIDADE = 0.5; // velocidade (e alcance das armas) do original, em m/s
 export const FATOR_TAMANHO_NAVE = 0.5; // modelo e raio da nave do original (m), como o alcance

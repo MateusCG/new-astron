@@ -14,7 +14,7 @@
 // - Energia: por ponto, a energia fixa da raça e classe (HE) mais HE_PCT (3%) da
 //   energia BASE da nave, tudo × FATOR_ENERGIA (a energia base que entra já é a do
 //   jogo, então só a parte fixa é convertida). No original, Shrewdo Functional com
-//   energia base 450 e 50 pontos ganha 50 × (14 + 0,03 × 450) = 1375; aqui, 1375 × 0,3.
+//   energia base 450 e 50 pontos ganha 50 × (14 + 0,03 × 450) = 1375; aqui, o mesmo.
 // - Regeneração de energia: 0,0001 por ms por ponto no original (+0,1/s), com a conta
 //   da regeneração das naves (× 1000 × FATOR_ENERGIA ÷ FATOR_RECARGA).
 // - Durabilidade: a mesma conta da Energia com as linhas de HP da tabela: por ponto,

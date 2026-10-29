@@ -99,15 +99,15 @@ test('pontos: números conferidos com os prints (Shrewdo Functional)', () => {
   perto(efeitoDosPontos('shrewdo', 'functional', { eletrico: 30 }).poder.eletrico, 0.78);
   perto(efeitoDosPontos('shrewdo', 'functional', { eletrico: 31 }).poder.eletrico, 0.806);
   // Energia 50 pontos com energia base 450: +1375 no original (50 × (14 + 0,03 × 450)), regen +5,0/s.
-  // No jogo a energia base já vem × 0,3 (135) e o resultado também: 1375 × 0,3.
-  const e = efeitoDosPontos('shrewdo', 'functional', { energia: 50 }, 450 * 0.3);
-  perto(e.energia, 1375 * 0.3);
-  perto(e.regenEn, 5.0 * 0.3 / 0.5);
+  // No jogo a energia é a do original; a regen ÷ 0,5 (as armas recarregam no dobro do ritmo).
+  const e = efeitoDosPontos('shrewdo', 'functional', { energia: 50 }, 450);
+  perto(e.energia, 1375);
+  perto(e.regenEn, 5.0 / 0.5);
   // Raça ou classe sem tabela: ponto não vale nada.
   assert.deepEqual(efeitoDosPontos('mechan', 'assault', { energia: 50, laser: 50 }, 100), { hp: 0, regenHp: 0, energia: 0, regenEn: 0, poder: { fisico: 0, laser: 0, eletrico: 0 } });
   // A energia base em % usa a nave do piloto (naves.js).
   const nave = naveDe('acron', 'assault', 0);
-  perto(efeitoDosPontos('acron', 'assault', { energia: 10 }, nave.energia).energia, 10 * (11 * 0.3 + 0.03 * nave.energia));
+  perto(efeitoDosPontos('acron', 'assault', { energia: 10 }, nave.energia).energia, 10 * (11 + 0.03 * nave.energia));
 });
 
 test('pontos: Durabilidade dá HP (Skill HP + 3% do HP base) e regeneração de HP, linear como no original', () => {

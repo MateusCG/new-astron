@@ -124,9 +124,9 @@ test('catálogo: oito versões por arma (V1 a V8), sem nível de piloto, com pre
   }
 });
 
-test('escala: a conversão do original (dano igual, energia × 0,3, recarga × 0,5, velocidade × 0,5, área × 0,25)', () => {
+test('escala: a conversão do original (dano e energia iguais, recarga × 0,5, velocidade × 0,5, área × 0,25)', () => {
   assert.equal(FATOR_DANO, 1);
-  assert.equal(FATOR_ENERGIA_ARMA, 0.3);
+  assert.equal(FATOR_ENERGIA_ARMA, 1);
   assert.equal(FATOR_RECARGA_ARMA, 0.5);
   assert.equal(FATOR_VEL, 0.5);
   assert.equal(FATOR_AREA, 0.25);
@@ -135,7 +135,7 @@ test('escala: a conversão do original (dano igual, energia × 0,3, recarga × 0
   const v = versaoArma(idx('311001'), 1);
   assert.equal(v.golpe.dano, 35);
   assert.equal(v.cd, 0.5);
-  assert.ok(Math.abs(v.energia - 2.4) < 1e-9);
+  assert.ok(Math.abs(v.energia - 8) < 1e-9);
   assert.equal(v.golpe.vel, 300);
   assert.equal(v.golpe.vida, 0.9);
   assert.deepEqual(v.golpe.tiros, [{ off: -1.25, ang: 0 }, { off: 1.25, ang: 0 }]);
