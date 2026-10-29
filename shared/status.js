@@ -14,7 +14,7 @@
 // - Energia: por ponto, a energia fixa da raça e classe (HE) mais HE_PCT (3%) da
 //   energia BASE da nave, tudo × FATOR_ENERGIA (a energia base que entra já é a do
 //   jogo, então só a parte fixa é convertida). No original, Shrewdo Functional com
-//   energia base 450 e 50 pontos ganha 50 × (14 + 0,03 × 450) = 1375; aqui, 1375 × 0,3.
+//   energia base 450 e 50 pontos ganha 50 × (14 + 0,03 × 450) = 1375; aqui, o mesmo.
 // - Regeneração de energia: 0,0001 por ms por ponto no original (+0,1/s), com a conta
 //   da regeneração das naves (× 1000 × FATOR_ENERGIA ÷ FATOR_RECARGA).
 // - Durabilidade: a mesma conta da Energia com as linhas de HP da tabela: por ponto,
@@ -35,7 +35,7 @@
 // - recarga: fração mais rápida (0,15 = 15%): a recarga da arma daquele tipo fica ×
 //   (1 − recarga) (multRecarga), até RECARGA_MAX;
 // - resist: fração do dano daquele tipo que a nave segura, já com o teto RESIST_MAX
-//   (pontos de escudo e armadura × RESIST_POR_PONTO mais o % dos potenciadores);
+//   (pontos de escudo e armadura × RESIST_POR_PONTO_EQUIP mais o % dos potenciadores);
 // - penetra: fração de resistência do alvo que o tiro daquele tipo ignora;
 // - critico: chance (0 a 1) de o golpe sair com dano dobrado (sorteio só no servidor);
 // - velMult e acelMult: multiplicadores (1 = sem mudança).

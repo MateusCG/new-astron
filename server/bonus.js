@@ -36,7 +36,7 @@ import { DT } from '../shared/sim.js';
  */
 export const BONUS_NAVE = {
   ataque: { dano: 1.2, s: 90 },
-  suporte: { hpFrac: 0.02, en: 4, s: 90 },
+  suporte: { hpFrac: 0.02, en: 13, s: 90 },
   sonda: { vel: 1.25, s: 40 },
 };
 /** Bônus de time: medusa = dano × `dano` e velocidade × `vel` das naves do time. */

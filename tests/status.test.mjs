@@ -99,15 +99,15 @@ test('pontos: números conferidos com os prints (Shrewdo Functional)', () => {
   perto(efeitoDosPontos('shrewdo', 'functional', { eletrico: 30 }).poder.eletrico, 0.78);
   perto(efeitoDosPontos('shrewdo', 'functional', { eletrico: 31 }).poder.eletrico, 0.806);
   // Energia 50 pontos com energia base 450: +1375 no original (50 × (14 + 0,03 × 450)), regen +5,0/s.
-  // No jogo a energia base já vem × 0,3 (135) e o resultado também: 1375 × 0,3.
-  const e = efeitoDosPontos('shrewdo', 'functional', { energia: 50 }, 450 * 0.3);
-  perto(e.energia, 1375 * 0.3);
-  perto(e.regenEn, 5.0 * 0.3 / 0.5);
+  // No jogo a energia é a do original; a regen ÷ 0,5 (as armas recarregam no dobro do ritmo).
+  const e = efeitoDosPontos('shrewdo', 'functional', { energia: 50 }, 450);
+  perto(e.energia, 1375);
+  perto(e.regenEn, 5.0 / 0.5);
   // Raça ou classe sem tabela: ponto não vale nada.
   assert.deepEqual(efeitoDosPontos('mechan', 'assault', { energia: 50, laser: 50 }, 100), { hp: 0, regenHp: 0, energia: 0, regenEn: 0, poder: { fisico: 0, laser: 0, eletrico: 0 } });
   // A energia base em % usa a nave do piloto (naves.js).
   const nave = naveDe('acron', 'assault', 0);
-  perto(efeitoDosPontos('acron', 'assault', { energia: 10 }, nave.energia).energia, 10 * (11 * 0.3 + 0.03 * nave.energia));
+  perto(efeitoDosPontos('acron', 'assault', { energia: 10 }, nave.energia).energia, 10 * (11 + 0.03 * nave.energia));
 });
 
 test('pontos: Durabilidade dá HP (Skill HP + 3% do HP base) e regeneração de HP, linear como no original', () => {
@@ -115,9 +115,9 @@ test('pontos: Durabilidade dá HP (Skill HP + 3% do HP base) e regeneração de 
   assert.deepEqual([t.hp, t.hpPct, t.regenHpMs], [40, 0.03, 0.0001]);
   const nave = naveDe('bellico', 'assault', 0);
   const um = efeitoDosPontos('bellico', 'assault', { durabilidade: 1 }, 0, nave.hp);
-  perto(um.hp, 40 * 0.2 + 0.03 * nave.hp);
-  // "Recovery +0,1" por ponto no original (0,0001/ms), na escala do HP do jogo (× 0,2).
-  perto(um.regenHp, 0.1 * 0.2);
+  perto(um.hp, 40 + 0.03 * nave.hp);
+  // "Recovery +0,1" por ponto no original (0,0001/ms), igual.
+  perto(um.regenHp, 0.1);
   const dois = efeitoDosPontos('bellico', 'assault', { durabilidade: 2 }, 0, nave.hp);
   perto(dois.hp, 2 * um.hp);
   perto(dois.regenHp, 2 * um.regenHp);
@@ -139,18 +139,18 @@ test('status: soma pontos, escudo, armadura e os dois potenciadores num objeto s
     energiaBase: 45,
   });
   assert.deepEqual(Object.keys(st).sort(), Object.keys(statusVazio()).sort());
-  perto(st.maxEscudo, 273.8);
-  perto(st.regenEscudo, 1.6);
-  perto(st.hpExtra, 68.4);
+  perto(st.maxEscudo, 1369);
+  perto(st.regenEscudo, 8);
+  perto(st.hpExtra, 342);
   // Op.: 10 pontos × 2,4% + 20% do Reforço V7.
   perto(st.poder.laser, 0.24 + 0.2);
   perto(st.poder.fisico, 0);
   // Recarga Op.: 15% do Reforço + 8% do Potenciador de Recarga Op. V1 (os dois somam).
   perto(st.recarga.laser, 0.23);
   perto(multRecarga(st.recarga.laser), 0.77);
-  // Resistência Op.: escudo 6 pts + armadura 38 pts (× 0,005) + 22% do Reforço.
-  perto(st.resist.laser, 0.03 + 0.19 + 0.22);
-  perto(st.resist.fisico, 0.05);
+  // Resistência Op.: escudo 6 pts + armadura 38 pts (× 0,01) + 22% do Reforço.
+  perto(st.resist.laser, 0.06 + 0.38 + 0.22);
+  perto(st.resist.fisico, 0.1);
   assert.equal(st.critico, 0);
   assert.equal(st.velMult, 1);
   assert.equal(st.acelMult, 1);

@@ -249,10 +249,10 @@ test('teleporte: o evento vai ao time de quem saltou; o outro time só recebe se
 });
 
 test('teleporte: custa energia como no original, mais caro com o nível e com a diferença de nível', () => {
-  // 0,3 × (100 × (1 + nível/30) + 10 × |diferença|): a energia do original na escala do jogo.
-  assert.ok(Math.abs(custoTeleporte(1, 1) - 0.3 * (100 * (1 + 1 / 30))) < 1e-9);
-  assert.ok(Math.abs(custoTeleporte(15, 15) - 45) < 1e-9, 'nível 15, mesmo nível: 0,3 × 150');
-  assert.ok(Math.abs(custoTeleporte(15, 5) - 75) < 1e-9, '10 níveis de diferença: +30');
+  // 100 × (1 + nível/30) + 10 × |diferença|: a energia do original.
+  assert.ok(Math.abs(custoTeleporte(1, 1) - 100 * (1 + 1 / 30)) < 1e-9);
+  assert.ok(Math.abs(custoTeleporte(15, 15) - 150) < 1e-9, 'nível 15, mesmo nível: 150');
+  assert.ok(Math.abs(custoTeleporte(15, 5) - 250) < 1e-9, '10 níveis de diferença: +100');
   assert.ok(Math.abs(custoTeleporte(5, 15) - custoTeleporte(5, -5)) < 1e-9, 'para cima ou para baixo, mesma conta');
   assert.ok(custoTeleporte(25, 25) > custoTeleporte(1, 1), 'quem tem nível alto paga mais');
 });

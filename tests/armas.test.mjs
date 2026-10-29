@@ -124,18 +124,18 @@ test('catálogo: oito versões por arma (V1 a V8), sem nível de piloto, com pre
   }
 });
 
-test('escala: a conversão do original (dano ÷ 5, energia × 0,3, recarga × 0,5, velocidade × 0,5, área × 0,25)', () => {
-  assert.equal(FATOR_DANO, 0.2);
-  assert.equal(FATOR_ENERGIA_ARMA, 0.3);
+test('escala: a conversão do original (dano e energia iguais, recarga × 0,5, velocidade × 0,5, área × 0,25)', () => {
+  assert.equal(FATOR_DANO, 1);
+  assert.equal(FATOR_ENERGIA_ARMA, 1);
   assert.equal(FATOR_RECARGA_ARMA, 0.5);
   assert.equal(FATOR_VEL, 0.5);
   assert.equal(FATOR_AREA, 0.25);
   assert.equal(FATOR_OURO, 0.06);
   // Feixe Duplo V1 no original: 2 × 35 de dano, recarga 1000 ms, 8 de energia, 0,6 m/ms, vão de 10 m, 900 ms de vida.
   const v = versaoArma(idx('311001'), 1);
-  assert.equal(v.golpe.dano, 7);
+  assert.equal(v.golpe.dano, 35);
   assert.equal(v.cd, 0.5);
-  assert.ok(Math.abs(v.energia - 2.4) < 1e-9);
+  assert.ok(Math.abs(v.energia - 8) < 1e-9);
   assert.equal(v.golpe.vel, 300);
   assert.equal(v.golpe.vida, 0.9);
   assert.deepEqual(v.golpe.tiros, [{ off: -1.25, ang: 0 }, { off: 1.25, ang: 0 }]);
@@ -421,8 +421,8 @@ test('npc: drone e monstro atiram os tiros de NPC (fora do catálogo do jogador)
   assert.deepEqual(s.encaixes, [IDX_ARMA.laser, IDX_ARMA.plasma]);
   const d = stepShip(s, { ...PARADO, f1: true });
   assert.deepEqual(d.map((t) => t.kind), ['laser']);
-  assert.equal(WEAPONS.laser.dano, 12);
-  assert.equal(WEAPONS.plasma.dano, 42);
+  assert.equal(WEAPONS.laser.dano, 60);
+  assert.equal(WEAPONS.plasma.dano, 210);
   for (const race of RACAS_JOGAVEIS) for (const c of ORDEM_CLASSES) assert.ok(!armasDisponiveis(race, c).includes(IDX_ARMA.laser));
   assert.ok(NAVES.acron);
 });

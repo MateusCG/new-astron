@@ -352,13 +352,13 @@ function primeiroMissil(w, maxS = 3) {
   return null;
 }
 
-test('torretas: 1400 de HP no nível 1 e alcance de 560 m, o maior do jogo (o mesmo da visão delas)', () => {
+test('torretas: 7000 de HP no nível 1 e alcance de 560 m, o maior do jogo (o mesmo da visão delas)', () => {
   const { w } = mundo({ torretas: false });
-  assert.equal(TORRETA.hp, 1400);
+  assert.equal(TORRETA.hp, 7000);
   assert.equal(TORRETA.alcance, 560);
   assert.equal(TORRETA.alcance, VISAO_TORRETA);
-  assert.equal(w.torretas.hpMax(0), 1400);
-  assert.equal(torreta(w, 'T0-1').hp, 1400);
+  assert.equal(w.torretas.hpMax(0), 7000);
+  assert.equal(torreta(w, 'T0-1').hp, 7000);
   assert.ok(TORRETA.alcance > 548, 'mais que a Lâmina Giratória');
 });
 

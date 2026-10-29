@@ -95,7 +95,7 @@ export const MINERADOR = {
   maxAtivos: MINERADORES_POR_TIME, // por time, ao mesmo tempo (10; a Evolução soma)
   saidaS: 9, // entre uma saída e a seguinte enquanto há vaga (ciclo ~87 s / 10, para cima)
   intervaloS: 20, // da vaga aberta (minerador destruído) até sair o substituto
-  hp: 120,
+  hp: 600,
   velocidade: 30, // m/s (a nave de jogador mais lenta faz ~50)
   carga: 10, // minério por viagem
   mineracaoS: 5, // parado no depósito, carregando

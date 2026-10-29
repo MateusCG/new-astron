@@ -80,15 +80,15 @@ export const RACES = {
   mechan: { nome: 'Mechan', cor: 0xb15cff, bioma: 'Tóxico', bloqueada: true },
 };
 export const BOOST_MULT = 1.6;
-export const BOOST_GASTO = 14; // energia por segundo
-export const ENERGIA_REGEN = 9; // por segundo, sem boost (nave sem regenEn própria)
+export const BOOST_GASTO = 47; // energia por segundo
+export const ENERGIA_REGEN = 30; // por segundo, sem boost (nave sem regenEn própria)
 
 /**
  * Física de quem não é nave de jogador com classe (monstros da jungle, mineradores,
  * escoltas, e a raça sem naves): só a velocidade máxima conta para a IA deles (o
  * HP cada um põe o seu). Os números são os da raça Mechan de antes.
  */
-export const NAVE_SEM_CLASSE = { hp: 250, energia: 60, velocidade: 52.25 }; // velocidade em m/s
+export const NAVE_SEM_CLASSE = { hp: 1250, energia: 200, velocidade: 52.25 }; // velocidade em m/s
 
 // Armas: a nave tem DUAS, cada uma num encaixe (Z e X). Não existe arma principal
 // nem secundária: os dois encaixes são iguais e aceitam qualquer arma que a raça e a

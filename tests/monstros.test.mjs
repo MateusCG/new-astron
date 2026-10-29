@@ -293,8 +293,8 @@ test('monstros: o dano é 1/10 do original na escala das naves, e a Medusa bate 
   assert.equal(FATOR_DANO_M5, FATOR_DANO_MONSTRO);
   for (const esp of ['xerxes', 'great_xerxes', 'bazit', 'anti', 'sn4']) assert.equal(FATOR_DANO_ESPECIE[esp], FATOR_DANO_MONSTRO, esp);
   assert.equal(FATOR_DANO_ESPECIE.medusa, FATOR_ESCALA_HP);
-  assert.equal(ESPECIES.sn3.ataques[0].dano, 7.32, 'Disco Voador: 366 no original');
-  assert.equal(ESPECIES.medusa.ataques[2].dano, 266.6, 'Canhão de Pedra: 1333 no original');
+  assert.equal(ESPECIES.sn3.ataques[0].dano, 36.6, 'Disco Voador: 366 no original');
+  assert.equal(ESPECIES.medusa.ataques[2].dano, 1333, 'Canhão de Pedra: 1333 no original');
 });
 
 test('monstros: as armas de NPC do original ficam no fim do catálogo, fora das do jogador', () => {
@@ -446,12 +446,12 @@ test('Xerxes: o lança-chamas solta uma rajada de 8 bolas de fogo e deixa o Magm
   assert.equal(rajada.length, 8, '8 bolas de fogo por disparo');
   assert.ok(ev.some(([, e]) => e.e === 'acerto' && e.alvo === j.id && e.atq === 'lanca_chamas'), 'pegou');
   assert.ok(j.drenoTicks > 0 && j.drenoMagma, 'Magma no alvo');
-  assert.equal(j.drenoDps, WEAPONS.n511150.versoes[0].golpe.efeitos[0].dps, 'Magma na escala das armas do jogador (100 em 5 s × 0,2)');
+  assert.equal(j.drenoDps, WEAPONS.n511150.versoes[0].golpe.efeitos[0].dps, 'Magma na escala das armas do jogador (100 em 5 s)');
   // Só o alvo recebe a mensagem do Magma, com o valor e a duração.
   const deb = ev.map(([, e]) => e).find((e) => e.e === 'debuff' && e.para === j.id);
   assert.ok(deb, 'evento debuff');
   assert.equal(deb.ef, 'magma');
-  assert.equal(deb.v, 20);
+  assert.equal(deb.v, 100);
   assert.equal(deb.dur, 5);
   // Fora da chama, a vida continua caindo enquanto o Magma dura.
   m.ship.hp = 0;
