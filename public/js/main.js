@@ -552,11 +552,24 @@ function montarJogo(rede, boas, renderer, race, classe) {
     aoRecusar: (texto) => hud.noticia(texto, 'ruim'),
     signal: controles.parar.signal, // desliga junto com os controles ao sair
   });
+  // A Loja abre junto com o INVENTÁRIO (pedido do Mateus: comprar e já equipar,
+  // vender ou evoluir ao lado). Se a Loja abriu o INVENTÁRIO, fechar a Loja (decolar,
+  // ESC, botão) fecha ele também; aberto antes pelo piloto, ele fica.
+  let inventarioDaLoja = false;
   const painel = new PainelServicos({
     meuTime,
     enviar: (m) => rede.enviar(m),
     noticia: (texto, tipo) => hud.noticia(texto, tipo),
     signal: controles.parar.signal,
+    aoAbrir: (servico) => {
+      if (servico !== 'loja' || inventario.aberto) return;
+      inventario.abrir();
+      inventarioDaLoja = true;
+    },
+    aoFechar: () => {
+      if (inventarioDaLoja && inventario.aberto) inventario.fechar();
+      inventarioDaLoja = false;
+    },
   });
   // STATUS e INVENTÁRIO: janelas laterais, uma de cada vez (abrir uma fecha a outra).
   const status = new PainelStatus({
@@ -1509,6 +1522,11 @@ function montarJogo(rede, boas, renderer, race, classe) {
   function fecharPainel() {
     if (barraTime.fecharCaixa()) return true; // a caixinha do teleporte, antes de tudo
     if (inventario.fecharCaixa()) return true; // a caixinha do item fecha antes da janela
+    // O INVENTÁRIO que a Loja abriu fecha com ela, no mesmo ESC.
+    if (inventarioDaLoja && inventario.aberto && painel.aberto && !times.aberto) {
+      painel.fechar();
+      return true;
+    }
     for (const janela of [times, status, inventario]) {
       if (janela.aberto) {
         janela.fechar();

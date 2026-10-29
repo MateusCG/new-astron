@@ -26,8 +26,8 @@
 // A Loja só VENDE: o que se compra vira um objeto (instância na V1) no
 // COMPARTIMENTO do INVENTÁRIO (me.inv; no máximo me.compMax fora da nave), sem
 // equipar sozinho. Equipar, vender e evoluir cada objeto é no INVENTÁRIO (tecla I,
-// inventario.js), que dá para abrir com a Loja aberta (o painel encolhe para a
-// janela caber ao lado). Compartimento cheio: os cartões de comprar apagam
+// inventario.js), que abre junto com a Loja (pedido do Mateus: main.js, pelos
+// `aoAbrir`/`aoFechar` do painel; o painel encolhe para a janela caber ao lado). Compartimento cheio: os cartões de comprar apagam
 // ("COMPARTIMENTO CHEIO") e o servidor recusaria com 'cheio'.
 //
 // As abas "Escudos", "Armaduras" e "Potenciadores" mostram os itens do original à
@@ -148,12 +148,16 @@ function aoClicar(el, fn, signal) {
 export class PainelServicos {
   /**
    * @param {{ enviar: (msg: object) => void, noticia: (texto: string, tipo?: string) => void,
-   *   signal: AbortSignal, meuTime?: number }} opcoes
+   *   signal: AbortSignal, meuTime?: number, aoAbrir?: (servico: string) => void,
+   *   aoFechar?: (servico: string) => void }} opcoes
+   *   `aoAbrir`/`aoFechar`: o painel apareceu ou sumiu (a Loja abre o INVENTÁRIO junto).
    */
-  constructor({ enviar, noticia, signal, meuTime = 0 }) {
+  constructor({ enviar, noticia, signal, meuTime = 0, aoAbrir = () => {}, aoFechar = () => {} }) {
     this.meuTime = meuTime;
     this.enviar = enviar;
     this.noticia = noticia;
+    this.aoAbrir = aoAbrir;
+    this.aoFechar = aoFechar;
     this.el = document.querySelector('#servico');
     this.titulo = this.el.querySelector('h2');
     this.ouroEl = this.el.querySelector('.ouro b');
@@ -234,8 +238,10 @@ export class PainelServicos {
     if (this.servico !== servico) this.msg.textContent = '';
     this.servico = servico;
     this.el.dataset.servico = servico;
+    const estava = this.aberto;
     this.el.hidden = false;
     this.#desenhar(true);
+    if (!estava) this.aoAbrir(servico);
   }
 
   /**
@@ -243,7 +249,9 @@ export class PainelServicos {
    * com a nave ainda ali ele fica fechado até o Enter ou o toque na dica.
    */
   fechar() {
+    if (!this.aberto) return;
     this.el.hidden = true;
+    this.aoFechar(this.servico);
   }
 
   /** Enter ou toque na dica: abre de novo o painel da plataforma onde a nave está. */
