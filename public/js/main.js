@@ -126,7 +126,7 @@ import {
   definirArmas,
   bocaDaArma,
 } from './nave.js';
-import { Sons, SONS_INTERFACE, SONS_VOLTA } from './sons.js';
+import { Sons, SONS_INTERFACE, SONS_VOLTA, VOLUME_NIVEL } from './sons.js';
 import { PainelVolume } from './volume.js';
 import { Efeitos, COR_TIME } from './efeitos.js';
 import { Controles } from './controles.js';
@@ -652,14 +652,14 @@ function montarJogo(rede, boas, renderer, race, classe) {
   const outras = new Map(); // id -> { obj, drone, nome, race }
   const nomes = new Map(TORRETAS.map((t) => [t.id, 'Torreta'])); // "destruído por Torreta"
   // Subiu de nível ou evoluiu a nave (`forte`): a luz da raça subindo da nave de quem foi
-  // (efeitos.subirNivel) e o som LEVEL_UP, um som de interface (sem posição), de quem for
-  // a nave; o seu sempre toca. Na sua, o `texto` sobe da nave junto ("NÍVEL 5").
+  // (efeitos.subirNivel) e o som LEVEL_UP, um som de interface (sem posição, a VOLUME_NIVEL),
+  // de quem for a nave; o seu sempre toca. Na sua, o `texto` sobe da nave junto ("NÍVEL 5").
   function subidaDeNave(id, forte, texto) {
     const meu = id === meuId;
     const nave = meu ? minhaNave : outras.get(id)?.obj;
     const raca = meu ? race : outras.get(id)?.race;
     const tocou = nave?.visible && efeitos.subirNivel(nave, raca, forte);
-    if (tocou || meu) sons.tocarInterface(SONS_INTERFACE.nivel);
+    if (tocou || meu) sons.tocarInterface(SONS_INTERFACE.nivel, { volume: VOLUME_NIVEL });
     if (meu && nave?.visible) {
       const { x, y, z } = nave.position;
       hud.flutuante(x, y + (nave.userData.tamanho ?? 5) * 0.4, z, [{ txt: texto, classe: 'nivel' }], nave);

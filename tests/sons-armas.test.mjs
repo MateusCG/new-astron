@@ -12,6 +12,7 @@ import { World } from '../server/game.js';
 import {
   Sons,
   VOLUME_MUSICA_PADRAO,
+  VOLUME_NIVEL,
   SONS_INTERFACE,
   SONS_ARMA,
   ganhoPorDistancia,
@@ -193,6 +194,10 @@ test('sons.js: limita vozes por som e no total, e junta cópias simultâneas', a
   assert.equal(sons.vozes, 5);
   ctx.currentTime += 5;
   assert.equal(sons.vozes, 0, 'vozes que acabaram saem da conta');
+});
+
+test('sons.js: o som de subir de nível e de evoluir a nave toca 70% mais baixo', () => {
+  assert.equal(VOLUME_NIVEL, 0.3);
 });
 
 test('sons.js: voz controlada começa do ponto pedido, segue a posição e para; o atraso agenda', async () => {

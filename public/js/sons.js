@@ -76,6 +76,12 @@ export const SONS_INTERFACE = Object.freeze({
 });
 
 /**
+ * Volume do som de subir de nível e de evoluir a nave (`SONS_INTERFACE.nivel`): 70% mais
+ * baixo que o arquivo do original, que se sobressaía demais (pedido do Mateus, 29/out/2026).
+ */
+export const VOLUME_NIVEL = 0.3;
+
+/**
  * Volta à base e teleporte até o companheiro: sons nossos, gerados por tools/sons_volta.py
  * em cima da linha do tempo de volta-regras.js (a carga, que o jogo toca do ponto do
  * progresso; o cancelamento; a nave sumindo; a nave chegando, também no teleporte).
