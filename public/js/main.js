@@ -161,6 +161,9 @@ const SUBIR_CENA_FRAC = 0.21;
 // Diferença entre a predição e o servidor acima disso é salto (recall, renascimento),
 // não erro de predição: vai direto, sem suavizar, e a câmera acompanha na hora.
 const SALTO_M = 30;
+// Volta à base: o portal carregando (a sua, ao começar) e a nave sumindo e chegando.
+const SOM_CANAL = SONS_INTERFACE.voltaCanal;
+const SOM_VOLTA = SONS_INTERFACE.volta;
 // Por que a volta à base foi cancelada ou recusada (motivo do evento 'recall').
 const MOTIVO_RECALL = {
   cancelado: {
@@ -829,15 +832,31 @@ function montarJogo(rede, boas, renderer, race, classe) {
     ant.z -= dz;
   }
 
-  /** Volta à base (evento 'recall'): avisos para quem pediu, feixe de luz para todos. */
+  /**
+   * Volta à base (evento 'recall'): avisos para quem pediu e, para todos, a nave sugada
+   * pelo portal onde estava e condensando na base (efeitos.partidaRecall e chegadaRecall),
+   * com o som do teletransporte nas duas pontas. A nave dos outros chega INTERP_MS depois
+   * no desenho, e a chegada espera por ela.
+   */
   function eventoRecall(e) {
+    const meu = e.id === meuId;
     if (e.estado === 'chegou') {
-      const time = e.id === meuId ? meuTime : snaps.at(-1)?.ents.find((x) => x.id === e.id)?.time;
+      const time = meu ? meuTime : snaps.at(-1)?.ents.find((x) => x.id === e.id)?.time;
       const cor = time === meuTime ? COR_TIME.meu : COR_TIME.outro;
-      if (e.de) efeitos.feixeRecall(e.de.x, e.de.y, e.de.z, cor);
-      if (e.x !== undefined) efeitos.feixeRecall(e.x, e.y, e.z, cor); // névoa: a ponta escondida não vem
+      const obj = meu ? minhaNave : (outras.get(e.id)?.obj ?? null);
+      if (e.de) {
+        efeitos.partidaRecall(obj, e.de.x, e.de.y, e.de.z, cor);
+        if (!meu) somNoMundo(SOM_VOLTA, e.de.x, e.de.z);
+      }
+      if (e.x !== undefined) {
+        // Névoa: a ponta escondida não vem.
+        efeitos.chegadaRecall(obj, e.x, e.y, e.z, cor, meu ? 0 : INTERP_MS / 1000, meu);
+        if (meu) sons.tocarInterface(SOM_VOLTA);
+        else somNoMundo(SOM_VOLTA, e.x, e.z);
+      }
     }
-    if (e.id !== meuId) return;
+    if (!meu) return;
+    if (e.estado === 'inicio') sons.tocarInterface(SOM_CANAL, { volume: 0.7 });
     if (e.estado === 'chegou') saltoForcado = true; // mesmo curto (já estava perto da base), sem suavizar
     if (e.estado === 'inicio') hud.noticia(`Voltando à base em ${e.s} s · sem tiro, sem boost, quase parado`, 'bom');
     else if (e.estado === 'chegou' && !e.partida) hud.noticia('De volta à base', 'bom'); // no começo da partida, a notícia é a do 'partida'

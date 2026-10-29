@@ -9,9 +9,12 @@
 // no plano, na cor do time de quem usou; o pulso EMP é uma bola branco-elétrica, e
 // quem está sob EMP solta faíscas na mesma cor.
 //
-// Recall (volta à base): enquanto canaliza, a nave fica dentro de uma coluna de luz
-// na cor do time (relativa a quem olha) que se acende com o progresso, com anéis
-// subindo cada vez mais rápido; ao sumir e ao chegar, um feixe curto e um clarão.
+// Recall (volta à base): o portal de dobra (volta-regras.js e volta.js) na cor do time
+// (relativa a quem olha). Canalizando, o portal abre acima da nave, as lâminas da íris
+// acendem com o progresso, os fios de energia sobem e a nave acende em luz, com faíscas
+// subindo; ao voltar, onde ela estava, a nave vira luz e é sugada pelo portal, que fecha
+// num clarão; na base, o raio desce do céu e a nave se condensa. O teleporte até o
+// companheiro continua com o feixe curto (feixeRecall).
 //
 // Armas do Astro-N original (catálogo de shared/armas.js): o desenho de cada tiro,
 // clarão, impacto, área, nova e o decalque das minas e campos vêm de
@@ -70,6 +73,8 @@ import { ICONES_ESTADO, MAGMA_NA_NAVE } from './insumos.js';
 import { criarEfeitoOriginal, tocarEfeitoOriginal, soltarEfeitoOriginal, raioEfeitoOriginal, efeitoOriginalPronto, particulaOriginal } from './efeitos-original.js';
 import { criarSubida, desenharSubida, soltarSubida } from './subida.js';
 import { quadroSubida } from './subida-regras.js';
+import { criarVolta, soltarVolta, montarCasca, seguirCasca, desenharVolta, alturaPortal } from './volta.js';
+import { quadroCanal, quadroPartida, quadroChegada, VOLTA_APAGA_S, CASCO_ESCONDIDO_S } from './volta-regras.js';
 import { texturaEfeito } from './efeitos-armas.js';
 
 // Cores dos efeitos de arma (ver IDENTIDADE-VISUAL.md): o dreno é violeta e o
@@ -194,13 +199,18 @@ const COR_FX = {
 const FX_PARTICULA_S = 0.09;
 // Camuflagem: a nave (sua ou de aliado) fica fantasma, nesta opacidade.
 const FANTASMA_OPACIDADE = 0.28;
-// Recall: coluna de luz em volta da nave canalizando (raio e altura em m), anéis
-// subindo (quantos e quanto sobem) e o feixe da partida/chegada (duração em s).
-const RECALL_COLUNA_RAIO = 6;
-const RECALL_COLUNA_ALTURA = 46;
-const RECALL_ANEIS = 3;
-const RECALL_ANEL_SOBE = 22;
-const RECALL_FEIXE_S = 0.7;
+// Teleporte até o companheiro: o feixe curto na saída e na chegada (raio e altura em m,
+// duração em s).
+const TELEPORTE_FEIXE_RAIO = 6;
+const TELEPORTE_FEIXE_ALTURA = 46;
+const TELEPORTE_FEIXE_S = 0.7;
+// Volta à base (volta.js): logo depois da volta, o progresso que ainda chega da nave (o
+// desenho dos outros vem INTERP_MS atrás) não reabre o portal; nave sem tamanho (m);
+// faíscas subindo da nave canalizando (s entre uma e outra no começo e no fim, duração).
+const VOLTA_IGNORA_S = 0.4;
+const VOLTA_CORPO_PADRAO = 5;
+const VOLTA_FAISCA_S = [0.16, 0.05];
+const VOLTA_FAISCA_DUR = 0.7;
 // Quantos de cada efeito passageiro já nascem prontos na tela de carregamento (a
 // reserva cresce sozinha se a partida pedir mais). Uma briga de 6 naves com mísseis
 // passa de cem faíscas e baforadas de fumaça ao mesmo tempo.
@@ -271,7 +281,7 @@ export class Efeitos {
     this.matsPorCor.clear();
     for (const g of this.geoPulso.values()) g.dispose();
     this.geoPulso.clear();
-    for (const r of [this.geoMina, this.geoEspinho, this.geoLuzMina, this.matMina, this.geoMissil, this.geoNarizMissil, this.matMissil, this.geoAnel, this.geoColuna, this.geoAnelRecall, this.geoCascaPulso]) {
+    for (const r of [this.geoMina, this.geoEspinho, this.geoLuzMina, this.matMina, this.geoMissil, this.geoNarizMissil, this.matMissil, this.geoAnel, this.geoColuna, this.geoCascaPulso]) {
       r.dispose();
     }
   }
@@ -301,6 +311,15 @@ export class Efeitos {
       this.#devolver(s.clarao);
     }
     this.subidas = [];
+    for (const c of this.canais.values()) soltarVolta(c.desenho);
+    this.canais.clear();
+    for (const v of this.voltas) {
+      soltarVolta(v.desenho);
+      this.#devolver(v.clarao);
+    }
+    this.voltas = [];
+    for (const obj of this.ocultos) if (obj.userData.casco) obj.userData.casco.visible = true;
+    this.ocultos.clear();
     for (const c of this.pulsos) this.#devolver(c.m);
     for (const o of this.originais) soltarEfeitoOriginal(o.inst);
     this.originais = [];
@@ -337,7 +356,7 @@ export class Efeitos {
     this.geoNarizMissil = new THREE.ConeGeometry(0.28, 0.8, 6);
     this.matMissil = new THREE.MeshBasicMaterial({ color: COR_METAL });
     this.geoAnel = new THREE.RingGeometry(0.86, 1, 48);
-    // Coluna do recall: cilindro aberto de raio e altura 1, com a cor dos vértices
+    // Coluna do teleporte: cilindro aberto de raio e altura 1, com a cor dos vértices
     // indo de branco embaixo a preto em cima (aditivo: preto some), para a luz
     // "derreter" no alto em vez de acabar num corte reto.
     this.geoColuna = new THREE.CylinderGeometry(1, 1, 1, 20, 1, true);
@@ -346,8 +365,10 @@ export class Efeitos {
     const cores = new Float32Array(pos.count * 3);
     for (let i = 0; i < pos.count; i++) cores.fill(1 - pos.getY(i), i * 3, i * 3 + 3);
     this.geoColuna.setAttribute('color', new THREE.BufferAttribute(cores, 3));
-    this.geoAnelRecall = new THREE.TorusGeometry(1, 0.045, 4, 40);
-    this.feixes = []; // feixes de partida e chegada do recall
+    this.feixes = []; // feixes de saída e chegada do teleporte
+    this.canais = new Map(); // volta à base canalizando: nave -> { desenho, k, ligado, apaga, cor, brilho, visto, casco, faisca }
+    this.voltas = []; // partidas e chegadas da volta à base: { tipo, obj, desenho, clarao, cor, corpo, x, y, z, t, brilho, casco }
+    this.ocultos = new Set(); // naves com o casco escondido (a chegada mostra a luz antes)
     this.originais = []; // efeitos do original que tocam uma vez: { inst }
     this.particulasRastro = []; // rastro dos projéteis de partículas do original
     this.reservaParticulas = [];
@@ -460,54 +481,168 @@ export class Efeitos {
   }
 
   /**
-   * Recall na nave (grupo do Three.js): `frac` de 0 a 1 enquanto canaliza (null
-   * apaga), `cor` do time de quem canaliza relativa a quem olha. `propria` (a sua
-   * nave, com a câmera logo atrás) acende menos, para a coluna não cegar a tela.
-   * Chamar a cada quadro para cada nave visível.
+   * Volta à base canalizando na nave `obj` (grupo do Three.js): `frac` de 0 a 1 enquanto
+   * canaliza (null: não canaliza, e o portal aberto fecha em VOLTA_APAGA_S), `cor` do
+   * time de quem canaliza relativa a quem olha. `propria` (a sua nave, com a câmera logo
+   * atrás) acende menos, para não cegar a tela. Chamar a cada quadro para cada nave
+   * visível (a que some da cena deixa o portal fechar sozinho).
    */
   recall(obj, frac, cor, dt, tempo, propria = false) {
-    let r = obj.userData.recall;
-    const ligado = frac !== null && frac !== undefined;
-    if (!r) {
-      if (!ligado) return;
-      const mat = () => new THREE.MeshBasicMaterial({ color: cor, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
-      const coluna = new THREE.Mesh(this.geoColuna, mat());
-      coluna.material.vertexColors = true;
-      coluna.scale.set(RECALL_COLUNA_RAIO, RECALL_COLUNA_ALTURA, RECALL_COLUNA_RAIO);
-      coluna.position.y = -4;
-      const aneis = [];
-      for (let i = 0; i < RECALL_ANEIS; i++) {
-        const a = new THREE.Mesh(this.geoAnelRecall, mat());
-        a.rotation.x = Math.PI / 2;
-        aneis.push(a);
-      }
-      const clarao = spriteAditivo(cor, 9);
-      r = obj.userData.recall = { coluna, aneis, clarao, fase: 0 };
-      efeitosDa(obj).add(coluna, clarao, ...aneis);
-    }
-    r.coluna.visible = r.clarao.visible = ligado;
-    for (const a of r.aneis) a.visible = ligado;
+    const recente = this.tempo - (obj.userData.voltaPartiu ?? -Infinity) < VOLTA_IGNORA_S;
+    const ligado = frac !== null && frac !== undefined && !recente;
+    let c = this.canais.get(obj);
     if (!ligado) {
-      r.fase = 0;
+      if (c) c.ligado = false;
       return;
     }
-    // A luz cresce com o progresso e pulsa de leve; os anéis sobem mais rápido
-    // perto do fim, para quem olha sentir a contagem.
-    const k = Math.max(0, Math.min(1, frac));
-    r.coluna.material.opacity = (0.14 + 0.3 * k + 0.05 * Math.sin(tempo * 6)) * (propria ? 0.45 : 1);
-    r.coluna.scale.x = r.coluna.scale.z = RECALL_COLUNA_RAIO * (1.15 - 0.35 * k);
-    r.clarao.material.opacity = (0.3 + 0.4 * k) * (propria ? 0.5 : 1);
-    r.clarao.scale.setScalar(8 + 8 * k);
-    r.fase += dt * (0.5 + 1.5 * k); // voltas por segundo
-    r.aneis.forEach((a, i) => {
-      const t = (r.fase + i / RECALL_ANEIS) % 1;
-      a.position.y = -3 + RECALL_ANEL_SOBE * t;
-      a.scale.setScalar(RECALL_COLUNA_RAIO * (1.3 - 0.7 * t));
-      a.material.opacity = (1 - t) * (0.5 + 0.5 * k);
-    });
+    if (!c) {
+      const desenho = criarVolta();
+      if (!desenho) return;
+      this.scene.add(desenho.obj);
+      c = { desenho, apaga: 0, cor: new THREE.Color(), casco: undefined, faisca: 0 };
+      this.canais.set(obj, c);
+    }
+    Object.assign(c, { ligado: true, k: frac, brilho: propria ? 0.55 : 1, visto: this.tempo });
+    c.cor.copy(cor);
   }
 
-  /** Feixe curto de luz na cor `cor` onde a nave do recall sumiu ou apareceu. */
+  /** Solta o canal da nave `obj` na hora (devolve o desenho, para quem quiser seguir com ele). */
+  #tirarCanal(obj) {
+    const c = obj && this.canais.get(obj);
+    if (!c) return null;
+    this.canais.delete(obj);
+    return c.desenho;
+  }
+
+  /**
+   * A volta à base aconteceu: onde a nave estava (`x`, `y`, `z`, o centro dela), ela vira
+   * luz e é sugada pelo portal. `obj` é a nave desenhada (null se não se vê): ainda no
+   * lugar da partida, a casca sai dela; o portal que já estava aberto em cima dela segue
+   * daqui, sem pular.
+   */
+  partidaRecall(obj, x, y, z, cor) {
+    const corpo = obj?.userData.tamanho ?? VOLTA_CORPO_PADRAO;
+    let desenho = this.#tirarCanal(obj);
+    if (obj) obj.userData.voltaPartiu = this.tempo;
+    desenho ??= criarVolta();
+    if (!desenho) return;
+    const ud = obj?.userData;
+    const perto = obj?.visible && obj.parent && Math.hypot(obj.position.x - x, obj.position.z - z) < 4 * corpo;
+    if (perto) {
+      ({ x, y, z } = obj.position);
+      this.#ocultarCasco(obj, this.tempo + VOLTA_IGNORA_S / 2); // a casca fica no lugar dele
+    }
+    montarCasca(desenho, perto ? ud.casco : null); // parada no lugar da partida
+    if (!desenho.obj.parent) this.scene.add(desenho.obj);
+    const clarao = this.#brilhoSolto(cor, 1, true, 0);
+    this.scene.add(clarao);
+    this.voltas.push({ tipo: 'partida', obj: null, desenho, clarao, cor: new THREE.Color(cor), corpo, x, y, z, t: 0, brilho: 1 });
+  }
+
+  /**
+   * A nave chegou na base de volta: o raio desce do céu e ela se condensa. Segue `obj` (a
+   * nave desenhada; sem ela, fica em `x`, `y`, `z`) e esconde o casco de verdade até a luz
+   * tomar a forma dele. `atraso` (s): a nave dos outros é desenhada no passado e só chega
+   * depois (negativo começa no meio: a tela de carregamento aquece com tudo à mostra).
+   * `propria`: a sua, com a câmera logo atrás, acende menos.
+   */
+  chegadaRecall(obj, x, y, z, cor, atraso = 0, propria = false) {
+    const desenho = criarVolta();
+    if (!desenho) return;
+    this.scene.add(desenho.obj);
+    desenho.obj.visible = false;
+    const clarao = this.#brilhoSolto(cor, 1, true, 0);
+    this.scene.add(clarao);
+    if (obj) this.#ocultarCasco(obj, this.tempo + atraso + CASCO_ESCONDIDO_S);
+    const corpo = obj?.userData.tamanho ?? VOLTA_CORPO_PADRAO;
+    this.voltas.push({ tipo: 'chegada', obj, desenho, clarao, cor: new THREE.Color(cor), corpo, x, y, z, t: -atraso, brilho: propria ? 0.7 : 1, casco: undefined, faiscas: false });
+  }
+
+  /** Esconde o casco da nave `obj` até `ate` (no relógio dos efeitos). */
+  #ocultarCasco(obj, ate) {
+    obj.userData.cascoOcultoAte = Math.max(obj.userData.cascoOcultoAte ?? 0, ate);
+    this.ocultos.add(obj);
+  }
+
+  /** Faísca de luz em (x, y, z) subindo `sobe` m/s. */
+  #faiscaVolta(cor, x, y, z, tamanho, sobe, dur = VOLTA_FAISCA_DUR) {
+    const s = this.#brilhoSolto(cor, tamanho);
+    s.position.set(x, y, z);
+    this.scene.add(s);
+    this.auras.push({ s, subida: sobe, vida: 0, dur, tamanho });
+  }
+
+  /** Um quadro da volta à base: os canais abertos, as partidas, as chegadas e os cascos escondidos. */
+  #atualizarVoltas(dt) {
+    for (const [obj, c] of this.canais) {
+      if (this.tempo - c.visto > 0.2) c.ligado = false; // a nave saiu da cena
+      c.apaga = Math.min(1, Math.max(0, c.apaga + ((c.ligado ? 1 : -1) * dt) / VOLTA_APAGA_S));
+      if (!c.ligado && c.apaga <= 0) {
+        soltarVolta(c.desenho);
+        this.canais.delete(obj);
+        continue;
+      }
+      const ud = obj.userData;
+      if (c.casco !== ud.casco) montarCasca(c.desenho, (c.casco = ud.casco));
+      else seguirCasca(c.desenho);
+      const corpo = ud.tamanho ?? VOLTA_CORPO_PADRAO;
+      const { x, y, z } = obj.position;
+      desenharVolta(c.desenho, quadroCanal(c.k, c.apaga), { cor: c.cor, corpo, x, y, z, dt, brilho: c.brilho });
+      // Faíscas saindo do casco e subindo para o portal, cada vez mais.
+      c.faisca -= dt;
+      if (c.ligado && c.faisca <= 0) {
+        const [lento, rapido] = VOLTA_FAISCA_S;
+        c.faisca = lento + (rapido - lento) * c.k;
+        const a = Math.random() * Math.PI * 2;
+        const r = corpo * (0.5 + 0.6 * Math.random());
+        this.#faiscaVolta(c.cor, x + Math.cos(a) * r, y - corpo * 0.2, z + Math.sin(a) * r, corpo * 0.3 * c.brilho, (alturaPortal(corpo) / VOLTA_FAISCA_DUR) * 0.9);
+      }
+    }
+
+    this.voltas = this.voltas.filter((v) => {
+      v.t += dt;
+      const q = v.tipo === 'partida' ? quadroPartida(v.t) : quadroChegada(v.t);
+      if (!q) {
+        soltarVolta(v.desenho);
+        this.#devolver(v.clarao);
+        return false;
+      }
+      if (q.espera) return true;
+      v.desenho.obj.visible = true;
+      const obj = v.obj;
+      if (obj?.parent && obj.visible) {
+        // A chegada vai junto com a nave (a casca na forma dela, o casco escondido até condensar).
+        ({ x: v.x, y: v.y, z: v.z } = obj.position);
+        v.corpo = obj.userData.tamanho ?? v.corpo;
+        if (v.casco !== obj.userData.casco) montarCasca(v.desenho, (v.casco = obj.userData.casco));
+        else seguirCasca(v.desenho);
+      } else if (v.casco) montarCasca(v.desenho, (v.casco = null));
+      const { x, y, z, corpo } = v;
+      desenharVolta(v.desenho, q, { cor: v.cor, corpo, x, y, z, dt, brilho: v.brilho });
+      v.clarao.position.set(x, y + (q.clarao.noPortal ? alturaPortal(corpo) : 0), z);
+      v.clarao.scale.setScalar(q.clarao.tamanho * corpo);
+      v.clarao.material.opacity = q.clarao.alfa * v.brilho;
+      // Chegou inteira: faíscas abrindo da nave.
+      if (v.tipo === 'chegada' && !v.faiscas && v.t >= CASCO_ESCONDIDO_S) {
+        v.faiscas = true;
+        for (let i = 0; i < 12; i++) {
+          const a = (i / 12) * Math.PI * 2 + Math.random() * 0.4;
+          const r = corpo * (0.7 + 0.5 * Math.random());
+          this.#faiscaVolta(v.cor, x + Math.cos(a) * r, y + (Math.random() - 0.3) * corpo * 0.6, z + Math.sin(a) * r, corpo * 0.28 * v.brilho, 4 + 10 * Math.random(), 0.6);
+        }
+      }
+      return true;
+    });
+
+    for (const obj of this.ocultos) {
+      const ud = obj.userData;
+      const oculto = this.tempo < ud.cascoOcultoAte;
+      if (ud.casco) ud.casco.visible = !oculto;
+      if (!oculto) this.ocultos.delete(obj);
+    }
+  }
+
+  /** Feixe curto de luz na cor `cor` onde a nave do teleporte sumiu ou apareceu. */
   feixeRecall(x, y, z, cor) {
     const m = this.#pegar('feixe');
     m.material.color.set(cor);
@@ -1184,6 +1319,7 @@ export class Efeitos {
     }
 
     this.tempo += dt;
+    this.#atualizarVoltas(dt);
     this.armas.atualizar(dt);
     this.disparo.atualizar(dt, this.camera);
     for (const m of this.minas.values()) {
@@ -1257,14 +1393,14 @@ export class Efeitos {
 
     this.feixes = this.feixes.filter((f) => {
       f.vida += dt;
-      const k = f.vida / RECALL_FEIXE_S;
+      const k = f.vida / TELEPORTE_FEIXE_S;
       if (k >= 1) {
         this.#devolver(f.m);
         return false;
       }
       // Sobe alto num instante e afina até sumir.
-      const raio = RECALL_COLUNA_RAIO * (1 - k) * 1.2;
-      f.m.scale.set(Math.max(0.2, raio), RECALL_COLUNA_ALTURA * 2 * Math.min(1, k * 5), Math.max(0.2, raio));
+      const raio = TELEPORTE_FEIXE_RAIO * (1 - k) * 1.2;
+      f.m.scale.set(Math.max(0.2, raio), TELEPORTE_FEIXE_ALTURA * 2 * Math.min(1, k * 5), Math.max(0.2, raio));
       f.m.material.opacity = 0.9 * (1 - k);
       return true;
     });

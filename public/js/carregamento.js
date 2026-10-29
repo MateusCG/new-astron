@@ -375,6 +375,8 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
       0,
     );
     efeitos.recall(auras, 0.5, COR_TIME.meu, 0.016, 0);
+    // A chegada da volta à base começa no meio, com o raio, o portal e a onda à mostra.
+    efeitos.chegadaRecall(null, ponto.x - 20, ponto.y, ponto.z, COR_TIME.meu, -0.35);
     efeitos.subirNivel(auras, race, true, 0.3); // com todas as peças à mostra
     const fantasma = lugar(criarNave(race, { aliado: true, classe, tier: 0 }));
     efeitos.estadoNave(fantasma, { fx: ['inv'] }, 0.016, 0);

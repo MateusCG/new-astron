@@ -220,3 +220,20 @@ nave), centro na origem, y para cima:
   e o hexágono do meio (lados retos de frente para os chevrons); u = ângulo / 2π, v = raio.
 - `subida_helice`: duas fitas em hélice de 1,5 volta, de pé, raio 1 embaixo e 0,8 no alto, altura 1; u ao longo da
   fita, v na largura.
+
+## Efeito da volta à base (recall): `volta-base.glb`
+
+Não é peça do cenário: são as malhas de luz do portal de dobra da volta à base (`public/js/volta.js`, linha do
+tempo em `public/js/volta-regras.js`). Mora aqui pelo mesmo motivo da `subida-nivel.glb` (o carregador com Draco e a
+tela de carregamento). Nossas, feitas no Blender (`volta_base.py` em `new-astron-progresso/mapa-stage6/tmp/cenario/`,
+fonte `blender/volta-base.blend`); nada do AstroN original, no vocabulário do portal warp das bases. Um material só,
+`luz_volta`, que o cliente troca pelos shaders aditivos. ~2.120 triângulos, 15 KB, com normal e UV, tudo de tamanho 1
+(o cliente escala pelo corpo da nave), centro na origem, y para cima:
+
+- `volta_portal`: o portal deitado, virado para baixo: vórtice (disco até 0,6), aro de dentro (0,63 a 0,67), 8 lâminas
+  de íris tortas (0,71 a 0,93), aro de fora (0,96 a 1) e 16 marcas (1,03 a 1,09); u = ângulo / 2π (nas lâminas, o meio
+  da lâmina, (i + 0,5) / 8, para acender uma por vez), v = raio.
+- `volta_fios`: 12 fios saindo do raio 1 na altura 0 e se juntando no meio do alto (altura 1), torcendo um quarto de
+  volta; u ao longo do fio, v na largura.
+- `volta_feixe`: tubo aberto de raio 1 e altura 1, anéis mais juntos nas pontas; u em volta, v na altura.
+- `volta_anel`: coroa deitada de 0,8 a 1; u em volta, v no raio da coroa.

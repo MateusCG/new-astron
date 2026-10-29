@@ -66,6 +66,8 @@ export const SONS_INTERFACE = Object.freeze({
   contagem: 'count',
   reparo: 'usehpbattery',
   energia: 'usehebattery',
+  voltaCanal: 'u_up', // começou a voltar à base: o portal carregando
+  volta: 'up2', // a nave sumiu pelo portal ou chegou na base (o teletransporte do original)
 });
 
 /**

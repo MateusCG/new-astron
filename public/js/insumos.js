@@ -293,6 +293,8 @@ export const MODELOS_MAPA = Object.freeze([
   'ruina-submersa',
   // As malhas de luz do efeito de subir de nível e de evoluir a nave (subida.js).
   'subida-nivel',
+  // As malhas de luz do efeito da volta à base (volta.js).
+  'volta-base',
 ]);
 
 /** Espécies de monstro (a `esp` do protocolo = o nome do glb). */
