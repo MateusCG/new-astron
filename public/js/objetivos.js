@@ -8,8 +8,8 @@
 //   definirObstaculoAtivo (o mesmo que o servidor faz), para a predição da nave
 //   passar por onde ela estava sem tranco. O cenário (cena.definirObjetivo) troca o
 //   modelo de pé pelo caído, apaga o âmbar em 'espera' e acende em 'ativo'.
-// - Plataforma de ouro (P0/P1): o feixe acende com alguém pousado (`quem`), a barra
-//   enche até POUSO_PLATAFORMA_S, contestado pisca.
+// - Plataforma de ouro (P0/P1): com alguém pousado (`quem`), a barra enche até
+//   POUSO_PLATAFORMA_S, contestado pisca.
 // - Núcleo de He-3, Medusa, SN-4 (buff de ataque) e sonda: a vida no rótulo; quando
 //   não estão no mapa, quanto falta para aparecer ou voltar e quem tomou por último.
 // - Rótulo (DOM, como os nomes das naves): ícone âmbar do objetivo e o estado numa

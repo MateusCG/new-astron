@@ -26,7 +26,7 @@
 //   do bolsão, de rocha a rocha (na cor do time dono, aceso perto da sua nave e
 //   com um anel onde o tiro bate);
 // - os objetivos: torres de suporte (de pé, apagadas em 'espera', caídas em
-//   'recarga'), plataformas de pouso de ouro (feixe de luz com alguém pousado), o
+//   'recarga'), plataformas de pouso de ouro (acesas em 'ativo'), o
 //   Núcleo de He-3 (anéis e lascas girando, mais rápido com menos vida);
 // - as nuvens de gás e poeira da jungle (nuvens.js, nos retângulos de ASTEROIDES:
 //   tufos virados para a câmera, sorteados com semente fixa, todo jogador vê igual)
@@ -108,12 +108,6 @@ const OBJ_APAGADO = 0.15;
 /** Ilha do portal warp: quanto boia (m) e em quantos segundos. */
 const PORTAL_BOIA_M = 1.5;
 const PORTAL_BOIA_S = 9;
-/**
- * Feixe da plataforma de ouro com alguém pousado (m): começa acima da nave pousada
- * (`base`), para quem está pousado continuar vendo a própria nave, e sobe alto para
- * quem está longe ver.
- */
-const FEIXE_PLATAFORMA = { raio: 3.2, altura: 80, base: 7 };
 const SEMENTE_DECORACAO = 6161;
 /** Gotículas em volta da câmera: tamanho e opacidade, e como ficam dentro de uma nuvem de gás. */
 const POEIRA_TAMANHO = 0.3;
@@ -1041,8 +1035,7 @@ function montarTorres(g) {
 }
 
 /**
- * Plataformas de pouso de ouro (P0/P1): deque âmbar, o feixe com alguém pousado e, com
- * ela disponível, o holograma, a cortina dourada e as fagulhas (CORTINA_OURO), que
+ * Plataformas de pouso de ouro (P0/P1): deque âmbar e, com ela disponível, o holograma, a cortina dourada e as fagulhas (CORTINA_OURO), que
  * apagam fora de 'ativo' (`sv.disponivel`, em definirObjetivo).
  */
 function montarPlataformas(g) {
@@ -1053,10 +1046,6 @@ function montarPlataformas(g) {
     const ambar = neon(CORES.objetivo, OBJ_APAGADO);
     const m = por(g, 'plataforma-pouso', p.x, y, p.z, p.time === 0 ? 0 : Math.PI);
     if (m) pintar(m, 'neon_objetivo', ambar);
-    const feixe = criarFeixe(CORES.objetivo, FEIXE_PLATAFORMA.raio, FEIXE_PLATAFORMA.altura, 0.3);
-    feixe.position.set(p.x, y + FEIXE_PLATAFORMA.base, p.z);
-    feixe.visible = false;
-    g.add(feixe);
     const fase = p.time === 0 ? 0.9 : 2.3;
     const grupo = new THREE.Group();
     grupo.visible = false;
@@ -1075,7 +1064,7 @@ function montarPlataformas(g) {
       grupo, ligado: 0, disponivel: false,
       uniformes: [cortina.material.uniforms.uForca, fagulhas.material.uniforms.uForca, brilho.material.uniforms.uForca],
     };
-    plats.set(p.id, { m, ambar, feixe, sv, estado: 'espera', quem: null, contestado: false });
+    plats.set(p.id, { m, ambar, sv, estado: 'espera' });
   }
   return plats;
 }
@@ -1311,11 +1300,10 @@ export function criarCena({ meuTime = 0 } = {}) {
       if (t.nucleo) t.nucleo.rotation.y += dt * 1.2;
     }
 
-    // Plataformas: feixe com alguém pousado (contestado pisca); acesa e livre, o âmbar pulsa.
+    // Plataformas: acesa, o âmbar pulsa.
     for (const pl of plataformas.values()) {
       atualizarServico(pl.sv, dt, foco);
-      if (pl.feixe.visible) pl.feixe.material.opacity = pl.contestado ? (Math.sin(tempo * 14) > 0 ? 0.4 : 0.1) : 0.24 + 0.08 * Math.sin(tempo * 5);
-      else if (pl.estado === 'ativo') pl.ambar.emissiveIntensity = 0.75 + 0.25 * Math.sin(tempo * 2.4);
+      if (pl.estado === 'ativo') pl.ambar.emissiveIntensity = 0.75 + 0.25 * Math.sin(tempo * 2.4);
     }
 
     // Núcleo: anéis cada um num eixo, lascas em órbita, cristal girando devagar.
@@ -1347,8 +1335,8 @@ export function criarCena({ meuTime = 0 } = {}) {
   /**
    * Estado de um objetivo (obj[id] do snapshot) no cenário: torre de suporte
    * apagada em 'espera', acesa em 'ativo' e caída em 'recarga'; plataforma acesa em
-   * 'ativo', com o feixe na cor do time que está pousado (`quem`; âmbar piscando se
-   * contestado); Núcleo girando e brilhando em 'ativo', parado e apagado fora dele.
+   * 'ativo' (quem está pousado e o contestado ficam no rótulo); Núcleo girando e
+   * brilhando em 'ativo', parado e apagado fora dele.
    * Os outros (BA, SONDA, MEDUSA) são monstros: o cenário não muda.
    */
   function definirObjetivo(id, r) {
@@ -1365,11 +1353,7 @@ export function criarCena({ meuTime = 0 } = {}) {
     const p = plataformas.get(id);
     if (p) {
       p.estado = r.estado;
-      p.quem = r.quem ?? null;
-      p.contestado = !!r.contestado;
       p.sv.disponivel = r.estado === 'ativo';
-      p.feixe.visible = r.estado === 'ativo' && r.quem != null;
-      if (p.feixe.visible) p.feixe.material.color.copy(p.contestado ? CORES.objetivo : r.quem === meuTime ? CORES.neon : CORES.perigo);
       p.ambar.emissiveIntensity = r.estado === 'ativo' ? OBJ_ACESO : OBJ_APAGADO;
       return;
     }
