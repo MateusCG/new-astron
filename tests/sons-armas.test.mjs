@@ -12,7 +12,8 @@ import { World } from '../server/game.js';
 import {
   Sons,
   VOLUME_MUSICA_PADRAO,
-  VOLUME_NIVEL,
+  VOLUME_TIRO_PROPRIO,
+  LIMITADOR,
   SONS_INTERFACE,
   SONS_ARMA,
   ganhoPorDistancia,
@@ -196,8 +197,56 @@ test('sons.js: limita vozes por som e no total, e junta cópias simultâneas', a
   assert.equal(sons.vozes, 0, 'vozes que acabaram saem da conta');
 });
 
-test('sons.js: o som de subir de nível e de evoluir a nave toca 70% mais baixo', () => {
-  assert.equal(VOLUME_NIVEL, 0.3);
+test('sons.js: a voz nova da mesma origem corta a anterior; de outra origem, soma', async () => {
+  const ctx = contextoFalso();
+  const sons = new Sons({ criarContexto: () => ctx, buscar: buscarFalso });
+  sons.desbloquear();
+  await sons.carregar(['shot_ct', 'shot_ray']);
+  for (let i = 0; i < 5; i++) {
+    ctx.currentTime += 0.1;
+    assert.equal(sons.tocar('shot_ct', { origem: 'tA:missil' }), true);
+  }
+  assert.equal(sons.vozes, 1, 'a rajada do mesmo atirador não empilha');
+  assert.equal(ctx.paradas, 4);
+  ctx.currentTime += 0.1;
+  sons.tocar('shot_ct', { origem: 'tB:missil' });
+  sons.tocar('shot_ray', { origem: 'tA:feixe' });
+  ctx.currentTime += 0.1;
+  sons.tocar('shot_ray');
+  assert.equal(sons.vozes, 4, 'outros atiradores, outra arma e sem origem somam');
+  assert.ok(VOLUME_TIRO_PROPRIO < 1, 'o próprio tiro abaixo do volume cheio');
+});
+
+test('sons.js: o nível do arquivo entra no ganho da voz e o limitador fica na saída dos efeitos', async () => {
+  const ctx = contextoFalso();
+  // Um som com amostras de verdade: senoide de 1 kHz em volume baixo (pede ganho > 1).
+  ctx.decodeAudioData = () => {
+    const fs = 22050;
+    const x = new Float32Array(fs);
+    for (let i = 0; i < fs; i++) x[i] = 0.02 * Math.sin((2 * Math.PI * 1000 * i) / fs);
+    return Promise.resolve({ duration: 1, sampleRate: fs, numberOfChannels: 1, getChannelData: () => x });
+  };
+  const comp = { connect(alvo) { this.ligadoEm = alvo; } };
+  for (const k of Object.keys(LIMITADOR)) comp[k] = { value: 0 };
+  ctx.createDynamicsCompressor = () => comp;
+  const ganhos = [];
+  const criarGanho = ctx.createGain;
+  ctx.createGain = () => {
+    const g = criarGanho();
+    g.connect = (alvo) => (g.ligadoEm = alvo);
+    ganhos.push(g);
+    return g;
+  };
+  const sons = new Sons({ criarContexto: () => ctx, buscar: buscarFalso });
+  sons.desbloquear();
+  assert.equal(sons.efeitos.ligadoEm, comp, 'efeitos → limitador');
+  assert.equal(comp.ligadoEm, sons.mestre, 'limitador → mestre');
+  for (const [k, v] of Object.entries(LIMITADOR)) assert.equal(comp[k].value, v, k);
+  await sons.carregar(['shot_ray', 'volta_canal']);
+  assert.ok(sons.nivel('shot_ray') > 1, 'som baixo sobe até o alvo do disparo');
+  assert.equal(sons.nivel('volta_canal'), 1, 'os sons nossos da volta tocam como o arquivo');
+  sons.tocarInterface('shot_ray', { volume: 0.5 });
+  assert.ok(Math.abs(ganhos.at(-1).gain.value - 0.5 * sons.nivel('shot_ray')) < 1e-9);
 });
 
 test('sons.js: voz controlada começa do ponto pedido, segue a posição e para; o atraso agenda', async () => {

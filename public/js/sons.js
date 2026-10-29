@@ -25,6 +25,15 @@
 //   (a nave, não a câmera: na câmera de perseguição as duas olham para o mesmo lado).
 //   Sem HRTF nem PannerNode: é mais barato, igual em todo navegador e suficiente para
 //   saber se o tiro veio da esquerda ou da direita.
+// - Nível por arquivo: os arquivos do original vieram cada um com o volume de lá (26 dB
+//   entre o mais alto e o mais baixo, e a barra de volume não corrige isso). Ao decodificar,
+//   cada som é medido e ganha o ganho que o leva ao volume da categoria dele (nivel-sons.js).
+// - Uma voz por origem: o tiro que se repete (rajada, metralhadora, míssil de som longo)
+//   empilhava até MAX_POR_SOM cópias e ficava uns 8 dB acima do tiro avulso. Com `origem`
+//   (o atirador e a arma, o alvo e a arma), a voz nova corta a anterior da mesma origem
+//   com uma rampa de CORTE_ORIGEM_S.
+// - Limitador no canal de efeitos: quase todo arquivo chega ao teto digital, e vários
+//   juntos passavam dele e estalavam. O compressor (LIMITADOR) segura a soma.
 // - Limite de vozes: no máximo MAX_POR_SOM cópias do mesmo som e MAX_TOTAL no total.
 //   Passou do limite do som, a voz mais antiga dele é cortada (a rajada continua
 //   respondendo); passou do total, a nova só entra se for mais alta que a mais baixa
@@ -56,11 +65,13 @@
 //   // no laço, depois de mover a câmera:
 //   sons.ouvinte(minhaNave.x, minhaNave.z, minhaNave.yaw);
 //   // no evento 'tiro' do servidor:
-//   sons.tocar('shot_30m', { x: ev.x, z: ev.z, variacao: 0.04 });
+//   sons.tocar('shot_30m', { x: ev.x, z: ev.z, variacao: 0.04, origem: `t${ev.dono}` });
 //   // no evento 'nivel' da própria nave:
 //   sons.tocarInterface(SONS_INTERFACE.nivel);
 //   // tecla de mudo:
 //   sons.mudo = !sons.mudo;
+
+import { loudnessMaxima, ganhoDeNivel } from './nivel-sons.js';
 
 /** Sons de interface (sem posição) por situação → arquivo em public/sons/. */
 export const SONS_INTERFACE = Object.freeze({
@@ -76,10 +87,10 @@ export const SONS_INTERFACE = Object.freeze({
 });
 
 /**
- * Volume do som de subir de nível e de evoluir a nave (`SONS_INTERFACE.nivel`): 70% mais
- * baixo que o arquivo do original, que se sobressaía demais (pedido do Mateus, 29/out/2026).
+ * Volume do próprio tiro: ele toca a cada disparo, a distância zero e no centro, enquanto
+ * o dos outros cai com a distância.
  */
-export const VOLUME_NIVEL = 0.3;
+export const VOLUME_TIRO_PROPRIO = 0.7;
 
 /**
  * Volta à base e teleporte até o companheiro: sons nossos, gerados por tools/sons_volta.py
@@ -131,6 +142,12 @@ export const MAX_POR_SOM = 6;
 export const MAX_TOTAL = 24;
 /** Mesma fonte começando a menos disto (s) de outra igual vira uma só. */
 export const INTERVALO_MIN_S = 0.025;
+/** Rampa (s) com que a voz nova da mesma origem corta a anterior. */
+export const CORTE_ORIGEM_S = 0.06;
+/** Teto do ganho de uma voz (distância × volume × nível). */
+const GANHO_VOZ_MAX = 8;
+/** Compressor na saída dos efeitos (DynamicsCompressorNode), quase um limitador. */
+export const LIMITADOR = Object.freeze({ threshold: -8, knee: 6, ratio: 12, attack: 0.003, release: 0.25 });
 /** Abaixo disto o som nem é tocado. */
 const GANHO_MIN = 0.01;
 // A chave dos efeitos é a do antigo volume geral, para quem já tinha ajustado.
@@ -219,10 +236,11 @@ export class Sons {
     this.ctx = null;
     this.mestre = null;
     this.efeitos = null;
+    this.limitador = null;
     this.musica = null;
-    /** nome → { bytes: Promise<ArrayBuffer|null>, buffer: AudioBuffer|null, falhou, decodificando } */
+    /** nome → { bytes: Promise<ArrayBuffer|null>, buffer: AudioBuffer|null, nivel, falhou, decodificando } */
     this._cache = new Map();
-    /** Vozes tocando: { nome, fonte, ganho, valor, inicio } */
+    /** Vozes tocando: { nome, origem, fonte, ganho, valor, inicio } */
     this._vozes = [];
     this._ouvinte = { x: 0, z: 0, yaw: 0 };
     this._volumeEfeitos = lerVolume(CHAVE_EFEITOS, VOLUME_EFEITOS_PADRAO);
@@ -244,7 +262,12 @@ export class Sons {
       this.mestre.connect(this.ctx.destination);
       this.efeitos = this.ctx.createGain();
       this.efeitos.gain.value = this._volumeEfeitos;
-      this.efeitos.connect(this.mestre);
+      this.limitador = this.ctx.createDynamicsCompressor?.() ?? null;
+      if (this.limitador) {
+        for (const [k, v] of Object.entries(LIMITADOR)) this.limitador[k].value = v;
+        this.efeitos.connect(this.limitador);
+        this.limitador.connect(this.mestre);
+      } else this.efeitos.connect(this.mestre);
       this.musica = this.ctx.createGain();
       this.musica.gain.value = this._volumeMusica;
       this.musica.connect(this.mestre);
@@ -269,6 +292,11 @@ export class Sons {
     return Promise.all(lista.map((nome) => this._carregar(nome))).then(() => {});
   }
 
+  /** Ganho de nível do som (1 antes de decodificar ou sem alvo; ver nivel-sons.js). */
+  nivel(nome) {
+    return this._cache.get(nome)?.nivel ?? 1;
+  }
+
   /** True se o som está decodificado e pronto para tocar. */
   carregado(nome) {
     return !!this._cache.get(nome)?.buffer;
@@ -282,7 +310,7 @@ export class Sons {
   _carregar(nome) {
     let item = this._cache.get(nome);
     if (!item) {
-      item = { bytes: null, buffer: null, falhou: false, decodificando: null };
+      item = { bytes: null, buffer: null, nivel: 1, falhou: false, decodificando: null };
       item.bytes = Promise.resolve()
         .then(() => this._buscar(this.pasta + nome + this.extensao))
         .then((r) => {
@@ -313,8 +341,12 @@ export class Sons {
         });
       })
       .then((buffer) => {
-        if (buffer) item.buffer = buffer;
-        else item.falhou = true;
+        if (!buffer) {
+          item.falhou = true;
+          return;
+        }
+        item.nivel = nivelDoBuffer(nome, buffer);
+        item.buffer = buffer;
       })
       .catch(() => {
         item.falhou = true;
@@ -385,13 +417,15 @@ export class Sons {
   /**
    * Toca um som no mundo.
    * @param {string} nome arquivo sem extensão
-   * @param {{ x?: number, z?: number, volume?: number, tom?: number, variacao?: number }} [opcoes]
-   *   sem x/z o som toca no ouvinte (cheio e no centro)
+   * @param {{ x?: number, z?: number, volume?: number, tom?: number, variacao?: number,
+   *   atraso?: number, origem?: string }} [opcoes]
+   *   sem x/z o som toca no ouvinte (cheio e no centro); `origem` (ex. o atirador e a
+   *   arma): a voz nova corta a anterior da mesma origem
    * @returns {boolean} se tocou
    */
-  tocar(nome, { x, z, volume = 1, tom = 1, variacao = 0, atraso = 0 } = {}) {
+  tocar(nome, { x, z, volume = 1, tom = 1, variacao = 0, atraso = 0, origem = null } = {}) {
     const [ganho, pan] = this._posicao(x, z, volume);
-    return !!this._tocar(nome, ganho, pan, tom, variacao, { atraso });
+    return !!this._tocar(nome, ganho, pan, tom, variacao, { atraso, origem });
   }
 
   /** Toca um som de interface: sem posição, cheio e no centro. */
@@ -413,8 +447,8 @@ export class Sons {
         if (!this._vozes.includes(voz)) return;
         const [g, p] = this._posicao(nx, nz, nv);
         const t = this.ctx.currentTime;
-        voz.valor = g;
-        voz.ganho.gain.setTargetAtTime?.(Math.min(g, 2), t, 0.05);
+        voz.valor = g * this.nivel(nome);
+        voz.ganho.gain.setTargetAtTime?.(Math.min(voz.valor, GANHO_VOZ_MAX), t, 0.05);
         voz.pan?.pan.setTargetAtTime?.(p, t, 0.05);
       },
       parar: (fade = 0.04) => {
@@ -438,7 +472,7 @@ export class Sons {
     return [volume * ganhoPorDistancia(Math.hypot(x - o.x, z - o.z)), panPorDirecao(x, z, o.x, o.z, o.yaw)];
   }
 
-  _tocar(nome, ganho, pan, tom, variacao, { atraso = 0, desde = 0, controlado = false } = {}) {
+  _tocar(nome, ganho, pan, tom, variacao, { atraso = 0, desde = 0, controlado = false, origem = null } = {}) {
     if ((!controlado && ganho < GANHO_MIN) || !this.ctx || this.ctx.state === 'closed') return null;
     const item = this._cache.get(nome);
     if (!item) {
@@ -448,6 +482,12 @@ export class Sons {
     if (!item.buffer) return null;
     const agora = this.ctx.currentTime;
     this._limpar(agora);
+    // Daqui em diante o ganho é o que se ouve: com o nível do arquivo.
+    ganho *= item.nivel;
+    if (origem !== null) {
+      const anterior = this._vozes.find((v) => v.origem === origem);
+      if (anterior) this._parar(anterior, CORTE_ORIGEM_S);
+    }
 
     const mesmas = this._vozes.filter((v) => v.nome === nome);
     // Duas cópias começando juntas só somam volume: fica a mais alta.
@@ -470,7 +510,7 @@ export class Sons {
     const sorteio = variacao > 0 ? 1 + (Math.random() * 2 - 1) * variacao : 1;
     fonte.playbackRate.value = Math.max(0.25, Math.min(4, tom * sorteio));
     const g = this.ctx.createGain();
-    g.gain.value = Math.min(ganho, 2);
+    g.gain.value = Math.min(ganho, GANHO_VOZ_MAX);
     let saida = g;
     let p = null;
     if ((pan !== 0 || controlado) && this.ctx.createStereoPanner) {
@@ -484,7 +524,7 @@ export class Sons {
     // `inicio` é quando o começo do arquivo tocaria: a conta do fim (_limpar) vale com
     // atraso e com `desde`.
     const desdeOk = Math.max(0, Math.min(desde, item.buffer.duration ?? 0));
-    const voz = { nome, fonte, ganho: g, pan: p, saida, valor: ganho, inicio: agora + atraso - desdeOk / fonte.playbackRate.value };
+    const voz = { nome, origem, fonte, ganho: g, pan: p, saida, valor: ganho, inicio: agora + atraso - desdeOk / fonte.playbackRate.value };
     fonte.onended = () => {
       this._soltar(voz);
       this._desligar(voz);
@@ -510,12 +550,12 @@ export class Sons {
     });
   }
 
-  _parar(voz) {
+  _parar(voz, rampa = 0.024) {
     try {
       // Corte com rampa curta: parar no meio da onda estala.
       const t = this.ctx.currentTime;
-      voz.ganho.gain.setTargetAtTime?.(0, t, 0.008);
-      voz.fonte.stop(t + 0.04);
+      voz.ganho.gain.setTargetAtTime?.(0, t, rampa / 3);
+      voz.fonte.stop(t + rampa * 1.6);
     } catch {
       // Já tinha parado.
     }
@@ -534,5 +574,16 @@ export class Sons {
     } catch {
       // Nada conectado.
     }
+  }
+}
+
+/** Ganho de nível de um AudioBuffer decodificado (1 se não dá para ler as amostras). */
+function nivelDoBuffer(nome, buffer) {
+  try {
+    const canais = [];
+    for (let c = 0; c < (buffer.numberOfChannels ?? 0); c++) canais.push(buffer.getChannelData(c));
+    return canais.length ? ganhoDeNivel(nome, loudnessMaxima(canais, buffer.sampleRate)) : 1;
+  } catch {
+    return 1;
   }
 }

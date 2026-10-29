@@ -2,6 +2,8 @@
 
 Efeitos sonoros tirados de `old-astron/reference/audio/sfx/` por `tools/sons_do_original.py`: WAV PCM mono, 22 050 Hz, 16 bits (o formato do original), só com o silêncio do fim cortado. Ficaram em WAV porque o ffmpeg da máquina não tem codificador de áudio e WAV decodifica em qualquer navegador. Total: 68 arquivos, ~4,8 MB. O uso de cada som vem do próprio jogo: colunas de som de disparo e de impacto de `inititemweapon.cfg` (armas) e as listas `commonsound.cfg` (sons no mundo, 3D) e `commonsound2d.cfg` (interface). Quem toca é `public/js/sons.js`.
 
+**Volume:** os arquivos ficaram com o volume do original, que varia 26 dB entre eles. O jogo iguala na hora de tocar: `public/js/nivel-sons.js` mede cada um ao decodificar e põe no alvo da categoria (disparo, impacto, explosão, morte, destruição, interface). Arquivo novo aqui entra em `CATEGORIA_DO_SOM` de lá.
+
 ## Disparo das armas
 
 | Arquivo | Duração | Uso no original |

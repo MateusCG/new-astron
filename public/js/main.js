@@ -126,7 +126,7 @@ import {
   definirArmas,
   bocaDaArma,
 } from './nave.js';
-import { Sons, SONS_INTERFACE, SONS_VOLTA, VOLUME_NIVEL } from './sons.js';
+import { Sons, SONS_INTERFACE, SONS_VOLTA, VOLUME_TIRO_PROPRIO } from './sons.js';
 import { PainelVolume } from './volume.js';
 import { Efeitos, COR_TIME } from './efeitos.js';
 import { Controles } from './controles.js';
@@ -597,11 +597,14 @@ function montarJogo(rede, boas, renderer, race, classe) {
   // Os sons de todas as armas já vieram (decodificados) na tela de carregamento.
   mostrarEstadoSom();
 
-  /** Som de arma (disparo ou impacto) no ponto, com a variação de tom da metralhadora. */
-  const somNoMundo = (nome, x, z, volume = 1) => {
+  /**
+   * Som de arma (disparo ou impacto) no ponto, com a variação de tom da metralhadora;
+   * `origem` (o atirador e a arma, o alvo e a arma): o som novo corta o anterior dela.
+   */
+  const somNoMundo = (nome, x, z, volume = 1, origem = null) => {
     if (!nome) return;
     sons.carregar(nome);
-    sons.tocar(nome, { x, z, volume, variacao: 0.04 });
+    sons.tocar(nome, { x, z, volume, variacao: 0.04, origem });
   };
   /** Som de disparo da versão da arma. */
   const somDaArma = (kind, nv = 1, prof = 0) => {
@@ -652,14 +655,14 @@ function montarJogo(rede, boas, renderer, race, classe) {
   const outras = new Map(); // id -> { obj, drone, nome, race }
   const nomes = new Map(TORRETAS.map((t) => [t.id, 'Torreta'])); // "destruído por Torreta"
   // Subiu de nível ou evoluiu a nave (`forte`): a luz da raça subindo da nave de quem foi
-  // (efeitos.subirNivel) e o som LEVEL_UP, um som de interface (sem posição, a VOLUME_NIVEL),
+  // (efeitos.subirNivel) e o som LEVEL_UP, um som de interface (sem posição, no nível dele em nivel-sons.js),
   // de quem for a nave; o seu sempre toca. Na sua, o `texto` sobe da nave junto ("NÍVEL 5").
   function subidaDeNave(id, forte, texto) {
     const meu = id === meuId;
     const nave = meu ? minhaNave : outras.get(id)?.obj;
     const raca = meu ? race : outras.get(id)?.race;
     const tocou = nave?.visible && efeitos.subirNivel(nave, raca, forte);
-    if (tocou || meu) sons.tocarInterface(SONS_INTERFACE.nivel, { volume: VOLUME_NIVEL });
+    if (tocou || meu) sons.tocarInterface(SONS_INTERFACE.nivel);
     if (meu && nave?.visible) {
       const { x, y, z } = nave.position;
       hud.flutuante(x, y + (nave.userData.tamanho ?? 5) * 0.4, z, [{ txt: texto, classe: 'nivel' }], nave);
@@ -721,7 +724,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
       if (tocados.has(chave)) continue;
       tocados.add(chave);
       if (daBoca && !original) efeitos.armas.clarao(d.kind, daBoca.x, daBoca.y, daBoca.z, d.nivel);
-      somNoMundo(somDaArma(d.kind, d.nivel), pred.x, pred.z);
+      somNoMundo(somDaArma(d.kind, d.nivel), pred.x, pred.z, VOLUME_TIRO_PROPRIO, `eu:${d.enc}`);
     }
     // Recarga de troca e a arma que a nave tem de fato (troca recusada volta atrás).
     armasNave.nave(pred);
@@ -899,11 +902,13 @@ function montarJogo(rede, boas, renderer, race, classe) {
   }
 
   function tratarEventos(ev) {
-    const tocados = new Set(); // um som por arma e atirador em cada lote de eventos
+    // Um som por arma e atirador em cada lote de eventos; a chave também é a origem do
+    // som, e o próximo da mesma chave (a rajada seguinte, o próximo acerto) corta este.
+    const tocados = new Set();
     const tocarUmaVez = (chave, nome, x, z, volume) => {
       if (tocados.has(chave)) return;
       tocados.add(chave);
-      somNoMundo(nome, x, z, volume);
+      somNoMundo(nome, x, z, volume, chave);
     };
     // Quem levou o acerto, para o impacto sair no casco dele (o raio de acerto da nave;
     // monstro e torre sem raio no snapshot: o tamanho do modelo, ou o ponto do evento).
