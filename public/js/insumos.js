@@ -54,9 +54,9 @@ export function iconesDaNave(race, classe) {
 
 /**
  * Os efeitos do original convertidos (.eff + .3dx + .MPL → public/modelos/efeitos):
- * os das armas de início do jogador (disparo-original.js), os das armas de NPC do
- * original que os monstros usam (projétil, clarão, impacto, fim e armadilha) e os de
- * estado na nave. Efeito novo: converta com o tools/efeitos3d_do_original.py e ponha aqui.
+ * os das armas do jogador desenhadas como no original (disparo-original.js), os das
+ * armas de NPC do original que os monstros usam (projétil, clarão, impacto, fim e
+ * armadilha) e os de estado na nave. Efeito novo: converta com o tools/efeitos3d_do_original.py e ponha aqui.
  */
 export const EFEITOS_ORIGINAIS = Object.freeze([
   // Armas de início (as duas de fábrica de cada raça; disparo-regras.js): o clarão dos
@@ -66,6 +66,11 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
   // (1421002) são os mesmos dos monstros, mais abaixo.
   '2112001', '1312003', '1312004', '1312005', '1312073', '1312074', '1312075',
   '1321013', '1321014', '1321015', '1321003', '1321004', '1321005',
+  // Revistas contra o original (disparo-regras.js): os feixes do Feixe Perfurante de
+  // Magma (o clarão e o impacto são os dos feixes de início); o clarão, a carga de cada
+  // versão e a esfera que cresce do Canhão de Faíscas (o impacto é o 1421001); o anel
+  // do Rebatedor de Projéteis.
+  '1312063', '1312064', '1312065', '1133002', '1335003', '1335004', '1335005', '2142018', '1162020',
   // Destruição de nave, torre e monstro (destruicao.js): as explosões EXP001 a EXP007,
   // a fagulha e a fumaça da queda, a faísca e as peças dos destroços.
   ...EFEITOS_DESTRUICAO,

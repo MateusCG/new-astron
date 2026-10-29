@@ -25,8 +25,11 @@
 // efeitos-armas.js, com as texturas e as cores do original. O tiro nasce na boca da
 // arma pendurada na asa e escorrega para a linha do tiro de verdade (a da física) em
 // DESVIO_S, para o desenho sair da arma sem mentir onde a bala está. As armas de início
-// (as duas de fábrica de cada raça) saem com os efeitos do original tocados como no
-// original, do clarão preso na boca ao impacto no casco (disparo-original.js). Os tiros
+// (as duas de fábrica de cada raça) e as revistas depois (o Feixe Perfurante de Magma, o
+// Canhão de Faíscas e o Rebatedor de Projéteis) saem com os efeitos do original tocados
+// como no original, do clarão preso na boca ao impacto no casco (disparo-original.js).
+// O tiro que atravessa (o servidor não o apaga no acerto) segue desenhado depois de
+// encostar no alvo; o rebatido vira para onde o servidor mandou (rebaterTiro). Os tiros
 // dos NPCs (laser e plasma) continuam com a forma de antes. As naves atingidas mostram os
 // efeitos das armas pela lista `fx` de cada entidade (paralisia, desgoverno, energia,
 // invulnerável, escudo, fraco, conserto, aceleração, camuflagem).
@@ -69,6 +72,7 @@ import * as THREE from 'three';
 import { RACES, stepBullet, WEAPONS } from '/shared/sim.js';
 import { heightAt, topoPouso } from '/shared/terrain.js';
 import { FATOR_AREA, golpeDaArma, visualDoOriginal, visualEfeito } from '/shared/armas.js';
+import { atravessa } from './disparo-regras.js';
 import { FATOR_TAMANHO_NAVE } from '/shared/naves.js';
 import { brilho } from './nave.js';
 import { VisualArmas } from './efeitos-armas.js';
@@ -186,6 +190,10 @@ const caixaSubida = new THREE.Box3();
 const SUBIDA_JUNTA_S = 0.3;
 // O desenho do tiro sai da boca da arma e encontra a linha da física neste tempo (s).
 const DESVIO_S = 0.15;
+// O seu tiro previsto que o servidor rebateu (o evento traz o id do servidor, não o do
+// desenho): o mais perto do ponto, da mesma arma, até esta distância (m). O previsto anda
+// à frente do servidor pelo tempo da rede.
+const REBATIDO_BUSCA_M = 60;
 // Efeitos das armas na nave atingida (lista `fx` do servidor): cor da aura de cada um.
 const COR_FX = {
   para: new THREE.Color('#c8d2ff'),
@@ -1223,6 +1231,41 @@ export class Efeitos {
     return t.b;
   }
 
+  /**
+   * O tiro `id` acertou alguém (evento 'acerto'): o que atravessa (o Feixe Perfurante de
+   * Magma) segue desenhado; o resto sai de cena. Devolve o estado dele (de onde veio o
+   * impacto), ou null.
+   */
+  tiroAcertou(id) {
+    const t = this.tiros.get(id);
+    if (t && atravessa(golpeDaArma(t.b.kind, t.b.nv ?? 1, t.b.p ?? 0))) return t.b;
+    return this.removerTiro(id);
+  }
+
+  /**
+   * O servidor rebateu o tiro do evento `e` ('rebatido': o Rebatedor de Projéteis): o
+   * desenho dele vai para o ponto e o rumo novos e passa a ser do rebatedor (`e.dono`,
+   * que não o apaga mais ao encostar nos inimigos dele). O seu tiro previsto (outro id)
+   * é achado pela arma e pelo lugar.
+   */
+  rebaterTiro(e, meuId) {
+    let t = this.tiros.get(e.bala);
+    if (!t) {
+      let melhor = REBATIDO_BUSCA_M ** 2;
+      for (const c of this.tiros.values()) {
+        if (c.b.owner !== meuId || c.b.kind !== e.kind || c.rebatido) continue;
+        const d2 = (c.b.x - e.x) ** 2 + (c.b.z - e.z) ** 2;
+        if (d2 < melhor) [melhor, t] = [d2, c];
+      }
+    }
+    if (!t) return;
+    Object.assign(t.b, { x: e.x, y: e.y, z: e.z, vx: e.vx, vy: e.vy, vz: e.vz, owner: e.dono });
+    t.b.ox = t.b.oz = undefined;
+    t.rebatido = true;
+    t.desvio = null;
+    t.atingidos = null;
+  }
+
   /** Clarão rápido + fagulhas. tamanho 1 = faísca de acerto, ~4 = explosão de nave. */
   explosao(x, y, z, tamanho = 1, cor = '#ffb050') {
     const flash = this.#brilhoSolto(cor, tamanho * 6 * 0.4);
@@ -1263,15 +1306,24 @@ export class Efeitos {
         vivo = stepBullet(t.b);
         const alvo = vivo && aoAvancar?.(t.b);
         if (alvo) {
-          vivo = false;
-          tocou = true;
-          // Arma de início: o impacto do original no casco do alvo; as outras, a faísca.
-          if (!(t.armaInicio && this.disparo.impactoLocal(t, alvo))) this.explosao(t.b.x, t.b.y, t.b.z, 0.6, '#9ff');
+          // O que atravessa marca o alvo (um impacto por alvo, como a lista de atingidos
+          // do original) e segue; o resto para nele.
+          t.atravessa ??= atravessa(golpeDaArma(t.b.kind, t.b.nv ?? 1, t.b.p ?? 0));
+          if (t.atravessa) {
+            t.atingidos ??= new Set();
+            if (t.atingidos.has(alvo.id)) continue;
+            t.atingidos.add(alvo.id);
+          } else {
+            vivo = false;
+            tocou = true;
+          }
+          // Arma do original: o impacto do original no casco do alvo; as outras, a faísca.
+          if (!(t.comoOriginal && this.disparo.impactoLocal(t, alvo))) this.explosao(t.b.x, t.b.y, t.b.z, 0.6, '#9ff');
         }
       }
       if (!vivo) {
         // Parou antes da vida acabar: bateu no chão, numa construção ou no campo.
-        if (t.armaInicio) {
+        if (t.comoOriginal) {
           if (!tocou && t.b.vida > 0) this.disparo.bateu(t);
         } else if (t.b.vida > 0 && !t.visual) this.explosao(t.b.x, t.b.y, t.b.z, 0.4, '#ffcf90');
         this.removerTiro(id);
@@ -1285,6 +1337,7 @@ export class Efeitos {
         if (k > 0) t.g.position.add(this.v.set(t.desvio.x * k, t.desvio.y * k, t.desvio.z * k));
         else t.desvio = null;
       }
+      if (t.comoOriginal) this.disparo.posicionar(t);
       if (t.visual) {
         this.armas.animarProjetil(t, dt);
         if (t.b.vx || t.b.vz) t.g.lookAt(t.g.position.x + t.b.vx, t.g.position.y + t.b.vy, t.g.position.z + t.b.vz);
@@ -1357,7 +1410,8 @@ export class Efeitos {
     });
 
     this.originais = this.originais.filter((o) => {
-      if (tocarEfeitoOriginal(o.inst, dt, this.camera)) return true;
+      // `ate`: o último quadro fica na tela até lá (a esfera do Canhão de Faíscas).
+      if (tocarEfeitoOriginal(o.inst, dt, this.camera) || o.inst.t < (o.ate ?? 0)) return true;
       soltarEfeitoOriginal(o.inst);
       return false;
     });

@@ -310,6 +310,10 @@
 //                                    no campo de força da base desse time (x, z no
 //                                    plano, CAMPO_RECUO antes dele: o cliente pisca
 //                                    o campo ali). Nenhum tiro atravessa esse campo
+//         {e:'rebatido', bala, kind, dono, time, x, y, z, vx, vy, vz}   o Rebatedor de
+//                                    Projéteis virou o tiro: sai do centro dele para
+//                                    fora (o rumo do original), agora de `dono`; o
+//                                    cliente põe o desenho no ponto e no rumo novos
 //         {e:'entrou', id, nome, time}
 //         {e:'morte', id, por, tipo, time?, esp?, x, y, z, ouro?, renasce?, assist?, ouroAssist?,
 //          seq?, encerrou?, seqPor?, motivo?, campo?}   (esp = espécie, na morte de monstro)

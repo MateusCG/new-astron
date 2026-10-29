@@ -468,6 +468,32 @@ test('especial: o Rebatedor devolve os tiros inimigos no raio', () => {
   assert.ok(tiro.vz < 0, 'voltando para B');
 });
 
+test('especial: o Rebatedor joga o tiro para fora do centro dele, como o original, e avisa o cliente', () => {
+  // B atira de lado (para +x), passando 20 m ao norte de A: o tiro sai do centro de A
+  // para onde está (para o norte e para trás), não volta pela linha de onde veio.
+  const { w, js } = arena(['acron', 'functional', 0, 0], ['bellico', 'assault', -60, -20]);
+  const [a, b] = js;
+  b.ship.yaw = -Math.PI / 2;
+  apertar(w, b, { f1: true });
+  const tiro = w.bullets.find((x) => x.owner === b.id);
+  const vel = Math.hypot(tiro.vx, tiro.vz);
+  passos(w, 2);
+  w.tirarEventos();
+  disparar(w, a, '112014');
+  const ev = w.tirarEventos().find((e) => e.e === 'rebatido' && e.bala === tiro.id);
+  assert.ok(ev, 'evento rebatido');
+  assert.equal(tiro.owner, a.id);
+  const dx = tiro.x - a.ship.x;
+  const dz = tiro.z - a.ship.z;
+  const d = Math.hypot(dx, dz);
+  assert.ok(Math.abs(tiro.vx / vel - dx / d) < 1e-6 && Math.abs(tiro.vz / vel - dz / d) < 1e-6, 'do centro de A para o tiro');
+  assert.ok(tiro.vz < -0.5 * vel, 'para o norte, longe de A');
+  assert.ok(Math.abs(Math.hypot(tiro.vx, tiro.vz) - vel) < 1e-9, 'a mesma velocidade');
+  assert.deepEqual([ev.dono, ev.time, ev.kind], [a.id, a.time, tiro.kind]);
+  assert.ok(Math.abs(ev.vx - tiro.vx) < 0.01 && Math.abs(ev.vz - tiro.vz) < 0.01, 'o rumo novo');
+  assert.ok(Math.hypot(ev.x - tiro.x, ev.z - tiro.z) <= vel / SEGUNDO + 0.01, 'o ponto do rebate (o tiro ainda anda no passo)');
+});
+
 test('teleporte: o servidor salta junto com a predição e avisa o efeito', () => {
   const { w, js } = arena(['acron', 'mobile', 0, 0]);
   const [a] = js;

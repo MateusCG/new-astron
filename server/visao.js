@@ -19,7 +19,9 @@
 //   pela visão do time: um tiro que sai da névoa e entra na sua visão aparece (como
 //   num MOBA). Todo tiro anunciado a um time fica anotado, e o 'fim' e o 'acerto'
 //   dele chegam a esse time (o cliente apaga o desenho), onde quer que caiam; o
-//   'fim' no campo de força de uma base (`campo`) vai também a quem vê o ponto;
+//   'fim' no campo de força de uma base (`campo`) vai também a quem vê o ponto; o
+//   'rebatido' (o Rebatedor de Projéteis virou o tiro) vai a quem tinha o tiro, ao time
+//   do rebatedor e a quem vê o ponto;
 //   - 'morte' de jogador fora da visão vai SEM a posição (o placar de abates é
 //     público; o cliente não desenha a explosão); de monstro, minerador e escolta, não
 //     vai;
@@ -81,6 +83,7 @@ const ENVOLVIDOS = {
   recall: ['id'],
   desarmou: [],
   fim: [],
+  rebatido: ['dono'], // o dono novo (o rebatedor); o antigo, pelo tiro (donoDaBala)
 };
 
 const temPosicao = (e) => typeof e.x === 'number' && typeof e.z === 'number';
@@ -258,6 +261,15 @@ export class Visao {
       // O tiro que bateu no campo de força de uma base pisca o campo para quem vê o ponto.
       const noCampo = e.campo !== undefined && algumOlhoVe(olhos, e.x, e.z);
       return visto || noCampo || this.#doTimeEv(e, time) ? e : null;
+    }
+    if (e.e === 'rebatido') {
+      // Vai a quem tinha o tiro anunciado (o desenho vira), ao time do rebatedor e a
+      // quem vê o ponto; quem recebe passa a ter o tiro anunciado (o 'fim' dele chega).
+      const visto = anunciados?.has(e.bala) || this.#doTimeEv(e, time) || algumOlhoVe(olhos, e.x, e.z);
+      this.donoDaBala.set(e.bala, e.dono);
+      if (!visto) return null;
+      anunciados?.add(e.bala);
+      return e;
     }
     if (e.e === 'recall') return this.#recallParaTime(e, time, olhos);
     if (e.e === 'reflexo') return this.#reflexoParaTime(e, time, olhos);

@@ -1,8 +1,10 @@
-// Regras do disparo das armas de início como no AstroN original (puro: sem Three.js,
-// sem DOM; quem desenha é disparo-original.js). As armas de início são as duas de
-// fábrica de cada raça (INICIAIS_ORIGINAL em shared/armas.js); a pesquisa, com a
-// evidência de cada número, está em ~/Documentos/new-astron-progresso/ANIMACOES-ORIGINAL.md,
-// seção "Disparo das armas de início".
+// Regras do disparo das armas desenhadas como no AstroN original (puro: sem Three.js,
+// sem DOM; quem desenha é disparo-original.js): as duas de fábrica de cada raça
+// (INICIAIS_ORIGINAL em shared/armas.js) e as revistas depois, uma a uma, contra o
+// original (o Feixe Perfurante de Magma, o Canhão de Faíscas e o Rebatedor de
+// Projéteis). A pesquisa, com a evidência de cada número, está em
+// ~/Documentos/new-astron-progresso/ANIMACOES-ORIGINAL.md, seções "Disparo das armas de
+// início" e "Magma, Faíscas e Rebatedor".
 //
 // Como o original desenha um tiro (libgame decompilado):
 // - Clarão na boca: CUnitBeam::InitData cria, para CADA projétil, o efeito da coluna 51
@@ -25,20 +27,41 @@
 //   (o giro) do ALVO; depois OnDeleteMe(true) toca o som de impacto e cria o efeito de
 //   fim (coluna 92) no modo da coluna 94: o 7 (só a Metralha Shrewdo) põe o efeito
 //   deitado no ponto, na escala raio da área / 100 (o anel do 1421002 tem raio 100).
+// - Feixe que atravessa (coluna 74, 5º dígito '2': o Feixe Perfurante de Magma): o
+//   ProcessDamage cria o impacto em cada alvo que ele pega, uma vez por alvo (a lista
+//   de atingidos do CUnitBeam), e o feixe segue; só o chão o apaga.
+// - Modo 2 do clarão (o Rebatedor de Projéteis): CUnitFire parado onde a nave estava
+//   no disparo (a posição da unidade, sem o giro dela: de pé, no rumo do mundo), na
+//   escala área / 100 (o anel do 1162020 tem raio 100), uma vez. O projétil dele tem
+//   vida 0 e some no primeiro quadro: não aparece.
+// - Projétil que acelera (colunas 64 a 66: o Canhão de Faíscas sai parado e acelera
+//   0,0003 m/ms² até 0,5 m/ms): CUnitBeam::MoveBullet soma a aceleração a cada quadro.
+//   O jogo voa a velocidade média (o mesmo alcance no mesmo tempo, shared/armas.js);
+//   o desenho anda pela curva do original na mesma linha (recuoDaCarga).
+// - Esfera que cresce (tipo de gráfico 17, coluna 59: o subprojétil do Canhão de
+//   Faíscas): o .eff na escala raio máximo da nova / 100 (coluna 55; o 2142018 chega a
+//   raio 100 no último quadro), deitado onde o tiro acabou; sem repetir (OnStateEnd não
+//   reinicia o tipo 17), o último quadro fica até a vida da nova acabar. O impacto
+//   (coluna 89) sai no casco de cada alvo pego, do lado do centro.
 //
 // Escala: o original desenha tudo no metro dele, o mesmo das naves; aqui as naves são o
 // original × FATOR_TAMANHO_NAVE (0,5), e o clarão, o projétil e o impacto vão na mesma
 // escala, para ficar do tamanho que eram perto da nave. O tiro anda o original × 0,5
-// (FATOR_VEL), então a velocidade na tela, perto da nave, também é a do original.
+// (FATOR_VEL), então a velocidade na tela, perto da nave, também é a do original. Os
+// efeitos que o original estica pela área vão pela área do jogo (raio / 100), para o
+// desenho chegar aonde a área pega. O fim da V8 do Feixe Perfurante de Magma (1412002,
+// modo 7) tem área 0 no original: escala 0, não aparece, e aqui também não sai.
 
 import { WEAPONS } from '../../shared/armas.js';
 import { FATOR_TAMANHO_NAVE } from '../../shared/naves.js';
 import { forward } from '../../shared/sim.js';
 
 /**
- * As armas de início desenhadas como no original e o modo de cada efeito (iguais nas
- * versões V1 a V8 no inititemweapon.cfg): `clarao` 'giro' (modo 14) ou 'preso' (15);
- * `fim` 'area' (modo 7) na Metralha Shrewdo, a única com efeito de fim.
+ * As armas desenhadas como no original e o modo de cada efeito (iguais nas versões V1
+ * a V8 no inititemweapon.cfg): `clarao` 'giro' (modo 14), 'preso' (15) ou 'area' (2,
+ * parado onde a nave estava, na escala da área); `fim` 'area' (modo 7) na Metralha
+ * Shrewdo; `carga`: o projétil que acelera, com a velocidade inicial, a máxima (m/ms) e
+ * a aceleração (m/ms²) do original (colunas 64, 65 e 66).
  */
 export const DISPARO_ORIGINAL = Object.freeze({
   o111001: Object.freeze({ clarao: 'giro' }), // Feixe Rifle Triplo (Acron)
@@ -47,6 +70,9 @@ export const DISPARO_ORIGINAL = Object.freeze({
   o211011: Object.freeze({ clarao: 'giro' }), // Vulcan Bellico
   o311001: Object.freeze({ clarao: 'giro' }), // Feixe Duplo (Shrewdo)
   o311004: Object.freeze({ clarao: 'preso', fim: 'area' }), // Metralha Shrewdo
+  o111003: Object.freeze({ clarao: 'giro' }), // Feixe Perfurante de Magma (Acron Functional)
+  o112028: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão de Faíscas
+  o112014: Object.freeze({ clarao: 'area' }), // Rebatedor de Projéteis
 });
 
 /** m por unidade do original dos efeitos do disparo (a escala das naves). */
@@ -56,28 +82,44 @@ export const GIRO_PASSOS = 10;
 export const GIRO_PASSO = 0.6283185482025146;
 /** Fração do raio do alvo onde o impacto aparece (ProcessDamage: raio × 0,85). */
 export const IMPACTO_NO_CASCO = 0.85;
-/** Raio (unidades do original) do efeito de fim no modo 7: a escala é a área / 100. */
-export const RAIO_FIM_ORIGINAL = 100;
+/**
+ * Raio (unidades do original) dos efeitos que o original estica pela área: o fim no
+ * modo 7, o clarão no modo 2 e a esfera que cresce (tipo 17); a escala é o raio / 100.
+ */
+export const RAIO_AREA_ORIGINAL = 100;
 /** O servidor disse que o tiro acabou antes de a vida dele acabar por mais que isto (s): bateu em algo. */
 export const FOLGA_FIM_S = 0.1;
 /** Campos do golpe (`vis` do catálogo) que o disparo usa: clarão, projétil, impacto e fim. */
 export const CAMPOS_DISPARO = Object.freeze(['d', 'p', 'i', 'f']);
 
-/** Como o original desenha a arma `kind` ({ clarao, fim? }), ou null se não é arma de início. */
+/** Como o original desenha a arma `kind` ({ clarao, fim?, carga? }), ou null se ela não é desenhada como lá. */
 export function disparoOriginal(kind) {
   return DISPARO_ORIGINAL[kind] ?? null;
 }
 
-/** Os efeitos do original (ids) que o disparo das armas de início usa, em todas as versões. */
+/**
+ * Os efeitos do original (ids) que o disparo dessas armas usa, em todas as versões (com o
+ * do subprojétil). O de fim só nas de `fim` (o da V8 do Feixe Perfurante de Magma tem
+ * área 0 no original e não aparece).
+ */
 export function efeitosDoDisparo() {
   const ids = new Set();
-  for (const kind of Object.keys(DISPARO_ORIGINAL)) {
-    for (const v of WEAPONS[kind].versoes) for (const c of CAMPOS_DISPARO) if (v.golpe.vis?.[c]) ids.add(v.golpe.vis[c]);
+  for (const [kind, como] of Object.entries(DISPARO_ORIGINAL)) {
+    for (const v of WEAPONS[kind].versoes) {
+      for (const g of [v.golpe, v.golpe.divide]) {
+        for (const c of CAMPOS_DISPARO) if (g?.vis?.[c] && (c !== 'f' || como.fim)) ids.add(g.vis[c]);
+      }
+    }
   }
   return [...ids];
 }
 
-/** Giro (rad) do clarão em volta do cano: no modo 'giro', um dos 10 passos de 36° (`r` sorteado em [0, 1)); no 'preso', 0. */
+/** O golpe `g` é um projétil que atravessa quem acerta (o desenho segue depois do impacto)? */
+export function atravessa(g) {
+  return !!g && g.forma === 'projetil' && !!g.atravessa;
+}
+
+/** Giro (rad) do clarão em volta do cano: no modo 'giro', um dos 10 passos de 36° (`r` sorteado em [0, 1)); nos outros, 0. */
 export function giroDoClarao(modo, r) {
   return modo === 'giro' ? Math.min(GIRO_PASSOS - 1, Math.floor(r * GIRO_PASSOS)) * GIRO_PASSO : 0;
 }
@@ -120,7 +162,29 @@ export function acabouAntes(b, x, z) {
   return frente < (b.vida - FOLGA_FIM_S) * v;
 }
 
-/** Escala (m por unidade do original) do efeito de fim do modo 7 numa área de `raio` m. */
-export function escalaDoFim(raio) {
-  return raio / RAIO_FIM_ORIGINAL;
+/** Escala (m por unidade do original) do efeito que o original estica pela área (modos 7 e 2, tipo 17) numa área de `raio` m. */
+export function escalaDaArea(raio) {
+  return raio / RAIO_AREA_ORIGINAL;
+}
+
+/** Distância (m do original) que o projétil de `carga` andou em `ms` ms: acelera de v0 até vmax e segue. */
+function andouNoOriginal(ms, { v0, vmax, acel }) {
+  const ate = acel > 0 ? Math.max(0, (vmax - v0) / acel) : 0;
+  if (ms <= ate) return v0 * ms + (acel * ms * ms) / 2;
+  return v0 * ate + (acel * ate * ate) / 2 + vmax * (ms - ate);
+}
+
+/**
+ * Quanto (m) o desenho do projétil que acelera fica atrás do tiro do jogo, que voa a
+ * velocidade média do golpe `g` (vel em m/s, vida em s): a fração do caminho que o
+ * original já andou na `idade` (s) do tiro, sobre o caminho inteiro. Começa e termina
+ * em 0 (sai da boca e chega junto ao fim da vida).
+ */
+export function recuoDaCarga(idade, g, carga) {
+  const vida = g.vida;
+  if (!(vida > 0) || !(g.vel > 0)) return 0;
+  const t = Math.min(Math.max(idade, 0), vida);
+  const caminho = g.vel * vida;
+  const fracao = andouNoOriginal(t * 1000, carga) / andouNoOriginal(vida * 1000, carga);
+  return Math.max(0, g.vel * t - caminho * fracao);
 }

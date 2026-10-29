@@ -1,21 +1,26 @@
-// Disparo das armas de início desenhado como no AstroN original, do clarão ao fim: os
-// efeitos do original (.eff + .3dx convertidos em public/modelos/efeitos/, tocados por
-// efeitos-original.js) no lugar, no rumo e na escala em que o original os põe. As regras
-// e a evidência (o código do original que cada passo segue) estão em disparo-regras.js;
-// aqui só o desenho.
+// Disparo das armas desenhadas como no AstroN original (as de início e as revistas
+// depois; a lista em disparo-regras.js), do clarão ao fim: os efeitos do original (.eff
+// + .3dx convertidos em public/modelos/efeitos/, tocados por efeitos-original.js) no
+// lugar, no rumo e na escala em que o original os põe. As regras e a evidência (o
+// código do original que cada passo segue) estão em disparo-regras.js; aqui só o desenho.
 //
 // - Clarão (clarao): na boca da arma pendurada na asa (nó `fire`, bocaDaArma), preso a
 //   ela enquanto toca (o efeito anda com a nave), no rumo da nave sem a inclinação da
 //   curva, girado ao acaso em volta do cano nas armas de modo 14. Um por projétil, como
-//   no original: os três do Feixe Rifle Triplo se somam, cada um num giro.
+//   no original: os três do Feixe Rifle Triplo se somam, cada um num giro. No modo 2 (o
+//   Rebatedor de Projéteis), parado onde a nave estava, de pé, esticado até a área.
 // - Projétil (tiro): o efeito do projétil da versão, repetindo, no rumo do tiro; nasce
 //   na boca, com os projéteis paralelos espalhados em volta dela, e escorrega até a
-//   linha do tiro de verdade (o desvio de efeitos.js).
+//   linha do tiro de verdade (o desvio de efeitos.js). O que acelera (a carga do Canhão
+//   de Faíscas) anda pela curva do original na linha do tiro (posicionar).
 // - Impacto (impacto, impactoLocal): no casco do alvo, virado como o alvo; o seu tiro
 //   desenha na hora em que encosta no alvo na tela, e o acerto do servidor que chega
-//   depois não desenha de novo. Tiro que bate no chão, numa construção ou no campo de
-//   força (bateu, fim): o impacto onde parou, no rumo do tiro, e o som de impacto.
+//   depois não desenha de novo. O feixe que atravessa deixa um em cada alvo e segue.
+//   Tiro que bate no chão, numa construção ou no campo de força (bateu, fim): o
+//   impacto onde parou, no rumo do tiro, e o som de impacto.
 // - Fim (area): o efeito de fim deitado no ponto, esticado até a área (Metralha Shrewdo).
+// - Nova (nova): a esfera que cresce do Canhão de Faíscas, deitada onde a carga acabou,
+//   esticada até o raio da nova; os impactos dos alvos que ela pega saem do lado dela.
 // - Tiro que acaba a vida no ar some sem nada, como no original.
 //
 // Efeito que não carregou (não deveria: a tela de carregamento baixa todos) devolve
@@ -27,11 +32,11 @@ import * as THREE from 'three';
 import { golpeDaArma } from '/shared/armas.js';
 import { bocaDaArma } from './nave.js';
 import { criarEfeitoOriginal, efeitoOriginalPronto, soltarEfeitoOriginal, tocarEfeitoOriginal } from './efeitos-original.js';
-import { disparoOriginal, ESCALA_DISPARO, giroDoClarao, inicioDoTiro, pontoDoImpacto, acabouAntes, escalaDoFim } from './disparo-regras.js';
+import { disparoOriginal, ESCALA_DISPARO, giroDoClarao, inicioDoTiro, pontoDoImpacto, acabouAntes, escalaDaArea, recuoDaCarga } from './disparo-regras.js';
 
 // O seu impacto desenhado na hora vale pelo acerto do servidor que chegar até este
 // tempo depois (s); a explosão de área vale como origem dos impactos que ela causa
-// (o rumo no casco) até este tempo (s).
+// (o rumo no casco) até este tempo (s); a nova, enquanto cresce.
 const IMPACTO_LOCAL_S = 0.8;
 const EXPLOSAO_ORIGEM_S = 0.2;
 const EIXO_Y = new THREE.Vector3(0, 1, 0);
@@ -44,18 +49,23 @@ export class DisparoOriginal {
     this.ef = efeitos;
     this.presos = []; // clarões presos na boca: { inst, nave, enc, giro }
     this.locais = []; // seus impactos já desenhados: { alvo, kind, t }
-    this.explosoes = []; // explosões de área recentes: { kind, x, y, z, t }
+    this.explosoes = []; // áreas e novas recentes (origem dos impactos): { kind, x, y, z, t, ate }
     this.tempo = 0;
     this.q = new THREE.Quaternion();
     this.v = new THREE.Vector3();
     this.boca = new THREE.Vector3();
   }
 
-  /** O efeito `campo` ('d', 'p', 'i', 'f') da arma de início `kind` na versão `nv`, se está pronto (senão null). */
-  #id(kind, nv, campo) {
+  /** O efeito `campo` ('d', 'p', 'i', 'f') da arma `kind` na versão `nv` (golpe `prof`), se está pronto (senão null). */
+  #id(kind, nv, campo, prof = 0) {
     if (!disparoOriginal(kind)) return null;
-    const id = golpeDaArma(kind, nv ?? 1, 0)?.vis?.[campo];
+    const id = golpeDaArma(kind, nv ?? 1, prof)?.vis?.[campo];
     return id && efeitoOriginalPronto(id) ? id : null;
+  }
+
+  /** O impacto da arma: o do projétil ou, sem ele, o do subprojétil (a nova do Canhão de Faíscas). */
+  #idImpacto(kind, nv) {
+    return this.#id(kind, nv, 'i', 0) ?? this.#id(kind, nv, 'i', 1);
   }
 
   /** A arma `kind` (versão `nv`) dispara como no original (um clarão por projétil)? */
@@ -63,26 +73,41 @@ export class DisparoOriginal {
     return !!this.#id(kind, nv, 'p');
   }
 
-  /** Efeito que toca uma vez na cena (impacto, fim): entra na lista de efeitos.js, que toca e devolve. */
-  #umaVez(id, escala, x, y, z, quat = null) {
+  /** Efeito que toca uma vez na cena (impacto, fim): entra na lista de efeitos.js, que toca e devolve. `ate` (s): o último quadro fica até lá. */
+  #umaVez(id, escala, x, y, z, quat = null, ate = 0) {
     const inst = criarEfeitoOriginal(id, { escala });
     inst.obj.position.set(x, y, z);
     if (quat) inst.obj.quaternion.copy(quat);
     this.ef.scene.add(inst.obj);
-    this.ef.originais.push({ inst });
+    this.ef.originais.push({ inst, ate });
     return inst;
+  }
+
+  /** Lembra o centro de uma área ou nova, de onde vêm os impactos que ela causa (até `dur` s). */
+  #origem(kind, x, y, z, dur) {
+    this.explosoes.push({ kind, x, y, z, t: this.tempo, ate: this.tempo + dur });
+    if (this.explosoes.length > 16) this.explosoes.shift();
   }
 
   /**
    * Clarão na boca da arma do encaixe `enc` (0 = Z, 1 = X) da nave `nave`, preso a ela
-   * enquanto toca. false: não é arma de início, o efeito não carregou ou a arma ainda
-   * não está pendurada (quem chama desenha o clarão de antes).
+   * enquanto toca. No modo 'area' (o Rebatedor), parado onde a nave está, de pé,
+   * esticado até a área da versão. false: a arma não é desenhada como no original, o
+   * efeito não carregou ou a arma ainda não está pendurada (quem chama desenha o
+   * clarão de antes).
    */
   clarao(kind, nv, nave, enc) {
     const id = this.#id(kind, nv, 'd');
-    if (!id || !nave || !bocaDaArma(nave, enc, this.boca)) return false;
+    if (!id || !nave) return false;
+    const modo = disparoOriginal(kind).clarao;
+    if (modo === 'area') {
+      const area = golpeDaArma(kind, nv ?? 1, 0)?.area ?? 0;
+      this.#umaVez(id, escalaDaArea(area), nave.position.x, nave.position.y, nave.position.z);
+      return true;
+    }
+    if (!bocaDaArma(nave, enc, this.boca)) return false;
     const inst = criarEfeitoOriginal(id, { escala: ESCALA_DISPARO });
-    const preso = { inst, nave, enc, giro: giroDoClarao(disparoOriginal(kind).clarao, Math.random()) };
+    const preso = { inst, nave, enc, giro: giroDoClarao(modo, Math.random()) };
     this.#naBoca(preso);
     this.ef.scene.add(inst.obj);
     this.presos.push(preso);
@@ -101,8 +126,8 @@ export class DisparoOriginal {
   /**
    * Onde o desenho do tiro `b` nasce (para o desvio de efeitos.js): a boca `boca` da
    * arma com o projétil deslocado de lado como em volta da nave que atirou (`nave`:
-   * { x, z, yaw }, de onde ele saiu). Arma que não é de início: a própria boca (o
-   * desenho de antes sai todo da boca). Não mexe em `boca`.
+   * { x, z, yaw }, de onde ele saiu). Arma que não é desenhada como no original: a
+   * própria boca (o desenho de antes sai todo da boca). Não mexe em `boca`.
    */
   inicio(b, nave, boca) {
     if (!boca || !nave || !disparoOriginal(b.kind)) return boca;
@@ -111,9 +136,9 @@ export class DisparoOriginal {
   }
 
   /**
-   * Desenho do projétil da arma de início, repetindo, na lista de tiros de efeitos.js
-   * (que anda com ele, faz o desvio da boca e o tira de cena). false: não é arma de
-   * início ou o efeito não carregou.
+   * Desenho do projétil, repetindo, na lista de tiros de efeitos.js (que anda com ele,
+   * faz o desvio da boca e o tira de cena). false: a arma não é desenhada como no
+   * original ou o efeito não carregou.
    */
   tiro(b, boca) {
     const id = this.#id(b.kind, b.nv, 'p');
@@ -123,8 +148,20 @@ export class DisparoOriginal {
     inst.obj.lookAt(b.x + b.vx, b.y + b.vy, b.z + b.vz);
     this.ef.scene.add(inst.obj);
     const desvio = boca ? { x: boca.x - b.x, y: boca.y - b.y, z: boca.z - b.z, t: 0 } : null;
-    this.ef.tiros.set(b.id, { b, g: inst.obj, original: inst, armaInicio: true, rastro: { x: b.x, y: b.y, z: b.z }, desvio });
+    const carga = disparoOriginal(b.kind).carga ? golpeDaArma(b.kind, b.nv ?? 1, 0) : null;
+    this.ef.tiros.set(b.id, { b, g: inst.obj, original: inst, comoOriginal: true, carga, rastro: { x: b.x, y: b.y, z: b.z }, desvio });
     return true;
+  }
+
+  /**
+   * Ajusta o desenho do tiro `t` já posto na posição do tiro: o projétil que acelera
+   * (a carga do Canhão de Faíscas) fica para trás na linha dele, onde o original estaria.
+   */
+  posicionar(t) {
+    if (!t.carga) return;
+    const recuo = recuoDaCarga(t.carga.vida - t.b.vida, t.carga, disparoOriginal(t.b.kind).carga);
+    const v = Math.hypot(t.b.vx, t.b.vy, t.b.vz);
+    if (recuo > 0 && v > 0) t.g.position.addScaledVector(this.v.set(t.b.vx, t.b.vy, t.b.vz), -recuo / v);
   }
 
   /** Rumo do tiro `b` como giro do efeito (o efeito olha para +z). */
@@ -153,7 +190,7 @@ export class DisparoOriginal {
    * como uma torre), o impacto ali; se só acabou a vida, nada.
    */
   fim(t, x, y, z) {
-    if (t?.armaInicio && acabouAntes(t.b, x, z)) this.#noLugar(t.b, x, y, z);
+    if (t?.comoOriginal && acabouAntes(t.b, x, z)) this.#noLugar(t.b, x, y, z);
   }
 
   /**
@@ -177,13 +214,13 @@ export class DisparoOriginal {
   }
 
   /**
-   * Acerto do servidor com a arma de início `kind` em `alvo` ({ id, obj, raio, x, y, z }).
-   * `bala`: o estado do tiro que acertou (o desenho dele, tirado agora), ou null (área).
-   * `proprio`: foi você quem bateu (o seu impacto pode já ter saído na hora em que o tiro
-   * encostou). false: não é arma de início ou o efeito não carregou.
+   * Acerto do servidor com a arma `kind` em `alvo` ({ id, obj, raio, x, y, z }).
+   * `bala`: o estado do tiro que acertou, ou null (área, nova). `proprio`: foi você quem
+   * bateu (o seu impacto pode já ter saído na hora em que o tiro encostou). false: a
+   * arma não é desenhada como no original ou o efeito não carregou.
    */
   impacto(kind, alvo, bala, proprio) {
-    const id = this.#id(kind, 1, 'i');
+    const id = this.#idImpacto(kind, 1);
     if (!id) return false;
     if (proprio) {
       const i = this.locais.findIndex((l) => l.alvo === alvo.id && l.kind === kind && this.tempo - l.t < IMPACTO_LOCAL_S);
@@ -192,8 +229,8 @@ export class DisparoOriginal {
         return true;
       }
     }
-    // Sem o tiro (o alvo pego pela área): o rumo vem do centro da explosão.
-    const de = bala ?? this.explosoes.findLast((e) => e.kind === kind && this.tempo - e.t < EXPLOSAO_ORIGEM_S) ?? null;
+    // Sem o tiro (o alvo pego pela área ou pela nova): o rumo vem do centro dela.
+    const de = bala ?? this.explosoes.findLast((e) => e.kind === kind && this.tempo <= e.ate) ?? null;
     this.#noCasco(id, alvo, de);
     return true;
   }
@@ -209,17 +246,40 @@ export class DisparoOriginal {
   }
 
   /**
-   * Explosão de área da arma de início (evento 'explosao'): o efeito de fim deitado no
-   * ponto, esticado até a área (modo 7 do original). false: a arma não tem fim do
-   * original (quem chama desenha a área de antes).
+   * Explosão de área (evento 'explosao'): o efeito de fim deitado no ponto, esticado
+   * até a área (modo 7 do original). false: a arma não tem fim do original (quem chama
+   * desenha a área de antes).
    */
   area(kind, nv, x, y, z, raio) {
     if (!disparoOriginal(kind)) return false;
-    this.explosoes.push({ kind, x, y, z, t: this.tempo });
-    if (this.explosoes.length > 16) this.explosoes.shift();
+    this.#origem(kind, x, y, z, EXPLOSAO_ORIGEM_S);
     const id = disparoOriginal(kind).fim === 'area' ? this.#id(kind, nv, 'f') : null;
     if (!id) return false;
-    this.#umaVez(id, escalaDoFim(raio), x, y, z);
+    this.#umaVez(id, escalaDaArea(raio), x, y, z);
+    return true;
+  }
+
+  /**
+   * Nova (evento 'nova') da arma `kind`, golpe `p`, de raio `raio` em (x, y, z). O
+   * Rebatedor (clarão no modo 2, golpe 0): o clarão parado ali, se não é seu (o seu saiu
+   * na hora, pela predição). A esfera que cresce do Canhão de Faíscas (golpe 1): deitada
+   * ali, esticada até o raio, o último quadro até a vida da nova acabar. false: a arma
+   * não é desenhada como no original (quem chama desenha a nova de antes).
+   */
+  nova(kind, nv, p, x, y, z, raio, proprio) {
+    const como = disparoOriginal(kind);
+    if (!como) return false;
+    if (p === 0 && como.clarao === 'area') {
+      const id = this.#id(kind, nv, 'd');
+      if (!id) return false;
+      if (!proprio) this.#umaVez(id, escalaDaArea(raio), x, y, z);
+      return true;
+    }
+    const g = golpeDaArma(kind, nv ?? 1, p);
+    const id = g?.vis?.tipo === 'esfera_que_cresce' ? this.#id(kind, nv, 'p', p) : null;
+    if (!id) return false;
+    this.#umaVez(id, escalaDaArea(raio), x, y, z, null, g.vida);
+    this.#origem(kind, x, y, z, g.vida);
     return true;
   }
 

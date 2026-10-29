@@ -22,10 +22,12 @@
 // nave prevista (armasNave.nave) para travar o encaixe enquanto conta e mostrar a
 // arma que a nave tem de fato. As armas penduram nas asas (nave.js, definirArmas): a
 // sua pela nave prevista, as dos outros pelo `arm` de cada jogador no snapshot; o
-// clarão e o desenho do tiro saem da boca delas. As armas de início desenham como no
+// clarão e o desenho do tiro saem da boca delas. As armas de início (e o Feixe
+// Perfurante de Magma, o Canhão de Faíscas e o Rebatedor de Projéteis) desenham como no
 // original (efeitos.disparo, disparo-original.js): um clarão por projétil preso na
 // boca, o impacto no casco do alvo (o seu na hora em que o tiro encosta nele na tela)
-// e no chão, e o fim da Metralha Shrewdo do tamanho da área.
+// e no chão, o fim da Metralha Shrewdo do tamanho da área, a esfera do Canhão e o
+// anel do Rebatedor; o tiro rebatido ('rebatido') vira no desenho também.
 //
 // Som (sons.js): o contexto de áudio nasce no primeiro gesto (clique ou tecla). Cada
 // disparo toca o som da arma do original na posição dele (o seu na hora, pela
@@ -982,7 +984,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
         efeitos.areaMonstro(e.arma, e.x, e.y, e.z, e.raio, e.p ?? 0);
         tocarUmaVez(`x${e.arma}:${Math.round(e.x / 20)}:${Math.round(e.z / 20)}`, somImpacto(e.arma, e.nv, e.p), e.x, e.z, 0.7);
       } else if (e.e === 'nova') {
-        efeitos.armas.nova(e.kind, e.nv, e.p, e.x, e.y, e.z, e.raio, e.vel);
+        // O Rebatedor e a esfera do Canhão de Faíscas: os efeitos do original; o resto, o de antes.
+        if (!efeitos.disparo.nova(e.kind, e.nv, e.p ?? 0, e.x, e.y, e.z, e.raio, e.dono === meuId)) efeitos.armas.nova(e.kind, e.nv, e.p, e.x, e.y, e.z, e.raio, e.vel);
         if (!(e.dono === meuId && !e.p)) tocarUmaVez(`n${e.id}`, somDaArma(e.kind, e.nv, e.p), e.x, e.z);
       } else if (e.e === 'efeito') {
         // Dispositivo ligado (camuflagem, escudo, teleporte...): clarão na nave e o som.
@@ -1012,7 +1015,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
         efeitos.explosao(e.x, e.y, e.z, 0.8, '#ff4a2a');
         if (e.alvo === meuId && e.dano > 0) hud.levarDano();
       } else if (e.e === 'acerto') {
-        const bala = efeitos.removerTiro(e.bala);
+        // O feixe que atravessa segue desenhado; o resto sai de cena.
+        const bala = efeitos.tiroAcertou(e.bala);
         // O acerto numa torre não traz a arma: vem do tiro que bateu.
         const kind = e.kind ?? bala?.kind;
         if (e.atq && WEAPONS[e.kind]?.original) {
@@ -1040,6 +1044,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
         if (e.ouro > 0) linhas.push({ txt: `+${e.ouro} ouro`, classe: 'ouro' });
         if (e.xp > 0) linhas.push({ txt: `+${e.xp} XP`, classe: 'xp' });
         hud.flutuante(e.x, e.y + 7 + (ROTULO_MONSTRO[e.esp] ?? 0), e.z, linhas);
+      } else if (e.e === 'rebatido') {
+        // O Rebatedor de Projéteis jogou o tiro para fora do centro dele: o desenho vira junto.
+        efeitos.rebaterTiro(e, meuId);
       } else if (e.e === 'fim') {
         // Arma de início que bateu em algo antes de a vida acabar: o impacto ali.
         efeitos.disparo.fim(efeitos.tiros.get(e.bala), e.x, e.y, e.z);

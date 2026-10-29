@@ -1,8 +1,10 @@
-// Disparo das armas de início como no AstroN original (public/js/disparo-regras.js e
-// disparo-original.js): quais efeitos do original cada arma usa em cada versão, se eles
-// estão convertidos e na lista do carregamento, a forma deles (o clarão de um quadro dos
-// feixes, o projétil deitado que avança da boca, as faíscas do impacto, o anel do fim
-// com raio 100) e as contas de onde cada peça aparece.
+// Disparo das armas desenhadas como no AstroN original (public/js/disparo-regras.js e
+// disparo-original.js): as de início e as revistas depois (Feixe Perfurante de Magma,
+// Canhão de Faíscas, Rebatedor de Projéteis). Quais efeitos do original cada arma usa em
+// cada versão, se eles estão convertidos e na lista do carregamento, a forma deles (o
+// clarão de um quadro dos feixes, o projétil deitado que avança da boca, as faíscas do
+// impacto, o anel do fim, a esfera e o anel do Rebatedor com raio 100) e as contas de
+// onde cada peça aparece.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -12,14 +14,16 @@ import {
   DISPARO_ORIGINAL,
   GIRO_PASSO,
   IMPACTO_NO_CASCO,
-  RAIO_FIM_ORIGINAL,
+  RAIO_AREA_ORIGINAL,
   ESCALA_DISPARO,
   efeitosDoDisparo,
   giroDoClarao,
   inicioDoTiro,
   pontoDoImpacto,
   acabouAntes,
-  escalaDoFim,
+  escalaDaArea,
+  recuoDaCarga,
+  atravessa,
 } from '../public/js/disparo-regras.js';
 import { EFEITOS_ORIGINAIS, insumosDaPartida } from '../public/js/insumos.js';
 import { INICIAIS_ORIGINAL, WEAPONS, golpeDaArma } from '../shared/armas.js';
@@ -30,17 +34,25 @@ const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const efeito = (id) => JSON.parse(readFileSync(path.join(RAIZ, 'public/modelos/efeitos', `${id}.json`), 'utf8'));
 const perto = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
 
-test('disparo original: as seis armas de início, com o modo de clarão e de fim do original', () => {
+// As revistas contra o original depois das de início.
+const REVISTAS = ['o111003', 'o112028', 'o112014'];
+
+test('disparo original: as seis armas de início e as revistas, com o modo de clarão e de fim do original', () => {
   const iniciais = Object.values(INICIAIS_ORIGINAL).flat().map((id) => 'o' + id);
-  assert.deepEqual(Object.keys(DISPARO_ORIGINAL).sort(), iniciais.sort());
+  assert.deepEqual(Object.keys(DISPARO_ORIGINAL).sort(), [...iniciais, ...REVISTAS].sort());
   // Coluna 53 do inititemweapon.cfg: 14 (girado em volta do cano) nos feixes e no Vulcan
-  // Bellico, 15 (preso, sem giro) no Vulcan Acron e na Metralha; coluna 94 = 7 só na Metralha.
+  // Bellico, 15 (preso, sem giro) no Vulcan Acron, na Metralha e no Canhão de Faíscas, 2
+  // (parado onde a nave estava, pela área) no Rebatedor; coluna 94 = 7 só na Metralha
+  // (a V8 do Feixe Perfurante de Magma também, mas com área 0: não aparece).
   assert.deepEqual(
     Object.fromEntries(Object.entries(DISPARO_ORIGINAL).map(([k, v]) => [k, v.clarao])),
-    { o111001: 'giro', o111011: 'preso', o211001: 'giro', o211011: 'giro', o311001: 'giro', o311004: 'preso' },
+    { o111001: 'giro', o111011: 'preso', o211001: 'giro', o211011: 'giro', o311001: 'giro', o311004: 'preso', o111003: 'giro', o112028: 'preso', o112014: 'area' },
   );
   for (const [k, v] of Object.entries(DISPARO_ORIGINAL)) assert.equal(v.fim, k === 'o311004' ? 'area' : undefined, k);
   assert.equal(ESCALA_DISPARO, FATOR_TAMANHO_NAVE, 'na escala das naves');
+  // Colunas 64 a 66: a carga do Canhão de Faíscas sai parada e acelera até 0,5 m/ms.
+  assert.deepEqual(DISPARO_ORIGINAL.o112028.carga, { v0: 0, vmax: 0.5, acel: 0.0003 });
+  for (const k of Object.keys(DISPARO_ORIGINAL)) if (k !== 'o112028') assert.equal(DISPARO_ORIGINAL[k].carga, undefined, k);
 });
 
 test('disparo original: os efeitos de todas as versões estão convertidos e vão na tela de carregamento', () => {
@@ -67,6 +79,18 @@ test('disparo original: os efeitos de todas as versões estão convertidos e vã
   assert.equal(golpeDaArma('o111001', 1).vis.d, '2112001');
   assert.equal(golpeDaArma('o311004', 1).vis.d, '1121001');
   assert.equal(golpeDaArma('o311004', 8).vis.f, '1421002');
+  // As revistas: o Feixe Perfurante de Magma com o clarão e o impacto dos feixes e o
+  // feixe vermelho de cada degrau; o Canhão de Faíscas com a carga de cada degrau e a
+  // esfera que cresce (e o impacto das faíscas) no subprojétil; o Rebatedor, o anel.
+  assert.deepEqual(projeteis('o111003'), ['1312063', '1312063', '1312063', '1312064', '1312064', '1312064', '1312065', '1312065']);
+  assert.equal(golpeDaArma('o111003', 1).vis.d, '2112001');
+  assert.equal(golpeDaArma('o111003', 1).vis.i, '1412001');
+  assert.deepEqual(projeteis('o112028'), ['1335003', '1335003', '1335003', '1335004', '1335004', '1335004', '1335005', '1335005']);
+  assert.equal(golpeDaArma('o112028', 1).vis.d, '1133002');
+  assert.deepEqual(golpeDaArma('o112028', 8, 1).vis, { tipo: 'esfera_que_cresce', p: '2142018', i: '1421001' });
+  assert.deepEqual(golpeDaArma('o112014', 8).vis, { d: '1162020', p: '1162020' });
+  for (const id of ['2142018', '1421001', '1162020']) assert.ok(ids.includes(id), id);
+  assert.ok(!ids.includes('1412002'), 'o fim da V8 do Magma (área 0) não aparece no original');
 });
 
 test('disparo original: a forma dos efeitos é a do original', () => {
@@ -102,7 +126,81 @@ test('disparo original: a forma dos efeitos é a do original', () => {
   // O anel do fim da Metralha tem raio ~100 no maior quadro: o modo 7 escala por área / 100.
   const fim = efeito('1421002');
   const raios = fim.pecas.map((p) => Math.max(...p.pos.filter((_, i) => i % 3 === 1).map(Math.abs)));
-  assert.ok(raios.every((r) => r > 0.95 * RAIO_FIM_ORIGINAL && r < 1.1 * RAIO_FIM_ORIGINAL), raios.join());
+  assert.ok(raios.every((r) => r > 0.95 * RAIO_AREA_ORIGINAL && r < 1.1 * RAIO_AREA_ORIGINAL), raios.join());
+});
+
+/**
+ * Raio no chão da peça `i` do efeito no quadro `q`: a meia-largura do quadrado (a
+ * textura é redonda dentro dele) × a escala da matriz do quadro (o quadrado gira).
+ */
+function raioNoQuadro(e, q, i = 0) {
+  const p = e.pecas[i];
+  const m = p.q[e.blocos[q][i][0]] ?? p.m;
+  const meia = Math.max(...p.pos.filter((_, k) => k % 3 === 0).map(Math.abs));
+  return meia * Math.hypot(m[0], m[1], m[2]);
+}
+
+test('disparo original: a forma dos efeitos das revistas é a do original', () => {
+  // O feixe do Magma: dois planos deitados (texturas do feixe vermelho), 16 quadros, maior a cada degrau.
+  for (const id of ['1312063', '1312064', '1312065']) {
+    const e = efeito(id);
+    assert.equal(e.quadros, 16, id);
+    assert.ok(e.pecas.every((p) => p.tex === '1312051'), id);
+    assert.ok(e.blocos.every((l) => l.every((b) => !(b[2] & 8))), `${id}: deitado`);
+  }
+  // O clarão do canhão: a bola que cresce 5,5× e some em 21 quadros.
+  const clarao = efeito('1133002');
+  assert.equal(clarao.quadros, 21);
+  assert.ok(clarao.blocos.at(-1)[0][6] === 0, 'some no fim');
+  // A carga: virada para a câmera, trocando as 15 texturas charge_vox da paleta.
+  const carga = efeito('1335003');
+  assert.ok(carga.blocos.every((l) => (l[0][2] & 9) === 9), 'paleta e câmera');
+  assert.equal(carga.mpal.length, 15);
+  // A esfera que cresce e o anel do Rebatedor: deitados, chegam a raio 100 (a escala do original é raio / 100).
+  const esfera = efeito('2142018');
+  assert.equal(esfera.quadros, 35);
+  assert.ok(perto(raioNoQuadro(esfera, 34), RAIO_AREA_ORIGINAL, 1.5), `${raioNoQuadro(esfera, 34)}`);
+  assert.ok(raioNoQuadro(esfera, 0) < 0.2 * RAIO_AREA_ORIGINAL, 'começa pequena');
+  const anel = efeito('1162020');
+  assert.equal(anel.quadros, 12);
+  assert.ok(perto(raioNoQuadro(anel, 11), RAIO_AREA_ORIGINAL, 1.5), `${raioNoQuadro(anel, 11)}`);
+  for (const e of [esfera, anel]) assert.ok(e.blocos.every((l) => !(l[0][2] & 8)), `${e.id}: deitado`);
+});
+
+test('disparo original: o feixe do Magma atravessa; a carga e o Rebatedor não', () => {
+  for (let nv = 1; nv <= 8; nv++) assert.equal(atravessa(golpeDaArma('o111003', nv)), true, `V${nv}`);
+  assert.equal(atravessa(golpeDaArma('o112028', 1)), false);
+  assert.equal(atravessa(golpeDaArma('o112028', 1, 1)), false, 'a nova não é projétil');
+  assert.equal(atravessa(golpeDaArma('o112014', 1)), false);
+  assert.equal(atravessa(golpeDaArma('o111001', 1)), false);
+  assert.equal(atravessa(null), false);
+  // A V8 tem o fim 1412002 no modo 7 com área 0 no original (escala 0): o servidor não explode.
+  const v8 = golpeDaArma('o111003', 8);
+  assert.equal(v8.area, 0);
+  assert.equal(v8.fim, false);
+});
+
+test('disparo original: a carga do Canhão de Faíscas sai devagar e chega junto com o tiro do jogo', () => {
+  const g = golpeDaArma('o112028', 1);
+  const carga = DISPARO_ORIGINAL.o112028.carga;
+  assert.equal(recuoDaCarga(0, g, carga), 0, 'sai da boca');
+  assert.ok(recuoDaCarga(g.vida, g, carga) < 1e-9, 'chega ao fim junto');
+  // No meio do caminho ela está atrás (acelerando); o recuo é o que falta à curva do original.
+  const meio = recuoDaCarga(0.5, g, carga);
+  const andouOriginal = (0.0003 * 500 ** 2) / 2; // m do original em 0,5 s, ainda acelerando
+  const total = 0.5 * 1900 - 0.5 ** 2 / (2 * 0.0003); // vmax × T − vmax² / 2a
+  assert.ok(perto(meio, g.vel * 0.5 - g.vel * g.vida * (andouOriginal / total), 1e-9), `${meio}`);
+  assert.ok(meio > 40, 'bem atrás no começo');
+  // Nunca à frente do tiro do jogo, e o recuo some no fim.
+  let antes = Infinity;
+  for (let t = 0; t <= g.vida + 0.2; t += 0.05) {
+    const r = recuoDaCarga(t, g, carga);
+    assert.ok(r >= 0, `t ${t}`);
+    if (t > 1.2) {
+      assert.ok(r <= antes + 1e-9, `t ${t}: só diminui no fim`);
+      antes = r;
+    }
+  }
 });
 
 test('disparo original: o clarão gira em passos de 36° no modo 14 e fica preso no 15', () => {
@@ -154,9 +252,12 @@ test('disparo original: o fim do servidor só vira impacto quando o tiro bateu a
   assert.equal(acabouAntes({ ...t, vida: 0.05 }, c.x, c.z), false);
 });
 
-test('disparo original: o fim da Metralha estica até a área de cada versão', () => {
-  assert.ok(perto(escalaDoFim(17.5), 0.175));
+test('disparo original: o fim da Metralha, a esfera do Canhão e o anel do Rebatedor esticam até a área de cada versão', () => {
+  assert.ok(perto(escalaDaArea(17.5), 0.175));
   const areas = WEAPONS.o311004.versoes.map((v) => v.golpe.area);
   assert.deepEqual(areas, [17.5, 18.75, 20, 21.25, 22.5, 23.75, 25, 26.25], 'a área do original (70 a 105) × 0,25');
-  for (const a of areas) assert.ok(perto(escalaDoFim(a) * RAIO_FIM_ORIGINAL, a), 'o anel chega à borda da área');
+  for (const a of areas) assert.ok(perto(escalaDaArea(a) * RAIO_AREA_ORIGINAL, a), 'o anel chega à borda da área');
+  // A esfera: o raio da nova (300 a 500 do original × 0,25); o Rebatedor: a área (180 a 280 × 0,25).
+  assert.deepEqual(WEAPONS.o112028.versoes.map((v) => v.golpe.divide.nova.raio), [75, 82.5, 90, 97.5, 105, 112.5, 117.5, 125]);
+  assert.deepEqual(WEAPONS.o112014.versoes.map((v) => v.golpe.area), [45, 47.5, 50, 52.5, 55, 60, 65, 70]);
 });

@@ -499,19 +499,34 @@ export class Golpes {
     return time === undefined || time !== como.time;
   }
 
-  /** Tiros inimigos no raio voltam pelo caminho de onde vieram, agora do rebatedor. */
+  /**
+   * Tiros inimigos no raio saem para fora, do centro do rebatedor para onde cada um
+   * está, na mesma velocidade, agora dele: o rumo do original (CGameSocket::
+   * LGReflectBullet: a direção vira a do centro até o tiro). O evento 'rebatido' vira o
+   * desenho do tiro no cliente, que não prevê a troca.
+   */
   #rebater(como, x, z, raio) {
     for (const b of this.world.bullets) {
       if (b.rebatido || !this.#inimigoDe(como, b.time, b.drone)) continue;
-      if (Math.hypot(b.x - x, b.z - z) > raio || cruzaCampoBase(x, z, b.x, b.z)) continue;
-      b.vx = -b.vx;
-      b.vz = -b.vz;
+      const d = Math.hypot(b.x - x, b.z - z);
+      if (d > raio || cruzaCampoBase(x, z, b.x, b.z)) continue;
+      const v = Math.hypot(b.vx, b.vz);
+      if (d > 1e-6) {
+        b.vx = ((b.x - x) / d) * v;
+        b.vz = ((b.z - z) / d) * v;
+      } else {
+        // Em cima do centro: sem para onde sair, volta por onde veio.
+        b.vx = -b.vx;
+        b.vz = -b.vz;
+      }
       b.owner = como.owner;
       b.time = como.time;
       b.drone = false;
       b.alvo = undefined;
       b.atingidos = undefined;
       b.rebatido = true;
+      const r2 = (n) => +n.toFixed(2);
+      this.world.eventos.push({ e: 'rebatido', bala: b.id, kind: b.kind, dono: como.owner, time: como.time, x: r2(b.x), y: r2(b.y), z: r2(b.z), vx: r2(b.vx), vy: r2(b.vy), vz: r2(b.vz) });
     }
   }
 
