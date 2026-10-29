@@ -223,17 +223,16 @@ nave), centro na origem, y para cima:
 
 ## Efeito da volta à base (recall): `volta-base.glb`
 
-Não é peça do cenário: são as malhas de luz do portal de dobra da volta à base (`public/js/volta.js`, linha do
-tempo em `public/js/volta-regras.js`). Mora aqui pelo mesmo motivo da `subida-nivel.glb` (o carregador com Draco e a
-tela de carregamento). Nossas, feitas no Blender (`volta_base.py` em `new-astron-progresso/mapa-stage6/tmp/cenario/`,
-fonte `blender/volta-base.blend`); nada do AstroN original, no vocabulário do portal warp das bases. Um material só,
-`luz_volta`, que o cliente troca pelos shaders aditivos. ~2.120 triângulos, 15 KB, com normal e UV, tudo de tamanho 1
-(o cliente escala pelo corpo da nave), centro na origem, y para cima:
+Não é peça do cenário: são as malhas do efeito da volta à base (`public/js/volta.js`, linha do tempo em
+`public/js/volta-regras.js`). Mora aqui pelo mesmo motivo da `subida-nivel.glb` (o carregador com Draco e a tela de
+carregamento). Nossas, feitas no Blender (`volta_base.py` em `new-astron-progresso/mapa-stage6/tmp/cenario/`, fonte
+`blender/volta-base.blend`); nada do AstroN original, na linguagem do recall dos MOBAs. Um material só, `luz_volta`, que
+o cliente troca pelos shaders aditivos (a textura do círculo de runas é gerada no cliente). ~1.070 triângulos, 9 KB,
+com normal e UV, tudo de tamanho 1 (o cliente escala pelo corpo da nave), centro na origem, y para cima:
 
-- `volta_portal`: o portal deitado, virado para baixo: vórtice (disco até 0,6), aro de dentro (0,63 a 0,67), 8 lâminas
-  de íris tortas (0,71 a 0,93), aro de fora (0,96 a 1) e 16 marcas (1,03 a 1,09); u = ângulo / 2π (nas lâminas, o meio
-  da lâmina, (i + 0,5) / 8, para acender uma por vez), v = raio.
-- `volta_fios`: 12 fios saindo do raio 1 na altura 0 e se juntando no meio do alto (altura 1), torcendo um quarto de
-  volta; u ao longo do fio, v na largura.
-- `volta_feixe`: tubo aberto de raio 1 e altura 1, anéis mais juntos nas pontas; u em volta, v na altura.
-- `volta_anel`: coroa deitada de 0,8 a 1; u em volta, v no raio da coroa.
+- `volta_disco`: o quadrado deitado de -1 a 1 onde o shader desenha o círculo de runas; u e v de 0 a 1 nos lados.
+- `volta_fitas`: 3 fitas finas em espiral de 1,75 volta, de pé, raio 1 embaixo fechando a 0,3 no alto (o funil),
+  altura 1; u = índice da fita + o caminho ao longo dela (0 a 0,999), v na largura.
+- `volta_feixe`: tubo aberto de raio 1 e altura 1, anéis mais juntos nas pontas (a coluna de luz e o feixe ao céu);
+  u em volta, v na altura.
+- `volta_anel`: coroa deitada de 0,8 a 1 (a onda de choque); u em volta, v no raio da coroa.
