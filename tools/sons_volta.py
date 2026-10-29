@@ -10,9 +10,10 @@
 # - volta_canal (RECALL_S = 6 s, mais 0,4 s segurando o pico para a rede atrasar o
 #   'chegou' sem buraco): o zumbido grave sobe uma oitava com o progresso e abre (mais
 #   harmônicos), pulsa cada vez mais rápido (o círculo de runas girando), o zumbido do
-#   original sobe junto, as faíscas (grãos agudos curtos) ficam mais densas como as
-#   partículas do funil, e na carga final (CARGA_FINAL, a partir de 5,1 s) entra o
+#   original sobe junto, e na carga final (CARGA_FINAL, a partir de 5,1 s) entra o
 #   riser: ruído num filtro que sobe e o tom que dispara. Começa com a carga do original.
+#   Sem as faíscas (grãos agudos) por baixo: o tilintado contínuo não combinava com a
+#   carga (pedido do Mateus, 29/out/2026).
 #   O jogo toca a partir do ponto do progresso (quem aparece no meio da carga ouve dali).
 # - volta_cancela (0,5 s): a carga desligando, o tom caindo como fita parando.
 # - volta_partida (0,9 s): a descarga onde a nave estava: estalo, o golpe grave caindo, o
@@ -236,8 +237,6 @@ def canal(extra2, u_up):
         if i % 32 == 0:
             filtro.ajustar(900 * 2 ** (2.6 * kk(i / TAXA)))
         s[i] += filtro(zumbido[i])
-    # As faíscas: mais densas e mais agudas com a carga, como as partículas do funil.
-    faiscas(s, 0.1, dur, 7, lambda t: 3 + 34 * kk(t) ** 1.5 + 45 * final(t), 0.06)
     # A carga do original abrindo (fica forte mesmo com o crescendo baixo no começo).
     tocar_amostra(s, u_up[0], u_up[1], 0, 1.4)
     # A carga final: o riser (ruído num filtro que sobe) e um sopro grave crescendo.
