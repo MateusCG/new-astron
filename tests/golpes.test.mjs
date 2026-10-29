@@ -324,10 +324,18 @@ test('efeitos no alvo: vulnerável aumenta e fraco diminui o dano; cego vai no s
     return d;
   };
   assert.equal(dano(b, a), base);
-  b.st = { vulneravel: { fim: w.tick + 100, k: 0.25, tipoDano: null } };
-  assert.equal(dano(b, a), 12.5);
+  // Quebra de resistência: tira da resistência, não soma dano (sem resistência, nada muda).
+  b.st = { vulneravel: { fim: w.tick + 100, menos: 0.25 } };
+  assert.equal(dano(b, a), base);
+  b.st.resiste_laser = { fim: w.tick + 100, frac: 0.5 };
+  assert.equal(dano(b, a), base * (1 - 0.25));
+  b.st.vulneravel_laser = { fim: w.tick + 100, menos: 1 };
+  assert.equal(dano(b, a), base, 'zerada');
+  delete b.st.vulneravel;
+  delete b.st.vulneravel_laser;
   a.st = { fraco: { fim: w.tick + 100, mult: 0.8 } };
-  assert.equal(dano(b, a), 10);
+  assert.equal(dano(b, a), base * 0.5 * 0.8);
+  delete b.st.resiste_laser;
   b.st.cego = { fim: w.tick + 60 };
   assert.ok(w.snapshotPara(b, [], []).st.cego > 0);
 });

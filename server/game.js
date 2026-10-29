@@ -685,9 +685,11 @@ export class World {
       dano *= CRITICO_MULT;
       crit = true;
     }
-    // Resistência do piloto atingido ao tipo do golpe, menos a penetração de quem bateu.
+    // Resistência do piloto atingido ao tipo do golpe (já com o teto), menos o que os
+    // debuffs de quebra tiram e a penetração de quem bateu.
     if (alvo.tipo === 'jogador' && tipo && alvo.status) {
-      const resist = Math.max(0, (alvo.status.resist[tipo] ?? 0) - (quem?.status?.penetra[tipo] ?? 0));
+      const quebra = this.golpes.resistQuebrada(alvo, tipo);
+      const resist = Math.max(0, (alvo.status.resist[tipo] ?? 0) - quebra - (quem?.status?.penetra[tipo] ?? 0));
       dano *= 1 - resist;
     }
     // Estados das armas (invulnerável, escudo de arma, resistência, vulnerável, fraco...).

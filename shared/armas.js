@@ -82,9 +82,9 @@ export const MINA_ATRAS = 9; // m atrás da nave, onde nasce o que é solto para
 export const CAMPO_INTERVALO_S = 0.5; // s entre um dano e outro do campo (quando o original não diz)
 
 // Efeitos (conversões que o original não tem igual; ver EFEITOS).
-export const VULNERAVEL_ZERA = 0.25; // "zera a resistência": +25% de dano daquele tipo
+export const VULNERAVEL_ZERA = 1; // "zera a resistência": tira toda a resistência daquele tipo enquanto dura
 export const RESIST_POR_PONTO = 0.005; // resistência em pontos (40) → fração do dano (20%)
-export const RESIST_MAX = 0.75; // nenhuma resistência segura mais que isso
+export const RESIST_MAX = 0.95; // nenhuma resistência segura mais que isso (pedido do Mateus: furar quem empilha é trabalho de time)
 export const ESCUDO_EQUIV_HP = 0.15; // "escudo" do original = esta fração do HP máximo
 export const REGEN_ESCUDO_FRAC = 0.01; // "+100% de recuperação do escudo" = 1% do HP máximo por s
 export const ENERGIA_POR_HP_FATOR = 6; // Amplificador de Energia: valor × isto = energia por s (era 1,8 com a energia × 0,3)
@@ -172,11 +172,11 @@ function converterEfeito(e, versao) {
     case 'enfraquece':
       return { tipo: 'fraco', alvo: 'inimigo', mult: Math.max(0, 1 - v / 100), dur, raio };
     case 'quebraResistencias':
-      return { tipo: 'vulneravel', alvo: 'inimigo', k: v / 100, tipoDano: null, dur, raio };
+      return { tipo: 'vulneravel', alvo: 'inimigo', menos: Math.min(1, v / 100), tipoDano: null, dur, raio };
     case 'zeraResistFisica':
-      return { tipo: 'vulneravel', alvo: 'inimigo', k: VULNERAVEL_ZERA, tipoDano: 'fisico', dur, raio };
+      return { tipo: 'vulneravel', alvo: 'inimigo', menos: VULNERAVEL_ZERA, tipoDano: 'fisico', dur, raio };
     case 'zeraResistLaser':
-      return { tipo: 'vulneravel', alvo: 'inimigo', k: VULNERAVEL_ZERA, tipoDano: 'laser', dur, raio };
+      return { tipo: 'vulneravel', alvo: 'inimigo', menos: VULNERAVEL_ZERA, tipoDano: 'laser', dur, raio };
     case 'descarregaEscudoParcial':
       return { tipo: 'quebraEscudo', alvo: 'inimigo', frac: ((e.v2 ?? 0) / 100) * ESCUDO_EQUIV_HP, raio };
     case 'cegaRadar':
@@ -275,8 +275,10 @@ export function textoEfeito(ef) {
       return `Recarga do alvo +${p(ef.mult - 1)}${d}`;
     case 'fraco':
       return `Dano do alvo −${p(1 - ef.mult)}${d}`;
-    case 'vulneravel':
-      return `Alvo leva +${p(ef.k)} de dano${ef.tipoDano ? ` ${TIPOS_DANO[ef.tipoDano].toLowerCase()}` : ''}${d}`;
+    case 'vulneravel': {
+      const qual = ef.tipoDano ? `a resistência ${TIPOS_DANO[ef.tipoDano].toLowerCase()}` : 'todas as resistências';
+      return ef.menos >= 1 ? `Zera ${qual} do alvo${d}` : `Tira ${p(ef.menos)} de ${qual} do alvo${d}`;
+    }
     case 'quebraEscudo':
       return `Descarrega ${p(ef.frac / ESCUDO_EQUIV_HP)} do escudo na hora (sem escudo, ${p(ef.frac)} do HP máximo)`;
     case 'cego':

@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { World, ZONA_SEGURA, ESCUDO_ESPERA_S, CRITICO_MULT } from '../server/game.js';
 import { createShip, stepShip, sanitizeInput, armasIniciais, versaoArma, WEAPONS, ARMAS } from '../shared/sim.js';
 import { BASE, SERVICOS } from '../shared/terrain.js';
-import { versaoEquip, EQUIPAMENTOS } from '../shared/equipamentos.js';
+import { versaoEquip, EQUIPAMENTOS, RESIST_MAX } from '../shared/equipamentos.js';
 import { porPonto, multRecarga } from '../shared/status.js';
 
 const SEGUNDO = 30;
@@ -108,6 +108,38 @@ test('status: resistência do alvo ao tipo reduz o dano, e a penetração de que
     equipar(w, a, [PENETRA_OP]);
   }).perdeu;
   perto(comPen, DANO * (1 - Math.max(0, resist - pen)), 'penetração');
+});
+
+test('status: os debuffs de quebra tiram da resistência, como no original (zerar a do tipo ou tirar pontos de todas)', () => {
+  const resist = versaoEquip(ARMADURA_OP, 1).efeitos.find((e) => e.tipo === 'resist' && e.tipoDano === 'laser').valor;
+  const fim = 10 * SEGUNDO;
+  // Canhão Amplificador: zera a resistência Op. (o laser) enquanto dura.
+  const zerada = tiro((w, a, b) => {
+    equipar(w, b, [ARMADURA_OP]);
+    b.st = { vulneravel_laser: { fim, menos: 1 } };
+  }).perdeu;
+  perto(zerada, DANO, 'resistência Op. zerada');
+  // Zerar a de outro tipo não mexe no laser.
+  const outroTipo = tiro((w, a, b) => {
+    equipar(w, b, [ARMADURA_OP]);
+    b.st = { vulneravel_fisico: { fim, menos: 1 } };
+  }).perdeu;
+  perto(outroTipo, DANO * (1 - resist), 'Ph. zerada, Op. inteira');
+  // Quebra-Resistência V1: tira 13 pontos de todas.
+  const quebrada = tiro((w, a, b) => {
+    equipar(w, b, [ARMADURA_OP]);
+    b.st = { vulneravel: { fim, menos: 0.13 } };
+  }).perdeu;
+  perto(quebrada, DANO * (1 - Math.max(0, resist - 0.13)), 'menos 13 pontos');
+});
+
+test('status: a resistência chega até 95% (RESIST_MAX), nunca imune', () => {
+  assert.equal(RESIST_MAX, 0.95);
+  const { perdeu, b } = tiro((w, a, b) => {
+    b.status = { ...b.status, resist: { ...b.status.resist, laser: RESIST_MAX } };
+  });
+  perto(perdeu, DANO * (1 - 0.95));
+  assert.ok(b.ship.hp < b.ship.maxHp);
 });
 
 test('status: golpe crítico dobra o dano (o sorteio é do servidor)', () => {

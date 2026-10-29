@@ -58,7 +58,7 @@ const ticks = (s) => Math.round(s * TICK_HZ);
 const NA_NAVE_DEBUFF = ['lento', 'emp', 'semTiro', 'trava', 'desgov', 'semRegen', 'cadencia', 'enCara', 'drenoEn'];
 // Minas e campos ativos de um monstro (as três salvas de 8 armadilhas da Medusa).
 export const MINA_MAX_MONSTRO = 24;
-const NA_ENT_DEBUFF = ['vulneravel', 'fraco', 'recuo', 'cego', 'descarga'];
+const NA_ENT_DEBUFF = ['vulneravel', 'vulneravel_fisico', 'vulneravel_laser', 'vulneravel_eletrico', 'fraco', 'recuo', 'cego', 'descarga'];
 // O ícone da descarga de energia (o "E" do míssil do SN-3) fica na nave por isto (s),
 // se o golpe não traz duração (a do original, 2 s no míssil do SN-3).
 const DESCARGA_ICONE_S = 2;
@@ -430,7 +430,8 @@ export class Golpes {
         this.#por(alvo, 'fraco', ef.dur, { mult: ef.mult });
         break;
       case 'vulneravel':
-        this.#por(alvo, 'vulneravel', ef.dur, { k: ef.k, tipoDano: ef.tipoDano });
+        // Um estado por tipo (e um para todos), para o Canhão Amplificador e o Quebra-Resistência não se apagarem.
+        this.#por(alvo, ef.tipoDano ? `vulneravel_${ef.tipoDano}` : 'vulneravel', ef.dur, { menos: ef.menos });
         break;
       case 'recuo':
         this.#por(alvo, 'recuo', ef.dur, { frac: ef.frac, dono: autor });
@@ -705,10 +706,8 @@ export class Golpes {
     const quem = autor !== undefined ? (this.world.players.get(autor) ?? null) : null;
     const fraco = this.st(quem, 'fraco');
     if (fraco) dano *= fraco.mult;
-    const vul = this.st(alvo, 'vulneravel');
-    if (vul && (!vul.tipoDano || vul.tipoDano === tipoDano)) dano *= 1 + vul.k;
     const res = tipoDano ? this.st(alvo, `resiste_${tipoDano}`) : null;
-    if (res) dano *= 1 - res.frac;
+    if (res) dano *= 1 - Math.max(0, res.frac - this.resistQuebrada(alvo, tipoDano));
     const escudo = this.st(alvo, 'escudo');
     if (escudo && escudo.hp > 0) {
       const absorve = Math.min(escudo.hp, dano);
@@ -728,6 +727,18 @@ export class Golpes {
     const recuo = this.st(quem, 'recuo');
     if (recuo && quem?.vivo && direto && dano > 0) this.ctx.ferir(quem, dano * recuo.frac, recuo.dono, null, { direto: false });
     return dano;
+  }
+
+  /**
+   * Quanto da resistência do alvo ao tipo os debuffs de quebra tiram agora (0 a 1),
+   * como no original: o Canhão Amplificador e o de Choque zeram a do tipo deles, o
+   * Quebra-Resistência tira os pontos dele de todas, e o campo do SN-4 zera todas.
+   * Vale para a resistência do equipamento e para a das armas de dispositivo.
+   */
+  resistQuebrada(alvo, tipoDano) {
+    const todas = this.st(alvo, 'vulneravel')?.menos ?? 0;
+    const doTipo = tipoDano ? (this.st(alvo, `vulneravel_${tipoDano}`)?.menos ?? 0) : 0;
+    return Math.min(1, todas + doTipo);
   }
 
   /** Estados para o snapshot de quem é o dono (s restantes), para o HUD. */
@@ -759,9 +770,9 @@ export class Golpes {
     if (ent.drenoTicks > 0 && ent.drenoMagma) fx.push('magma');
     if (this.st(ent, 'invulneravel')) fx.push('invul');
     if (this.st(ent, 'escudo')?.hp > 0) fx.push('escudo');
-    const vuln = this.st(ent, 'vulneravel');
-    if (vuln && !vuln.tipoDano) fx.push('resist');
-    if ((vuln && vuln.tipoDano) || this.st(ent, 'fraco') || this.st(ent, 'recuo')) fx.push('fraco');
+    if (this.st(ent, 'vulneravel')) fx.push('resist');
+    const vulnTipo = ['fisico', 'laser', 'eletrico'].some((t) => this.st(ent, `vulneravel_${t}`));
+    if (vulnTipo || this.st(ent, 'fraco') || this.st(ent, 'recuo')) fx.push('fraco');
     if (this.st(ent, 'regen') || this.st(ent, 'curaTempo') || segurandoTipo(s, 'regen')) fx.push('regen');
     if (segurandoTipo(s, 'acelera')) fx.push('acel');
     if (this.invisivel(ent)) fx.push('inv');
@@ -829,7 +840,7 @@ export function mensagemDebuff(ef) {
     case 'fraco':
       return { ef: 'fraco', v: um((1 - ef.mult) * 100), dur };
     case 'vulneravel':
-      if (!ef.tipoDano) return { ef: 'resist', v: um(ef.k * 100), dur };
+      if (!ef.tipoDano) return { ef: 'resist', v: um(ef.menos * 100), dur };
       return { ef: ef.tipoDano === 'fisico' ? 'vulnFisico' : 'vulnLaser', dur };
     case 'cego':
       return { ef: 'cego', dur };
