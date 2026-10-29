@@ -1420,6 +1420,10 @@ kbd {
   background: var(--objetivo);
 }
 
+.rot-obj.escudo .barra i {
+  background: var(--escudo);
+}
+
 .rot-obj.meu .txt,
 #prog-obj.meu .txt {
   color: var(--neon);

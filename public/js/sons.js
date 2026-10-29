@@ -105,6 +105,15 @@ export const SONS_VOLTA = Object.freeze({
 });
 
 /**
+ * Núcleo de He-3: o reflexo de dano, som nosso gerado por tools/sons_nucleo.py em cima da
+ * linha do tempo de nucleo-regras.js (o tranco da cúpula soltando o raio e o estalo dele
+ * chegando na nave em REFLEXO_CHEGA_S).
+ */
+export const SONS_NUCLEO = Object.freeze({
+  reflexo: 'nucleo_reflexo',
+});
+
+/**
  * Sons do mundo por situação → arquivo, para quem ligar os eventos do jogo.
  * As armas novas devem usar o som do original (coluna de disparo de inititemweapon.cfg,
  * ver public/sons/LISTA.md); aqui ficam os padrões por família.

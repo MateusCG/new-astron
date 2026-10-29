@@ -102,4 +102,12 @@ Não são do original: gerados por `tools/sons_volta.py` (Python puro, `python3 
 | `volta_partida` | 0,90 s | A nave sumindo onde estava: estalo, golpe grave caindo, sopro subindo ao céu, o teletransporte do original mais agudo e faíscas; também na saída do teleporte |
 | `volta_chegada` | 1,00 s | A nave chegando: o raio descendo até o impacto em 0,125 s (golpe grave, estalo e o estalo elétrico do original), com uma cauda curta; sem som de materialização; na volta à base e no teleporte |
 
+## Nosso: reflexo do Núcleo de He-3
+
+Não é do original: gerado por `tools/sons_nucleo.py` (Python puro, `python3 -I tools/sons_nucleo.py`, com o sintetizador de `tools/sons_volta.py`) em cima da linha do tempo de `public/js/nucleo-regras.js`, misturando o timbre do original (`volt`, `extra2`, lidos daqui) com camadas sintetizadas; sem nota musical. WAV PCM mono, **44 100 Hz**, 16 bits, nivelado como impacto (`nivel-sons.js`). Quem toca é `main.js` no evento `reflexo` (`SONS_NUCLEO` em `sons.js`), na sua nave se o raio veio para você, senão no Núcleo.
+
+| Arquivo | Duração | Uso |
+|---|---|---|
+| `nucleo_reflexo` | 0,90 s | O Núcleo devolvendo o dano: em 0 s, o tranco grave da cúpula soltando o raio (golpe de 74 para 36 Hz), o estalo seco e as chapas do escudo vibrando por baixo (parciais inarmônicas abafadas); o chiado curto do raio cruzando o poço; em 0,12 s, quando o raio chega na nave, o estalo elétrico do original mais grave, um estalo de ruído e um baque médio; o zumbido do original abafado morrendo e uma cauda curta de espaço |
+
 Ficaram de fora: as falas dos NPCs da base (`*_buy`, `*_bye`, `*_enter`, `*_lack`, `*_de`, `*_act`, em coreano), os outros sons dos monstros e chefes (`*p1`, os `*d1` de monstros que não estão no jogo, `boss*`), `logo`, `fadein`/`fadeout`, `h_rotate`, `dc1`/`dc2`, `i_munit` e os jingles longos `exwin`/`exlose` (35 s cada, vitória e derrota de fase, não são explosão). A música (`reference/audio/music/*.mp3`, 15 MB) também ficou de fora.

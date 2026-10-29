@@ -46,7 +46,7 @@ export const CATEGORIA_DO_SOM = Object.freeze(
         'shot_fxsph volt drop2 u_mine u_up u_acc u_decoy u_remove up2 hide moojuk dt1 dt2 ' +
         'npcfire2 npcfire3 hyper',
     ),
-    ...lista('impacto', 'g_impact b_impact n2_explo extra2 off_device off_device2 cure'),
+    ...lista('impacto', 'g_impact b_impact n2_explo extra2 off_device off_device2 cure nucleo_reflexo'),
     ...lista('explosao', 'c_explo'),
     ...lista('morte', 'snzerod1 sekisd1 vajytd1 medusad1 aflyd1'),
     ...lista('destruicao', 'h_explo'),

@@ -46,8 +46,8 @@
 // os mísseis do Anti e do SN-4, o míssil com o "E" do SN-3), o clarão, o impacto (a
 // esfera azul da descarga de energia), a área, a nova (a onda rosa do SN-4, esticada
 // até o raio) e o campo (o campo elétrico do SN-4); efeito que não carregou cai no
-// desenho das armas do jogador (efeitos-armas.js). O pulso do Núcleo de He-3 é um anel
-// azul-gelo (puxando para o vermelho quanto mais forte) que abre até o raio.
+// desenho das armas do jogador (efeitos-armas.js). O Núcleo de He-3 não ataca: as duas
+// passivas dele (o escudo e o reflexo) são desenhadas na cena (nucleo-efeitos.js).
 //
 // Estados na nave, como no original (CUnit::ChangeEffectFlag): os debuffs da lista `fx`
 // que o original marca com um ícone ganham o ícone 3D do original girando EM CIMA da
@@ -56,10 +56,10 @@
 // subindo). Esses não levam mais a aura colorida.
 //
 // Desempenho (nada de travada quando a luta começa): o que vem e vai a cada tiro
-// (faísca, fumaça do míssil, clarão, anel de área, pulso, feixe do recall, anel de
+// (faísca, fumaça do míssil, clarão, anel de área, feixe do recall, anel de
 // nível, os efeitos do original) sai de RESERVAS e volta para elas ao sumir, com
 // material e geometria já prontos; os tiros de NPC e de monstro dividem um material por
-// cor; e as geometrias são de tamanho 1, escaladas (o pulso, o anel). Assim a partida
+// cor; e as geometrias são de tamanho 1, escaladas (o anel). Assim a partida
 // não cria geometria nem material a cada tiro e não libera nenhum no meio dela: o
 // Three.js apaga o programa de shader quando o último material dele é liberado, e o
 // próximo efeito igual compilaria de novo. As reservas já nascem cheias na tela de
@@ -127,11 +127,6 @@ const PARTICULAS_MAX = 160;
 // Impactos iguais que chegam juntos no mesmo lugar desenham um só (impactoMonstro).
 const IMPACTO_JUNTO_S = 0.15;
 const IMPACTO_JUNTO_M = 6;
-// Pulso do Núcleo: duração (s) do anel abrindo, cor com força 1 e com força máxima.
-const PULSO_S = 0.7;
-const PULSO_RAIO_INICIO = 11; // m: o círculo âmbar de 22 m do prato do Núcleo
-const COR_PULSO = new THREE.Color('#9fe8ff');
-const COR_PULSO_FORTE = new THREE.Color('#ff6a4a');
 const COR_BRANCO = new THREE.Color('#ffffff'); // estalo mais forte das faíscas do EMP
 const COR_CHAMA = new THREE.Color('#fff0c8'); // chama do míssil
 const COR_FUMACA = new THREE.Color('#8f8a83'); // rastro do míssil (sem brilho)
@@ -226,7 +221,7 @@ const caixaVolta = new THREE.Box3();
 // Quantos de cada efeito passageiro já nascem prontos na tela de carregamento (a
 // reserva cresce sozinha se a partida pedir mais). Uma briga de 6 naves com mísseis
 // passa de cem faíscas e baforadas de fumaça ao mesmo tempo.
-const RESERVA_INICIAL = { brilho: 160, fumaca: 120, faiscas: 12, anelArea: 12, pulsoAnel: 4, pulsoCasca: 4, feixe: 4 };
+const RESERVA_INICIAL = { brilho: 160, fumaca: 120, faiscas: 12, anelArea: 12, feixe: 4 };
 // Faíscas de uma explosão: 14 por tamanho, até este tanto (o buffer da reserva é deste tamanho).
 const FAISCAS_MAX = 128;
 
@@ -291,9 +286,7 @@ export class Efeitos {
     this.reservas.clear();
     for (const m of this.matsPorCor.values()) m.dispose();
     this.matsPorCor.clear();
-    for (const g of this.geoPulso.values()) g.dispose();
-    this.geoPulso.clear();
-    for (const r of [this.geoMina, this.geoEspinho, this.geoLuzMina, this.matMina, this.geoMissil, this.geoNarizMissil, this.matMissil, this.geoAnel, this.geoColuna, this.geoCascaPulso]) {
+    for (const r of [this.geoMina, this.geoEspinho, this.geoLuzMina, this.matMina, this.geoMissil, this.geoNarizMissil, this.matMissil, this.geoAnel, this.geoColuna]) {
       r.dispose();
     }
   }
@@ -335,12 +328,10 @@ export class Efeitos {
     this.voltas = [];
     for (const obj of this.ocultos) if (obj.userData.casco) obj.userData.casco.visible = true;
     this.ocultos.clear();
-    for (const c of this.pulsos) this.#devolver(c.m);
     for (const o of this.originais) soltarEfeitoOriginal(o.inst);
     this.originais = [];
     for (const p of this.particulasRastro) this.#soltarParticula(p);
     this.particulasRastro = [];
-    this.pulsos = [];
     this.particulas = [];
     this.aneisArea = [];
     this.feixes = [];
@@ -389,10 +380,6 @@ export class Efeitos {
     this.particulasRastro = []; // rastro dos projéteis de partículas do original
     this.reservaParticulas = [];
     this.camera = null; // quem desenha a cena põe a câmera (peças viradas para ela)
-    this.pulsos = []; // pulsos do Núcleo de He-3
-    // Geometrias de tamanho 1 (a malha escala): o pulso.
-    this.geoCascaPulso = new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2);
-    this.geoPulso = new Map(); // grossura do anel do pulso (em degraus) -> TorusGeometry
     const aditivo = { blending: THREE.AdditiveBlending, transparent: true, depthWrite: false };
     this.matsPorCor = new Map(); // materiais dos tiros de NPC e de monstro, um por cor e jeito
     // Reservas dos efeitos passageiros (#pegar/#devolver) e como nasce cada um.
@@ -412,12 +399,6 @@ export class Efeitos {
         m.rotation.x = -Math.PI / 2;
         return m;
       },
-      pulsoAnel: () => {
-        const m = new THREE.Mesh(this.#geoPulso(0), new THREE.MeshBasicMaterial({ ...aditivo }));
-        m.rotation.x = Math.PI / 2;
-        return m;
-      },
-      pulsoCasca: () => new THREE.Mesh(this.geoCascaPulso, new THREE.MeshBasicMaterial({ ...aditivo, side: THREE.DoubleSide })),
       feixe: () => new THREE.Mesh(this.geoColuna, new THREE.MeshBasicMaterial({ ...aditivo, vertexColors: true, side: THREE.DoubleSide })),
     };
     this.armas = new VisualArmas(scene);
@@ -487,13 +468,6 @@ export class Efeitos {
       this.matsPorCor.set(chave, m);
     }
     return m;
-  }
-
-  /** Anel do pulso do Núcleo com a grossura da força `k` (0 a 1, em 5 degraus). */
-  #geoPulso(k) {
-    const degrau = Math.round(k * 4) / 4;
-    if (!this.geoPulso.has(degrau)) this.geoPulso.set(degrau, new THREE.TorusGeometry(1, 0.02 + 0.03 * degrau, 4, 64));
-    return this.geoPulso.get(degrau);
   }
 
   /**
@@ -1229,27 +1203,6 @@ export class Efeitos {
   }
 
   /**
-   * Pulso de energia do Núcleo de He-3 (evento 'pulso'): anel que abre do prato do
-   * Núcleo até `raio`, mais grosso e mais vermelho quanto maior a `forca` (1 a 2,5),
-   * com uma casca clara.
-   */
-  pulsoNucleo(x, y, z, raio, forca = 1) {
-    const k = Math.max(0, Math.min(1, (forca - 1) / 1.5));
-    const cor = COR_PULSO.clone().lerp(COR_PULSO_FORTE, k);
-    const anel = this.#pegar('pulsoAnel');
-    anel.geometry = this.#geoPulso(k);
-    anel.material.color.copy(cor);
-    anel.position.set(x, y, z);
-    this.scene.add(anel);
-    this.pulsos.push({ m: anel, vida: 0, raio, anel: true });
-    const casca = this.#pegar('pulsoCasca');
-    casca.material.color.copy(cor);
-    casca.position.set(x, y - 10, z);
-    this.scene.add(casca);
-    this.pulsos.push({ m: casca, vida: 0, raio, anel: false, forca: 0.18 + 0.12 * k });
-  }
-
-  /**
    * Uma baforada do rastro do míssil no ponto dado: fumaça cinza sem brilho ou, com
    * a cor do rastro do original (`cor`), luz aditiva naquela cor.
    */
@@ -1407,25 +1360,6 @@ export class Efeitos {
       if (tocarEfeitoOriginal(o.inst, dt, this.camera)) return true;
       soltarEfeitoOriginal(o.inst);
       return false;
-    });
-
-    this.pulsos = this.pulsos.filter((p) => {
-      p.vida += dt;
-      const k = p.vida / PULSO_S;
-      if (k >= 1) {
-        this.#devolver(p.m);
-        return false;
-      }
-      const sai = 1 - (1 - k) * (1 - k);
-      const r = PULSO_RAIO_INICIO + (p.raio - PULSO_RAIO_INICIO) * sai;
-      if (p.anel) {
-        p.m.scale.setScalar(r);
-        p.m.material.opacity = 0.95 * (1 - k);
-      } else {
-        p.m.scale.set(r, r * 0.35, r);
-        p.m.material.opacity = p.forca * (1 - k);
-      }
-      return true;
     });
 
     this.feixes = this.feixes.filter((f) => {

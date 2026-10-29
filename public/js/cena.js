@@ -27,7 +27,8 @@
 //   com um anel onde o tiro bate);
 // - os objetivos: torres de suporte (de pé, apagadas em 'espera', caídas em
 //   'recarga'), plataformas de pouso de ouro (acesas em 'ativo'), o
-//   Núcleo de He-3 (anéis e lascas girando, mais rápido com menos vida);
+//   Núcleo de He-3 (anéis e lascas girando, mais rápido com menos escudo, e as
+//   duas passivas em nucleo-efeitos.js: a cúpula do escudo e o raio do reflexo);
 // - as nuvens de gás e poeira da jungle (nuvens.js, nos retângulos de ASTEROIDES:
 //   tufos virados para a câmera, sorteados com semente fixa, todo jogador vê igual)
 //   e a decoração do lago (pedras que furam a água, ruínas, corais, algas e
@@ -70,6 +71,7 @@ import { PORTAL_WARP, OBSTACULOS, ESCALA_TORRE_SUPORTE } from '/shared/obstaculo
 import { criarAgua, TEMPO_AGUA } from './agua.js';
 import { criarNuvens } from './nuvens.js';
 import { instanciaMapa, partesDoModelo, pintar, neon, materialDoMapa, modeloMapaPronto, texturasPbr } from './mapa-modelos.js';
+import { criarEfeitosNucleo } from './nucleo-efeitos.js';
 
 export const CORES = {
   ceuTopo: new THREE.Color('#1c2840'),
@@ -1069,7 +1071,10 @@ function montarPlataformas(g) {
   return plats;
 }
 
-/** Núcleo de He-3 (poço de cima): os nós que giram e os materiais que acendem. */
+/**
+ * Núcleo de He-3 (poço de cima): os nós que giram, os materiais que acendem e os efeitos
+ * das duas passivas (o escudo e o reflexo, nucleo-efeitos.js), dentro do modelo.
+ */
 function montarNucleo(g) {
   const m = por(g, 'nucleo', NUCLEO.x, 0, NUCLEO.z, 0);
   if (!m) return null;
@@ -1077,10 +1082,13 @@ function montarNucleo(g) {
   const he3 = neon(CORES.minerio, 0.35);
   pintar(m, 'neon_objetivo', ambar);
   pintar(m, 'neon_he3', he3);
+  const efeitos = criarEfeitosNucleo(NUCLEO);
+  if (efeitos) m.add(efeitos.grupo);
   return {
     m,
     ambar,
     he3,
+    efeitos,
     cristal: no(m, 'nucleo_cristal'),
     lascas: no(m, 'nucleo_lascas'),
     aneis: [1, 2, 3].map((i) => no(m, `nucleo_anel_${i}`)),
@@ -1167,13 +1175,15 @@ function montarDecoracao(g) {
 /**
  * Monta a cena inteira. Retorna { scene, atualizar(dt, foco), definirObjetivo(id,
  * estado), definirMineracao(n), definirBacias(placar, descargas), atingirCampo(time,
- * x, y, z) }: foco é o ponto (nave do jogador) que a sombra, o céu, as gotículas e o
+ * x, y, z), acertoNucleo(de, sorteio), reflexoNucleo(alvos) }: foco é o ponto (nave do jogador) que a sombra, o céu, as gotículas e o
  * aviso do campo de força acompanham; definirObjetivo recebe o estado de cada
  * objetivo do snapshot (obj[id]) e acende, apaga, derruba ou gira a peça dele;
  * definirMineracao diz quantos mineradores estão minerando (o He-3 da mineradora
  * brilha mais); definirBacias recebe o placar ({0: n, 1: n}: a altura do minério em
  * cada bacia) e os mineradores despejando agora ([{x, y, z, time}]: o minério cai
- * deles); atingirCampo abre um anel no campo de força da base `time` onde o tiro bateu.
+ * deles); atingirCampo abre um anel no campo de força da base `time` onde o tiro bateu;
+ * acertoNucleo e reflexoNucleo tocam as duas passivas do Núcleo (o escudo levando o tiro
+ * e o raio do reflexo até cada nave).
  * `meuTime` decide as cores relativas (o seu time turquesa, o outro vermelho).
  * Os modelos já têm de estar no cache (tela de carregamento).
  */
@@ -1323,6 +1333,7 @@ export function criarCena({ meuTime = 0 } = {}) {
       }
       nucleo.he3.emissiveIntensity = ativo ? 0.85 + 0.25 * Math.sin(tempo * (2 + (1 - nucleo.vida) * 4)) : 0.3;
       nucleo.ambar.emissiveIntensity = ativo ? 0.9 : OBJ_APAGADO;
+      nucleo.efeitos?.atualizar(dt, tempo);
     }
 
     // Dentro de uma nuvem as gotículas viram poeira do gás: mais densas e maiores.
@@ -1360,7 +1371,22 @@ export function criarCena({ meuTime = 0 } = {}) {
     if (id === 'NUCLEO' && nucleo) {
       nucleo.estado = r.estado;
       nucleo.vida = r.estado === 'ativo' ? (r.vida ?? 1) : 1;
+      nucleo.efeitos?.definir(r);
     }
+  }
+
+  /**
+   * Um tiro bateu no escudo do Núcleo: a onda abre do lado de `de` (o projétil desenhado,
+   * no mundo, ou null: `sorteio` de 0 a 1 escolhe o lado). Devolve o ponto da cúpula
+   * onde ele bateu (para o impacto da arma), ou null sem escudo.
+   */
+  function acertoNucleo(de, sorteio) {
+    return nucleo?.efeitos?.acerto(de, sorteio) ?? null;
+  }
+
+  /** O reflexo do Núcleo: um raio até cada nave de `alvos` ([{x, y, z, seguir}]). */
+  function reflexoNucleo(alvos) {
+    nucleo?.efeitos?.reflexo(alvos);
   }
 
   /** Quantos mineradores estão minerando agora (o He-3 da mineradora acende mais). */
@@ -1382,7 +1408,7 @@ export function criarCena({ meuTime = 0 } = {}) {
     impacto = (impacto + 1) % CAMPO_IMPACTOS;
   }
 
-  return { scene, atualizar, definirObjetivo, definirMineracao, definirBacias, atingirCampo };
+  return { scene, atualizar, definirObjetivo, definirMineracao, definirBacias, atingirCampo, acertoNucleo, reflexoNucleo };
 }
 
 /**

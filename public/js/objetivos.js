@@ -11,7 +11,9 @@
 // - Plataforma de ouro (P0/P1): com alguém pousado (`quem`), a barra enche até
 //   POUSO_PLATAFORMA_S, contestado pisca.
 // - Núcleo de He-3, Medusa, SN-4 (buff de ataque) e sonda: a vida no rótulo; quando
-//   não estão no mapa, quanto falta para aparecer ou voltar e quem tomou por último.
+//   não estão no mapa, quanto falta para aparecer ou voltar e quem tomou por último. A
+//   vida do Núcleo é o escudo (a barra na cor do escudo, --escudo), e do segundo em diante
+//   ele diz o nível (mais forte a cada vez que é destruído).
 // - Rótulo (DOM, como os nomes das naves): ícone âmbar do objetivo e o estado numa
 //   linha, com barra quando há vida ou progresso. Cor do time relativa a quem olha:
 //   seu time em turquesa, o outro em vermelho. O da sonda acompanha a sonda viva.
@@ -57,7 +59,6 @@ const FAZER = {
   suporte: 'Destrua a torre · bônus de suporte',
   sonda: 'Sonda errante · bônus de velocidade',
   medusa: 'Medusa Anciã · bônus do time',
-  nucleo: 'Núcleo de He-3 · onda de mineradores',
 };
 
 /** Ícones de traço (SVG 24×24) de cada tipo, para o rótulo, o HUD e o placar. */
@@ -150,7 +151,8 @@ export class ObjetivosNaTela {
     const nome = NOME_OBJETIVO[tipo];
     const quem = r.time == null ? '' : ` · ${this.#time(r.time)[0]}`;
     const corQuem = r.time == null ? '' : this.#time(r.time)[1];
-    if (r.estado === 'recarga') return { txt: `Volta em ${relogio(r.volta)}${quem}`, classe: `recarga ${corQuem}`, barra: null };
+    const nivel = tipo === 'nucleo' && r.nivel > 1 ? ` · nível ${r.nivel}` : '';
+    if (r.estado === 'recarga') return { txt: `Volta em ${relogio(r.volta)}${nivel}${quem}`, classe: `recarga ${corQuem}`, barra: null };
     if (r.estado === 'tomado') return { txt: `${nome} · tomado${quem}`, classe: `recarga ${corQuem}`, barra: null };
     if (r.estado === 'espera') {
       if (r.bloqueada) return { txt: `${nome} · espera a Medusa e o Núcleo`, classe: 'recarga', barra: null };
@@ -166,6 +168,7 @@ export class ObjetivosNaTela {
       // Livre: o holograma "OURO" e o "Pouse e ganhe ouro · L" do cenário dizem o que fazer.
       return { txt: '', classe: '', barra: null };
     }
+    if (tipo === 'nucleo') return { txt: `${NOME_OBJETIVO.nucleo}${nivel} · onda de mineradores`, classe: 'escudo', barra: r.vida ?? null };
     return { txt: FAZER[tipo], classe: '', barra: r.vida ?? null };
   }
 

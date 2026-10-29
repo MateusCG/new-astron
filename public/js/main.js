@@ -87,9 +87,10 @@
 // modelos do lago de He-3, já no cache quando a cena é montada (tela de
 // carregamento); os monstros da jungle chegam como entidades { tipo: 'monstro', esp }
 // e são desenhados com os modelos do original; o Núcleo de He-3 é o modelo do
-// cenário e a entidade dele só leva o rótulo com a vida. O `obj` do snapshot
-// ({ id: estado }) acende, apaga e derruba as peças dos objetivos e escreve os
-// rótulos; o pulso do Núcleo, a chama e os tiros de cada ataque de monstro (`atq`)
+// cenário e a entidade dele só leva o rótulo com o escudo; os acertos nele abrem a onda
+// na cúpula do escudo e o evento 'reflexo' solta os raios até as naves (nucleo-efeitos.js,
+// pela cena). O `obj` do snapshot ({ id: estado }) acende, apaga e derruba as peças dos
+// objetivos e escreve os rótulos; a chama e os tiros de cada ataque de monstro (`atq`)
 // saem pelos eventos (os do SN-3 e do SN-Zero VI com o desenho, o clarão, o impacto e
 // o som das armas de NPC do original, como as armas do jogador). Os bônus de nave (`bn` de cada jogador e o `me.bonusNave`) e o
 // da Medusa (do time) viram anéis em volta das naves e ícones no HUD.
@@ -108,7 +109,7 @@
 // WebGL fica, porque é reaproveitado na próxima entrada.
 
 import * as THREE from 'three';
-import { DT, RACES, WEAPONS, VEL_TOQUE, HOVER, createBullet, stepShip, bulletHits, forward, pousoPermitido } from '/shared/sim.js';
+import { DT, RACES, WEAPONS, VEL_TOQUE, createBullet, stepShip, bulletHits, forward, pousoPermitido } from '/shared/sim.js';
 import { golpeDaArma, golpePrevisivel, versaoArma, visualDoOriginal } from '/shared/armas.js';
 import { CLASSES, ORDEM_CLASSES, RACAS_BLOQUEADAS, naveDe, linhaDe, classeValida, racaJogavel } from '/shared/naves.js';
 import { areaPouso, heightAt } from '/shared/terrain.js';
@@ -126,7 +127,8 @@ import {
   definirArmas,
   bocaDaArma,
 } from './nave.js';
-import { Sons, SONS_INTERFACE, SONS_VOLTA, VOLUME_TIRO_PROPRIO } from './sons.js';
+import { ESCUDO } from './nucleo-regras.js';
+import { Sons, SONS_INTERFACE, SONS_VOLTA, SONS_NUCLEO, VOLUME_TIRO_PROPRIO } from './sons.js';
 import { PainelVolume } from './volume.js';
 import { Efeitos, COR_TIME } from './efeitos.js';
 import { Controles } from './controles.js';
@@ -229,7 +231,7 @@ const sons = new Sons();
 const desbloquearSom = () => sons.desbloquear();
 addEventListener('pointerdown', desbloquearSom, { once: true });
 addEventListener('keydown', desbloquearSom, { once: true });
-sons.carregar(Object.values(SONS_INTERFACE).concat(Object.values(SONS_VOLTA), ['h_explo', 'n2_explo', 'cure']));
+sons.carregar(Object.values(SONS_INTERFACE).concat(Object.values(SONS_VOLTA), Object.values(SONS_NUCLEO), ['h_explo', 'n2_explo', 'cure']));
 
 /** Liga ou desliga o som (M ou o botão da tela inicial) e mostra o estado. */
 function alternarSom() {
@@ -532,7 +534,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
   document.querySelector('#jogo').append(renderer.domElement);
 
   const camera = new THREE.PerspectiveCamera(65, 1, 0.5, 5000);
-  const { scene, atualizar: atualizarCena, definirObjetivo, definirMineracao, definirBacias, atingirCampo } = criarCena({ meuTime });
+  const { scene, atualizar: atualizarCena, definirObjetivo, definirMineracao, definirBacias, atingirCampo, acertoNucleo, reflexoNucleo } = criarCena({ meuTime });
   const efeitos = new Efeitos(scene);
   efeitos.camera = camera; // as peças dos efeitos do original que olham para a câmera
   efeitos.sons = sons; // a volta à base toca o som junto com a animação
@@ -638,6 +640,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
   let pred = null; // nave prevista (formato de shared/sim.js)
   let ant = null; // pose no passo anterior, para interpolar entre passos
   let vivo = false;
+  let idNucleo = null; // id do Núcleo de He-3 (o mesmo na partida inteira): os acertos nele batem no escudo
   let seq = 0;
   let pendentes = [];
   const erro = new THREE.Vector3();
@@ -888,7 +891,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
     const nome = NOME_OBJETIVO[tipo];
     const meu = e.time === meuTime;
     if (e.acao === 'apareceu') {
-      hud.noticia(tipo === 'plataforma' ? `${nome} aberta: pouse 6 s para o time ganhar ouro` : `${nome} apareceu`);
+      if (tipo === 'plataforma') hud.noticia(`${nome} aberta: pouse 6 s para o time ganhar ouro`);
+      else if (tipo === 'nucleo' && e.nivel > 1) hud.noticia(`${nome} voltou mais forte · nível ${e.nivel}`);
+      else hud.noticia(`${nome} apareceu`);
     } else if (e.acao === 'tomado') {
       const [como, ganho] = GANHO_OBJETIVO[tipo] ?? ['tomou', ''];
       const quem = e.por === meuId ? 'Você' : (e.quem ?? (meu ? 'Seu time' : 'O inimigo'));
@@ -920,6 +925,12 @@ function montarJogo(rede, boas, renderer, race, classe) {
     const critFinal = new Set();
     for (const e of ev) if (e.e === 'ganho' && e.crit) critFinal.add(e.id);
     for (const e of ev) {
+      if (e.e === 'acerto' && e.alvo != null && e.alvo === idNucleo) {
+        // O tiro bateu no escudo do Núcleo: a onda abre nas células do lado de onde ele
+        // veio, e o impacto da arma fica na cúpula, não no cristal.
+        const ponto = acertoNucleo(efeitos.tiros.get(e.bala)?.b ?? null, ((e.bala ?? 0) * 0.618) % 1);
+        if (ponto) Object.assign(e, ponto);
+      }
       if (e.e === 'tiro' && e.fonte) {
         // Torreta ou escolta: tiro na cor do time de quem atirou, e o canhão vira.
         // O da torre sentinela é um míssil teleguiado (a curva vem de `guiados`).
@@ -954,10 +965,13 @@ function montarJogo(rede, boas, renderer, race, classe) {
         // Onda do SN-4 em volta dele: a onda de feixe do original, abrindo até o raio.
         efeitos.novaMonstro(e.kind, e.x, e.y, e.z, e.raio, e.vel, e.p ?? 0);
         tocarUmaVez(`n${e.id}`, somDaArma(e.kind, e.nv, e.p) ?? 'n2_explo', e.x, e.z, 0.8);
-      } else if (e.e === 'pulso') {
-        // Pulso do Núcleo de He-3: anel na altura de voo, abrindo até o raio.
-        efeitos.pulsoNucleo(e.x, HOVER, e.z, e.raio, e.forca);
-        tocarUmaVez(`p${e.id}`, 'n2_explo', e.x, e.z, 0.8);
+      } else if (e.e === 'reflexo') {
+        // O Núcleo de He-3 devolveu o dano: um raio da cúpula até cada nave (a ponta segue
+        // a nave desenhada) e o som, na sua nave se o raio veio para você.
+        idNucleo = e.id;
+        reflexoNucleo(e.alvos.map((a) => ({ x: a.x, y: a.y, z: a.z, seguir: () => (a.id === meuId ? (vivo ? minhaNave.position : null) : (outras.get(a.id)?.obj.position ?? null)) })));
+        const meu = e.alvos.some((a) => a.id === meuId) && pred;
+        tocarUmaVez(`r${e.id}`, SONS_NUCLEO.reflexo, meu ? pred.x : e.x, meu ? pred.z : e.z);
       } else if (e.e === 'explosao' && e.atq && !visualDoOriginal(e.arma)) {
         // Bala explosiva do Xerxes e o resto de área de monstro: explosão laranja e o anel vermelho.
         efeitos.explosao(e.x, e.y, e.z, 2.5, '#ff9a3a');
@@ -989,10 +1003,13 @@ function montarJogo(rede, boas, renderer, race, classe) {
       } else if (e.e === 'explosao' && e.arma === 'mina') {
         efeitos.explosao(e.x, e.y + 1.5, e.z, 3, '#ff9a3a');
         efeitos.anelArea(e.x, e.y + 1.5, e.z, e.raio, e.time === meuTime ? COR_TIME.meu : COR_TIME.outro);
-      } else if (e.e === 'acerto' && ((e.atq && !visualDoOriginal(e.kind)) || e.kind === 'pulso')) {
-        // Golpe de monstro (vermelho de perigo) ou do pulso do Núcleo (azul-gelo).
+      } else if (e.e === 'acerto' && e.kind === 'reflexo') {
+        // O reflexo do Núcleo: o raio e o clarão já saíram do evento 'reflexo'.
+        if (e.alvo === meuId && e.dano > 0) hud.levarDano();
+      } else if (e.e === 'acerto' && e.atq && !visualDoOriginal(e.kind)) {
+        // Golpe de monstro (vermelho de perigo).
         efeitos.removerTiro(e.bala);
-        efeitos.explosao(e.x, e.y, e.z, 0.8, e.kind === 'pulso' ? '#9fe8ff' : '#ff4a2a');
+        efeitos.explosao(e.x, e.y, e.z, 0.8, '#ff4a2a');
         if (e.alvo === meuId && e.dano > 0) hud.levarDano();
       } else if (e.e === 'acerto') {
         const bala = efeitos.removerTiro(e.bala);
@@ -1293,6 +1310,11 @@ function montarJogo(rede, boas, renderer, race, classe) {
                   ? criarEscolta({ aliado })
                   : criarNave(e.race, { aliado, classe: e.classe, tier: e.tier });
         o = { obj, drone: e.drone, tipo: e.tipo, aliado, nucleo: !!e.nucleo, race: e.race };
+        // O Núcleo leva os tiros no escudo: o impacto das armas sai na cúpula.
+        if (e.tipo === 'nucleo') {
+          idNucleo = e.id;
+          o.raio = ESCUDO.raio;
+        }
         scene.add(o.obj);
         outras.set(e.id, o);
       }

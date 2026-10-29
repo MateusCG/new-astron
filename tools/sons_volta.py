@@ -308,4 +308,5 @@ def main():
     gravar('volta_chegada', chegada(volt))
 
 
-main()
+if __name__ == '__main__':
+    main()

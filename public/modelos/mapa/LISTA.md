@@ -146,7 +146,8 @@ cliente acende e apaga) e o He-3 é `neon_he3` e `he3_escuro`. Nós, os cinco pr
   fundo com colar na linha d'água;
 - `nucleo_estabilizadores` (pivô na origem): quatro obeliscos octogonais flutuando a 50 m do centro, de 38 a ~73 m,
   inclinados para dentro, com a cinta âmbar, três aletas com luz e o farol âmbar no alto; de cada um sai um braço com
-  a lente âmbar apontada para o cristal (feixes âmbar delas até o cristal ficam bonitos no pulso).
+  a lente âmbar apontada para o cristal (é dela que sai o feixe que alimenta a cúpula do escudo enquanto ela enche:
+  `nucleo-efeitos.glb`).
 
 ### Bacia de minério (`bacia.glb`)
 
@@ -236,3 +237,28 @@ com normal e UV, tudo de tamanho 1 (o cliente escala pelo corpo da nave), centro
 - `volta_feixe`: tubo aberto de raio 1 e altura 1, anéis mais juntos nas pontas (a coluna de luz e o feixe ao céu);
   u em volta, v na altura.
 - `volta_anel`: coroa deitada de 0,8 a 1 (a onda de choque); u em volta, v no raio da coroa.
+
+## Efeitos do Núcleo de He-3 (escudo e reflexo): `nucleo-efeitos.glb`
+
+Não é peça do cenário: são as malhas de luz das duas passivas que o Núcleo ganhou do Tormentor do Dota 2
+(`public/js/nucleo-efeitos.js`, linha do tempo e geometria em `public/js/nucleo-regras.js`), montadas uma vez dentro do
+modelo do Núcleo (`cena.js`). Mora aqui pelo mesmo motivo da `subida-nivel.glb` (o carregador com Draco e a tela de
+carregamento). Nossas, feitas no Blender (`nucleo_efeitos.py` em `new-astron-progresso/mapa-stage6/tmp/cenario/`, fonte
+`blender/nucleo-efeitos.blend`); nada do AstroN original. Um material só, `luz_nucleo`, que o cliente troca pelos shaders
+aditivos. 9.245 triângulos, 64 KB, com normal e UV, y para cima, no espaço do Núcleo (pivô no centro do prato emissor):
+
+- `escudo_casca`: a cúpula de colmeia **em tamanho real**: um poliedro de Goldberg (o dual do icosaedro subdividido 3
+  vezes, com os 12 pentágonos) na esfera de raio 29 com centro em y = 11 (a borda encosta no prato, r 26,8, em y = 0),
+  486 células (as de centro acima de y = −4), cada uma um painel afundado 0,3 m com a borda chanfrada (8.715
+  triângulos). UV0: u = a ordem da célula (0 a 1: a ordem em que ela volta quando a barreira enche e cai quando
+  esvazia; perto de onde os feixes das lentes batem primeiro, com um tanto de sorteio), v = a borda (0 no meio do
+  painel, 0,75 no canto de dentro, 1 na quina de fora). UV1: a direção do centro da célula (u = ângulo em volta / 2π,
+  v = (altura + 1) / 2, do Blender), para a onda do tiro acender a célula inteira.
+- `escudo_base`: a coroa deitada onde a cúpula nasce do prato (r 26,2 a 27,4); u em volta, v no raio da coroa.
+- `escudo_raio`: três fitas cruzadas a 60°, largura 2 (−1 a 1) e comprimento 1 (y de 0 a 1), 24 segmentos ao longo:
+  o raio do reflexo e os feixes das lentes; u na largura, v no comprimento.
+- `escudo_clarao`: o quadrado de −1 a 1 que o shader vira para a câmera (o clarão onde o raio bate).
+
+As lentes que alimentam a cúpula são as dos quatro obeliscos do `nucleo.glb` (a conta do `nucleo_pbr.py`, repetida em
+`LENTES` de `nucleo-regras.js`).
+

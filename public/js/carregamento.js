@@ -320,8 +320,9 @@ export class Carregamento {
  * - o projétil de cada versão de cada arma (e dos filhos), os passageiros (clarão,
  *   impacto, área, nova), campos e minas;
  * - os monstros (com o sangue e as bolhas da Medusa), mineradores dos dois times, o
- *   da onda do Núcleo, escoltas, os tiros de NPC e de monstro, chama, pulso, explosões,
- *   fumaça e as reservas de efeitos de efeitos.js;
+ *   da onda do Núcleo, escoltas, os tiros de NPC e de monstro, chama, explosões,
+ *   fumaça e as reservas de efeitos de efeitos.js (os efeitos do Núcleo de He-3 já estão
+ *   na cena, dentro do modelo dele: a cúpula, os feixes, os raios e os clarões);
  * e então, com TUDO da cena visível e sem recorte de câmera (o que está escondido,
  * como a torre caída ou o trem de pouso, e o que está longe também conta): compila os
  * shaders (compileAsync, nas duas faces dos transparentes de dois lados), envia todas
@@ -449,8 +450,6 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
     efeitos.explosao(ponto.x, ponto.y + 5, ponto.z + 10, 3, '#ff9a3a');
     efeitos.anelArea(ponto.x, ponto.y + 5, ponto.z - 10, 8, COR_TIME.outro);
     efeitos.feixeRecall(ponto.x + 20, ponto.y, ponto.z, COR_TIME.meu);
-    // O pulso do Núcleo.
-    efeitos.pulsoNucleo(ponto.x, ponto.y + 35, ponto.z, 80, 1.5);
     // Os efeitos do original (armas dos monstros e estados na nave): uma instância de
     // cada, que volta para a reserva em efeitos.esquecer() (o material já compilado
     // fica pronto para a partida).
