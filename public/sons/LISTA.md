@@ -95,7 +95,7 @@ Não são do original: gerados por `tools/sons_volta.py` (Python puro, `python3 
 
 | Arquivo | Duração | Uso |
 |---|---|---|
-| `volta_canal` | 6,40 s | A carga da volta à base (os 6 s de `RECALL_S` e 0,4 s segurando o pico): o zumbido grave sobe uma oitava e abre, pulsa cada vez mais rápido, o zumbido elétrico do original sobe junto, as faíscas ficam mais densas e na carga final (5,1 s) entra o riser; começa com a carga do original. O jogo toca do ponto do progresso |
+| `volta_canal` | 6,40 s | A carga da volta à base (os 6 s de `RECALL_S` e 0,4 s segurando o pico): o zumbido grave sobe uma oitava e abre, pulsa cada vez mais rápido, o zumbido elétrico do original sobe junto e na carga final (5,1 s) entra o riser, sem tilintado por baixo; começa com a carga do original. O jogo toca do ponto do progresso |
 | `volta_cancela` | 0,50 s | A carga desligando (o tom caindo como fita parando) quando a volta à base cai |
 | `volta_partida` | 0,90 s | A nave sumindo onde estava: estalo, golpe grave caindo, sopro subindo ao céu, o teletransporte do original mais agudo e faíscas; também na saída do teleporte |
 | `volta_chegada` | 1,40 s | A nave chegando: o raio descendo até o impacto em 0,125 s (golpe grave, estalo e o estalo elétrico do original) e a materialização (arpejo mi, si, mi subindo, faíscas e cauda de espaço); na volta à base e no teleporte |
