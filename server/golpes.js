@@ -348,7 +348,7 @@ export class Golpes {
       if (g.inimigo && this.ctx.podeAcertar(como, a)) {
         const ev = { e: 'acerto', kind, x: +a.ship.x.toFixed(2), y: +a.ship.y.toFixed(2), z: +a.ship.z.toFixed(2), ...(g.atq ? { atq: g.atq } : {}) };
         if (a === direto && bala !== undefined) ev.bala = bala;
-        if (dano > 0 || a === direto) this.ctx.ferir(a, dano, autor, ev, { tipoDano });
+        if (dano > 0 || a === direto) this.ctx.ferir(a, dano, autor, ev, { tipoDano, penetrante: !!g.penetrante });
         if (a.vivo) this.#efeitosInimigo(g, a, autor, fonte);
       } else if (g.aliado && this.#aliado(como, a, true)) {
         if (a === direto && bala !== undefined) w.eventos.push({ e: 'fim', bala, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2) });
@@ -700,13 +700,13 @@ export class Golpes {
    * gastando energia). O recuo devolve a quem bateu uma parte do dano que ele
    * causou. Chamado pelo World em todo dano.
    */
-  modificarDano(alvo, dano, autor, { tipoDano, direto = true } = {}) {
+  modificarDano(alvo, dano, autor, { tipoDano, direto = true, penetrante = false } = {}) {
     if (dano <= 0) return 0;
     if (direto && this.st(alvo, 'invulneravel')) return 0;
     const quem = autor !== undefined ? (this.world.players.get(autor) ?? null) : null;
     const fraco = this.st(quem, 'fraco');
     if (fraco) dano *= fraco.mult;
-    const res = tipoDano ? this.st(alvo, `resiste_${tipoDano}`) : null;
+    const res = tipoDano && !penetrante ? this.st(alvo, `resiste_${tipoDano}`) : null;
     if (res) dano *= 1 - Math.max(0, res.frac - this.resistQuebrada(alvo, tipoDano));
     const escudo = this.st(alvo, 'escudo');
     if (escudo && escudo.hp > 0) {

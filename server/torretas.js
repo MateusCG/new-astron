@@ -256,6 +256,9 @@ export class Torretas {
       raio: TORRETA.raioTiro,
       alcance: TORRETA.alcance,
       guia: { comeca: 0, giro: TORRETA.giro, cone: Math.PI, alcance: TORRETA.alcance },
+      // 100% penetrante (pedido do Mateus): nenhuma resistência segura o míssil da
+      // torreta; o dano vai no escudo e depois no HP.
+      penetrante: true,
     };
   }
 

@@ -506,3 +506,26 @@ test('torretas: dano progressivo, cada tiro seguido no mesmo alvo bate mais fort
   }
   assert.equal(+tiros[0].toFixed(6), +base.toFixed(6), 'alvo novo, série nova');
 });
+
+test('torretas: o míssil é 100% penetrante (nenhuma resistência segura) e bate no escudo antes do HP', () => {
+  const { w, b } = mundo();
+  const t = torreta(w, 'T0-4');
+  colocar(b, t.x - 40, t.z - 10);
+  // Resistência no teto nos três tipos, mais a de arma ao laser, e um escudo de 50.
+  b.status = { ...b.status, resist: { fisico: 0.95, laser: 0.95, eletrico: 0.95 } };
+  b.st = { resiste_laser: { fim: w.tick + 10 * SEGUNDO, frac: 0.9 } };
+  Object.assign(b.ship, { maxEscudo: 50, escudo: 50 });
+  const hp = b.ship.hp;
+  w.tirarEventos();
+  let acerto = null;
+  for (let i = 0; i < 3 * SEGUNDO && !acerto; i++) {
+    w.step();
+    acerto = w.tirarEventos().find((e) => e.e === 'acerto' && e.alvo === b.id) ?? null;
+  }
+  assert.ok(acerto, 'o míssil acertou');
+  const dano = w.torretas.dano(0, 0);
+  assert.equal(acerto.dano, dano, 'dano inteiro, sem resistência');
+  assert.equal(acerto.escudo, 50, 'o escudo segurou primeiro');
+  assert.equal(b.ship.escudo, 0);
+  assert.ok(Math.abs(hp - b.ship.hp - (dano - 50)) <= b.ship.regenHpVoo, 'o resto no HP');
+});

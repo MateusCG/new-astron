@@ -658,8 +658,9 @@ export class World {
    * abate, o ouro e o XP a `autor` (RECOMPENSA pelo tipo do alvo). `ev` é o evento
    * do golpe, completado aqui com alvo e dano (0 se o alvo estava protegido); o
    * dreno, que fere a cada tick, não manda. `opcoes`: tipoDano (laser, físico,
-   * elétrico) e direto (false no dreno e no recuo: a invulnerabilidade não segura
-   * e não há crítico). O poder do atacante já vem no `dano` (multDanoDe); aqui
+   * elétrico), direto (false no dreno e no recuo: a invulnerabilidade não segura
+   * e não há crítico) e penetrante (o míssil das torretas: nenhuma resistência
+   * segura). O poder do atacante já vem no `dano` (multDanoDe); aqui
    * entram o crítico, a resistência e a penetração, os estados das armas e o escudo
    * do equipamento (ver o topo do arquivo). O evento leva o dano todo (escudo + HP)
    * e, se houve, `escudo` (a parte que o escudo segurou) e `crit`.
@@ -687,7 +688,8 @@ export class World {
     }
     // Resistência do piloto atingido ao tipo do golpe (já com o teto), menos o que os
     // debuffs de quebra tiram e a penetração de quem bateu.
-    if (alvo.tipo === 'jogador' && tipo && alvo.status) {
+    // O golpe penetrante (o míssil das torretas) passa por cima de toda resistência.
+    if (alvo.tipo === 'jogador' && tipo && alvo.status && !opcoes.penetrante) {
       const quebra = this.golpes.resistQuebrada(alvo, tipo);
       const resist = Math.max(0, (alvo.status.resist[tipo] ?? 0) - quebra - (quem?.status?.penetra[tipo] ?? 0));
       dano *= 1 - resist;
