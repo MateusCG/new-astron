@@ -123,7 +123,7 @@ test('objetivos: torre de suporte só aceita dano de jogador depois de acender, 
   assert.ok(w.tirarEventos().some((e) => e.e === 'objetivo' && e.id === 'BS0' && e.acao === 'apareceu'));
 });
 
-test('objetivos: plataforma de pouso dá ouro ao time inteiro depois do pouso parado, e +12 a quem pousou', () => {
+test('objetivos: plataforma de pouso dá ouro ao time inteiro depois do pouso parado, e +50 a quem pousou', () => {
   const { w, a, b, c } = mundo();
   pousar(a, 'P1'); // a do território do outro time: qualquer um pousa
   assert.equal(areaPouso(a.ship.x, a.ship.z).plataforma, 'P1');
@@ -139,7 +139,7 @@ test('objetivos: plataforma de pouso dá ouro ao time inteiro depois do pouso pa
   assert.equal(a.ouro - ouro.a, OURO_PLATAFORMA + OURO_PLATAFORMA_POUSOU);
   assert.equal(c.ouro - ouro.c, OURO_PLATAFORMA, 'o colega longe ganha também');
   assert.equal(b.ouro, ouro.b, 'o outro time nada');
-  assert.deepEqual([OURO_PLATAFORMA, OURO_PLATAFORMA_POUSOU], [50, 12]);
+  assert.deepEqual([OURO_PLATAFORMA, OURO_PLATAFORMA_POUSOU], [200, 50]);
   const ev = w.tirarEventos().find((e) => e.e === 'objetivo' && e.id === 'P1');
   assert.deepEqual([ev.acao, ev.time, ev.quem], ['coletou', 0, 'A']);
   assert.deepEqual(obj(w, a, 'P1'), { time: 0, estado: 'recarga', volta: 3 });

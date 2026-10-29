@@ -63,8 +63,8 @@ export const TEMPOS = {
 /** Torre do buff de suporte: vida e recompensa de quem dá o último tiro (como o SN-4 do buff de ataque). */
 export const SUPORTE = { hp: 900, xp: 150, ouro: 100 };
 /** Ouro da plataforma de pouso para cada piloto do time e o a mais de quem estava pousado. */
-export const OURO_PLATAFORMA = 50;
-export const OURO_PLATAFORMA_POUSOU = 12;
+export const OURO_PLATAFORMA = 200;
+export const OURO_PLATAFORMA_POUSOU = 50;
 /**
  * Núcleo de He-3: vida, altura do centro (a do tiro das naves, HOVER, + um pouco:
  * o acerto de tiro aceita 7 m de diferença), raio de acerto, regeneração fora de
