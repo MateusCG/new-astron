@@ -104,33 +104,33 @@ test('equipamentos: tipo de dano e classes como no original', () => {
   assert.equal(CATEGORIA_DO_SLOT.pot2, 'potenciador');
 });
 
-test('equipamentos: números dos prints do original, na escala do jogo', () => {
+test('equipamentos: números dos prints do original (escudo e armadura iguais; potenciadores na escala do jogo)', () => {
   // Op. Neutron Shield V7: escudo 1369, recupera 8,0 por s, resistência Op 6.
   const o = EQUIPAMENTOS_ORIGINAL.find((e) => e.id === '330010').versoes[6];
   assert.equal(o.escudo, 1369);
   perto(o.regenMs * 1000, 8.0);
   const neutron = versaoEquip('e330010', 7);
-  perto(neutron.maxEscudo, 1369 * 0.2);
-  perto(neutron.regenEscudo, 8.0 * 0.2);
-  perto(efeito('e330010', 7, 'resist', 'laser').valor, 6 * 0.005);
+  perto(neutron.maxEscudo, 1369);
+  perto(neutron.regenEscudo, 8.0);
+  perto(efeito('e330010', 7, 'resist', 'laser').valor, 0.06);
   assert.equal(efeito('e330010', 7, 'resist', 'fisico'), undefined);
   // Op. Argon Armor V7: 342 de HP e resistência 10 / 38 / 10.
   const argon = versaoEquip('e320009', 7);
-  perto(argon.hp, 342 * 0.2);
-  perto(efeito('e320009', 7, 'resist', 'fisico').valor, 10 * 0.005);
-  perto(efeito('e320009', 7, 'resist', 'laser').valor, 38 * 0.005);
-  perto(efeito('e320009', 7, 'resist', 'eletrico').valor, 10 * 0.005);
+  perto(argon.hp, 342);
+  perto(efeito('e320009', 7, 'resist', 'fisico').valor, 0.1);
+  perto(efeito('e320009', 7, 'resist', 'laser').valor, 0.38);
+  perto(efeito('e320009', 7, 'resist', 'eletrico').valor, 0.1);
   // Op. Reinforcement V7: +20% poder Op, +15% recarga Op, +22% resistência Op.
   assert.deepEqual(efeitosDoEquip('e340025', 7), [
     { tipo: 'poder', tipoDano: 'laser', valor: 0.2 },
     { tipo: 'recarga', tipoDano: 'laser', valor: 0.15 },
     { tipo: 'resist', tipoDano: 'laser', valor: 0.22 },
   ]);
-  // Energia (× 0,3), regeneração de energia (por ms × 1000 × 0,3 ÷ 0,5), penetração (pontos × 0,005).
+  // Energia (× 0,3), regeneração de energia (por ms × 1000 × 0,3 ÷ 0,5), penetração (pontos × 0,01).
   perto(efeito('e340004', 1, 'energia').valor, 50 * 0.3);
   perto(efeito('e340005', 1, 'regenEn').valor, 0.003 * 1000 * 0.6);
   perto(efeito('e340017', 1, 'regenHp').valor, 0.0025 * 1000 * 0.2);
-  perto(efeito('e340028', 1, 'penetra', 'fisico').valor, 4 * 0.005);
+  perto(efeito('e340028', 1, 'penetra', 'fisico').valor, 4 * 0.01);
   perto(efeito('e340027', 8, 'critico').valor, 0.4);
   perto(efeito('e340015', 8, 'velocidade').valor, 0.08);
   perto(efeito('e340023', 1, 'aceleracao').valor, 0.1);
@@ -161,8 +161,8 @@ test('equipamentos: preço da V1 é a compra, evoluir é a taxa de tuning da ant
 test('equipamentos: texto de cada efeito em português', () => {
   const t = efeitosDoEquip('e340025', 7).map(textoEfeitoEquip);
   assert.deepEqual(t, ['Poder Op. +20%', 'Recarga Op. 15% mais rápida', 'Resistência Op. +22%']);
-  assert.deepEqual(efeitosDoEquip('e330010', 7).map(textoEfeitoEquip), ['Escudo +273,8', 'Escudo +1,6/s', 'Resistência Op. +3%']);
-  assert.equal(textoEfeitoEquip(efeito('e320009', 7, 'hp')), 'Durabilidade +68,4');
+  assert.deepEqual(efeitosDoEquip('e330010', 7).map(textoEfeitoEquip), ['Escudo +1.369', 'Escudo +8/s', 'Resistência Op. +6%']);
+  assert.equal(textoEfeitoEquip(efeito('e320009', 7, 'hp')), 'Durabilidade +342');
   for (const k of ORDEM_EQUIP) for (const ef of efeitosDoEquip(k, 8)) assert.notEqual(textoEfeitoEquip(ef), ef.tipo, `${k}: ${ef.tipo} sem texto`);
 });
 

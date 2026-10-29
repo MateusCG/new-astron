@@ -20,14 +20,19 @@
 //   poder, recarga, resistência, penetração, golpe crítico, velocidade, aceleração).
 //
 // Como o original vira jogo novo (os mesmos fatores das naves e das armas):
-// - HP, escudo e as regenerações de escudo e de HP × FATOR_ESCALA_HP (0,2); o que é
-//   "por ms" no original × 1000 = por s.
+// - Escudo e armadura dão o número do original, igual ao tooltip de lá
+//   (FATOR_HP_ESCUDO_ARMADURA = 1: a Op. Argon Armor V7 dá +342 de HP, o Op. Neutron
+//   Shield V7 1369 de escudo e 8,0 por s). Decisão do Mateus: não seguem o ÷5 do HP das
+//   naves, então pesam mais na nave do que pesavam no original.
+// - HP, escudo e as regenerações de escudo e de HP dos potenciadores × FATOR_ESCALA_HP
+//   (0,2), como as naves; o que é "por ms" no original × 1000 = por s.
 // - Energia máxima × FATOR_ENERGIA (0,3); regeneração de energia por ms × 1000 ×
 //   FATOR_ENERGIA ÷ FATOR_RECARGA, a mesma conta da regeneração das naves (as recargas
 //   das armas são × 0,5, então quem regenera acompanha o que as armas gastam).
-// - Resistência em pontos (escudo e armadura) × RESIST_POR_PONTO (0,005: 38 pontos =
-//   19%); a dos potenciadores já é %. A penetração (pontos) também × RESIST_POR_PONTO:
-//   é quanto da resistência do alvo ela ignora.
+// - Resistência em pontos (escudo e armadura) × RESIST_POR_PONTO_EQUIP (0,01: 38 pontos
+//   = 38%, como no original, onde é a mesma "Resistance enhancement" dos potenciadores,
+//   que já vem em %). A penetração (pontos) também × RESIST_POR_PONTO_EQUIP: é quanto da
+//   resistência do alvo ela ignora.
 // - Poder, recarga, golpe crítico, velocidade e aceleração: o % do original, igual
 //   (vira fração: 20% = 0,2).
 // - Ouro da compra × FATOR_OURO (0,06) e da evolução × FATOR_OURO_EVOLUIR (0,006, no
@@ -38,13 +43,16 @@
 
 import { EQUIPAMENTOS_ORIGINAL } from './equipamentos-original.js';
 import { FATOR_ESCALA_HP, FATOR_ENERGIA, FATOR_RECARGA, MS_POR_S, ORDEM_CLASSES } from './naves.js';
-import { FATOR_OURO, FATOR_OURO_EVOLUIR, PRECO_EVOLUIR_MIN, RESIST_POR_PONTO, RESIST_MAX, TIPOS_DANO } from './armas.js';
+import { FATOR_OURO, FATOR_OURO_EVOLUIR, PRECO_EVOLUIR_MIN, RESIST_MAX, TIPOS_DANO } from './armas.js';
 import { NIVEL_ITEM_MAX } from './versoes.js';
 
-export { NIVEL_ITEM_MAX, RESIST_POR_PONTO, RESIST_MAX };
+export { NIVEL_ITEM_MAX, RESIST_MAX };
 
-export const FATOR_HP_EQUIP = FATOR_ESCALA_HP; // 0,2: HP a mais, escudo máximo
-export const FATOR_REGEN_HP_EQUIP = MS_POR_S * FATOR_ESCALA_HP; // por ms do original → HP (ou escudo) por s
+export const FATOR_HP_ESCUDO_ARMADURA = 1; // escudo máximo do escudo e HP a mais da armadura: o do original
+export const FATOR_REGEN_ESCUDO = MS_POR_S * FATOR_HP_ESCUDO_ARMADURA; // recuperação do escudo, por ms do original → por s
+export const FATOR_HP_EQUIP = FATOR_ESCALA_HP; // 0,2: HP a mais e escudo máximo dos potenciadores
+export const FATOR_REGEN_HP_EQUIP = MS_POR_S * FATOR_ESCALA_HP; // potenciadores: por ms do original → HP (ou escudo) por s
+export const RESIST_POR_PONTO_EQUIP = 0.01; // resistência e penetração em pontos → fração (38 = 38%)
 export const FATOR_ENERGIA_EQUIP = FATOR_ENERGIA; // 0,3: energia máxima a mais
 export const FATOR_REGEN_EN_EQUIP = (MS_POR_S * FATOR_ENERGIA) / FATOR_RECARGA; // por ms do original → energia por s
 export const FATOR_PCT = 0.01; // % do original → fração
@@ -95,9 +103,9 @@ const EFEITO_DO_CODIGO = {
   37: { tipo: 'resist', tipoDano: 'laser', fator: FATOR_PCT },
   38: { tipo: 'resist', tipoDano: 'eletrico', fator: FATOR_PCT },
   39: { tipo: 'critico', fator: FATOR_PCT },
-  40: { tipo: 'penetra', tipoDano: 'fisico', fator: RESIST_POR_PONTO },
-  41: { tipo: 'penetra', tipoDano: 'laser', fator: RESIST_POR_PONTO },
-  42: { tipo: 'penetra', tipoDano: 'eletrico', fator: RESIST_POR_PONTO },
+  40: { tipo: 'penetra', tipoDano: 'fisico', fator: RESIST_POR_PONTO_EQUIP },
+  41: { tipo: 'penetra', tipoDano: 'laser', fator: RESIST_POR_PONTO_EQUIP },
+  42: { tipo: 'penetra', tipoDano: 'eletrico', fator: RESIST_POR_PONTO_EQUIP },
 };
 
 const r4 = (x) => Math.round(x * 1e4) / 1e4;
@@ -106,7 +114,7 @@ const ouroEvoluir = (x) => Math.max(PRECO_EVOLUIR_MIN, Math.round((x * FATOR_OUR
 
 /** Resistência em pontos [Ph, Op, El] → efeitos 'resist' (só os que não são zero). */
 function efeitosResist(pontos) {
-  return ORDEM_TIPOS_DANO.map((tipoDano, i) => ({ tipo: 'resist', tipoDano, valor: r4(pontos[i] * RESIST_POR_PONTO), pontos: pontos[i] })).filter(
+  return ORDEM_TIPOS_DANO.map((tipoDano, i) => ({ tipo: 'resist', tipoDano, valor: r4(pontos[i] * RESIST_POR_PONTO_EQUIP), pontos: pontos[i] })).filter(
     (e) => e.pontos > 0,
   );
 }
@@ -115,12 +123,12 @@ function efeitosResist(pontos) {
 function efeitosDaVersao(categoria, v) {
   if (categoria === 'escudo') {
     return [
-      { tipo: 'escudo', valor: r4(v.escudo * FATOR_HP_EQUIP) },
-      { tipo: 'regenEscudo', valor: r4(v.regenMs * FATOR_REGEN_HP_EQUIP) },
+      { tipo: 'escudo', valor: r4(v.escudo * FATOR_HP_ESCUDO_ARMADURA) },
+      { tipo: 'regenEscudo', valor: r4(v.regenMs * FATOR_REGEN_ESCUDO) },
       ...efeitosResist(v.resist),
     ];
   }
-  if (categoria === 'armadura') return [{ tipo: 'hp', valor: r4(v.hp * FATOR_HP_EQUIP) }, ...efeitosResist(v.resist)];
+  if (categoria === 'armadura') return [{ tipo: 'hp', valor: r4(v.hp * FATOR_HP_ESCUDO_ARMADURA) }, ...efeitosResist(v.resist)];
   return v.efeitos.map(([codigo, valor]) => {
     const d = EFEITO_DO_CODIGO[codigo];
     if (!d) throw new Error(`efeito de potenciador sem conversão: código ${codigo}`);

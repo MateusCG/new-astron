@@ -35,7 +35,7 @@
 // - recarga: fração mais rápida (0,15 = 15%): a recarga da arma daquele tipo fica ×
 //   (1 − recarga) (multRecarga), até RECARGA_MAX;
 // - resist: fração do dano daquele tipo que a nave segura, já com o teto RESIST_MAX
-//   (pontos de escudo e armadura × RESIST_POR_PONTO mais o % dos potenciadores);
+//   (pontos de escudo e armadura × RESIST_POR_PONTO_EQUIP mais o % dos potenciadores);
 // - penetra: fração de resistência do alvo que o tiro daquele tipo ignora;
 // - critico: chance (0 a 1) de o golpe sair com dano dobrado (sorteio só no servidor);
 // - velMult e acelMult: multiplicadores (1 = sem mudança).

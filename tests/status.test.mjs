@@ -139,18 +139,18 @@ test('status: soma pontos, escudo, armadura e os dois potenciadores num objeto s
     energiaBase: 45,
   });
   assert.deepEqual(Object.keys(st).sort(), Object.keys(statusVazio()).sort());
-  perto(st.maxEscudo, 273.8);
-  perto(st.regenEscudo, 1.6);
-  perto(st.hpExtra, 68.4);
+  perto(st.maxEscudo, 1369);
+  perto(st.regenEscudo, 8);
+  perto(st.hpExtra, 342);
   // Op.: 10 pontos × 2,4% + 20% do Reforço V7.
   perto(st.poder.laser, 0.24 + 0.2);
   perto(st.poder.fisico, 0);
   // Recarga Op.: 15% do Reforço + 8% do Potenciador de Recarga Op. V1 (os dois somam).
   perto(st.recarga.laser, 0.23);
   perto(multRecarga(st.recarga.laser), 0.77);
-  // Resistência Op.: escudo 6 pts + armadura 38 pts (× 0,005) + 22% do Reforço.
-  perto(st.resist.laser, 0.03 + 0.19 + 0.22);
-  perto(st.resist.fisico, 0.05);
+  // Resistência Op.: escudo 6 pts + armadura 38 pts (× 0,01) + 22% do Reforço.
+  perto(st.resist.laser, 0.06 + 0.38 + 0.22);
+  perto(st.resist.fisico, 0.1);
   assert.equal(st.critico, 0);
   assert.equal(st.velMult, 1);
   assert.equal(st.acelMult, 1);
