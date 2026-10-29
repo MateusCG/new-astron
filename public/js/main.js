@@ -1367,6 +1367,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
       camera.lookAt(alvoCam);
       camera.fov = lerp(camera.fov, pred.boost ? 74 : 65, 1 - Math.exp(-4 * dt));
       camera.updateProjectionMatrix();
+      // O lookAt só gira a câmera; a matriz que o project() dos rótulos usa só se
+      // refaz no render. Sem isto, o nick e as barras saíam com o giro do quadro
+      // anterior e tremiam de lado nas curvas.
+      camera.updateMatrixWorld();
     }
 
     atualizarCena(dt, foco);
