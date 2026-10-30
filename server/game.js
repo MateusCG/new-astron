@@ -1193,6 +1193,9 @@ export class World {
   /**
    * Fração do dano do tipo `tipo` que o piloto `alvo` segura agora contra `quem` (o
    * jogador que bate, ou null): a resistência com o teto, menos a quebra e a penetração.
+   * A penetração é diferente do original de propósito: lá o GetWeaponRegistance recebe e
+   * não usa (contra jogador ela não fazia nada), e aqui só jogador tem resistência, então
+   * os potenciadores de penetração ficariam sem efeito (decisão do Mateus, 30/out/2026).
    */
   resistEfetiva(alvo, tipo, quem = null) {
     return Math.max(0, this.#resistTotal(alvo, tipo) - (quem?.status?.penetra[tipo] ?? 0));
