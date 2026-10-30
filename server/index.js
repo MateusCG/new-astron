@@ -281,7 +281,8 @@
 //         (VAGAS_BACIA), despejando o minério (só enquanto despeja; a entrega
 //         sai no fim);
 //         esc = fração (0 a 1) do escudo do equipamento, só em jogador com escudo;
-//         res = [Ph., Op., El.] resistências do jogador (0 a 0,95, já sem o que a
+//         res = [Ph., Op., El.] resistências do jogador (0 a 0,99, com as das armas
+//         de dispositivo e já sem o que a
 //         quebra tira), só com alguma: a cor do nick (o `me` traz o mesmo `res`);
 //         fx = efeitos de arma visíveis ('para' (movimento paralisado), 'semTiro' (só o
 //         tiro impedido), 'desg', 'energia', 'descarga' (a

@@ -147,13 +147,27 @@ test('status: o snapshot leva as resistências do piloto (a cor do nick), já se
   assert.equal(w2.entidades().find((e) => e.id === semNada.id).res, undefined);
 });
 
-test('status: a resistência chega até 95% (RESIST_MAX), nunca imune', () => {
-  assert.equal(RESIST_MAX, 0.95);
+test('status: a resistência chega até 99% (RESIST_MAX, o do original), nunca imune', () => {
+  assert.equal(RESIST_MAX, 0.99);
   const { perdeu, b } = tiro((w, a, b) => {
     b.status = { ...b.status, resist: { ...b.status.resist, laser: RESIST_MAX } };
   });
-  perto(perdeu, DANO * (1 - 0.95));
+  perto(perdeu, DANO * (1 - 0.99));
   assert.ok(b.ship.hp < b.ship.maxHp);
+});
+
+test('status: a resistência das armas de dispositivo soma na do equipamento, com um teto só', () => {
+  // 60% do equipamento + os 40 pontos do Disjuntor (40%) = 99% (o teto), não 1 − 0,4 × 0,6.
+  const { perdeu } = tiro((w, a, b) => {
+    b.status = { ...b.status, resist: { ...b.status.resist, laser: 0.6 } };
+    b.st = { resiste_laser: { fim: w.tick + 300, frac: 0.4 } };
+  });
+  perto(perdeu, DANO * (1 - 0.99));
+  const { perdeu: meio } = tiro((w, a, b) => {
+    b.status = { ...b.status, resist: { ...b.status.resist, laser: 0.3 } };
+    b.st = { resiste_laser: { fim: w.tick + 300, frac: 0.4 } };
+  });
+  perto(meio, DANO * (1 - 0.7));
 });
 
 test('status: golpe crítico dobra o dano (o sorteio é do servidor)', () => {

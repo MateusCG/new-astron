@@ -40,14 +40,14 @@
 
 import { EQUIPAMENTOS_ORIGINAL } from './equipamentos-original.js';
 import { FATOR_ESCALA_HP, FATOR_ENERGIA, FATOR_RECARGA, MS_POR_S, ORDEM_CLASSES } from './naves.js';
-import { FATOR_OURO, FATOR_OURO_EVOLUIR, PRECO_EVOLUIR_MIN, RESIST_MAX, TIPOS_DANO } from './armas.js';
+import { FATOR_OURO, FATOR_OURO_EVOLUIR, PRECO_EVOLUIR_MIN, RESIST_MAX, RESIST_POR_PONTO, TIPOS_DANO } from './armas.js';
 import { NIVEL_ITEM_MAX } from './versoes.js';
 
 export { NIVEL_ITEM_MAX, RESIST_MAX };
 
 export const FATOR_HP_EQUIP = FATOR_ESCALA_HP; // 1: HP a mais, escudo máximo
 export const FATOR_REGEN_HP_EQUIP = MS_POR_S * FATOR_ESCALA_HP; // por ms do original → HP (ou escudo) por s
-export const RESIST_POR_PONTO_EQUIP = 0.01; // resistência e penetração em pontos → fração (38 = 38%)
+export const RESIST_POR_PONTO_EQUIP = RESIST_POR_PONTO; // resistência e penetração em pontos → fração (38 = 38%)
 export const FATOR_ENERGIA_EQUIP = FATOR_ENERGIA; // 1: energia máxima a mais
 export const FATOR_REGEN_EN_EQUIP = (MS_POR_S * FATOR_ENERGIA) / FATOR_RECARGA; // por ms do original → energia por s
 export const FATOR_PCT = 0.01; // % do original → fração
