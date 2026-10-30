@@ -77,7 +77,7 @@ import { FATOR_TAMANHO_NAVE } from '/shared/naves.js';
 import { brilho } from './nave.js';
 import { VisualArmas } from './efeitos-armas.js';
 import { DisparoOriginal } from './disparo-original.js';
-import { ICONES_ESTADO, MAGMA_NA_NAVE } from './insumos.js';
+import { ICONES_ESTADO, MAGMA_NA_NAVE, EFEITO_MISS } from './insumos.js';
 import { criarEfeitoOriginal, tocarEfeitoOriginal, soltarEfeitoOriginal, raioEfeitoOriginal, efeitoOriginalPronto, particulaOriginal } from './efeitos-original.js';
 import { criarSubida, desenharSubida, soltarSubida } from './subida.js';
 import { quadroSubida } from './subida-regras.js';
@@ -1211,6 +1211,18 @@ export class Efeitos {
   }
 
   /**
+   * O debuff elétrico não pegou na sua nave: o "MISS" do original (CUnit::EffectMiss),
+   * seguindo a posição dela, de pé, uma vez.
+   */
+  miss(obj) {
+    if (!obj || !efeitoOriginalPronto(EFEITO_MISS)) return;
+    const inst = criarEfeitoOriginal(EFEITO_MISS, { escala: ESCALA_ORIGINAL });
+    obj.getWorldPosition(inst.obj.position);
+    this.scene.add(inst.obj);
+    this.originais.push({ inst, seguir: obj });
+  }
+
+  /**
    * Clarão do disparo de um monstro com arma do original, no rumo do tiro; sem o
    * efeito do original, o das armas do jogador.
    */
@@ -1456,7 +1468,9 @@ export class Efeitos {
 
     this.originais = this.originais.filter((o) => {
       // `ate`: o último quadro fica na tela até lá (a esfera do Canhão de Faíscas); com
-      // `corta`, o efeito acaba ali mesmo que tenha mais quadros (a Nova Desarmadora).
+      // `corta`, o efeito acaba ali mesmo que tenha mais quadros (a Nova Desarmadora);
+      // `seguir`: anda com a nave, de pé (o "MISS").
+      if (o.seguir?.parent) o.seguir.getWorldPosition(o.inst.obj.position);
       const vivo = tocarEfeitoOriginal(o.inst, dt, this.camera) || o.inst.t < (o.ate ?? 0);
       if (vivo && !(o.corta && o.inst.t >= o.ate)) return true;
       soltarEfeitoOriginal(o.inst);

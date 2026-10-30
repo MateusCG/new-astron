@@ -40,6 +40,9 @@
 //   onde o servidor parte para somar as armas de dispositivo (World#resistEfetiva), e
 //   resistPct o % dos potenciadores;
 // - penetra: fração de resistência do alvo que o tiro daquele tipo ignora;
+// - poderPontos: a parte do poder que vem só dos pontos do piloto (sem os potenciadores):
+//   no original é o "skill" (GetSkillAddElectric) que escala os dispositivos elétricos e
+//   a chance dos debuffs elétricos (shared/armas.js, fatorDispositivo);
 // - critico: chance (0 a 1) de o golpe sair com dano dobrado (sorteio só no servidor);
 // - velMult e acelMult: multiplicadores (1 = sem mudança).
 // O que está na nave chega como uma LISTA de itens, [[chave, nível], ...] (no
@@ -183,6 +186,7 @@ export function statusVazio() {
     poder: tres(),
     recarga: tres(),
     resist: tres(),
+    poderPontos: tres(),
     resistPct: tres(),
     resistBase: tres(),
     penetra: tres(),
@@ -287,7 +291,10 @@ export function statusDoPiloto({ race, classe, pontos, equipados, energiaBase = 
   st.regenHpExtra += p.regenHp;
   st.enExtra += p.energia;
   st.regenEnExtra += p.regenEn;
-  for (const t of ORDEM_TIPOS_DANO) st.poder[t] += p.poder[t];
+  for (const t of ORDEM_TIPOS_DANO) {
+    st.poder[t] += p.poder[t];
+    st.poderPontos[t] = r4(p.poder[t]);
+  }
   return fechar(st);
 }
 

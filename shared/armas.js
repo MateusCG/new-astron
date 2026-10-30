@@ -92,6 +92,16 @@ export const VULNERAVEL_ZERA = 1; // "zera a resistência": tira toda a resistê
 // pontos que o Quebra-Resistência tira; os canhões que zeram, zeram (World#resistEfetiva).
 export const RESIST_POR_PONTO = 0.01; // resistência em pontos (40) → fração do dano (40%)
 export const RESIST_MAX = 0.99; // o original: o dano nunca cai abaixo de 1% (R > 99 vira 99)
+// Armas elétricas do original (CUnitController::ProcessActiveEvent e CUnitBeam::
+// ProcessDamage): o "poder" El. que vem só dos pontos do piloto (GetSkillAddElectric →
+// GetAddEtcAttackPower = 1 + %/100) multiplica o valor e a duração dos dispositivos
+// elétricos (a Tenda, o Disjuntor, o Reparador...), e decide a chance de o debuff de uma
+// arma elétrica de bloqueio pegar: 30 × fator + 30 − a resistência El. de quem leva (em
+// pontos); na de suporte, 55 + 15 × fator. O dano entra mesmo quando o debuff falha.
+export const DEBUFF_EL_BASE = 30;
+export const DEBUFF_EL_POR_PODER = 30;
+export const DEBUFF_EL_SUPORTE_BASE = 55;
+export const DEBUFF_EL_SUPORTE_POR_PODER = 15;
 export const ESCUDO_EQUIV_HP = 0.15; // "escudo" do original = esta fração do HP máximo
 export const REGEN_ESCUDO_FRAC = 0.01; // "+100% de recuperação do escudo" = 1% do HP máximo por s
 export const ENERGIA_POR_HP_FATOR = 6; // Amplificador de Energia: valor × isto = energia por s (era 1,8 com a energia × 0,3)
@@ -252,6 +262,54 @@ function converterEfeito(e, versao) {
 }
 
 /** Texto curto de um efeito para o menu e a Loja (números do jogo). */
+/**
+ * Fator do dispositivo `kind` para a nave `s`: 1 + o poder El. dos pontos do piloto
+ * (s.fatorEl) nas armas elétricas, 1 nas outras.
+ */
+export function fatorDispositivo(kind, s) {
+  return WEAPONS[kind]?.tipoDano === 'eletrico' ? (s?.fatorEl ?? 1) : 1;
+}
+
+/**
+ * O efeito de dispositivo `ef` com o valor e a duração × `fator` (o "v", o "v2" e a
+ * duração do original; o HP gasto por segundo, o raio e o teleporte não mudam).
+ */
+export function escalarDispositivo(ef, fator) {
+  if (!ef || !(fator > 0) || fator === 1) return ef;
+  const e = { ...ef };
+  if (e.dur) e.dur *= fator;
+  switch (e.tipo) {
+    case 'resiste':
+    case 'converte':
+    case 'escudo':
+      e.frac *= fator;
+      break;
+    case 'regen':
+      e.fracPorS *= fator;
+      break;
+    case 'acelera':
+      e.mult = 1 + (e.mult - 1) * fator;
+      break;
+    case 'energiaPorHp':
+      e.enPs *= fator;
+      break;
+  }
+  return e;
+}
+
+/**
+ * Chance (%) de o debuff da arma `kind` pegar em quem leva, com o fator `fator` de quem
+ * atirou e a resistência El. `resistEl` (fração, sem o teto) de quem leva; null quando
+ * a regra não vale (arma que não é elétrica de bloqueio nem de suporte).
+ */
+export function chanceDebuffEletrico(kind, fator, resistEl) {
+  const w = WEAPONS[kind];
+  if (w?.tipoDano !== 'eletrico' || w.npc) return null;
+  if (w.papel === 'bloqueio') return Math.trunc(Math.trunc(DEBUFF_EL_BASE + DEBUFF_EL_POR_PODER * fator) - resistEl * 100);
+  if (w.papel === 'suporte') return Math.trunc(DEBUFF_EL_SUPORTE_BASE + DEBUFF_EL_SUPORTE_POR_PODER * fator);
+  return null;
+}
+
 export function textoEfeito(ef) {
   const s = (x) => `${(+x.toFixed(1)).toLocaleString('pt-BR')}`;
   const p = (x) => `${Math.round(x * 100)}%`;

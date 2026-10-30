@@ -173,6 +173,7 @@ function aplicarStatus(j) {
   s.regenEscudo = st.regenEscudo;
   s.velMult = st.velMult;
   s.acelMult = st.acelMult;
+  s.fatorEl = 1 + (st.poderPontos?.eletrico ?? 0); // escala os dispositivos elétricos, como no original
   s.recargaMult = Object.fromEntries(ORDEM_TIPOS_DANO.map((t) => [t, multRecarga(st.recarga[t])]));
   // Sem os bônus por tempo: o World (server/game.js, #bonusDaNave) põe os bônus em
   // cima destes a cada tick.

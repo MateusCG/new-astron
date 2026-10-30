@@ -1198,6 +1198,11 @@ export class World {
     return Math.max(0, this.#resistTotal(alvo, tipo) - (quem?.status?.penetra[tipo] ?? 0));
   }
 
+  /** A resistência do piloto ao tipo sem o teto de 99% (a que o original compara na chance do debuff elétrico). */
+  resistBruta(j, tipo) {
+    return this.#resistTotal(j, tipo, false);
+  }
+
   /**
    * Resistência do piloto ao tipo, como no original (CPilotManage::Process): a base do
    * equipamento (pontos de armadura e escudo × (1 + % dos potenciadores)), mais os
@@ -1205,12 +1210,12 @@ export class World {
    * pontos que a quebra tira; zerada pelo canhão que zera; nunca negativa; e o teto de
    * 99% (GetWeaponRegistance) no fim.
    */
-  #resistTotal(j, tipo) {
+  #resistTotal(j, tipo, teto = true) {
     if (this.golpes.resistZerada(j, tipo)) return 0;
     const base = j.status?.resistBase?.[tipo] ?? j.status?.resist?.[tipo] ?? 0;
     const arma = this.golpes.resistArma(j, tipo);
-    const r = base + arma.pontos + base * arma.pct - this.golpes.resistQuebrada(j, tipo);
-    return Math.min(RESIST_MAX, Math.max(0, r));
+    const r = Math.max(0, base + arma.pontos + base * arma.pct - this.golpes.resistQuebrada(j, tipo));
+    return teto ? Math.min(RESIST_MAX, r) : r;
   }
 
   snapshotPara(j, ents, eventos) {

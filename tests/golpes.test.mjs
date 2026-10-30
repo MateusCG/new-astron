@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World } from '../server/game.js';
 import { ARMAS, IDX_ARMA, WEAPONS, INPUT_VAZIO, createShip } from '../shared/sim.js';
-import { versaoArma, golpeDaArma } from '../shared/armas.js';
+import { versaoArma, golpeDaArma, fatorDispositivo, escalarDispositivo, chanceDebuffEletrico } from '../shared/armas.js';
 import { INVISIVEL_VISTO_M } from '../server/golpes.js';
 import { CAMPO } from './lugares.mjs';
 
@@ -424,6 +424,46 @@ test('Tenda de Luz: +100% da resistência Op. que a nave já tem (dobra), pela d
   assert.deepEqual(w.resistVisivel(a), [0, 0.6, 0], 'a cor do nick mostra a resistência com a Tenda');
   passos(w, 3 * 30);
   assert.ok(!a.st.resiste_laser, 'acaba nos 3 s da V1');
+});
+
+test('elétrico: o dispositivo cresce com o poder El. dos pontos do piloto, como no original', () => {
+  const { w, js } = arena(['acron', 'assault', 0, 0]);
+  const [a] = js;
+  a.ship.fatorEl = 1.5; // +50% de poder El. só dos pontos
+  disparar(w, a, '112008'); // Tenda de Luz V1: +100% por 3 s
+  assert.ok(Math.abs(a.st.resiste_laser.frac - 1.5) < 1e-9, 'valor × 1,5');
+  assert.ok(Math.abs(a.st.resiste_laser.fim - w.tick - 4.5 * SEGUNDO) <= 1, 'duração × 1,5');
+  // Arma que não é elétrica não muda; a conta pura.
+  assert.equal(fatorDispositivo('o111001', a.ship), 1);
+  assert.ok(Math.abs(escalarDispositivo({ tipo: 'acelera', mult: 1.4, segurar: true }, 1.5).mult - 1.6) < 1e-9, '+40% de velocidade vira +60%');
+});
+
+test('elétrico: o debuff de bloqueio só pega com a chance do original; quando falha, o MISS e o dano entra', () => {
+  // 30 × fator + 30 − resistência El. (pontos); suporte: 55 + 15 × fator.
+  assert.equal(chanceDebuffEletrico('o112011', 1, 0), 60);
+  assert.equal(chanceDebuffEletrico('o112011', 1.5, 0.25), 50);
+  assert.equal(chanceDebuffEletrico('o111001', 1, 0), null, 'feixe óptico de ataque: sem a regra');
+  const tiroDo = (rng) => {
+    const { w, js } = arena(['acron', 'mobile', 0, 0], ['bellico', 'assault', 0, -60]);
+    const [a, b] = js;
+    w.rng = () => rng;
+    const hp = b.ship.hp;
+    w.tirarEventos();
+    disparar(w, a, '112011');
+    const ev = [];
+    for (let i = 0; i < 2 * SEGUNDO; i++) {
+      w.step();
+      ev.push(...w.tirarEventos());
+    }
+    return { b, ev, perdeu: hp - b.ship.hp };
+  };
+  const pegou = tiroDo(0);
+  assert.ok(pegou.b.st?.vulneravel_laser, 'sorteio abaixo da chance: zerou a Op.');
+  const falhou = tiroDo(0.99);
+  assert.ok(!falhou.b.st?.vulneravel_laser, 'sorteio acima: não pegou');
+  assert.ok(falhou.perdeu > 0, 'o dano entrou');
+  const miss = falhou.ev.find((e) => e.e === 'miss');
+  assert.ok(miss && miss.para === falhou.b.id, 'o MISS para quem resistiu');
 });
 
 test('segurar: Reparador de Escudo conserta enquanto segura; Arrancada e Amplificador gastam HP', () => {

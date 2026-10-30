@@ -387,6 +387,10 @@
 //                                    parte que o escudo do equipamento segurou; crit =
 //                                    golpe crítico, dano dobrado; com crit vem também
 //                                    por = id de quem bateu, que sempre recebe o evento)
+//         {e:'miss', para, id, kind}   PRIVADO: o debuff da arma elétrica de bloqueio
+//                                    ou suporte não pegou no jogador `para` (a chance do
+//                                    original pelo poder El. de quem atirou e a
+//                                    resistência El. dele; o dano entrou): o "MISS"
 //         {e:'debuff', para, ef, v?, dur?}   PRIVADO (só o jogador `para` recebe): o
 //                                    debuff que ele levou, a mensagem do original
 //                                    (CChatList::AddCollisionMsg): ef = 'magma',
