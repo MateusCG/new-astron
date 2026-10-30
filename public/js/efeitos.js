@@ -72,7 +72,7 @@ import * as THREE from 'three';
 import { RACES, stepBullet, WEAPONS } from '/shared/sim.js';
 import { heightAt, topoPouso } from '/shared/terrain.js';
 import { FATOR_AREA, golpeDaArma, visualDoOriginal, visualEfeito } from '/shared/armas.js';
-import { atravessa } from './disparo-regras.js';
+import { atravessa, ESCALA_DISPARO, ESTADOS_NA_NAVE } from './disparo-regras.js';
 import { FATOR_TAMANHO_NAVE } from '/shared/naves.js';
 import { brilho } from './nave.js';
 import { VisualArmas } from './efeitos-armas.js';
@@ -830,6 +830,8 @@ export class Efeitos {
       const pisca = k === 'para' ? (Math.sin(tempo * 41) * Math.sin(tempo * 17) > 0 ? 0.6 : 0.15) : 0.35 + 0.15 * Math.sin(tempo * (k === 'invul' ? 5 : 3));
       s.material.opacity = pisca;
     }
+    // O reparo do escudo: os quanta do original saindo da nave (disparo-original.js).
+    if (ativos.has('escudoRec')) this.disparo.escudoRec(obj, ud.race, dt);
     const energia = ativos.has('energia') && !comIcone.has('energia');
     if (!(ativos.has('regen') || ativos.has('acel') || energia)) return;
     obj.getWorldPosition(this.v);
@@ -881,7 +883,38 @@ export class Efeitos {
       tocarEfeitoOriginal(inst, dt, this.camera);
     }
     ud.magmaOriginal = querer.has(MAGMA_NA_NAVE);
+    this.#estadosNaNave(obj, ativos, dt);
     return feitos;
+  }
+
+  /**
+   * Estados com o efeito do original na matriz da nave (CUnit::RenderScene, efeitos 15 a
+   * 24): o conversor de impacto e as resistências do Disjuntor, presos no corpo (que
+   * inclina com a nave), repetindo enquanto o estado dura.
+   */
+  #estadosNaNave(obj, ativos, dt) {
+    const ud = obj.userData;
+    if (!ud.naNave) {
+      if (!Object.keys(ESTADOS_NA_NAVE).some((k) => ativos.has(k))) return;
+      ud.naNave = {};
+    }
+    const corpo = ud.corpo ?? obj;
+    for (const [k, id] of Object.entries(ESTADOS_NA_NAVE)) {
+      let inst = ud.naNave[k];
+      if (!ativos.has(k) || !efeitoOriginalPronto(id)) {
+        if (inst) {
+          soltarEfeitoOriginal(inst);
+          delete ud.naNave[k];
+        }
+        continue;
+      }
+      if (!inst) {
+        inst = ud.naNave[k] = criarEfeitoOriginal(id, { escala: ESCALA_ORIGINAL, loop: true });
+        inst.obj.rotation.y = Math.PI; // o efeito olha para +z; o nariz da nave, para -z
+        corpo.add(inst.obj);
+      }
+      tocarEfeitoOriginal(inst, dt, this.camera);
+    }
   }
 
   /** Nave camuflada (vista por você ou aliado): materiais do casco trocados por um fantasma. */
@@ -947,6 +980,16 @@ export class Efeitos {
     for (const m of lista ?? []) {
       vistas.add(m.id);
       let v = this.minas.get(m.id);
+      // Armadilha de arma do jogador desenhada como no original (a Armadilha Supressora):
+      // o efeito dela parado onde caiu, repetindo, na escala das naves (tipo 7: modelo).
+      const deJogador = this.disparo.idMina(m.kind, m.nv, m.p ?? 0);
+      if (deJogador) this.disparo.armadilhaEm(m.kind, m.x, m.y, m.z);
+      if (!v && deJogador) {
+        const inst = criarEfeitoOriginal(deJogador, { escala: ESCALA_DISPARO, loop: true });
+        this.scene.add(inst.obj);
+        v = { g: inst.obj, original: inst, campo: true };
+        this.minas.set(m.id, v);
+      }
       if (!v) {
         // Mina ou campo de arma do original de monstro (a armadilha da Medusa, o campo
         // elétrico do SN-4): o efeito do original repetindo; o campo esticado até a área.
@@ -1322,9 +1365,11 @@ export class Efeitos {
         }
       }
       if (!vivo) {
-        // Parou antes da vida acabar: bateu no chão, numa construção ou no campo.
+        // Parou antes da vida acabar: bateu no chão, numa construção ou no campo. A vida
+        // acabou: o que explode no fim deixa o impacto ali (o resto some sem nada).
         if (t.comoOriginal) {
           if (!tocou && t.b.vida > 0) this.disparo.bateu(t);
+          else if (!tocou) this.disparo.expirou(t);
         } else if (t.b.vida > 0 && !t.visual) this.explosao(t.b.x, t.b.y, t.b.z, 0.4, '#ffcf90');
         this.removerTiro(id);
         continue;
@@ -1410,8 +1455,10 @@ export class Efeitos {
     });
 
     this.originais = this.originais.filter((o) => {
-      // `ate`: o último quadro fica na tela até lá (a esfera do Canhão de Faíscas).
-      if (tocarEfeitoOriginal(o.inst, dt, this.camera) || o.inst.t < (o.ate ?? 0)) return true;
+      // `ate`: o último quadro fica na tela até lá (a esfera do Canhão de Faíscas); com
+      // `corta`, o efeito acaba ali mesmo que tenha mais quadros (a Nova Desarmadora).
+      const vivo = tocarEfeitoOriginal(o.inst, dt, this.camera) || o.inst.t < (o.ate ?? 0);
+      if (vivo && !(o.corta && o.inst.t >= o.ate)) return true;
       soltarEfeitoOriginal(o.inst);
       return false;
     });

@@ -5,8 +5,9 @@
 // quadro do .3dx que o .eff manda, a textura da paleta .MPL daquele quadro (a chama do
 // Xerxes troca de textura a cada quadro), a cor e a alfa do bloco (o efeito aparece e
 // some), escondida ou não, e virada para a câmera quando o bloco pede. Anda 24
-// quadros por segundo e acaba no último (ou volta ao começo, nos que repetem: o
-// projétil em voo, os ícones de estado em cima da nave, o fogo do Magma). Peça com
+// quadros por segundo e acaba no último (ou repete, nos que repetem: o projétil em voo,
+// os ícones de estado em cima da nave, o fogo do Magma; do quadro `volta` quando a
+// corrente de quadros do .eff fecha no meio, como a armadilha que abre e fica pulsando). Peça com
 // textura de alfa é luz, como no CAlphaManage do original: mistura aditiva pesada
 // pela alfa, sem escrever profundidade, dos dois lados; a de textura sem alfa (o casco
 // do míssil, o símbolo dos ícones de estado; `opacas` no json) é sólida.
@@ -106,7 +107,7 @@ function preparar(j) {
   const raioMax = Math.max(raio, ...j.blocos.map(raioDo));
   // Partícula: as texturas das variantes (o original sorteia uma por partícula).
   const particula = j.particula ? { texs: j.pecas.map((p) => p.tex).filter(Boolean), raio } : null;
-  return { id: j.id, quadros: j.quadros, pecas, mpal: j.mpal, opacas: new Set(j.opacas ?? []), blocos: j.blocos, raio, raioMax, particula, reserva: [] };
+  return { id: j.id, quadros: j.quadros, volta: j.volta ?? 0, pecas, mpal: j.mpal, opacas: new Set(j.opacas ?? []), blocos: j.blocos, raio, raioMax, particula, reserva: [] };
 }
 
 const mCam = new THREE.Matrix4();
@@ -193,7 +194,8 @@ export function tocarEfeitoOriginal(inst, dt, camera) {
   let q = Math.floor(inst.t * QUADROS_POR_S);
   if (q >= inst.d.quadros) {
     if (!inst.loop) return false;
-    q %= inst.d.quadros;
+    const v = inst.d.volta;
+    q = v + ((q - v) % (inst.d.quadros - v));
   }
   aplicarQuadro(inst, q, camera);
   return true;

@@ -346,7 +346,7 @@ export class Golpes {
     } else if (direto) alvos.push(direto);
     for (const a of alvos) {
       if (g.inimigo && this.ctx.podeAcertar(como, a)) {
-        const ev = { e: 'acerto', kind, x: +a.ship.x.toFixed(2), y: +a.ship.y.toFixed(2), z: +a.ship.z.toFixed(2), ...(g.atq ? { atq: g.atq } : {}) };
+        const ev = { e: 'acerto', kind, nv: fonte.nivel, p: g.prof, x: +a.ship.x.toFixed(2), y: +a.ship.y.toFixed(2), z: +a.ship.z.toFixed(2), ...(g.atq ? { atq: g.atq } : {}) };
         if (a === direto && bala !== undefined) ev.bala = bala;
         if (dano > 0 || a === direto) this.ctx.ferir(a, dano, autor, ev, { tipoDano, penetrante: !!g.penetrante });
         if (a.vivo) this.#efeitosInimigo(g, a, autor, fonte);
@@ -579,7 +579,7 @@ export class Golpes {
         if (n.atingidos.has(a.id) || !a.vivo || !naArea(a, n.x, n.y, n.z, n.r)) continue;
         if (g.inimigo && this.ctx.podeAcertar(como, a)) {
           n.atingidos.add(a.id);
-          if (dano > 0) this.ctx.ferir(a, dano, n.owner, { e: 'acerto', kind: n.kind, x: +a.ship.x.toFixed(2), y: +a.ship.y.toFixed(2), z: +a.ship.z.toFixed(2), ...(g.atq ? { atq: g.atq } : {}) }, { tipoDano });
+          if (dano > 0) this.ctx.ferir(a, dano, n.owner, { e: 'acerto', kind: n.kind, nv: n.nivel, p: g.prof, x: +a.ship.x.toFixed(2), y: +a.ship.y.toFixed(2), z: +a.ship.z.toFixed(2), ...(g.atq ? { atq: g.atq } : {}) }, { tipoDano });
           if (a.vivo) this.#efeitosInimigo(g, a, n.owner, n);
         } else if (g.aliado && this.#aliado(como, a, true)) {
           n.atingidos.add(a.id);
@@ -676,7 +676,7 @@ export class Golpes {
     const w = this.world;
     const tipoDano = g.tipoDano ?? WEAPONS[fonte.kind]?.tipoDano;
     const dano = (g.dano ?? 0) * (fonte.mult ?? 1) * (fonte.drone ? 1 : w.multDanoDe(fonte.owner, tipoDano));
-    if (dano > 0) this.ctx.ferir(a, dano, fonte.owner, { e: 'acerto', kind: fonte.kind, x: +a.ship.x.toFixed(2), y: +a.ship.y.toFixed(2), z: +a.ship.z.toFixed(2), ...(g.atq ? { atq: g.atq } : {}) }, { tipoDano });
+    if (dano > 0) this.ctx.ferir(a, dano, fonte.owner, { e: 'acerto', kind: fonte.kind, nv: fonte.nivel, p: g.prof, x: +a.ship.x.toFixed(2), y: +a.ship.y.toFixed(2), z: +a.ship.z.toFixed(2), ...(g.atq ? { atq: g.atq } : {}) }, { tipoDano });
     if (a.vivo) this.#efeitosInimigo(g, a, fonte.owner, fonte);
   }
 
@@ -788,7 +788,13 @@ export class Golpes {
     if (this.st(ent, 'vulneravel')) fx.push('resist');
     const vulnTipo = ['fisico', 'laser', 'eletrico'].some((t) => this.st(ent, `vulneravel_${t}`));
     if (vulnTipo || this.st(ent, 'fraco') || this.st(ent, 'recuo')) fx.push('fraco');
-    if (this.st(ent, 'regen') || this.st(ent, 'curaTempo') || segurandoTipo(s, 'regen')) fx.push('regen');
+    // O reparo do escudo (os quanta do original), o conserto de HP com tempo (a aura), o
+    // conversor de impacto e as resistências do Disjuntor (o efeito do original na nave).
+    if (this.st(ent, 'regen') || segurandoTipo(s, 'regen')) fx.push('escudoRec');
+    if (this.st(ent, 'curaTempo')) fx.push('regen');
+    if (this.st(ent, 'converte')) fx.push('converte');
+    if (this.st(ent, 'resiste_eletrico')) fx.push('resEl');
+    if (this.st(ent, 'resiste_fisico')) fx.push('resFis');
     if (segurandoTipo(s, 'acelera')) fx.push('acel');
     if (this.invisivel(ent)) fx.push('inv');
     return fx;

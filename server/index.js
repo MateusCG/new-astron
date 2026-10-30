@@ -287,7 +287,10 @@
 //         tiro impedido), 'desg', 'energia', 'descarga' (a
 //         energia descarregada, o ícone fica a duração do original), 'magma' (o dreno
 //         de HP do original), 'resist' (todas as resistências quebradas), 'invul',
-//         'escudo', 'fraco', 'regen', 'acel', 'inv'); arm = [arma do Z, arma do X]
+//         'escudo', 'fraco', 'regen' (conserto de HP com tempo), 'escudoRec' (o
+//         reparo do escudo: os quanta do original), 'converte' (o conversor de
+//         impacto), 'resEl' e 'resFis' (a resistência elétrica e a física dos
+//         dispositivos), 'acel', 'inv'); arm = [arma do Z, arma do X]
 //         dos jogadores (o modelo pendurado em cada asa). Jogador camuflado do outro
 //         time não vem na lista (salvo a INVISIVEL_VISTO_M da sua nave ou logo
 //         depois de atirar);
@@ -375,8 +378,10 @@
 //         {e:'torreta', id, time, estado, por, nome, x, y, z}   estado 'destruida' (por =
 //                                    quem deu o último tiro) ou 'reconstruida' (por =
 //                                    quem pagou)
-//         {e:'acerto', kind, alvo, dano, x, y, z, bala?, escudo?, crit?}   golpe de arma
-//                                    num alvo (um por alvo; bala = o tiro que bateu
+//         {e:'acerto', kind, nv?, p?, alvo, dano, x, y, z, bala?, escudo?, crit?}   golpe
+//                                    de arma num alvo (um por alvo; nv e p = a versão e
+//                                    o golpe da arma, o impacto do original de cada um;
+//                                    bala = o tiro que bateu
 //                                    direto; dano = o total, escudo + HP; escudo = a
 //                                    parte que o escudo do equipamento segurou; crit =
 //                                    golpe crítico, dano dobrado; com crit vem também

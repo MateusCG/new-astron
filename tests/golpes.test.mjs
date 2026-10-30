@@ -398,7 +398,7 @@ test('segurar: Reparador de Escudo conserta enquanto segura; Arrancada e Amplifi
   a.ship.encaixes = [rep, a.ship.encaixes[1]];
   apertar(w, a, { f1: true, a: rep }, SEGUNDO);
   assert.ok(a.ship.hp > 55, `consertou: ${a.ship.hp}`);
-  assert.ok(w.entidades().find((e) => e.id === a.id).fx.includes('regen'));
+  assert.ok(w.entidades().find((e) => e.id === a.id).fx.includes('escudoRec'), 'o reparo do escudo do original na nave');
   const { w: w2, js: j2 } = arena(['bellico', 'assault', 0, 0]);
   const amp = idx('212018');
   const b = j2[0];

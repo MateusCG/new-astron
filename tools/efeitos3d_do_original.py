@@ -33,7 +33,9 @@ direita (o original troca as duas primeiras linhas da matriz da câmera), por is
 faíscas do Magma, que andam no x, sobem.
 
 Formato de <id>.json:
-  { id, quadros, pecas: [{ nome, tex, pos, uv, idx, m, q }], mpal: [nome], opacas: [nome], blocos }
+  { id, quadros, pecas: [{ nome, tex, pos, uv, idx, m, q }], mpal: [nome], opacas: [nome], blocos, volta? }
+  volta: o quadro de onde o efeito repete quando a corrente do .eff fecha no meio (veja
+  ordem_dos_quadros); sem ela, repete do começo.
   pos/uv/idx: malha da peça (flat); m: matriz base (16); q: matrizes por quadro do .3dx
   (lista de 16, pode ser vazia); blocos[quadro][peça] = [quadro3dx, material, flags,
   r, g, b, a, du, dv].
@@ -74,34 +76,41 @@ def ler_eff(d):
             du, dv = struct.unpack_from('<2f', d, o + 140)
             linha.append([fr, mat, fl, *[round(x, 3) for x in dif], round(du, 4), round(dv, 4)])
         blocos.append(linha)
-    return {'nf': nf, 'no': no, 'modelo': nome(0x30), 'mpal': nome(0x50), 'blocos': blocos, 'ordem': ordem_dos_quadros(d, nf, na)}
+    ordem, volta = ordem_dos_quadros(d, nf, na)
+    return {'nf': nf, 'no': no, 'modelo': nome(0x30), 'mpal': nome(0x50), 'blocos': blocos, 'ordem': ordem, 'volta': volta}
 
 
 def ordem_dos_quadros(d, nf, na):
-    """A ordem em que o original toca os quadros do primeiro movimento, ou None.
+    """A ordem em que o original toca os quadros do primeiro movimento e de onde repete.
 
     CEffectSprite::NextFrame anda pelos registros de 0x40 bytes de cada quadro: u16 +2 =
     quantos passos o quadro dura, +4 = o quadro seguinte (vale com a flag 1 do byte +8),
     +6 = o anterior (flag 2), flag 4 = vai e volta. O movimento começa no quadro de
     +0x22 do seu registro e um quadro sem a flag 1 (e sem a 4) encerra o efeito. A
     corrente nem sempre segue a numeração: no lvup001 o quadro 71 vem entre o 60 e o 61
-    (e os que ficam fora da corrente não tocam). None se o efeito repete (a corrente
-    fecha em volta) ou vai e volta: nesses o json guarda os quadros na ordem do arquivo.
+    (e os que ficam fora da corrente não tocam). Devolve (ordem, volta): (None, 0) se o
+    efeito repete do começo (a corrente fecha no primeiro) ou vai e volta (o json guarda
+    os quadros na ordem do arquivo); (ordem, n) quando a corrente fecha num quadro do
+    meio: toca a entrada uma vez e repete dali (a Armadilha Supressora abre as garras e
+    fica pulsando do quadro 20 ao 39; os ícones de estado entram e giram).
     """
     if na < 1:
-        return None
+        return None, 0
     q = struct.unpack_from('<H', d, 0x80 + 0x22)[0]
     ini = 0x80 + na * 0x80
     ordem = [q]
     while True:
         fl = d[ini + q * 0x40 + 8]
         if fl & 4:
-            return None
+            return None, 0
         if not fl & 1:
-            return ordem
+            return ordem, 0
         q = struct.unpack_from('<H', d, ini + q * 0x40 + 4)[0]
-        if q in ordem or q >= nf:
-            return None
+        if q >= nf:
+            return None, 0
+        if q in ordem:
+            volta = ordem.index(q)
+            return (ordem, volta) if volta > 0 else (None, 0)
         ordem.append(q)
 
 
@@ -166,6 +175,8 @@ def converter(old, saida, pasta_tex, eid):
     opacas = sorted(t for t in texturas if os.path.exists(os.path.join(pasta_tex, t + '.png'))
                     and Image.open(os.path.join(pasta_tex, t + '.png')).convert('RGBA').getchannel('A').getextrema()[0] == 255)
     out = {'id': eid, 'quadros': len(blocos), 'pecas': pecas, 'mpal': mpal, 'opacas': opacas, 'blocos': blocos}
+    if e['volta'] and not particula:
+        out['volta'] = e['volta']  # o quadro (na ordem de `blocos`) de onde o efeito repete
     if particula:
         out['particula'] = True
         out['variantes'] = len(modelos)

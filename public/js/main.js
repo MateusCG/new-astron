@@ -618,7 +618,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
   const somImpacto = (kind, nv = 1, prof = 0) => golpeDaArma(kind, nv, prof)?.somImpacto ?? WEAPONS[kind]?.somImpacto ?? null;
   // Tiro de arma de início que bate no chão, numa construção ou no campo: o som de
   // impacto do original no lugar (o desenho do impacto sai em efeitos.js).
-  efeitos.aoImpacto = (kind, x, y, z) => somNoMundo(somImpacto(kind), x, z, 0.8);
+  efeitos.aoImpacto = (kind, x, y, z, nv = 1, p = 0) => somNoMundo(somImpacto(kind, nv, p), x, z, 0.8);
   const boca = new THREE.Vector3();
   document.querySelector('#hud').hidden = false;
   const objetivos = new ObjetivosNaTela({ definirObjetivo, meuTime, container: document.querySelector('#rotulos-obj') });
@@ -988,8 +988,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
         if (!efeitos.disparo.nova(e.kind, e.nv, e.p ?? 0, e.x, e.y, e.z, e.raio, e.dono === meuId)) efeitos.armas.nova(e.kind, e.nv, e.p, e.x, e.y, e.z, e.raio, e.vel);
         if (!(e.dono === meuId && !e.p)) tocarUmaVez(`n${e.id}`, somDaArma(e.kind, e.nv, e.p), e.x, e.z);
       } else if (e.e === 'efeito') {
-        // Dispositivo ligado (camuflagem, escudo, teleporte...): clarão na nave e o som.
-        efeitos.armas.clarao(e.kind, e.x, e.y, e.z, e.nv);
+        // Dispositivo ligado (camuflagem, escudo, teleporte...): clarão na nave e o som
+        // (os desenhados como no original não têm clarão: o que aparece é o estado na nave).
+        if (!efeitos.disparo.semClarao(e.kind, e.nv)) efeitos.armas.clarao(e.kind, e.x, e.y, e.z, e.nv);
         if (e.id !== meuId) tocarUmaVez(`e${e.id}:${e.kind}`, somDaArma(e.kind, e.nv), e.x, e.z);
       } else if (e.e === 'explosao' && e.arma !== 'mina') {
         // A Metralha Shrewdo: o efeito de fim do original, esticado até a área.
@@ -1025,9 +1026,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
           efeitos.impactoMonstro(e.kind, e.x, e.y, e.z);
           tocarUmaVez(`a${e.kind}:${e.alvo}`, somImpacto(e.kind), e.x, e.z, 0.8);
         } else if (visualDoOriginal(kind)) {
-          // Arma de início: o impacto do original no casco do alvo; as outras, o de antes.
-          if (!efeitos.disparo.impacto(kind, alvoDoAcerto(e), bala, e.por === meuId)) efeitos.armas.impacto(kind, 1, 0, e.x, e.y, e.z, 3.5);
-          tocarUmaVez(`a${kind}:${e.alvo}`, somImpacto(kind), e.x, e.z, 0.8);
+          // Arma desenhada como no original: o impacto do original no casco do alvo (o da
+          // versão e do golpe que acertou); as outras, o de antes.
+          if (!efeitos.disparo.impacto(kind, e.nv, e.p, alvoDoAcerto(e), bala, e.por === meuId)) efeitos.armas.impacto(kind, 1, 0, e.x, e.y, e.z, 3.5);
+          tocarUmaVez(`a${kind}:${e.alvo}`, somImpacto(kind, bala?.nv ?? e.nv, bala?.p ?? e.p), e.x, e.z, 0.8);
         } else efeitos.explosao(e.x, e.y, e.z, 0.7, '#ffd080');
         if (e.alvo === meuId && e.dano > 0) hud.levarDano();
         // Seu golpe crítico: "CRÍTICO" sobe do alvo.
@@ -1048,7 +1050,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
         // O Rebatedor de Projéteis jogou o tiro para fora do centro dele: o desenho vira junto.
         efeitos.rebaterTiro(e, meuId);
       } else if (e.e === 'fim') {
-        // Arma de início que bateu em algo antes de a vida acabar: o impacto ali.
+        // Arma desenhada como no original que bateu em algo antes de a vida acabar, ou que
+        // explode no fim: o impacto ali.
         efeitos.disparo.fim(efeitos.tiros.get(e.bala), e.x, e.y, e.z);
         efeitos.removerTiro(e.bala);
         // O tiro parou no campo de força de uma base: um anel se abre onde bateu.

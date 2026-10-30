@@ -407,6 +407,7 @@ export function definirNave(raiz, race, classe, tier) {
   const chave = urlDa(nave);
   if (raiz.userData.nave === chave) return;
   raiz.userData.nave = chave;
+  raiz.userData.race = race; // a raça escolhe a cor do reparo do escudo (disparo-original.js)
   raiz.userData.tamanho = nave.corpo; // corpo da nave, m (a câmera se afasta das grandes)
   raiz.userData.velocidade = nave.velocidade; // m/s: a chama cresce até ela
   raiz.userData.efeitos?.scale.setScalar(Math.max(1, nave.corpo / RAIO_REFERENCIA));

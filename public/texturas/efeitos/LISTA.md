@@ -538,3 +538,5 @@ Copiadas pelo mesmo `tools/efeitos3d_do_original.py` com as explosões do origin
 | `state001_01.png` | 64×64 px, 0.9 KB | #ff8300 | exp_particle, state001_01 |
 | `state001_02.png` | 64×64 px, 2.5 KB | #a9a9a9 | state001_02 |
 | `state001_03.png` | 64×64 px, 3.4 KB | #d2b47f | state001_03 |
+| `1163003_001.png` | 64×64 px, 4.3 KB | #61fe68 | 1163003_01, 1163004_01, 1163005_01 |
+| `1163023.png` | 64×64 px, 1.5 KB | #e7ece8 | 1163023 |
