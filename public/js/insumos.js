@@ -83,6 +83,8 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
   '1162023',
   // Os estados dos dispositivos na nave: o conversor de impacto, as resistências e o
   // reparo do escudo (o quantum e a esfera de cada raça).
+  // O "MISS" do debuff elétrico que não pegou.
+  'miss',
   '1163023', '2163033', '2163012', '2163013', '1163005_01', '1163005_02', '1163004_01', '1163004_02', '1163003_01', '1163003_02',
   // Destruição de nave, torre e monstro (destruicao.js): as explosões EXP001 a EXP007,
   // a fagulha e a fumaça da queda, a faísca e as peças dos destroços.
@@ -114,6 +116,8 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
 export const ICONES_ESTADO = Object.freeze({ resist: 'cross003', para: 'cross002', semTiro: 'cross008', desg: 'cross010', descarga: 'cross013', energia: 'cross013', fraco: 'cross008' });
 /** O fogo do Magma na nave (o dreno de HP do original: faíscas vermelhas subindo). */
 export const MAGMA_NA_NAVE = '1164001';
+/** O "MISS" do original na nave que resistiu ao debuff elétrico (CUnit::EffectMiss). */
+export const EFEITO_MISS = 'miss';
 
 // Texturas que no original são do casco 3D (opacas), não luz: não servem de efeito aditivo.
 export const TEXTURAS_CASCO = new Set(['1321011_01', '1321021_01', 'gun', 'missile', '1351005_01', '1131056']);

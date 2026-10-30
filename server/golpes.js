@@ -44,7 +44,20 @@
 // fica embaixo da nave de quem soltou.
 
 import { DT, HOVER, createBullet, stepBullet, bulletHits, forward } from '../shared/sim.js';
-import { WEAPONS, MINA_MAX, CONVERTE_ENERGIA_POR_HP, ESCUDO_EQUIV_HP, golpeDaArma, versaoArma, tirosDoGolpe } from '../shared/armas.js';
+import {
+  WEAPONS,
+  ARMAS,
+  MINA_MAX,
+  CONVERTE_ENERGIA_POR_HP,
+  ESCUDO_EQUIV_HP,
+  VULNERAVEL_ZERA,
+  golpeDaArma,
+  versaoArma,
+  tirosDoGolpe,
+  escalarDispositivo,
+  fatorDispositivo,
+  chanceDebuffEletrico,
+} from '../shared/armas.js';
 import { alvoDoMissil, guiarMissil, escolherAlvo, tiroFilho, alturaNoChao, naArea, yawPara, semCampoNoMeio } from './armas.js';
 import { cruzaCampoBase } from '../shared/terrain.js';
 
@@ -363,7 +376,26 @@ export class Golpes {
 
   #efeitosInimigo(g, alvo, autor, fonte) {
     if (!g.efeitos?.length || this.ctx.protegido(alvo)) return;
+    if (!g.efeitos.some((ef) => ef.alvo === 'inimigo')) return;
+    if (!this.#debuffPega(alvo, autor, fonte)) return;
     for (const ef of g.efeitos) if (ef.alvo === 'inimigo') this.#aplicarInimigo(ef, alvo, autor, fonte);
+  }
+
+  /**
+   * O debuff de arma elétrica de bloqueio ou de suporte pega no piloto `alvo`? Como no
+   * original (CUnitBeam::ProcessDamage): a chance sai do poder El. dos pontos de quem
+   * atirou e da resistência El. de quem leva (chanceDebuffEletrico); de 100 para cima
+   * pega sempre. Quando falha, o "MISS" do original na nave de quem resistiu (evento
+   * privado 'miss'); o dano já entrou.
+   */
+  #debuffPega(alvo, autor, fonte) {
+    if (alvo.tipo !== 'jogador') return true;
+    const quem = this.world.players.get(autor);
+    const chance = chanceDebuffEletrico(fonte?.kind, quem?.ship?.fatorEl ?? 1, this.world.resistBruta(alvo, 'eletrico'));
+    if (chance === null || chance >= 100) return true;
+    if (chance > Math.floor(this.world.rng() * 100)) return true;
+    this.world.eventos.push({ e: 'miss', para: alvo.id, id: alvo.id, kind: fonte.kind });
+    return false;
   }
 
   #aplicarInimigo(ef, alvo, autor, fonte) {
@@ -542,15 +574,20 @@ export class Golpes {
     w.minas = w.minas.filter((m) => !sai.has(m));
   }
 
-  /** Dispositivo da própria nave (com tempo): o buff fica na entidade. */
+  /**
+   * Dispositivo da própria nave (com tempo): o buff fica na entidade, com o valor e a
+   * duração × o poder El. dos pontos do piloto nos elétricos (fatorDispositivo).
+   */
   #efeitoProprio(ent, g, f) {
     const s = ent.ship;
-    for (const ef of g.efeitos) {
-      if (ef.alvo !== 'proprio' || ef.segurar) continue;
+    const fator = fatorDispositivo(f.kind, s);
+    for (const original of g.efeitos) {
+      if (original.alvo !== 'proprio' || original.segurar) continue;
+      const ef = escalarDispositivo(original, fator);
       if (ef.tipo === 'invisivel') this.#por(ent, 'invisivel', ef.dur);
       else if (ef.tipo === 'invulneravel') this.#por(ent, 'invulneravel', ef.dur);
       else if (ef.tipo === 'escudo') this.#por(ent, 'escudo', ef.dur, { hp: s.maxHp * ef.frac });
-      else if (ef.tipo === 'resiste') this.#por(ent, `resiste_${ef.tipoDano}`, ef.dur, { frac: ef.frac });
+      else if (ef.tipo === 'resiste') this.#por(ent, `resiste_${ef.tipoDano}`, ef.dur, { frac: ef.frac, modo: ef.modo ?? 'pontos' });
       else if (ef.tipo === 'converte') this.#por(ent, 'converte', ef.dur, { frac: ef.frac });
       else if (ef.tipo === 'regen') this.#por(ent, 'regen', ef.dur, { fracPorS: ef.fracPorS });
     }
@@ -693,7 +730,7 @@ export class Golpes {
       if (cura) hps += cura.hps;
       let custo = 0;
       for (const enc of [0, 1]) {
-        const ef = segurando(s, enc);
+        const ef = escalarDispositivo(segurando(s, enc), fatorDispositivo(enc ? ARMAS[s.seg2] : ARMAS[s.seg1], s));
         if (ef?.tipo === 'regen') hps += s.maxHp * ef.fracPorS;
         custo += versaoSeg(s, enc)?.hpPorS ?? 0; // Arrancada, Amplificador e Reparador Bellico gastam HP
       }
@@ -749,12 +786,19 @@ export class Golpes {
    * Vale para a resistência do equipamento e para a das armas de dispositivo.
    */
   /**
-   * Resistência ao tipo que as armas de dispositivo dão agora (fração; a Tenda de Luz,
-   * o Disjuntor): soma na do equipamento, com o mesmo teto (World#ferir), como no
-   * original, onde o estado vai para a resistência do tipo.
+   * Resistência ao tipo que as armas de dispositivo dão agora: { pontos, pct } (frações).
+   * O Disjuntor (e o de Ph.) soma pontos; a Tenda de Luz, um % da resistência que a nave
+   * já tem (World#resistEfetiva).
    */
   resistArma(alvo, tipoDano) {
-    return (tipoDano && this.st(alvo, `resiste_${tipoDano}`)?.frac) || 0;
+    const e = tipoDano ? this.st(alvo, `resiste_${tipoDano}`) : null;
+    if (!e) return { pontos: 0, pct: 0 };
+    return e.modo === 'pct' ? { pontos: 0, pct: e.frac } : { pontos: e.frac, pct: 0 };
+  }
+
+  /** O tipo está zerado agora (o Canhão de Choque, o Amplificador: o estado que zera)? */
+  resistZerada(alvo, tipoDano) {
+    return (this.st(alvo, `vulneravel_${tipoDano}`)?.menos ?? 0) >= VULNERAVEL_ZERA;
   }
 
   resistQuebrada(alvo, tipoDano) {

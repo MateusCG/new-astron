@@ -150,24 +150,32 @@ test('status: o snapshot leva as resistências do piloto (a cor do nick), já se
 test('status: a resistência chega até 99% (RESIST_MAX, o do original), nunca imune', () => {
   assert.equal(RESIST_MAX, 0.99);
   const { perdeu, b } = tiro((w, a, b) => {
-    b.status = { ...b.status, resist: { ...b.status.resist, laser: RESIST_MAX } };
+    b.status = { ...b.status, resistBase: { ...b.status.resistBase, laser: 1.5 } };
   });
   perto(perdeu, DANO * (1 - 0.99));
   assert.ok(b.ship.hp < b.ship.maxHp);
 });
 
-test('status: a resistência das armas de dispositivo soma na do equipamento, com um teto só', () => {
-  // 60% do equipamento + os 40 pontos do Disjuntor (40%) = 99% (o teto), não 1 − 0,4 × 0,6.
-  const { perdeu } = tiro((w, a, b) => {
-    b.status = { ...b.status, resist: { ...b.status.resist, laser: 0.6 } };
-    b.st = { resiste_laser: { fim: w.tick + 300, frac: 0.4 } };
-  });
+test('status: as armas de dispositivo entram na resistência como no original (pontos somam, a Tenda multiplica a base)', () => {
+  const comBase = (w, b, base, st) => {
+    b.status = { ...b.status, resistBase: { ...b.status.resistBase, laser: base } };
+    b.st = st(w);
+  };
+  // 60% do equipamento + 40 pontos (o Disjuntor, no tipo dele) = 100 → o teto de 99%.
+  const { perdeu } = tiro((w, a, b) => comBase(w, b, 0.6, (w) => ({ resiste_laser: { fim: w.tick + 300, frac: 0.4, modo: 'pontos' } })));
   perto(perdeu, DANO * (1 - 0.99));
-  const { perdeu: meio } = tiro((w, a, b) => {
-    b.status = { ...b.status, resist: { ...b.status.resist, laser: 0.3 } };
-    b.st = { resiste_laser: { fim: w.tick + 300, frac: 0.4 } };
-  });
+  const { perdeu: meio } = tiro((w, a, b) => comBase(w, b, 0.3, (w) => ({ resiste_laser: { fim: w.tick + 300, frac: 0.4, modo: 'pontos' } })));
   perto(meio, DANO * (1 - 0.7));
+  // A Tenda (+100%): dobra a base; sem base, não dá nada.
+  const { perdeu: dobro } = tiro((w, a, b) => comBase(w, b, 0.3, (w) => ({ resiste_laser: { fim: w.tick + 300, frac: 1, modo: 'pct' } })));
+  perto(dobro, DANO * (1 - 0.6));
+  const { perdeu: nada } = tiro((w, a, b) => comBase(w, b, 0, (w) => ({ resiste_laser: { fim: w.tick + 300, frac: 1, modo: 'pct' } })));
+  perto(nada, DANO);
+  // A quebra tira pontos depois de tudo, e o teto vem no fim: 0,8 × 2 − 0,4 = 1,2 → 99%.
+  const { perdeu: quebrada } = tiro((w, a, b) =>
+    comBase(w, b, 0.8, (w) => ({ resiste_laser: { fim: w.tick + 300, frac: 1, modo: 'pct' }, vulneravel: { fim: w.tick + 300, menos: 0.4 } })),
+  );
+  perto(quebrada, DANO * (1 - 0.99));
 });
 
 test('status: golpe crítico dobra o dano (o sorteio é do servidor)', () => {

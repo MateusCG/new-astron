@@ -344,6 +344,7 @@ test('servidor: se o dreno matar, o abate e o ouro vão para quem atirou', () =>
 
 test('servidor: Canhão Freio deixa o alvo lento, e o snapshot leva isso', () => {
   const { w, b, tiro } = duelo();
+  w.rng = () => 0; // o debuff elétrico de bloqueio tem chance de pegar (como no original): aqui pega
   const freio = versaoArma('o312009', 1).golpe.efeitos[0];
   tiro('o312009');
   for (let i = 0; i < 10 && !(b.ship.lento > 0); i++) w.step(); // o canhão é lento: 2 passos

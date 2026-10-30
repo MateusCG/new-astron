@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World } from '../server/game.js';
 import { ARMAS, IDX_ARMA, WEAPONS, INPUT_VAZIO, createShip } from '../shared/sim.js';
-import { versaoArma, golpeDaArma } from '../shared/armas.js';
+import { versaoArma, golpeDaArma, fatorDispositivo, escalarDispositivo, chanceDebuffEletrico } from '../shared/armas.js';
 import { INVISIVEL_VISTO_M } from '../server/golpes.js';
 import { CAMPO } from './lugares.mjs';
 
@@ -357,13 +357,15 @@ test('dispositivo: invulnerável, escudo, resistência e conserto por tempo', ()
   assert.ok(Math.abs(w2.golpes.modificarDano(j2[0], escudo, -1) - escudo / 2) < 1e-9);
   // Tenda de Luz: resiste a laser, não a físico.
   const { w: w3, js: j3 } = arena(['acron', 'assault', 0, 0]);
+  j3[0].status = { ...j3[0].status, resistBase: { ...j3[0].status.resistBase, laser: 0.2, fisico: 0.2 } };
   disparar(w3, j3[0], '112008');
-  assert.ok(w3.resistEfetiva(j3[0], 'laser') > 0);
-  assert.equal(w3.resistEfetiva(j3[0], 'fisico'), 0);
+  assert.ok(Math.abs(w3.resistEfetiva(j3[0], 'laser') - 0.4) < 1e-9, 'dobra a Op.');
+  assert.ok(Math.abs(w3.resistEfetiva(j3[0], 'fisico') - 0.2) < 1e-9, 'a Ph. fica');
   // Pontos de resistência das armas = os das armaduras (1 ponto = 1%): o Disjuntor V1
-  // dá 40 pontos de El. (40%); a Tenda, "100%", fica no teto de 99%.
-  assert.equal(golpeDaArma('o112033', 1).efeitos[0].frac, 0.4);
-  assert.equal(golpeDaArma('o112008', 1).efeitos[0].frac, 0.99);
+  // dá 40 pontos de El. (40%); a Tenda, "+100%", é o % sobre a resistência Op. da nave.
+  assert.deepEqual([golpeDaArma('o112033', 1).efeitos[0].frac, golpeDaArma('o112033', 1).efeitos[0].modo], [0.4, 'pontos']);
+  assert.deepEqual([golpeDaArma('o112008', 1).efeitos[0].frac, golpeDaArma('o112008', 1).efeitos[0].modo], [1, 'pct']);
+  assert.equal(golpeDaArma('o112008', 8).efeitos[0].frac, 2.5);
   // Reforço de Escudo: conserta por tempo.
   const { w: w4, js: j4 } = arena(['shrewdo', 'assault', 0, 0]);
   j4[0].ship.hp = 50;
@@ -395,10 +397,12 @@ test('dispositivo: camuflagem some do snapshot do outro time (salvo de perto) e 
   assert.ok(vistos(b).includes(a.id));
 });
 
-test('Tenda de Luz: segura 99% do dano óptico (o teto do original) pela duração da versão e aparece na nave', () => {
+test('Tenda de Luz: +100% da resistência Op. que a nave já tem (dobra), pela duração da versão, e aparece na nave', () => {
   const { w, js } = arena(['acron', 'assault', 0, 0], ['acron', 'assault', 0, -60]);
   const [a, b] = js;
   a.ship.hp = a.ship.maxHp = 100000;
+  // 30% de resistência Op. do equipamento (pontos de armadura e escudo).
+  a.status = { ...a.status, resist: { ...a.status.resist, laser: 0.3 }, resistBase: { ...a.status.resistBase, laser: 0.3 } };
   b.ship.yaw = Math.PI; // olha para +z, para A
   const feixe = idx('111001');
   const levar = () => {
@@ -416,10 +420,50 @@ test('Tenda de Luz: segura 99% do dano óptico (o teto do original) pela duraç�
   assert.ok(a.st.resiste_laser, 'o estado ligou');
   assert.ok(w.entidades().find((e) => e.id === a.id).fx.includes('resOp'), 'o efeito do original na nave');
   const com = levar();
-  assert.ok(Math.abs(com - sem * 0.01) < 1e-6, `99% a menos: ${sem} → ${com}`);
-  assert.deepEqual(w.resistVisivel(a), [0, 0.99, 0], 'a cor do nick mostra a resistência da Tenda');
+  assert.ok(Math.abs(com - (sem / 0.7) * 0.4) < 1e-6, `30% → 60%: ${sem} → ${com}`);
+  assert.deepEqual(w.resistVisivel(a), [0, 0.6, 0], 'a cor do nick mostra a resistência com a Tenda');
   passos(w, 3 * 30);
   assert.ok(!a.st.resiste_laser, 'acaba nos 3 s da V1');
+});
+
+test('elétrico: o dispositivo cresce com o poder El. dos pontos do piloto, como no original', () => {
+  const { w, js } = arena(['acron', 'assault', 0, 0]);
+  const [a] = js;
+  a.ship.fatorEl = 1.5; // +50% de poder El. só dos pontos
+  disparar(w, a, '112008'); // Tenda de Luz V1: +100% por 3 s
+  assert.ok(Math.abs(a.st.resiste_laser.frac - 1.5) < 1e-9, 'valor × 1,5');
+  assert.ok(Math.abs(a.st.resiste_laser.fim - w.tick - 4.5 * SEGUNDO) <= 1, 'duração × 1,5');
+  // Arma que não é elétrica não muda; a conta pura.
+  assert.equal(fatorDispositivo('o111001', a.ship), 1);
+  assert.ok(Math.abs(escalarDispositivo({ tipo: 'acelera', mult: 1.4, segurar: true }, 1.5).mult - 1.6) < 1e-9, '+40% de velocidade vira +60%');
+});
+
+test('elétrico: o debuff de bloqueio só pega com a chance do original; quando falha, o MISS e o dano entra', () => {
+  // 30 × fator + 30 − resistência El. (pontos); suporte: 55 + 15 × fator.
+  assert.equal(chanceDebuffEletrico('o112011', 1, 0), 60);
+  assert.equal(chanceDebuffEletrico('o112011', 1.5, 0.25), 50);
+  assert.equal(chanceDebuffEletrico('o111001', 1, 0), null, 'feixe óptico de ataque: sem a regra');
+  const tiroDo = (rng) => {
+    const { w, js } = arena(['acron', 'mobile', 0, 0], ['bellico', 'assault', 0, -60]);
+    const [a, b] = js;
+    w.rng = () => rng;
+    const hp = b.ship.hp;
+    w.tirarEventos();
+    disparar(w, a, '112011');
+    const ev = [];
+    for (let i = 0; i < 2 * SEGUNDO; i++) {
+      w.step();
+      ev.push(...w.tirarEventos());
+    }
+    return { b, ev, perdeu: hp - b.ship.hp };
+  };
+  const pegou = tiroDo(0);
+  assert.ok(pegou.b.st?.vulneravel_laser, 'sorteio abaixo da chance: zerou a Op.');
+  const falhou = tiroDo(0.99);
+  assert.ok(!falhou.b.st?.vulneravel_laser, 'sorteio acima: não pegou');
+  assert.ok(falhou.perdeu > 0, 'o dano entrou');
+  const miss = falhou.ev.find((e) => e.e === 'miss');
+  assert.ok(miss && miss.para === falhou.b.id, 'o MISS para quem resistiu');
 });
 
 test('segurar: Reparador de Escudo conserta enquanto segura; Arrancada e Amplificador gastam HP', () => {

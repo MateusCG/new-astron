@@ -690,11 +690,10 @@ export class World {
       dano *= CRITICO_MULT;
       crit = true;
     }
-    // Resistência do piloto atingido ao tipo do golpe, como no original
-    // (GetWeaponRegistance): a do equipamento mais a das armas de dispositivo, com o
-    // teto de 99% (RESIST_MAX), menos o que os debuffs de quebra tiram e a penetração
-    // de quem bateu. O golpe penetrante (o míssil das torretas) passa por cima de toda
-    // resistência.
+    // Resistência do piloto atingido ao tipo do golpe, como no original (#resistTotal:
+    // equipamento, armas de dispositivo e quebra, com o teto de 99%), menos a
+    // penetração de quem bateu. O golpe penetrante (o míssil das torretas) passa por
+    // cima de toda resistência.
     if (alvo.tipo === 'jogador' && tipo && !opcoes.penetrante) dano *= 1 - this.resistEfetiva(alvo, tipo, quem);
     // Estados das armas (invulnerável, escudo de arma, resistência, vulnerável, fraco...).
     dano = this.golpes.modificarDano(alvo, dano, autor, opcoes);
@@ -1187,22 +1186,39 @@ export class World {
    */
   resistVisivel(j) {
     if (!j.status && !j.st) return null;
-    const res = ORDEM_TIPOS_DANO.map((t) => +Math.max(0, this.#resistTotal(j, t) - this.golpes.resistQuebrada(j, t)).toFixed(2));
+    const res = ORDEM_TIPOS_DANO.map((t) => +this.#resistTotal(j, t).toFixed(2));
     return res.some((r) => r > 0) ? res : null;
   }
 
   /**
    * Fração do dano do tipo `tipo` que o piloto `alvo` segura agora contra `quem` (o
    * jogador que bate, ou null): a resistência com o teto, menos a quebra e a penetração.
+   * A penetração é diferente do original de propósito: lá o GetWeaponRegistance recebe e
+   * não usa (contra jogador ela não fazia nada), e aqui só jogador tem resistência, então
+   * os potenciadores de penetração ficariam sem efeito (decisão do Mateus, 30/out/2026).
    */
   resistEfetiva(alvo, tipo, quem = null) {
-    const quebra = this.golpes.resistQuebrada(alvo, tipo);
-    return Math.max(0, this.#resistTotal(alvo, tipo) - quebra - (quem?.status?.penetra[tipo] ?? 0));
+    return Math.max(0, this.#resistTotal(alvo, tipo) - (quem?.status?.penetra[tipo] ?? 0));
   }
 
-  /** Resistência do piloto ao tipo: equipamento + armas de dispositivo, com o teto (RESIST_MAX). */
-  #resistTotal(j, tipo) {
-    return Math.min(RESIST_MAX, (j.status?.resist[tipo] ?? 0) + this.golpes.resistArma(j, tipo));
+  /** A resistência do piloto ao tipo sem o teto de 99% (a que o original compara na chance do debuff elétrico). */
+  resistBruta(j, tipo) {
+    return this.#resistTotal(j, tipo, false);
+  }
+
+  /**
+   * Resistência do piloto ao tipo, como no original (CPilotManage::Process): a base do
+   * equipamento (pontos de armadura e escudo × (1 + % dos potenciadores)), mais os
+   * pontos das armas de dispositivo, mais o % delas sobre a base (a Tenda), menos os
+   * pontos que a quebra tira; zerada pelo canhão que zera; nunca negativa; e o teto de
+   * 99% (GetWeaponRegistance) no fim.
+   */
+  #resistTotal(j, tipo, teto = true) {
+    if (this.golpes.resistZerada(j, tipo)) return 0;
+    const base = j.status?.resistBase?.[tipo] ?? j.status?.resist?.[tipo] ?? 0;
+    const arma = this.golpes.resistArma(j, tipo);
+    const r = Math.max(0, base + arma.pontos + base * arma.pct - this.golpes.resistQuebrada(j, tipo));
+    return teto ? Math.min(RESIST_MAX, r) : r;
   }
 
   snapshotPara(j, ents, eventos) {

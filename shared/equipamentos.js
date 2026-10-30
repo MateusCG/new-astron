@@ -27,9 +27,10 @@
 //   FATOR_ENERGIA ÷ FATOR_RECARGA, a mesma conta da regeneração das naves (as recargas
 //   das armas são × 0,5, então quem regenera acompanha o que as armas gastam).
 // - Resistência em pontos (escudo e armadura) × RESIST_POR_PONTO_EQUIP (0,01: 38 pontos
-//   = 38%, como no original, onde é a mesma "Resistance enhancement" dos potenciadores,
-//   que já vem em %). A penetração (pontos) também × RESIST_POR_PONTO_EQUIP: é quanto da
-//   resistência do alvo ela ignora.
+//   = 38%, como no original). A dos potenciadores ("Resistance enhancement", em %) é
+//   'resistPct': no original ela multiplica os pontos da armadura e do escudo (38 pontos
+//   com +22% = 46,4%), sem eles não dá nada. A penetração (pontos) também ×
+//   RESIST_POR_PONTO_EQUIP: é quanto da resistência do alvo ela ignora.
 // - Poder, recarga, golpe crítico, velocidade e aceleração: o % do original, igual
 //   (vira fração: 20% = 0,2).
 // - Ouro da compra × FATOR_OURO (0,06) e da evolução × FATOR_OURO_EVOLUIR (0,006, no
@@ -94,9 +95,11 @@ const EFEITO_DO_CODIGO = {
   15: { tipo: 'velocidade', fator: FATOR_PCT },
   16: { tipo: 'aceleracao', fator: FATOR_PCT },
   24: { tipo: 'regenHp', fator: FATOR_REGEN_HP_EQUIP },
-  36: { tipo: 'resist', tipoDano: 'fisico', fator: FATOR_PCT },
-  37: { tipo: 'resist', tipoDano: 'laser', fator: FATOR_PCT },
-  38: { tipo: 'resist', tipoDano: 'eletrico', fator: FATOR_PCT },
+  // "Resistance enhancement": no original (AddEnhancedFactor, estados 0x24–0x26) é o % a
+  // mais sobre os pontos da armadura e do escudo, não pontos próprios.
+  36: { tipo: 'resistPct', tipoDano: 'fisico', fator: FATOR_PCT },
+  37: { tipo: 'resistPct', tipoDano: 'laser', fator: FATOR_PCT },
+  38: { tipo: 'resistPct', tipoDano: 'eletrico', fator: FATOR_PCT },
   39: { tipo: 'critico', fator: FATOR_PCT },
   40: { tipo: 'penetra', tipoDano: 'fisico', fator: RESIST_POR_PONTO_EQUIP },
   41: { tipo: 'penetra', tipoDano: 'laser', fator: RESIST_POR_PONTO_EQUIP },
@@ -261,6 +264,8 @@ export function textoEfeitoEquip(ef) {
       return `Recarga${t} ${p(ef.valor)} mais rápida`;
     case 'resist':
       return `Resistência${t} +${p(ef.valor)}`;
+    case 'resistPct':
+      return `Resistência${t} +${p(ef.valor)} sobre a da armadura e do escudo`;
     case 'penetra':
       return `Penetração${t}: ignora ${p(ef.valor)} da resistência`;
     case 'critico':

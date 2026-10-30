@@ -34,6 +34,8 @@ import { naveDe, classeOuPadrao, CLASSE_PADRAO, FATOR_ENERGIA } from './naves.js
 import {
   WEAPONS,
   ARMAS,
+  escalarDispositivo,
+  fatorDispositivo,
   IDX_ARMA,
   ARMAS_NPC,
   TIPOS_DANO,
@@ -381,6 +383,7 @@ export function createShip(race, x, z, yaw = 0, classe = CLASSE_PADRAO, tier = 0
     // mexem nela; potenciadores de recarga, sim).
     velMult: 1,
     acelMult: 1,
+    fatorEl: 1, // 1 + o poder El. dos pontos do piloto: escala os dispositivos elétricos (fatorDispositivo)
     recargaMult: { fisico: 1, laser: 1, eletrico: 1 },
     // Escudo do equipamento (s.escudo de s.maxEscudo, recupera s.regenEscudo por s):
     // quem conta é o servidor (dano em World#ferir); vai no `me` só para o HUD.
@@ -559,7 +562,7 @@ export function stepShip(s, inp, dt = DT) {
     s[campo] = ligado ? a : -1;
     if (!ligado) continue;
     s.en = Math.max(0, s.en - custo);
-    const ef = efeitoSegurar(a, nivel);
+    const ef = escalarDispositivo(efeitoSegurar(a, nivel), fatorDispositivo(ARMAS[a], s));
     if (ef?.tipo === 'acelera') aceleraMult *= ef.mult;
     if (ef?.tipo === 'energiaPorHp') ganhoEn += ef.enPs * dt;
     if (ef?.parado) parada = true;

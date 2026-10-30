@@ -68,7 +68,7 @@ const PUBLICOS = new Set([
 ]);
 
 /** Eventos de um jogador só (campo `para`): vão a ele e a mais ninguém ('ganho': ouro e XP do monstro que ele abateu). */
-const PRIVADOS = new Set(['ganho', 'debuff']);
+const PRIVADOS = new Set(['ganho', 'debuff', 'miss']);
 
 /** Campos de um evento que nomeiam uma entidade envolvida (autor ou alvo), por tipo de evento. */
 const ENVOLVIDOS = {

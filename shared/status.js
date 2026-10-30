@@ -34,9 +34,15 @@
 // - poder: fração a mais de dano daquele tipo (0,78 = +78%): o dano sai × (1 + poder);
 // - recarga: fração mais rápida (0,15 = 15%): a recarga da arma daquele tipo fica ×
 //   (1 − recarga) (multRecarga), até RECARGA_MAX;
-// - resist: fração do dano daquele tipo que a nave segura, já com o teto RESIST_MAX
-//   (pontos de escudo e armadura × RESIST_POR_PONTO_EQUIP mais o % dos potenciadores);
+// - resist: fração do dano daquele tipo que a nave segura, já com o teto RESIST_MAX: os
+//   pontos de escudo e armadura × RESIST_POR_PONTO_EQUIP × (1 + o % dos potenciadores),
+//   como no original (CPilotManage::Process); resistBase é a mesma conta sem o teto, de
+//   onde o servidor parte para somar as armas de dispositivo (World#resistEfetiva), e
+//   resistPct o % dos potenciadores;
 // - penetra: fração de resistência do alvo que o tiro daquele tipo ignora;
+// - poderPontos: a parte do poder que vem só dos pontos do piloto (sem os potenciadores):
+//   no original é o "skill" (GetSkillAddElectric) que escala os dispositivos elétricos e
+//   a chance dos debuffs elétricos (shared/armas.js, fatorDispositivo);
 // - critico: chance (0 a 1) de o golpe sair com dano dobrado (sorteio só no servidor);
 // - velMult e acelMult: multiplicadores (1 = sem mudança).
 // O que está na nave chega como uma LISTA de itens, [[chave, nível], ...] (no
@@ -180,6 +186,9 @@ export function statusVazio() {
     poder: tres(),
     recarga: tres(),
     resist: tres(),
+    poderPontos: tres(),
+    resistPct: tres(),
+    resistBase: tres(),
     penetra: tres(),
     critico: 0,
     velMult: 1,
@@ -225,6 +234,7 @@ function somarEfeito(st, ef) {
     case 'poder':
     case 'recarga':
     case 'resist':
+    case 'resistPct':
     case 'penetra':
       st[ef.tipo][ef.tipoDano] += ef.valor;
       break;
@@ -246,7 +256,9 @@ function fechar(st) {
   for (const t of ORDEM_TIPOS_DANO) {
     st.poder[t] = r4(st.poder[t]);
     st.recarga[t] = r4(Math.min(RECARGA_MAX, st.recarga[t]));
-    st.resist[t] = r4(Math.min(RESIST_MAX, st.resist[t]));
+    st.resistPct[t] = r4(st.resistPct[t]);
+    st.resistBase[t] = r4(st.resist[t] * (1 + st.resistPct[t]));
+    st.resist[t] = r4(Math.min(RESIST_MAX, st.resistBase[t]));
     st.penetra[t] = r4(st.penetra[t]);
   }
   st.critico = r4(Math.min(CRITICO_MAX, st.critico));
@@ -279,7 +291,10 @@ export function statusDoPiloto({ race, classe, pontos, equipados, energiaBase = 
   st.regenHpExtra += p.regenHp;
   st.enExtra += p.energia;
   st.regenEnExtra += p.regenEn;
-  for (const t of ORDEM_TIPOS_DANO) st.poder[t] += p.poder[t];
+  for (const t of ORDEM_TIPOS_DANO) {
+    st.poder[t] += p.poder[t];
+    st.poderPontos[t] = r4(p.poder[t]);
+  }
   return fechar(st);
 }
 

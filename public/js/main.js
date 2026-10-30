@@ -1036,6 +1036,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
         if (e.crit && e.por === meuId && !critFinal.has(e.alvo)) {
           hud.flutuante(e.x, e.y + 1, e.z, [{ txt: 'CRÍTICO', classe: 'crit' }]);
         }
+      } else if (e.e === 'miss') {
+        // O debuff elétrico que ia pegar na sua nave falhou (a resistência El.): o "MISS".
+        if (e.para === meuId && vivo) efeitos.miss(minhaNave);
       } else if (e.e === 'debuff') {
         // Debuff que a sua nave recebeu: a linha do original com o ícone, no canto esquerdo.
         if (e.para === meuId) debuffs.adicionar(e);
