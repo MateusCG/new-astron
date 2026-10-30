@@ -85,9 +85,11 @@ export const CAMPO_INTERVALO_S = 0.5; // s entre um dano e outro do campo (quand
 export const VULNERAVEL_ZERA = 1; // "zera a resistência": tira toda a resistência daquele tipo enquanto dura
 // Resistência como no original (CMyPilot::GetWeaponRegistance): o dano que chega é
 // dano × (100 − R) / 100, com R a resistência do tipo em pontos de %, e acima de 99 o
-// fator fica em 1/100: o golpe nunca tira menos de 1%. Os pontos de resistência das
-// armas de dispositivo ("Increases Ph. Resistance by 40") são os mesmos das armaduras
-// (1 ponto = 1%) e somam na resistência do tipo, com o teto uma vez só.
+// fator fica em 1/100: o golpe nunca tira menos de 1%. R sai de CPilotManage::Process:
+// os pontos da armadura e do escudo × (1 + o % dos potenciadores), mais os pontos das
+// armas de dispositivo ("Increases Ph. Resistance by 40": 1 ponto = 1%), mais o % da
+// Tenda de Luz sobre aquela base ("Increases Op. Resistance by 100%": dobra), menos os
+// pontos que o Quebra-Resistência tira; os canhões que zeram, zeram (World#resistEfetiva).
 export const RESIST_POR_PONTO = 0.01; // resistência em pontos (40) → fração do dano (40%)
 export const RESIST_MAX = 0.99; // o original: o dano nunca cai abaixo de 1% (R > 99 vira 99)
 export const ESCUDO_EQUIV_HP = 0.15; // "escudo" do original = esta fração do HP máximo
@@ -208,11 +210,12 @@ function converterEfeito(e, versao) {
     case 'protecaoAbsorve':
       return { tipo: 'escudo', alvo: 'proprio', frac: v / 100, dur };
     case 'resistFisica':
-      return { tipo: 'resiste', alvo: 'proprio', tipoDano: 'fisico', frac: Math.min(RESIST_MAX, v * RESIST_POR_PONTO), dur };
+      return { tipo: 'resiste', alvo: 'proprio', tipoDano: 'fisico', modo: 'pontos', frac: v * RESIST_POR_PONTO, dur };
     case 'resistEletrica':
-      return { tipo: 'resiste', alvo: 'proprio', tipoDano: 'eletrico', frac: Math.min(RESIST_MAX, v * RESIST_POR_PONTO), dur };
+      return { tipo: 'resiste', alvo: 'proprio', tipoDano: 'eletrico', modo: 'pontos', frac: v * RESIST_POR_PONTO, dur };
     case 'resistLaser':
-      return { tipo: 'resiste', alvo: 'proprio', tipoDano: 'laser', frac: Math.min(RESIST_MAX, v / 100), dur };
+      // "+100%" é sobre a resistência Op. que a nave já tem (o estado 0xb soma base × v / 100).
+      return { tipo: 'resiste', alvo: 'proprio', tipoDano: 'laser', modo: 'pct', frac: v / 100, dur };
     case 'converteDano':
       return { tipo: 'converte', alvo: 'proprio', frac: v, dur };
     case 'regenEscudoPorEnergia':
@@ -305,7 +308,8 @@ export function textoEfeito(ef) {
     case 'escudo':
       return `Escudo de ${p(ef.frac)} do HP máximo${d}`;
     case 'resiste':
-      return `Resiste ${p(ef.frac)} do dano ${TIPOS_DANO[ef.tipoDano].toLowerCase()}${d}`;
+      if (ef.modo === 'pct') return `Resistência ${TIPOS_DANO[ef.tipoDano].toLowerCase()} +${p(ef.frac)} da que a nave já tem${d}`;
+      return `Resistência ${TIPOS_DANO[ef.tipoDano].toLowerCase()} +${Math.round(ef.frac * 100)} pontos (${p(ef.frac)})${d}`;
     case 'converte':
       return `${p(ef.frac)} do dano recebido vira cura${d}`;
     case 'regen':

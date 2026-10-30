@@ -44,7 +44,7 @@
 // fica embaixo da nave de quem soltou.
 
 import { DT, HOVER, createBullet, stepBullet, bulletHits, forward } from '../shared/sim.js';
-import { WEAPONS, MINA_MAX, CONVERTE_ENERGIA_POR_HP, ESCUDO_EQUIV_HP, golpeDaArma, versaoArma, tirosDoGolpe } from '../shared/armas.js';
+import { WEAPONS, MINA_MAX, CONVERTE_ENERGIA_POR_HP, ESCUDO_EQUIV_HP, VULNERAVEL_ZERA, golpeDaArma, versaoArma, tirosDoGolpe } from '../shared/armas.js';
 import { alvoDoMissil, guiarMissil, escolherAlvo, tiroFilho, alturaNoChao, naArea, yawPara, semCampoNoMeio } from './armas.js';
 import { cruzaCampoBase } from '../shared/terrain.js';
 
@@ -550,7 +550,7 @@ export class Golpes {
       if (ef.tipo === 'invisivel') this.#por(ent, 'invisivel', ef.dur);
       else if (ef.tipo === 'invulneravel') this.#por(ent, 'invulneravel', ef.dur);
       else if (ef.tipo === 'escudo') this.#por(ent, 'escudo', ef.dur, { hp: s.maxHp * ef.frac });
-      else if (ef.tipo === 'resiste') this.#por(ent, `resiste_${ef.tipoDano}`, ef.dur, { frac: ef.frac });
+      else if (ef.tipo === 'resiste') this.#por(ent, `resiste_${ef.tipoDano}`, ef.dur, { frac: ef.frac, modo: ef.modo ?? 'pontos' });
       else if (ef.tipo === 'converte') this.#por(ent, 'converte', ef.dur, { frac: ef.frac });
       else if (ef.tipo === 'regen') this.#por(ent, 'regen', ef.dur, { fracPorS: ef.fracPorS });
     }
@@ -749,12 +749,19 @@ export class Golpes {
    * Vale para a resistência do equipamento e para a das armas de dispositivo.
    */
   /**
-   * Resistência ao tipo que as armas de dispositivo dão agora (fração; a Tenda de Luz,
-   * o Disjuntor): soma na do equipamento, com o mesmo teto (World#ferir), como no
-   * original, onde o estado vai para a resistência do tipo.
+   * Resistência ao tipo que as armas de dispositivo dão agora: { pontos, pct } (frações).
+   * O Disjuntor (e o de Ph.) soma pontos; a Tenda de Luz, um % da resistência que a nave
+   * já tem (World#resistEfetiva).
    */
   resistArma(alvo, tipoDano) {
-    return (tipoDano && this.st(alvo, `resiste_${tipoDano}`)?.frac) || 0;
+    const e = tipoDano ? this.st(alvo, `resiste_${tipoDano}`) : null;
+    if (!e) return { pontos: 0, pct: 0 };
+    return e.modo === 'pct' ? { pontos: 0, pct: e.frac } : { pontos: e.frac, pct: 0 };
+  }
+
+  /** O tipo está zerado agora (o Canhão de Choque, o Amplificador: o estado que zera)? */
+  resistZerada(alvo, tipoDano) {
+    return (this.st(alvo, `vulneravel_${tipoDano}`)?.menos ?? 0) >= VULNERAVEL_ZERA;
   }
 
   resistQuebrada(alvo, tipoDano) {

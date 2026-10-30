@@ -120,11 +120,12 @@ test('equipamentos: números dos prints do original, na escala do jogo', () => {
   perto(efeito('e320009', 7, 'resist', 'fisico').valor, 0.1);
   perto(efeito('e320009', 7, 'resist', 'laser').valor, 0.38);
   perto(efeito('e320009', 7, 'resist', 'eletrico').valor, 0.1);
-  // Op. Reinforcement V7: +20% poder Op, +15% recarga Op, +22% resistência Op.
+  // Op. Reinforcement V7: +20% poder Op, +15% recarga Op, +22% resistência Op (o %
+  // sobre os pontos da armadura e do escudo: AddEnhancedFactor, estado 0x25).
   assert.deepEqual(efeitosDoEquip('e340025', 7), [
     { tipo: 'poder', tipoDano: 'laser', valor: 0.2 },
     { tipo: 'recarga', tipoDano: 'laser', valor: 0.15 },
-    { tipo: 'resist', tipoDano: 'laser', valor: 0.22 },
+    { tipo: 'resistPct', tipoDano: 'laser', valor: 0.22 },
   ]);
   // Energia (igual), regeneração de energia (por ms × 1000 ÷ 0,5), penetração (pontos × 0,01).
   perto(efeito('e340004', 1, 'energia').valor, 50);
@@ -160,7 +161,7 @@ test('equipamentos: preço da V1 é a compra, evoluir é a taxa de tuning da ant
 
 test('equipamentos: texto de cada efeito em português', () => {
   const t = efeitosDoEquip('e340025', 7).map(textoEfeitoEquip);
-  assert.deepEqual(t, ['Poder Op. +20%', 'Recarga Op. 15% mais rápida', 'Resistência Op. +22%']);
+  assert.deepEqual(t, ['Poder Op. +20%', 'Recarga Op. 15% mais rápida', 'Resistência Op. +22% sobre a da armadura e do escudo']);
   assert.deepEqual(efeitosDoEquip('e330010', 7).map(textoEfeitoEquip), ['Escudo +1.369', 'Escudo +8/s', 'Resistência Op. +6%']);
   assert.equal(textoEfeitoEquip(efeito('e320009', 7, 'hp')), 'Durabilidade +342');
   for (const k of ORDEM_EQUIP) for (const ef of efeitosDoEquip(k, 8)) assert.notEqual(textoEfeitoEquip(ef), ef.tipo, `${k}: ${ef.tipo} sem texto`);

@@ -148,18 +148,30 @@ test('status: soma pontos, escudo, armadura e os dois potenciadores num objeto s
   // Recarga Op.: 15% do Reforço + 8% do Potenciador de Recarga Op. V1 (os dois somam).
   perto(st.recarga.laser, 0.23);
   perto(multRecarga(st.recarga.laser), 0.77);
-  // Resistência Op.: escudo 6 pts + armadura 38 pts (× 0,01) + 22% do Reforço.
-  perto(st.resist.laser, 0.06 + 0.38 + 0.22);
+  // Resistência Op., como no original (CPilotManage::Process): (escudo 6 pts + armadura
+  // 38 pts) × 0,01 × (1 + 22% do Reforço). Ph.: só a armadura, 10 pts.
+  perto(st.resist.laser, (0.06 + 0.38) * 1.22);
+  perto(st.resistBase.laser, (0.06 + 0.38) * 1.22);
+  perto(st.resistPct.laser, 0.22);
   perto(st.resist.fisico, 0.1);
+  // Potenciador de resistência sozinho, sem armadura nem escudo do tipo: nada.
+  assert.equal(statusDoPiloto({ race: 'shrewdo', classe: 'functional', equipados: [['e340025', 7]] }).resist.laser, 0);
   assert.equal(st.critico, 0);
   assert.equal(st.velMult, 1);
   assert.equal(st.acelMult, 1);
 });
 
 test('status: tetos, potenciador nos dois encaixes, item de outra classe e potenciadores de mobilidade e crítico', () => {
-  // Resistência Ph.: Alcânio Ph. V8 + Neutron Ph. V8 + Resistência Ph. V8 + Total V8 passa do teto.
+  // Resistência Ph.: Alcânio Ph. V8 + Neutron Ph. V8, × (1 + Resistência Ph. V8 + Total V8);
+  // a base (sem teto) fica para o servidor somar as armas de dispositivo, e o teto vale
+  // para o que passa de 99%.
   const cheio = somaEquipamento([['e330011', 8], ['e320014', 8], ['e340012', 8], ['e340022', 8]], 'assault');
-  assert.equal(cheio.resist.fisico, RESIST_MAX);
+  const pontos = somaEquipamento([['e330011', 8], ['e320014', 8]], 'assault').resist.fisico;
+  perto(cheio.resistBase.fisico, pontos * (1 + cheio.resistPct.fisico));
+  perto(cheio.resist.fisico, Math.min(RESIST_MAX, cheio.resistBase.fisico));
+  const dobrado = somaEquipamento([['e330011', 8], ['e320014', 8], ['e340012', 8], ['e340012', 8], ['e340022', 8]], 'assault');
+  assert.ok(dobrado.resistBase.fisico > RESIST_MAX, `${dobrado.resistBase.fisico}`);
+  assert.equal(dobrado.resist.fisico, RESIST_MAX);
   // O mesmo potenciador nos dois encaixes (duas instâncias) conta duas vezes, cada
   // uma na sua versão.
   perto(somaEquipamento([['e340027', 8]]).critico, 0.4);
