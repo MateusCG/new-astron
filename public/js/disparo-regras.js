@@ -62,13 +62,18 @@
 // - Dispositivos (coluna 42 = 0, sem projétil): OnActiveWeapon só cria o clarão se a
 //   coluna 51 não for '0' (nos três daqui é '0': nada na boca). O que aparece é o estado
 //   da nave: ProcessActiveEvent liga o PILOT_STATE_FLAG do código (34 → 0, 44 → 0x22,
-//   114 → 0xd, 24 → 5), FillUnitState o põe no CUnitState (0x5a4 + 0x20 × flag), que
+//   114 → 0xd, 24 → 5, 35 → 0xb), FillUnitState o põe no CUnitState (0x5a4 + 0x20 × flag), que
 //   vai para todos (CPilotManage::Move copia em +0x94) e CBasePilot::
 //   ProcessUnitStateEffect desenha: o reparo do escudo (+0x96) chama
 //   CUnit::EffectShieldRecovery a cada quadro desenhado (veja ESCUDO_REC); o conversor de
-//   impacto (+0xb2) e as resistências (+0xb1, +0xaf) ligam o efeito 24 (1163023), 23
-//   (2163033) e 22 (2163013) da tabela do CUnit::LoadResource, desenhados na matriz da
-//   nave (CUnit::RenderScene), repetindo enquanto o estado dura (ESTADOS_NA_NAVE).
+//   impacto (+0xb2) e as resistências (+0xb1 elétrica, +0xb0 óptica da Tenda de Luz,
+//   +0xaf física) ligam o efeito 24 (1163023), 23 (2163033), 21 (2163012) e 22 (2163013)
+//   da tabela do CUnit::LoadResource, desenhados na matriz da nave (CUnit::RenderScene),
+//   repetindo enquanto o estado dura (ESTADOS_NA_NAVE).
+// - Onda que cresce em voo (a Onda de Sopro Acron: coluna 55 = raio máximo, 56 = quanto
+//   cresce por ms, tipo de gráfico 0): só o raio de acerto cresce (MoveBullet); o
+//   CUnitBeam::RenderScene desenha o modelo sem escala nenhuma, então o desenho é o da
+//   coluna 57 no tamanho dele, repetindo, e a carga sai a 0,2 m/ms e acelera até 0,5.
 //
 // Escala: o original desenha tudo no metro dele, o mesmo das naves; aqui as naves são o
 // original × FATOR_TAMANHO_NAVE (0,5), e o clarão, o projétil e o impacto vão na mesma
@@ -117,15 +122,17 @@ export const DISPARO_ORIGINAL = Object.freeze({
   o112007: Object.freeze({ clarao: null }), // Reparador de Escudo (Shield Recovering Device)
   o112019: Object.freeze({ clarao: null }), // Conversor de Impacto (Shock Converter)
   o112033: Object.freeze({ clarao: null }), // Disjuntor (Circuit Breaking Device)
+  o112030: Object.freeze({ clarao: 'giro', carga: Object.freeze({ v0: 0.2, vmax: 0.5, acel: 0.0004 }) }), // Onda de Sopro Acron (Acron Blow Wave)
+  o112008: Object.freeze({ clarao: null }), // Tenda de Luz (Optical Beam Tent)
 });
 
 /**
  * Estados da nave com efeito do original preso nela (`fx` do servidor → efeito da
  * tabela do CUnit::LoadResource), desenhados na matriz da nave e repetindo enquanto o
  * estado dura: o conversor de impacto (24, 1163023), a resistência elétrica do Disjuntor
- * (23, 2163033) e a física (22, 2163013).
+ * (23, 2163033), a óptica da Tenda de Luz (21, 2163012) e a física (22, 2163013).
  */
-export const ESTADOS_NA_NAVE = Object.freeze({ converte: '1163023', resEl: '2163033', resFis: '2163013' });
+export const ESTADOS_NA_NAVE = Object.freeze({ converte: '1163023', resEl: '2163033', resOp: '2163012', resFis: '2163013' });
 
 /**
  * O reparo do escudo (CUnit::EffectShieldRecovery e CUnitShieldRecoveryQuantum), pela

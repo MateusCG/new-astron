@@ -390,6 +390,32 @@ test('dispositivo: camuflagem some do snapshot do outro time (salvo de perto) e 
   assert.ok(vistos(b).includes(a.id));
 });
 
+test('Tenda de Luz: segura 95% do dano óptico pela duração da versão e aparece na nave', () => {
+  const { w, js } = arena(['acron', 'assault', 0, 0], ['acron', 'assault', 0, -60]);
+  const [a, b] = js;
+  a.ship.hp = a.ship.maxHp = 100000;
+  b.ship.yaw = Math.PI; // olha para +z, para A
+  const feixe = idx('111001');
+  const levar = () => {
+    const hp = a.ship.hp;
+    b.ship.cd1 = 0;
+    b.ship.en = b.ship.maxEn;
+    b.ship.encaixes = [feixe, b.ship.encaixes[1]];
+    apertar(w, b, { f1: true, a: feixe });
+    passos(w, 15);
+    return hp - a.ship.hp;
+  };
+  const sem = levar();
+  assert.ok(sem > 0, 'o feixe óptico acerta');
+  disparar(w, a, '112008');
+  assert.ok(a.st.resiste_laser, 'o estado ligou');
+  assert.ok(w.entidades().find((e) => e.id === a.id).fx.includes('resOp'), 'o efeito do original na nave');
+  const com = levar();
+  assert.ok(Math.abs(com - sem * 0.05) < 1e-6, `95% a menos: ${sem} → ${com}`);
+  passos(w, 3 * 30);
+  assert.ok(!a.st.resiste_laser, 'acaba nos 3 s da V1');
+});
+
 test('segurar: Reparador de Escudo conserta enquanto segura; Arrancada e Amplificador gastam HP', () => {
   const { w, js } = arena(['acron', 'assault', 0, 0]);
   const [a] = js;

@@ -289,8 +289,8 @@
 //         de HP do original), 'resist' (todas as resistências quebradas), 'invul',
 //         'escudo', 'fraco', 'regen' (conserto de HP com tempo), 'escudoRec' (o
 //         reparo do escudo: os quanta do original), 'converte' (o conversor de
-//         impacto), 'resEl' e 'resFis' (a resistência elétrica e a física dos
-//         dispositivos), 'acel', 'inv'); arm = [arma do Z, arma do X]
+//         impacto), 'resEl', 'resOp' e 'resFis' (a resistência elétrica, a óptica
+//         e a física dos dispositivos), 'acel', 'inv'); arm = [arma do Z, arma do X]
 //         dos jogadores (o modelo pendurado em cada asa). Jogador camuflado do outro
 //         time não vem na lista (salvo a INVISIVEL_VISTO_M da sua nave ou logo
 //         depois de atirar);

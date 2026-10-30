@@ -79,9 +79,11 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
   '1412002', '1312053', '1312054', '1312055', '1321023', '1321024', '1321025', '1321241', '1321341', '1321441',
   '1361032', '1361033', '1401107', '1401207', '1333008', '2403008', '1133055', '2132018', '1352005', '2253006',
   '1131055', '1131056', '1131156', '1131256', '1131356', '1131456', '1332034', '2132017', '1353021',
+  // A onda da Onda de Sopro Acron.
+  '1162023',
   // Os estados dos dispositivos na nave: o conversor de impacto, as resistências e o
   // reparo do escudo (o quantum e a esfera de cada raça).
-  '1163023', '2163033', '2163013', '1163005_01', '1163005_02', '1163004_01', '1163004_02', '1163003_01', '1163003_02',
+  '1163023', '2163033', '2163012', '2163013', '1163005_01', '1163005_02', '1163004_01', '1163004_02', '1163003_01', '1163003_02',
   // Destruição de nave, torre e monstro (destruicao.js): as explosões EXP001 a EXP007,
   // a fagulha e a fumaça da queda, a faísca e as peças dos destroços.
   ...EFEITOS_DESTRUICAO,

@@ -60,6 +60,8 @@ const SEGUNDA_LEVA = {
   o112007: null, // Reparador de Escudo
   o112019: null, // Conversor de Impacto
   o112033: null, // Disjuntor
+  o112030: 'giro', // Onda de Sopro Acron
+  o112008: null, // Tenda de Luz
 };
 
 test('disparo original: as seis armas de início e as revistas, com o modo de clarão e de fim do original', () => {
@@ -85,7 +87,9 @@ test('disparo original: as seis armas de início e as revistas, com o modo de cl
   assert.deepEqual(DISPARO_ORIGINAL.o112028.carga, { v0: 0, vmax: 0.5, acel: 0.0003 });
   assert.deepEqual(DISPARO_ORIGINAL.o112010.carga, { v0: 0, vmax: 0.5, acel: 0.0003 });
   assert.deepEqual(DISPARO_ORIGINAL.o112003.carga, { v0: 0.5, vmax: 0.5, acel: -0.0002 });
-  for (const k of Object.keys(DISPARO_ORIGINAL)) if (!['o112028', 'o112010', 'o112003'].includes(k)) assert.equal(DISPARO_ORIGINAL[k].carga, undefined, k);
+  // A Onda de Sopro Acron sai a 0,2 m/ms e acelera 0,0004 até 0,5.
+  assert.deepEqual(DISPARO_ORIGINAL.o112030.carga, { v0: 0.2, vmax: 0.5, acel: 0.0004 });
+  for (const k of Object.keys(DISPARO_ORIGINAL)) if (!['o112028', 'o112010', 'o112003', 'o112030'].includes(k)) assert.equal(DISPARO_ORIGINAL[k].carga, undefined, k);
   // Coluna 53 do subprojétil 113001 vazia (modo 0): o clarão dos clones parado onde nascem.
   assert.equal(DISPARO_ORIGINAL.o112001.claraoSub, 'parado');
   assert.equal(golpeDaArma('o112001', 1, 1).vis.d, '1150005');
@@ -128,7 +132,10 @@ test('disparo original: os efeitos de todas as versões estão convertidos e vã
     assert.deepEqual(projeteis(k), Array(8).fill(id), k);
     assert.equal(golpeDaArma(k, 1).vis.tipo, 'esfera_que_cresce', k);
   }
-  for (const id of ['2253006', '2132018', '1131456', '1401207', ...Object.values(ESTADOS_NA_NAVE), ESCUDO_REC.acron.quantum, ESCUDO_REC.shrewdo.esfera]) {
+  // A Onda de Sopro Acron: a onda 1162023 em todas as versões, o raio de acerto crescendo (o desenho não).
+  assert.deepEqual(projeteis('o112030'), Array(8).fill('1162023'));
+  assert.equal(golpeDaArma('o112030', 1).cresce.raio, 25, 'raio 100 do original × 0,25');
+  for (const id of ['2253006', '2132018', '1162023', '1131456', '1401207', ...Object.values(ESTADOS_NA_NAVE), ESCUDO_REC.acron.quantum, ESCUDO_REC.shrewdo.esfera]) {
     assert.ok(ids.includes(id), id);
   }
   assert.equal(golpeDaArma('o111001', 1).vis.d, '2112001');
@@ -292,8 +299,8 @@ test('disparo original: o reparo do escudo solta quanta que se afastam 20 m em 2
   assert.ok(perto(Math.hypot(d.x, d.y, d.z), 1));
   assert.ok(d.x > 0 && d.y < 0 && d.z === 0, 'rand % 20 − 10 em cada eixo');
   assert.deepEqual(direcaoDoQuantum(0.5, 0.5, 0.5), { x: 1, y: 0, z: 0 }, 'sorteio nulo não divide por zero');
-  // Os estados na nave: o conversor (24), a resistência elétrica (23) e a física (22).
-  assert.deepEqual(ESTADOS_NA_NAVE, { converte: '1163023', resEl: '2163033', resFis: '2163013' });
+  // Os estados na nave: o conversor (24), a resistência elétrica (23), a óptica (21) e a física (22).
+  assert.deepEqual(ESTADOS_NA_NAVE, { converte: '1163023', resEl: '2163033', resOp: '2163012', resFis: '2163013' });
 });
 
 test('disparo original: o clarão gira em passos de 36° no modo 14 e fica preso no 15', () => {

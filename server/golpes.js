@@ -794,6 +794,7 @@ export class Golpes {
     if (this.st(ent, 'curaTempo')) fx.push('regen');
     if (this.st(ent, 'converte')) fx.push('converte');
     if (this.st(ent, 'resiste_eletrico')) fx.push('resEl');
+    if (this.st(ent, 'resiste_laser')) fx.push('resOp');
     if (this.st(ent, 'resiste_fisico')) fx.push('resFis');
     if (segurandoTipo(s, 'acelera')) fx.push('acel');
     if (this.invisivel(ent)) fx.push('inv');
