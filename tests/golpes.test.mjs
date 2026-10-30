@@ -315,11 +315,12 @@ test('efeitos no alvo: vulnerável aumenta e fraco diminui o dano; cego vai no s
   const { w, js } = arena(['shrewdo', 'assault', 0, 0], ['bellico', 'assault', 0, -80]);
   const [a, b] = js;
   const base = 10;
+  // A resistência (equipamento + dispositivo, com o teto e a quebra) e os estados das armas, como no World#ferir.
   const dano = (alvo, autor) => {
     const hp = alvo.ship.hp;
     alvo.ship.hp = 1000;
     w.golpes.modificarDano(alvo, base, autor.id);
-    const d = w.golpes.modificarDano(alvo, base, autor.id, { tipoDano: 'laser' });
+    const d = w.golpes.modificarDano(alvo, base * (1 - w.resistEfetiva(alvo, 'laser', autor)), autor.id, { tipoDano: 'laser' });
     alvo.ship.hp = hp;
     return d;
   };
@@ -357,8 +358,12 @@ test('dispositivo: invulnerável, escudo, resistência e conserto por tempo', ()
   // Tenda de Luz: resiste a laser, não a físico.
   const { w: w3, js: j3 } = arena(['acron', 'assault', 0, 0]);
   disparar(w3, j3[0], '112008');
-  assert.ok(w3.golpes.modificarDano(j3[0], 10, -1, { tipoDano: 'laser' }) < 10);
-  assert.equal(w3.golpes.modificarDano(j3[0], 10, -1, { tipoDano: 'fisico' }), 10);
+  assert.ok(w3.resistEfetiva(j3[0], 'laser') > 0);
+  assert.equal(w3.resistEfetiva(j3[0], 'fisico'), 0);
+  // Pontos de resistência das armas = os das armaduras (1 ponto = 1%): o Disjuntor V1
+  // dá 40 pontos de El. (40%); a Tenda, "100%", fica no teto de 99%.
+  assert.equal(golpeDaArma('o112033', 1).efeitos[0].frac, 0.4);
+  assert.equal(golpeDaArma('o112008', 1).efeitos[0].frac, 0.99);
   // Reforço de Escudo: conserta por tempo.
   const { w: w4, js: j4 } = arena(['shrewdo', 'assault', 0, 0]);
   j4[0].ship.hp = 50;
@@ -390,7 +395,7 @@ test('dispositivo: camuflagem some do snapshot do outro time (salvo de perto) e 
   assert.ok(vistos(b).includes(a.id));
 });
 
-test('Tenda de Luz: segura 95% do dano óptico pela duração da versão e aparece na nave', () => {
+test('Tenda de Luz: segura 99% do dano óptico (o teto do original) pela duração da versão e aparece na nave', () => {
   const { w, js } = arena(['acron', 'assault', 0, 0], ['acron', 'assault', 0, -60]);
   const [a, b] = js;
   a.ship.hp = a.ship.maxHp = 100000;
@@ -411,7 +416,8 @@ test('Tenda de Luz: segura 95% do dano óptico pela duração da versão e apare
   assert.ok(a.st.resiste_laser, 'o estado ligou');
   assert.ok(w.entidades().find((e) => e.id === a.id).fx.includes('resOp'), 'o efeito do original na nave');
   const com = levar();
-  assert.ok(Math.abs(com - sem * 0.05) < 1e-6, `95% a menos: ${sem} → ${com}`);
+  assert.ok(Math.abs(com - sem * 0.01) < 1e-6, `99% a menos: ${sem} → ${com}`);
+  assert.deepEqual(w.resistVisivel(a), [0, 0.99, 0], 'a cor do nick mostra a resistência da Tenda');
   passos(w, 3 * 30);
   assert.ok(!a.st.resiste_laser, 'acaba nos 3 s da V1');
 });

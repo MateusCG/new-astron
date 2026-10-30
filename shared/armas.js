@@ -83,8 +83,13 @@ export const CAMPO_INTERVALO_S = 0.5; // s entre um dano e outro do campo (quand
 
 // Efeitos (conversões que o original não tem igual; ver EFEITOS).
 export const VULNERAVEL_ZERA = 1; // "zera a resistência": tira toda a resistência daquele tipo enquanto dura
-export const RESIST_POR_PONTO = 0.005; // resistência em pontos (40) → fração do dano (20%)
-export const RESIST_MAX = 0.95; // nenhuma resistência segura mais que isso (pedido do Mateus: furar quem empilha é trabalho de time)
+// Resistência como no original (CMyPilot::GetWeaponRegistance): o dano que chega é
+// dano × (100 − R) / 100, com R a resistência do tipo em pontos de %, e acima de 99 o
+// fator fica em 1/100: o golpe nunca tira menos de 1%. Os pontos de resistência das
+// armas de dispositivo ("Increases Ph. Resistance by 40") são os mesmos das armaduras
+// (1 ponto = 1%) e somam na resistência do tipo, com o teto uma vez só.
+export const RESIST_POR_PONTO = 0.01; // resistência em pontos (40) → fração do dano (40%)
+export const RESIST_MAX = 0.99; // o original: o dano nunca cai abaixo de 1% (R > 99 vira 99)
 export const ESCUDO_EQUIV_HP = 0.15; // "escudo" do original = esta fração do HP máximo
 export const REGEN_ESCUDO_FRAC = 0.01; // "+100% de recuperação do escudo" = 1% do HP máximo por s
 export const ENERGIA_POR_HP_FATOR = 6; // Amplificador de Energia: valor × isto = energia por s (era 1,8 com a energia × 0,3)

@@ -168,7 +168,7 @@ import { Golpes, INVISIVEL_VISTO_M } from './golpes.js';
 import { RECALL_S, motivoRecall } from '../shared/recall.js';
 import { Bots, nomeDeBot } from './bots.js';
 import { Visao } from './visao.js';
-import { ORDEM_TIPOS_DANO } from '../shared/equipamentos.js';
+import { ORDEM_TIPOS_DANO, RESIST_MAX } from '../shared/equipamentos.js';
 
 export const TICK_HZ = 30;
 const SNAP_CADA = 2; // ticks entre snapshots (15 Hz)
@@ -690,14 +690,12 @@ export class World {
       dano *= CRITICO_MULT;
       crit = true;
     }
-    // Resistência do piloto atingido ao tipo do golpe (já com o teto), menos o que os
-    // debuffs de quebra tiram e a penetração de quem bateu.
-    // O golpe penetrante (o míssil das torretas) passa por cima de toda resistência.
-    if (alvo.tipo === 'jogador' && tipo && alvo.status && !opcoes.penetrante) {
-      const quebra = this.golpes.resistQuebrada(alvo, tipo);
-      const resist = Math.max(0, (alvo.status.resist[tipo] ?? 0) - quebra - (quem?.status?.penetra[tipo] ?? 0));
-      dano *= 1 - resist;
-    }
+    // Resistência do piloto atingido ao tipo do golpe, como no original
+    // (GetWeaponRegistance): a do equipamento mais a das armas de dispositivo, com o
+    // teto de 99% (RESIST_MAX), menos o que os debuffs de quebra tiram e a penetração
+    // de quem bateu. O golpe penetrante (o míssil das torretas) passa por cima de toda
+    // resistência.
+    if (alvo.tipo === 'jogador' && tipo && !opcoes.penetrante) dano *= 1 - this.resistEfetiva(alvo, tipo, quem);
     // Estados das armas (invulnerável, escudo de arma, resistência, vulnerável, fraco...).
     dano = this.golpes.modificarDano(alvo, dano, autor, opcoes);
     // Defesa dos mineradores do time (Evolução).
@@ -1183,14 +1181,28 @@ export class World {
    * para todos: cache por tick.
    */
   /**
-   * Resistências do piloto agora, [Ph., Op., El.] (0 a RESIST_MAX, duas casas), já sem
-   * o que os debuffs de quebra tiram: o que a cor do nick mostra (public/js/cor-resistencia.js).
+   * Resistências do piloto agora, [Ph., Op., El.] (0 a RESIST_MAX, duas casas), com as
+   * das armas de dispositivo e já sem o que os debuffs de quebra tiram: o que a cor do nick mostra (public/js/cor-resistencia.js).
    * null sem nenhuma.
    */
   resistVisivel(j) {
-    if (!j.status) return null;
-    const res = ORDEM_TIPOS_DANO.map((t) => +Math.max(0, (j.status.resist[t] ?? 0) - this.golpes.resistQuebrada(j, t)).toFixed(2));
+    if (!j.status && !j.st) return null;
+    const res = ORDEM_TIPOS_DANO.map((t) => +Math.max(0, this.#resistTotal(j, t) - this.golpes.resistQuebrada(j, t)).toFixed(2));
     return res.some((r) => r > 0) ? res : null;
+  }
+
+  /**
+   * Fração do dano do tipo `tipo` que o piloto `alvo` segura agora contra `quem` (o
+   * jogador que bate, ou null): a resistência com o teto, menos a quebra e a penetração.
+   */
+  resistEfetiva(alvo, tipo, quem = null) {
+    const quebra = this.golpes.resistQuebrada(alvo, tipo);
+    return Math.max(0, this.#resistTotal(alvo, tipo) - quebra - (quem?.status?.penetra[tipo] ?? 0));
+  }
+
+  /** Resistência do piloto ao tipo: equipamento + armas de dispositivo, com o teto (RESIST_MAX). */
+  #resistTotal(j, tipo) {
+    return Math.min(RESIST_MAX, (j.status?.resist[tipo] ?? 0) + this.golpes.resistArma(j, tipo));
   }
 
   snapshotPara(j, ents, eventos) {

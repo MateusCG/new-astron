@@ -721,8 +721,6 @@ export class Golpes {
     const quem = autor !== undefined ? (this.world.players.get(autor) ?? null) : null;
     const fraco = this.st(quem, 'fraco');
     if (fraco) dano *= fraco.mult;
-    const res = tipoDano && !penetrante ? this.st(alvo, `resiste_${tipoDano}`) : null;
-    if (res) dano *= 1 - Math.max(0, res.frac - this.resistQuebrada(alvo, tipoDano));
     const escudo = this.st(alvo, 'escudo');
     if (escudo && escudo.hp > 0) {
       const absorve = Math.min(escudo.hp, dano);
@@ -750,6 +748,15 @@ export class Golpes {
    * Quebra-Resistência tira os pontos dele de todas, e o campo do SN-4 zera todas.
    * Vale para a resistência do equipamento e para a das armas de dispositivo.
    */
+  /**
+   * Resistência ao tipo que as armas de dispositivo dão agora (fração; a Tenda de Luz,
+   * o Disjuntor): soma na do equipamento, com o mesmo teto (World#ferir), como no
+   * original, onde o estado vai para a resistência do tipo.
+   */
+  resistArma(alvo, tipoDano) {
+    return (tipoDano && this.st(alvo, `resiste_${tipoDano}`)?.frac) || 0;
+  }
+
   resistQuebrada(alvo, tipoDano) {
     const todas = this.st(alvo, 'vulneravel')?.menos ?? 0;
     const doTipo = tipoDano ? (this.st(alvo, `vulneravel_${tipoDano}`)?.menos ?? 0) : 0;
