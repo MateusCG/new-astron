@@ -288,7 +288,8 @@
 //         tiro impedido), 'desg', 'energia', 'descarga' (a
 //         energia descarregada, o ícone fica a duração do original), 'magma' (o dreno
 //         de HP do original), 'resist' (todas as resistências quebradas), 'invul',
-//         'escudo', 'fraco', 'regen' (conserto de HP com tempo), 'escudoRec' (o
+//         'escudo', 'fraco', 'recuo' (o dano devolvido do Canhão de Recuo), 'regen'
+//         (conserto de HP com tempo), 'escudoRec' (o
 //         reparo do escudo: os quanta do original), 'converte' (o conversor de
 //         impacto), 'resEl', 'resOp' e 'resFis' (a resistência elétrica, a óptica
 //         e a física dos dispositivos), 'acel', 'inv' (camuflagem ligada, mesmo

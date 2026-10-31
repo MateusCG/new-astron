@@ -371,7 +371,7 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
     const auras = lugar(criarNave(race, { aliado: true, classe, tier: 0 }));
     efeitos.estadoNave(
       auras,
-      { dreno: true, lento: true, emp: true, bonus: ['ataque', 'suporte', 'sonda', 'medusa'], fx: ['para', 'desg', 'energia', 'invul', 'escudo', 'fraco', 'regen', 'acel'] },
+      { dreno: true, lento: true, emp: true, bonus: ['ataque', 'suporte', 'sonda', 'medusa'], fx: ['para', 'desg', 'energia', 'invul', 'escudo', 'fraco', 'recuo', 'regen', 'acel'] },
       0.2,
       0,
     );

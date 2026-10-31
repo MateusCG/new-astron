@@ -304,6 +304,15 @@ test('efeitos no alvo: dreno, lento, desgoverno, anticadência, redutor de energ
   }
 });
 
+test('efeitos no alvo: o recuo do Canhão de Recuo aparece com o ícone dele (fx recuo), não o do ataque enfraquecido', () => {
+  const { w, js } = arena(['acron', 'mobile', 0, 0], ['bellico', 'assault', 0, -80]);
+  const [a, b] = js;
+  disparar(w, a, '112026');
+  for (let i = 0; i < 4 * SEGUNDO && !b.st?.recuo; i++) w.step();
+  const fx = w.entidades().find((e) => e.id === b.id).fx;
+  assert.ok(fx.includes('recuo') && !fx.includes('fraco'), fx.join());
+});
+
 test('efeitos no alvo: quebra-escudo descarrega o escudo do equipamento; sem escudo, tira do HP', () => {
   for (const comEscudo of [true, false]) {
     const { w, js } = arena(['bellico', 'mobile', 0, 0], ['shrewdo', 'assault', 0, -80]);

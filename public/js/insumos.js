@@ -93,6 +93,9 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
   // Quarta leva Acron (disparo-regras.js): o feixe dos dois Feixes Tempestade
   // teleguiados e a bala da Metralha Teleguiada, de cada degrau.
   '1312033', '1312034', '1312035', '1321033', '1321034', '1321035',
+  // O feixe do Feixe Clone em Leque (e dos clones) de cada degrau; a carga e o fim do
+  // Canhão de Recuo.
+  '1312023', '1312024', '1312025', '1333004', '2403004',
   // Os estados dos dispositivos na nave: o conversor de impacto, as resistências e o
   // reparo do escudo (o quantum e a esfera de cada raça).
   // O "MISS" do debuff elétrico que não pegou.
@@ -113,7 +116,7 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
   // (as partículas verdes) e o respingo verde da pedra.
   '1322063', '1322064', '1421030',
   // Estados na nave: o fogo do Magma e os ícones.
-  '1164001', 'cross003', 'cross002', 'cross007', 'cross008', 'cross010', 'cross013',
+  '1164001', 'cross003', 'cross002', 'cross007', 'cross008', 'cross010', 'cross011', 'cross013',
 ]);
 
 /**
@@ -122,10 +125,12 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
  * resistências quebradas (o campo do SN-4; azul, dentro do círculo vermelho), o "LD" da
  * paralisia, a espada proibida do tiro impedido (a armadilha da Medusa), as setas
  * proibidas do desgoverno (o disparo de controle da Medusa), o "E" da energia (a
- * descarga do míssil do SN-3, o dreno e a recarga cortada) e a espada proibida do
- * ataque enfraquecido. Os mesmos símbolos das mensagens de debuff (debuffs.js).
+ * descarga do míssil do SN-3, o dreno e a recarga cortada), a espada proibida do
+ * ataque enfraquecido e o cross011 do dano devolvido (o Canhão de Recuo: o código 109
+ * liga o PILOT_STATE_FLAG 0x2f, o CUnitState[0x20], o ícone 11 do CUnit::LoadResource).
+ * Os mesmos símbolos das mensagens de debuff (debuffs.js).
  */
-export const ICONES_ESTADO = Object.freeze({ resist: 'cross003', para: 'cross002', semTiro: 'cross008', desg: 'cross010', descarga: 'cross013', energia: 'cross013', fraco: 'cross008' });
+export const ICONES_ESTADO = Object.freeze({ resist: 'cross003', para: 'cross002', semTiro: 'cross008', desg: 'cross010', descarga: 'cross013', energia: 'cross013', fraco: 'cross008', recuo: 'cross011' });
 /** O fogo do Magma na nave (o dreno de HP do original: faíscas vermelhas subindo). */
 export const MAGMA_NA_NAVE = '1164001';
 /** O "MISS" do original na nave que resistiu ao debuff elétrico (CUnit::EffectMiss). */

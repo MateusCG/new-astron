@@ -34,7 +34,7 @@ import {
   quadroDoOsso,
   ALFA_CAMUFLADA,
 } from '../public/js/disparo-regras.js';
-import { EFEITOS_ORIGINAIS, insumosDaPartida } from '../public/js/insumos.js';
+import { EFEITOS_ORIGINAIS, ICONES_ESTADO, insumosDaPartida } from '../public/js/insumos.js';
 import { INICIAIS_ORIGINAL, WEAPONS, golpeDaArma } from '../shared/armas.js';
 import { FATOR_TAMANHO_NAVE } from '../shared/naves.js';
 import { createBullet, stepBullet, forward } from '../shared/sim.js';
@@ -90,6 +90,10 @@ const QUARTA_LEVA = {
   o116005: 'giro', // Feixe Tempestade Reforçado
   o111013: 'preso', // Metralha Larga
   o111015: 'preso', // Metralha Teleguiada
+  o111007: 'giro', // Feixe Clone em Leque
+  o112026: 'preso', // Canhão de Recuo
+  o112031: null, // Onda de Energia Larga
+  o112032: 'preso', // Ciclone Varredor
 };
 
 test('disparo original: as seis armas de início e as revistas, com o modo de clarão e de fim do original', () => {
@@ -106,7 +110,7 @@ test('disparo original: as seis armas de início e as revistas, com o modo de cl
   // O clarão do catálogo bate com o modo: as de clarão null não têm efeito na coluna 51.
   for (const [k, v] of Object.entries(DISPARO_ORIGINAL)) assert.equal(!!golpeDaArma(k, 1).vis.d, v.clarao !== null, k);
   // Coluna 94 = 7 (o fim deitado pela área) na Metralha e nas de área da segunda leva.
-  const comFim = ['o311004', 'o111009', 'o111005', 'o111017', 'o111019', 'o112010', 'o112035', 'o112038', 'o112011', 'o112027', 'o112025', 'o112009', 'o112036', 'o116005', 'o111013'];
+  const comFim = ['o311004', 'o111009', 'o111005', 'o111017', 'o111019', 'o112010', 'o112035', 'o112038', 'o112011', 'o112027', 'o112025', 'o112009', 'o112036', 'o116005', 'o111013', 'o112026'];
   for (const [k, v] of Object.entries(DISPARO_ORIGINAL)) assert.equal(v.fim, comFim.includes(k) ? 'area' : undefined, k);
   for (const k of comFim) assert.ok(golpeDaArma(k, 1).vis.f && golpeDaArma(k, 1).area > 0, k);
   assert.equal(ESCALA_DISPARO, FATOR_TAMANHO_NAVE, 'na escala das naves');
@@ -123,7 +127,9 @@ test('disparo original: as seis armas de início e as revistas, com o modo de cl
   for (const k of ['o112011', 'o112027', 'o112025']) assert.deepEqual(DISPARO_ORIGINAL[k].carga, { v0: 0, vmax: 0.5, acel: 0.0003 }, k);
   for (const k of ['o112020', 'o112009']) assert.deepEqual(DISPARO_ORIGINAL[k].carga, { v0: -0.05, vmax: 0.4, acel: 0.0002 }, k);
   assert.deepEqual(DISPARO_ORIGINAL.o112004.carga, { v0: 0.2, vmax: 0.2, acel: -0.0001 });
-  const comCarga = ['o112028', 'o112010', 'o112003', 'o112030', 'o112011', 'o112027', 'o112025', 'o112020', 'o112009', 'o112004'];
+  // Quarta leva: o Canhão de Recuo como o Descarregador.
+  assert.deepEqual(DISPARO_ORIGINAL.o112026.carga, { v0: 0, vmax: 0.5, acel: 0.0003 });
+  const comCarga = ['o112028', 'o112010', 'o112003', 'o112030', 'o112011', 'o112027', 'o112025', 'o112020', 'o112009', 'o112004', 'o112026'];
   for (const k of Object.keys(DISPARO_ORIGINAL)) if (!comCarga.includes(k)) assert.equal(DISPARO_ORIGINAL[k].carga, undefined, k);
   // O Teleporte toca o CUnitTeleportEffect (1163010) na saída e na chegada.
   assert.equal(DISPARO_ORIGINAL.o112021.teleporte, '1163010');
@@ -450,4 +456,36 @@ test('quarta leva: os feixes e a metralha teleguiados e a Metralha Larga como no
   assert.ok(perto(setor.guia.comeca, 0.001));
   // A bala teleguiada tem três peças: a bala sólida e os brilhos da Metralha Shrewdo.
   assert.equal(efeito('1321033').pecas.length, 3);
+});
+
+test('quarta leva: o Feixe Clone em Leque, o Canhão de Recuo, a Onda de Energia Larga e o Ciclone Varredor como no original', () => {
+  const projeteis = (kind, p = 0) => WEAPONS[kind].versoes.map((_, i) => golpeDaArma(kind, i + 1, p).vis.p);
+  const degraus = (a, b, c) => [a, a, a, b, b, b, c, c];
+  // Feixe Clone em Leque: 4 (V1–3) e 5 (V4–8) feixes em leque de 15° que atravessam, e aos
+  // 400 ms (o fim da vida) cada um vira 3 a 6 clones em volta (subprojétil 111807...,
+  // coluna 51 '0': sem clarão), com o mesmo feixe 1312023/24/25 e o impacto dos feixes.
+  assert.deepEqual(projeteis('o111007'), degraus('1312023', '1312024', '1312025'));
+  assert.deepEqual(projeteis('o111007', 1), projeteis('o111007'));
+  const clone = golpeDaArma('o111007', 1);
+  assert.deepEqual([clone.tiros.length, golpeDaArma('o111007', 4).tiros.length, golpeDaArma('o111007', 1, 1).tiros.length, golpeDaArma('o111007', 8, 1).tiros.length], [4, 5, 3, 6]);
+  assert.ok(atravessa(clone) && atravessa(golpeDaArma('o111007', 1, 1)) && !explodeNoFim(clone));
+  assert.deepEqual(golpeDaArma('o111007', 1, 1).vis, { p: '1312023', i: '1412001' });
+  assert.equal(DISPARO_ORIGINAL.o111007.claraoSub, undefined);
+  // Canhão de Recuo: a carga com o ícone do recuo (1333004), o impacto elétrico e o fim
+  // 2403004 pela área; explode no fim da vida (coluna 74 = 111212).
+  assert.deepEqual(projeteis('o112026'), Array(8).fill('1333004'));
+  const recuo = golpeDaArma('o112026', 1);
+  assert.deepEqual([recuo.vis.d, recuo.vis.i, recuo.vis.f], ['1133002', '1503009', '2403004']);
+  assert.ok(explodeNoFim(recuo) && recuo.area > 0);
+  assert.ok(ICONES_ESTADO.recuo === 'cross011' && EFEITOS_ORIGINAIS.includes('cross011'), 'o ícone 11 do original na nave atingida');
+  // Onda de Energia Larga: a esfera da Onda de Energia (1332034, tipo 17) até o raio da versão, sem clarão.
+  assert.deepEqual(projeteis('o112031'), Array(8).fill('1332034'));
+  assert.deepEqual(golpeDaArma('o112031', 1).vis, { tipo: 'esfera_que_cresce', p: '1332034', i: '1502004' });
+  assert.ok(golpeDaArma('o112031', 8).nova.raio > golpeDaArma('o112031', 1).nova.raio);
+  // Ciclone Varredor: a carga do Ciclone (1133055) que atravessa e explode no fim da vida;
+  // aos 1800 ms (o fim) solta a esfera 2132018.
+  assert.deepEqual(projeteis('o112032'), Array(8).fill('1133055'));
+  const varredor = golpeDaArma('o112032', 1);
+  assert.ok(atravessa(varredor) && explodeNoFim(varredor));
+  assert.deepEqual(golpeDaArma('o112032', 1, 1).vis, { tipo: 'esfera_que_cresce', p: '2132018', i: '1421001' });
 });

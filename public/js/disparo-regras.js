@@ -169,6 +169,10 @@ export const DISPARO_ORIGINAL = Object.freeze({
   o116005: Object.freeze({ clarao: 'giro', fim: 'area' }), // Feixe Tempestade Reforçado (HomingStorm Reinforced Beam)
   o111013: Object.freeze({ clarao: 'preso', fim: 'area' }), // Metralha Larga (WideStorm Gun)
   o111015: Object.freeze({ clarao: 'preso' }), // Metralha Teleguiada (Homing Sector Gun)
+  o111007: Object.freeze({ clarao: 'giro' }), // Feixe Clone em Leque (Clone Sector Beam)
+  o112026: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão de Recuo
+  o112031: Object.freeze({ clarao: null }), // Onda de Energia Larga (Wide Energy Wave)
+  o112032: Object.freeze({ clarao: 'preso' }), // Ciclone Varredor (Cyclone Wiper)
 });
 
 /**

@@ -850,7 +850,10 @@ export class Golpes {
     if (this.st(ent, 'escudo')?.hp > 0) fx.push('escudo');
     if (this.st(ent, 'vulneravel')) fx.push('resist');
     const vulnTipo = ['fisico', 'laser', 'eletrico'].some((t) => this.st(ent, `vulneravel_${t}`));
-    if (vulnTipo || this.st(ent, 'fraco') || this.st(ent, 'recuo')) fx.push('fraco');
+    if (vulnTipo || this.st(ent, 'fraco')) fx.push('fraco');
+    // O dano devolvido (código 109, o Canhão de Recuo) liga o PILOT_STATE_FLAG 0x2f, que
+    // no original desenha o ícone 11 da nave (cross011), não o do ataque enfraquecido.
+    if (this.st(ent, 'recuo')) fx.push('recuo');
     // O reparo do escudo (os quanta do original), o conserto de HP com tempo (a aura), o
     // conversor de impacto e as resistências do Disjuntor (o efeito do original na nave).
     if (this.st(ent, 'regen') || segurandoTipo(s, 'regen')) fx.push('escudoRec');
