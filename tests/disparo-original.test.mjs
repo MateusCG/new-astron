@@ -85,22 +85,28 @@ const TERCEIRA_LEVA = {
   o112012: null, // Camuflagem
   o112021: null, // Teleporte
 };
+// A quarta leva Acron (as últimas).
+const QUARTA_LEVA = {
+  o116005: 'giro', // Feixe Tempestade Reforçado
+  o111013: 'preso', // Metralha Larga
+  o111015: 'preso', // Metralha Teleguiada
+};
 
 test('disparo original: as seis armas de início e as revistas, com o modo de clarão e de fim do original', () => {
   const iniciais = Object.values(INICIAIS_ORIGINAL).flat().map((id) => 'o' + id);
-  assert.deepEqual(Object.keys(DISPARO_ORIGINAL).sort(), [...iniciais, ...REVISTAS, ...Object.keys(SEGUNDA_LEVA), ...Object.keys(TERCEIRA_LEVA)].sort());
+  assert.deepEqual(Object.keys(DISPARO_ORIGINAL).sort(), [...iniciais, ...REVISTAS, ...Object.keys(SEGUNDA_LEVA), ...Object.keys(TERCEIRA_LEVA), ...Object.keys(QUARTA_LEVA)].sort());
   // Coluna 53 do inititemweapon.cfg: 14 (girado em volta do cano) nos feixes e no Vulcan
   // Bellico, 15 (preso, sem giro) no Vulcan Acron, na Metralha e no Canhão de Faíscas, 2
   // (parado onde a nave estava, pela área) no Rebatedor; coluna 94 = 7 só na Metralha
   // (a V8 do Feixe Perfurante de Magma também, mas com área 0: não aparece).
   assert.deepEqual(
     Object.fromEntries(Object.entries(DISPARO_ORIGINAL).map(([k, v]) => [k, v.clarao])),
-    { o111001: 'giro', o111011: 'preso', o211001: 'giro', o211011: 'giro', o311001: 'giro', o311004: 'preso', o111003: 'giro', o112028: 'preso', o112014: 'area', ...SEGUNDA_LEVA, ...TERCEIRA_LEVA },
+    { o111001: 'giro', o111011: 'preso', o211001: 'giro', o211011: 'giro', o311001: 'giro', o311004: 'preso', o111003: 'giro', o112028: 'preso', o112014: 'area', ...SEGUNDA_LEVA, ...TERCEIRA_LEVA, ...QUARTA_LEVA },
   );
   // O clarão do catálogo bate com o modo: as de clarão null não têm efeito na coluna 51.
   for (const [k, v] of Object.entries(DISPARO_ORIGINAL)) assert.equal(!!golpeDaArma(k, 1).vis.d, v.clarao !== null, k);
   // Coluna 94 = 7 (o fim deitado pela área) na Metralha e nas de área da segunda leva.
-  const comFim = ['o311004', 'o111009', 'o111005', 'o111017', 'o111019', 'o112010', 'o112035', 'o112038', 'o112011', 'o112027', 'o112025', 'o112009', 'o112036'];
+  const comFim = ['o311004', 'o111009', 'o111005', 'o111017', 'o111019', 'o112010', 'o112035', 'o112038', 'o112011', 'o112027', 'o112025', 'o112009', 'o112036', 'o116005', 'o111013'];
   for (const [k, v] of Object.entries(DISPARO_ORIGINAL)) assert.equal(v.fim, comFim.includes(k) ? 'area' : undefined, k);
   for (const k of comFim) assert.ok(golpeDaArma(k, 1).vis.f && golpeDaArma(k, 1).area > 0, k);
   assert.equal(ESCALA_DISPARO, FATOR_TAMANHO_NAVE, 'na escala das naves');
@@ -422,4 +428,26 @@ test('terceira leva: camuflagem translúcida como no original e o teleporte com 
   assert.ok(efeitosDoDisparo().includes('1163010'));
   const tele = efeito('1163010');
   assert.equal(tele.quadros, 27);
+});
+
+test('quarta leva: os feixes e a metralha teleguiados e a Metralha Larga como no original', () => {
+  const projeteis = (kind) => WEAPONS[kind].versoes.map((v) => v.golpe.vis.p);
+  const degraus = (a, b, c) => [a, a, a, b, b, b, c, c];
+  // Feixe Tempestade Reforçado: o feixe 1312033/34/35 de cada degrau, teleguiado aos 100 ms
+  // (coluna 69 = 1, 70 = 100), o impacto dos feixes e o fim 1412002 deitado pela área
+  // (coluna 94 = 7; não explode no fim da vida: coluna 74 = 111211).
+  assert.deepEqual(projeteis('o116005'), degraus('1312033', '1312034', '1312035'));
+  const tempestade = golpeDaArma('o116005', 1);
+  assert.deepEqual([tempestade.vis.d, tempestade.vis.i, tempestade.vis.f], ['2112001', '1412001', '1412002']);
+  assert.ok(perto(tempestade.guia.comeca, 0.1) && tempestade.area > 0 && !explodeNoFim(tempestade));
+  // Metralha Larga: a bala dos Vulcans, o clarão 1121001 preso e o fim da Metralha pela área.
+  assert.deepEqual(projeteis('o111013'), degraus('1321013', '1321014', '1321015'));
+  assert.deepEqual(Object.values(golpeDaArma('o111013', 1).vis), ['1121001', '1321013', '1421001', '1421002']);
+  // Metralha Teleguiada: 3 a 5 balas 1321033/34/35 em leque, teleguiadas desde 1 ms, sem área nem fim.
+  assert.deepEqual(projeteis('o111015'), degraus('1321033', '1321034', '1321035'));
+  const setor = golpeDaArma('o111015', 1);
+  assert.deepEqual([setor.tiros.length, golpeDaArma('o111015', 8).tiros.length, setor.vis.f, setor.area], [3, 5, undefined, 0]);
+  assert.ok(perto(setor.guia.comeca, 0.001));
+  // A bala teleguiada tem três peças: a bala sólida e os brilhos da Metralha Shrewdo.
+  assert.equal(efeito('1321033').pecas.length, 3);
 });

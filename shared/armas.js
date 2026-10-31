@@ -413,6 +413,19 @@ function padraoTiros(o) {
   return Array.from({ length: n }, (_, i) => ({ off: n > 1 ? +(i * vao - ((n - 1) * vao) / 2).toFixed(3) : 0, ang: a0 ? -rad(a0) : 0 }));
 }
 
+/**
+ * Varredura da rajada (coluna 49, passo na 50; CUnitController::OnActiveWeapon): os
+ * modos 1 e 2 giram o padrão o passo em graus a cada disparo (`passo` em rad, + =
+ * esquerda); o modo 4 (a Metralha Larga) não gira: abre o vão entre os canos paralelos,
+ * que no disparo k da rajada vale a coluna 45 + k × a coluna 50, em metros (`abre`:
+ * `vao` e `passo` em m, na escala do vão).
+ */
+function varredura(o) {
+  const { modo, passo } = o.varre;
+  if (modo === 'abre_o_vao') return { abre: true, vao: (o.vao ?? 0) * FATOR_AREA, passo: passo * FATOR_AREA };
+  return { passo: rad(passo) * (modo === 'gira_anti_horario' ? 1 : -1), abre: false };
+}
+
 /** Golpe do original (shared/armas-original.js) na escala do jogo. prof = profundidade (0 = o disparo). */
 function converterGolpe(o, versao, prof = 0) {
   const g = {
@@ -469,7 +482,7 @@ function converterGolpe(o, versao, prof = 0) {
     tiros: padraoTiros(o),
     rajada: o.rajada > 1 ? o.rajada : 1,
     rajadaS: o.rajada > 1 ? ((o.rajadaMs ?? 0) / MS) * FATOR_RECARGA_ARMA : 0,
-    varre: o.varre ? { passo: rad(o.varre.passo) * (o.varre.modo === 'gira_anti_horario' ? 1 : -1), abre: o.varre.modo === 'abre_o_vao' } : null,
+    varre: o.varre ? varredura(o) : null,
     alcance: vel * g.vida,
   });
   if (o.cresce) {
@@ -488,12 +501,16 @@ function converterGolpe(o, versao, prof = 0) {
 
 /**
  * Projéteis de um disparo da rajada (k = 0 o primeiro): o padrão do golpe girado
- * pela varredura (o original gira o padrão a cada tiro da rajada, ou abre o vão).
+ * pela varredura (o original gira o padrão a cada tiro da rajada, ou abre o vão
+ * entre os canos paralelos).
  */
 export function tirosDoGolpe(g, k = 0) {
   if (!k || !g.varre) return g.tiros;
   const n = g.tiros.length;
-  if (g.varre.abre) return g.tiros.map((t, i) => ({ off: t.off, ang: t.ang - k * Math.abs(g.varre.passo) * (i - (n - 1) / 2) }));
+  if (g.varre.abre) {
+    const vao = g.varre.vao + k * g.varre.passo;
+    return g.tiros.map((t, i) => ({ off: +(i * vao - ((n - 1) * vao) / 2).toFixed(3), ang: t.ang }));
+  }
   return g.tiros.map((t) => ({ off: t.off, ang: t.ang + k * g.varre.passo }));
 }
 

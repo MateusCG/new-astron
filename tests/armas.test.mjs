@@ -280,6 +280,15 @@ test('stepShip: rajada sai no tempo dela, gasta a energia uma vez e cada tiro gi
   assert.ok(angs[0] > angs[1] && angs[1] > angs[2], 'gira da esquerda para a direita');
   assert.ok(Math.abs(angs[1]) < 1e-9);
   assert.equal(g.rajada, 3);
+  // Modo 4 (Metralha Larga: 3 canos, vão 10, passo 5 do original): não gira, abre o vão
+  // entre os canos paralelos a cada disparo (CUnitController::OnActiveWeapon: col. 45 +
+  // disparo × col. 50, em m, na escala do vão: 2,5, 3,75, 5 e 6,25 m).
+  const larga = golpeDaArma(idx('111013'), 8);
+  assert.equal(larga.rajada, 4);
+  for (let k = 0; k < 4; k++) {
+    const vao = 2.5 + 1.25 * k;
+    assert.deepEqual(tirosDoGolpe(larga, k), [{ off: -vao, ang: 0 }, { off: 0, ang: 0 }, { off: vao, ang: 0 }], `disparo ${k}`);
+  }
 });
 
 test('stepShip: trocar a arma, pousar ou levar paralisia corta a rajada', () => {

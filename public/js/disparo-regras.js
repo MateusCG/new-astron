@@ -4,11 +4,14 @@
 // original (o Feixe Perfurante de Magma, o Canhão de Faíscas, o Rebatedor de Projéteis,
 // as quinze Acron da segunda leva: feixes em círculo, metralhas, lâmina, canhão
 // descarregador, ciclone, armadilha, míssil clone, as três novas e os três
-// dispositivos; e as dezessete da terceira: os raios, os canhões, os mísseis com
-// rastro, as armadilhas, as seis novas, a camuflagem e o teleporte). A pesquisa, com a
-// evidência de cada número, está em ~/Documentos/new-astron-progresso/ANIMACOES-ORIGINAL.md,
-// seções "Disparo das armas de início", "Magma, Faíscas e Rebatedor", "Segunda leva
-// Acron" e "Terceira leva Acron".
+// dispositivos; as dezessete da terceira: os raios, os canhões, os mísseis com
+// rastro, as armadilhas, as seis novas, a camuflagem e o teleporte; e as nove da
+// quarta, as últimas Acron: os feixes e a metralha teleguiados, a Metralha Larga, o
+// Feixe Clone em Leque, o Canhão de Recuo, a Onda de Energia Larga, o Ciclone Varredor
+// e a Lâmina Giratória). A pesquisa, com a evidência de cada número, está em
+// ~/Documentos/new-astron-progresso/ANIMACOES-ORIGINAL.md, seções "Disparo das armas
+// de início", "Magma, Faíscas e Rebatedor", "Segunda leva Acron", "Terceira leva Acron"
+// e "Quarta leva Acron".
 //
 // Como o original desenha um tiro (libgame decompilado):
 // - Clarão na boca: CUnitBeam::InitData cria, para CADA projétil, o efeito da coluna 51
@@ -162,6 +165,10 @@ export const DISPARO_ORIGINAL = Object.freeze({
   o112029: Object.freeze({ clarao: null }), // Nova Doadora de Energia (Energy Distribution Nova)
   o112012: Object.freeze({ clarao: null }), // Camuflagem (Cloak Device)
   o112021: Object.freeze({ clarao: null, teleporte: '1163010' }), // Teleporte (Teleport Device)
+  // Quarta leva Acron.
+  o116005: Object.freeze({ clarao: 'giro', fim: 'area' }), // Feixe Tempestade Reforçado (HomingStorm Reinforced Beam)
+  o111013: Object.freeze({ clarao: 'preso', fim: 'area' }), // Metralha Larga (WideStorm Gun)
+  o111015: Object.freeze({ clarao: 'preso' }), // Metralha Teleguiada (Homing Sector Gun)
 });
 
 /**

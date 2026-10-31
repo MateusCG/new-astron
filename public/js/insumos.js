@@ -90,6 +90,9 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
   '1412043', '1412044', '1412045', '1412023', '1412024', '1412025', '2432000', '1333005', '2403005', '1333002', '2403003',
   '2343007', '2403002', '2343101', '1361059', '1361060', '1361061',
   '2163011', '2165012', '2163010', '2163022', '2164012', '1503010', '1503011', '1163010',
+  // Quarta leva Acron (disparo-regras.js): o feixe dos dois Feixes Tempestade
+  // teleguiados e a bala da Metralha Teleguiada, de cada degrau.
+  '1312033', '1312034', '1312035', '1321033', '1321034', '1321035',
   // Os estados dos dispositivos na nave: o conversor de impacto, as resistências e o
   // reparo do escudo (o quantum e a esfera de cada raça).
   // O "MISS" do debuff elétrico que não pegou.
