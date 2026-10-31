@@ -78,6 +78,7 @@ const ENVOLVIDOS = {
   nova: ['dono'],
   efeito: ['id'],
   cura: ['id', 'por'],
+  apoio: ['alvo', 'por'],
   morte: ['id', 'por'],
   garra: ['id', 'alvo'],
   recall: ['id'],

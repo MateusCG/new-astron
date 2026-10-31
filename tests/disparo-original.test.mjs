@@ -31,6 +31,8 @@ import {
   ESCUDO_REC,
   quantumDoEscudo,
   direcaoDoQuantum,
+  quadroDoOsso,
+  ALFA_CAMUFLADA,
 } from '../public/js/disparo-regras.js';
 import { EFEITOS_ORIGINAIS, insumosDaPartida } from '../public/js/insumos.js';
 import { INICIAIS_ORIGINAL, WEAPONS, golpeDaArma } from '../shared/armas.js';
@@ -63,22 +65,42 @@ const SEGUNDA_LEVA = {
   o112030: 'giro', // Onda de Sopro Acron
   o112008: null, // Tenda de Luz
 };
+// A terceira leva Acron.
+const TERCEIRA_LEVA = {
+  o112035: 'giro', // Rifle Relâmpago
+  o112038: 'giro', // Feixe Relâmpago
+  o112011: 'preso', // Canhão Amplificador
+  o112027: 'preso', // Canhão Congelante
+  o112025: 'preso', // Bombardeiro Elétrico
+  o112020: 'preso', // Míssil Sugador de Energia
+  o112009: 'preso', // Míssil Tempestade Paralisante
+  o112004: 'preso', // Armadilha Circular
+  o112036: 'preso', // Armadilha Elétrica
+  o112013: null, // Nova Reveladora
+  o112017: null, // Nova Freio
+  o112018: null, // Nova de Reparo
+  o112023: null, // Nova Antiparalisia
+  o112037: null, // Nova de Carga Elétrica
+  o112029: null, // Nova Doadora de Energia
+  o112012: null, // Camuflagem
+  o112021: null, // Teleporte
+};
 
 test('disparo original: as seis armas de início e as revistas, com o modo de clarão e de fim do original', () => {
   const iniciais = Object.values(INICIAIS_ORIGINAL).flat().map((id) => 'o' + id);
-  assert.deepEqual(Object.keys(DISPARO_ORIGINAL).sort(), [...iniciais, ...REVISTAS, ...Object.keys(SEGUNDA_LEVA)].sort());
+  assert.deepEqual(Object.keys(DISPARO_ORIGINAL).sort(), [...iniciais, ...REVISTAS, ...Object.keys(SEGUNDA_LEVA), ...Object.keys(TERCEIRA_LEVA)].sort());
   // Coluna 53 do inititemweapon.cfg: 14 (girado em volta do cano) nos feixes e no Vulcan
   // Bellico, 15 (preso, sem giro) no Vulcan Acron, na Metralha e no Canhão de Faíscas, 2
   // (parado onde a nave estava, pela área) no Rebatedor; coluna 94 = 7 só na Metralha
   // (a V8 do Feixe Perfurante de Magma também, mas com área 0: não aparece).
   assert.deepEqual(
     Object.fromEntries(Object.entries(DISPARO_ORIGINAL).map(([k, v]) => [k, v.clarao])),
-    { o111001: 'giro', o111011: 'preso', o211001: 'giro', o211011: 'giro', o311001: 'giro', o311004: 'preso', o111003: 'giro', o112028: 'preso', o112014: 'area', ...SEGUNDA_LEVA },
+    { o111001: 'giro', o111011: 'preso', o211001: 'giro', o211011: 'giro', o311001: 'giro', o311004: 'preso', o111003: 'giro', o112028: 'preso', o112014: 'area', ...SEGUNDA_LEVA, ...TERCEIRA_LEVA },
   );
   // O clarão do catálogo bate com o modo: as de clarão null não têm efeito na coluna 51.
   for (const [k, v] of Object.entries(DISPARO_ORIGINAL)) assert.equal(!!golpeDaArma(k, 1).vis.d, v.clarao !== null, k);
   // Coluna 94 = 7 (o fim deitado pela área) na Metralha e nas de área da segunda leva.
-  const comFim = ['o311004', 'o111009', 'o111005', 'o111017', 'o111019', 'o112010'];
+  const comFim = ['o311004', 'o111009', 'o111005', 'o111017', 'o111019', 'o112010', 'o112035', 'o112038', 'o112011', 'o112027', 'o112025', 'o112009', 'o112036'];
   for (const [k, v] of Object.entries(DISPARO_ORIGINAL)) assert.equal(v.fim, comFim.includes(k) ? 'area' : undefined, k);
   for (const k of comFim) assert.ok(golpeDaArma(k, 1).vis.f && golpeDaArma(k, 1).area > 0, k);
   assert.equal(ESCALA_DISPARO, FATOR_TAMANHO_NAVE, 'na escala das naves');
@@ -89,7 +111,16 @@ test('disparo original: as seis armas de início e as revistas, com o modo de cl
   assert.deepEqual(DISPARO_ORIGINAL.o112003.carga, { v0: 0.5, vmax: 0.5, acel: -0.0002 });
   // A Onda de Sopro Acron sai a 0,2 m/ms e acelera 0,0004 até 0,5.
   assert.deepEqual(DISPARO_ORIGINAL.o112030.carga, { v0: 0.2, vmax: 0.5, acel: 0.0004 });
-  for (const k of Object.keys(DISPARO_ORIGINAL)) if (!['o112028', 'o112010', 'o112003', 'o112030'].includes(k)) assert.equal(DISPARO_ORIGINAL[k].carga, undefined, k);
+  // Terceira leva: os canhões e o Bombardeiro Elétrico como o Descarregador; os mísseis
+  // saem a −0,05 (caindo para trás) e aceleram 0,0002 até 0,4; a Armadilha Circular sai a
+  // 0,2 e freia 0,0001.
+  for (const k of ['o112011', 'o112027', 'o112025']) assert.deepEqual(DISPARO_ORIGINAL[k].carga, { v0: 0, vmax: 0.5, acel: 0.0003 }, k);
+  for (const k of ['o112020', 'o112009']) assert.deepEqual(DISPARO_ORIGINAL[k].carga, { v0: -0.05, vmax: 0.4, acel: 0.0002 }, k);
+  assert.deepEqual(DISPARO_ORIGINAL.o112004.carga, { v0: 0.2, vmax: 0.2, acel: -0.0001 });
+  const comCarga = ['o112028', 'o112010', 'o112003', 'o112030', 'o112011', 'o112027', 'o112025', 'o112020', 'o112009', 'o112004'];
+  for (const k of Object.keys(DISPARO_ORIGINAL)) if (!comCarga.includes(k)) assert.equal(DISPARO_ORIGINAL[k].carga, undefined, k);
+  // O Teleporte toca o CUnitTeleportEffect (1163010) na saída e na chegada.
+  assert.equal(DISPARO_ORIGINAL.o112021.teleporte, '1163010');
   // Coluna 53 do subprojétil 113001 vazia (modo 0): o clarão dos clones parado onde nascem.
   assert.equal(DISPARO_ORIGINAL.o112001.claraoSub, 'parado');
   assert.equal(golpeDaArma('o112001', 1, 1).vis.d, '1150005');
@@ -360,4 +391,35 @@ test('disparo original: o fim da Metralha, a esfera do Canhão e o anel do Rebat
   // A esfera: o raio da nova (300 a 500 do original × 0,25); o Rebatedor: a área (180 a 280 × 0,25).
   assert.deepEqual(WEAPONS.o112028.versoes.map((v) => v.golpe.divide.nova.raio), [75, 82.5, 90, 97.5, 105, 112.5, 117.5, 125]);
   assert.deepEqual(WEAPONS.o112014.versoes.map((v) => v.golpe.area), [45, 47.5, 50, 52.5, 55, 60, 65, 70]);
+});
+
+test('terceira leva: o rastro dos mísseis estica pelo caminho, como o CUnitMissileTail do original', () => {
+  // Os dois mísseis são do tipo 6 (com rastro) e o rastro é o 2343101, com pele.
+  for (const k of ['o112020', 'o112009']) {
+    const vis = golpeDaArma(k, 1).vis;
+    assert.deepEqual([vis.tipo, vis.r], ['missil_com_rastro', '2343101'], k);
+  }
+  // Histórico de 16 quadros, 4 ossos: Bone01 no de agora, Bone02 no 4, Bone03 no 8 e o último no mais velho.
+  assert.deepEqual([0, 1, 2, 3].map((k) => quadroDoOsso(k, 4, 16)), [0, 4, 8, 15]);
+  const r = efeito('2343101');
+  assert.deepEqual([r.rastro, r.ossos, r.historico, r.tex], [true, 4, 16, '1343007_01']);
+  // Ponto de cada vértice com o osso k na matriz de "andou d para trás a cada quadro"
+  // (só translação no x do original: o míssil voando reto para +x).
+  const fita = (d) =>
+    r.inf.map((linha) => linha.reduce((x, [k, w, ux]) => x + w * (ux - d * quadroDoOsso(k, r.ossos, r.historico)), 0));
+  // Parado (o primeiro quadro enche o histórico com a mesma matriz): a fita encolhe no
+  // corpo do míssil (0 a ~13 m do original à frente do nó Tail; o míssil vai de 0 a 12,3).
+  const parado = fita(0);
+  assert.ok(Math.min(...parado) > -1 && Math.max(...parado) < 14);
+  // Voando 16,7 m do original por quadro (0,4 m/ms a 24 por segundo): a ponta (meio
+  // peso no Bone03 e no Bone04) fica entre onde ele estava 8 e 15 quadros atrás.
+  const voando = fita(16.7);
+  assert.ok(Math.min(...voando) < -180 && Math.max(...voando) < 14, 'estica para trás');
+});
+
+test('terceira leva: camuflagem translúcida como no original e o teleporte com o efeito na saída e na chegada', () => {
+  assert.equal(ALFA_CAMUFLADA, 0.3);
+  assert.ok(efeitosDoDisparo().includes('1163010'));
+  const tele = efeito('1163010');
+  assert.equal(tele.quadros, 27);
 });

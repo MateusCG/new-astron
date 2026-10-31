@@ -81,6 +81,15 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
   '1131055', '1131056', '1131156', '1131256', '1131356', '1131456', '1332034', '2132017', '1353021',
   // A onda da Onda de Sopro Acron.
   '1162023',
+  // Terceira leva Acron (disparo-regras.js): os raios do Rifle Relâmpago e do Feixe
+  // Relâmpago (de cada degrau) e o fim elétrico deles, do Bombardeiro Elétrico e da
+  // Armadilha Elétrica; a carga e o fim do Canhão Amplificador e do Congelante; os dois
+  // mísseis, o fim do Paralisante e o rastro com pele dos dois (2343101, malha de
+  // rastro-missil.js); a Armadilha Circular de cada degrau; as seis novas e os impactos
+  // de suporte; o efeito do Teleporte.
+  '1412043', '1412044', '1412045', '1412023', '1412024', '1412025', '2432000', '1333005', '2403005', '1333002', '2403003',
+  '2343007', '2403002', '2343101', '1361059', '1361060', '1361061',
+  '2163011', '2165012', '2163010', '2163022', '2164012', '1503010', '1503011', '1163010',
   // Os estados dos dispositivos na nave: o conversor de impacto, as resistências e o
   // reparo do escudo (o quantum e a esfera de cada raça).
   // O "MISS" do debuff elétrico que não pegou.

@@ -28,6 +28,7 @@
 import * as THREE from 'three';
 import { PASTA_EFEITOS_ORIGINAIS } from './insumos.js';
 import { carregarTexturaEfeito, texturaEfeito } from './efeitos-armas.js';
+import { prepararRastro } from './rastro-missil.js';
 
 export const QUADROS_POR_S = 24;
 // Flags do bloco do .eff (byte 136).
@@ -51,6 +52,12 @@ export function carregarEfeitoOriginal(id) {
         return r.json();
       })
       .then(async (j) => {
+        // O rastro do míssil (malha com pele, rastro-missil.js) vem pela mesma lista.
+        if (j.rastro) {
+          await carregarTexturaEfeito(j.tex);
+          prepararRastro(j);
+          return;
+        }
         const texturas = new Set([...j.pecas.map((p) => p.tex).filter(Boolean), ...j.mpal]);
         await Promise.all([...texturas].map(carregarTexturaEfeito));
         dados.set(id, preparar(j));
@@ -201,7 +208,22 @@ export function tocarEfeitoOriginal(inst, dt, camera) {
   return true;
 }
 
+/**
+ * A matriz no mundo da peça `nome` da instância no quadro da vez (a do .3dx, mesmo na
+ * peça virada para a câmera: o nó `Tail` do míssil de onde sai o rastro), em `alvo`;
+ * null se o efeito não tem a peça.
+ */
+export function matrizDaPeca(inst, nome, alvo) {
+  const i = inst.d.pecas.findIndex((p) => p.nome === nome);
+  if (i < 0) return null;
+  const p = inst.d.pecas[i];
+  const b = (inst.d.blocos[inst.q ?? 0] ?? inst.d.blocos[0])[i];
+  inst.obj.updateWorldMatrix(true, false);
+  return alvo.multiplyMatrices(inst.obj.matrixWorld, C).multiply((b && p.quadros[b[0]]) ?? p.base);
+}
+
 function aplicarQuadro(inst, q, camera) {
+  inst.q = q;
   const { d, malhas, obj } = inst;
   const linha = d.blocos[q] ?? d.blocos[0];
   let precisaMundo = false;

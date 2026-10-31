@@ -291,7 +291,8 @@
 //         'escudo', 'fraco', 'regen' (conserto de HP com tempo), 'escudoRec' (o
 //         reparo do escudo: os quanta do original), 'converte' (o conversor de
 //         impacto), 'resEl', 'resOp' e 'resFis' (a resistência elétrica, a óptica
-//         e a física dos dispositivos), 'acel', 'inv'); arm = [arma do Z, arma do X]
+//         e a física dos dispositivos), 'acel', 'inv' (camuflagem ligada, mesmo
+//         revelada: quem a vê desenha a nave translúcida)); arm = [arma do Z, arma do X]
 //         dos jogadores (o modelo pendurado em cada asa). Jogador camuflado do outro
 //         time não vem na lista (salvo a INVISIVEL_VISTO_M da sua nave ou logo
 //         depois de atirar);
@@ -405,14 +406,18 @@
 //                                    (a Medusa conta o que ela paga a ele); xp = 0 no
 //                                    nível máximo; crit = o golpe final foi crítico.
 //                                    O cliente faz os números subirem do lugar
-//         {e:'explosao', arma, nv, p, dono, time, x, y, z, raio, mina?}   área de um
+//         {e:'explosao', arma, nv, p, dono, time, x, y, z, raio, mina?, expirou?}   área de um
 //                                    golpe (impacto com área, fim da vida, mina; raio
-//                                    0 = mina que atirou e sumiu)
+//                                    0 = mina que atirou e sumiu; expirou = a mina
+//                                    explodiu porque a vida acabou, não porque pisaram)
 //         {e:'nova', id, dono, time, kind, nv, p, x, y, z, raio, vel}   esfera que
 //                                    cresce parada no ponto a vel m/s até raio
-//         {e:'efeito', id, kind, nv, time, x, y, z}   dispositivo ligado na nave id
-//                                    (camuflagem, escudo, teleporte...)
-//         {e:'cura', id, por, hp, x, y, z}   aliado curado por arma de suporte
+//         {e:'efeito', id, kind, nv, time, x, y, z, ox?, oy?, oz?}   dispositivo
+//                                    ligado na nave id (camuflagem, escudo, teleporte...);
+//                                    o teleporte traz de onde a nave saltou (ox, oy, oz)
+//         {e:'cura', id, por, kind?, hp, x, y, z}   aliado curado por arma de suporte
+//         {e:'apoio', kind, nv, p, alvo, por, time, x, y, z}   a nova de suporte pegou
+//                                    o aliado `alvo` (o impacto do original no casco)
 //         {e:'desarmou', id, x, y, z}   mina destruída pela Nova Desarmadora
 //         {e:'nivel', id, nivel}     jogador subiu de nível
 //         {e:'nave', id, nome, time, tier, nave}   jogador comprou a próxima nave da

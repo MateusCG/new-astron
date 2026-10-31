@@ -696,7 +696,11 @@ export function stepShip(s, inp, dt = DT) {
       s[rajK] = 1;
     }
     const tele = g.forma === 'efeito' ? g.efeitos.find((e) => e.tipo === 'teleporte') : null;
-    if (tele) teleportar(s, tele.dist);
+    if (tele) {
+      // O disparo leva de onde a nave saltou (o efeito do teleporte sai lá e aqui).
+      const de = { x: s.x, y: s.y, z: s.z };
+      if (teleportar(s, tele.dist)) disparos[disparos.length - 1].de = de;
+    }
   }
   return disparos;
 }

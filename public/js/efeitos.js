@@ -69,10 +69,10 @@
 // carregamento (preencherReservas, chamado pelo aquecimento da placa de vídeo).
 
 import * as THREE from 'three';
-import { RACES, stepBullet, WEAPONS } from '/shared/sim.js';
+import { HOVER, RACES, stepBullet, WEAPONS } from '/shared/sim.js';
 import { heightAt, topoPouso } from '/shared/terrain.js';
 import { FATOR_AREA, golpeDaArma, visualDoOriginal, visualEfeito } from '/shared/armas.js';
-import { atravessa, ESCALA_DISPARO, ESTADOS_NA_NAVE } from './disparo-regras.js';
+import { ALFA_CAMUFLADA, atravessa, ESCALA_DISPARO, ESTADOS_NA_NAVE } from './disparo-regras.js';
 import { FATOR_TAMANHO_NAVE } from '/shared/naves.js';
 import { brilho } from './nave.js';
 import { VisualArmas } from './efeitos-armas.js';
@@ -206,8 +206,6 @@ const COR_FX = {
   acel: new THREE.Color('#7fd8ff'),
 };
 const FX_PARTICULA_S = 0.09;
-// Camuflagem: a nave (sua ou de aliado) fica fantasma, nesta opacidade.
-const FANTASMA_OPACIDADE = 0.28;
 // Teleporte até o companheiro: o feixe curto na saída e na chegada (raio e altura em m,
 // duração em s).
 const TELEPORTE_FEIXE_RAIO = 6;
@@ -310,6 +308,7 @@ export class Efeitos {
     for (const t of this.tiros.values()) {
       this.scene.remove(t.g);
       if (t.original) soltarEfeitoOriginal(t.original);
+      this.disparo.soltar(t);
     }
     this.tiros.clear();
     for (const p of this.particulas) {
@@ -917,11 +916,16 @@ export class Efeitos {
     }
   }
 
-  /** Nave camuflada (vista por você ou aliado): materiais do casco trocados por um fantasma. */
+  /**
+   * Nave camuflada (a sua, a de aliado ou a do inimigo com a camuflagem revelada), como
+   * no original (CUnit::RenderScene com o estado de camuflagem): o próprio casco e as
+   * armas, com a textura deles, no material de alfa ALFA_CAMUFLADA (0,3). A luz da
+   * propulsão (aditiva) fica como está. O material translúcido de cada material do
+   * casco é feito uma vez e guardado (nada novo a cada camuflagem).
+   */
   #fantasma(obj, ligado) {
     const ud = obj.userData;
     if (!!ud.fantasma === ligado && (!ligado || ud.fantasmaCasco === ud.casco)) return;
-    this.matFantasma ??= new THREE.MeshBasicMaterial({ color: '#9fb4c8', transparent: true, opacity: FANTASMA_OPACIDADE, depthWrite: false });
     if (ud.fantasma && ud.fantasmaCasco) {
       for (const [m, mat] of ud.fantasma) m.material = mat;
     }
@@ -930,10 +934,23 @@ export class Efeitos {
     if (!ligado || !ud.casco) return;
     ud.fantasma = new Map();
     ud.fantasmaCasco = ud.casco;
+    this.matsCamuflados ??= new WeakMap();
+    const camuflado = (mat) => {
+      if (mat.blending === THREE.AdditiveBlending) return mat;
+      let c = this.matsCamuflados.get(mat);
+      if (!c) {
+        c = mat.clone();
+        c.transparent = true;
+        c.opacity = mat.opacity * ALFA_CAMUFLADA;
+        c.depthWrite = false;
+        this.matsCamuflados.set(mat, c);
+      }
+      return c;
+    };
     ud.casco.traverse((o) => {
       if (o.isMesh) {
         ud.fantasma.set(o, o.material);
-        o.material = this.matFantasma;
+        o.material = Array.isArray(o.material) ? o.material.map(camuflado) : camuflado(o.material);
       }
     });
   }
@@ -980,14 +997,17 @@ export class Efeitos {
     for (const m of lista ?? []) {
       vistas.add(m.id);
       let v = this.minas.get(m.id);
-      // Armadilha de arma do jogador desenhada como no original (a Armadilha Supressora):
-      // o efeito dela parado onde caiu, repetindo, na escala das naves (tipo 7: modelo).
+      // Armadilha de arma do jogador desenhada como no original (a Armadilha Supressora,
+      // a Circular, a Elétrica): o efeito dela parado onde o projétil parou, repetindo,
+      // na escala das naves (tipo 7: modelo). No original ela fica na altura do voo (o
+      // projétil sai da boca da arma, CBasePilot::GetWeaponFireMatrix, e para ali); o
+      // servidor a guarda no chão, embaixo (a área pega na altura das naves do mesmo jeito).
       const deJogador = this.disparo.idMina(m.kind, m.nv, m.p ?? 0);
-      if (deJogador) this.disparo.armadilhaEm(m.kind, m.x, m.y, m.z);
+      if (deJogador) this.disparo.armadilhaEm(m.kind, m.x, m.y + HOVER, m.z);
       if (!v && deJogador) {
         const inst = criarEfeitoOriginal(deJogador, { escala: ESCALA_DISPARO, loop: true });
         this.scene.add(inst.obj);
-        v = { g: inst.obj, original: inst, campo: true };
+        v = { g: inst.obj, original: inst, campo: true, noVoo: true };
         this.minas.set(m.id, v);
       }
       if (!v) {
@@ -1044,7 +1064,7 @@ export class Efeitos {
         v = { g, luz, brilho: brilhoMina, fase: Math.random() * Math.PI * 2 };
         this.minas.set(m.id, v);
       }
-      v.g.position.set(m.x, m.y, m.z);
+      v.g.position.set(m.x, m.y + (v.noVoo ? HOVER : 0), m.z);
       v.armada = !!m.armada;
     }
     for (const [id, v] of this.minas) {
@@ -1282,6 +1302,7 @@ export class Efeitos {
     this.scene.remove(t.g);
     if (t.visual) this.armas.soltarProjetil(t.g);
     if (t.original) soltarEfeitoOriginal(t.original);
+    this.disparo.soltar(t);
     this.tiros.delete(id);
     return t.b;
   }
@@ -1403,6 +1424,7 @@ export class Efeitos {
         if (t.b.vx || t.b.vz) t.g.lookAt(t.g.position.x + t.b.vx, t.g.position.y + t.b.vy, t.g.position.z + t.b.vz);
         tocarEfeitoOriginal(t.original, dt, this.camera);
         if (t.particula) this.#rastroParticulas(t);
+        if (t.cauda) this.disparo.rastro(t, dt);
       }
       if (t.guiado) {
         // O míssil vira com a curva e deixa fumaça para trás.

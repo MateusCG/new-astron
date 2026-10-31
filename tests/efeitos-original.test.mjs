@@ -19,6 +19,17 @@ test('efeitos do original: cada um convertido, com as peças, os quadros e as te
   for (const id of EFEITOS_ORIGINAIS) {
     const e = efeito(id);
     assert.equal(e.id, id);
+    if (e.rastro) {
+      // O rastro do míssil (malha com pele): cada vértice puxado por ossos que existem, pesos somando 1.
+      assert.equal(e.uv.length / 2, e.inf.length, `${id}: uma uv por vértice`);
+      assert.ok(e.idx.every((k) => k < e.inf.length), `${id}: índices dentro da malha`);
+      for (const linha of e.inf) {
+        assert.ok(linha.every(([k]) => k >= 0 && k < e.ossos), `${id}: osso existe`);
+        assert.ok(Math.abs(linha.reduce((a, [, w]) => a + w, 0) - 1) < 0.01, `${id}: pesos somam 1`);
+      }
+      assert.ok(existsSync(path.join(RAIZ, 'public/texturas/efeitos', `${e.tex}.png`)), `${id}: textura ${e.tex}`);
+      continue;
+    }
     assert.ok(e.pecas.length > 0, id);
     assert.equal(e.blocos.length, e.quadros, `${id}: um bloco por quadro`);
     for (const linha of e.blocos) {

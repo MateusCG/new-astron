@@ -112,6 +112,12 @@ export class Golpes {
     ent.st[nome] = { ...dados, fim: atual && atual.fim > fim ? atual.fim : fim };
   }
 
+  /** A camuflagem da nave está ligada (pelo tempo ou segurando), revelada ou não? */
+  camuflado(ent) {
+    if (!ent?.vivo) return false;
+    return !!this.st(ent, 'invisivel') || segurandoTipo(ent.ship, 'invisivel');
+  }
+
   /** O jogador está invisível para inimigos agora? */
   invisivel(ent) {
     if (!ent?.vivo || this.st(ent, 'revelado')) return false;
@@ -152,7 +158,7 @@ export class Golpes {
         }
         this.#mina(f, g, mx, s.y, mz);
       } else {
-        this.#efeitoProprio(ent, g, f);
+        this.#efeitoProprio(ent, g, f, d.de);
       }
     }
   }
@@ -355,7 +361,7 @@ export class Golpes {
     const alvos = [];
     if (g.area > 0) {
       for (const a of w.vivosAgora()) if (naArea(a, x, y, z, g.area)) alvos.push(a);
-      w.eventos.push({ e: 'explosao', arma: kind, nv: fonte.nivel, p: g.prof, dono: autor, time: fonte.time, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), raio: g.area, ...(g.atq ? { atq: g.atq } : {}) });
+      w.eventos.push({ e: 'explosao', arma: kind, nv: fonte.nivel, p: g.prof, dono: autor, time: fonte.time, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), raio: g.area, ...(g.atq ? { atq: g.atq } : {}), ...(fonte.expirou ? { expirou: 1 } : {}) });
     } else if (direto) alvos.push(direto);
     for (const a of alvos) {
       if (g.inimigo && this.ctx.podeAcertar(como, a)) {
@@ -500,20 +506,20 @@ export class Golpes {
       if (ef.alvo !== 'aliado') continue;
       if (ef.semProprio && alvo.id === como.owner) continue;
       const s = alvo.ship;
-      if (ef.tipo === 'cura') this.#curar(alvo, ef.hp, como.owner);
-      else if (ef.tipo === 'curaFrac') this.#curar(alvo, s.maxHp * ef.frac, como.owner);
+      if (ef.tipo === 'cura') this.#curar(alvo, ef.hp, como.owner, como.kind);
+      else if (ef.tipo === 'curaFrac') this.#curar(alvo, s.maxHp * ef.frac, como.owner, como.kind);
       else if (ef.tipo === 'curaTempo') this.#por(alvo, 'curaTempo', ef.dur, { hps: ef.hps });
       else if (ef.tipo === 'doaEnergia') s.en = Math.min(s.maxEn, s.en + s.maxEn * ef.frac);
       else if (ef.tipo === 'limpa') limparDebuffs(alvo);
     }
   }
 
-  #curar(alvo, hp, por) {
+  #curar(alvo, hp, por, kind) {
     const s = alvo.ship;
     if (!alvo.vivo || hp <= 0 || s.hp >= s.maxHp) return;
     const antes = s.hp;
     s.hp = Math.min(s.maxHp, s.hp + hp);
-    this.world.eventos.push({ e: 'cura', id: alvo.id, por, hp: Math.round(s.hp - antes), x: +s.x.toFixed(2), y: +s.y.toFixed(2), z: +s.z.toFixed(2) });
+    this.world.eventos.push({ e: 'cura', id: alvo.id, por, ...(kind ? { kind } : {}), hp: Math.round(s.hp - antes), x: +s.x.toFixed(2), y: +s.y.toFixed(2), z: +s.z.toFixed(2) });
   }
 
   /** Especiais em volta de (x, z), no raio: rebater tiros inimigos, desarmar minas inimigas. */
@@ -578,7 +584,7 @@ export class Golpes {
    * Dispositivo da própria nave (com tempo): o buff fica na entidade, com o valor e a
    * duração × o poder El. dos pontos do piloto nos elétricos (fatorDispositivo).
    */
-  #efeitoProprio(ent, g, f) {
+  #efeitoProprio(ent, g, f, de) {
     const s = ent.ship;
     const fator = fatorDispositivo(f.kind, s);
     for (const original of g.efeitos) {
@@ -593,7 +599,9 @@ export class Golpes {
     }
     // Atirar revela; ligar a camuflagem não conta como tiro.
     if (g.efeitos.some((e) => e.tipo === 'invisivel')) ent.ultimoTiro = undefined;
-    this.world.eventos.push({ e: 'efeito', id: ent.id, kind: f.kind, nv: f.nivel, time: ent.time, x: +s.x.toFixed(2), y: +s.y.toFixed(2), z: +s.z.toFixed(2) });
+    // O teleporte leva de onde a nave saltou (ox, oy, oz): o efeito sai lá e aqui.
+    const origem = de ? { ox: +de.x.toFixed(2), oy: +de.y.toFixed(2), oz: +de.z.toFixed(2) } : {};
+    this.world.eventos.push({ e: 'efeito', id: ent.id, kind: f.kind, nv: f.nivel, time: ent.time, x: +s.x.toFixed(2), y: +s.y.toFixed(2), z: +s.z.toFixed(2), ...origem });
   }
 
   // ---------- Novas ----------
@@ -620,7 +628,10 @@ export class Golpes {
           if (a.vivo) this.#efeitosInimigo(g, a, n.owner, n);
         } else if (g.aliado && this.#aliado(como, a, true)) {
           n.atingidos.add(a.id);
-          this.#efeitosAliado(g, a, como);
+          // O original cria o impacto da nova em cada aliado que ela pega (a de reparo, a
+          // antiparalisia, a doadora de energia): o cliente desenha pelo 'apoio'.
+          w.eventos.push({ e: 'apoio', kind: n.kind, nv: n.nivel, p: g.prof, alvo: a.id, por: n.owner, time: n.time, x: +a.ship.x.toFixed(2), y: +a.ship.y.toFixed(2), z: +a.ship.z.toFixed(2) });
+          this.#efeitosAliado(g, a, { ...como, kind: n.kind });
         }
       }
       // Torretas inimigas na casca levam o dano uma vez (a casca as pega ao chegar no raio máximo).
@@ -667,7 +678,7 @@ export class Golpes {
     w.minas = w.minas.filter((m) => {
       const g = m.g ?? golpeDaArma(m.kind, m.nivel, 0);
       if (this.tick >= m.fimTick) {
-        if (g.fim && !m.campo) this.#explodirMina(m, g);
+        if (g.fim && !m.campo) this.#explodirMina(m, g, true);
         return false;
       }
       if (this.tick < m.armaTick) return true;
@@ -704,8 +715,9 @@ export class Golpes {
     });
   }
 
-  #explodirMina(m, g) {
-    const fonte = { owner: m.dono, id: m.id, time: m.time, drone: m.drone, mult: m.mult, kind: m.kind, nivel: m.nivel };
+  /** A mina explode: pisaram nela ou (`expirou`) a vida acabou (o evento 'explosao' leva `expirou`). */
+  #explodirMina(m, g, expirou = false) {
+    const fonte = { owner: m.dono, id: m.id, time: m.time, drone: m.drone, mult: m.mult, kind: m.kind, nivel: m.nivel, expirou };
     this.#acerto(fonte, { ...g, area: g.area || g.gatilho }, m.x, m.y + 1.5, m.z, null);
   }
 
@@ -848,7 +860,8 @@ export class Golpes {
     if (this.st(ent, 'resiste_laser')) fx.push('resOp');
     if (this.st(ent, 'resiste_fisico')) fx.push('resFis');
     if (segurandoTipo(s, 'acelera')) fx.push('acel');
-    if (this.invisivel(ent)) fx.push('inv');
+    // Camuflagem ligada (mesmo revelada: quem a vê, a vê translúcida, como no original).
+    if (this.camuflado(ent)) fx.push('inv');
     return fx;
   }
 

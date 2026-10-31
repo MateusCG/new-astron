@@ -211,8 +211,10 @@ test('mina: fica atrás da nave, arma e explode em área com inimigo no gatilho 
   const hp = b.ship.hp;
   b.ship.x = m.x + 6;
   b.ship.z = m.z;
+  w.tirarEventos();
   w.step();
   assert.equal(w.minas.length, 0, 'explodiu');
+  assert.ok(w.tirarEventos().some((e) => e.e === 'explosao' && e.arma === 'o112036' && !e.expirou), 'pisaram: não expirou');
   assert.ok(Math.abs(hp - b.ship.hp - golpeDaArma(idx('112036'), 1).dano) < 1);
   const snap = w.snapshotPara(a, [], []);
   assert.deepEqual(snap.minas, []);
@@ -233,6 +235,12 @@ test('mina: a carga lançada vira minas (Armadilha Circular) e há um limite por
   }
   passos(w, SEGUNDO);
   assert.ok(w.minas.length <= 8);
+  // Sem ninguém por perto, a mina explode quando a vida acaba, e o evento diz isso.
+  w.tirarEventos();
+  passos(w, 21 * SEGUNDO);
+  assert.equal(w.minas.length, 0);
+  const fins = w.tirarEventos().filter((e) => e.e === 'explosao' && e.arma === 'o112004');
+  assert.ok(fins.length > 0 && fins.every((e) => e.expirou === 1 && e.p === 1));
 });
 
 test('mina que atira: com inimigo perto, dispara o subprojétil travado nele e some', () => {
@@ -392,9 +400,10 @@ test('dispositivo: camuflagem some do snapshot do outro time (salvo de perto) e 
   assert.ok(vistos(b).includes(a.id), 'atirou, apareceu');
   passos(w, SEGUNDO);
   assert.ok(!vistos(b).includes(a.id));
-  // Revelado não fica invisível.
+  // Revelado não fica invisível, e chega ao inimigo translúcido (fx 'inv'), como no original.
   a.st.revelado = { fim: w.tick + 60 };
   assert.ok(vistos(b).includes(a.id));
+  assert.ok(w.snapshotPara(b, w.entidades(), []).ents.find((e) => e.id === a.id).fx.includes('inv'));
 });
 
 test('Tenda de Luz: +100% da resistência Op. que a nave já tem (dobra), pela duração da versão, e aparece na nave', () => {
@@ -491,9 +500,17 @@ test('suporte: Nova de Reparo cura os aliados no raio; Druida cura o aliado que 
   const [a, b, c] = js;
   c.ship.hp = 40;
   b.ship.hp = 40;
+  w.tirarEventos();
   disparar(w, a, '112018');
   passos(w, 2 * SEGUNDO);
   assert.ok(c.ship.hp > 40, 'aliado curado');
+  // Cada aliado que a nova pega leva o impacto do original ('apoio'), uma vez; o inimigo não.
+  const ev = w.tirarEventos();
+  const apoios = ev.filter((e) => e.e === 'apoio');
+  assert.equal(apoios.filter((e) => e.alvo === c.id).length, 1);
+  assert.ok(!apoios.some((e) => e.alvo === b.id));
+  assert.deepEqual([apoios[0].kind, apoios[0].por, apoios[0].p], ['o112018', a.id, 0]);
+  assert.ok(ev.some((e) => e.e === 'cura' && e.id === c.id && e.kind === 'o112018'), 'a cura diz a arma');
   assert.ok(b.ship.hp <= 40 + b.ship.regenHpVoo * 3, 'inimigo não');
   // Druida Reparador (Bellico): projétil que só pega aliado.
   const { w: w2, js: j2 } = arena(['bellico', 'functional', 0, 0], ['acron', 'assault', 0, -60], ['bellico', 'assault', 0, -90]);
@@ -577,7 +594,10 @@ test('teleporte: o servidor salta junto com a predição e avisa o efeito', () =
   w.tirarEventos();
   disparar(w, a, '112021');
   assert.ok(z0 - a.ship.z > 100);
-  assert.ok(w.tirarEventos().some((e) => e.e === 'efeito' && e.kind === 'o112021'));
+  // O evento leva de onde a nave saltou (o efeito do original sai lá e onde ela aparece).
+  const ev = w.tirarEventos().find((e) => e.e === 'efeito' && e.kind === 'o112021');
+  assert.ok(ev);
+  assert.ok(Math.abs(ev.oz - z0) < 0.01 && Math.abs(ev.z - a.ship.z) < 0.01, 'origem e chegada');
 });
 
 test('npc: o tiro de NPC e de torreta segue com os números de antes', () => {

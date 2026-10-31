@@ -113,6 +113,7 @@
 import * as THREE from 'three';
 import { DT, RACES, WEAPONS, VEL_TOQUE, createBullet, stepShip, bulletHits, forward, pousoPermitido } from '/shared/sim.js';
 import { golpeDaArma, golpePrevisivel, versaoArma, visualDoOriginal } from '/shared/armas.js';
+import { disparoOriginal } from './disparo-regras.js';
 import { CLASSES, ORDEM_CLASSES, RACAS_BLOQUEADAS, naveDe, linhaDe, classeValida, racaJogavel } from '/shared/naves.js';
 import { areaPouso, heightAt } from '/shared/terrain.js';
 import { alturaSolida } from '/shared/obstaculos.js';
@@ -724,6 +725,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
         b.p = 0;
         efeitos.tiro(b, false, null, efeitos.disparo.inicio(b, pred, daBoca));
       }
+      // O Teleporte: o efeito do original onde a nave sumiu e onde apareceu (a predição já saltou).
+      if (d.de) efeitos.disparo.teleporte(d.kind, d.de, { x: pred.x, y: pred.y, z: pred.z }, minhaNave);
       const original = efeitos.disparo.clarao(d.kind, d.nivel, minhaNave, d.enc);
       const chave = `${d.enc}:${d.k}`;
       if (tocados.has(chave)) continue;
@@ -991,13 +994,19 @@ function montarJogo(rede, boas, renderer, race, classe) {
         // Dispositivo ligado (camuflagem, escudo, teleporte...): clarão na nave e o som
         // (os desenhados como no original não têm clarão: o que aparece é o estado na nave).
         if (!efeitos.disparo.semClarao(e.kind, e.nv)) efeitos.armas.clarao(e.kind, e.x, e.y, e.z, e.nv);
+        // O Teleporte de outra nave (o seu saiu na predição): onde ela sumiu e onde apareceu.
+        if (e.id !== meuId && e.ox !== undefined) efeitos.disparo.teleporte(e.kind, { x: e.ox, y: e.oy, z: e.oz }, e, outras.get(e.id)?.obj);
         if (e.id !== meuId) tocarUmaVez(`e${e.id}:${e.kind}`, somDaArma(e.kind, e.nv), e.x, e.z);
       } else if (e.e === 'explosao' && e.arma !== 'mina') {
         // A Metralha Shrewdo: o efeito de fim do original, esticado até a área.
-        if (!efeitos.disparo.area(e.arma, e.nv, e.x, e.y, e.z, e.raio)) efeitos.armas.area(e.arma, e.nv, e.p, e.x, e.y, e.z, e.raio);
+        if (!efeitos.disparo.area(e.arma, e.nv, e.x, e.y, e.z, e.raio, e.p ?? 0, !!e.expirou)) efeitos.armas.area(e.arma, e.nv, e.p, e.x, e.y, e.z, e.raio);
         tocarUmaVez(`x${e.arma}:${Math.round(e.x / 20)}:${Math.round(e.z / 20)}`, somImpacto(e.arma, e.nv, e.p), e.x, e.z);
+      } else if (e.e === 'apoio') {
+        // A nova de suporte pegou um aliado: o impacto do original no casco dele.
+        efeitos.disparo.impacto(e.kind, e.nv, e.p, alvoDoAcerto(e), null, false);
       } else if (e.e === 'cura') {
-        efeitos.explosao(e.x, e.y, e.z, 0.6, '#7dff9a');
+        // A cura da arma desenhada como no original já sai no impacto dela ('apoio').
+        if (!disparoOriginal(e.kind)) efeitos.explosao(e.x, e.y, e.z, 0.6, '#7dff9a');
         tocarUmaVez(`c${e.id}`, 'cure', e.x, e.z, 0.6);
       } else if (e.e === 'desarmou') {
         efeitos.explosao(e.x, e.y + 1, e.z, 0.8, '#c8d2ff');

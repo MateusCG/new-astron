@@ -1,12 +1,14 @@
 // Regras do disparo das armas desenhadas como no AstroN original (puro: sem Three.js,
 // sem DOM; quem desenha é disparo-original.js): as duas de fábrica de cada raça
 // (INICIAIS_ORIGINAL em shared/armas.js) e as revistas depois, uma a uma, contra o
-// original (o Feixe Perfurante de Magma, o Canhão de Faíscas, o Rebatedor de Projéteis e
+// original (o Feixe Perfurante de Magma, o Canhão de Faíscas, o Rebatedor de Projéteis,
 // as quinze Acron da segunda leva: feixes em círculo, metralhas, lâmina, canhão
 // descarregador, ciclone, armadilha, míssil clone, as três novas e os três
-// dispositivos). A pesquisa, com a evidência de cada número, está em
-// ~/Documentos/new-astron-progresso/ANIMACOES-ORIGINAL.md, seções "Disparo das armas de
-// início", "Magma, Faíscas e Rebatedor" e "Segunda leva Acron".
+// dispositivos; e as dezessete da terceira: os raios, os canhões, os mísseis com
+// rastro, as armadilhas, as seis novas, a camuflagem e o teleporte). A pesquisa, com a
+// evidência de cada número, está em ~/Documentos/new-astron-progresso/ANIMACOES-ORIGINAL.md,
+// seções "Disparo das armas de início", "Magma, Faíscas e Rebatedor", "Segunda leva
+// Acron" e "Terceira leva Acron".
 //
 // Como o original desenha um tiro (libgame decompilado):
 // - Clarão na boca: CUnitBeam::InitData cria, para CADA projétil, o efeito da coluna 51
@@ -74,6 +76,23 @@
 //   cresce por ms, tipo de gráfico 0): só o raio de acerto cresce (MoveBullet); o
 //   CUnitBeam::RenderScene desenha o modelo sem escala nenhuma, então o desenho é o da
 //   coluna 57 no tamanho dele, repetindo, e a carga sai a 0,2 m/ms e acelera até 0,5.
+// - Míssil com rastro (tipo de gráfico 6: o Sugador de Energia e o Tempestade
+//   Paralisante): CUnitBeam::LoadGraphic cria o CUnitMissileTail com o .3dx da coluna
+//   58 (2343101), uma fita com pele em 4 ossos; a cada quadro (MoveBullet → Proceed) a
+//   matriz do nó Tail do míssil entra num histórico de 16, e o RenderScene põe os ossos
+//   nele (quadroDoOsso): a fita estica pelo caminho. Desenho em rastro-missil.js.
+// - Armadilha (a Circular, a Elétrica, a Supressora): o projétil para onde a vida dele
+//   acaba (ou na boca, com velocidade 0), na altura do voo, e fica ali; a que acaba a
+//   vida sem ninguém pisar explode como no chão (o impacto ali, a área e o fim).
+// - Nova de suporte (coluna 74 com o 4º dígito '1': a de Reparo, a Antiparalisia, a
+//   Doadora): o ProcessDamage cria o impacto em cada aliado que ela pega.
+// - Camuflagem (código 27 → PILOT_STATE_FLAG 0x1c → estado +0x99): CUnit::RenderScene
+//   desenha a nave com o próprio casco e as armas no material de alfa 0,3 para quem
+//   pode vê-la (o time dela, o inimigo que a revela); o inimigo que não revela não a
+//   desenha (ALFA_CAMUFLADA).
+// - Teleporte (código 20): CGameSocket::LGTeleportDisappear cria o CUnitTeleportEffect
+//   (1163010) na matriz da nave onde ela some e LGTeleportAppear outro onde ela aparece,
+//   só com a posição (de pé); cada um toca uma vez.
 //
 // Escala: o original desenha tudo no metro dele, o mesmo das naves; aqui as naves são o
 // original × FATOR_TAMANHO_NAVE (0,5), e o clarão, o projétil e o impacto vão na mesma
@@ -93,8 +112,9 @@ import { forward } from '../../shared/sim.js';
  * parado onde a nave estava, na escala da área) ou null (coluna 51 '0': sem clarão);
  * `fim` 'area' (modo 7: o fim deitado e esticado até a área); `carga`: o projétil que
  * acelera (ou freia), com a velocidade inicial, a máxima (m/ms) e a aceleração (m/ms²)
- * do original (colunas 64, 65 e 66); `claraoSub` 'parado' (modo 0) no clarão dos
- * subprojéteis.
+ * do original (colunas 64, 65 e 66; os mísseis saem a −0,05, caindo para trás);
+ * `claraoSub` 'parado' (modo 0) no clarão dos subprojéteis; `teleporte`: o efeito do
+ * CUnitTeleportEffect, onde a nave some (na matriz dela) e onde aparece (de pé).
  */
 export const DISPARO_ORIGINAL = Object.freeze({
   o111001: Object.freeze({ clarao: 'giro' }), // Feixe Rifle Triplo (Acron)
@@ -124,7 +144,33 @@ export const DISPARO_ORIGINAL = Object.freeze({
   o112033: Object.freeze({ clarao: null }), // Disjuntor (Circuit Breaking Device)
   o112030: Object.freeze({ clarao: 'giro', carga: Object.freeze({ v0: 0.2, vmax: 0.5, acel: 0.0004 }) }), // Onda de Sopro Acron (Acron Blow Wave)
   o112008: Object.freeze({ clarao: null }), // Tenda de Luz (Optical Beam Tent)
+  // Terceira leva Acron.
+  o112035: Object.freeze({ clarao: 'giro', fim: 'area' }), // Rifle Relâmpago (LightningStorm Rifle)
+  o112038: Object.freeze({ clarao: 'giro', fim: 'area' }), // Feixe Relâmpago (Bolt Storm Beam)
+  o112011: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Amplificador
+  o112027: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Congelante (Freezer Cannon)
+  o112025: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Bombardeiro Elétrico (El. Bomber)
+  o112020: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: -0.05, vmax: 0.4, acel: 0.0002 }) }), // Míssil Sugador de Energia
+  o112009: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: -0.05, vmax: 0.4, acel: 0.0002 }) }), // Míssil Tempestade Paralisante
+  o112004: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0.2, vmax: 0.2, acel: -0.0001 }) }), // Armadilha Circular (Circle Trap)
+  o112036: Object.freeze({ clarao: 'preso', fim: 'area' }), // Armadilha Elétrica (El. Trap)
+  o112013: Object.freeze({ clarao: null }), // Nova Reveladora (Cloak Sensing Nova)
+  o112017: Object.freeze({ clarao: null }), // Nova Freio (SpeedTrap Nova)
+  o112018: Object.freeze({ clarao: null }), // Nova de Reparo (Repair Nova)
+  o112023: Object.freeze({ clarao: null }), // Nova Antiparalisia (Paralysis Removing Nova)
+  o112037: Object.freeze({ clarao: null }), // Nova de Carga Elétrica (El. Charge Nova)
+  o112029: Object.freeze({ clarao: null }), // Nova Doadora de Energia (Energy Distribution Nova)
+  o112012: Object.freeze({ clarao: null }), // Camuflagem (Cloak Device)
+  o112021: Object.freeze({ clarao: null, teleporte: '1163010' }), // Teleporte (Teleport Device)
 });
+
+/**
+ * Camuflagem na nave (CUnit::RenderScene com o estado +0x99, o PILOT_STATE_FLAG 0x1c
+ * que o código 27 liga): quem pode ver a nave (o próprio time, ou o inimigo com a
+ * camuflagem revelada) a vê com o próprio casco e as armas, no material de difusa
+ * branca e alfa 0,3; o inimigo que não a revela não a desenha.
+ */
+export const ALFA_CAMUFLADA = 0.3;
 
 /**
  * Estados da nave com efeito do original preso nela (`fx` do servidor → efeito da
@@ -167,8 +213,8 @@ export const IMPACTO_NO_CASCO = 0.85;
 export const RAIO_AREA_ORIGINAL = 100;
 /** O servidor disse que o tiro acabou antes de a vida dele acabar por mais que isto (s): bateu em algo. */
 export const FOLGA_FIM_S = 0.1;
-/** Campos do golpe (`vis` do catálogo) que o disparo usa: clarão, projétil, impacto, fim e armadilha. */
-export const CAMPOS_DISPARO = Object.freeze(['d', 'p', 'i', 'f', 'a']);
+/** Campos do golpe (`vis` do catálogo) que o disparo usa: clarão, projétil, impacto, fim, armadilha e rastro do míssil. */
+export const CAMPOS_DISPARO = Object.freeze(['d', 'p', 'i', 'f', 'a', 'r']);
 
 /** Como o original desenha a arma `kind` ({ clarao, fim?, carga?, claraoSub? }), ou null se ela não é desenhada como lá. */
 export function disparoOriginal(kind) {
@@ -195,6 +241,7 @@ export function efeitosDoDisparo() {
         for (const c of CAMPOS_DISPARO) if (g.vis?.[c] && (c !== 'f' || como.fim)) ids.add(g.vis[c]);
       }
     }
+    if (como.teleporte) ids.add(como.teleporte);
   }
   for (const id of Object.values(ESTADOS_NA_NAVE)) ids.add(id);
   for (const r of ['acron', 'bellico', 'shrewdo']) ids.add(ESCUDO_REC[r].quantum).add(ESCUDO_REC[r].esfera);
@@ -221,6 +268,18 @@ export function direcaoDoQuantum(r1, r2, r3) {
   const [x, y, z] = [r1, r2, r3].map((r) => Math.floor(r * 20) - 10);
   const n = Math.hypot(x, y, z);
   return n > 0 ? { x: x / n, y: y / n, z: z / n } : { x: 1, y: 0, z: 0 };
+}
+
+/**
+ * O rastro do míssil (CUnitMissileTail::RenderScene): qual das `historico` matrizes
+ * guardadas (0 = a de agora, uma por quadro do original) puxa o osso `k` (0 = Bone01)
+ * de um rastro de `ossos` ossos. O primeiro fica no míssil, o último na mais velha e os
+ * do meio em (historico − 1) × k / ossos + 1 (divisão inteira, como lá).
+ */
+export function quadroDoOsso(k, ossos, historico) {
+  if (k <= 0) return 0;
+  if (k >= ossos - 1) return historico - 1;
+  return Math.floor(((historico - 1) * k) / ossos) + 1;
 }
 
 /** O golpe `g` é um projétil que atravessa quem acerta (o desenho segue depois do impacto)? */

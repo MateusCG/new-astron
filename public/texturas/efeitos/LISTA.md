@@ -541,3 +541,6 @@ Copiadas pelo mesmo `tools/efeitos3d_do_original.py` com as explosões do origin
 | `1163003_001.png` | 64×64 px, 4.3 KB | #61fe68 | 1163003_01, 1163004_01, 1163005_01 |
 | `1163023.png` | 64×64 px, 1.5 KB | #e7ece8 | 1163023 |
 | `miss.png` | 128×128 px, 0.4 KB | #596444 | miss |
+| `1163010.png` | 64×64 px, 3.6 KB | #97aff2 | 1163010 (o Teleporte) |
+| `1163010_01.png` | 64×64 px, 3.0 KB | #c3d2f8 | 1163010 (o Teleporte) |
+| `1343007_01.png` | 64×64 px, 3.0 KB | #5b96fc | 2343101 (o rastro dos mísseis, `--rastro`) |

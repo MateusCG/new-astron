@@ -28,8 +28,13 @@
 //   (explodeNoFim) deixa o impacto ali, como no chão (expirou, fim).
 // - Subprojétil (os três clones do Míssil Clone Teleguiado e os teleguiados de cada um):
 //   o projétil da profundidade dele e, no modo 0, o clarão parado onde ele nasceu.
-// - Armadilha (mina): o efeito dela parado onde caiu, repetindo (idMina); os alvos que
-//   ela fere levam o impacto do lado dela.
+// - Armadilha (mina): o efeito dela parado onde caiu, repetindo (idMina), na altura do
+//   voo (efeitos.js); os alvos que ela fere levam o impacto do lado dela; a que acaba a
+//   vida deixa o impacto no lugar (area, `expirou`).
+// - Rastro do míssil (rastro, soltar): a fita do original presa ao nó Tail do míssil
+//   (rastro-missil.js).
+// - Nova de suporte: o impacto em cada aliado que ela pega (o evento 'apoio' → impacto).
+// - Teleporte (teleporte): o efeito do original onde a nave sumiu e onde apareceu.
 // - Reparo do escudo (escudoRec): os quanta da raça saindo da nave e a esfera no centro.
 // - Arma sem clarão no original (as novas, os dispositivos): nada na boca (semClarao).
 //
@@ -40,8 +45,11 @@
 
 import * as THREE from 'three';
 import { golpeDaArma } from '/shared/armas.js';
+import { HOVER } from '/shared/sim.js';
+import { heightAt } from '/shared/terrain.js';
 import { bocaDaArma } from './nave.js';
-import { criarEfeitoOriginal, efeitoOriginalPronto, soltarEfeitoOriginal, tocarEfeitoOriginal } from './efeitos-original.js';
+import { criarEfeitoOriginal, efeitoOriginalPronto, matrizDaPeca, soltarEfeitoOriginal, tocarEfeitoOriginal } from './efeitos-original.js';
+import { criarRastro, seguirRastro, soltarRastro } from './rastro-missil.js';
 import {
   disparoOriginal,
   ESCALA_DISPARO,
@@ -84,6 +92,7 @@ export class DisparoOriginal {
     this.esferas = []; // a esfera do fim de cada quantum: { inst, nave }
     this.tempo = 0;
     this.q = new THREE.Quaternion();
+    this.m = new THREE.Matrix4();
     this.v = new THREE.Vector3();
     this.boca = new THREE.Vector3();
   }
@@ -200,8 +209,12 @@ export class DisparoOriginal {
     this.ef.scene.add(inst.obj);
     const desvio = boca ? { x: boca.x - b.x, y: boca.y - b.y, z: boca.z - b.z, t: 0 } : null;
     const como = disparoOriginal(b.kind);
-    const carga = como.carga && p === 0 ? golpeDaArma(b.kind, b.nv ?? 1, 0) : null;
-    this.ef.tiros.set(b.id, { b, g: inst.obj, original: inst, comoOriginal: true, carga, rastro: { x: b.x, y: b.y, z: b.z }, desvio });
+    const golpe = golpeDaArma(b.kind, b.nv ?? 1, p);
+    const carga = como.carga && p === 0 ? golpe : null;
+    // Míssil com rastro (tipo de gráfico 6): a fita do original presa ao nó Tail dele.
+    const cauda = golpe?.vis?.tipo === 'missil_com_rastro' && golpe.vis.r ? criarRastro(golpe.vis.r) : null;
+    if (cauda) this.ef.scene.add(cauda.obj);
+    this.ef.tiros.set(b.id, { b, g: inst.obj, original: inst, comoOriginal: true, carga, cauda, rastro: { x: b.x, y: b.y, z: b.z }, desvio });
     const clarao = p > 0 && como.claraoSub === 'parado' ? this.#id(b.kind, b.nv, 'd', p) : null;
     if (clarao) this.#umaVez(clarao, ESCALA_DISPARO, b.x, b.y, b.z, this.#rumo(b));
     return true;
@@ -216,6 +229,34 @@ export class DisparoOriginal {
     const recuo = recuoDaCarga(t.carga.vida - t.b.vida, t.carga, disparoOriginal(t.b.kind).carga);
     const v = Math.hypot(t.b.vx, t.b.vy, t.b.vz);
     if (recuo !== 0 && v > 0) t.g.position.addScaledVector(this.v.set(t.b.vx, t.b.vy, t.b.vz), -recuo / v);
+  }
+
+  /** O rastro do míssil `t` segue o nó Tail dele (chamar depois de o efeito tocar o quadro). */
+  rastro(t, dt) {
+    if (!t.cauda) return;
+    if (!matrizDaPeca(t.original, 'Tail', this.m)) this.m.copy(t.g.matrixWorld);
+    seguirRastro(t.cauda, this.m, dt);
+  }
+
+  /** O tiro `t` saiu de cena: o rastro dele volta para a reserva. */
+  soltar(t) {
+    if (t?.cauda) soltarRastro(t.cauda);
+  }
+
+  /**
+   * Teleporte da nave (o Teleporte, `kind`): o CUnitTeleportEffect onde ela sumiu
+   * (`de`: { x, y, z }), na matriz da nave (o giro de `nave`, o grupo dela, se está na
+   * tela), e onde apareceu (`para`), de pé: o original só põe a posição
+   * (CGameSocket::LGTeleportDisappear e LGTeleportAppear). Uma vez cada. false: a arma
+   * não salta como no original ou o efeito não carregou.
+   */
+  teleporte(kind, de, para, nave = null) {
+    const id = disparoOriginal(kind)?.teleporte;
+    if (!id || !efeitoOriginalPronto(id)) return false;
+    const giro = nave?.parent ? (nave.userData.corpo ?? nave).getWorldQuaternion(this.q).multiply(MEIA_VOLTA) : null;
+    if (de) this.#umaVez(id, ESCALA_DISPARO, de.x, de.y, de.z, giro);
+    if (para) this.#umaVez(id, ESCALA_DISPARO, para.x, para.y, para.z);
+    return true;
   }
 
   /** Rumo do tiro `b` como giro do efeito (o efeito olha para +z). */
@@ -322,8 +363,16 @@ export class DisparoOriginal {
    * Supressora) não desenha nada. false: a arma não é desenhada como no original (quem
    * chama desenha a área de antes).
    */
-  area(kind, nv, x, y, z, raio) {
+  area(kind, nv, x, y, z, raio, p = 0, expirou = false) {
     if (!disparoOriginal(kind)) return false;
+    const g = golpeDaArma(kind, nv ?? 1, p);
+    if (g?.forma === 'mina') {
+      // A armadilha explode onde está, na altura do voo (o servidor a guarda no chão);
+      // a que acabou a vida é o caso do chão no original: o impacto dela ali.
+      y = heightAt(x, z) + HOVER;
+      const imp = expirou ? this.#id(kind, nv, 'i', p) : null;
+      if (imp) this.#umaVez(imp, ESCALA_DISPARO, x, y, z);
+    }
     this.#origem(kind, x, y, z, EXPLOSAO_ORIGEM_S);
     const id = disparoOriginal(kind).fim === 'area' ? this.#id(kind, nv, 'f') : null;
     if (id && raio > 0) this.#umaVez(id, escalaDaArea(raio), x, y, z);

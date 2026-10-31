@@ -4,6 +4,8 @@ Uso:
   python3 -I tools/efeitos3d_do_original.py <old-astron> <public/modelos/efeitos> <public/texturas/efeitos> <id> [<id>...]
   python3 -I tools/efeitos3d_do_original.py --malha <old-astron> <saída> <texturas> <modelo> [...]
       (malha solta, só o .3dx: os destroços ex_particl01 a 04 da unidade destruída)
+  python3 -I tools/efeitos3d_do_original.py --rastro <old-astron> <saída> <texturas> <modelo> [...]
+      (rastro de míssil, a malha com pele da coluna 58: 2343101; veja converter_rastro)
 
   <old-astron>  raiz do old-astron (lê assets_obb/effect, assets_obb/3dx, assets_obb/mpal
                 e reference/textures_png)
@@ -224,14 +226,73 @@ def converter_malha(old, saida, pasta_tex, nome):
     print(f'{nome}: malha de {len(pecas)} peça(s), texturas {texturas or "-"}')
 
 
+def inversa_linha(m):
+    """Inversa de uma matriz 4×4 do original (16 floats, vetor-linha), por Gauss-Jordan."""
+    a = [list(m[r * 4:r * 4 + 4]) + [1.0 if c == r else 0.0 for c in range(4)] for r in range(4)]
+    for c in range(4):
+        piv = max(range(c, 4), key=lambda r: abs(a[r][c]))
+        a[c], a[piv] = a[piv], a[c]
+        d = a[c][c]
+        a[c] = [x / d for x in a[c]]
+        for r in range(4):
+            if r != c and a[r][c]:
+                k = a[r][c]
+                a[r] = [x - k * y for x, y in zip(a[r], a[c])]
+    return [x for r in range(4) for x in a[r][4:]]
+
+
+def vezes_linha(p, m):
+    """p·M (ponto do original, vetor-linha, com w = 1)."""
+    return [p[0] * m[c] + p[1] * m[4 + c] + p[2] * m[8 + c] + m[12 + c] for c in range(3)]
+
+
+def converter_rastro(old, saida, pasta_tex, nome):
+    """
+    Rastro de míssil do original (CUnitMissileTail, o .3dx da coluna 58 do
+    inititemweapon.cfg): uma malha com pele presa a ossos Bone01..BoneN. O original
+    (CUnitMissileTail::Proceed e RenderScene) guarda as 16 últimas matrizes do nó `Tail`
+    do míssil e põe o Bone01 na de agora, o último osso na mais velha e os do meio em
+    (16 − 1) × k / N + 1; a malha estica pelo caminho andado. Aqui cada vértice já sai no
+    espaço de cada osso que o puxa (a posição de ligação vezes a inversa do osso), com
+    o peso: o cliente só soma peso × (matriz do osso agora) × ponto.
+    """
+    mats, todos = ler_3dx(open(os.path.join(old, 'assets_obb', '3dx', nome + '.3dx'), 'rb').read())
+    ossos = sorted((o for o in todos if o['flags'] & 4 and o['nome'].startswith('Bone')), key=lambda o: o['nome'])
+    num = {id(o): k for k, o in enumerate(ossos)}
+    inversas = {id(o): inversa_linha(o['matriz']) for o in ossos}
+    malha = next(o for o in todos if o['pesos'])
+    tex = mats[malha['mat']].lower()
+    inf = []
+    for (p, _, _), (p3, ids) in zip(malha['verts'], malha['pesos']):
+        v = vezes_linha(p, malha['matriz'])
+        pesos = list(p3) + [max(0.0, 1 - sum(p3))]
+        linha = []
+        for w, i in zip(pesos, ids):
+            if i == 255 or w <= 1e-4:
+                continue
+            o = todos[malha['paleta'][i]]
+            linha.append([num[id(o)], r4(w), *[r4(x) for x in vezes_linha(v, inversas[id(o)])]])
+        inf.append(linha)
+    opaca = copiar_textura(old, pasta_tex, tex)
+    out = {'id': nome, 'rastro': True, 'tex': tex, 'opaca': opaca, 'ossos': len(ossos), 'historico': 16,
+           'uv': [r4(x) for v in malha['verts'] for x in v[2]], 'idx': malha['idx'], 'inf': inf}
+    with open(os.path.join(saida, nome + '.json'), 'w') as f:
+        json.dump(out, f, separators=(',', ':'))
+    print(f'{nome}: rastro de {len(inf)} vértices em {len(ossos)} ossos, textura {tex}')
+
+
 if __name__ == '__main__':
     args = sys.argv[1:]
-    malha = '--malha' in args
-    if malha:
+    modo = converter
+    if '--malha' in args:
         args.remove('--malha')
+        modo = converter_malha
+    if '--rastro' in args:
+        args.remove('--rastro')
+        modo = converter_rastro
     if len(args) < 4:
         print(__doc__)
         sys.exit(1)
     os.makedirs(args[1], exist_ok=True)
     for i in args[3:]:
-        (converter_malha if malha else converter)(args[0], args[1], args[2], i)
+        modo(args[0], args[1], args[2], i)
