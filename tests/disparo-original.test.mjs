@@ -94,6 +94,8 @@ const QUARTA_LEVA = {
   o112026: 'preso', // Canhão de Recuo
   o112031: null, // Onda de Energia Larga
   o112032: 'preso', // Ciclone Varredor
+  o112005: 'giro', // Feixe Tempestade Teleguiado
+  o114003: 'preso', // Lâmina Giratória
 };
 
 test('disparo original: as seis armas de início e as revistas, com o modo de clarão e de fim do original', () => {
@@ -110,7 +112,7 @@ test('disparo original: as seis armas de início e as revistas, com o modo de cl
   // O clarão do catálogo bate com o modo: as de clarão null não têm efeito na coluna 51.
   for (const [k, v] of Object.entries(DISPARO_ORIGINAL)) assert.equal(!!golpeDaArma(k, 1).vis.d, v.clarao !== null, k);
   // Coluna 94 = 7 (o fim deitado pela área) na Metralha e nas de área da segunda leva.
-  const comFim = ['o311004', 'o111009', 'o111005', 'o111017', 'o111019', 'o112010', 'o112035', 'o112038', 'o112011', 'o112027', 'o112025', 'o112009', 'o112036', 'o116005', 'o111013', 'o112026'];
+  const comFim = ['o311004', 'o111009', 'o111005', 'o111017', 'o111019', 'o112010', 'o112035', 'o112038', 'o112011', 'o112027', 'o112025', 'o112009', 'o112036', 'o116005', 'o111013', 'o112026', 'o112005'];
   for (const [k, v] of Object.entries(DISPARO_ORIGINAL)) assert.equal(v.fim, comFim.includes(k) ? 'area' : undefined, k);
   for (const k of comFim) assert.ok(golpeDaArma(k, 1).vis.f && golpeDaArma(k, 1).area > 0, k);
   assert.equal(ESCALA_DISPARO, FATOR_TAMANHO_NAVE, 'na escala das naves');
@@ -129,7 +131,9 @@ test('disparo original: as seis armas de início e as revistas, com o modo de cl
   assert.deepEqual(DISPARO_ORIGINAL.o112004.carga, { v0: 0.2, vmax: 0.2, acel: -0.0001 });
   // Quarta leva: o Canhão de Recuo como o Descarregador.
   assert.deepEqual(DISPARO_ORIGINAL.o112026.carga, { v0: 0, vmax: 0.5, acel: 0.0003 });
-  const comCarga = ['o112028', 'o112010', 'o112003', 'o112030', 'o112011', 'o112027', 'o112025', 'o112020', 'o112009', 'o112004', 'o112026'];
+  // A Lâmina Giratória sai parada e acelera 0,0002 até 0,35 (a Reforçada freia).
+  assert.deepEqual(DISPARO_ORIGINAL.o114003.carga, { v0: 0, vmax: 0.35, acel: 0.0002 });
+  const comCarga = ['o112028', 'o112010', 'o112003', 'o112030', 'o112011', 'o112027', 'o112025', 'o112020', 'o112009', 'o112004', 'o112026', 'o114003'];
   for (const k of Object.keys(DISPARO_ORIGINAL)) if (!comCarga.includes(k)) assert.equal(DISPARO_ORIGINAL[k].carga, undefined, k);
   // O Teleporte toca o CUnitTeleportEffect (1163010) na saída e na chegada.
   assert.equal(DISPARO_ORIGINAL.o112021.teleporte, '1163010');
@@ -159,7 +163,7 @@ test('disparo original: os efeitos de todas as versões estão convertidos e vã
   for (const kind of Object.keys(DISPARO_ORIGINAL)) {
     const vis = WEAPONS[kind].versoes.map((v) => v.golpe.vis);
     assert.equal(new Set(vis.map((v) => v.d)).size, 1, `${kind}: um clarão`);
-    if (!['o112003', 'o112001'].includes(kind)) assert.equal(new Set(vis.map((v) => v.i)).size, 1, `${kind}: um impacto`);
+    if (!['o112003', 'o112001', 'o114003'].includes(kind)) assert.equal(new Set(vis.map((v) => v.i)).size, 1, `${kind}: um impacto`);
   }
   assert.deepEqual([1, 4, 7].map((nv) => golpeDaArma('o112003', nv).vis.i), ['1401107', '1401207', '1401307']);
   assert.deepEqual([1, 4, 8].map((nv) => golpeDaArma('o112001', nv, 2).vis.i), ['1401007', '1401107', '1401307']);
@@ -488,4 +492,24 @@ test('quarta leva: o Feixe Clone em Leque, o Canhão de Recuo, a Onda de Energia
   const varredor = golpeDaArma('o112032', 1);
   assert.ok(atravessa(varredor) && explodeNoFim(varredor));
   assert.deepEqual(golpeDaArma('o112032', 1, 1).vis, { tipo: 'esfera_que_cresce', p: '2132018', i: '1421001' });
+});
+
+test('quarta leva: o Feixe Tempestade Teleguiado e a Lâmina Giratória como no original', () => {
+  const projeteis = (kind) => WEAPONS[kind].versoes.map((v) => v.golpe.vis.p);
+  const degraus = (a, b, c) => [a, a, a, b, b, b, c, c];
+  // Feixe Tempestade Teleguiado: o feixe e o fim do Reforçado, mais vida (1 s) e menos área.
+  assert.deepEqual(projeteis('o112005'), projeteis('o116005'));
+  assert.deepEqual(golpeDaArma('o112005', 1).vis, golpeDaArma('o116005', 1).vis);
+  assert.ok(golpeDaArma('o112005', 1).guia && golpeDaArma('o112005', 1).vida > golpeDaArma('o116005', 1).vida);
+  // Lâmina Giratória: o disco da Reforçada (1361031/32/33), o impacto que cresce na V3 e na
+  // V6 (1401107 → 1401207 → 1401307), atravessa e explode no fim da vida (coluna 74 = 111222).
+  assert.deepEqual(projeteis('o114003'), degraus('1361031', '1361032', '1361033'));
+  assert.deepEqual(WEAPONS.o114003.versoes.map((v) => v.golpe.vis.i), ['1401107', '1401107', '1401207', '1401207', '1401207', '1401307', '1401307', '1401307']);
+  const lamina = golpeDaArma('o114003', 1);
+  assert.ok(atravessa(lamina) && explodeNoFim(lamina) && !(lamina.area > 0));
+  // Sai da boca parada, fica atrás do tiro do jogo (que voa a média) e chega junto no fim.
+  const carga = DISPARO_ORIGINAL.o114003.carga;
+  assert.equal(recuoDaCarga(0, lamina, carga), 0);
+  assert.ok(recuoDaCarga(1, lamina, carga) > 0);
+  assert.ok(Math.abs(recuoDaCarga(lamina.vida, lamina, carga)) < 1e-9);
 });

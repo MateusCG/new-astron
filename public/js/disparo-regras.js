@@ -42,7 +42,8 @@
 //   escala área / 100 (o anel do 1162020 tem raio 100), uma vez. O projétil dele tem
 //   vida 0 e some no primeiro quadro: não aparece.
 // - Projétil que acelera (colunas 64 a 66: o Canhão de Faíscas sai parado e acelera
-//   0,0003 m/ms² até 0,5 m/ms): CUnitBeam::MoveBullet soma a aceleração a cada quadro.
+//   0,0003 m/ms² até 0,5 m/ms; a Lâmina Giratória, 0,0002 até 0,35, e segue nela até o
+//   fim da vida): CUnitBeam::MoveBullet soma a aceleração a cada quadro.
 //   O jogo voa a velocidade média (o mesmo alcance no mesmo tempo, shared/armas.js);
 //   o desenho anda pela curva do original na mesma linha (recuoDaCarga).
 // - Esfera que cresce (tipo de gráfico 17, coluna 59: o subprojétil do Canhão de
@@ -173,6 +174,8 @@ export const DISPARO_ORIGINAL = Object.freeze({
   o112026: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão de Recuo
   o112031: Object.freeze({ clarao: null }), // Onda de Energia Larga (Wide Energy Wave)
   o112032: Object.freeze({ clarao: 'preso' }), // Ciclone Varredor (Cyclone Wiper)
+  o112005: Object.freeze({ clarao: 'giro', fim: 'area' }), // Feixe Tempestade Teleguiado (HomingStorm Beam)
+  o114003: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0, vmax: 0.35, acel: 0.0002 }) }), // Lâmina Giratória (Revolving Blade)
 });
 
 /**
