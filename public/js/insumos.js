@@ -101,6 +101,12 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
   // cada degrau; os Mísseis em Fila Acelerados com o rastro de 7 ossos (2341102).
   '1321073', '1321074', '1321075', '1132001', '1332008', '1332009', '1332010',
   '1332025', '1332026', '1332027', '1162022', '2341022', '2341023', '2341102',
+  // Bellico Mobile: o feixe da Faísca Perfurante; a carga do Canhão em Fila de cada
+  // degrau; a carga e o fim do Canhão Revelador; os mísseis (o Quebra-Escudo, o de
+  // cruzeiro de cada degrau, o de choque); a armadilha da Tempestade e da Atiradora de
+  // cada degrau; a de Magma e o campo dela.
+  '2132051', '1332003', '1332004', '1332005', '1333009', '2403009', '2343008',
+  '2541022', '2541023', '2541024', '2443007', '1251205', '1251305', '1251405', '1355004', '2253007',
   // A Invulnerabilidade na nave (efeito 20) e as faíscas do Amplificador de Energia.
   '1163039', '1163014',
   // Os estados dos dispositivos na nave: o conversor de impacto, as resistências e o

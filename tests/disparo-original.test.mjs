@@ -37,6 +37,7 @@ import {
   subidaDaFaisca,
   giroDaFaisca,
   alfaDaFaisca,
+  turboNaNave,
 } from '../public/js/disparo-regras.js';
 import { EFEITOS_ORIGINAIS, ICONES_ESTADO, insumosDaPartida } from '../public/js/insumos.js';
 import { INICIAIS_ORIGINAL, WEAPONS, golpeDaArma } from '../shared/armas.js';
@@ -120,11 +121,29 @@ const BELLICO_ASSAULT = {
   o212020: null, // Nova Desarmadora
   o212031: null, // Disjuntor
 };
-const BELLICO = { ...BELLICO_ASSAULT };
+const BELLICO_MOBILE = {
+  o211005: 'giro', // Feixe Clone Duplo
+  o212024: 'preso', // Feixe de Faísca Perfurante
+  o212005: 'preso', // Canhão em Fila
+  o212013: 'preso', // Canhão Revelador
+  o212022: 'preso', // Canhão Anticadência
+  o212023: 'preso', // Canhão Redutor de Energia
+  o212025: 'preso', // Canhão Consumidor
+  o212010: 'preso', // Míssil Quebra-Escudo
+  o212004: 'preso', // Armadilha Tempestade
+  o212006: 'preso', // Armadilha Atiradora
+  o212014: null, // Arrancada
+  o212027: 'giro', // Rifle Perfurante
+  o212028: 'giro', // Onda de Choque Frontal
+  o212029: 'giro', // Míssil de Cruzeiro
+  o212032: 'preso', // Míssil de Choque
+  o212033: 'preso', // Armadilha de Magma
+};
+const BELLICO = { ...BELLICO_ASSAULT, ...BELLICO_MOBILE };
 // O impacto cresce com a versão (1401107 → 1401207 → 1401307) nestas.
-const IMPACTO_POR_VERSAO = ['o112003', 'o112001', 'o114003', 'o212001'];
+const IMPACTO_POR_VERSAO = ['o112003', 'o112001', 'o114003', 'o212001', 'o212004', 'o212006', 'o212029', 'o212032'];
 // Coluna 94 = 7 (o fim deitado pela área) nas Bellico.
-const FIM_BELLICO = ['o211015', 'o212002', 'o212011'];
+const FIM_BELLICO = ['o211015', 'o212002', 'o212011', 'o212005', 'o212013', 'o212022', 'o212023', 'o212025', 'o212004'];
 // Colunas 64 a 66 (velocidade inicial, máxima e aceleração, m/ms e m/ms²) das Bellico que não voam constante.
 const CARGA_BELLICO = {
   o212002: { v0: 0, vmax: 0.5, acel: 0.0003 },
@@ -132,6 +151,17 @@ const CARGA_BELLICO = {
   o212003: { v0: 0.9, vmax: 0.9, acel: -0.00103 },
   o214003: { v0: 0.11, vmax: 0.5, acel: 0.00001 },
   o212001: { v0: 0, vmax: 0.4, acel: 0.00055 },
+  o212024: { v0: 0.5, vmax: 0.7, acel: 0.0003 },
+  o212005: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o212013: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o212022: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o212023: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o212025: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o212010: { v0: -0.05, vmax: 0.4, acel: 0.0002 },
+  o212006: { v0: 0.5, vmax: 0.5, acel: -0.0002 },
+  o212028: { v0: 0.2, vmax: 0.5, acel: 0.0015 },
+  o212029: { v0: 0, vmax: 0.45, acel: 0.00055 },
+  o212032: { v0: 0, vmax: 0.45, acel: 0.00055 },
 };
 
 test('disparo original: as seis armas de início e as revistas, com o modo de clarão e de fim do original', () => {
@@ -628,4 +658,59 @@ test('Bellico Assault: a Invulnerabilidade na nave e as faíscas do Amplificador
   assert.equal(alfaDaFaisca(0), 1);
   assert.ok(perto(alfaDaFaisca(19), 0.05));
   assert.equal(alfaDaFaisca(20), null);
+});
+
+test('Bellico Mobile: os projéteis de cada degrau, as armadilhas e os mísseis do original', () => {
+  const projeteis = (kind, p = 0) => WEAPONS[kind].versoes.map((_, i) => golpeDaArma(kind, i + 1, p).vis.p);
+  const degraus = (a, b, c) => [a, a, a, b, b, b, c, c];
+  // Feixe Clone Duplo: o feixe da Tempestade Circular, que se divide duas vezes (6 em
+  // volta aos 500 ms e 3 a 5 paralelos aos 50 ms), sem clarão nos clones.
+  assert.deepEqual(projeteis('o211005'), degraus('1312053', '1312054', '1312055'));
+  for (const p of [1, 2]) {
+    assert.deepEqual(projeteis('o211005', p), projeteis('o211005'));
+    assert.equal(golpeDaArma('o211005', 1, p).vis.d, undefined);
+  }
+  // Feixe de Faísca Perfurante: o 2132051 que atravessa, saindo a 0,5 e acelerando até 0,7.
+  assert.deepEqual(projeteis('o212024'), Array(8).fill('2132051'));
+  assert.ok(atravessa(golpeDaArma('o212024', 1)) && !explodeNoFim(golpeDaArma('o212024', 1)));
+  // Os canhões: a carga e o fim de cada um pela área, explodindo no fim da vida (o
+  // Consumidor também atravessa).
+  assert.deepEqual(projeteis('o212005'), degraus('1332003', '1332004', '1332005'));
+  for (const [k, p, f] of [['o212005', null, '2432001'], ['o212013', '1333009', '2403009'], ['o212022', '1333004', '2403004'], ['o212023', '1333008', '2403008'], ['o212025', '1333004', '2403008']]) {
+    const g = golpeDaArma(k, 1);
+    if (p) assert.equal(g.vis.p, p, k);
+    assert.equal(g.vis.f, f, k);
+    assert.ok(explodeNoFim(g) && g.area > 0, k);
+  }
+  assert.ok(atravessa(golpeDaArma('o212025', 1)));
+  // Mísseis: o Quebra-Escudo e o de Choque com o rastro dos mísseis (2343101); o de
+  // Cruzeiro sem rastro (tipo de gráfico 0), o míssil de cada degrau.
+  for (const k of ['o212010', 'o212032']) assert.deepEqual([golpeDaArma(k, 1).vis.tipo, golpeDaArma(k, 1).vis.r], ['missil_com_rastro', '2343101'], k);
+  assert.deepEqual(projeteis('o212010'), Array(8).fill('2343008'));
+  assert.deepEqual(projeteis('o212032'), Array(8).fill('2443007'));
+  assert.deepEqual(projeteis('o212029'), degraus('2541022', '2541023', '2541024'));
+  assert.equal(golpeDaArma('o212029', 1).vis.r, undefined);
+  for (const k of ['o212010', 'o212029', 'o212032']) assert.ok(explodeNoFim(golpeDaArma(k, 1)), k);
+  // Armadilhas: a Tempestade é a armadilha (1251205/305/405) parada que explode pela área
+  // no fim; a Atiradora voa com a mesma peça e para aos 1300 ms (vira a armadilha); a de
+  // Magma solta a gota (1355004) e aos 1000 ms o campo de magma (2253007).
+  assert.deepEqual(projeteis('o212004'), degraus('1251205', '1251305', '1251405'));
+  assert.equal(golpeDaArma('o212004', 1).forma, 'mina');
+  assert.deepEqual(projeteis('o212006'), projeteis('o212004'));
+  assert.deepEqual(projeteis('o212006', 1), projeteis('o212004'));
+  assert.equal(golpeDaArma('o212006', 1, 1).forma, 'mina');
+  assert.deepEqual(projeteis('o212033'), Array(8).fill('1355004'));
+  assert.deepEqual([golpeDaArma('o212033', 1, 1).vis.a, golpeDaArma('o212033', 1, 1).vis.i], ['2253007', '1502004']);
+  // Rifle Perfurante: o feixe do Magma a 1,2 m/ms, que atravessa; Onda de Choque Frontal: a onda física, 2 a 3 em leque.
+  assert.deepEqual(projeteis('o212027'), degraus('1312063', '1312064', '1312065'));
+  assert.ok(atravessa(golpeDaArma('o212027', 1)));
+  assert.deepEqual(projeteis('o212028'), Array(8).fill('1162022'));
+  assert.equal(golpeDaArma('o212028', 1).tiros.length, 2);
+});
+
+test('Bellico Mobile: a Arrancada acende o turbo dos motores, como o boost', () => {
+  assert.equal(turboNaNave(false, ['acel']), true);
+  assert.equal(turboNaNave(true, []), true);
+  assert.equal(turboNaNave(false, ['escudoRec']), false);
+  assert.equal(turboNaNave(false, null), false);
 });

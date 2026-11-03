@@ -77,7 +77,8 @@
 //   da tabela do CUnit::LoadResource, desenhados na matriz da nave (CUnit::RenderScene),
 //   repetindo enquanto o estado dura (ESTADOS_NA_NAVE); a Invulnerabilidade (+0xa9) liga
 //   o 20 (1163039), do mesmo jeito. O Amplificador de Energia (+0x97) solta as faíscas
-//   do CUnitHyperEnergyRecovery (ENERGIA_REC).
+//   do CUnitHyperEnergyRecovery (ENERGIA_REC) e a Arrancada (+0x9b) acende o turbo nos
+//   dois motores principais (CUnit::RenderPropulsion, turboNaNave).
 // - Onda que cresce em voo (a Onda de Sopro Acron: coluna 55 = raio máximo, 56 = quanto
 //   cresce por ms, tipo de gráfico 0): só o raio de acerto cresce (MoveBullet); o
 //   CUnitBeam::RenderScene desenha o modelo sem escala nenhuma, então o desenho é o da
@@ -195,6 +196,23 @@ export const DISPARO_ORIGINAL = Object.freeze({
   o212019: Object.freeze({ clarao: null }), // Invulnerabilidade (Invulnerability Device)
   o212020: Object.freeze({ clarao: null }), // Nova Desarmadora (Trap Removing Nova)
   o212031: Object.freeze({ clarao: null }), // Disjuntor (Circuit Breaking Device)
+  // Bellico Mobile.
+  o211005: Object.freeze({ clarao: 'giro' }), // Feixe Clone Duplo (Double Clone Beam)
+  o212024: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0.5, vmax: 0.7, acel: 0.0003 }) }), // Feixe de Faísca Perfurante
+  o212005: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão em Fila (Array Cannon)
+  o212013: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Revelador
+  o212022: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Anticadência
+  o212023: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Redutor de Energia
+  o212025: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Consumidor
+  o212010: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: -0.05, vmax: 0.4, acel: 0.0002 }) }), // Míssil Quebra-Escudo
+  o212004: Object.freeze({ clarao: 'preso', fim: 'area' }), // Armadilha Tempestade (Storm Trap)
+  o212006: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0.5, vmax: 0.5, acel: -0.0002 }) }), // Armadilha Atiradora (Rifle Trap)
+  o212014: Object.freeze({ clarao: null }), // Arrancada (Instant Acceleration Device)
+  o212027: Object.freeze({ clarao: 'giro' }), // Rifle Perfurante (Piercing Rifle)
+  o212028: Object.freeze({ clarao: 'giro', carga: Object.freeze({ v0: 0.2, vmax: 0.5, acel: 0.0015 }) }), // Onda de Choque Frontal
+  o212029: Object.freeze({ clarao: 'giro', carga: Object.freeze({ v0: 0, vmax: 0.45, acel: 0.00055 }) }), // Míssil de Cruzeiro
+  o212032: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0, vmax: 0.45, acel: 0.00055 }) }), // Míssil de Choque
+  o212033: Object.freeze({ clarao: 'preso' }), // Armadilha de Magma (Magma Trap)
 });
 
 /**
@@ -239,6 +257,15 @@ export function giroDaFaisca(r) {
 /** Alfa da faísca do Amplificador `n` quadros depois de nascer (1 − n / 20), ou null quando ela já sumiu. */
 export function alfaDaFaisca(n) {
   return n >= ENERGIA_REC.quadros ? null : 1 - n / ENERGIA_REC.quadros;
+}
+
+/**
+ * Os motores acendem o turbo? O boost, ou a Arrancada ligada (`fx` 'acel': código 28 →
+ * PILOT_STATE_FLAG 0x12 → CUnitState[7] → piloto +0x9b, que o CUnit::RenderPropulsion
+ * lê para trocar o efeito dos dois motores principais pelo do turbo).
+ */
+export function turboNaNave(boost, fx) {
+  return !!boost || !!fx?.includes('acel');
 }
 
 /**

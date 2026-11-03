@@ -113,7 +113,7 @@
 import * as THREE from 'three';
 import { DT, RACES, WEAPONS, VEL_TOQUE, createBullet, stepShip, bulletHits, forward, pousoPermitido } from '/shared/sim.js';
 import { golpeDaArma, golpePrevisivel, versaoArma, visualDoOriginal } from '/shared/armas.js';
-import { disparoOriginal } from './disparo-regras.js';
+import { disparoOriginal, turboNaNave } from './disparo-regras.js';
 import { CLASSES, ORDEM_CLASSES, RACAS_BLOQUEADAS, naveDe, linhaDe, classeValida, racaJogavel } from '/shared/naves.js';
 import { areaPouso, heightAt } from '/shared/terrain.js';
 import { alturaSolida } from '/shared/obstaculos.js';
@@ -1279,9 +1279,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
       minhaNave.position.set(x, y + (pred.pousado ? 0 : Math.sin(tempo * 2.2) * 0.25), z);
       minhaNave.rotation.y = lerpAng(ant.yaw, pred.yaw, alfa);
       minhaNave.userData.corpo.rotation.z = lerp(ant.roll, pred.roll, alfa);
-      atualizarMotor(minhaNave, { boost: pred.boost, pousado: pred.pousado }, tempo, dt);
-      definirArmas(minhaNave, pred.encaixes);
       const eu = snaps.at(-1)?.ents.find((e) => e.id === meuId);
+      // A Arrancada ligada acende o turbo, como o boost.
+      atualizarMotor(minhaNave, { boost: turboNaNave(pred.boost, vivo ? eu?.fx : null), pousado: pred.pousado }, tempo, dt);
+      definirArmas(minhaNave, pred.encaixes);
       const meusEfeitos = {
         dreno: !!eu?.dreno && vivo,
         lento: pred.lento > 0 && vivo,
@@ -1363,7 +1364,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
         if (e.esp === 'sonda') sonda = o.obj.position;
       } else if (e.tipo === 'minerador') animarMinerador(o.obj, e, tempo, e.id);
       else if (e.tipo === 'escolta') animarEscolta(o.obj, tempo, dt, e.id);
-      else if (!bicho) atualizarMotor(o.obj, { boost: e.boost, pousado: e.pousado }, tempo, dt);
+      else if (!bicho) atualizarMotor(o.obj, { boost: turboNaNave(e.boost, e.fx), pousado: e.pousado }, tempo, dt);
       const bonus = e.tipo === 'jogador' ? [...(e.bn ?? []), ...(bonusAtivos[e.time]?.medusa ? ['medusa'] : [])] : [];
       efeitos.estadoNave(o.obj, { dreno: !!e.dreno, lento: !!e.lento, emp: !!e.emp, fx: e.fx, bonus }, dt, tempo);
       efeitos.recall(o.obj, e.recall ?? null, aliado ? COR_TIME.meu : COR_TIME.outro, dt, tempo);

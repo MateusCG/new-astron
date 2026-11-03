@@ -32,7 +32,8 @@
 // encostar no alvo; o rebatido vira para onde o servidor mandou (rebaterTiro). Os tiros
 // dos NPCs (laser e plasma) continuam com a forma de antes. As naves atingidas mostram os
 // efeitos das armas pela lista `fx` de cada entidade (paralisia, desgoverno, energia,
-// invulnerável, escudo, fraco, conserto, aceleração, camuflagem).
+// invulnerável, escudo, fraco, conserto, camuflagem; a aceleração da Arrancada acende o
+// turbo dos motores, em nave.js).
 //
 // Bônus dos objetivos na nave (`bonus`: 'ataque', 'suporte', 'sonda' da própria nave e
 // 'medusa' do time): um anel fino deitado em volta dela por bônus, cada um com raio,
@@ -203,7 +204,6 @@ const COR_FX = {
   escudo: new THREE.Color('#8fd0ff'),
   fraco: new THREE.Color('#ff8a70'),
   regen: new THREE.Color('#7dff9a'),
-  acel: new THREE.Color('#7fd8ff'),
 };
 const FX_PARTICULA_S = 0.09;
 // Teleporte até o companheiro: o feixe curto na saída e na chegada (raio e altura em m,
@@ -803,8 +803,9 @@ export class Efeitos {
 
   /**
    * Efeitos das armas do original na nave (lista `fx` do servidor): aura na cor de
-   * cada um (paralisia pisca como curto, invulnerável e escudo envolvem a nave,
-   * conserto e aceleração soltam partículas), e a camuflagem deixa a nave fantasma.
+   * cada um (paralisia pisca como curto, escudo envolve a nave, conserto solta
+   * partículas), os estados com o efeito do original (os ícones, os presos na nave, o
+   * reparo do escudo, as faíscas do Amplificador), e a camuflagem deixa a nave fantasma.
    */
   #fxArmas(obj, fx, dt, tempo) {
     const ud = obj.userData;
@@ -837,14 +838,13 @@ export class Efeitos {
     if (ativos.has('amplif')) this.disparo.energiaRec(obj, dt);
     else ud.energiaAnt = undefined;
     const energia = ativos.has('energia') && !comIcone.has('energia');
-    if (!(ativos.has('regen') || ativos.has('acel') || energia)) return;
+    if (!(ativos.has('regen') || energia)) return;
     obj.getWorldPosition(this.v);
     ud.fx.acc += dt;
     while (ud.fx.acc >= FX_PARTICULA_S) {
       ud.fx.acc -= FX_PARTICULA_S;
       if (ativos.has('regen')) this.#particula(COR_FX.regen, 1.6, 5, 0.8);
       if (energia) this.#particula(COR_FX.energia, 1.4, -5, 0.7);
-      if (ativos.has('acel')) this.#particula(COR_FX.acel, 2.2, 0, 0.35, 3);
     }
   }
 
