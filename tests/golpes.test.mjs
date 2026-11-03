@@ -528,9 +528,33 @@ test('suporte: Nova de Reparo cura os aliados no raio; Druida cura o aliado que 
   f.ship.hp = 40;
   const he = e.ship.hp;
   disparar(w2, d, '212017');
+  w2.tirarEventos();
   passos(w2, 2 * SEGUNDO);
   assert.ok(f.ship.hp > 40, 'aliado atrás do inimigo curado');
   assert.ok(e.ship.hp >= he - 1e-9, 'atravessou o inimigo sem ferir');
+  // O impacto do original no casco do aliado que o tiro pega ('apoio' com o tiro, e o
+  // 'fim' dele logo depois); no inimigo, nada.
+  const ev2 = w2.tirarEventos();
+  const apoio = ev2.find((x) => x.e === 'apoio' && x.alvo === f.id);
+  assert.ok(apoio && apoio.kind === 'o212017' && apoio.por === d.id && apoio.bala !== undefined);
+  assert.ok(ev2.indexOf(ev2.find((x) => x.e === 'fim' && x.bala === apoio.bala)) > ev2.indexOf(apoio));
+  assert.ok(!ev2.some((x) => x.e === 'apoio' && x.alvo === e.id));
+});
+
+test('suporte: o Canhão Antiparalisia limpa os aliados na área e cada um leva o impacto do original', () => {
+  const { w, js } = arena(['bellico', 'functional', 0, 0], ['acron', 'assault', 0, -400], ['bellico', 'assault', 0, -60], ['acron', 'assault', 400, 0], ['bellico', 'assault', 15, -60]);
+  const [a, , c, , e] = js;
+  for (const j of [c, e]) Object.assign(j.ship, { lento: 3, lentoMult: 0 });
+  w.tirarEventos();
+  disparar(w, a, '212021');
+  passos(w, 2 * SEGUNDO);
+  assert.equal(c.ship.lento, 0);
+  assert.equal(e.ship.lento, 0);
+  const ev = w.tirarEventos();
+  const apoios = ev.filter((x) => x.e === 'apoio' && x.kind === 'o212021');
+  // Um impacto por tiro do leque que pega o aliado (o ProcessDamage de cada projétil).
+  assert.deepEqual([...new Set(apoios.map((x) => x.alvo))].sort(), [c.id, e.id].sort());
+  assert.ok(ev.some((x) => x.e === 'explosao' && x.arma === 'o212021'), 'a área do fim');
 });
 
 test('suporte: Nova Antiparalisia limpa; Doadora dá energia e zera a própria; Desarmadora destrói minas inimigas', () => {

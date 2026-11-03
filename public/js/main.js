@@ -1002,8 +1002,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
         if (!efeitos.disparo.area(e.arma, e.nv, e.x, e.y, e.z, e.raio, e.p ?? 0, !!e.expirou)) efeitos.armas.area(e.arma, e.nv, e.p, e.x, e.y, e.z, e.raio);
         tocarUmaVez(`x${e.arma}:${Math.round(e.x / 20)}:${Math.round(e.z / 20)}`, somImpacto(e.arma, e.nv, e.p), e.x, e.z);
       } else if (e.e === 'apoio') {
-        // A nova de suporte pegou um aliado: o impacto do original no casco dele.
-        efeitos.disparo.impacto(e.kind, e.nv, e.p, alvoDoAcerto(e), null, false);
+        // A nova, o tiro ou a área de suporte pegou um aliado: o impacto do original no
+        // casco dele (o tiro que o pegou sai de cena; o seu já desenhou ao encostar).
+        const bala = e.bala !== undefined ? efeitos.tiroAcertou(e.bala) : null;
+        efeitos.disparo.impacto(e.kind, e.nv, e.p, alvoDoAcerto(e), bala, e.por === meuId);
       } else if (e.e === 'cura') {
         // A cura da arma desenhada como no original já sai no impacto dela ('apoio').
         if (!disparoOriginal(e.kind)) efeitos.explosao(e.x, e.y, e.z, 0.6, '#7dff9a');
@@ -1396,8 +1398,12 @@ function montarJogo(rede, boas, renderer, race, classe) {
     // Aliado não: no servidor o tiro atravessa quem é do mesmo time.
     efeitos.atualizar(dt, (b) => {
       if (b.owner !== meuId) return null;
+      // O tiro de suporte (o Druida Reparador, o Canhão Antiparalisia) só encosta nos
+      // pilotos aliados, como no servidor; o resto, em quem não é aliado.
+      const suporte = golpeDaArma(b.kind, b.nv ?? 1, b.p ?? 0)?.inimigo === false;
       for (const [id, o] of outras) {
-        if (o.obj.visible && !o.aliado && bulletHits(b, { x: o.obj.position.x, y: o.obj.position.y, z: o.obj.position.z, raio: o.raio })) return { id, obj: o.obj, raio: o.raio };
+        const pega = suporte ? o.aliado && o.tipo === 'jogador' : !o.aliado;
+        if (o.obj.visible && pega && bulletHits(b, { x: o.obj.position.x, y: o.obj.position.y, z: o.obj.position.z, raio: o.raio })) return { id, obj: o.obj, raio: o.raio };
       }
       return null;
     });

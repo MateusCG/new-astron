@@ -418,8 +418,10 @@
 //                                    ligado na nave id (camuflagem, escudo, teleporte...);
 //                                    o teleporte traz de onde a nave saltou (ox, oy, oz)
 //         {e:'cura', id, por, kind?, hp, x, y, z}   aliado curado por arma de suporte
-//         {e:'apoio', kind, nv, p, alvo, por, time, x, y, z}   a nova de suporte pegou
-//                                    o aliado `alvo` (o impacto do original no casco)
+//         {e:'apoio', kind, nv, p, alvo, por, time, x, y, z, bala?}   a nova, o tiro ou
+//                                    a área de suporte pegou o aliado `alvo` (o impacto
+//                                    do original no casco); bala = o tiro que o pegou
+//                                    direto (o 'fim' dele vem logo depois)
 //         {e:'desarmou', id, x, y, z}   mina destruída pela Nova Desarmadora
 //         {e:'nivel', id, nivel}     jogador subiu de nível
 //         {e:'nave', id, nome, time, tier, nave}   jogador comprou a próxima nave da

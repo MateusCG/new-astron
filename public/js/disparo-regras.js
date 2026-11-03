@@ -8,10 +8,11 @@
 // rastro, as armadilhas, as seis novas, a camuflagem e o teleporte; e as nove da
 // quarta, as últimas Acron: os feixes e a metralha teleguiados, a Metralha Larga, o
 // Feixe Clone em Leque, o Canhão de Recuo, a Onda de Energia Larga, o Ciclone Varredor
-// e a Lâmina Giratória). A pesquisa, com a evidência de cada número, está em
+// e a Lâmina Giratória; e as 41 Bellico, nos lotes Assault, Mobile e Functional). A
+// pesquisa, com a evidência de cada número, está em
 // ~/Documentos/new-astron-progresso/ANIMACOES-ORIGINAL.md, seções "Disparo das armas
-// de início", "Magma, Faíscas e Rebatedor", "Segunda leva Acron", "Terceira leva Acron"
-// e "Quarta leva Acron".
+// de início", "Magma, Faíscas e Rebatedor", "Segunda leva Acron", "Terceira leva Acron",
+// "Quarta leva Acron" e "Armas Bellico".
 //
 // Como o original desenha um tiro (libgame decompilado):
 // - Clarão na boca: CUnitBeam::InitData cria, para CADA projétil, o efeito da coluna 51
@@ -91,8 +92,9 @@
 // - Armadilha (a Circular, a Elétrica, a Supressora): o projétil para onde a vida dele
 //   acaba (ou na boca, com velocidade 0), na altura do voo, e fica ali; a que acaba a
 //   vida sem ninguém pisar explode como no chão (o impacto ali, a área e o fim).
-// - Nova de suporte (coluna 74 com o 4º dígito '1': a de Reparo, a Antiparalisia, a
-//   Doadora): o ProcessDamage cria o impacto em cada aliado que ela pega.
+// - Suporte (coluna 74 com o 4º dígito '1': as novas de Reparo, Antiparalisia e
+//   Doadora; o Druida Reparador e o Canhão Antiparalisia, tiros que só pegam aliado): o
+//   ProcessDamage cria o impacto em cada aliado que a nova, o tiro ou a área pega.
 // - Camuflagem (código 27 → PILOT_STATE_FLAG 0x1c → estado +0x99): CUnit::RenderScene
 //   desenha a nave com o próprio casco e as armas no material de alfa 0,3 para quem
 //   pode vê-la (o time dela, o inimigo que a revela); o inimigo que não revela não a
@@ -213,6 +215,16 @@ export const DISPARO_ORIGINAL = Object.freeze({
   o212029: Object.freeze({ clarao: 'giro', carga: Object.freeze({ v0: 0, vmax: 0.45, acel: 0.00055 }) }), // Míssil de Cruzeiro
   o212032: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0, vmax: 0.45, acel: 0.00055 }) }), // Míssil de Choque
   o212033: Object.freeze({ clarao: 'preso' }), // Armadilha de Magma (Magma Trap)
+  // Bellico Functional.
+  o211003: Object.freeze({ clarao: 'giro', fim: 'area' }), // Feixe Tempestade de Magma (MagmaStorm Beam)
+  o212021: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Antiparalisia
+  o212007: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: -0.05, vmax: 0.4, acel: 0.0002 }) }), // Míssil Perfurante em Leque
+  o212026: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0.25, vmax: 0.25, acel: -0.00002 }) }), // Raio de Faísca Perfurante
+  o212009: Object.freeze({ clarao: null }), // Amortecedor (Shock Reducing Device)
+  o212015: Object.freeze({ clarao: null }), // Nova Trava-Aceleração (Acceleration Paralysis Nova)
+  o212030: Object.freeze({ clarao: 'giro', carga: Object.freeze({ v0: 0.11, vmax: 0.5, acel: 0.00001 }) }), // Onda de Choque Elétrica
+  o212034: Object.freeze({ clarao: 'preso', fim: 'area' }), // Vulcan Tempestade Teleguiada
+  o212017: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0002 }) }), // Druida Reparador (Repair Druid)
 });
 
 /**

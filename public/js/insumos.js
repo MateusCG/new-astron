@@ -107,6 +107,9 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
   // cada degrau; a de Magma e o campo dela.
   '2132051', '1332003', '1332004', '1332005', '1333009', '2403009', '2343008',
   '2541022', '2541023', '2541024', '2443007', '1251205', '1251305', '1251405', '1355004', '2253007',
+  // Bellico Functional: o feixe da Tempestade de Magma e o Raio de Faísca Perfurante de
+  // cada degrau, a onda elétrica e o Druida Reparador.
+  '1312013', '1312014', '1312015', '1336014', '1336015', '1336016', '1336017', '1336018', '1162024', '1353019',
   // A Invulnerabilidade na nave (efeito 20) e as faíscas do Amplificador de Energia.
   '1163039', '1163014',
   // Os estados dos dispositivos na nave: o conversor de impacto, as resistências e o

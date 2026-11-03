@@ -370,7 +370,11 @@ export class Golpes {
         if (dano > 0 || a === direto) this.ctx.ferir(a, dano, autor, ev, { tipoDano, penetrante: !!g.penetrante });
         if (a.vivo) this.#efeitosInimigo(g, a, autor, fonte);
       } else if (g.aliado && this.#aliado(como, a, true)) {
-        if (a === direto && bala !== undefined) w.eventos.push({ e: 'fim', bala, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2) });
+        // O original cria o impacto em cada aliado que o tiro ou a área de suporte pega (o
+        // Druida Reparador, o Canhão Antiparalisia); `bala`: o tiro que o pegou direto.
+        const deBala = a === direto && bala !== undefined ? { bala } : {};
+        w.eventos.push({ e: 'apoio', kind, nv: fonte.nivel, p: g.prof, alvo: a.id, por: autor, time: fonte.time, x: +a.ship.x.toFixed(2), y: +a.ship.y.toFixed(2), z: +a.ship.z.toFixed(2), ...deBala });
+        if (deBala.bala !== undefined) w.eventos.push({ e: 'fim', bala, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2) });
         this.#efeitosAliado(g, a, como);
       }
     }

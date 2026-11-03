@@ -139,11 +139,22 @@ const BELLICO_MOBILE = {
   o212032: 'preso', // Míssil de Choque
   o212033: 'preso', // Armadilha de Magma
 };
-const BELLICO = { ...BELLICO_ASSAULT, ...BELLICO_MOBILE };
+const BELLICO_FUNCTIONAL = {
+  o211003: 'giro', // Feixe Tempestade de Magma
+  o212021: 'preso', // Canhão Antiparalisia
+  o212007: 'preso', // Míssil Perfurante em Leque
+  o212026: 'preso', // Raio de Faísca Perfurante
+  o212009: null, // Amortecedor
+  o212015: null, // Nova Trava-Aceleração
+  o212030: 'giro', // Onda de Choque Elétrica
+  o212034: 'preso', // Vulcan Tempestade Teleguiada
+  o212017: 'preso', // Druida Reparador
+};
+const BELLICO = { ...BELLICO_ASSAULT, ...BELLICO_MOBILE, ...BELLICO_FUNCTIONAL };
 // O impacto cresce com a versão (1401107 → 1401207 → 1401307) nestas.
-const IMPACTO_POR_VERSAO = ['o112003', 'o112001', 'o114003', 'o212001', 'o212004', 'o212006', 'o212029', 'o212032'];
+const IMPACTO_POR_VERSAO = ['o112003', 'o112001', 'o114003', 'o212001', 'o212004', 'o212006', 'o212029', 'o212032', 'o212007'];
 // Coluna 94 = 7 (o fim deitado pela área) nas Bellico.
-const FIM_BELLICO = ['o211015', 'o212002', 'o212011', 'o212005', 'o212013', 'o212022', 'o212023', 'o212025', 'o212004'];
+const FIM_BELLICO = ['o211015', 'o212002', 'o212011', 'o212005', 'o212013', 'o212022', 'o212023', 'o212025', 'o212004', 'o211003', 'o212021', 'o212026', 'o212034'];
 // Colunas 64 a 66 (velocidade inicial, máxima e aceleração, m/ms e m/ms²) das Bellico que não voam constante.
 const CARGA_BELLICO = {
   o212002: { v0: 0, vmax: 0.5, acel: 0.0003 },
@@ -162,6 +173,11 @@ const CARGA_BELLICO = {
   o212028: { v0: 0.2, vmax: 0.5, acel: 0.0015 },
   o212029: { v0: 0, vmax: 0.45, acel: 0.00055 },
   o212032: { v0: 0, vmax: 0.45, acel: 0.00055 },
+  o212021: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o212007: { v0: -0.05, vmax: 0.4, acel: 0.0002 },
+  o212026: { v0: 0.25, vmax: 0.25, acel: -0.00002 },
+  o212030: { v0: 0.11, vmax: 0.5, acel: 0.00001 },
+  o212017: { v0: 0, vmax: 0.5, acel: 0.0002 },
 };
 
 test('disparo original: as seis armas de início e as revistas, com o modo de clarão e de fim do original', () => {
@@ -713,4 +729,40 @@ test('Bellico Mobile: a Arrancada acende o turbo dos motores, como o boost', () 
   assert.equal(turboNaNave(true, []), true);
   assert.equal(turboNaNave(false, ['escudoRec']), false);
   assert.equal(turboNaNave(false, null), false);
+});
+
+test('Bellico Functional: o feixe e o raio de cada degrau, o míssil perfurante e as armas de suporte do original', () => {
+  const projeteis = (kind) => WEAPONS[kind].versoes.map((v) => v.golpe.vis.p);
+  const degraus = (a, b, c) => [a, a, a, b, b, b, c, c];
+  // Feixe Tempestade de Magma: o feixe de cada degrau e o fim 1412002 pela área (não explode no fim da vida).
+  assert.deepEqual(projeteis('o211003'), degraus('1312013', '1312014', '1312015'));
+  const magma = golpeDaArma('o211003', 1);
+  assert.deepEqual([magma.vis.d, magma.vis.f], ['2112001', '1412002']);
+  assert.ok(magma.area > 0 && !explodeNoFim(magma));
+  // Raio de Faísca Perfurante: o raio de cada versão (1336014 a 1336018, como no original),
+  // a 0,25 m/ms freando, que atravessa e explode no fim da vida com o fim elétrico.
+  assert.deepEqual(projeteis('o212026'), ['1336014', '1336015', '1336015', '1336016', '1336016', '1336017', '1336017', '1336018']);
+  const raio = golpeDaArma('o212026', 1);
+  assert.ok(atravessa(raio) && explodeNoFim(raio) && raio.area > 0);
+  assert.equal(raio.vis.f, '2432000');
+  // Míssil Perfurante em Leque: o míssil dos em fila, com o rastro de 7 ossos, que atravessa e deixa o impacto no fim.
+  assert.deepEqual(projeteis('o212007'), projeteis('o212001'));
+  assert.equal(golpeDaArma('o212007', 1).vis.r, '2341102');
+  assert.ok(atravessa(golpeDaArma('o212007', 1)) && explodeNoFim(golpeDaArma('o212007', 1)));
+  // Vulcan Tempestade Teleguiada: a bala da Vulcan Teleguiada e o fim da Metralha pela área.
+  assert.deepEqual(projeteis('o212034'), projeteis('o211013'));
+  assert.equal(golpeDaArma('o212034', 1).vis.f, '1421002');
+  // Onda de Choque Elétrica: a onda elétrica (1162024, o modelo da física com a paleta azul) e o clarão do canhão girado.
+  assert.deepEqual(projeteis('o212030'), Array(8).fill('1162024'));
+  assert.equal(golpeDaArma('o212030', 1).vis.d, '1133002');
+  // Nova Trava-Aceleração: a esfera da Nova Freio Acron.
+  assert.deepEqual(projeteis('o212015'), projeteis('o112017'));
+  // Suporte: o Druida (1353019) e o Canhão Antiparalisia (o impacto de suporte 1503010
+  // como carga, o fim 2163022 da Nova Antiparalisia pela área), só para aliado.
+  assert.deepEqual(projeteis('o212017'), Array(8).fill('1353019'));
+  assert.equal(golpeDaArma('o212017', 1).vis.i, '1503011');
+  const anti = golpeDaArma('o212021', 1);
+  assert.deepEqual([anti.vis.p, anti.vis.i, anti.vis.f], ['1503010', '1503009', '2163022']);
+  for (const g of [anti, golpeDaArma('o212017', 1)]) assert.ok(g.aliado && g.inimigo === false);
+  assert.ok(explodeNoFim(anti) && !explodeNoFim(golpeDaArma('o212017', 1)));
 });
