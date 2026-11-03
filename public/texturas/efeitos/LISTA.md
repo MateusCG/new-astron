@@ -546,3 +546,13 @@ Copiadas pelo mesmo `tools/efeitos3d_do_original.py` com as explosões do origin
 | `1343007_01.png` | 64×64 px, 3.0 KB | #5b96fc | 2343101 (o rastro dos mísseis, `--rastro`) |
 | `1163039.png` | 256×256 px, 15.2 KB | #77b6ff | 1163039 (a Invulnerabilidade na nave, efeito 20 do `CUnit::LoadResource`) |
 | `1163014.png` | 64×64 px, 1.7 KB | #ffffff | 1163014 (as faíscas do Amplificador de Energia, `CUnitHyperEnergyRecovery`, `--malha`) |
+| `1163003_01.png` | 64×64 px, 1.2 KB | #65ff69 | 2163004 (o Reforço de Escudo na nave, efeito 15 do `CUnit::LoadResource`) |
+| `1163003_02.png` | 64×64 px, 2.3 KB | #73fe77 | 2163004 (o Reforço de Escudo na nave, efeito 15 do `CUnit::LoadResource`) |
+| `1163003_03.png` | 64×64 px, 2.6 KB | #5bff5f | 2163004 (o Reforço de Escudo na nave, efeito 15 do `CUnit::LoadResource`) |
+| `1163003_04.png` | 64×64 px, 2.6 KB | #52ff56 | 2163004 (o Reforço de Escudo na nave, efeito 15 do `CUnit::LoadResource`) |
+| `1163003_05.png` | 64×64 px, 2.7 KB | #4dff51 | 2163004 (o Reforço de Escudo na nave, efeito 15 do `CUnit::LoadResource`) |
+| `1163003_06.png` | 64×64 px, 2.8 KB | #4cff50 | 2163004 (o Reforço de Escudo na nave, efeito 15 do `CUnit::LoadResource`) |
+| `1163003_07.png` | 64×64 px, 2.5 KB | #45ff4a | 2163004 (o Reforço de Escudo na nave, efeito 15 do `CUnit::LoadResource`) |
+| `1163003_08.png` | 64×64 px, 2.3 KB | #1cff21 | 2163004 (o Reforço de Escudo na nave, efeito 15 do `CUnit::LoadResource`) |
+| `1163003_09.png` | 64×64 px, 1.7 KB | #47ff4c | 2163004 (o Reforço de Escudo na nave, efeito 15 do `CUnit::LoadResource`) |
+| `1163003_10.png` | 64×64 px, 1.5 KB | #34ff38 | 2163004 (o Reforço de Escudo na nave, efeito 15 do `CUnit::LoadResource`) |

@@ -112,6 +112,11 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
   '1312013', '1312014', '1312015', '1336014', '1336015', '1336016', '1336017', '1336018', '1162024', '1353019',
   // A Invulnerabilidade na nave (efeito 20) e as faíscas do Amplificador de Energia.
   '1163039', '1163014',
+  // Shrewdo Assault: a bala do Vulcan de Sopro e a da Metralha Trovão de cada degrau; a
+  // carga e o fim do Canhão Antirradar; a gota e o campo do Campo de Energia; o raio da
+  // Armadilha de Raios Reforçada de cada versão; o Reforço de Escudo na nave (efeito 15).
+  '1321251', '1321351', '1321451', '1321063', '1321064', '1321065', '1333006', '2403006',
+  '1352004', '2252006', '1333014', '1333015', '1333016', '1333017', '1333018', '2163004',
   // Os estados dos dispositivos na nave: o conversor de impacto, as resistências e o
   // reparo do escudo (o quantum e a esfera de cada raça).
   // O "MISS" do debuff elétrico que não pegou.

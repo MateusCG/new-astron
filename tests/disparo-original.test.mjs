@@ -38,6 +38,8 @@ import {
   giroDaFaisca,
   alfaDaFaisca,
   turboNaNave,
+  cargaDoGolpe,
+  graficoDaArmadilha,
 } from '../public/js/disparo-regras.js';
 import { EFEITOS_ORIGINAIS, ICONES_ESTADO, insumosDaPartida } from '../public/js/insumos.js';
 import { INICIAIS_ORIGINAL, WEAPONS, golpeDaArma } from '../shared/armas.js';
@@ -151,10 +153,46 @@ const BELLICO_FUNCTIONAL = {
   o212017: 'preso', // Druida Reparador
 };
 const BELLICO = { ...BELLICO_ASSAULT, ...BELLICO_MOBILE, ...BELLICO_FUNCTIONAL };
+// As Shrewdo, no lote da primeira classe (a coluna 53: 14 'giro', 15 'preso', '0' null).
+const SHREWDO_ASSAULT = {
+  o311002: 'giro', // Feixe Perfurante em Fila
+  o311008: 'giro', // Feixe Triplo
+  o312019: 'giro', // Feixe Teleguiado em Leque
+  o311005: 'preso', // Vulcan de Sopro
+  o311006: 'preso', // Metralha Giratória
+  o311009: 'preso', // Metralha Trovão
+  o311010: 'preso', // Vulcan em Leque
+  o312001: 'preso', // Canhão Tempestade em Leque
+  o312022: 'preso', // Canhão Antirradar
+  o312012: 'preso', // Canhão Quebra-Resistência
+  o312018: 'preso', // Míssil Giratório
+  o312007: 'preso', // Campo de Energia
+  o317020: 'preso', // Armadilha de Raios Reforçada
+  o312006: null, // Reforço de Escudo
+  o312014: null, // Camuflagem
+  o312017: null, // Invulnerabilidade
+  o312029: null, // Nova Desarmadora
+  o312034: null, // Disjuntor
+  o312039: 'giro', // Feixe Teleguiado em Fila
+};
+const SHREWDO = { ...SHREWDO_ASSAULT };
 // O impacto cresce com a versão (1401107 → 1401207 → 1401307) nestas.
-const IMPACTO_POR_VERSAO = ['o112003', 'o112001', 'o114003', 'o212001', 'o212004', 'o212006', 'o212029', 'o212032', 'o212007'];
+const IMPACTO_POR_VERSAO = ['o112003', 'o112001', 'o114003', 'o212001', 'o212004', 'o212006', 'o212029', 'o212032', 'o212007', 'o312018'];
 // Coluna 94 = 7 (o fim deitado pela área) nas Bellico.
 const FIM_BELLICO = ['o211015', 'o212002', 'o212011', 'o212005', 'o212013', 'o212022', 'o212023', 'o212025', 'o212004', 'o211003', 'o212021', 'o212026', 'o212034'];
+// Coluna 94 = 7 nas Shrewdo (no disparo ou num subprojétil: a armadilha e o raio que ela atira).
+const FIM_SHREWDO = ['o312001', 'o312022', 'o312012', 'o317020'];
+// Colunas 64 a 66 das Shrewdo que não voam constante (o disparo; os subprojéteis em CARGA_SUB_SHREWDO).
+const CARGA_SHREWDO = {
+  o312001: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o312022: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o312012: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o312018: { v0: -0.05, vmax: 0.4, acel: 0.0002 },
+  o317020: { v0: 0.2, vmax: 0.2, acel: -0.00005 },
+};
+const CARGA_SUB_SHREWDO = {
+  o317020: { 2: { v0: 0.2, vmax: 0.2, acel: -0.0001 } },
+};
 // Colunas 64 a 66 (velocidade inicial, máxima e aceleração, m/ms e m/ms²) das Bellico que não voam constante.
 const CARGA_BELLICO = {
   o212002: { v0: 0, vmax: 0.5, acel: 0.0003 },
@@ -182,21 +220,23 @@ const CARGA_BELLICO = {
 
 test('disparo original: as seis armas de início e as revistas, com o modo de clarão e de fim do original', () => {
   const iniciais = Object.values(INICIAIS_ORIGINAL).flat().map((id) => 'o' + id);
-  assert.deepEqual(Object.keys(DISPARO_ORIGINAL).sort(), [...iniciais, ...REVISTAS, ...Object.keys(SEGUNDA_LEVA), ...Object.keys(TERCEIRA_LEVA), ...Object.keys(QUARTA_LEVA), ...Object.keys(BELLICO)].sort());
+  assert.deepEqual(Object.keys(DISPARO_ORIGINAL).sort(), [...iniciais, ...REVISTAS, ...Object.keys(SEGUNDA_LEVA), ...Object.keys(TERCEIRA_LEVA), ...Object.keys(QUARTA_LEVA), ...Object.keys(BELLICO), ...Object.keys(SHREWDO)].sort());
   // Coluna 53 do inititemweapon.cfg: 14 (girado em volta do cano) nos feixes e no Vulcan
   // Bellico, 15 (preso, sem giro) no Vulcan Acron, na Metralha e no Canhão de Faíscas, 2
   // (parado onde a nave estava, pela área) no Rebatedor; coluna 94 = 7 só na Metralha
   // (a V8 do Feixe Perfurante de Magma também, mas com área 0: não aparece).
   assert.deepEqual(
     Object.fromEntries(Object.entries(DISPARO_ORIGINAL).map(([k, v]) => [k, v.clarao])),
-    { o111001: 'giro', o111011: 'preso', o211001: 'giro', o211011: 'giro', o311001: 'giro', o311004: 'preso', o111003: 'giro', o112028: 'preso', o112014: 'area', ...SEGUNDA_LEVA, ...TERCEIRA_LEVA, ...QUARTA_LEVA, ...BELLICO },
+    { o111001: 'giro', o111011: 'preso', o211001: 'giro', o211011: 'giro', o311001: 'giro', o311004: 'preso', o111003: 'giro', o112028: 'preso', o112014: 'area', ...SEGUNDA_LEVA, ...TERCEIRA_LEVA, ...QUARTA_LEVA, ...BELLICO, ...SHREWDO },
   );
   // O clarão do catálogo bate com o modo: as de clarão null não têm efeito na coluna 51.
   for (const [k, v] of Object.entries(DISPARO_ORIGINAL)) assert.equal(!!golpeDaArma(k, 1).vis.d, v.clarao !== null, k);
   // Coluna 94 = 7 (o fim deitado pela área) na Metralha e nas de área da segunda leva.
-  const comFim = ['o311004', 'o111009', 'o111005', 'o111017', 'o111019', 'o112010', 'o112035', 'o112038', 'o112011', 'o112027', 'o112025', 'o112009', 'o112036', 'o116005', 'o111013', 'o112026', 'o112005', ...FIM_BELLICO];
+  const comFim = ['o311004', 'o111009', 'o111005', 'o111017', 'o111019', 'o112010', 'o112035', 'o112038', 'o112011', 'o112027', 'o112025', 'o112009', 'o112036', 'o116005', 'o111013', 'o112026', 'o112005', ...FIM_BELLICO, ...FIM_SHREWDO];
   for (const [k, v] of Object.entries(DISPARO_ORIGINAL)) assert.equal(v.fim, comFim.includes(k) ? 'area' : undefined, k);
-  for (const k of comFim) assert.ok(golpeDaArma(k, 1).vis.f && golpeDaArma(k, 1).area > 0, k);
+  // O fim pela área no disparo ou num subprojétil (a armadilha que espera inimigo e o raio dela).
+  const comFimEArea = (k) => [0, 1, 2].some((p) => golpeDaArma(k, 1, p)?.vis?.f && golpeDaArma(k, 1, p).area > 0);
+  for (const k of comFim) assert.ok(comFimEArea(k), k);
   assert.equal(ESCALA_DISPARO, FATOR_TAMANHO_NAVE, 'na escala das naves');
   // Colunas 64 a 66: a carga do Canhão de Faíscas e a do Descarregador saem paradas e
   // aceleram até 0,5 m/ms; a Lâmina Reforçada sai a 0,5 e freia.
@@ -217,8 +257,14 @@ test('disparo original: as seis armas de início e as revistas, com o modo de cl
   assert.deepEqual(DISPARO_ORIGINAL.o114003.carga, { v0: 0, vmax: 0.35, acel: 0.0002 });
   // Bellico: as cargas de cada uma (colunas 64 a 66 do original, iguais de V1 a V8).
   for (const [k, carga] of Object.entries(CARGA_BELLICO)) assert.deepEqual(DISPARO_ORIGINAL[k].carga, carga, k);
-  const comCarga = ['o112028', 'o112010', 'o112003', 'o112030', 'o112011', 'o112027', 'o112025', 'o112020', 'o112009', 'o112004', 'o112026', 'o114003', ...Object.keys(CARGA_BELLICO)];
+  // Shrewdo: as cargas do disparo e as dos subprojéteis (cargaDoGolpe).
+  for (const [k, carga] of Object.entries(CARGA_SHREWDO)) assert.deepEqual(cargaDoGolpe(k, 0), carga, k);
+  for (const [k, subs] of Object.entries(CARGA_SUB_SHREWDO)) for (const [p, c] of Object.entries(subs)) assert.deepEqual(cargaDoGolpe(k, +p), c, `${k} golpe ${p}`);
+  const comCarga = ['o112028', 'o112010', 'o112003', 'o112030', 'o112011', 'o112027', 'o112025', 'o112020', 'o112009', 'o112004', 'o112026', 'o114003', ...Object.keys(CARGA_BELLICO), ...Object.keys(CARGA_SHREWDO)];
   for (const k of Object.keys(DISPARO_ORIGINAL)) if (!comCarga.includes(k)) assert.equal(DISPARO_ORIGINAL[k].carga, undefined, k);
+  for (const k of Object.keys(DISPARO_ORIGINAL)) if (!CARGA_SUB_SHREWDO[k]) assert.equal(DISPARO_ORIGINAL[k].cargaSub, undefined, k);
+  assert.equal(cargaDoGolpe('o312018', 1), null, 'sem subprojétil');
+  assert.equal(cargaDoGolpe('o999999', 0), null);
   // O Teleporte toca o CUnitTeleportEffect (1163010) na saída e na chegada.
   assert.equal(DISPARO_ORIGINAL.o112021.teleporte, '1163010');
   // Coluna 53 do subprojétil 113001 vazia (modo 0): o clarão dos clones parado onde nascem.
@@ -431,7 +477,7 @@ test('disparo original: o reparo do escudo solta quanta que se afastam 20 m em 2
   assert.ok(d.x > 0 && d.y < 0 && d.z === 0, 'rand % 20 − 10 em cada eixo');
   assert.deepEqual(direcaoDoQuantum(0.5, 0.5, 0.5), { x: 1, y: 0, z: 0 }, 'sorteio nulo não divide por zero');
   // Os estados na nave: o conversor (24), a resistência elétrica (23), a óptica (21) e a física (22).
-  assert.deepEqual(ESTADOS_NA_NAVE, { converte: '1163023', resEl: '2163033', resOp: '2163012', resFis: '2163013', invul: '1163039' });
+  assert.deepEqual(ESTADOS_NA_NAVE, { converte: '1163023', resEl: '2163033', resOp: '2163012', resFis: '2163013', invul: '1163039', reforco: '2163004' });
 });
 
 test('disparo original: o clarão gira em passos de 36° no modo 14 e fica preso no 15', () => {
@@ -765,4 +811,84 @@ test('Bellico Functional: o feixe e o raio de cada degrau, o míssil perfurante 
   assert.deepEqual([anti.vis.p, anti.vis.i, anti.vis.f], ['1503010', '1503009', '2163022']);
   for (const g of [anti, golpeDaArma('o212017', 1)]) assert.ok(g.aliado && g.inimigo === false);
   assert.ok(explodeNoFim(anti) && !explodeNoFim(golpeDaArma('o212017', 1)));
+});
+
+test('Shrewdo Assault: os projéteis de cada degrau, os canhões, o míssil giratório e o Campo de Energia do original', () => {
+  const projeteis = (kind, p = 0) => WEAPONS[kind].versoes.map((_, i) => golpeDaArma(kind, i + 1, p)?.vis.p);
+  const degraus = (a, b, c) => [a, a, a, b, b, b, c, c];
+  // Os feixes: o do Magma em fila (atravessa), o do Clone em Leque no Feixe Triplo e o
+  // dos Tempestade nos teleguiados (o em leque se divide duas vezes, sem clarão nos filhos).
+  assert.deepEqual(projeteis('o311002'), degraus('1312063', '1312064', '1312065'));
+  assert.ok(atravessa(golpeDaArma('o311002', 1)));
+  assert.deepEqual(projeteis('o311008'), degraus('1312023', '1312024', '1312025'));
+  for (const p of [0, 1, 2]) assert.deepEqual(projeteis('o312019', p), degraus('1312033', '1312034', '1312035'), `golpe ${p}`);
+  for (const p of [1, 2]) assert.equal(golpeDaArma('o312019', 1, p).vis.d, undefined);
+  assert.ok(golpeDaArma('o312019', 1, 2).guia);
+  assert.deepEqual(projeteis('o312039'), projeteis('o312019'));
+  assert.ok(golpeDaArma('o312039', 1).guia);
+  // As metralhas: a bala de cada uma, com o clarão do Vulcan preso (modo 15).
+  assert.deepEqual(projeteis('o311005'), degraus('1321251', '1321351', '1321451'));
+  assert.deepEqual(projeteis('o311006'), degraus('1321023', '1321024', '1321025'));
+  assert.ok(atravessa(golpeDaArma('o311006', 1)));
+  assert.deepEqual(projeteis('o311009'), degraus('1321063', '1321064', '1321065'));
+  assert.deepEqual(projeteis('o311010'), degraus('1321073', '1321074', '1321075'));
+  for (const k of ['o311005', 'o311006', 'o311009', 'o311010']) assert.equal(golpeDaArma(k, 1).vis.d, '1121001', k);
+  // Os canhões: a carga e o fim de cada um pela área, explodindo no fim da vida.
+  assert.deepEqual(projeteis('o312001'), degraus('1332003', '1332004', '1332005'));
+  for (const [k, d, p, f] of [['o312001', '1132001', null, '2432001'], ['o312022', '1133002', '1333006', '2403006'], ['o312012', '1133002', '1333005', '2403005']]) {
+    const g = golpeDaArma(k, 1);
+    assert.equal(g.vis.d, d, k);
+    if (p) assert.deepEqual(projeteis(k), Array(8).fill(p), k);
+    assert.equal(g.vis.f, f, k);
+    assert.ok(explodeNoFim(g) && g.area > 0, k);
+  }
+  // Míssil Giratório: o míssil dos em fila com o rastro de 7 ossos, a rajada girando, o impacto que cresce.
+  assert.deepEqual(projeteis('o312018'), degraus('2341022', '2341023', '2341024'));
+  assert.deepEqual([1, 4, 7].map((nv) => golpeDaArma('o312018', nv).vis.i), ['1401107', '1401207', '1401307']);
+  assert.deepEqual([golpeDaArma('o312018', 1).vis.tipo, golpeDaArma('o312018', 1).vis.r], ['missil_com_rastro', '2341102']);
+  assert.ok(explodeNoFim(golpeDaArma('o312018', 1)) && golpeDaArma('o312018', 1).guia);
+  // Campo de Energia: a gota parada (1352004) e aos 1000 ms o campo (2252006, tipo 7) que fere a cada 500 ms.
+  assert.deepEqual(projeteis('o312007'), Array(8).fill('1352004'));
+  const campo = golpeDaArma('o312007', 1, 1);
+  assert.equal(campo.forma, 'campo');
+  assert.deepEqual([graficoDaArmadilha(campo), campo.vis.i, campo.vis.d], ['2252006', '1502004', '1150005']);
+  // Nova Desarmadora: a esfera de sempre.
+  assert.deepEqual(projeteis('o312029'), Array(8).fill('1353021'));
+  for (const k of ['o312006', 'o312014', 'o312017', 'o312034']) assert.equal(golpeDaArma(k, 1).forma, 'efeito', k);
+});
+
+test('Shrewdo Assault: a Armadilha de Raios Reforçada espera inimigo com o próprio raio e atira o raio que freia', () => {
+  // O disparo: 3 raios (1333014 a 1333018 pela versão) em leque, freando de 0,2 m/ms.
+  assert.deepEqual(WEAPONS.o317020.versoes.map((v) => v.golpe.vis.p), ['1333014', '1333015', '1333015', '1333016', '1333016', '1333017', '1333017', '1333018']);
+  assert.equal(golpeDaArma('o317020', 1).vis.d, '1132001');
+  // Aos 1500 ms vira a armadilha (coluna 99 = 2: espera inimigo perto), que mostra o próprio
+  // projétil (coluna 57), não o gráfico ativo (coluna 105): ao ativar ela atira e some.
+  const corpo = golpeDaArma('o317020', 4, 1);
+  assert.equal(corpo.forma, 'mina');
+  assert.ok(corpo.ativaPerto && corpo.dispara);
+  assert.equal(graficoDaArmadilha(corpo), corpo.vis.p);
+  assert.notEqual(corpo.vis.a, corpo.vis.p, 'na V4 a coluna 105 é outra');
+  // O fim (2432001) dela ao atirar, pela área dela (coluna 85).
+  assert.equal(corpo.vis.f, '2432001');
+  assert.ok(corpo.area > 0);
+  // O raio que ela atira sai apontado no mais perto (o giro do teleguiado, coluna 73, é 0:
+  // não curva), freia de 0,2 a 0,0001 m/ms² e explode no fim pela área.
+  const raio = golpeDaArma('o317020', 1, 2);
+  assert.ok(!raio.guia && explodeNoFim(raio) && raio.area > 0);
+  assert.equal(raio.vis.f, '2432001');
+  assert.ok(recuoDaCarga(raio.vida / 2, raio, cargaDoGolpe('o317020', 2)) < 0, 'freia: o desenho vai na frente no começo');
+  assert.ok(Math.abs(recuoDaCarga(raio.vida, raio, cargaDoGolpe('o317020', 2))) < 1e-9, 'chega junto');
+  // As armadilhas que ativam na hora seguem com o gráfico ativo (coluna 105) quando têm.
+  assert.equal(graficoDaArmadilha(golpeDaArma('o212033', 1, 1)), '2253007');
+  assert.equal(graficoDaArmadilha(golpeDaArma('o112004', 1, 1)), golpeDaArma('o112004', 1, 1).vis.p);
+  assert.equal(graficoDaArmadilha(null), null);
+});
+
+test('Shrewdo Assault: o Reforço de Escudo liga o efeito 15 do original (2163004) na nave', () => {
+  assert.equal(ESTADOS_NA_NAVE.reforco, '2163004');
+  const ef = efeito('2163004');
+  assert.ok(ef.quadros > 1);
+  assert.ok(efeitosDoDisparo().includes('2163004') && EFEITOS_ORIGINAIS.includes('2163004'));
+  // Os outros dispositivos do lote usam os estados que já existiam.
+  for (const k of ['invul', 'resEl']) assert.ok(ESTADOS_NA_NAVE[k]);
 });

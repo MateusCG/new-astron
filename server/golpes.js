@@ -14,6 +14,9 @@
 //   suporte nos aliados, e os especiais (rebater tiros, desarmar minas).
 // - Mina: parada no chão; armada, com inimigo no gatilho explode em área ou, se é
 //   das que atiram, dispara o subprojétil travado em cada inimigo ao alcance e some.
+//   As que esperam inimigo perto (a Armadilha Teleguiada, as de Raios, a da Medusa:
+//   CUnitBeam::ProcessNonActiveTrap) ativam no raio de disparo, atiram só no mais
+//   perto e, se a vida acaba antes, somem sem explodir.
 // - Campo: área parada que fere (e aplica o efeito) a cada intervalo quem está dentro.
 // - Efeito: sem projétil, dispositivo na própria nave (invisível, invulnerável,
 //   escudo, resistência, conversor, conserto por tempo). Os de segurar a tecla o
@@ -682,7 +685,8 @@ export class Golpes {
     w.minas = w.minas.filter((m) => {
       const g = m.g ?? golpeDaArma(m.kind, m.nivel, 0);
       if (this.tick >= m.fimTick) {
-        if (g.fim && !m.campo) this.#explodirMina(m, g, true);
+        // A que espera inimigo perto e não ativou some sem nada (ProcessNonActiveTrap: OnDeleteMe(false)).
+        if (g.fim && !m.campo && !g.ativaPerto) this.#explodirMina(m, g, true);
         return false;
       }
       if (this.tick < m.armaTick) return true;
@@ -697,11 +701,14 @@ export class Golpes {
         }
         return true;
       }
-      const perto = vivos.filter((a) => this.ctx.podeAcertar(como, a) && naArea(a, m.x, m.y, m.z, g.gatilho));
+      // A que espera inimigo perto (coluna 99 = 2) ativa no raio da coluna 100 (atira).
+      const perto = vivos.filter((a) => this.ctx.podeAcertar(como, a) && naArea(a, m.x, m.y, m.z, g.ativaPerto ? g.atira : g.gatilho));
       if (!perto.length) return true;
       if (g.dispara) {
-        // Mina que atira: um subprojétil travado em cada inimigo ao alcance, e some.
-        const alvos = vivos.filter((a) => this.ctx.podeAcertar(como, a) && naArea(a, m.x, m.y, m.z, g.atira));
+        // Mina que atira: um subprojétil travado em cada inimigo ao alcance, e some; a que
+        // espera inimigo perto, só no mais perto (o modo 2 do original: GetNearestPilot).
+        let alvos = vivos.filter((a) => this.ctx.podeAcertar(como, a) && naArea(a, m.x, m.y, m.z, g.atira));
+        if (g.ativaPerto) alvos = alvos.sort((p, q) => Math.hypot(p.ship.x - m.x, p.ship.z - m.z) - Math.hypot(q.ship.x - m.x, q.ship.z - m.z)).slice(0, 1);
         const f = { id: m.dono, time: m.time, drone: m.drone, mult: m.mult, kind: m.kind, nivel: m.nivel };
         for (const alvo of alvos) {
           const yaw = yawPara(m.x, m.z, alvo.ship.x, alvo.ship.z);
@@ -861,6 +868,9 @@ export class Golpes {
     // O reparo do escudo (os quanta do original), o conserto de HP com tempo (a aura), o
     // conversor de impacto e as resistências do Disjuntor (o efeito do original na nave).
     if (this.st(ent, 'regen') || segurandoTipo(s, 'regen')) fx.push('escudoRec');
+    // O conserto com tempo é o Reforço de Escudo (código 4): ProcessActiveEvent liga também
+    // o PILOT_STATE_FLAG 2 (CUnitState[1]), o efeito 15 do original (2163004) na nave.
+    if (this.st(ent, 'regen')) fx.push('reforco');
     if (this.st(ent, 'curaTempo')) fx.push('regen');
     if (this.st(ent, 'converte')) fx.push('converte');
     if (this.st(ent, 'resiste_eletrico')) fx.push('resEl');

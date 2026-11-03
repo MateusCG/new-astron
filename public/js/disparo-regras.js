@@ -8,11 +8,11 @@
 // rastro, as armadilhas, as seis novas, a camuflagem e o teleporte; e as nove da
 // quarta, as últimas Acron: os feixes e a metralha teleguiados, a Metralha Larga, o
 // Feixe Clone em Leque, o Canhão de Recuo, a Onda de Energia Larga, o Ciclone Varredor
-// e a Lâmina Giratória; e as 41 Bellico, nos lotes Assault, Mobile e Functional). A
-// pesquisa, com a evidência de cada número, está em
+// e a Lâmina Giratória; as 41 Bellico e as 47 Shrewdo, nos lotes Assault, Mobile e
+// Functional). A pesquisa, com a evidência de cada número, está em
 // ~/Documentos/new-astron-progresso/ANIMACOES-ORIGINAL.md, seções "Disparo das armas
 // de início", "Magma, Faíscas e Rebatedor", "Segunda leva Acron", "Terceira leva Acron",
-// "Quarta leva Acron" e "Armas Bellico".
+// "Quarta leva Acron", "Armas Bellico" e "Armas Shrewdo".
 //
 // Como o original desenha um tiro (libgame decompilado):
 // - Clarão na boca: CUnitBeam::InitData cria, para CADA projétil, o efeito da coluna 51
@@ -92,6 +92,14 @@
 // - Armadilha (a Circular, a Elétrica, a Supressora): o projétil para onde a vida dele
 //   acaba (ou na boca, com velocidade 0), na altura do voo, e fica ali; a que acaba a
 //   vida sem ninguém pisar explode como no chão (o impacto ali, a área e o fim).
+// - Armadilha que espera inimigo perto (coluna 99 = 2: as de Raios e a Teleguiada;
+//   CUnitBeam::ProcessNonActiveTrap, CheckTrapActiveCondition e, no modo 2 da coluna
+//   101, a FUN_00264d60): fica parada com o próprio projétil (coluna 57,
+//   graficoDaArmadilha) até um inimigo chegar a coluna 100 m; então atira o subprojétil
+//   da coluna 102 no piloto mais perto (GetNearestPilot, a até a coluna 103 m) e some
+//   com OnDeleteMe(true): o som de impacto e o fim (coluna 92, modo 94) no lugar dela. A
+//   vida acabando antes, some sem nada (OnDeleteMe(false)). O raio que ela atira freia
+//   como o original (cargaDoGolpe: a curva do subprojétil, `cargaSub`).
 // - Suporte (coluna 74 com o 4º dígito '1': as novas de Reparo, Antiparalisia e
 //   Doadora; o Druida Reparador e o Canhão Antiparalisia, tiros que só pegam aliado): o
 //   ProcessDamage cria o impacto em cada aliado que a nova, o tiro ou a área pega.
@@ -122,6 +130,7 @@ import { forward } from '../../shared/sim.js';
  * `fim` 'area' (modo 7: o fim deitado e esticado até a área); `carga`: o projétil que
  * acelera (ou freia), com a velocidade inicial, a máxima (m/ms) e a aceleração (m/ms²)
  * do original (colunas 64, 65 e 66; os mísseis saem a −0,05, caindo para trás);
+ * `cargaSub`: a mesma curva para o subprojétil de cada profundidade (cargaDoGolpe);
  * `claraoSub` 'parado' (modo 0) no clarão dos subprojéteis; `teleporte`: o efeito do
  * CUnitTeleportEffect, onde a nave some (na matriz dela) e onde aparece (de pé).
  */
@@ -225,6 +234,31 @@ export const DISPARO_ORIGINAL = Object.freeze({
   o212030: Object.freeze({ clarao: 'giro', carga: Object.freeze({ v0: 0.11, vmax: 0.5, acel: 0.00001 }) }), // Onda de Choque Elétrica
   o212034: Object.freeze({ clarao: 'preso', fim: 'area' }), // Vulcan Tempestade Teleguiada
   o212017: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0002 }) }), // Druida Reparador (Repair Druid)
+  // Shrewdo Assault.
+  o311002: Object.freeze({ clarao: 'giro' }), // Feixe Perfurante em Fila (Piercing Array Beam)
+  o311008: Object.freeze({ clarao: 'giro' }), // Feixe Triplo (3way Rifle Beam)
+  o312019: Object.freeze({ clarao: 'giro' }), // Feixe Teleguiado em Leque (Homing Sector Beam)
+  o311005: Object.freeze({ clarao: 'preso' }), // Vulcan de Sopro (Vulkan Blow Gun)
+  o311006: Object.freeze({ clarao: 'preso' }), // Metralha Giratória (Array Spin Gun)
+  o311009: Object.freeze({ clarao: 'preso' }), // Metralha Trovão (Array Thunder Gun)
+  o311010: Object.freeze({ clarao: 'preso' }), // Vulcan em Leque (Vulkan Sector Gun)
+  o312001: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Tempestade em Leque
+  o312022: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Antirradar
+  o312012: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Quebra-Resistência
+  o312018: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: -0.05, vmax: 0.4, acel: 0.0002 }) }), // Míssil Giratório (Homing Spin Missile)
+  o312007: Object.freeze({ clarao: 'preso' }), // Campo de Energia (Energy Field Trap)
+  o317020: Object.freeze({
+    clarao: 'preso',
+    fim: 'area',
+    carga: Object.freeze({ v0: 0.2, vmax: 0.2, acel: -0.00005 }),
+    cargaSub: Object.freeze({ 2: Object.freeze({ v0: 0.2, vmax: 0.2, acel: -0.0001 }) }),
+  }), // Armadilha de Raios Reforçada (Reinforced EnergyBolt Trap)
+  o312006: Object.freeze({ clarao: null }), // Reforço de Escudo (Shield Reinforcing Device)
+  o312014: Object.freeze({ clarao: null }), // Camuflagem (Cloak Device)
+  o312017: Object.freeze({ clarao: null }), // Invulnerabilidade (Invulnerability Device)
+  o312029: Object.freeze({ clarao: null }), // Nova Desarmadora (Trap Removing Nova)
+  o312034: Object.freeze({ clarao: null }), // Disjuntor (Circuit Breaking Device)
+  o312039: Object.freeze({ clarao: 'giro' }), // Feixe Teleguiado em Fila (Array Homing Beam)
 });
 
 /**
@@ -240,10 +274,11 @@ export const ALFA_CAMUFLADA = 0.3;
  * tabela do CUnit::LoadResource), desenhados na matriz da nave e repetindo enquanto o
  * estado dura: o conversor de impacto (24, 1163023), a resistência elétrica do Disjuntor
  * (23, 2163033), a óptica da Tenda de Luz (21, 2163012), a física do Amortecedor (22,
- * 2163013) e a Invulnerabilidade (20, 1163039: código 102 → PILOT_STATE_FLAG 0x2d →
- * CUnitState[0x15] → piloto +0xa9).
+ * 2163013), a Invulnerabilidade (20, 1163039: código 102 → PILOT_STATE_FLAG 0x2d →
+ * CUnitState[0x15] → piloto +0xa9) e o Reforço de Escudo (15, 2163004: o código 4 liga
+ * o PILOT_STATE_FLAG 0, o reparo do escudo, e o 2 → CUnitState[1] → piloto +0x95).
  */
-export const ESTADOS_NA_NAVE = Object.freeze({ converte: '1163023', resEl: '2163033', resOp: '2163012', resFis: '2163013', invul: '1163039' });
+export const ESTADOS_NA_NAVE = Object.freeze({ converte: '1163023', resEl: '2163033', resOp: '2163012', resFis: '2163013', invul: '1163039', reforco: '2163004' });
 
 /**
  * As faíscas do Amplificador de Energia (código 32 → PILOT_STATE_FLAG 0x16 →
@@ -319,6 +354,28 @@ export const CAMPOS_DISPARO = Object.freeze(['d', 'p', 'i', 'f', 'a', 'r']);
 /** Como o original desenha a arma `kind` ({ clarao, fim?, carga?, claraoSub? }), ou null se ela não é desenhada como lá. */
 export function disparoOriginal(kind) {
   return DISPARO_ORIGINAL[kind] ?? null;
+}
+
+/**
+ * A curva do original (colunas 64 a 66) do golpe `prof` da arma `kind`: a do disparo
+ * (`carga`) ou a de um subprojétil (`cargaSub`: o raio que a Armadilha de Raios atira),
+ * ou null quando ele voa constante.
+ */
+export function cargaDoGolpe(kind, prof = 0) {
+  const como = DISPARO_ORIGINAL[kind];
+  if (!como) return null;
+  return (prof ? como.cargaSub?.[prof] : como.carga) ?? null;
+}
+
+/**
+ * O efeito que a armadilha `g` mostra parada (CUnitBeam::ProcessNonActiveTrap): a que
+ * ativa na hora (coluna 99 = 0) troca já no primeiro quadro para o gráfico ativo
+ * (coluna 105, `a`), quando tem; a que espera inimigo perto (`ativaPerto`) fica com o
+ * próprio projétil (coluna 57, `p`): ao ativar ela atira e some no mesmo quadro.
+ */
+export function graficoDaArmadilha(g) {
+  if (!g?.vis) return null;
+  return (g.ativaPerto ? g.vis.p : (g.vis.a ?? g.vis.p)) ?? null;
 }
 
 /** O golpe e os subprojéteis dele (divide e dispara), do disparo para dentro. */

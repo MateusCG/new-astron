@@ -290,7 +290,8 @@
 //         de HP do original), 'resist' (todas as resistências quebradas), 'invul',
 //         'escudo', 'fraco', 'recuo' (o dano devolvido do Canhão de Recuo), 'regen'
 //         (conserto de HP com tempo), 'escudoRec' (o
-//         reparo do escudo: os quanta do original), 'converte' (o conversor de
+//         reparo do escudo: os quanta do original), 'reforco' (o Reforço de Escudo
+//         ligado: o 2163004 do original na nave), 'converte' (o conversor de
 //         impacto), 'resEl', 'resOp' e 'resFis' (a resistência elétrica, a óptica
 //         e a física dos dispositivos), 'acel', 'amplif' (o Amplificador de Energia
 //         ligado: as faíscas do original), 'inv' (camuflagem ligada, mesmo
@@ -410,7 +411,9 @@
 //                                    O cliente faz os números subirem do lugar
 //         {e:'explosao', arma, nv, p, dono, time, x, y, z, raio, mina?, expirou?}   área de um
 //                                    golpe (impacto com área, fim da vida, mina; raio
-//                                    0 = mina que atirou e sumiu; expirou = a mina
+//                                    0 = mina que atirou e sumiu (a que espera
+//                                    inimigo perto atira só no mais perto e, se a
+//                                    vida acaba antes, some sem evento); expirou = a mina
 //                                    explodiu porque a vida acabou, não porque pisaram)
 //         {e:'nova', id, dono, time, kind, nv, p, x, y, z, raio, vel}   esfera que
 //                                    cresce parada no ponto a vel m/s até raio

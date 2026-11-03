@@ -30,7 +30,8 @@
 //   o projétil da profundidade dele e, no modo 0, o clarão parado onde ele nasceu.
 // - Armadilha (mina): o efeito dela parado onde caiu, repetindo (idMina), na altura do
 //   voo (efeitos.js); os alvos que ela fere levam o impacto do lado dela; a que acaba a
-//   vida deixa o impacto no lugar (area, `expirou`).
+//   vida deixa o impacto no lugar (area, `expirou`). A que espera inimigo perto (as de
+//   Raios, a Teleguiada) fica com o próprio projétil e, ao atirar, deixa o fim dela ali.
 // - Rastro do míssil (rastro, soltar): a fita do original presa ao nó Tail do míssil
 //   (rastro-missil.js).
 // - Nova de suporte: o impacto em cada aliado que ela pega (o evento 'apoio' → impacto).
@@ -53,6 +54,8 @@ import { criarEfeitoOriginal, efeitoOriginalPronto, matrizDaPeca, soltarEfeitoOr
 import { criarRastro, seguirRastro, soltarRastro } from './rastro-missil.js';
 import {
   disparoOriginal,
+  cargaDoGolpe,
+  graficoDaArmadilha,
   ESCALA_DISPARO,
   ESCUDO_REC,
   giroDoClarao,
@@ -218,11 +221,13 @@ export class DisparoOriginal {
     const desvio = boca ? { x: boca.x - b.x, y: boca.y - b.y, z: boca.z - b.z, t: 0 } : null;
     const como = disparoOriginal(b.kind);
     const golpe = golpeDaArma(b.kind, b.nv ?? 1, p);
-    const carga = como.carga && p === 0 ? golpe : null;
+    // A curva do original do disparo ou do subprojétil (o raio que a armadilha atira).
+    const curva = cargaDoGolpe(b.kind, p);
+    const carga = curva ? golpe : null;
     // Míssil com rastro (tipo de gráfico 6): a fita do original presa ao nó Tail dele.
     const cauda = golpe?.vis?.tipo === 'missil_com_rastro' && golpe.vis.r ? criarRastro(golpe.vis.r) : null;
     if (cauda) this.ef.scene.add(cauda.obj);
-    this.ef.tiros.set(b.id, { b, g: inst.obj, original: inst, comoOriginal: true, carga, cauda, rastro: { x: b.x, y: b.y, z: b.z }, desvio });
+    this.ef.tiros.set(b.id, { b, g: inst.obj, original: inst, comoOriginal: true, carga, curva, cauda, rastro: { x: b.x, y: b.y, z: b.z }, desvio });
     const clarao = p > 0 && como.claraoSub === 'parado' ? this.#id(b.kind, b.nv, 'd', p) : null;
     if (clarao) this.#umaVez(clarao, ESCALA_DISPARO, b.x, b.y, b.z, this.#rumo(b));
     return true;
@@ -234,7 +239,7 @@ export class DisparoOriginal {
    */
   posicionar(t) {
     if (!t.carga) return;
-    const recuo = recuoDaCarga(t.carga.vida - t.b.vida, t.carga, disparoOriginal(t.b.kind).carga);
+    const recuo = recuoDaCarga(t.carga.vida - t.b.vida, t.carga, t.curva);
     const v = Math.hypot(t.b.vx, t.b.vy, t.b.vz);
     if (recuo !== 0 && v > 0) t.g.position.addScaledVector(this.v.set(t.b.vx, t.b.vy, t.b.vz), -recuo / v);
   }
@@ -380,9 +385,13 @@ export class DisparoOriginal {
       y = heightAt(x, z) + HOVER;
       const imp = expirou ? this.#id(kind, nv, 'i', p) : null;
       if (imp) this.#umaVez(imp, ESCALA_DISPARO, x, y, z);
+      // A que esperava inimigo perto atirou e sumiu (raio 0 no evento): OnDeleteMe(true)
+      // põe o fim dela ali, na área dela (a Armadilha de Raios).
+      if (!(raio > 0) && g.ativaPerto) raio = g.area;
     }
     this.#origem(kind, x, y, z, EXPLOSAO_ORIGEM_S);
-    const id = disparoOriginal(kind).fim === 'area' ? this.#id(kind, nv, 'f') : null;
+    // O fim do golpe que explodiu (o do disparo, de um subprojétil ou da armadilha).
+    const id = disparoOriginal(kind).fim === 'area' ? (this.#id(kind, nv, 'f', p) ?? this.#id(kind, nv, 'f')) : null;
     if (id && raio > 0) this.#umaVez(id, escalaDaArea(raio), x, y, z);
     return true;
   }
@@ -418,7 +427,8 @@ export class DisparoOriginal {
    */
   idMina(kind, nv, p) {
     if (!disparoOriginal(kind)) return null;
-    return this.#id(kind, nv, 'a', p) ?? this.#id(kind, nv, 'p', p);
+    const id = graficoDaArmadilha(golpeDaArma(kind, nv ?? 1, p));
+    return id && efeitoOriginalPronto(id) ? id : null;
   }
 
   /** A armadilha `kind` está em (x, y, z): os alvos que ela fere levam o impacto do lado dela. */

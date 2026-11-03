@@ -262,6 +262,51 @@ test('mina que atira: com inimigo perto, dispara o subprojétil travado nele e s
   assert.ok(b.ship.hp < hp);
 });
 
+test('mina que espera inimigo perto: ativa no raio de disparo, atira só no mais perto e, se a vida acaba antes, some sem explodir', () => {
+  // A, C do time 0; B, D do time 1.
+  const { w, js } = arena(['shrewdo', 'assault', 0, 0], ['bellico', 'assault', 400, 0], ['acron', 'assault', -400, 0], ['bellico', 'mobile', 500, 0]);
+  const [a, b, , d] = js;
+  disparar(w, a, '317020'); // Armadilha de Raios Reforçada: 3 raios que viram armadilhas aos 1500 ms
+  passos(w, 2 * SEGUNDO);
+  assert.equal(w.minas.length, 3);
+  const m = w.minas[0];
+  w.minas = [m];
+  const g = m.g;
+  assert.ok(g.ativaPerto && g.atira > g.gatilho);
+  // B entre o gatilho de pisar e o raio de disparo (coluna 100): ativa; D um pouco mais longe, do outro lado.
+  const meio = (g.gatilho + g.atira) / 2;
+  b.ship.x = m.x + meio;
+  b.ship.z = m.z;
+  d.ship.x = m.x - meio - 1;
+  d.ship.z = m.z;
+  w.tirarEventos();
+  w.step();
+  assert.equal(w.minas.length, 0, 'atirou e sumiu');
+  assert.equal(w.bullets.filter((x) => x.alvo === b.id).length, 1, 'um raio no mais perto');
+  assert.ok(!w.bullets.some((x) => x.alvo === d.id), 'o outro não leva');
+  assert.ok(w.tirarEventos().some((e) => e.e === 'explosao' && e.arma === 'o317020' && e.raio === 0 && e.mina === m.id));
+  // Outra, sem ninguém por perto: a vida acaba (8 s na V1) e ela some sem explodir.
+  b.ship.x = d.ship.x = m.x + 400;
+  apertar(w, a, {}, 3 * SEGUNDO); // a recarga só corre com a nave recebendo comando
+  disparar(w, a, '317020');
+  passos(w, 2 * SEGUNDO);
+  assert.equal(w.minas.length, 3);
+  w.tirarEventos();
+  passos(w, 9 * SEGUNDO);
+  assert.equal(w.minas.length, 0);
+  assert.ok(!w.tirarEventos().some((e) => e.e === 'explosao' && e.arma === 'o317020'), 'some sem nada');
+});
+
+test('Reforço de Escudo: o conserto com tempo e o efeito 15 do original na nave', () => {
+  const { w, js } = arena(['shrewdo', 'assault', 0, 0]);
+  const [a] = js;
+  disparar(w, a, '312006');
+  const fx = w.entidades().find((e) => e.id === a.id).fx;
+  assert.ok(fx.includes('escudoRec') && fx.includes('reforco'), fx.join());
+  passos(w, 4 * SEGUNDO);
+  assert.ok(!(w.entidades().find((e) => e.id === a.id).fx ?? []).includes('reforco'), 'acabou');
+});
+
 test('campo: fere a cada intervalo quem fica dentro e corta a regeneração de energia', () => {
   const { w, js } = arena(['shrewdo', 'mobile', 0, 0], ['bellico', 'assault', 300, 0]);
   const [a, b] = js;

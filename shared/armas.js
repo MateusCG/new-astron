@@ -471,9 +471,11 @@ function converterGolpe(o, versao, prof = 0, fatorRecarga = FATOR_RECARGA_ARMA) 
       // Explode com área (a do original, ou o próprio gatilho quando não tem).
       if (!g.area) g.area = Math.max(g.gatilho, (o.raio ?? 0) * FATOR_AREA);
       if (o.dispara) {
-        // Mina que atira: com inimigo a este raio, dispara o subprojétil em cada um e some.
+        // Mina que atira (CUnitBeam::ProcessNonActiveTrap): com inimigo a este raio
+        // (coluna 100), dispara o subprojétil no mais perto e some (ativaPerto).
         g.atira = MINA_GATILHO_BASE + (m.ativaParam || m.raioDisparo || 0) * FATOR_ALCANCE;
         g.dispara = converterGolpe(o.dispara, versao, prof + 1, fatorRecarga);
+        if (m.ativa === 'inimigo_perto') g.ativaPerto = true;
       }
     }
     return g;
