@@ -73,7 +73,7 @@ import * as THREE from 'three';
 import { HOVER, RACES, stepBullet, WEAPONS } from '/shared/sim.js';
 import { heightAt, topoPouso } from '/shared/terrain.js';
 import { FATOR_AREA, golpeDaArma, visualDoOriginal, visualEfeito } from '/shared/armas.js';
-import { ALFA_CAMUFLADA, atravessa, ESCALA_DISPARO, ESTADOS_NA_NAVE } from './disparo-regras.js';
+import { ALFA_CAMUFLADA, atravessa, ESCALA_DISPARO, ESTADOS_NA_NAVE, efeitosNaNave } from './disparo-regras.js';
 import { FATOR_TAMANHO_NAVE } from '/shared/naves.js';
 import { brilho } from './nave.js';
 import { VisualArmas } from './efeitos-armas.js';
@@ -894,26 +894,28 @@ export class Efeitos {
   /**
    * Estados com o efeito do original na matriz da nave (CUnit::RenderScene, efeitos 15 a
    * 24): o conversor de impacto e as resistências do Disjuntor, presos no corpo (que
-   * inclina com a nave), repetindo enquanto o estado dura.
+   * inclina com a nave), repetindo enquanto o estado dura; um por efeito (o conversor e
+   * o Campo de Plasma acendem o mesmo).
    */
   #estadosNaNave(obj, ativos, dt) {
     const ud = obj.userData;
+    const querer = new Set(efeitosNaNave(ativos));
     if (!ud.naNave) {
-      if (!Object.keys(ESTADOS_NA_NAVE).some((k) => ativos.has(k))) return;
+      if (!querer.size) return;
       ud.naNave = {};
     }
     const corpo = ud.corpo ?? obj;
-    for (const [k, id] of Object.entries(ESTADOS_NA_NAVE)) {
-      let inst = ud.naNave[k];
-      if (!ativos.has(k) || !efeitoOriginalPronto(id)) {
+    for (const id of new Set([...Object.keys(ud.naNave), ...querer])) {
+      let inst = ud.naNave[id];
+      if (!querer.has(id) || !efeitoOriginalPronto(id)) {
         if (inst) {
           soltarEfeitoOriginal(inst);
-          delete ud.naNave[k];
+          delete ud.naNave[id];
         }
         continue;
       }
       if (!inst) {
-        inst = ud.naNave[k] = criarEfeitoOriginal(id, { escala: ESCALA_ORIGINAL, loop: true });
+        inst = ud.naNave[id] = criarEfeitoOriginal(id, { escala: ESCALA_ORIGINAL, loop: true });
         inst.obj.rotation.y = Math.PI; // o efeito olha para +z; o nariz da nave, para -z
         corpo.add(inst.obj);
       }

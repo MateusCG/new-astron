@@ -117,6 +117,9 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
   // Armadilha de Raios Reforçada de cada versão; o Reforço de Escudo na nave (efeito 15).
   '1321251', '1321351', '1321451', '1321063', '1321064', '1321065', '1333006', '2403006',
   '1352004', '2252006', '1333014', '1333015', '1333016', '1333017', '1333018', '2163004',
+  // Shrewdo Mobile: a carga do Canhão Quebra-Escudo Rápido; o Míssil Enfraquecedor; a
+  // Armadilha Teleguiada (a carga e a ogiva de cada degrau); o Campo Magnético.
+  '1333003', '2343009', '1351007', '1351008', '1351009', '1251010', '1251011', '1251012', '2252010',
   // Os estados dos dispositivos na nave: o conversor de impacto, as resistências e o
   // reparo do escudo (o quantum e a esfera de cada raça).
   // O "MISS" do debuff elétrico que não pegou.

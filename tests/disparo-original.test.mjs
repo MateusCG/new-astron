@@ -19,6 +19,7 @@ import {
   RAIO_AREA_ORIGINAL,
   ESCALA_DISPARO,
   efeitosDoDisparo,
+  efeitosNaNave,
   giroDoClarao,
   inicioDoTiro,
   pontoDoImpacto,
@@ -175,13 +176,31 @@ const SHREWDO_ASSAULT = {
   o312034: null, // Disjuntor
   o312039: 'giro', // Feixe Teleguiado em Fila
 };
-const SHREWDO = { ...SHREWDO_ASSAULT };
+const SHREWDO_MOBILE = {
+  o311007: 'giro', // Feixe de Magma
+  o314009: 'preso', // Rifle Trovão
+  o312004: 'preso', // Canhão Quebra-Escudo Rápido
+  o312015: 'preso', // Canhão Revelador
+  o312009: 'preso', // Canhão Freio
+  o312024: 'preso', // Canhão Desgoverno
+  o312013: 'preso', // Míssil Enfraquecedor
+  o312008: 'preso', // Armadilha Teleguiada
+  o312020: 'preso', // Armadilha de Raios
+  o312031: 'preso', // Campo Magnético
+  o312016: null, // Acelerador
+  o312037: 'preso', // Míssil Carga Elétrica
+  o312040: null, // Campo de Plasma
+  o312030: 'preso', // Raio Rastreador
+  o312035: 'preso', // Rifle Shrewdo
+  o312036: 'preso', // Míssil Giratório T2
+};
+const SHREWDO = { ...SHREWDO_ASSAULT, ...SHREWDO_MOBILE };
 // O impacto cresce com a versão (1401107 → 1401207 → 1401307) nestas.
-const IMPACTO_POR_VERSAO = ['o112003', 'o112001', 'o114003', 'o212001', 'o212004', 'o212006', 'o212029', 'o212032', 'o212007', 'o312018'];
+const IMPACTO_POR_VERSAO = ['o112003', 'o112001', 'o114003', 'o212001', 'o212004', 'o212006', 'o212029', 'o212032', 'o212007', 'o312018', 'o312008', 'o312036'];
 // Coluna 94 = 7 (o fim deitado pela área) nas Bellico.
 const FIM_BELLICO = ['o211015', 'o212002', 'o212011', 'o212005', 'o212013', 'o212022', 'o212023', 'o212025', 'o212004', 'o211003', 'o212021', 'o212026', 'o212034'];
 // Coluna 94 = 7 nas Shrewdo (no disparo ou num subprojétil: a armadilha e o raio que ela atira).
-const FIM_SHREWDO = ['o312001', 'o312022', 'o312012', 'o317020'];
+const FIM_SHREWDO = ['o312001', 'o312022', 'o312012', 'o317020', 'o312004', 'o312015', 'o312009', 'o312024', 'o312020', 'o312030'];
 // Colunas 64 a 66 das Shrewdo que não voam constante (o disparo; os subprojéteis em CARGA_SUB_SHREWDO).
 const CARGA_SHREWDO = {
   o312001: { v0: 0, vmax: 0.5, acel: 0.0003 },
@@ -189,9 +208,20 @@ const CARGA_SHREWDO = {
   o312012: { v0: 0, vmax: 0.5, acel: 0.0003 },
   o312018: { v0: -0.05, vmax: 0.4, acel: 0.0002 },
   o317020: { v0: 0.2, vmax: 0.2, acel: -0.00005 },
+  o312004: { v0: 0, vmax: 0.6, acel: 0.0009 },
+  o312015: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o312009: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o312024: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o312013: { v0: -0.05, vmax: 0.4, acel: 0.0002 },
+  o312008: { v0: 0.2, vmax: 0.2, acel: -0.0002 },
+  o312020: { v0: 0.2, vmax: 0.2, acel: -0.00005 },
+  o312037: { v0: 0, vmax: 0.4, acel: 0.0002 },
+  o312036: { v0: 0, vmax: 0.4, acel: 0.0002 },
 };
 const CARGA_SUB_SHREWDO = {
   o317020: { 2: { v0: 0.2, vmax: 0.2, acel: -0.0001 } },
+  o312008: { 2: { v0: 0.2, vmax: 0.3, acel: 0.0001 } },
+  o312020: { 2: { v0: 0.2, vmax: 0.2, acel: -0.0001 } },
 };
 // Colunas 64 a 66 (velocidade inicial, máxima e aceleração, m/ms e m/ms²) das Bellico que não voam constante.
 const CARGA_BELLICO = {
@@ -477,7 +507,7 @@ test('disparo original: o reparo do escudo solta quanta que se afastam 20 m em 2
   assert.ok(d.x > 0 && d.y < 0 && d.z === 0, 'rand % 20 − 10 em cada eixo');
   assert.deepEqual(direcaoDoQuantum(0.5, 0.5, 0.5), { x: 1, y: 0, z: 0 }, 'sorteio nulo não divide por zero');
   // Os estados na nave: o conversor (24), a resistência elétrica (23), a óptica (21) e a física (22).
-  assert.deepEqual(ESTADOS_NA_NAVE, { converte: '1163023', resEl: '2163033', resOp: '2163012', resFis: '2163013', invul: '1163039', reforco: '2163004' });
+  assert.deepEqual(ESTADOS_NA_NAVE, { converte: '1163023', resEl: '2163033', resOp: '2163012', resFis: '2163013', escudo: '1163023', invul: '1163039', reforco: '2163004' });
 });
 
 test('disparo original: o clarão gira em passos de 36° no modo 14 e fica preso no 15', () => {
@@ -891,4 +921,75 @@ test('Shrewdo Assault: o Reforço de Escudo liga o efeito 15 do original (216300
   assert.ok(efeitosDoDisparo().includes('2163004') && EFEITOS_ORIGINAIS.includes('2163004'));
   // Os outros dispositivos do lote usam os estados que já existiam.
   for (const k of ['invul', 'resEl']) assert.ok(ESTADOS_NA_NAVE[k]);
+});
+
+test('Shrewdo Mobile: os feixes, as metralhas, os canhões, os mísseis e o raio de cada degrau, como no original', () => {
+  const projeteis = (kind, p = 0) => WEAPONS[kind].versoes.map((_, i) => golpeDaArma(kind, i + 1, p)?.vis.p);
+  const degraus = (a, b, c) => [a, a, a, b, b, b, c, c];
+  assert.deepEqual(projeteis('o311007'), degraus('1312013', '1312014', '1312015'));
+  for (const k of ['o314009', 'o312035']) assert.deepEqual(projeteis(k), degraus('1321063', '1321064', '1321065'), k);
+  // Os canhões: a carga e o fim de cada um pela área, explodindo no fim da vida (o
+  // Revelador com o clarão do míssil, 1150005; os outros com o do canhão elétrico).
+  for (const [k, d, p, f] of [['o312004', '1133002', '1333003', '2403003'], ['o312015', '1150005', '1333009', '2403009'], ['o312009', '1133002', '1333002', '2403002'], ['o312024', '1133002', '1333002', '2403002']]) {
+    const g = golpeDaArma(k, 1);
+    assert.deepEqual([g.vis.d, g.vis.p, g.vis.f], [d, p, f], k);
+    assert.ok(explodeNoFim(g) && g.area > 0, k);
+  }
+  // O Quebra-Escudo Rápido sai parado e acelera 0,0009 até 0,6 m/ms: o desenho atrás e chega junto.
+  const rapido = golpeDaArma('o312004', 1);
+  assert.ok(recuoDaCarga(rapido.vida / 3, rapido, cargaDoGolpe('o312004')) > 0);
+  assert.ok(Math.abs(recuoDaCarga(rapido.vida, rapido, cargaDoGolpe('o312004'))) < 1e-9);
+  // Os mísseis com o rastro do original: o Enfraquecedor e o Carga Elétrica com o de 4
+  // ossos; o Giratório T2 com o de 7 e o impacto que cresce.
+  for (const [k, p, r] of [['o312013', '2343009', '2343101'], ['o312037', '2443007', '2343101']]) {
+    assert.deepEqual(projeteis(k), Array(8).fill(p), k);
+    assert.deepEqual([golpeDaArma(k, 1).vis.tipo, golpeDaArma(k, 1).vis.r], ['missil_com_rastro', r], k);
+    assert.ok(explodeNoFim(golpeDaArma(k, 1)) && golpeDaArma(k, 1).guia, k);
+  }
+  assert.deepEqual(projeteis('o312036'), projeteis('o312018'));
+  assert.equal(golpeDaArma('o312036', 1).vis.r, '2341102');
+  // Raio Rastreador: o raio de cada versão (o do Raio de Faísca), teleguiado, com o fim elétrico pela área.
+  assert.deepEqual(projeteis('o312030'), ['1336014', '1336015', '1336015', '1336016', '1336016', '1336017', '1336017', '1336018']);
+  const raio = golpeDaArma('o312030', 1);
+  assert.ok(raio.guia && explodeNoFim(raio) && raio.area > 0);
+  assert.deepEqual([raio.vis.d, raio.vis.f], ['1133002', '2432000']);
+  // Campo Magnético: o campo (2252010, tipo 7) solto direto, que corta a regeneração de energia.
+  const campo = golpeDaArma('o312031', 1);
+  assert.equal(campo.forma, 'campo');
+  assert.deepEqual([graficoDaArmadilha(campo), campo.vis.i, campo.vis.d], ['2252010', '1502004', '1150005']);
+});
+
+test('Shrewdo Mobile: a Armadilha Teleguiada e a de Raios esperam o inimigo e atiram como no original', () => {
+  const projeteis = (kind, p = 0) => WEAPONS[kind].versoes.map((_, i) => golpeDaArma(kind, i + 1, p)?.vis.p);
+  const degraus = (a, b, c) => [a, a, a, b, b, b, c, c];
+  // Teleguiada: 3 a 6 cargas a cada 120°, que freiam de 0,2 até parar aos 1000 ms e viram
+  // a armadilha (a mesma peça, coluna 57); com inimigo a 50 m ela solta a ogiva (1251010
+  // a 1251012) no mais perto, que acelera de 0,2 a 0,3 m/ms, curva e explode no fim.
+  assert.deepEqual(projeteis('o312008'), degraus('1351007', '1351008', '1351009'));
+  const corpo = golpeDaArma('o312008', 4, 1);
+  assert.ok(corpo.forma === 'mina' && corpo.ativaPerto);
+  assert.equal(graficoDaArmadilha(corpo), '1351008');
+  assert.deepEqual(projeteis('o312008', 2), degraus('1251010', '1251011', '1251012'));
+  const ogiva = golpeDaArma('o312008', 1, 2);
+  assert.ok(ogiva.guia && explodeNoFim(ogiva));
+  assert.deepEqual([1, 2, 4, 7].map((nv) => golpeDaArma('o312008', nv, 2).vis.i), ['1401007', '1401107', '1401207', '1401307']);
+  assert.ok(recuoDaCarga(ogiva.vida / 3, ogiva, cargaDoGolpe('o312008', 2)) > 0, 'acelera: atrás no começo');
+  assert.ok(Math.abs(recuoDaCarga(ogiva.vida, ogiva, cargaDoGolpe('o312008', 2))) < 1e-9);
+  // A carga freia até parar no fim da vida (0,2 − 0,0002 × 1000 = 0).
+  const carga = golpeDaArma('o312008', 1);
+  assert.ok(recuoDaCarga(carga.vida / 2, carga, cargaDoGolpe('o312008')) < 0);
+  // De Raios: a mesma família da Reforçada.
+  const raios = golpeDaArma('o312020', 1, 1);
+  assert.ok(raios.ativaPerto && raios.vis.f === '2432001' && raios.area > 0);
+  assert.equal(graficoDaArmadilha(raios), raios.vis.p);
+});
+
+test('Shrewdo Mobile: o Campo de Plasma acende o efeito 24 do original (1163023), um só com o conversor', () => {
+  assert.equal(ESTADOS_NA_NAVE.escudo, '1163023');
+  assert.deepEqual(efeitosNaNave(['escudo']), ['1163023']);
+  assert.deepEqual(efeitosNaNave(new Set(['converte', 'escudo', 'reforco'])), ['1163023', '2163004']);
+  assert.deepEqual(efeitosNaNave(['para', 'semTiro']), []);
+  assert.deepEqual(efeitosNaNave(null), []);
+  // O Acelerador acende o turbo dos motores, como a Arrancada.
+  assert.equal(golpeDaArma('o312016', 1).efeitos[0].tipo, 'acelera');
 });

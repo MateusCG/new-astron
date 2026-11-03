@@ -307,6 +307,30 @@ test('Reforço de Escudo: o conserto com tempo e o efeito 15 do original na nave
   assert.ok(!(w.entidades().find((e) => e.id === a.id).fx ?? []).includes('reforco'), 'acabou');
 });
 
+test('Armadilha Teleguiada: a ogiva sai travada no inimigo mais perto e o Campo de Plasma acende o estado na nave', () => {
+  const { w, js } = arena(['shrewdo', 'mobile', 0, 0], ['bellico', 'assault', 400, 0], ['acron', 'assault', -400, 0], ['bellico', 'mobile', 500, 0]);
+  const [a, b, , d] = js;
+  disparar(w, a, '312008');
+  passos(w, 2 * SEGUNDO);
+  assert.equal(w.minas.length, 3, 'as três cargas viraram armadilhas');
+  const m = w.minas[0];
+  w.minas = [m];
+  const g = m.g;
+  assert.ok(g.ativaPerto);
+  b.ship.x = m.x + g.atira - 4;
+  b.ship.z = m.z;
+  d.ship.x = m.x;
+  d.ship.z = m.z + g.atira - 2;
+  w.step();
+  const ogivas = w.bullets.filter((x) => x.kind === 'o312008' && (x.g?.prof ?? x.prof) === 2);
+  assert.equal(ogivas.length, 1);
+  assert.equal(ogivas[0].alvo, b.id, 'no mais perto');
+  // O Campo de Plasma: a proteção de pé, o fx 'escudo' (o 1163023 do original na nave).
+  apertar(w, a, {}, 6 * SEGUNDO); // a recarga da armadilha (5 s) é do encaixe
+  disparar(w, a, '312040');
+  assert.ok(w.entidades().find((e) => e.id === a.id).fx.includes('escudo'));
+});
+
 test('campo: fere a cada intervalo quem fica dentro e corta a regeneração de energia', () => {
   const { w, js } = arena(['shrewdo', 'mobile', 0, 0], ['bellico', 'assault', 300, 0]);
   const [a, b] = js;

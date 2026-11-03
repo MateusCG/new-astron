@@ -259,6 +259,32 @@ export const DISPARO_ORIGINAL = Object.freeze({
   o312029: Object.freeze({ clarao: null }), // Nova Desarmadora (Trap Removing Nova)
   o312034: Object.freeze({ clarao: null }), // Disjuntor (Circuit Breaking Device)
   o312039: Object.freeze({ clarao: 'giro' }), // Feixe Teleguiado em Fila (Array Homing Beam)
+  // Shrewdo Mobile.
+  o311007: Object.freeze({ clarao: 'giro' }), // Feixe de Magma (Force Magma Beam)
+  o314009: Object.freeze({ clarao: 'preso' }), // Rifle Trovão (Rifle Thunder Gun)
+  o312004: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.6, acel: 0.0009 }) }), // Canhão Quebra-Escudo Rápido
+  o312015: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Revelador (Cloak Sensing Cannon)
+  o312009: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Freio (SpeedTrap Cannon)
+  o312024: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Desgoverno (Control Disturbing Cannon)
+  o312013: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: -0.05, vmax: 0.4, acel: 0.0002 }) }), // Míssil Enfraquecedor
+  o312008: Object.freeze({
+    clarao: 'preso',
+    carga: Object.freeze({ v0: 0.2, vmax: 0.2, acel: -0.0002 }),
+    cargaSub: Object.freeze({ 2: Object.freeze({ v0: 0.2, vmax: 0.3, acel: 0.0001 }) }),
+  }), // Armadilha Teleguiada (Homing Trap)
+  o312020: Object.freeze({
+    clarao: 'preso',
+    fim: 'area',
+    carga: Object.freeze({ v0: 0.2, vmax: 0.2, acel: -0.00005 }),
+    cargaSub: Object.freeze({ 2: Object.freeze({ v0: 0.2, vmax: 0.2, acel: -0.0001 }) }),
+  }), // Armadilha de Raios (EnergyBolt Trap)
+  o312031: Object.freeze({ clarao: 'preso' }), // Campo Magnético (Magnetic Field Trap)
+  o312016: Object.freeze({ clarao: null }), // Acelerador (Acceleration Device)
+  o312037: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0, vmax: 0.4, acel: 0.0002 }) }), // Míssil Carga Elétrica (ChargeBolt Missile)
+  o312040: Object.freeze({ clarao: null }), // Campo de Plasma (Plasma Field)
+  o312030: Object.freeze({ clarao: 'preso', fim: 'area' }), // Raio Rastreador (Tracking Bolt)
+  o312035: Object.freeze({ clarao: 'preso' }), // Rifle Shrewdo (ShrewdoBlow Rifle)
+  o312036: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0, vmax: 0.4, acel: 0.0002 }) }), // Míssil Giratório T2
 });
 
 /**
@@ -275,10 +301,33 @@ export const ALFA_CAMUFLADA = 0.3;
  * estado dura: o conversor de impacto (24, 1163023), a resistência elétrica do Disjuntor
  * (23, 2163033), a óptica da Tenda de Luz (21, 2163012), a física do Amortecedor (22,
  * 2163013), a Invulnerabilidade (20, 1163039: código 102 → PILOT_STATE_FLAG 0x2d →
- * CUnitState[0x15] → piloto +0xa9) e o Reforço de Escudo (15, 2163004: o código 4 liga
- * o PILOT_STATE_FLAG 0, o reparo do escudo, e o 2 → CUnitState[1] → piloto +0x95).
+ * CUnitState[0x15] → piloto +0xa9), o Reforço de Escudo (15, 2163004: o código 4 liga
+ * o PILOT_STATE_FLAG 0, o reparo do escudo, e o 2 → CUnitState[1] → piloto +0x95) e o
+ * Campo de Plasma (24, 1163023, o mesmo do conversor: o código 1021 liga o
+ * PILOT_STATE_FLAG 0x33, que CMyPilot::OnStateFlagStart transforma na proteção de v% do
+ * HP máximo em +0x448, e FillUnitState acende o CUnitState[0x1e] enquanto ela for > 0;
+ * o `fx` 'escudo' do servidor também só vale com a proteção de pé).
  */
-export const ESTADOS_NA_NAVE = Object.freeze({ converte: '1163023', resEl: '2163033', resOp: '2163012', resFis: '2163013', invul: '1163039', reforco: '2163004' });
+export const ESTADOS_NA_NAVE = Object.freeze({
+  converte: '1163023',
+  escudo: '1163023',
+  resEl: '2163033',
+  resOp: '2163012',
+  resFis: '2163013',
+  invul: '1163039',
+  reforco: '2163004',
+});
+
+/**
+ * Os efeitos do original presos na nave para os estados ativos `fx`, cada um uma vez:
+ * o Conversor de Impacto e o Campo de Plasma ligam o mesmo CUnitState[0x1e] (o efeito
+ * 24, 1163023), então os dois juntos desenham um só.
+ */
+export function efeitosNaNave(fx) {
+  const ids = new Set();
+  for (const k of fx ?? []) if (ESTADOS_NA_NAVE[k]) ids.add(ESTADOS_NA_NAVE[k]);
+  return [...ids];
+}
 
 /**
  * As faíscas do Amplificador de Energia (código 32 → PILOT_STATE_FLAG 0x16 →
