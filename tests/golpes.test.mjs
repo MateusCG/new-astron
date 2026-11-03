@@ -452,12 +452,46 @@ test('dispositivo: invulnerável, escudo, resistência e conserto por tempo', ()
   assert.deepEqual([golpeDaArma('o112033', 1).efeitos[0].frac, golpeDaArma('o112033', 1).efeitos[0].modo], [0.4, 'pontos']);
   assert.deepEqual([golpeDaArma('o112008', 1).efeitos[0].frac, golpeDaArma('o112008', 1).efeitos[0].modo], [1, 'pct']);
   assert.equal(golpeDaArma('o112008', 8).efeitos[0].frac, 2.5);
-  // Reforço de Escudo: conserta por tempo.
-  const { w: w4, js: j4 } = arena(['shrewdo', 'assault', 0, 0]);
-  j4[0].ship.hp = 50;
-  disparar(w4, j4[0], '312006');
-  passos(w4, SEGUNDO);
-  assert.ok(j4[0].ship.hp > 50);
+});
+
+/**
+ * Escudo de teste na nave da arena (que não passa pela Loja): recupera só pelo
+ * dispositivo (regenEscudo 0), sobre a recuperação do item (regenEscudoItem).
+ */
+function comEscudo(j, regenItem = 3) {
+  Object.assign(j.ship, { maxEscudo: 500, escudo: 100, regenEscudo: 0, regenEscudoItem: regenItem });
+}
+
+test('Reforço de Escudo: recupera o ESCUDO (+700% da recuperação do escudo na V1, por 3 s), não o HP; sem escudo, nada', () => {
+  const { w, js } = arena(['shrewdo', 'assault', 0, 0]);
+  const [a] = js;
+  comEscudo(a);
+  a.ship.hp = 50;
+  disparar(w, a, '312006');
+  passos(w, SEGUNDO);
+  assert.equal(a.ship.hp, 50, 'o HP não sobe');
+  assert.ok(Math.abs(a.ship.escudo - (100 + 3 * 7 * (SEGUNDO + 1) / SEGUNDO)) < 1e-6, `escudo: ${a.ship.escudo}`);
+  passos(w, 4 * SEGUNDO);
+  const fim = a.ship.escudo;
+  passos(w, SEGUNDO);
+  assert.equal(a.ship.escudo, fim, 'acabou o tempo');
+  // Sem escudo equipado, o estado do original soma sobre zero.
+  const { w: w2, js: j2 } = arena(['shrewdo', 'assault', 0, 0]);
+  j2[0].ship.hp = 50;
+  disparar(w2, j2[0], '312006');
+  passos(w2, SEGUNDO);
+  assert.equal(j2[0].ship.hp, 50);
+  assert.ok(!(j2[0].ship.escudo > 0));
+});
+
+test('os Reparadores de Escudo das três raças e o Reforço convertem para o escudo; a cura de HP continua no HP', () => {
+  for (const [id, mult] of [['o112007', 8], ['o212008', 6], ['o312005', 10], ['o312006', 7]]) {
+    const ef = golpeDaArma(id, 1).efeitos[0];
+    assert.equal(ef.tipo, 'regen', id);
+    assert.equal(ef.mult, mult, id);
+    assert.equal(ef.fracPorS, undefined, id);
+  }
+  assert.equal(golpeDaArma('o112018', 1).efeitos[0].tipo, 'cura', 'a Nova de Reparo cura HP');
 });
 
 test('dispositivo: camuflagem some do snapshot do outro time (salvo de perto) e revela ao atirar ou levar o canhão revelador', () => {
@@ -569,14 +603,16 @@ test('segurar: o Reparador de Escudo Shrewdo prende a nave e acende o cross007 d
   assert.ok(!w.entidades().find((e) => e.id === c.id).fx.includes('imovel'));
 });
 
-test('segurar: Reparador de Escudo conserta enquanto segura; Arrancada e Amplificador gastam HP', () => {
+test('segurar: Reparador de Escudo recupera o escudo enquanto segura; Arrancada e Amplificador gastam HP', () => {
   const { w, js } = arena(['acron', 'assault', 0, 0]);
   const [a] = js;
+  comEscudo(a);
   a.ship.hp = 50;
   const rep = idx('112007');
   a.ship.encaixes = [rep, a.ship.encaixes[1]];
   apertar(w, a, { f1: true, a: rep }, SEGUNDO);
-  assert.ok(a.ship.hp > 55, `consertou: ${a.ship.hp}`);
+  assert.ok(a.ship.escudo > 100 + 3 * 8 * 0.9, `recuperou o escudo: ${a.ship.escudo}`);
+  assert.ok(a.ship.hp <= 50 + (a.ship.regenHpVoo ?? 0) * 1.1, `o HP só com o conserto normal: ${a.ship.hp}`);
   assert.ok(w.entidades().find((e) => e.id === a.id).fx.includes('escudoRec'), 'o reparo do escudo do original na nave');
   const { w: w2, js: j2 } = arena(['bellico', 'assault', 0, 0]);
   const amp = idx('212018');

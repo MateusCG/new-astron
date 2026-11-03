@@ -210,9 +210,9 @@
 //         fora de me.encInst inclusive), equipado =
 //         {escudo, armadura, pot: [a, b]} (id de instância ou null) o que está na nave,
 //         escudo / maxEscudo / regenEscudo (por s) = escudo do equipamento (o
-//         servidor conta; recupera depois de 3 s sem dano, enche pousado na base e
-//         ao renascer), status = o statusDoPiloto já somado (shared/status.js:
-//         {hpExtra, maxEscudo, regenEscudo, enExtra, regenEnExtra, regenHpExtra,
+//         servidor conta; recupera sempre, enche pousado na base e ao renascer),
+//         status = o statusDoPiloto já somado (shared/status.js:
+//         {hpExtra, maxEscudo, regenEscudo, regenEscudoItem, enExtra, regenEnExtra, regenHpExtra,
 //         poder, recarga, resist, penetra: {fisico, laser, eletrico}, critico,
 //         velMult, acelMult}), e lidos no stepShip da predição: velMult e acelMult
 //         (multiplicadores de velocidade máxima e aceleração) e recargaMult =

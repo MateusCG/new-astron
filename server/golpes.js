@@ -602,7 +602,7 @@ export class Golpes {
       else if (ef.tipo === 'escudo') this.#por(ent, 'escudo', ef.dur, { hp: s.maxHp * ef.frac });
       else if (ef.tipo === 'resiste') this.#por(ent, `resiste_${ef.tipoDano}`, ef.dur, { frac: ef.frac, modo: ef.modo ?? 'pontos' });
       else if (ef.tipo === 'converte') this.#por(ent, 'converte', ef.dur, { frac: ef.frac });
-      else if (ef.tipo === 'regen') this.#por(ent, 'regen', ef.dur, { fracPorS: ef.fracPorS });
+      else if (ef.tipo === 'regen') this.#por(ent, 'regen', ef.dur, { mult: ef.mult });
     }
     // Atirar revela; ligar a camuflagem não conta como tiro.
     if (g.efeitos.some((e) => e.tipo === 'invisivel')) ent.ultimoTiro = undefined;
@@ -742,22 +742,30 @@ export class Golpes {
 
   // ---------- Estados por tick ----------
 
-  /** Conserto e cura por tempo, e o que as armas de segurar fazem no HP. */
+  /**
+   * Cura por tempo no HP, os Reparadores e o Reforço de Escudo no ESCUDO (v% a mais da
+   * recuperação do escudo equipado, como o estado 0 do original; sem escudo, nada), e
+   * o HP que as armas de segurar gastam.
+   */
   #passoEstados(vivos) {
     for (const ent of vivos) {
       const s = ent.ship;
       let hps = 0;
+      let multEscudo = 0;
       const regen = this.st(ent, 'regen');
-      if (regen) hps += s.maxHp * regen.fracPorS;
+      if (regen) multEscudo += regen.mult;
       const cura = this.st(ent, 'curaTempo');
       if (cura) hps += cura.hps;
       let custo = 0;
       for (const enc of [0, 1]) {
         const ef = escalarDispositivo(segurando(s, enc), fatorDispositivo(enc ? ARMAS[s.seg2] : ARMAS[s.seg1], s));
-        if (ef?.tipo === 'regen') hps += s.maxHp * ef.fracPorS;
+        if (ef?.tipo === 'regen') multEscudo += ef.mult;
         custo += versaoSeg(s, enc)?.hpPorS ?? 0; // Arrancada, Amplificador e Reparador Bellico gastam HP
       }
       if (hps > 0 && s.hp < s.maxHp) s.hp = Math.min(s.maxHp, s.hp + hps * DT);
+      if (multEscudo > 0 && s.maxEscudo > 0 && s.escudo < s.maxEscudo) {
+        s.escudo = Math.min(s.maxEscudo, s.escudo + (s.regenEscudoItem ?? 0) * multEscudo * DT);
+      }
       // O custo em HP das armas de segurar não mata: para em 1.
       if (custo > 0) s.hp = Math.max(Math.min(s.hp, 1), s.hp - custo * DT);
       if (ent.st && this.tick % TICK_HZ === 0) {

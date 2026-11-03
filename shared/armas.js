@@ -106,7 +106,6 @@ export const DEBUFF_EL_POR_PODER = 30;
 export const DEBUFF_EL_SUPORTE_BASE = 55;
 export const DEBUFF_EL_SUPORTE_POR_PODER = 15;
 export const ESCUDO_EQUIV_HP = 0.15; // "escudo" do original = esta fração do HP máximo
-export const REGEN_ESCUDO_FRAC = 0.01; // "+100% de recuperação do escudo" = 1% do HP máximo por s
 export const ENERGIA_POR_HP_FATOR = 6; // Amplificador de Energia: valor × isto = energia por s (era 1,8 com a energia × 0,3)
 export const CONVERTE_ENERGIA_POR_HP = 1 / 3; // Conversor de Impacto: energia gasta por HP convertido (o 0,5 de antes com HP ÷ 5 e energia × 0,3)
 
@@ -231,14 +230,17 @@ function converterEfeito(e, versao) {
       return { tipo: 'resiste', alvo: 'proprio', tipoDano: 'laser', modo: 'pct', frac: v / 100, dur };
     case 'converteDano':
       return { tipo: 'converte', alvo: 'proprio', frac: v, dur };
+    // Os Reparadores e o Reforço de Escudo (códigos 34, 23, 3 e 4) ligam o estado 0 do
+    // original, que soma no ESCUDO, não no HP, v% a mais da recuperação do escudo
+    // equipado (CMyPilot::Process: a do item × v / 100): sem escudo, não fazem nada.
     case 'regenEscudoPorEnergia':
-      return { tipo: 'regen', alvo: 'proprio', segurar: true, fracPorS: (REGEN_ESCUDO_FRAC * v) / 100 };
+      return { tipo: 'regen', alvo: 'proprio', segurar: true, mult: v / 100 };
     case 'regenEscudoPorHp':
-      return { tipo: 'regen', alvo: 'proprio', segurar: true, fracPorS: (REGEN_ESCUDO_FRAC * v) / 100, hpPorS };
+      return { tipo: 'regen', alvo: 'proprio', segurar: true, mult: v / 100, hpPorS };
     case 'regenEscudoSegurando':
-      return { tipo: 'regen', alvo: 'proprio', segurar: true, parado: true, fracPorS: (REGEN_ESCUDO_FRAC * v) / 100 };
+      return { tipo: 'regen', alvo: 'proprio', segurar: true, parado: true, mult: v / 100 };
     case 'regenEscudoTempo':
-      return { tipo: 'regen', alvo: 'proprio', fracPorS: (REGEN_ESCUDO_FRAC * v) / 100, dur };
+      return { tipo: 'regen', alvo: 'proprio', mult: v / 100, dur };
     case 'teleporte':
       return { tipo: 'teleporte', alvo: 'proprio', dist: (e.raio ?? 0) * FATOR_ALCANCE };
     case 'zeraPropriaEnergia':
@@ -288,7 +290,7 @@ export function escalarDispositivo(ef, fator) {
       e.frac *= fator;
       break;
     case 'regen':
-      e.fracPorS *= fator;
+      e.mult *= fator;
       break;
     case 'acelera':
       e.mult = 1 + (e.mult - 1) * fator;
@@ -374,7 +376,7 @@ export function textoEfeito(ef) {
     case 'converte':
       return `${p(ef.frac)} do dano recebido vira cura${d}`;
     case 'regen':
-      return `Conserta ${p(ef.fracPorS)} do HP/s${ef.segurar ? ' enquanto segura' : d}${ef.parado ? ' (parada)' : ''}`;
+      return `Recuperação do escudo +${p(ef.mult)}${ef.segurar ? ' enquanto segura' : d}${ef.parado ? ' (parada)' : ''}${ef.hpPorS ? `, gasta ${s(ef.hpPorS)} HP/s` : ''}`;
     case 'teleporte':
       return `Teleporte de até ${Math.round(ef.dist)} m à frente`;
     case 'zeraPropria':

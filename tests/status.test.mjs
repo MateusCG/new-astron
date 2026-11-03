@@ -130,6 +130,14 @@ test('pontos: Durabilidade dá HP (Skill HP + 3% do HP base) e regeneração de 
   perto(st.regenHpExtra, 10 * um.regenHp);
 });
 
+test('status: regenEscudoItem é só a recuperação do escudo equipado, sem o potenciador (a base dos Reparadores)', () => {
+  const escudo = versaoEquip('e330010', 1).regenEscudo;
+  const st = statusDoPiloto({ race: 'shrewdo', classe: 'functional', equipados: [['e330010', 1], ['e340003', 1]] });
+  perto(st.regenEscudoItem, escudo);
+  assert.ok(st.regenEscudo > escudo, 'o potenciador soma na recuperação normal');
+  perto(statusDoPiloto({ race: 'shrewdo', classe: 'functional', equipados: [['e340003', 1]] }).regenEscudoItem, 0);
+});
+
 test('status: soma pontos, escudo, armadura e os dois potenciadores num objeto só', () => {
   const st = statusDoPiloto({
     race: 'shrewdo',

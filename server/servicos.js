@@ -171,6 +171,7 @@ function aplicarStatus(j) {
   s.regenHpPousada += st.regenHpExtra;
   s.maxEscudo = st.maxEscudo;
   s.regenEscudo = st.regenEscudo;
+  s.regenEscudoItem = st.regenEscudoItem; // a base dos Reparadores e do Reforço de Escudo
   s.velMult = st.velMult;
   s.acelMult = st.acelMult;
   s.fatorEl = 1 + (st.poderPontos?.eletrico ?? 0); // escala os dispositivos elétricos, como no original

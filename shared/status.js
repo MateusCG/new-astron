@@ -28,7 +28,7 @@
 // statusDoPiloto junta os pontos com o escudo, a armadura e os dois potenciadores
 // equipados (shared/equipamentos.js) num objeto só, o contrato que o servidor usa
 // para montar a nave e aplicar o dano e que a janela STATUS mostra:
-// { hpExtra, maxEscudo, regenEscudo, enExtra, regenEnExtra, regenHpExtra,
+// { hpExtra, maxEscudo, regenEscudo, regenEscudoItem, enExtra, regenEnExtra, regenHpExtra,
 //   poder: {fisico, laser, eletrico}, recarga: {...}, resist: {...}, penetra: {...},
 //   critico, velMult, acelMult }
 // - poder: fração a mais de dano daquele tipo (0,78 = +78%): o dano sai × (1 + poder);
@@ -180,6 +180,7 @@ export function statusVazio() {
     hpExtra: 0,
     maxEscudo: 0,
     regenEscudo: 0,
+    regenEscudoItem: 0,
     enExtra: 0,
     regenEnExtra: 0,
     regenHpExtra: 0,
@@ -250,9 +251,22 @@ function somarEfeito(st, ef) {
   }
 }
 
+/**
+ * Soma no status os efeitos dos itens válidos, e à parte (regenEscudoItem) a
+ * recuperação do próprio escudo, sem os potenciadores: é sobre ela que os Reparadores
+ * e o Reforço de Escudo somam (CMyPilot::Process do original).
+ */
+function somarItens(st, equipados, classe) {
+  for (const [k, nv] of itensValidos(equipados, classe)) {
+    const versao = equipamento(k).versoes[nv - 1];
+    for (const ef of versao.efeitos) somarEfeito(st, ef);
+    if (equipamento(k).categoria === 'escudo') st.regenEscudoItem += versao.regenEscudo ?? 0;
+  }
+}
+
 /** Arredonda e aplica os tetos (resistência, recarga, crítico). */
 function fechar(st) {
-  for (const k of ['hpExtra', 'maxEscudo', 'regenEscudo', 'enExtra', 'regenEnExtra', 'regenHpExtra', 'velMult', 'acelMult']) st[k] = r4(st[k]);
+  for (const k of ['hpExtra', 'maxEscudo', 'regenEscudo', 'regenEscudoItem', 'enExtra', 'regenEnExtra', 'regenHpExtra', 'velMult', 'acelMult']) st[k] = r4(st[k]);
   for (const t of ORDEM_TIPOS_DANO) {
     st.poder[t] = r4(st.poder[t]);
     st.recarga[t] = r4(Math.min(RECARGA_MAX, st.recarga[t]));
@@ -273,7 +287,7 @@ function fechar(st) {
  */
 export function somaEquipamento(equipados, classe) {
   const st = statusVazio();
-  for (const [k, nv] of itensValidos(equipados, classe)) for (const ef of equipamento(k).versoes[nv - 1].efeitos) somarEfeito(st, ef);
+  somarItens(st, equipados, classe);
   return fechar(st);
 }
 
@@ -285,7 +299,7 @@ export function somaEquipamento(equipados, classe) {
  */
 export function statusDoPiloto({ race, classe, pontos, equipados, energiaBase = 0, hpBase = 0 } = {}) {
   const st = statusVazio();
-  for (const [k, nv] of itensValidos(equipados, classe)) for (const ef of equipamento(k).versoes[nv - 1].efeitos) somarEfeito(st, ef);
+  somarItens(st, equipados, classe);
   const p = efeitoDosPontos(race, classe, pontos, energiaBase, hpBase);
   st.hpExtra += p.hp;
   st.regenHpExtra += p.regenHp;
