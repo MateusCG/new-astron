@@ -120,6 +120,11 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
   // Shrewdo Mobile: a carga do Canhão Quebra-Escudo Rápido; o Míssil Enfraquecedor; a
   // Armadilha Teleguiada (a carga e a ogiva de cada degrau); o Campo Magnético.
   '1333003', '2343009', '1351007', '1351008', '1351009', '1251010', '1251011', '1251012', '2252010',
+  // Shrewdo Functional: o feixe do Clone Tempestade de cada degrau; o Míssil
+  // Paralisante; o Lançador de Metralha (a carga e as balas de cada versão); a Nova
+  // Recarrega-Escudo e o impacto dela; o Feixe Elétrico Duplo de cada degrau.
+  '1312043', '1312044', '1312045', '2343011', '1331015', '1331016', '1331017', '1331018', '1331019',
+  '1321001', '1321002', '2164011', '1503012', '1413003', '1413004', '1413005',
   // Os estados dos dispositivos na nave: o conversor de impacto, as resistências e o
   // reparo do escudo (o quantum e a esfera de cada raça).
   // O "MISS" do debuff elétrico que não pegou.
@@ -151,10 +156,12 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
  * proibidas do desgoverno (o disparo de controle da Medusa), o "E" da energia (a
  * descarga do míssil do SN-3, o dreno e a recarga cortada), a espada proibida do
  * ataque enfraquecido e o cross011 do dano devolvido (o Canhão de Recuo: o código 109
- * liga o PILOT_STATE_FLAG 0x2f, o CUnitState[0x20], o ícone 11 do CUnit::LoadResource).
+ * liga o PILOT_STATE_FLAG 0x2f, o CUnitState[0x20], o ícone 11 do CUnit::LoadResource);
+ * o cross007 da nave presa pelo Reparador de Escudo Shrewdo (código 3: PILOT_STATE_FLAG
+ * 0x29, CUnitState[9], o ícone 7).
  * Os mesmos símbolos das mensagens de debuff (debuffs.js).
  */
-export const ICONES_ESTADO = Object.freeze({ resist: 'cross003', para: 'cross002', semTiro: 'cross008', desg: 'cross010', descarga: 'cross013', energia: 'cross013', fraco: 'cross008', recuo: 'cross011' });
+export const ICONES_ESTADO = Object.freeze({ resist: 'cross003', para: 'cross002', imovel: 'cross007', semTiro: 'cross008', desg: 'cross010', descarga: 'cross013', energia: 'cross013', fraco: 'cross008', recuo: 'cross011' });
 /** O fogo do Magma na nave (o dreno de HP do original: faíscas vermelhas subindo). */
 export const MAGMA_NA_NAVE = '1164001';
 /** O "MISS" do original na nave que resistiu ao debuff elétrico (CUnit::EffectMiss). */

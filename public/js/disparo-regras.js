@@ -63,7 +63,10 @@
 // - Subprojétil (CUnitBeam::Attack com a matriz do tiro que se divide): o InitData dele
 //   cria o clarão da coluna 51 dele. No modo 0 (o do Míssil Clone Teleguiado) é um
 //   CUnitFire parado na matriz do subprojétil, no rumo dele, uma vez. O que se divide
-//   e não explode no fim some sem nada (OnDeleteMe(false)).
+//   e não explode no fim some sem nada (OnDeleteMe(false)). O disparo com o clarão no
+//   modo 0 (o Míssil Descarga Dupla, coluna 53 vazia) é o mesmo caso: o CUnitFire parado
+//   na matriz do tiro, isto é, na boca, na altura do voo e no rumo da nave
+//   (GetWeaponFireMatrix), sem seguir a nave.
 // - Armadilha (tipo de gráfico 7, que o LoadGraphic trata como o 0, um modelo): o
 //   efeito da coluna 57 parado onde ela caiu, repetindo, até a vida dela acabar.
 // - Dispositivos (coluna 42 = 0, sem projétil): OnActiveWeapon só cria o clarão se a
@@ -126,7 +129,8 @@ import { forward } from '../../shared/sim.js';
 /**
  * As armas desenhadas como no original e o modo de cada efeito (iguais nas versões V1
  * a V8 no inititemweapon.cfg): `clarao` 'giro' (modo 14), 'preso' (15), 'area' (2,
- * parado onde a nave estava, na escala da área) ou null (coluna 51 '0': sem clarão);
+ * parado onde a nave estava, na escala da área), 'parado' (0, o Míssil Descarga Dupla:
+ * parado na matriz do tiro, onde ele nasce) ou null (coluna 51 '0': sem clarão);
  * `fim` 'area' (modo 7: o fim deitado e esticado até a área); `carga`: o projétil que
  * acelera (ou freia), com a velocidade inicial, a máxima (m/ms) e a aceleração (m/ms²)
  * do original (colunas 64, 65 e 66; os mísseis saem a −0,05, caindo para trás);
@@ -285,6 +289,19 @@ export const DISPARO_ORIGINAL = Object.freeze({
   o312030: Object.freeze({ clarao: 'preso', fim: 'area' }), // Raio Rastreador (Tracking Bolt)
   o312035: Object.freeze({ clarao: 'preso' }), // Rifle Shrewdo (ShrewdoBlow Rifle)
   o312036: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0, vmax: 0.4, acel: 0.0002 }) }), // Míssil Giratório T2
+  // Shrewdo Functional.
+  o311003: Object.freeze({ clarao: 'giro', fim: 'area' }), // Feixe Clone Tempestade (Clone Storm Beam)
+  o311032: Object.freeze({ clarao: 'preso' }), // Rifle de Magma (Magma Rifle Gun)
+  o314001: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Tempestade (Rifle Storm Cannon)
+  o312003: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Paralisante
+  o312010: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: -0.05, vmax: 0.4, acel: 0.0002 }) }), // Míssil Paralisante (Lock-Down Missile)
+  o312023: Object.freeze({ clarao: 'parado', carga: Object.freeze({ v0: -0.05, vmax: 0.4, acel: 0.0002 }) }), // Míssil Descarga Dupla
+  o312005: Object.freeze({ clarao: null }), // Reparador de Escudo (Shield Recovering Device)
+  o312021: Object.freeze({ clarao: 'preso', claraoSub: 'parado' }), // Lançador de Metralha (Case Shot Launcher)
+  o312025: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: -0.05, vmax: 0.4, acel: 0.0002 }) }), // Druida Reparador (Repair Druid)
+  o312028: Object.freeze({ clarao: null }), // Nova Antiparalisia (Paralysis Removing Nova)
+  o312033: Object.freeze({ clarao: null }), // Nova Recarrega-Escudo (Shield Recharging Nova)
+  o312038: Object.freeze({ clarao: 'giro' }), // Feixe Elétrico Duplo (Array Bolt Beam)
 });
 
 /**

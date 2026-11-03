@@ -194,13 +194,27 @@ const SHREWDO_MOBILE = {
   o312035: 'preso', // Rifle Shrewdo
   o312036: 'preso', // Míssil Giratório T2
 };
-const SHREWDO = { ...SHREWDO_ASSAULT, ...SHREWDO_MOBILE };
+const SHREWDO_FUNCTIONAL = {
+  o311003: 'giro', // Feixe Clone Tempestade
+  o311032: 'preso', // Rifle de Magma
+  o314001: 'preso', // Canhão Tempestade
+  o312003: 'preso', // Canhão Paralisante
+  o312010: 'preso', // Míssil Paralisante
+  o312023: 'parado', // Míssil Descarga Dupla (coluna 53 vazia: modo 0)
+  o312005: null, // Reparador de Escudo
+  o312021: 'preso', // Lançador de Metralha
+  o312025: 'preso', // Druida Reparador
+  o312028: null, // Nova Antiparalisia
+  o312033: null, // Nova Recarrega-Escudo
+  o312038: 'giro', // Feixe Elétrico Duplo
+};
+const SHREWDO = { ...SHREWDO_ASSAULT, ...SHREWDO_MOBILE, ...SHREWDO_FUNCTIONAL };
 // O impacto cresce com a versão (1401107 → 1401207 → 1401307) nestas.
 const IMPACTO_POR_VERSAO = ['o112003', 'o112001', 'o114003', 'o212001', 'o212004', 'o212006', 'o212029', 'o212032', 'o212007', 'o312018', 'o312008', 'o312036'];
 // Coluna 94 = 7 (o fim deitado pela área) nas Bellico.
 const FIM_BELLICO = ['o211015', 'o212002', 'o212011', 'o212005', 'o212013', 'o212022', 'o212023', 'o212025', 'o212004', 'o211003', 'o212021', 'o212026', 'o212034'];
 // Coluna 94 = 7 nas Shrewdo (no disparo ou num subprojétil: a armadilha e o raio que ela atira).
-const FIM_SHREWDO = ['o312001', 'o312022', 'o312012', 'o317020', 'o312004', 'o312015', 'o312009', 'o312024', 'o312020', 'o312030'];
+const FIM_SHREWDO = ['o312001', 'o312022', 'o312012', 'o317020', 'o312004', 'o312015', 'o312009', 'o312024', 'o312020', 'o312030', 'o311003', 'o314001', 'o312003'];
 // Colunas 64 a 66 das Shrewdo que não voam constante (o disparo; os subprojéteis em CARGA_SUB_SHREWDO).
 const CARGA_SHREWDO = {
   o312001: { v0: 0, vmax: 0.5, acel: 0.0003 },
@@ -217,6 +231,11 @@ const CARGA_SHREWDO = {
   o312020: { v0: 0.2, vmax: 0.2, acel: -0.00005 },
   o312037: { v0: 0, vmax: 0.4, acel: 0.0002 },
   o312036: { v0: 0, vmax: 0.4, acel: 0.0002 },
+  o314001: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o312003: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o312010: { v0: -0.05, vmax: 0.4, acel: 0.0002 },
+  o312023: { v0: -0.05, vmax: 0.4, acel: 0.0002 },
+  o312025: { v0: -0.05, vmax: 0.4, acel: 0.0002 },
 };
 const CARGA_SUB_SHREWDO = {
   o317020: { 2: { v0: 0.2, vmax: 0.2, acel: -0.0001 } },
@@ -992,4 +1011,55 @@ test('Shrewdo Mobile: o Campo de Plasma acende o efeito 24 do original (1163023)
   assert.deepEqual(efeitosNaNave(null), []);
   // O Acelerador acende o turbo dos motores, como a Arrancada.
   assert.equal(golpeDaArma('o312016', 1).efeitos[0].tipo, 'acelera');
+});
+
+test('Shrewdo Functional: o feixe clone, o canhão, os mísseis, o lançador e as armas de suporte do original', () => {
+  const projeteis = (kind, p = 0) => WEAPONS[kind].versoes.map((_, i) => golpeDaArma(kind, i + 1, p)?.vis.p);
+  const degraus = (a, b, c) => [a, a, a, b, b, b, c, c];
+  // Feixe Clone Tempestade: o feixe de cada degrau, que aos 300 ms (a vida) vira 6 a 10
+  // clones em leque (sem clarão), todos com o fim 1412002 pela área ao acertar.
+  assert.deepEqual(projeteis('o311003'), degraus('1312043', '1312044', '1312045'));
+  assert.deepEqual(projeteis('o311003', 1), projeteis('o311003'));
+  const clone = golpeDaArma('o311003', 1, 1);
+  assert.equal(clone.vis.d, undefined);
+  assert.ok(clone.vis.f === '1412002' && clone.area > 0 && !explodeNoFim(clone));
+  assert.deepEqual(projeteis('o311032'), degraus('1321013', '1321014', '1321015'));
+  // Canhões: o Tempestade (a carga do Canhão em Fila, o fim 2432001) e o Paralisante (1333004, 2403004).
+  assert.deepEqual(projeteis('o314001'), degraus('1332003', '1332004', '1332005'));
+  for (const [k, d, f] of [['o314001', '1132001', '2432001'], ['o312003', '1133002', '2403004']]) {
+    const g = golpeDaArma(k, 1);
+    assert.deepEqual([g.vis.d, g.vis.f], [d, f], k);
+    assert.ok(explodeNoFim(g) && g.area > 0, k);
+  }
+  // Mísseis: o Paralisante não explode no fim; o Descarga Dupla explode e tem o clarão parado (modo 0).
+  for (const [k, p, fim] of [['o312010', '2343011', false], ['o312023', '2343012', true]]) {
+    assert.deepEqual(projeteis(k), Array(8).fill(p), k);
+    assert.deepEqual([golpeDaArma(k, 1).vis.tipo, golpeDaArma(k, 1).vis.r], ['missil_com_rastro', '2343101'], k);
+    assert.equal(explodeNoFim(golpeDaArma(k, 1)), fim, k);
+  }
+  assert.equal(DISPARO_ORIGINAL.o312023.clarao, 'parado');
+  assert.equal(golpeDaArma('o312023', 1).vis.d, '1150005');
+  // Lançador de Metralha: a carga (1331015 a 1331019) que atravessa e deixa o impacto no fim;
+  // aos 1000 ms (a vida) 10 a 18 balas em volta, cada uma com o clarão parado onde nasce (modo 0).
+  assert.deepEqual(projeteis('o312021'), ['1331015', '1331016', '1331016', '1331017', '1331017', '1331018', '1331018', '1331019']);
+  assert.deepEqual(projeteis('o312021', 1), ['1321001', '1321002', '1321002', '1321003', '1321003', '1321004', '1321004', '1321005']);
+  assert.ok(atravessa(golpeDaArma('o312021', 1)) && explodeNoFim(golpeDaArma('o312021', 1)));
+  assert.equal(DISPARO_ORIGINAL.o312021.claraoSub, 'parado');
+  assert.equal(golpeDaArma('o312021', 1, 1).vis.d, '1150005');
+  assert.deepEqual([1, 8].map((nv) => golpeDaArma('o312021', nv, 1).tiros.length), [10, 18]);
+  // Druida Reparador: a esfera de cura (1353019), só aliado, com o impacto de suporte.
+  const druida = golpeDaArma('o312025', 1);
+  assert.deepEqual([druida.vis.p, druida.vis.i], ['1353019', '1503011']);
+  assert.ok(druida.aliado && druida.inimigo === false && druida.guia);
+  // As novas de suporte: a Antiparalisia e a Recarrega-Escudo (2164011), com o impacto em cada aliado.
+  assert.deepEqual([golpeDaArma('o312028', 1).vis.p, golpeDaArma('o312028', 1).vis.i], ['2163022', '1503010']);
+  const recarrega = golpeDaArma('o312033', 1);
+  assert.deepEqual([recarrega.vis.tipo, recarrega.vis.p, recarrega.vis.i], ['esfera_que_cresce', '2164011', '1503012']);
+  assert.ok(recarrega.aliado);
+  // Feixe Elétrico Duplo: o raio de cada degrau, com o clarão do canhão elétrico girado.
+  assert.deepEqual(projeteis('o312038'), degraus('1413003', '1413004', '1413005'));
+  assert.deepEqual([golpeDaArma('o312038', 1).vis.d, golpeDaArma('o312038', 1).vis.i], ['1133002', '1503009']);
+  // O Reparador de Escudo Shrewdo: os quanta da raça e o cross007 (a nave presa).
+  assert.equal(ICONES_ESTADO.imovel, 'cross007');
+  assert.ok(EFEITOS_ORIGINAIS.includes('cross007'));
 });

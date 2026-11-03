@@ -553,6 +553,22 @@ test('elétrico: o debuff de bloqueio só pega com a chance do original; quando 
   assert.ok(miss && miss.para === falhou.b.id, 'o MISS para quem resistiu');
 });
 
+test('segurar: o Reparador de Escudo Shrewdo prende a nave e acende o cross007 do original; o Acron não', () => {
+  const { w, js } = arena(['shrewdo', 'functional', 0, 0], ['acron', 'assault', 0, 200]);
+  const [a, c] = js;
+  const rep = idx('312005');
+  a.ship.encaixes = [rep, a.ship.encaixes[1]];
+  apertar(w, a, { f1: true, a: rep }, 5);
+  const fx = w.entidades().find((e) => e.id === a.id).fx;
+  assert.ok(fx.includes('escudoRec') && fx.includes('imovel'), fx.join());
+  apertar(w, a, {}, 2);
+  assert.ok(!(w.entidades().find((e) => e.id === a.id).fx ?? []).includes('imovel'), 'soltou');
+  const repA = idx('112007');
+  c.ship.encaixes = [repA, c.ship.encaixes[1]];
+  apertar(w, c, { f1: true, a: repA }, 5);
+  assert.ok(!w.entidades().find((e) => e.id === c.id).fx.includes('imovel'));
+});
+
 test('segurar: Reparador de Escudo conserta enquanto segura; Arrancada e Amplificador gastam HP', () => {
   const { w, js } = arena(['acron', 'assault', 0, 0]);
   const [a] = js;

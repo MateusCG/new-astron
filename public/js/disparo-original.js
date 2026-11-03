@@ -8,7 +8,8 @@
 //   ela enquanto toca (o efeito anda com a nave), no rumo da nave sem a inclinação da
 //   curva, girado ao acaso em volta do cano nas armas de modo 14. Um por projétil, como
 //   no original: os três do Feixe Rifle Triplo se somam, cada um num giro. No modo 2 (o
-//   Rebatedor de Projéteis), parado onde a nave estava, de pé, esticado até a área.
+//   Rebatedor de Projéteis), parado onde a nave estava, de pé, esticado até a área. No
+//   modo 0 (o Míssil Descarga Dupla), parado na boca, onde o tiro nasce, sem seguir a nave.
 // - Projétil (tiro): o efeito do projétil da versão, repetindo, no rumo do tiro; nasce
 //   na boca, com os projéteis paralelos espalhados em volta dela, e escorrega até a
 //   linha do tiro de verdade (o desvio de efeitos.js). O que acelera (a carga do Canhão
@@ -167,6 +168,12 @@ export class DisparoOriginal {
       return true;
     }
     if (!bocaDaArma(nave, enc, this.boca)) return false;
+    if (modo === 'parado') {
+      // Modo 0: parado na matriz do tiro (a boca na altura do voo, no rumo da nave), uma vez.
+      this.q.setFromAxisAngle(EIXO_Y, nave.rotation.y).multiply(MEIA_VOLTA);
+      this.#umaVez(id, ESCALA_DISPARO, this.boca.x, nave.position.y, this.boca.z, this.q);
+      return true;
+    }
     const inst = criarEfeitoOriginal(id, { escala: ESCALA_DISPARO });
     const preso = { inst, nave, enc, giro: giroDoClarao(modo, Math.random()) };
     this.#naBoca(preso);

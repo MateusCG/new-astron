@@ -871,6 +871,9 @@ export class Golpes {
     // O conserto com tempo é o Reforço de Escudo (código 4): ProcessActiveEvent liga também
     // o PILOT_STATE_FLAG 2 (CUnitState[1]), o efeito 15 do original (2163004) na nave.
     if (this.st(ent, 'regen')) fx.push('reforco');
+    // O Reparador de Escudo Shrewdo (código 3) prende a nave enquanto segura: liga também o
+    // PILOT_STATE_FLAG 0x29 (CUnitState[9]), o ícone 7 do original (cross007) em cima dela.
+    if ([0, 1].some((enc) => segurando(s, enc)?.parado)) fx.push('imovel');
     if (this.st(ent, 'curaTempo')) fx.push('regen');
     if (this.st(ent, 'converte')) fx.push('converte');
     if (this.st(ent, 'resiste_eletrico')) fx.push('resEl');

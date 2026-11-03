@@ -291,7 +291,8 @@
 //         'escudo', 'fraco', 'recuo' (o dano devolvido do Canhão de Recuo), 'regen'
 //         (conserto de HP com tempo), 'escudoRec' (o
 //         reparo do escudo: os quanta do original), 'reforco' (o Reforço de Escudo
-//         ligado: o 2163004 do original na nave), 'converte' (o conversor de
+//         ligado: o 2163004 do original na nave), 'imovel' (o Reparador de Escudo
+//         Shrewdo seguro, que prende a nave: o cross007 em cima dela), 'converte' (o conversor de
 //         impacto), 'resEl', 'resOp' e 'resFis' (a resistência elétrica, a óptica
 //         e a física dos dispositivos), 'acel', 'amplif' (o Amplificador de Energia
 //         ligado: as faíscas do original), 'inv' (camuflagem ligada, mesmo
