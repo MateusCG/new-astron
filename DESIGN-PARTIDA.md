@@ -218,7 +218,7 @@ Bônus (`server/bonus.js`): por nave (`ativarNave`; morrer limpa) `'ataque'`, `'
 
 | Categoria | Quantos | O que faz |
 |---|---|---|
-| Escudo | 12 (Maximum, Delta, Light, Neutron × Ph./Op./El.) | Energia de escudo própria: o dano sai **primeiro do escudo** e, acabado, do HP. Recupera sozinho depois de `ESCUDO_ESPERA_S` (3 s) sem levar dano e enche rápido pousado na base. Dá um pouco de resistência do seu tipo |
+| Escudo | 12 (Maximum, Delta, Light, Neutron × Ph./Op./El.) | Energia de escudo própria: o dano sai **primeiro do escudo** e, acabado, do HP. Recupera sozinho o tempo todo, mesmo apanhando (como no original), e enche rápido pousado na base; os Reparadores e o Reforço de Escudo aceleram essa recuperação. Dá um pouco de resistência do seu tipo |
 | Armadura | 16 (Titanium, Amandium, Argon, Alchanium × geral/Ph./Op./El.) | **Soma HP máximo** e resistência Ph./Op./El. |
 | Potenciador | 34 | Até 3 efeitos: poder, recarga, resistência e penetração por tipo, crítico (×2), HP, escudo, energia, regenerações, velocidade e aceleração |
 

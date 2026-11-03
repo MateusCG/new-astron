@@ -7,7 +7,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { World, ZONA_SEGURA, ESCUDO_ESPERA_S, CRITICO_MULT } from '../server/game.js';
+import { World, ZONA_SEGURA, CRITICO_MULT } from '../server/game.js';
 import { createShip, stepShip, sanitizeInput, armasIniciais, versaoArma, WEAPONS, ARMAS, INPUT_VAZIO } from '../shared/sim.js';
 import { BASE, SERVICOS } from '../shared/terrain.js';
 import { versaoEquip, EQUIPAMENTOS, RESIST_MAX } from '../shared/equipamentos.js';
@@ -207,7 +207,7 @@ test('status: a Tenda de Luz comprada e disparada dobra a Op. do equipamento no 
   b.ship.hp = b.ship.maxHp = 100000;
   let seqA = a.ack;
   const levar = () => {
-    b.ship.escudo = 0; // só o HP, para medir a resistência
+    b.ship.escudo = b.ship.regenEscudo = 0; // só o HP, para medir a resistência
     a.ship.cd1 = 0;
     a.ship.en = a.ship.maxEn;
     const hp = b.ship.hp;
@@ -245,13 +245,15 @@ test('status: golpe crítico dobra o dano (o sorteio é do servidor)', () => {
   assert.ok(nunca.acertos.every((e) => e.crit === undefined));
 });
 
-test('escudo: segura o dano antes do HP, só recupera depois de um tempo sem dano e enche ao renascer', () => {
+test('escudo: segura o dano antes do HP, recupera sempre (mesmo logo depois do dano) e enche ao renascer', () => {
   const resist = valor(ESCUDO, 'resist');
   const total = DANO * (1 - resist);
   // Escudo cheio: o HP não mexe.
+  // A recuperação fica parada enquanto mede o que o escudo segurou.
   const cheio = tiro((w, a, b) => {
     equipar(w, b, [ESCUDO]);
     b.ship.escudo = b.ship.maxEscudo;
+    b.ship.regenEscudo = 0;
   });
   const b = cheio.b;
   perto(cheio.perdeu, 0, 'o escudo segurou tudo');
@@ -264,17 +266,17 @@ test('escudo: segura o dano antes do HP, só recupera depois de um tempo sem dan
   const pouco = tiro((w, a, b) => {
     equipar(w, b, [ESCUDO]);
     b.ship.escudo = 5;
+    b.ship.regenEscudo = 0;
   });
   perto(pouco.b.ship.escudo, 0);
   perto(pouco.perdeu, total - 5);
 
-  // Recupera regenEscudo por s, mas só depois de ESCUDO_ESPERA_S sem dano.
+  // Recupera regenEscudo por s sempre, mesmo logo depois do dano, como no original.
   const w = pouco.w;
   const s = pouco.b.ship;
-  for (let i = 0; i < (ESCUDO_ESPERA_S - 0.5) * SEGUNDO; i++) w.step();
-  assert.equal(s.escudo, 0, 'levou dano há pouco: não recupera');
+  s.regenEscudo = valor(ESCUDO, 'regenEscudo');
   for (let i = 0; i < 2 * SEGUNDO; i++) w.step();
-  assert.ok(s.escudo > 0 && s.escudo <= 2 * s.regenEscudo, `recuperando (${s.escudo})`);
+  perto(s.escudo, 2 * s.regenEscudo, 'recupera sem esperar');
   const ent = w.entidades().find((e) => e.id === pouco.b.id);
   perto(ent.esc, +(s.escudo / s.maxEscudo).toFixed(2), 'a entidade traz a fração');
 
@@ -293,7 +295,7 @@ test('escudo: pousada e parada na própria base, enche rápido', () => {
   const j = w.addPlayer('A', 'bellico', 'assault');
   equipar(w, j, [ESCUDO]);
   Object.assign(j.ship, { x: BASE.x, z: BASE.z, vx: 0, vz: 0, pousado: true, escudo: 0 });
-  j.ultimoDano = w.tick; // acabou de levar dano: a regeneração normal espera, a da base não
+  j.ultimoDano = w.tick;
   for (let i = 0; i < 4 * SEGUNDO; i++) w.step();
   assert.equal(j.ship.escudo, j.ship.maxEscudo);
 });

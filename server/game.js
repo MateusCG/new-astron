@@ -80,9 +80,9 @@
 // atacante, tira a sua parte, os estados das armas agem (server/golpes.js:
 // modificarDano, com o escudo de arma), a defesa dos mineradores do time conta, e o
 // ESCUDO do equipamento (s.escudo) segura o que sobrou antes do HP. O escudo
-// recupera regenEscudo por s depois de ESCUDO_ESPERA_S sem levar dano (no meio da
-// briga ele não volta; quem recua, sim), enche rápido pousado na própria base, como
-// o HP, e renasce cheio.
+// recupera regenEscudo por s sempre, mesmo apanhando, como no original
+// (CMyPilot::Process), enche rápido pousado na própria base, como o HP, e renasce
+// cheio.
 //
 // Nível das armas (evoluirItem): é a versão do original (V1 a V8) da instância e vai
 // na nave por instância (s.armasInst, tirado de j.inv por prepararNave; até duas
@@ -187,11 +187,6 @@ const REGEN_ESPERA_TICKS = 5 * TICK_HZ;
 const VOO_REGEN_HP = 0.03; // fração do HP máximo por segundo, voando (sem nave do catálogo)
 const POUSO_REGEN_HP = 0.08; // fração do HP máximo por segundo, pousada (sem nave do catálogo)
 const POUSO_REGEN_ESPERA_TICKS = 1 * TICK_HZ;
-// Escudo do equipamento (server/servicos.js põe s.maxEscudo e s.regenEscudo): volta
-// regenEscudo por s, mas só depois de ESCUDO_ESPERA_S sem levar dano, para não virar
-// uma segunda barra de vida que se refaz no meio da troca de tiros.
-export const ESCUDO_ESPERA_S = 3;
-const ESCUDO_ESPERA_TICKS = ESCUDO_ESPERA_S * TICK_HZ;
 // Golpe crítico (potenciador Golpe Fatal): o dano do golpe direto sai × isto.
 export const CRITICO_MULT = 2;
 // Modo de teste: quanto cada botão dá.
@@ -858,11 +853,11 @@ export class World {
     this.#ferir(ent, (ent.drenoDps ?? 0) * DT * this.multDanoDe(ent.drenoDono, tipoDano), ent.drenoDono, null, { direto: false, tipoDano });
   }
 
-  /** Escudo do equipamento: recupera depois de ESCUDO_ESPERA_S sem dano; pousada na própria base, enche rápido. */
+  /** Escudo do equipamento (server/servicos.js põe s.maxEscudo e s.regenEscudo): recupera sempre; pousada na própria base, enche rápido. */
   #regenEscudo(ent) {
     const s = ent.ship;
     if (!(s.maxEscudo > 0) || s.escudo >= s.maxEscudo) return;
-    let porS = this.tick - ent.ultimoDano > ESCUDO_ESPERA_TICKS ? s.regenEscudo : 0;
+    let porS = s.regenEscudo;
     if (pousadaNaBase(s)) porS += s.maxEscudo * BASE_CURA_FRAC;
     if (porS > 0) s.escudo = Math.min(s.maxEscudo, s.escudo + porS * DT);
   }
