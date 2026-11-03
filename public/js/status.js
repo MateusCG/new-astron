@@ -34,7 +34,8 @@ import {
 import { RACES } from '/shared/sim.js';
 import { equipadosDoInv } from '/shared/loja.js';
 import { CLASSES, naveDe } from '/shared/naves.js';
-import { classeTipo, celulaArma } from './equipamento.js';
+import { classeTipo, celulaArma, celulaResist } from './equipamento.js';
+import { resistDoMe } from './cor-resistencia.js';
 
 /** Quantos pontos cada botão do atributo põe ("+1" e "+10"). */
 const QTDS = [1, 10];
@@ -82,6 +83,7 @@ function lerEstado({ me, nivel, xp, xpProx, ouro, nome }) {
     pontos,
     livres: Number.isInteger(me?.pontosLivres) ? me.pontosLivres : pontosLivres(niv, pontos),
     status,
+    res: resistDoMe({ status, ...me }), // a de agora: equipamento + armas de dispositivo − quebra (o que o servidor usa no dano)
     energiaBase,
     hpBase,
     encaixes: me?.encaixes ?? [],
@@ -282,7 +284,7 @@ export class PainelStatus {
         this.#texto(at.efeito, `+${num(efeito.energia, 1)} · +${num(efeito.regenEn, 1)}/s`, 'efEn');
       } else {
         const cel = [0, 1].map((enc) => celulaArma(s.encaixes[enc], s.nivEnc?.[enc] ?? 1, a, s.status.poder)).join('');
-        this.#texto(at.valores, `<td class="poder-at">+${pct(efeito.poder[a])}</td>${cel}<td class="resist">${pct(s.status.resist?.[a] ?? 0)}</td>`, `v${a}`);
+        this.#texto(at.valores, `<td class="poder-at">+${pct(efeito.poder[a])}</td>${cel}${celulaResist(a, s.status, s.res)}`, `v${a}`);
       }
     }
     // O que mais o equipamento dá (só o que não é zero).
@@ -341,7 +343,10 @@ export class PainelStatus {
     const linhas = [
       `Poder ${sig} dos pontos: +${pct(agora.poder[a])}`,
       `Poder ${sig} total: +${pct(st.poder?.[a] ?? 0)}`,
-      `Resistência ao ${sig}: ${pct(st.resist?.[a] ?? 0)}`,
+      // A de agora (com a Tenda, o Disjuntor ou o Amortecedor ligados, ou uma quebra) e, se
+      // for diferente, a do equipamento, que é a base sobre a qual a Tenda multiplica.
+      `Resistência ao ${sig}: ${pct(s.res?.[a] ?? st.resist?.[a] ?? 0)}`,
+      Math.abs((s.res?.[a] ?? 0) - (st.resist?.[a] ?? 0)) >= 5e-4 ? `Resistência do equipamento: ${pct(st.resist?.[a] ?? 0)}` : '',
       `Recarga das armas de dano ${sig}: ${pct(st.recarga?.[a] ?? 0)} mais rápida`,
       st.penetra?.[a] > 0 ? `Penetração ${sig}: ignora ${pct(st.penetra[a])}` : '',
       st.critico > 0 ? `Golpe crítico: ${pct(st.critico)}` : '',

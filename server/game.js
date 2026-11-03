@@ -1180,13 +1180,13 @@ export class World {
    * para todos: cache por tick.
    */
   /**
-   * Resistências do piloto agora, [Ph., Op., El.] (0 a RESIST_MAX, duas casas), com as
-   * das armas de dispositivo e já sem o que os debuffs de quebra tiram: o que a cor do nick mostra (public/js/cor-resistencia.js).
+   * Resistências do piloto agora, [Ph., Op., El.] (0 a RESIST_MAX, quatro casas), com as
+   * das armas de dispositivo e já sem o que os debuffs de quebra tiram: o que a cor do nick mostra (public/js/cor-resistencia.js) e a coluna Resist. do STATUS e do INVENTÁRIO (resistDoMe).
    * null sem nenhuma.
    */
   resistVisivel(j) {
     if (!j.status && !j.st) return null;
-    const res = ORDEM_TIPOS_DANO.map((t) => +this.#resistTotal(j, t).toFixed(2));
+    const res = ORDEM_TIPOS_DANO.map((t) => +this.#resistTotal(j, t).toFixed(4));
     return res.some((r) => r > 0) ? res : null;
   }
 

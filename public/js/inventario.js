@@ -41,6 +41,7 @@ import { iconeEquip, detalheEquip, detalheArma, tabelaTipos } from './equipament
 import { MENSAGEM_ERRO } from './servicos.js';
 import { miniatura } from './vitrine.js';
 import { naveDe } from '/shared/naves.js';
+import { resistDoMe } from './cor-resistencia.js';
 
 /** Encaixes na ordem da janela (duas colunas, como no original). */
 const ENCAIXES_INV = [
@@ -221,6 +222,7 @@ export class PainelInventario {
       compMax: me?.compMax ?? COMPARTIMENTO_MAX,
       equipado: { escudo: eq?.escudo ?? null, armadura: eq?.armadura ?? null, pot: [eq?.pot?.[0] ?? null, eq?.pot?.[1] ?? null] },
       status: me?.status ?? null,
+      res: resistDoMe(me), // a de agora: equipamento + armas de dispositivo − quebra (o que o servidor usa no dano)
     };
     if (this.aberto) this.#desenhar(false);
   }
@@ -466,7 +468,7 @@ export class PainelInventario {
     this.chave = chave;
 
     if (this.ouroEl) this.ouroEl.textContent = numero(s.ouro);
-    this.tabela.innerHTML = tabelaTipos({ encaixes, nivEnc, status: s.status });
+    this.tabela.innerHTML = tabelaTipos({ encaixes, nivEnc, status: s.status, res: s.res });
     this.#desenharNave();
 
     // Encaixes da nave. A versão não vai em texto ao lado do nome: o número (V2 a V8)

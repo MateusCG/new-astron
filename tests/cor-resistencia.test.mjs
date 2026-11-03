@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { corResistencia, CORES_RESIST, RES_COR_CHEIA } from '../public/js/cor-resistencia.js';
+import { corResistencia, CORES_RESIST, RES_COR_CHEIA, resistDoMe } from '../public/js/cor-resistencia.js';
 
 const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 const hex = (c) => '#' + c.map((x) => x.toString(16).padStart(2, '0')).join('');
@@ -27,4 +27,18 @@ test('cor da resistência: pouca resistência fica perto do branco, e a mistura 
   // As três iguais: a média das três cores.
   const media = [0, 1, 2].map((c) => Math.round((CORES_RESIST[0][c] + CORES_RESIST[1][c] + CORES_RESIST[2][c]) / 3));
   assert.deepEqual(rgb(corResistencia([0.3, 0.3, 0.3])), media);
+});
+
+test('resistência de agora (a coluna Resist. do STATUS e do INVENTÁRIO): o `res` do me, com a Tenda e a quebra, e não só o equipamento', () => {
+  // O print do Mateus: Ph. 37%, El. 7%, Op. 15% do equipamento; com a Tenda V8 (+250%)
+  // a Op. vai a 52,5%: a janela tem que mostrar 52,5, não 15.
+  const status = { resist: { fisico: 0.37, laser: 0.15, eletrico: 0.07 } };
+  assert.deepEqual(resistDoMe({ status, res: [0.37, 0.525, 0.07] }), { fisico: 0.37, laser: 0.525, eletrico: 0.07 });
+  // Disjuntor ligado (+40 pontos de El.) e a Op. zerada pelo Canhão Amplificador.
+  assert.deepEqual(resistDoMe({ status, res: [0.37, 0, 0.47] }), { fisico: 0.37, laser: 0, eletrico: 0.47 });
+  // res null = nenhuma (tudo quebrado ou nada equipado), mesmo com o status do equipamento.
+  assert.deepEqual(resistDoMe({ status, res: null }), { fisico: 0, laser: 0, eletrico: 0 });
+  // Sem o campo (estado antigo), cai no do equipamento; sem nada, zero.
+  assert.deepEqual(resistDoMe({ status }), status.resist);
+  assert.deepEqual(resistDoMe(null), { fisico: 0, laser: 0, eletrico: 0 });
 });

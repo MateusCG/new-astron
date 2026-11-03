@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World, ZONA_SEGURA, ESCUDO_ESPERA_S, CRITICO_MULT } from '../server/game.js';
-import { createShip, stepShip, sanitizeInput, armasIniciais, versaoArma, WEAPONS, ARMAS } from '../shared/sim.js';
+import { createShip, stepShip, sanitizeInput, armasIniciais, versaoArma, WEAPONS, ARMAS, INPUT_VAZIO } from '../shared/sim.js';
 import { BASE, SERVICOS } from '../shared/terrain.js';
 import { versaoEquip, EQUIPAMENTOS, RESIST_MAX } from '../shared/equipamentos.js';
 import { porPonto, multRecarga } from '../shared/status.js';
@@ -176,6 +176,58 @@ test('status: as armas de dispositivo entram na resistência como no original (p
     comBase(w, b, 0.8, (w) => ({ resiste_laser: { fim: w.tick + 300, frac: 1, modo: 'pct' }, vulneravel: { fim: w.tick + 300, menos: 0.4 } })),
   );
   perto(quebrada, DANO * (1 - 0.99));
+});
+
+test('status: a Tenda de Luz comprada e disparada dobra a Op. do equipamento no dano e no `res` do me (o que a janela mostra), e o status do equipamento fica igual', () => {
+  // O relato: Escudo Máximo Op. e Armadura de Titânio Ph. na nave, a Tenda no Z, e a
+  // coluna Resist. da janela continuava na Op. do equipamento. Aqui com a compra, o
+  // encaixe e o disparo de verdade, e um Potenciador de Resistência Op. (o % sobre os
+  // pontos) para a base não ser só pontos.
+  const w = mundo();
+  const b = w.addPlayer('B', 'acron', 'assault'); // time 0
+  const a = w.addPlayer('A', 'acron', 'assault'); // time 1
+  equipar(w, b, ['e330001', 'e320003', 'e340013']); // Escudo Máximo Op., Armadura de Titânio Ph., Pot. de Resistência Op.
+  const pontosOp = 0.05 + 0.03; // 5 do escudo + 3 da armadura
+  const baseOp = pontosOp * (1 + valor('e340013', 'resistPct'));
+  perto(b.status.resist.laser, baseOp, 'a base Op.: pontos × (1 + o % do potenciador)');
+  // A Tenda vai para o compartimento; pousada na base, entra no Z na hora.
+  assert.equal(w.pedido(b.id, { t: 'comprar', item: 'o112008' }).ok, true);
+  const tenda = b.inv.at(-1).id;
+  let seq = b.ack;
+  w.pushInput(b.id, { ...INPUT_VAZIO, s: ++seq, a: tenda, a2: b.ship.encInst[1] });
+  w.step();
+  assert.equal(b.ship.encInst[0], tenda, 'a Tenda no Z');
+
+  // Fora da zona segura, A 20 m à frente de B, olhando para ele com o feixe (laser).
+  const z = BASE.z - ZONA_SEGURA - 120;
+  const y = createShip('acron', BASE.x, z, 0).y;
+  Object.assign(b.ship, { x: BASE.x, z, y, yaw: 0, vx: 0, vz: 0, pousado: false });
+  Object.assign(a.ship, { x: BASE.x, z: z - 20, y, yaw: Math.PI, vx: 0, vz: 0, pousado: false });
+  a.protegidoAte = b.protegidoAte = 0;
+  b.ship.hp = b.ship.maxHp = 100000;
+  let seqA = a.ack;
+  const levar = () => {
+    b.ship.escudo = 0; // só o HP, para medir a resistência
+    a.ship.cd1 = 0;
+    a.ship.en = a.ship.maxEn;
+    const hp = b.ship.hp;
+    w.pushInput(a.id, { ...INPUT_VAZIO, s: ++seqA, f1: true, a: a.ship.encInst[0], a2: a.ship.encInst[1] });
+    for (let i = 0; i < 5; i++) w.step();
+    return hp - b.ship.hp;
+  };
+  const resOp = () => w.snapshotPara(b, [], []).me.res[1];
+  perto(resOp(), +baseOp.toFixed(4), 'antes: o res do me é a base');
+  const sem = levar();
+  perto(sem, DANO * (1 - baseOp), 'sem a Tenda');
+
+  w.pushInput(b.id, { ...INPUT_VAZIO, s: ++seq, f1: true, a: tenda, a2: b.ship.encInst[1] });
+  w.step();
+  assert.ok(b.st.resiste_laser, 'a Tenda ligou');
+  const me = w.snapshotPara(b, [], []).me;
+  perto(me.res[1], +(2 * baseOp).toFixed(4), 'o res do me dobra a Op. (+100% da V1): é o que a janela mostra');
+  perto(me.status.resist.laser, baseOp, 'o status do equipamento não muda (a janela lia só ele)');
+  const com = levar();
+  perto(com, DANO * (1 - 2 * baseOp), 'o dano recebido cai com a Op. dobrada');
 });
 
 test('status: golpe crítico dobra o dano (o sorteio é do servidor)', () => {

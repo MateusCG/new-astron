@@ -7,6 +7,12 @@
 // total, mais forte a cor: a partir de RES_COR_CHEIA somada ela fica inteira.
 // O time não está aqui: fica na barra de vida, na borda e no "NV" da etiqueta.
 //
+// O mesmo `res` é a resistência de AGORA (World#resistVisivel): a do equipamento
+// (me.status.resist) mais a das armas de dispositivo ligadas (a Tenda de Luz dobra a
+// Op., o Disjuntor soma pontos de El., o Amortecedor de Ph.) e já sem o que a quebra
+// tira. A coluna Resist. do STATUS e do INVENTÁRIO lê daqui (resistDoMe), senão ela
+// mostra só o equipamento e o dispositivo parece não fazer nada.
+//
 // Pura (sem DOM nem Three.js), testada em tests/cor-resistencia.test.mjs.
 
 /** Cor de cada tipo, na ordem do `res` do snapshot: [Ph., Op., El.]. */
@@ -35,4 +41,20 @@ export function corResistencia(res) {
     });
   }
   return '#' + cor.map((c) => Math.round(c).toString(16).padStart(2, '0')).join('');
+}
+
+/** Os tipos de dano na ordem do `res`: [Ph., Op., El.] (ORDEM_TIPOS_DANO de shared/equipamentos.js). */
+const TIPOS_RES = ['fisico', 'laser', 'eletrico'];
+
+/**
+ * A resistência da nave agora, por tipo ({fisico, laser, eletrico}, frações), a partir
+ * do `me` do snapshot: o `res` do servidor (equipamento + armas de dispositivo − quebra,
+ * com o teto); `res: null` é nenhuma (zero nas três). Sem o campo (snapshot antigo ou
+ * estado montado à mão), a do equipamento, `me.status.resist`.
+ */
+export function resistDoMe(me) {
+  if (Array.isArray(me?.res)) return Object.fromEntries(TIPOS_RES.map((t, i) => [t, Math.max(0, +me.res[i] || 0)]));
+  if (me && 'res' in me && me.res == null) return Object.fromEntries(TIPOS_RES.map((t) => [t, 0]));
+  const r = me?.status?.resist;
+  return Object.fromEntries(TIPOS_RES.map((t) => [t, Math.max(0, +r?.[t] || 0)]));
 }

@@ -110,14 +110,30 @@ export function celulaArma(idx, nivel, tipo, poder) {
 }
 
 /**
+ * A célula Resist. de um tipo: a resistência de agora (`res`, a que o servidor usa no
+ * dano: equipamento + armas de dispositivo − quebra); quando ela difere da do
+ * equipamento (a Tenda de Luz ligada, o Disjuntor, o Amortecedor, uma quebra), o
+ * title diz de onde veio a diferença. Sem `res`, a do equipamento.
+ */
+export function celulaResist(tipo, status, res) {
+  const equip = status?.resist?.[tipo] ?? 0;
+  const agora = res?.[tipo] ?? equip;
+  const dif = Math.round((agora - equip) * 1000) / 1000;
+  if (!dif) return `<td class="resist">${pct(agora)}</td>`;
+  const origem = dif > 0 ? `armas de dispositivo +${pct(dif)}` : `quebra −${pct(-dif)}`;
+  return `<td class="resist" title="${esc(`Resistência ${SIGLA_TIPO[tipo]} agora ${pct(agora)}: equipamento ${pct(equip)}, ${origem}`)}">${pct(agora)}</td>`;
+}
+
+/**
  * A tabela do INVENTÁRIO (e do original): uma linha por tipo de dano (Ph., El.,
  * Op.), com o dano real por disparo de cada arma equipada no tipo dela e a resistência da nave.
  * `encaixes` = [Z, X] (índices), `nivEnc` = [versão do Z, versão do X] (me.nivEnc),
- * `status` = me.status.
+ * `status` = me.status; `res` = a resistência de agora por tipo (resistDoMe, com as
+ * armas de dispositivo e a quebra; sem ela, a do equipamento).
  */
-export function tabelaTipos({ encaixes = [], nivEnc = [1, 1], status }) {
+export function tabelaTipos({ encaixes = [], nivEnc = [1, 1], status, res = null }) {
   const linhas = LINHAS_TIPO.map(
-    (t) => `<tr class="${classeTipo(t)}"><th>${SIGLA_TIPO[t]}</th>${[0, 1].map((enc) => celulaArma(encaixes[enc], nivEnc?.[enc] ?? 1, t, status?.poder)).join('')}<td class="resist">${pct(status?.resist?.[t] ?? 0)}</td></tr>`,
+    (t) => `<tr class="${classeTipo(t)}"><th>${SIGLA_TIPO[t]}</th>${[0, 1].map((enc) => celulaArma(encaixes[enc], nivEnc?.[enc] ?? 1, t, status?.poder)).join('')}${celulaResist(t, status, res)}</tr>`,
   ).join('');
   return `<table class="tabela-tipos"><thead><tr><th></th><th>Arma <kbd>Z</kbd></th><th>Arma <kbd>X</kbd></th><th>Resist.</th></tr></thead><tbody>${linhas}</tbody></table>`;
 }
