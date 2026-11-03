@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World } from '../server/game.js';
-import { xpParaNivel, ganharXp, hpMaxDoNivel, RECOMPENSA, NIVEL_MAX, HP_POR_NIVEL, XP_OBJETIVO, OURO_POR_SEGUNDO } from '../server/progressao.js';
+import { xpParaNivel, ganharXp, hpMaxDoNivel, RECOMPENSA, NIVEL_MAX, HP_POR_NIVEL, XP_OBJETIVO, OURO_POR_SEGUNDO, OURO_INICIAL } from '../server/progressao.js';
 import { ESPECIES } from '../server/especies.js';
 import { ZONA_SEGURA } from '../server/game.js';
 import { createShip } from '../shared/sim.js';
@@ -69,7 +69,7 @@ test('progressão: abater um SN-3 dá XP e ouro, e o snapshot leva nível e XP',
   abater(w, j, m);
   assert.equal(m.vivo, false);
   assert.equal(j.xp, RECOMPENSA.sn3.xp);
-  assert.equal(j.ouro, RECOMPENSA.sn3.ouro);
+  assert.equal(j.ouro, OURO_INICIAL + RECOMPENSA.sn3.ouro);
   const snap = w.snapshotPara(j, w.entidades(), w.tirarEventos());
   assert.equal(snap.nivel, 1);
   assert.equal(snap.xp, RECOMPENSA.sn3.xp);
@@ -100,7 +100,7 @@ test('progressão: abates sobem o nível e a nave renasce com o HP do nível', (
   assert.equal(a.ship.hp, a.ship.maxHp);
 });
 
-test('progressão: ouro, XP e nível zeram quando começa a partida seguinte', () => {
+test('progressão: XP e nível zeram e o ouro volta ao inicial quando começa a partida seguinte', () => {
   const w = new World({ preparacaoS: 0, jungle: false, duracaoPartidaS: 1, intervaloFimS: 1 });
   const j = w.addPlayer('Veterano', 'bellico');
   w.step();
@@ -115,7 +115,7 @@ test('progressão: ouro, XP e nível zeram quando começa a partida seguinte', (
   assert.equal(w.partida.numero, 2);
   assert.equal(j.nivel, 1);
   assert.equal(j.xp, 0);
-  assert.equal(j.ouro, 0);
+  assert.equal(j.ouro, OURO_INICIAL);
   assert.equal(j.ship.maxHp, hpMaxDoNivel(naveDe('bellico', 'assault', 0).hp, 1), 'renasce com o HP do nível 1');
 });
 
@@ -190,25 +190,36 @@ test('ouro passivo: +OURO_POR_SEGUNDO a cada segundo inteiro de partida, para ge
   assert.ok(Number.isInteger(a.ouro));
 });
 
+test('ouro inicial: gente e computador começam a partida com 500, ainda na preparação', () => {
+  assert.equal(OURO_INICIAL, 500);
+  const w = mundoParado({ preparacaoS: 180 });
+  const a = w.addPlayer('A', 'acron');
+  const bot = w.adicionarBot(1);
+  w.step();
+  assert.equal(w.partida.estado, 'preparacao');
+  assert.equal(a.ouro, OURO_INICIAL);
+  assert.equal(bot.ouro, OURO_INICIAL);
+});
+
 test('ouro passivo: só com a partida em andamento (nada na tela de fim) e a partida inteira paga cada segundo', () => {
   const w = mundoParado({ duracaoPartidaS: 3, intervaloFimS: 4 });
   const a = w.addPlayer('A', 'acron');
   for (let i = 0; i < 3 * 30 + 1; i++) w.step();
   assert.equal(w.partida.estado, 'fim');
-  assert.equal(a.ouro, 3 * OURO_POR_SEGUNDO, 'os 3 segundos da partida, o último inclusive');
+  assert.equal(a.ouro, OURO_INICIAL + 3 * OURO_POR_SEGUNDO, 'os 3 segundos da partida, o último inclusive');
   for (let i = 0; i < 3 * 30; i++) w.step();
   assert.equal(w.partida.estado, 'fim');
-  assert.equal(a.ouro, 3 * OURO_POR_SEGUNDO, 'na tela de fim não conta');
+  assert.equal(a.ouro, OURO_INICIAL + 3 * OURO_POR_SEGUNDO, 'na tela de fim não conta');
   for (let i = 0; i < 2 * 30; i++) w.step();
   assert.equal(w.partida.estado, 'andamento', 'começou outra');
-  assert.ok(a.ouro < 3 * OURO_POR_SEGUNDO, 'a partida nova zerou o ouro e recomeçou a contar');
+  assert.ok(a.ouro < OURO_INICIAL + 3 * OURO_POR_SEGUNDO, 'a partida nova voltou o ouro ao inicial e recomeçou a contar');
 });
 
 test('ouro passivo: o modo de teste também conta', () => {
   const w = mundoParado({ teste: true });
   const a = w.addPlayer('A', 'acron');
   for (let i = 0; i < 5 * 30 + 1; i++) w.step();
-  assert.equal(a.ouro, 5 * OURO_POR_SEGUNDO);
+  assert.equal(a.ouro, OURO_INICIAL + 5 * OURO_POR_SEGUNDO);
 });
 
 /** O jogador mira e atira no monstro até ele morrer; devolve os eventos do caminho. */

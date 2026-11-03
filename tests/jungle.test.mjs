@@ -9,7 +9,7 @@ import { ACAMPAMENTOS, BUFFS, MEDUSA, trajetoSonda } from '../shared/terrain.js'
 import { pontoLivre } from '../shared/obstaculos.js';
 import { TEMPOS_JUNGLE, COMPOSICAO, idNoTime0, BONUS_ATAQUE_S, BONUS_SONDA_S, BONUS_MEDUSA_S } from '../server/jungle.js';
 import { ESPECIES } from '../server/especies.js';
-import { RECOMPENSA, xpParaNivel } from '../server/progressao.js';
+import { RECOMPENSA, xpParaNivel, OURO_INICIAL } from '../server/progressao.js';
 
 function rngFixo(semente = 1) {
   let s = semente;
@@ -109,7 +109,7 @@ test('jungle: acampamento aparece no primeiroS e só volta voltaS depois de morr
   assert.equal(c.estado, 'ativo', 'voltou o acampamento inteiro');
   assert.ok(c.membros.every((m) => m.vivo && m.ship.hp === m.ship.maxHp));
   assert.ok(!w.monstros.includes(m1), 'os mortos saíram da lista');
-  assert.equal(a.ouro, 4 * RECOMPENSA.sn3.ouro);
+  assert.equal(a.ouro, OURO_INICIAL + 4 * RECOMPENSA.sn3.ouro);
 });
 
 test('jungle: SN-4 do buff de ataque dá o bônus de nave "ataque" a quem deu o golpe final', () => {
@@ -128,7 +128,7 @@ test('jungle: SN-4 do buff de ataque dá o bônus de nave "ataque" a quem deu o 
   assert.ok(w.bonus.ativoNave(a.id, 'ataque', w.tick));
   assert.equal(Math.round(w.bonus.restanteNave(a.id, 'ataque', w.tick)), BONUS_ATAQUE_S);
   assert.equal(xpTotal(a), RECOMPENSA.sn4.xp);
-  assert.equal(a.ouro, RECOMPENSA.sn4.ouro);
+  assert.equal(a.ouro, OURO_INICIAL + RECOMPENSA.sn4.ouro);
   const ev = w.tirarEventos();
   assert.ok(ev.some((e) => e.e === 'objetivo' && e.id === 'BA1' && e.acao === 'tomado' && e.time === a.time && e.quem === 'A'));
   assert.ok(ev.some((e) => e.e === 'bonusNave' && e.id === a.id && e.nome === 'ataque'));
@@ -154,10 +154,10 @@ test('jungle: a Medusa paga ouro e XP a cada piloto do time de quem a matou e li
   assert.ok(Math.hypot(med.ship.x - MEDUSA.x, med.ship.z - MEDUSA.z) < MEDUSA.raio, 'ficou no poço');
   matar(w, med, a);
   for (const j of [a, colega]) {
-    assert.equal(j.ouro, ESPECIES.medusa.ouro, `${j.nome}: ouro`);
+    assert.equal(j.ouro, OURO_INICIAL + ESPECIES.medusa.ouro, `${j.nome}: ouro`);
     assert.equal(xpTotal(j), ESPECIES.medusa.xp, `${j.nome}: XP (quem matou não ganha em dobro)`);
   }
-  assert.equal(b.ouro, 0, 'o outro time nada');
+  assert.equal(b.ouro, OURO_INICIAL, 'o outro time nada');
   assert.ok(w.bonus.ativo(a.time, 'medusa', w.tick));
   assert.equal(w.bonus.ativo(b.time, 'medusa', w.tick), false);
   assert.equal(Math.round(w.bonus.restante(a.time, 'medusa', w.tick)), BONUS_MEDUSA_S);
@@ -194,7 +194,7 @@ test('jungle: a sonda não aparece com a Medusa ou o Núcleo vivos, anda pelo tr
   assert.ok(w.bonus.ativoNave(a.id, 'sonda', w.tick));
   assert.equal(Math.round(w.bonus.restanteNave(a.id, 'sonda', w.tick)), BONUS_SONDA_S);
   assert.equal(xpTotal(a), ESPECIES.medusa.xp + RECOMPENSA.sonda.xp);
-  assert.equal(a.ouro, ESPECIES.medusa.ouro + RECOMPENSA.sonda.ouro, 'a Medusa e a sonda');
+  assert.equal(a.ouro, OURO_INICIAL + ESPECIES.medusa.ouro + RECOMPENSA.sonda.ouro, 'a Medusa e a sonda');
   passos(w, 1.1);
   const [s2] = c.membros;
   const volta = trajetoSonda(1);

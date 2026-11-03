@@ -161,6 +161,7 @@ import {
   ASSISTENCIA_JANELA_S,
   chaveRecompensa,
   OURO_POR_SEGUNDO,
+  OURO_INICIAL,
 } from './progressao.js';
 import { Servicos, novoEquipamento, prepararNave } from './servicos.js';
 import { Jungle } from './jungle.js';
@@ -399,7 +400,7 @@ export class World {
       protegidoAte: this.tick + PROTECAO_TICKS,
       recall: null, // canalizando: { inicio, fim } em ticks
       rAnt: false, // botão do recall no comando anterior (borda de subida)
-      ouro: 0,
+      ouro: OURO_INICIAL,
       abates: 0,
       mortes: 0,
       ...novaProgressao(), // nivel, xp
@@ -962,9 +963,9 @@ export class World {
       if (j.fila.length) j.ack = j.fila[j.fila.length - 1].seq; // descarta sem travar a predição
       // Ouro, XP, nível, pontos, o inventário (volta às duas armas de fábrica;
       // os ids seguem crescendo), o que está na nave, itens e a nave comprada
-      // (tier) são da partida (como num MOBA): zeram na seguinte. A raça e a
-      // classe ficam (são escolha da entrada).
-      Object.assign(j, novaProgressao(), novoCombate(), novoEquipamento(j.ship.race, j.invProx), { ouro: 0 });
+      // (tier) são da partida (como num MOBA): zeram na seguinte, e o ouro volta
+      // ao inicial. A raça e a classe ficam (são escolha da entrada).
+      Object.assign(j, novaProgressao(), novoCombate(), novoEquipamento(j.ship.race, j.invProx), { ouro: OURO_INICIAL });
       this.#respawn(j);
     }
   }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import WebSocket from 'ws';
 import { iniciar } from '../server/index.js';
 import { World } from '../server/game.js';
-import { NIVEL_MAX, xpParaNivel } from '../server/progressao.js';
+import { NIVEL_MAX, xpParaNivel, OURO_INICIAL } from '../server/progressao.js';
 import { forcaNucleo } from '../server/objetivos.js';
 
 // Modo de teste: um mundo só do piloto, com a partida sem relógio e os pedidos de
@@ -31,7 +31,7 @@ test('teste: ouro, XP, nível e nível máximo pelos pedidos do modo de teste', 
   const j = w.addPlayer('A', 'bellico', 'mobile');
   const hp1 = j.ship.maxHp;
   assert.equal(w.pedidoTeste(j.id, { acao: 'ouro' }).ok, true);
-  assert.equal(j.ouro, 1000);
+  assert.equal(j.ouro, OURO_INICIAL + 1000);
   assert.equal(w.pedidoTeste(j.id, { acao: 'xp' }).ok, true);
   assert.equal(j.nivel, 2, `100 XP passam do nível 1 (${xpParaNivel(1)})`);
   assert.equal(w.pedidoTeste(j.id, { acao: 'nivel' }).ok, true);
@@ -72,7 +72,7 @@ test('teste: na partida de verdade os pedidos de teste são recusados', () => {
   const w = new World({ preparacaoS: 0, jungle: false, torretas: false });
   const j = w.addPlayer('A', 'shrewdo');
   assert.equal(w.pedidoTeste(j.id, { acao: 'ouro' }).codigo, 'invalido');
-  assert.equal(j.ouro, 0);
+  assert.equal(j.ouro, OURO_INICIAL);
 });
 
 test('teste: entrar em modo de teste cria um mundo só seu, separado da partida', async () => {

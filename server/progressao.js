@@ -20,8 +20,14 @@
 // sem fração). Na espera e na tela de fim, nada; no modo de teste conta também. Numa
 // partida de 20 minutos são 1200 de ouro por piloto só disso.
 //
-// XP, nível, pontos e ouro são da partida: zeram quando começa a seguinte (World,
-// #passoPartida).
+// Ouro inicial (pedido do Mateus, como no LoL, 500, e no Dota 2, 600): todo piloto
+// começa a partida com OURO_INICIAL, para gastar na preparação. Na simulação de 3
+// contra 3 dos computadores, 500 é o que um piloto ganha nos 3 primeiros minutos e
+// uns 6% da renda da partida (8,7 mil); compra duas peças V1 (uma arma ou escudo e
+// uma armadura, ou um potenciador e dois kits), longe de equipar a nave toda.
+//
+// XP, nível, pontos e ouro são da partida: voltam ao começo (o ouro a OURO_INICIAL)
+// quando começa a seguinte (World, #passoPartida).
 //
 // Subir de nível dá um ganho pequeno e automático: +HP_POR_NIVEL (3%) do HP máximo
 // da NAVE por nível acima do 1 (nível 10 = +27%). O HP sobe junto com o máximo
@@ -66,6 +72,8 @@ export const NIVEL_MAX = 25;
 export const HP_POR_NIVEL = 0.03; // fração do HP da nave por nível acima do 1
 /** Ouro que cada jogador ganha por segundo de partida em andamento (ouro passivo). */
 export const OURO_POR_SEGUNDO = 1;
+/** Ouro com que cada piloto começa a partida (e entra nela, se chegar no meio). */
+export const OURO_INICIAL = 500;
 export const XP_OBJETIVO = 60; // a quem toma um objetivo A ou B
 /** XP e ouro por abate, pelo tipo do que morreu. */
 export const RECOMPENSA = {
