@@ -96,6 +96,13 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
   // O feixe do Feixe Clone em Leque (e dos clones) de cada degrau; a carga e o fim do
   // Canhão de Recuo.
   '1312023', '1312024', '1312025', '1333004', '2403004',
+  // Bellico Assault (disparo-regras.js): as balas da Vulcan Tempestade; o clarão e a
+  // carga do Canhão de Magma em Leque, a Lança de Energia e a onda da Onda de Choque, de
+  // cada degrau; os Mísseis em Fila Acelerados com o rastro de 7 ossos (2341102).
+  '1321073', '1321074', '1321075', '1132001', '1332008', '1332009', '1332010',
+  '1332025', '1332026', '1332027', '1162022', '2341022', '2341023', '2341102',
+  // A Invulnerabilidade na nave (efeito 20) e as faíscas do Amplificador de Energia.
+  '1163039', '1163014',
   // Os estados dos dispositivos na nave: o conversor de impacto, as resistências e o
   // reparo do escudo (o quantum e a esfera de cada raça).
   // O "MISS" do debuff elétrico que não pegou.

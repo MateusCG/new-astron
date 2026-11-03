@@ -863,6 +863,8 @@ export class Golpes {
     if (this.st(ent, 'resiste_laser')) fx.push('resOp');
     if (this.st(ent, 'resiste_fisico')) fx.push('resFis');
     if (segurandoTipo(s, 'acelera')) fx.push('acel');
+    // O Amplificador de Energia (código 32 → PILOT_STATE_FLAG 0x16): as faíscas do original.
+    if (segurandoTipo(s, 'energiaPorHp')) fx.push('amplif');
     // Camuflagem ligada (mesmo revelada: quem a vê, a vê translúcida, como no original).
     if (this.camuflado(ent)) fx.push('inv');
     return fx;

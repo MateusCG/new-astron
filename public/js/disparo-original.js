@@ -36,6 +36,7 @@
 // - Nova de suporte: o impacto em cada aliado que ela pega (o evento 'apoio' → impacto).
 // - Teleporte (teleporte): o efeito do original onde a nave sumiu e onde apareceu.
 // - Reparo do escudo (escudoRec): os quanta da raça saindo da nave e a esfera no centro.
+// - Amplificador de Energia (energiaRec): as faíscas do original subindo de trás da nave.
 // - Arma sem clarão no original (as novas, os dispositivos): nada na boca (semClarao).
 //
 // Efeito que não carregou (não deveria: a tela de carregamento baixa todos) devolve
@@ -63,6 +64,10 @@ import {
   explodeNoFim,
   quantumDoEscudo,
   direcaoDoQuantum,
+  ENERGIA_REC,
+  subidaDaFaisca,
+  giroDaFaisca,
+  alfaDaFaisca,
 } from './disparo-regras.js';
 
 // O seu impacto desenhado na hora vale pelo acerto do servidor que chegar até este
@@ -77,6 +82,8 @@ const ARMADILHA_ORIGEM_S = 0.5;
 const QUADRO_DESENHO_S = 1 / 30;
 const QUADROS_POR_S = 24;
 const QUANTA_MAX = 48;
+// Faíscas do Amplificador de Energia no ar (a cena toda).
+const FAISCAS_MAX = 48;
 const EIXO_Y = new THREE.Vector3(0, 1, 0);
 const EIXO_Z = new THREE.Vector3(0, 0, 1);
 const MEIA_VOLTA = new THREE.Quaternion().setFromAxisAngle(EIXO_Y, Math.PI);
@@ -90,6 +97,7 @@ export class DisparoOriginal {
     this.explosoes = []; // áreas, novas e armadilhas recentes (origem dos impactos): { kind, x, y, z, t, ate }
     this.quanta = []; // reparo do escudo: { inst, nave, esfera, dir, quadros }
     this.esferas = []; // a esfera do fim de cada quantum: { inst, nave }
+    this.faiscas = []; // Amplificador de Energia: { inst, vx, vy, vz, giro, quadros }
     this.tempo = 0;
     this.q = new THREE.Quaternion();
     this.m = new THREE.Matrix4();
@@ -448,6 +456,62 @@ export class DisparoOriginal {
     soltarEfeitoOriginal(q.inst);
   }
 
+  /**
+   * Amplificador de Energia ligado na nave `nave` (o grupo dela): chamar a cada quadro
+   * desenhado. A cada passo de 1/30 s (o quadro do original), 1 chance em 4 de uma
+   * faísca (ENERGIA_REC): nasce meio raio atrás do centro da nave e anda sozinha, a 20%
+   * da velocidade que a nave tinha, subindo e girando até sumir.
+   */
+  energiaRec(nave, dt) {
+    const ud = nave.userData;
+    const corpo = ud.corpo ?? nave;
+    const pos = corpo.getWorldPosition(this.v);
+    // A velocidade da nave (m por quadro do original) sai do quanto ela andou.
+    const ant = (ud.energiaAnt ??= pos.clone());
+    const k = dt > 0 ? QUADRO_DESENHO_S / dt : 0;
+    const vel = { x: (pos.x - ant.x) * k, y: (pos.y - ant.y) * k, z: (pos.z - ant.z) * k };
+    ant.copy(pos);
+    if (!efeitoOriginalPronto(ENERGIA_REC.modelo)) return;
+    ud.energiaRecAcc = (ud.energiaRecAcc ?? 0) + dt;
+    while (ud.energiaRecAcc >= QUADRO_DESENHO_S) {
+      ud.energiaRecAcc -= QUADRO_DESENHO_S;
+      if (Math.floor(Math.random() * ENERGIA_REC.chance) !== 0) continue;
+      const inst = criarEfeitoOriginal(ENERGIA_REC.modelo, { escala: ESCALA_DISPARO, camera: true });
+      // Meio raio atrás do centro: a frente da nave é (−sen yaw, −cos yaw).
+      const atras = ENERGIA_REC.recuo * (ud.raio ?? raioDoModelo(nave));
+      inst.obj.position.set(pos.x + Math.sin(nave.rotation.y) * atras, pos.y, pos.z + Math.cos(nave.rotation.y) * atras);
+      this.ef.scene.add(inst.obj);
+      const arrasto = ENERGIA_REC.arrasto;
+      // Original (Z para cima) → jogo (Y para cima): a subida vai no y.
+      const sobe = subidaDaFaisca(Math.random()) * ESCALA_DISPARO;
+      this.faiscas.push({ inst, vx: vel.x * arrasto, vy: vel.y * arrasto + sobe, vz: vel.z * arrasto, giro: giroDaFaisca(Math.random()), quadros: 0, acc: 0 });
+      if (this.faiscas.length > FAISCAS_MAX) soltarEfeitoOriginal(this.faiscas.shift().inst);
+    }
+  }
+
+  /** Anda as faíscas do Amplificador (um passo por quadro do original) e as apaga pela alfa. */
+  #atualizarFaiscas(dt, camera) {
+    this.faiscas = this.faiscas.filter((f) => {
+      f.acc += dt;
+      while (f.acc >= QUADRO_DESENHO_S && alfaDaFaisca(f.quadros) !== null) {
+        f.acc -= QUADRO_DESENHO_S;
+        f.quadros++;
+        f.inst.obj.position.x += f.vx;
+        f.inst.obj.position.y += f.vy;
+        f.inst.obj.position.z += f.vz;
+        f.inst.giro += f.giro;
+      }
+      const alfa = alfaDaFaisca(f.quadros);
+      if (alfa === null) {
+        soltarEfeitoOriginal(f.inst);
+        return false;
+      }
+      f.inst.alfa = alfa;
+      tocarEfeitoOriginal(f.inst, 0, camera);
+      return true;
+    });
+  }
+
   /** Anda os quanta do reparo do escudo (24 quadros por segundo) e as esferas que seguem a nave. */
   #atualizarQuanta(dt, camera) {
     this.quanta = this.quanta.filter((q) => {
@@ -483,6 +547,7 @@ export class DisparoOriginal {
   atualizar(dt, camera) {
     this.tempo += dt;
     this.#atualizarQuanta(dt, camera);
+    this.#atualizarFaiscas(dt, camera);
     this.presos = this.presos.filter((p) => {
       if (tocarEfeitoOriginal(p.inst, dt, camera)) {
         this.#naBoca(p);
@@ -498,6 +563,8 @@ export class DisparoOriginal {
     for (const p of this.presos) soltarEfeitoOriginal(p.inst);
     for (const q of this.quanta) this.#soltarQuantum(q);
     for (const e of this.esferas) soltarEfeitoOriginal(e.inst);
+    for (const f of this.faiscas) soltarEfeitoOriginal(f.inst);
+    this.faiscas = [];
     this.quanta = [];
     this.esferas = [];
     this.presos = [];

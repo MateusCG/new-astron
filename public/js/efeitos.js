@@ -817,7 +817,9 @@ export class Efeitos {
     }
     for (const [k, cor] of Object.entries(COR_FX)) {
       let s = ud.fx.auras[k];
-      if (!ativos.has(k) || comIcone.has(k)) {
+      // O estado com o efeito do original na nave (a Invulnerabilidade) não leva a aura.
+      const naNave = ESTADOS_NA_NAVE[k] && efeitoOriginalPronto(ESTADOS_NA_NAVE[k]);
+      if (!ativos.has(k) || comIcone.has(k) || naNave) {
         if (s) s.visible = false;
         continue;
       }
@@ -831,6 +833,9 @@ export class Efeitos {
     }
     // O reparo do escudo: os quanta do original saindo da nave (disparo-original.js).
     if (ativos.has('escudoRec')) this.disparo.escudoRec(obj, ud.race, dt);
+    // O Amplificador de Energia: as faíscas do original subindo de trás da nave.
+    if (ativos.has('amplif')) this.disparo.energiaRec(obj, dt);
+    else ud.energiaAnt = undefined;
     const energia = ativos.has('energia') && !comIcone.has('energia');
     if (!(ativos.has('regen') || ativos.has('acel') || energia)) return;
     obj.getWorldPosition(this.v);

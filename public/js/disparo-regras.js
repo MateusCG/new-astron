@@ -75,7 +75,9 @@
 //   impacto (+0xb2) e as resistências (+0xb1 elétrica, +0xb0 óptica da Tenda de Luz,
 //   +0xaf física) ligam o efeito 24 (1163023), 23 (2163033), 21 (2163012) e 22 (2163013)
 //   da tabela do CUnit::LoadResource, desenhados na matriz da nave (CUnit::RenderScene),
-//   repetindo enquanto o estado dura (ESTADOS_NA_NAVE).
+//   repetindo enquanto o estado dura (ESTADOS_NA_NAVE); a Invulnerabilidade (+0xa9) liga
+//   o 20 (1163039), do mesmo jeito. O Amplificador de Energia (+0x97) solta as faíscas
+//   do CUnitHyperEnergyRecovery (ENERGIA_REC).
 // - Onda que cresce em voo (a Onda de Sopro Acron: coluna 55 = raio máximo, 56 = quanto
 //   cresce por ms, tipo de gráfico 0): só o raio de acerto cresce (MoveBullet); o
 //   CUnitBeam::RenderScene desenha o modelo sem escala nenhuma, então o desenho é o da
@@ -176,6 +178,23 @@ export const DISPARO_ORIGINAL = Object.freeze({
   o112032: Object.freeze({ clarao: 'preso' }), // Ciclone Varredor (Cyclone Wiper)
   o112005: Object.freeze({ clarao: 'giro', fim: 'area' }), // Feixe Tempestade Teleguiado (HomingStorm Beam)
   o114003: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0, vmax: 0.35, acel: 0.0002 }) }), // Lâmina Giratória (Revolving Blade)
+  // Bellico Assault.
+  o211007: Object.freeze({ clarao: 'giro' }), // Feixe Clone em Fila (Clone Array Beam)
+  o211009: Object.freeze({ clarao: 'preso' }), // Feixe Perfurante Circular (Piercing Circle Beam)
+  o211013: Object.freeze({ clarao: 'preso' }), // Vulcan Teleguiada (HomingVulkan Gun)
+  o211015: Object.freeze({ clarao: 'preso', fim: 'area' }), // Vulcan Tempestade (VulkanStorm Gun)
+  o211017: Object.freeze({ clarao: 'preso' }), // Metralha Crítica (Critic Blow Gun)
+  o211019: Object.freeze({ clarao: 'giro' }), // Vulcan Perfurante (Piercing Vulkan Gun)
+  o212002: Object.freeze({ clarao: 'giro', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão de Magma em Leque
+  o212011: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão de Choque Acelerado
+  o212003: Object.freeze({ clarao: 'giro', carga: Object.freeze({ v0: 0.9, vmax: 0.9, acel: -0.00103 }) }), // Lança de Energia (Energy Spear)
+  o214003: Object.freeze({ clarao: 'giro', carga: Object.freeze({ v0: 0.11, vmax: 0.5, acel: 0.00001 }) }), // Onda de Choque (Ph. Shock Wave)
+  o212001: Object.freeze({ clarao: 'giro', carga: Object.freeze({ v0: 0, vmax: 0.4, acel: 0.00055 }) }), // Mísseis em Fila Acelerados
+  o212008: Object.freeze({ clarao: null }), // Reparador de Escudo (Shield Recovering Device)
+  o212018: Object.freeze({ clarao: null }), // Amplificador de Energia (Energy Amplifier)
+  o212019: Object.freeze({ clarao: null }), // Invulnerabilidade (Invulnerability Device)
+  o212020: Object.freeze({ clarao: null }), // Nova Desarmadora (Trap Removing Nova)
+  o212031: Object.freeze({ clarao: null }), // Disjuntor (Circuit Breaking Device)
 });
 
 /**
@@ -190,9 +209,37 @@ export const ALFA_CAMUFLADA = 0.3;
  * Estados da nave com efeito do original preso nela (`fx` do servidor → efeito da
  * tabela do CUnit::LoadResource), desenhados na matriz da nave e repetindo enquanto o
  * estado dura: o conversor de impacto (24, 1163023), a resistência elétrica do Disjuntor
- * (23, 2163033), a óptica da Tenda de Luz (21, 2163012) e a física (22, 2163013).
+ * (23, 2163033), a óptica da Tenda de Luz (21, 2163012), a física do Amortecedor (22,
+ * 2163013) e a Invulnerabilidade (20, 1163039: código 102 → PILOT_STATE_FLAG 0x2d →
+ * CUnitState[0x15] → piloto +0xa9).
  */
-export const ESTADOS_NA_NAVE = Object.freeze({ converte: '1163023', resEl: '2163033', resOp: '2163012', resFis: '2163013' });
+export const ESTADOS_NA_NAVE = Object.freeze({ converte: '1163023', resEl: '2163033', resOp: '2163012', resFis: '2163013', invul: '1163039' });
+
+/**
+ * As faíscas do Amplificador de Energia (código 32 → PILOT_STATE_FLAG 0x16 →
+ * CUnitState[3] → piloto +0x97 → CUnit::EffectHERecovery a cada quadro desenhado): 1
+ * chance em 4 (`rand() & 3`) de um CUnitHyperEnergyRecovery, o quadrado `modelo` (15 u,
+ * textura 1163014) virado para a câmera, que nasce `recuo` × o raio da nave atrás do
+ * centro dela, anda a `arrasto` da velocidade que a nave tinha, sobe (subidaDaFaisca),
+ * gira na tela (giroDaFaisca) e some pela alfa em `quadros` quadros (alfaDaFaisca). O
+ * passo (CCode::Run) é o quadro desenhado.
+ */
+export const ENERGIA_REC = Object.freeze({ modelo: '1163014', chance: 4, quadros: 20, recuo: 0.5, arrasto: 0.2 });
+
+/** Quanto (u do original por quadro) a faísca do Amplificador sobe: (rand() % 20) / 10 + 2, de um sorteio em [0, 1). */
+export function subidaDaFaisca(r) {
+  return Math.floor(r * 20) / 10 + 2;
+}
+
+/** Quanto (rad por quadro) a faísca do Amplificador gira na tela: ((rand() % 10) − 20) / 200, de um sorteio em [0, 1). */
+export function giroDaFaisca(r) {
+  return (Math.floor(r * 10) - 20) / 200;
+}
+
+/** Alfa da faísca do Amplificador `n` quadros depois de nascer (1 − n / 20), ou null quando ela já sumiu. */
+export function alfaDaFaisca(n) {
+  return n >= ENERGIA_REC.quadros ? null : 1 - n / ENERGIA_REC.quadros;
+}
 
 /**
  * O reparo do escudo (CUnit::EffectShieldRecovery e CUnitShieldRecoveryQuantum), pela
@@ -258,6 +305,7 @@ export function efeitosDoDisparo() {
     if (como.teleporte) ids.add(como.teleporte);
   }
   for (const id of Object.values(ESTADOS_NA_NAVE)) ids.add(id);
+  ids.add(ENERGIA_REC.modelo);
   for (const r of ['acron', 'bellico', 'shrewdo']) ids.add(ESCUDO_REC[r].quantum).add(ESCUDO_REC[r].esfera);
   return [...ids];
 }

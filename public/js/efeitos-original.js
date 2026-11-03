@@ -127,9 +127,12 @@ const eixos = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
 /**
  * Uma instância tocando o efeito `id`. `obj` é o grupo que quem chama põe no lugar
  * (posição, rumo, escala em m por unidade do original). `loop` repete; sem loop,
- * `tocar` devolve false no fim. null se o efeito não está pronto.
+ * `tocar` devolve false no fim. `camera` vira todas as peças para a câmera (a malha
+ * solta que o original desenha com a rotação dela: as faíscas do Amplificador); quem
+ * chama pode mudar `inst.giro` (rad na tela) e `inst.alfa` (multiplica a alfa das
+ * peças de luz) a cada quadro. null se o efeito não está pronto.
  */
-export function criarEfeitoOriginal(id, { escala = 1, loop = false } = {}) {
+export function criarEfeitoOriginal(id, { escala = 1, loop = false, camera = false } = {}) {
   const d = dados.get(id);
   if (!d) return null;
   let inst = d.reserva.pop();
@@ -155,6 +158,8 @@ export function criarEfeitoOriginal(id, { escala = 1, loop = false } = {}) {
   inst.t = 0;
   inst.loop = loop;
   inst.giro = 0; // rad, só nas peças viradas para a câmera (a fumaça da queda)
+  inst.camera = camera;
+  inst.alfa = 1;
   inst.obj.scale.setScalar(escala);
   inst.obj.position.set(0, 0, 0);
   inst.obj.quaternion.identity();
@@ -249,12 +254,12 @@ function aplicarQuadro(inst, q, camera) {
     if (fl & F_MATERIAL) {
       mt.color.setRGB(r, g, bl);
       // Peça sólida não some pela alfa (o original só usa a alfa na de luz).
-      mt.opacity = mt.transparent ? a : 1;
+      mt.opacity = mt.transparent ? a * inst.alfa : 1;
     } else {
       mt.color.setRGB(1, 1, 1);
-      mt.opacity = 1;
+      mt.opacity = mt.transparent ? inst.alfa : 1;
     }
-    if (fl & F_CAMERA && camera) {
+    if ((fl & F_CAMERA || inst.camera) && camera) {
       // Rotação da câmera (x da peça = cima da tela, y = direita, z = para onde ela
       // olha), na posição e na escala do grupo; a matriz do quadro por dentro.
       if (!precisaMundo) {

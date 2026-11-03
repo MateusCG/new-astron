@@ -292,7 +292,8 @@
 //         (conserto de HP com tempo), 'escudoRec' (o
 //         reparo do escudo: os quanta do original), 'converte' (o conversor de
 //         impacto), 'resEl', 'resOp' e 'resFis' (a resistência elétrica, a óptica
-//         e a física dos dispositivos), 'acel', 'inv' (camuflagem ligada, mesmo
+//         e a física dos dispositivos), 'acel', 'amplif' (o Amplificador de Energia
+//         ligado: as faíscas do original), 'inv' (camuflagem ligada, mesmo
 //         revelada: quem a vê desenha a nave translúcida)); arm = [arma do Z, arma do X]
 //         dos jogadores (o modelo pendurado em cada asa). Jogador camuflado do outro
 //         time não vem na lista (salvo a INVISIVEL_VISTO_M da sua nave ou logo

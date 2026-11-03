@@ -33,6 +33,10 @@ import {
   direcaoDoQuantum,
   quadroDoOsso,
   ALFA_CAMUFLADA,
+  ENERGIA_REC,
+  subidaDaFaisca,
+  giroDaFaisca,
+  alfaDaFaisca,
 } from '../public/js/disparo-regras.js';
 import { EFEITOS_ORIGINAIS, ICONES_ESTADO, insumosDaPartida } from '../public/js/insumos.js';
 import { INICIAIS_ORIGINAL, WEAPONS, golpeDaArma } from '../shared/armas.js';
@@ -97,22 +101,54 @@ const QUARTA_LEVA = {
   o112005: 'giro', // Feixe Tempestade Teleguiado
   o114003: 'preso', // Lâmina Giratória
 };
+// As Bellico Assault (a arma que serve a mais de uma classe entra no lote da primeira).
+const BELLICO_ASSAULT = {
+  o211007: 'giro', // Feixe Clone em Fila
+  o211009: 'preso', // Feixe Perfurante Circular
+  o211013: 'preso', // Vulcan Teleguiada
+  o211015: 'preso', // Vulcan Tempestade
+  o211017: 'preso', // Metralha Crítica
+  o211019: 'giro', // Vulcan Perfurante
+  o212002: 'giro', // Canhão de Magma em Leque
+  o212011: 'preso', // Canhão de Choque Acelerado
+  o212003: 'giro', // Lança de Energia
+  o214003: 'giro', // Onda de Choque
+  o212001: 'giro', // Mísseis em Fila Acelerados
+  o212008: null, // Reparador de Escudo
+  o212018: null, // Amplificador de Energia
+  o212019: null, // Invulnerabilidade
+  o212020: null, // Nova Desarmadora
+  o212031: null, // Disjuntor
+};
+const BELLICO = { ...BELLICO_ASSAULT };
+// O impacto cresce com a versão (1401107 → 1401207 → 1401307) nestas.
+const IMPACTO_POR_VERSAO = ['o112003', 'o112001', 'o114003', 'o212001'];
+// Coluna 94 = 7 (o fim deitado pela área) nas Bellico.
+const FIM_BELLICO = ['o211015', 'o212002', 'o212011'];
+// Colunas 64 a 66 (velocidade inicial, máxima e aceleração, m/ms e m/ms²) das Bellico que não voam constante.
+const CARGA_BELLICO = {
+  o212002: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o212011: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o212003: { v0: 0.9, vmax: 0.9, acel: -0.00103 },
+  o214003: { v0: 0.11, vmax: 0.5, acel: 0.00001 },
+  o212001: { v0: 0, vmax: 0.4, acel: 0.00055 },
+};
 
 test('disparo original: as seis armas de início e as revistas, com o modo de clarão e de fim do original', () => {
   const iniciais = Object.values(INICIAIS_ORIGINAL).flat().map((id) => 'o' + id);
-  assert.deepEqual(Object.keys(DISPARO_ORIGINAL).sort(), [...iniciais, ...REVISTAS, ...Object.keys(SEGUNDA_LEVA), ...Object.keys(TERCEIRA_LEVA), ...Object.keys(QUARTA_LEVA)].sort());
+  assert.deepEqual(Object.keys(DISPARO_ORIGINAL).sort(), [...iniciais, ...REVISTAS, ...Object.keys(SEGUNDA_LEVA), ...Object.keys(TERCEIRA_LEVA), ...Object.keys(QUARTA_LEVA), ...Object.keys(BELLICO)].sort());
   // Coluna 53 do inititemweapon.cfg: 14 (girado em volta do cano) nos feixes e no Vulcan
   // Bellico, 15 (preso, sem giro) no Vulcan Acron, na Metralha e no Canhão de Faíscas, 2
   // (parado onde a nave estava, pela área) no Rebatedor; coluna 94 = 7 só na Metralha
   // (a V8 do Feixe Perfurante de Magma também, mas com área 0: não aparece).
   assert.deepEqual(
     Object.fromEntries(Object.entries(DISPARO_ORIGINAL).map(([k, v]) => [k, v.clarao])),
-    { o111001: 'giro', o111011: 'preso', o211001: 'giro', o211011: 'giro', o311001: 'giro', o311004: 'preso', o111003: 'giro', o112028: 'preso', o112014: 'area', ...SEGUNDA_LEVA, ...TERCEIRA_LEVA, ...QUARTA_LEVA },
+    { o111001: 'giro', o111011: 'preso', o211001: 'giro', o211011: 'giro', o311001: 'giro', o311004: 'preso', o111003: 'giro', o112028: 'preso', o112014: 'area', ...SEGUNDA_LEVA, ...TERCEIRA_LEVA, ...QUARTA_LEVA, ...BELLICO },
   );
   // O clarão do catálogo bate com o modo: as de clarão null não têm efeito na coluna 51.
   for (const [k, v] of Object.entries(DISPARO_ORIGINAL)) assert.equal(!!golpeDaArma(k, 1).vis.d, v.clarao !== null, k);
   // Coluna 94 = 7 (o fim deitado pela área) na Metralha e nas de área da segunda leva.
-  const comFim = ['o311004', 'o111009', 'o111005', 'o111017', 'o111019', 'o112010', 'o112035', 'o112038', 'o112011', 'o112027', 'o112025', 'o112009', 'o112036', 'o116005', 'o111013', 'o112026', 'o112005'];
+  const comFim = ['o311004', 'o111009', 'o111005', 'o111017', 'o111019', 'o112010', 'o112035', 'o112038', 'o112011', 'o112027', 'o112025', 'o112009', 'o112036', 'o116005', 'o111013', 'o112026', 'o112005', ...FIM_BELLICO];
   for (const [k, v] of Object.entries(DISPARO_ORIGINAL)) assert.equal(v.fim, comFim.includes(k) ? 'area' : undefined, k);
   for (const k of comFim) assert.ok(golpeDaArma(k, 1).vis.f && golpeDaArma(k, 1).area > 0, k);
   assert.equal(ESCALA_DISPARO, FATOR_TAMANHO_NAVE, 'na escala das naves');
@@ -133,7 +169,9 @@ test('disparo original: as seis armas de início e as revistas, com o modo de cl
   assert.deepEqual(DISPARO_ORIGINAL.o112026.carga, { v0: 0, vmax: 0.5, acel: 0.0003 });
   // A Lâmina Giratória sai parada e acelera 0,0002 até 0,35 (a Reforçada freia).
   assert.deepEqual(DISPARO_ORIGINAL.o114003.carga, { v0: 0, vmax: 0.35, acel: 0.0002 });
-  const comCarga = ['o112028', 'o112010', 'o112003', 'o112030', 'o112011', 'o112027', 'o112025', 'o112020', 'o112009', 'o112004', 'o112026', 'o114003'];
+  // Bellico: as cargas de cada uma (colunas 64 a 66 do original, iguais de V1 a V8).
+  for (const [k, carga] of Object.entries(CARGA_BELLICO)) assert.deepEqual(DISPARO_ORIGINAL[k].carga, carga, k);
+  const comCarga = ['o112028', 'o112010', 'o112003', 'o112030', 'o112011', 'o112027', 'o112025', 'o112020', 'o112009', 'o112004', 'o112026', 'o114003', ...Object.keys(CARGA_BELLICO)];
   for (const k of Object.keys(DISPARO_ORIGINAL)) if (!comCarga.includes(k)) assert.equal(DISPARO_ORIGINAL[k].carga, undefined, k);
   // O Teleporte toca o CUnitTeleportEffect (1163010) na saída e na chegada.
   assert.equal(DISPARO_ORIGINAL.o112021.teleporte, '1163010');
@@ -163,7 +201,7 @@ test('disparo original: os efeitos de todas as versões estão convertidos e vã
   for (const kind of Object.keys(DISPARO_ORIGINAL)) {
     const vis = WEAPONS[kind].versoes.map((v) => v.golpe.vis);
     assert.equal(new Set(vis.map((v) => v.d)).size, 1, `${kind}: um clarão`);
-    if (!['o112003', 'o112001', 'o114003'].includes(kind)) assert.equal(new Set(vis.map((v) => v.i)).size, 1, `${kind}: um impacto`);
+    if (!IMPACTO_POR_VERSAO.includes(kind)) assert.equal(new Set(vis.map((v) => v.i)).size, 1, `${kind}: um impacto`);
   }
   assert.deepEqual([1, 4, 7].map((nv) => golpeDaArma('o112003', nv).vis.i), ['1401107', '1401207', '1401307']);
   assert.deepEqual([1, 4, 8].map((nv) => golpeDaArma('o112001', nv, 2).vis.i), ['1401007', '1401107', '1401307']);
@@ -347,7 +385,7 @@ test('disparo original: o reparo do escudo solta quanta que se afastam 20 m em 2
   assert.ok(d.x > 0 && d.y < 0 && d.z === 0, 'rand % 20 − 10 em cada eixo');
   assert.deepEqual(direcaoDoQuantum(0.5, 0.5, 0.5), { x: 1, y: 0, z: 0 }, 'sorteio nulo não divide por zero');
   // Os estados na nave: o conversor (24), a resistência elétrica (23), a óptica (21) e a física (22).
-  assert.deepEqual(ESTADOS_NA_NAVE, { converte: '1163023', resEl: '2163033', resOp: '2163012', resFis: '2163013' });
+  assert.deepEqual(ESTADOS_NA_NAVE, { converte: '1163023', resEl: '2163033', resOp: '2163012', resFis: '2163013', invul: '1163039' });
 });
 
 test('disparo original: o clarão gira em passos de 36° no modo 14 e fica preso no 15', () => {
@@ -512,4 +550,82 @@ test('quarta leva: o Feixe Tempestade Teleguiado e a Lâmina Giratória como no 
   assert.equal(recuoDaCarga(0, lamina, carga), 0);
   assert.ok(recuoDaCarga(1, lamina, carga) > 0);
   assert.ok(Math.abs(recuoDaCarga(lamina.vida, lamina, carga)) < 1e-9);
+});
+
+test('Bellico Assault: os projéteis de cada degrau, o clarão e o fim do original', () => {
+  const projeteis = (kind, p = 0) => WEAPONS[kind].versoes.map((_, i) => golpeDaArma(kind, i + 1, p).vis.p);
+  const degraus = (a, b, c) => [a, a, a, b, b, b, c, c];
+  // Feixe Clone em Fila: o feixe do Clone em Leque; aos 300 ms (a vida) cada um vira os
+  // clones paralelos (subprojétil 211807..., coluna 51 '0': sem clarão).
+  assert.deepEqual(projeteis('o211007'), degraus('1312023', '1312024', '1312025'));
+  assert.deepEqual(projeteis('o211007', 1), projeteis('o211007'));
+  assert.equal(golpeDaArma('o211007', 1, 1).vis.d, undefined);
+  // Feixe Perfurante Circular: o feixe do Magma, 4 a 12 em círculo, que atravessa; clarão preso (15).
+  assert.deepEqual(projeteis('o211009'), degraus('1312063', '1312064', '1312065'));
+  assert.ok(atravessa(golpeDaArma('o211009', 1)));
+  // Vulcan Teleguiada: a bala da Metralha Teleguiada; Vulcan Tempestade: a bala dela e o fim da Metralha.
+  assert.deepEqual(projeteis('o211013'), degraus('1321033', '1321034', '1321035'));
+  assert.ok(golpeDaArma('o211013', 1).guia);
+  assert.deepEqual(projeteis('o211015'), degraus('1321073', '1321074', '1321075'));
+  assert.equal(golpeDaArma('o211015', 1).vis.f, '1421002');
+  // Metralha Crítica: a bala da Metralha Shrewdo; Vulcan Perfurante: a bomba do Bombardeiro Frontal, atravessando.
+  assert.deepEqual(projeteis('o211017'), degraus('1321003', '1321004', '1321005'));
+  assert.deepEqual(projeteis('o211019'), degraus('1321241', '1321341', '1321441'));
+  assert.ok(atravessa(golpeDaArma('o211019', 1)) && !explodeNoFim(golpeDaArma('o211019', 1)));
+  // Canhão de Magma em Leque: o clarão 1132001 girado, a carga de magma e o fim 2432001
+  // pela área; explode no fim da vida. O de Choque Acelerado: a carga do Amplificador e o fim dele.
+  assert.deepEqual(projeteis('o212002'), degraus('1332008', '1332009', '1332010'));
+  const magma = golpeDaArma('o212002', 1);
+  assert.deepEqual([magma.vis.d, magma.vis.i, magma.vis.f], ['1132001', '1502004', '2432001']);
+  assert.ok(explodeNoFim(magma) && magma.area > 0);
+  assert.deepEqual(projeteis('o212011'), Array(8).fill('1333005'));
+  assert.equal(golpeDaArma('o212011', 1).vis.f, '2403005');
+  // Lança de Energia: a lança de cada degrau, que atravessa e deixa o impacto no fim da vida (sem área).
+  assert.deepEqual(projeteis('o212003'), degraus('1332025', '1332026', '1332027'));
+  const lanca = golpeDaArma('o212003', 1);
+  assert.ok(atravessa(lanca) && explodeNoFim(lanca) && !(lanca.area > 0));
+  // A lança freia até voltar (0,9 − 0,00103 × 1100 < 0): o desenho passa do ponto do jogo e volta.
+  const meio = recuoDaCarga(0.874, lanca, DISPARO_ORIGINAL.o212003.carga);
+  assert.ok(meio < 0, 'na frente do tiro do jogo');
+  assert.ok(Math.abs(recuoDaCarga(lanca.vida, lanca, DISPARO_ORIGINAL.o212003.carga)) < 1e-9, 'chega junto');
+  // Onda de Choque: a onda física (1162022) que só cresce o raio de acerto, clarão do Vulcan girado.
+  assert.deepEqual(projeteis('o214003'), Array(8).fill('1162022'));
+  assert.equal(golpeDaArma('o214003', 1).vis.d, '1121001');
+  assert.ok(golpeDaArma('o214003', 1).cresce.raio > 0);
+  // Mísseis em Fila Acelerados: o míssil de cada degrau com o rastro de 7 ossos (2341102) e o impacto que cresce.
+  assert.deepEqual(projeteis('o212001'), degraus('2341022', '2341023', '2341024'));
+  assert.deepEqual([1, 4, 7].map((nv) => golpeDaArma('o212001', nv).vis.i), ['1401107', '1401207', '1401307']);
+  const fila = golpeDaArma('o212001', 1).vis;
+  assert.deepEqual([fila.tipo, fila.r, fila.d], ['missil_com_rastro', '2341102', '1150005']);
+  const r = efeito('2341102');
+  assert.deepEqual([r.rastro, r.ossos, r.historico], [true, 7, 16]);
+  assert.deepEqual([0, 1, 3, 6].map((k) => quadroDoOsso(k, 7, 16)), [0, 3, 7, 15]);
+  assert.ok(explodeNoFim(golpeDaArma('o212001', 1)));
+  // Nova Desarmadora: a mesma esfera da Acron.
+  assert.deepEqual(projeteis('o212020'), Array(8).fill('1353021'));
+});
+
+test('Bellico Assault: a Invulnerabilidade na nave e as faíscas do Amplificador de Energia, como no original', () => {
+  // A Invulnerabilidade liga o efeito 20 do CUnit::LoadResource (1163039) na matriz da nave.
+  assert.equal(ESTADOS_NA_NAVE.invul, '1163039');
+  const invul = efeito('1163039');
+  assert.equal(invul.quadros, 61);
+  assert.ok(efeitosDoDisparo().includes('1163039'));
+  // O Amplificador: o quadrado de 15 u (a malha solta 1163014) virado para a câmera.
+  assert.equal(ENERGIA_REC.modelo, '1163014');
+  const q = efeito('1163014');
+  assert.ok(q.malha && q.pecas.length === 1 && q.pecas[0].tex === '1163014');
+  const xs = q.pecas[0].pos.filter((_, i) => i % 3 === 0);
+  assert.deepEqual([Math.min(...xs), Math.max(...xs)], [-7.5, 7.5]);
+  assert.ok(efeitosDoDisparo().includes('1163014') && EFEITOS_ORIGINAIS.includes('1163014'));
+  // 1 em 4 por quadro, 20 quadros, meio raio atrás, 20% da velocidade da nave.
+  assert.deepEqual({ ...ENERGIA_REC }, { modelo: '1163014', chance: 4, quadros: 20, recuo: 0.5, arrasto: 0.2 });
+  // Sobe (rand() % 20) / 10 + 2 u por quadro e gira ((rand() % 10) − 20) / 200 rad por quadro.
+  assert.equal(subidaDaFaisca(0), 2);
+  assert.ok(perto(subidaDaFaisca(0.999), 3.9));
+  assert.ok(perto(giroDaFaisca(0), -0.1) && perto(giroDaFaisca(0.999), -0.055));
+  // A alfa cai de 1 a 0,05 e some no 20º quadro.
+  assert.equal(alfaDaFaisca(0), 1);
+  assert.ok(perto(alfaDaFaisca(19), 0.05));
+  assert.equal(alfaDaFaisca(20), null);
 });

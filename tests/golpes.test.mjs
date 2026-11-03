@@ -502,6 +502,7 @@ test('segurar: Reparador de Escudo conserta enquanto segura; Arrancada e Amplifi
   apertar(w2, b, { f1: true, a: amp }, SEGUNDO);
   assert.ok(b.ship.hp < hp, 'gastou HP');
   assert.ok(b.ship.en > 5 + b.ship.regenEn * 0.9, 'ganhou energia além da regeneração');
+  assert.ok(w2.entidades().find((e) => e.id === b.id).fx.includes('amplif'), 'as faíscas do Amplificador do original na nave');
 });
 
 test('suporte: Nova de Reparo cura os aliados no raio; Druida cura o aliado que acerta', () => {

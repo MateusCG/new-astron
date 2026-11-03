@@ -544,3 +544,5 @@ Copiadas pelo mesmo `tools/efeitos3d_do_original.py` com as explosões do origin
 | `1163010.png` | 64×64 px, 3.6 KB | #97aff2 | 1163010 (o Teleporte) |
 | `1163010_01.png` | 64×64 px, 3.0 KB | #c3d2f8 | 1163010 (o Teleporte) |
 | `1343007_01.png` | 64×64 px, 3.0 KB | #5b96fc | 2343101 (o rastro dos mísseis, `--rastro`) |
+| `1163039.png` | 256×256 px, 15.2 KB | #77b6ff | 1163039 (a Invulnerabilidade na nave, efeito 20 do `CUnit::LoadResource`) |
+| `1163014.png` | 64×64 px, 1.7 KB | #ffffff | 1163014 (as faíscas do Amplificador de Energia, `CUnitHyperEnergyRecovery`, `--malha`) |
