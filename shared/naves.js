@@ -32,8 +32,8 @@
 //   (server/game.js, #regen), no lugar de uma fração fixa do HP.
 // - Energia máxima: o original vezes FATOR_ENERGIA (o custo das armas usa o mesmo
 //   fator). Regeneração de energia por segundo: o original por ms × 1000 ×
-//   FATOR_ENERGIA / FATOR_RECARGA (as recargas das armas são ×0,5, então a nave
-//   regenera em proporção ao que as armas gastam no tempo delas).
+//   FATOR_ENERGIA. A recarga das armas (FATOR_RECARGA) é a do original e não tem nada
+//   a ver com a regeneração (pedido do Mateus, nov/2026: antes as duas iam ×2).
 // - Velocidade: m/ms do original × 1000 = m/s, vezes FATOR_VELOCIDADE (o alcance das
 //   armas usa o mesmo fator). A Warrior faz 0,1111 m/ms = 111 m/s no original e
 //   ~55,6 m/s aqui, a faixa de antes. Fica em m/s na nave (s.velocidade).
@@ -85,7 +85,7 @@ export const PRECO_POR_TIER = [0, 200, 400, 650, 900];
 export const FATOR_ESCALA_HP = 1; // HP e dano do original, iguais (era 0,2: ÷5)
 export const MS_POR_S = 1000; // tempos do original são em ms (regenerações por ms, velocidade em m/ms)
 export const FATOR_ENERGIA = 1; // energia máxima (e custo das armas): a do original (era 0,3)
-export const FATOR_RECARGA = 0.5; // recarga das armas do original (entra na regeneração de energia)
+export const FATOR_RECARGA = 1; // recarga das armas e intervalo da rajada: os do original (era 0,5)
 export const FATOR_VELOCIDADE = 0.5; // velocidade (e alcance das armas) do original, em m/s
 export const FATOR_TAMANHO_NAVE = 0.5; // modelo e raio da nave do original (m), como o alcance
 
@@ -184,7 +184,7 @@ function converter(race, classe, tier, [id, nome, hp, regenVoo, regenPousada, en
     preco: PRECO_POR_TIER[tier],
     hp: Math.round(hp * FATOR_ESCALA_HP),
     energia: Math.round(energia * FATOR_ENERGIA),
-    regenEnergia: umaCasa((regenEnergia * MS_POR_S * FATOR_ENERGIA) / FATOR_RECARGA), // por segundo
+    regenEnergia: umaCasa(regenEnergia * MS_POR_S * FATOR_ENERGIA), // por segundo
     velocidade: umaCasa(velocidade * MS_POR_S * FATOR_VELOCIDADE), // m/s
     regenHpVoo: umaCasa(regenVoo * MS_POR_S * FATOR_ESCALA_HP), // HP por segundo, voando (só Bellico)
     regenHpPousada: umaCasa(regenPousada * MS_POR_S * FATOR_ESCALA_HP), // HP por segundo, pousada

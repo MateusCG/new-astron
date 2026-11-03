@@ -124,36 +124,36 @@ test('catálogo: oito versões por arma (V1 a V8), sem nível de piloto, com pre
   }
 });
 
-test('escala: a conversão do original (dano e energia iguais, recarga × 0,5, velocidade × 0,5, área × 0,25)', () => {
+test('escala: a conversão do original (dano, energia e recarga iguais, velocidade × 0,5, área × 0,25)', () => {
   assert.equal(FATOR_DANO, 1);
   assert.equal(FATOR_ENERGIA_ARMA, 1);
-  assert.equal(FATOR_RECARGA_ARMA, 0.5);
+  assert.equal(FATOR_RECARGA_ARMA, 1, 'a recarga do original');
   assert.equal(FATOR_VEL, 0.5);
   assert.equal(FATOR_AREA, 0.25);
   assert.equal(FATOR_OURO, 0.06);
   // Feixe Duplo V1 no original: 2 × 35 de dano, recarga 1000 ms, 8 de energia, 0,6 m/ms, vão de 10 m, 900 ms de vida.
   const v = versaoArma(idx('311001'), 1);
   assert.equal(v.golpe.dano, 35);
-  assert.equal(v.cd, 0.5);
+  assert.equal(v.cd, 1);
   assert.ok(Math.abs(v.energia - 8) < 1e-9);
   assert.equal(v.golpe.vel, 300);
   assert.equal(v.golpe.vida, 0.9);
   assert.deepEqual(v.golpe.tiros, [{ off: -1.25, ang: 0 }, { off: 1.25, ang: 0 }]);
   assert.equal(v.golpe.raio, RAIO_TIRO_MIN, 'tiro fino do original acerta com o raio mínimo');
   assert.equal(WEAPONS.o311001.preco, 60, '1000 de ouro no original × 0,06');
-  // Feixe Triplo (leque de 5°) e Vulcan Bellico (rajada de 3 a cada 50 ms).
+  // Feixe Triplo (leque de 5°) e Vulcan Bellico (rajada de 3 a cada 100 ms, como no original).
   const triplo = versaoArma(idx('311008'), 1).golpe.tiros.map((t) => +t.ang.toFixed(4));
   assert.deepEqual(triplo, [0.0873, 0, -0.0873]);
   const vulcan = versaoArma(idx('211011'), 1).golpe;
   assert.equal(vulcan.rajada, 3);
-  assert.equal(vulcan.rajadaS, 0.05);
+  assert.equal(vulcan.rajadaS, 0.1);
   // Míssil que acelera voa à velocidade média (mesmo alcance, mesmo tempo).
   const missil = versaoArma(idx('312010'), 1).golpe;
   assert.ok(missil.vel > 100 && missil.vel < 200, `${missil.vel}`);
   assert.ok(missil.guia && missil.mira, 'teleguiado com mira');
 });
 
-test('escala: as armas iniciais matam uma nave do tier 0 em 1 a 3,5 s de fogo acertando', () => {
+test('escala: as armas iniciais matam uma nave do tier 0 em 2 a 7 s de fogo acertando (a cadência do original)', () => {
   const tempos = [];
   for (const race of RACAS_JOGAVEIS) {
     const dps = armasIniciais(race).reduce((s, i) => s + resumoVersao(versaoArma(i, 1)).dps, 0);
@@ -162,12 +162,12 @@ test('escala: as armas iniciais matam uma nave do tier 0 em 1 a 3,5 s de fogo ac
         const n = naveDe(alvoRaca, c, 0);
         const t = n.hp / (dps - n.regenHpVoo);
         tempos.push(t);
-        assert.ok(t >= 1 && t <= 3.5, `${race} contra ${n.nome}: ${t.toFixed(2)} s`);
+        assert.ok(t >= 2 && t <= 7, `${race} contra ${n.nome}: ${t.toFixed(2)} s`);
       }
     }
   }
   const media = tempos.reduce((a, b) => a + b) / tempos.length;
-  assert.ok(media >= 1.5 && media <= 3, `média ${media.toFixed(2)} s`);
+  assert.ok(media >= 3.5 && media <= 5, `média ${media.toFixed(2)} s`);
 });
 
 test('escala: a energia das naves aguenta as iniciais atirando sem parar por alguns segundos', () => {
@@ -264,12 +264,12 @@ test('stepShip: canos, leque e as duas armas, cada encaixe com a sua recarga e a
 
 test('stepShip: rajada sai no tempo dela, gasta a energia uma vez e cada tiro gira pela varredura', () => {
   const s = createShip('bellico', 0, 0, 0);
-  const a = idx('211011'); // Vulcan Bellico: rajada de 3 a cada 0,05 s
+  const a = idx('211011'); // Vulcan Bellico: rajada de 3 a cada 0,1 s
   s.encaixes = [s.encaixes[0], a];
   const g = versaoArma(a, 1).golpe;
   const tiros = [];
   const en0 = s.en;
-  for (let i = 0; i < 6; i++) tiros.push(...stepShip(s, { ...PARADO, f2: i === 0, a2: a }).map((t) => ({ ...t, passo: i })));
+  for (let i = 0; i < 9; i++) tiros.push(...stepShip(s, { ...PARADO, f2: i === 0, a2: a }).map((t) => ({ ...t, passo: i })));
   assert.equal(tiros.length, 3, 'três tiros, mesmo soltando a tecla');
   assert.deepEqual(tiros.map((t) => t.k), [0, 1, 2]);
   assert.ok(tiros[1].passo >= 1 && tiros[2].passo > tiros[1].passo);

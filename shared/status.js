@@ -16,7 +16,7 @@
 //   jogo, então só a parte fixa é convertida). No original, Shrewdo Functional com
 //   energia base 450 e 50 pontos ganha 50 × (14 + 0,03 × 450) = 1375; aqui, o mesmo.
 // - Regeneração de energia: 0,0001 por ms por ponto no original (+0,1/s), com a conta
-//   da regeneração das naves (× 1000 × FATOR_ENERGIA ÷ FATOR_RECARGA).
+//   da regeneração das naves (× 1000 × FATOR_ENERGIA: a do original).
 // - Durabilidade: a mesma conta da Energia com as linhas de HP da tabela: por ponto,
 //   o HP fixo da raça e classe (Skill HP) × FATOR_ESCALA_HP mais HP_PCT (3%) do HP
 //   BASE da nave no jogo (o da linha, sem o nível e sem a armadura). No original o
@@ -52,14 +52,14 @@
 //
 // Determinístico, sem sorte e sem relógio: servidor e cliente chegam ao mesmo número.
 
-import { FATOR_ENERGIA, FATOR_ESCALA_HP, FATOR_RECARGA, MS_POR_S } from './naves.js';
+import { FATOR_ENERGIA, FATOR_ESCALA_HP, MS_POR_S } from './naves.js';
 import { RESIST_MAX, equipamento, nivelEquipValido, podeUsar, ORDEM_TIPOS_DANO } from './equipamentos.js';
 
 export const PONTOS_POR_NIVEL = 10; // pontos ganhos a cada nível (no nível 1 já há 10)
 export const PONTO_MAX = 99; // máximo em cada atributo
 export const FATOR_PODER_PONTO = 0.01; // % do original por ponto → fração
 export const FATOR_ENERGIA_PONTO = FATOR_ENERGIA; // energia fixa por ponto do original → jogo
-export const FATOR_REGEN_EN_PONTO = (MS_POR_S * FATOR_ENERGIA) / FATOR_RECARGA; // por ms do original → por s do jogo
+export const FATOR_REGEN_EN_PONTO = MS_POR_S * FATOR_ENERGIA; // por ms do original → por s do jogo
 export const FATOR_HP_PONTO = FATOR_ESCALA_HP; // HP fixo por ponto do original → jogo
 export const FATOR_REGEN_HP_PONTO = MS_POR_S * FATOR_ESCALA_HP; // HP por ms do original → HP por s do jogo
 export const RECARGA_MAX = 0.5; // a recarga nunca fica mais que 2× mais rápida

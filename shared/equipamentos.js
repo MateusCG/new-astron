@@ -24,8 +24,7 @@
 //   do original, como as naves; a Op. Argon Armor V7 dá +342 de HP, o Op. Neutron
 //   Shield V7 1369 de escudo e 8,0 por s); o que é "por ms" no original × 1000 = por s.
 // - Energia máxima × FATOR_ENERGIA (1: a do original); regeneração de energia por ms × 1000 ×
-//   FATOR_ENERGIA ÷ FATOR_RECARGA, a mesma conta da regeneração das naves (as recargas
-//   das armas são × 0,5, então quem regenera acompanha o que as armas gastam).
+//   FATOR_ENERGIA (a do original), a mesma conta da regeneração das naves.
 // - Resistência em pontos (escudo e armadura) × RESIST_POR_PONTO_EQUIP (0,01: 38 pontos
 //   = 38%, como no original). A dos potenciadores ("Resistance enhancement", em %) é
 //   'resistPct': no original ela multiplica os pontos da armadura e do escudo (38 pontos
@@ -40,7 +39,7 @@
 // cliente lê para desenhar a Loja, o Inventário e o STATUS.
 
 import { EQUIPAMENTOS_ORIGINAL } from './equipamentos-original.js';
-import { FATOR_ESCALA_HP, FATOR_ENERGIA, FATOR_RECARGA, MS_POR_S, ORDEM_CLASSES } from './naves.js';
+import { FATOR_ESCALA_HP, FATOR_ENERGIA, MS_POR_S, ORDEM_CLASSES } from './naves.js';
 import { FATOR_OURO, FATOR_OURO_EVOLUIR, PRECO_EVOLUIR_MIN, RESIST_MAX, RESIST_POR_PONTO, TIPOS_DANO } from './armas.js';
 import { NIVEL_ITEM_MAX } from './versoes.js';
 
@@ -50,7 +49,7 @@ export const FATOR_HP_EQUIP = FATOR_ESCALA_HP; // 1: HP a mais, escudo máximo
 export const FATOR_REGEN_HP_EQUIP = MS_POR_S * FATOR_ESCALA_HP; // por ms do original → HP (ou escudo) por s
 export const RESIST_POR_PONTO_EQUIP = RESIST_POR_PONTO; // resistência e penetração em pontos → fração (38 = 38%)
 export const FATOR_ENERGIA_EQUIP = FATOR_ENERGIA; // 1: energia máxima a mais
-export const FATOR_REGEN_EN_EQUIP = (MS_POR_S * FATOR_ENERGIA) / FATOR_RECARGA; // por ms do original → energia por s
+export const FATOR_REGEN_EN_EQUIP = MS_POR_S * FATOR_ENERGIA; // por ms do original → energia por s
 export const FATOR_PCT = 0.01; // % do original → fração
 export const ARREDONDA_OURO = 10; // preços de 10 em 10
 

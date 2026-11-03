@@ -17,7 +17,7 @@ function rngFixo(semente = 1) {
 const FORA = { x: BASE.x + 250, z: BASE.z - ZONA_SEGURA - 120 };
 
 /** O jogador gira para o alvo e atira laser até ele morrer (ou acabar o tempo). */
-function abater(w, j, alvo, segundos = 15) {
+function abater(w, j, alvo, segundos = 40) {
   let seq = j.ack;
   for (let t = 0; t < 30 * segundos && alvo.vivo; t++) {
     const yawAlvo = Math.atan2(-(alvo.ship.x - j.ship.x), -(alvo.ship.z - j.ship.z));
@@ -212,7 +212,7 @@ test('ouro passivo: o modo de teste também conta', () => {
 });
 
 /** O jogador mira e atira no monstro até ele morrer; devolve os eventos do caminho. */
-function abaterColetando(w, j, m, segundos = 15) {
+function abaterColetando(w, j, m, segundos = 40) {
   const eventos = [];
   let seq = j.ack;
   for (let t = 0; t < 30 * segundos && m.vivo; t++) {

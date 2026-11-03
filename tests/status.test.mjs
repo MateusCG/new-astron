@@ -99,10 +99,10 @@ test('pontos: números conferidos com os prints (Shrewdo Functional)', () => {
   perto(efeitoDosPontos('shrewdo', 'functional', { eletrico: 30 }).poder.eletrico, 0.78);
   perto(efeitoDosPontos('shrewdo', 'functional', { eletrico: 31 }).poder.eletrico, 0.806);
   // Energia 50 pontos com energia base 450: +1375 no original (50 × (14 + 0,03 × 450)), regen +5,0/s.
-  // No jogo a energia é a do original; a regen ÷ 0,5 (as armas recarregam no dobro do ritmo).
+  // No jogo a energia e a regen são as do original.
   const e = efeitoDosPontos('shrewdo', 'functional', { energia: 50 }, 450);
   perto(e.energia, 1375);
-  perto(e.regenEn, 5.0 / 0.5);
+  perto(e.regenEn, 5.0);
   // Raça ou classe sem tabela: ponto não vale nada.
   assert.deepEqual(efeitoDosPontos('mechan', 'assault', { energia: 50, laser: 50 }, 100), { hp: 0, regenHp: 0, energia: 0, regenEn: 0, poder: { fisico: 0, laser: 0, eletrico: 0 } });
   // A energia base em % usa a nave do piloto (naves.js).

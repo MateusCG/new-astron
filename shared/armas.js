@@ -11,8 +11,10 @@
 // Como o original vira jogo novo (fatores nomeados, os mesmos das naves em
 // shared/naves.js):
 // - HP e dano iguais ao original (FATOR_DANO = 1); energia por disparo igual (FATOR_ENERGIA_ARMA = 1, o
-//   mesmo da energia das naves); recarga e intervalo da rajada × 0,5
-//   (FATOR_RECARGA_ARMA; a regeneração de energia das naves já conta com isso).
+//   mesmo da energia das naves); recarga e intervalo da rajada iguais ao original
+//   (FATOR_RECARGA_ARMA = 1; não têm nada a ver com a regeneração de energia). As armas
+//   "(NPC)" dos monstros ficam × 0,5 (FATOR_RECARGA_NPC): o ritmo da jungle é acertado
+//   em cima disso (server/especies.js).
 // - Velocidade m/ms × 1000 × 0,5 = m/s (FATOR_VEL); alcance da mira, do teleporte e
 //   das minas que atiram × 0,5 (FATOR_ALCANCE): a vida do projétil fica igual, então
 //   o tempo de voo, que é o que quem joga sente, também.
@@ -50,7 +52,8 @@ export { EFEITOS_VISUAIS };
 
 export const FATOR_DANO = FATOR_ESCALA_HP; // 1: dano, cura e HP dos efeitos
 export const FATOR_ENERGIA_ARMA = FATOR_ENERGIA; // 1: energia por disparo (e por s nas de segurar)
-export const FATOR_RECARGA_ARMA = FATOR_RECARGA; // 0,5: recarga e intervalo da rajada
+export const FATOR_RECARGA_ARMA = FATOR_RECARGA; // 1: recarga e intervalo da rajada do original
+export const FATOR_RECARGA_NPC = 0.5; // armas "(NPC)" dos monstros: o ritmo da jungle conta com isso
 export const FATOR_VEL = FATOR_VELOCIDADE; // 0,5: m/ms × 1000 × FATOR_VEL = m/s
 export const FATOR_ALCANCE = 0.5; // mira, teleporte, ativação da mina que atira
 export const FATOR_AREA = 0.25; // raios, vão entre canos, nova
@@ -427,7 +430,7 @@ function varredura(o) {
 }
 
 /** Golpe do original (shared/armas-original.js) na escala do jogo. prof = profundidade (0 = o disparo). */
-function converterGolpe(o, versao, prof = 0) {
+function converterGolpe(o, versao, prof = 0, fatorRecarga = FATOR_RECARGA_ARMA) {
   const g = {
     forma: o.forma,
     prof,
@@ -470,7 +473,7 @@ function converterGolpe(o, versao, prof = 0) {
       if (o.dispara) {
         // Mina que atira: com inimigo a este raio, dispara o subprojétil em cada um e some.
         g.atira = MINA_GATILHO_BASE + (m.ativaParam || m.raioDisparo || 0) * FATOR_ALCANCE;
-        g.dispara = converterGolpe(o.dispara, versao, prof + 1);
+        g.dispara = converterGolpe(o.dispara, versao, prof + 1, fatorRecarga);
       }
     }
     return g;
@@ -481,7 +484,7 @@ function converterGolpe(o, versao, prof = 0) {
     vel,
     tiros: padraoTiros(o),
     rajada: o.rajada > 1 ? o.rajada : 1,
-    rajadaS: o.rajada > 1 ? ((o.rajadaMs ?? 0) / MS) * FATOR_RECARGA_ARMA : 0,
+    rajadaS: o.rajada > 1 ? ((o.rajadaMs ?? 0) / MS) * fatorRecarga : 0,
     varre: o.varre ? varredura(o) : null,
     alcance: vel * g.vida,
   });
@@ -493,7 +496,7 @@ function converterGolpe(o, versao, prof = 0) {
   if (o.guia) g.guia = { comeca: (o.guia.comecaMs ?? 0) / MS, giro: rad(o.guia.giro), cone: MISSIL_CONE, alcance: Math.max(g.alcance, 60) };
   if (o.mira) g.mira = { modo: o.mira.modo, raio: o.mira.raio ? o.mira.raio * FATOR_ALCANCE : Math.min(MIRA_RAIO_PADRAO, Math.max(g.alcance, 60)) };
   if (o.divide) {
-    g.divide = converterGolpe(o.divide, versao, prof + 1);
+    g.divide = converterGolpe(o.divide, versao, prof + 1, fatorRecarga);
     g.divideNoChao = !!o.divideNoChao;
   }
   return g;
@@ -526,11 +529,11 @@ function funcaoDe(papel) {
   return papel === 'ataque' ? 'dano' : 'controle';
 }
 
-function converterArma(a) {
+function converterArma(a, fatorRecarga = FATOR_RECARGA_ARMA) {
   let custo = 0;
   const versoes = a.versoes.map((v, i) => {
     const anterior = a.versoes[i - 1];
-    const golpe = converterGolpe(v.golpe, v);
+    const golpe = converterGolpe(v.golpe, v, 0, fatorRecarga);
     const segurar = !!v.segurar;
     const versao = {
       nivel: i + 1,
@@ -540,7 +543,7 @@ function converterArma(a) {
         i === 0
           ? Math.max(PRECO_MIN, Math.round((v.preco * FATOR_OURO) / 10) * 10)
           : Math.max(PRECO_EVOLUIR_MIN, Math.round((anterior.taxa * FATOR_OURO_EVOLUIR) / 10) * 10),
-      cd: ((v.recargaMs ?? 0) / MS) * FATOR_RECARGA_ARMA,
+      cd: ((v.recargaMs ?? 0) / MS) * fatorRecarga,
       energia: (v.energia ?? 0) * FATOR_ENERGIA_ARMA, // por disparo; por segundo nas de segurar
       segurar,
       hpPorS: (v.hpPorS ?? 0) * FATOR_DANO,
@@ -628,13 +631,14 @@ function armaNpc(chave, nome, n, tipoDano) {
 /**
  * Arma "(NPC)" do original (ARMAS_NPC_ORIGINAL: as dos monstros da jungle que vêm do
  * AstroN, como o SN-3 e o SN-Zero VI): convertida como as do jogador (mesmos fatores,
+ * menos a recarga, FATOR_RECARGA_NPC,
  * mesma forma do golpe, o visual e o som do original), mas fora do catálogo do jogador
  * (`npc`) e com `original` (o cliente desenha com os efeitos do original, como as do
  * jogador). O dano que vale é o do ataque da espécie (server/especies.js), que põe o
  * monstro na força do papel dele no mapa.
  */
 function converterArmaNpcOriginal(a) {
-  return { ...converterArma(a), chave: 'n' + a.id, npc: true, original: true, preco: 0 };
+  return { ...converterArma(a, FATOR_RECARGA_NPC), chave: 'n' + a.id, npc: true, original: true, preco: 0 };
 }
 
 /**
