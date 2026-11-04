@@ -220,16 +220,23 @@
 //         de dano); regenEn, regenHpVoo e regenHpPousada já somam os extras
 //   melhorias: {quantidade, durabilidade, defesa, velocidade}   níveis comprados
 //         das melhorias dos mineradores do time de quem recebe (zeram a cada partida)
-//   jogadores: [{id, nome, time, nivel, ia?, abates, abatesJog, mortes, vivo}]   todos os
-//         jogadores da partida, humanos e computadores (ia: true), para a janela de
-//         times (só consulta) e a barra do time no alto da tela; abates conta tudo o
+//   jogadores: [{id, nome, time, nivel, ia?, abates, abatesJog, mortes, mortesPartida,
+//         assist, farm, vivo, race, classe, tier, itens}]   todos os jogadores da
+//         partida, humanos e computadores (ia: true), para a tabela da partida (TAB,
+//         public/js/tabela.js) e a barra do time no alto da tela; abates conta tudo o
 //         que o piloto derrubou (monstro, minerador...), abatesJog só os jogadores do
-//         outro time (zera na partida nova). Lista pública: sem HP, posição nem nave.
-//         A barra do time tira a vida (hp/maxHp), a raça, a classe e o tier dos
-//         ALIADOS das `ents`, onde o próprio time sempre vem (vivo ou morto); a vida
-//         de inimigo só chega por lá quando o time o enxerga, como antes
-//   partida: {n, estado, fase, restante, inicioEm, semTempo, placar:[t0, t1], vencedor, novaEm}
-//            (semTempo: modo de teste, a partida não acaba e restante vem 0)
+//         outro time; mortesPartida, assist (assistências em abate de jogador) e farm
+//         (monstros, mineradores e escoltas) são o KDA e o farm da tabela; os quatro
+//         zeram na partida nova. itens = os seis na nave [arma Z, arma X, escudo,
+//         armadura, pot1, pot2], cada um [chave, versão] ou null. Lista pública, como
+//         o TAB do LoL: a nave e os itens sim, HP e posição nunca. A barra do time tira
+//         a vida (hp/maxHp) dos ALIADOS das `ents`, onde o próprio time sempre vem (vivo
+//         ou morto); a vida de inimigo só chega por lá quando o time o enxerga
+//   partida: {n, estado, fase, restante, inicioEm, semTempo, placar:[t0, t1], vencedor, novaEm, estat}
+//            (semTempo: modo de teste, a partida não acaba e restante vem 0; estat =
+//            [t0, t1] com {torres, medusa, nucleo, abates}: torres sentinela do outro
+//            time destruídas, Medusas e Núcleos tomados e abates de jogador inimigo do
+//            time, o cabeçalho da tabela do TAB; zeram na partida nova)
 //         estado = 'esperando' | 'preparacao' | 'andamento' | 'fim'; fase = 'normal' | 'final'
 //         (últimos 3 min: minério entregue vale o dobro); restante, inicioEm e novaEm
 //         em s; preparacao = os 3 min antes dos 20 (sem mineradores, jungle, objetivos,

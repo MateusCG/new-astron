@@ -453,6 +453,7 @@ export class Objetivos {
     n.respawnTick = Infinity; // quem decide a volta é #proximaAparicao
     if (!matador) return;
     n.timeTomou = matador.time;
+    w.partida?.contar(matador.time, 'nucleo'); // cabeçalho da tabela da partida
     w.mineradores.ondaDoNucleo(matador.time, w.tick);
     for (const j of w.players.values()) {
       if (j.time !== matador.time) continue;

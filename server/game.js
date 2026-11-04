@@ -162,6 +162,7 @@ import {
   ASSISTENCIA_JANELA_S,
   chaveRecompensa,
   RECOMPENSA,
+  TIPOS_FARM,
   aliadosDoWing,
   WING_FRACAO_XP,
   WING_TIPOS,
@@ -175,7 +176,8 @@ import { RECALL_S, motivoRecall } from '../shared/recall.js';
 import { Bots, nomeDeBot } from './bots.js';
 import { Visao } from './visao.js';
 import { ORDEM_TIPOS_DANO, RESIST_MAX } from '../shared/equipamentos.js';
-import { chanceCritico } from '../shared/armas.js';
+import { chanceCritico, ARMAS } from '../shared/armas.js';
+import { instDoInv } from '../shared/loja.js';
 import { anotarDano, fonteDoGolpe, resumoDaMorte } from './resumo-morte.js';
 
 export const TICK_HZ = 30;
@@ -433,10 +435,12 @@ export class World {
   }
 
   /**
-   * Jogadores da partida para a janela de times e a barra do time: [{id, nome,
-   * time, nivel, ia?, abates, abatesJog, mortes, vivo}] (camuflado entra também:
-   * não diz onde ele está). Lista PÚBLICA: nada de HP, posição nem nave aqui (a vida
-   * e a nave dos aliados vêm das entidades do próprio time, que o time sempre vê).
+   * Jogadores da partida para a tabela da partida (TAB) e a barra do time: [{id,
+   * nome, time, nivel, ia?, abates, abatesJog, mortes, mortesPartida, assist, farm,
+   * vivo, race, classe, tier, itens}] (camuflado entra também: não diz onde ele está).
+   * Lista PÚBLICA, como a tabela do TAB do LoL (que mostra os itens e o campeão do
+   * inimigo): a nave (raça, classe e tier) e os seis itens na nave, mas nada de HP
+   * nem posição (a vida dos aliados vem das entidades do próprio time).
    */
   #jogadoresSnap() {
     return [...this.players.values()].map((j) => ({
@@ -448,8 +452,33 @@ export class World {
       abates: j.abates,
       abatesJog: j.abatesJog,
       mortes: j.mortes,
+      mortesPartida: j.mortesPartida ?? 0,
+      assist: j.assist ?? 0,
+      farm: j.farm ?? 0,
       vivo: j.vivo,
+      race: j.ship.race,
+      classe: j.classe,
+      tier: j.tier ?? 0,
+      itens: this.#itensNaNave(j),
     }));
+  }
+
+  /**
+   * Os seis itens na nave de `j`, na ordem do INVENTÁRIO: [arma Z, arma X, escudo,
+   * armadura, potenciador 1, potenciador 2], cada um [chave, versão] ou null (vazio).
+   */
+  #itensNaNave(j) {
+    const s = j.ship;
+    const arma = (k) => {
+      const kind = ARMAS[s.encaixes?.[k]];
+      return kind ? [kind, s.nivEnc?.[k] ?? 1] : null;
+    };
+    const equip = (id) => {
+      const x = instDoInv(j.inv, id);
+      return x?.tipo === 'equip' ? [x.chave, x.nivel] : null;
+    };
+    const eq = j.equipado ?? {};
+    return [arma(0), arma(1), equip(eq.escudo), equip(eq.armadura), equip(eq.pot?.[0]), equip(eq.pot?.[1])];
   }
 
   /**
@@ -767,7 +796,10 @@ export class World {
     } else {
       alvo.respawnTick = this.tick + (alvo.renascerTicks ?? RESPAWN_TICKS);
     }
-    if (alvo.tipo === 'jogador') alvo.mortes++;
+    if (alvo.tipo === 'jogador') {
+      alvo.mortes++;
+      alvo.mortesPartida = (alvo.mortesPartida ?? 0) + 1;
+    }
     if (alvo.tipo === 'minerador') alvo.carga = 0; // o minério que carregava se perde
     let matador = this.players.get(autor);
     if (matador?.id === alvo.id) matador = undefined;
@@ -782,7 +814,11 @@ export class World {
       // o ouro dos acampamentos sobe com as ondas da jungle).
       matador.abates++;
       // Abate de jogador do outro time: o número do card na barra do time.
-      if (alvo.tipo === 'jogador' && alvo.time !== matador.time) matador.abatesJog++;
+      if (alvo.tipo === 'jogador' && alvo.time !== matador.time) {
+        matador.abatesJog++;
+        this.partida.contar(matador.time, 'abates'); // o abate do time no cabeçalho da tabela
+      }
+      if (TIPOS_FARM.has(alvo.tipo)) matador.farm = (matador.farm ?? 0) + 1; // o farm da tabela
       // O abate de jogador paga ouro e XP pelo nível da vítima (ouroAbateJogador, xpAbateJogador).
       const mult = alvo.tipo === 'monstro' ? this.jungle.multOuro(alvo) : 1;
       const doNivel = alvo.tipo === 'jogador' ? { ouro: ouroAbateJogador(alvo.nivel), xp: xpAbateJogador(alvo.nivel) } : {};
@@ -892,6 +928,7 @@ export class World {
       if (!j || j.time !== matador.time) continue;
       j.ouro += r.ouro;
       ganharXp(j, r.xp, this.eventos);
+      j.assist = (j.assist ?? 0) + 1; // o A do KDA na tabela da partida
       assist.push(id);
     }
     if (assist.length) {

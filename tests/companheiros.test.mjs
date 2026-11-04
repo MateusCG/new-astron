@@ -217,8 +217,10 @@ test('vida na barra do time: a do aliado vem nas entidades, a do inimigo escondi
   assert.equal(ents.get(c.id)?.classe, 'functional');
   assert.ok(ents.get(c.id)?.maxHp > 0);
   assert.equal(ents.has(b.id), false, 'inimigo fora da visão não vem');
+  // A lista pública leva a nave e os itens (a tabela do TAB, como a do LoL), mas
+  // nunca a vida nem o lugar.
   for (const p of snap.jogadores) {
-    for (const campo of ['hp', 'maxHp', 'x', 'z', 'classe', 'tier', 'race']) assert.equal(p[campo], undefined, `${campo} fora da lista pública`);
+    for (const campo of ['hp', 'maxHp', 'x', 'y', 'z', 'en', 'escudo']) assert.equal(p[campo], undefined, `${campo} fora da lista pública`);
   }
   const hpB = Math.ceil(b.ship.hp); // a Bellico regenera voando: o valor de agora
   assert.ok(!new RegExp(`"hp":${hpB}[,}]`).test(JSON.stringify(snap)), 'a vida do inimigo escondido não está em lugar nenhum do snapshot');

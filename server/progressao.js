@@ -178,10 +178,18 @@ export function recompensaAssistencia(nivelVitima = 1) {
  * número do card do piloto na barra do time (public/js/companheiros.js). E
  * danoRecente, o dano dos últimos segundos para o resumo da morte
  * (server/resumo-morte.js), que zera ao morrer e na partida nova.
+ *
+ * Os números da tabela da partida (TAB, public/js/tabela.js), que também só zeram na
+ * partida nova: mortesPartida (todas as mortes da nave na partida, como o D do KDA
+ * do LoL: o `mortes` conta desde a entrada), assist (assistências em abate de
+ * jogador inimigo) e farm (monstros, mineradores e escoltas abatidos: o CS do LoL).
  */
 export function novoCombate() {
-  return { sequencia: 0, danoPor: new Map(), abatesJog: 0, danoRecente: [] };
+  return { sequencia: 0, danoPor: new Map(), abatesJog: 0, danoRecente: [], mortesPartida: 0, assist: 0, farm: 0 };
 }
+
+/** O que conta como farm na tabela da partida: os abates de tropa e de jungle. */
+export const TIPOS_FARM = new Set(['monstro', 'minerador', 'escolta']);
 
 /** Campos de progressão de um jogador que acabou de entrar (ou da partida nova): nível, XP e pontos. */
 export function novaProgressao() {

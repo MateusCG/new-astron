@@ -60,6 +60,16 @@ export function computadoresDaEntrada(msg) {
   return { iaMeu: limpa(msg?.iaMeu, IA_MEU_MAX), iaInimigo: limpa(msg?.iaInimigo, IA_INIMIGO_MAX) };
 }
 
+// Números do time para o cabeçalho da tabela da partida (TAB, public/js/tabela.js),
+// como os do LoL: torres sentinela do outro time destruídas, Medusas e Núcleos de
+// He-3 tomados (o golpe final foi de alguém do time) e abates de jogador inimigo.
+// Ficam aqui, e não somados dos jogadores, para não sumir com quem sai da partida.
+// Zeram em toda partida nova (e com o servidor vazio).
+/** Estatísticas zeradas de um time: { torres, medusa, nucleo, abates }. */
+export function estatisticasVazias() {
+  return { torres: 0, medusa: 0, nucleo: 0, abates: 0 };
+}
+
 export class Partida {
   /** @param {{ duracaoS?: number, intervaloFimS?: number, faseFinalS?: number, preparacaoS?: number }} [opcoes] */
   constructor({ duracaoS = DURACAO_PARTIDA_S, intervaloFimS = INTERVALO_FIM_S, faseFinalS = FASE_FINAL_S, preparacaoS = PREPARACAO_S } = {}) {
@@ -78,6 +88,13 @@ export class Partida {
     this.inicioTick = 0; // tick em que a partida começou (na preparação, em que vai começar)
     this.fimTick = 0; // tick em que o cronômetro zera
     this.novaTick = 0; // tick em que começa a próxima partida (no estado 'fim')
+    this.estat = [estatisticasVazias(), estatisticasVazias()]; // por time (cabeçalho da tabela)
+  }
+
+  /** Soma um à estatística `chave` ('torres', 'medusa', 'nucleo', 'abates') do `time`. */
+  contar(time, chave) {
+    const e = this.estat[time];
+    if (e && chave in e) e[chave]++;
   }
 
   /**
@@ -101,6 +118,7 @@ export class Partida {
     this.numero++;
     this.estado = this.preparacaoTicks > 0 ? 'preparacao' : 'andamento';
     this.placar = [0, 0];
+    this.estat = [estatisticasVazias(), estatisticasVazias()];
     this.vencedor = null;
     this.inicioTick = tick + this.preparacaoTicks;
     this.fimTick = this.inicioTick + this.duracaoTicks;
@@ -154,6 +172,7 @@ export class Partida {
       if (this.estado === 'esperando') return null;
       this.estado = 'esperando';
       this.placar = [0, 0];
+      this.estat = [estatisticasVazias(), estatisticasVazias()];
       this.vencedor = null;
       return 'vazia';
     }
@@ -209,9 +228,10 @@ export class Partida {
   }
 
   /**
-   * Estado para o snapshot: `{ n, estado, fase, restante, inicioEm, semTempo, placar, vencedor, novaEm }`
+   * Estado para o snapshot: `{ n, estado, fase, restante, inicioEm, semTempo, placar, vencedor, novaEm, estat }`
    * (fase 'normal' ou 'final'; inicioEm = s até acabar a preparação; tempos em
-   * segundos inteiros, arredondados para cima).
+   * segundos inteiros, arredondados para cima; estat = [time 0, time 1] com
+   * `{ torres, medusa, nucleo, abates }`).
    */
   paraSnapshot(tick) {
     return {
@@ -224,6 +244,7 @@ export class Partida {
       placar: [...this.placar],
       vencedor: this.vencedor,
       novaEm: this.estado === 'fim' ? Math.max(0, Math.ceil((this.novaTick - tick) * DT - 1e-9)) : 0,
+      estat: this.estat.map((e) => ({ ...e })),
     };
   }
 }

@@ -915,6 +915,7 @@ export class Jungle {
         ganharXp(j, m.cfg.xp, w.eventos);
       }
       w.bonus.ativar(matador.time, 'medusa', BONUS_MEDUSA_S, t);
+      w.partida?.contar(matador.time, 'medusa'); // cabeçalho da tabela da partida
     }
     w.eventos.push({ e: 'objetivo', id: c.id, acao: 'tomado', time: matador.time, quem: matador.nome, por: matador.id });
   }

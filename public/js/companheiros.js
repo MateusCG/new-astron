@@ -112,7 +112,7 @@ export class BarraTime {
     this.euVivo = euVivo;
     this.minhaEn = Number.isFinite(minhaEn) ? minhaEn : Infinity;
     const porId = new Map((ents ?? []).map((e) => [e.id, e]));
-    // Você primeiro, depois as pessoas, depois os computadores (como na janela Times).
+    // Você primeiro, depois as pessoas, depois os computadores (como na tabela da partida).
     const meus = jogadores
       .filter((j) => j.time === this.meuTime)
       .sort((a, b) => (b.id === this.meuId) - (a.id === this.meuId) || !!a.ia - !!b.ia || a.id - b.id);

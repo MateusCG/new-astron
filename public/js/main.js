@@ -38,9 +38,9 @@
 // barra para a música e outra para os efeitos; aberta, não sai tiro.
 //
 // Times: quantos computadores no seu time e no inimigo se escolhe na tela inicial
-// (escolha-times.js), e vai no {t:'entrar'} (iaMeu, iaInimigo). Na partida, a janela
-// Times (times.js, tecla P ou o botão do HUD) é só consulta: as vagas dos dois times
-// pela lista `jogadores` do snapshot.
+// (escolha-times.js), e vai no {t:'entrar'} (iaMeu, iaInimigo). Na partida, segurar
+// TAB (ou o botão Tabela do HUD) mostra a tabela da partida (tabela.js), como a do
+// LoL: objetivos e abates de cada time, e o farm, KDA e itens de cada piloto.
 //
 // Loja e Evolução (servicos.js): pousado e parado na plataforma da própria base, o
 // painel abre sozinho; os pedidos vão direto pela rede e a resposta chega como
@@ -145,7 +145,7 @@ import { mostrarPrevia, pararPrevia } from './vitrine.js';
 import { ArmasNave } from './armas.js';
 import { Placar, relogio } from './placar.js';
 import { PainelTeste } from './teste.js';
-import { PainelTimes } from './times.js';
+import { TabelaPartida } from './tabela.js';
 import { BarraTime } from './companheiros.js';
 import { EscolhaTimes } from './escolha-times.js';
 import { PainelServicos } from './servicos.js';
@@ -591,7 +591,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     signal: controles.parar.signal,
     aoAbrir: () => status.fechar(),
   });
-  const times = new PainelTimes({ meuId, meuTime, signal: controles.parar.signal }); // só consulta
+  const tabela = new TabelaPartida({ meuId, meuTime, signal: controles.parar.signal }); // TAB, só leitura
   // Resumo da última morte (como no Dota 2): sozinho com a nave destruída, H com ela viva.
   const ultimaMorte = new PainelUltimaMorte({ meuId, meuTime, signal: controles.parar.signal });
   // Barra do time no alto (companheiros.js): cards dos aliados e o teleporte até o Functional.
@@ -701,10 +701,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
     if (!vivo || !pred) return;
     const inp = controles.ler();
     // As armas dos dois encaixes vão em todo comando; com o painel da Loja/Evolução
-    // ou a janela de volume ou dos times aberta não sai tiro. Com o STATUS ou o
-    // INVENTÁRIO aberto, sai (são janelas laterais de consulta).
+    // ou a janela de volume aberta não sai tiro. Com o STATUS, o INVENTÁRIO ou a
+    // tabela da partida (TAB) aberta, sai (são de consulta, como o TAB do LoL).
     [inp.a, inp.a2] = armasNave.encaixes;
-    if (painel.aberto || painelVolume.aberto || times.aberto) inp.f1 = inp.f2 = false;
+    if (painel.aberto || painelVolume.aberto) inp.f1 = inp.f2 = false;
     seq++;
     rede.enviar({ t: 'in', s: seq, ...inp });
     ant = pose(pred);
@@ -770,7 +770,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     const euNoSnap = m.ents.find((e) => e.id === meuId);
     recallLocal = euNoSnap?.recall !== undefined ? { frac: euNoSnap.recall, t: performance.now() } : null;
     placar.atualizar(m.partida, m.bonus);
-    times.atualizar(m.jogadores);
+    tabela.atualizar(m.jogadores, m.partida);
     barraTime.atualizar(m.jogadores, m.ents, m.vivo, m.me?.en);
     bonusAtivos = m.bonus ?? {};
     meusBonus = Object.keys(m.me?.bonusNave ?? {});
@@ -1573,7 +1573,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     cancelAnimationFrame(idQuadro);
     rede.fechar();
     controles.destruir();
-    times.fechar();
+    tabela.fechar();
     barraTime.limpar();
     status.fechar();
     inventario.fechar();
@@ -1593,18 +1593,22 @@ function montarJogo(rede, boas, renderer, race, classe) {
   }
 
   /**
-   * ESC com a caixinha do teleporte (barra do time), a janela dos times, o STATUS,
+   * ESC com a caixinha do teleporte (barra do time), a tabela da partida, o STATUS,
    * o INVENTÁRIO ou o painel da Loja/Evolução aberto: fecha só ele. Devolve se fechou.
    */
   function fecharPainel() {
     if (barraTime.fecharCaixa()) return true; // a caixinha do teleporte, antes de tudo
     if (inventario.fecharCaixa()) return true; // a caixinha do item fecha antes da janela
     // O INVENTÁRIO que a Loja abriu fecha com ela, no mesmo ESC.
-    if (inventarioDaLoja && inventario.aberto && painel.aberto && !times.aberto) {
+    if (inventarioDaLoja && inventario.aberto && painel.aberto && !tabela.fixa) {
       painel.fechar();
       return true;
     }
-    for (const janela of [times, status, inventario]) {
+    if (tabela.fixa) {
+      tabela.fechar(); // a aberta pelo botão (a do TAB fecha ao soltar)
+      return true;
+    }
+    for (const janela of [status, inventario]) {
       if (janela.aberto) {
         janela.fechar();
         return true;

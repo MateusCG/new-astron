@@ -373,6 +373,7 @@ export class Torretas {
     for (const j of w.players.values()) {
       if (j !== atirador && j.time === atirador.time) j.ouro += ouroTime;
     }
+    if (atirador.time !== undefined && atirador.time !== t.time) w.partida?.contar(atirador.time, 'torres'); // cabeçalho da tabela
     w.eventos.push({ e: 'torreta', id: t.id, time: t.time, estado: 'destruida', por: atirador.id, nome: atirador.nome, x: t.x, y: t.y, z: t.z });
   }
 

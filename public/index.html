@@ -71,7 +71,7 @@
                 </div>
               </div>
             </div>
-            <p class="nota-times">Gente tem prioridade na vaga: com a partida já rolando, os computadores só completam o que falta. Na partida, <kbd>P</kbd> mostra os times.</p>
+            <p class="nota-times">Gente tem prioridade na vaga: com a partida já rolando, os computadores só completam o que falta. Na partida, segure <kbd>TAB</kbd> para ver a tabela.</p>
           </section>
           <h2>Comandos</h2>
           <dl>
@@ -89,7 +89,7 @@
             <div><dt><kbd>T</kbd><kbd>G</kbd></dt><dd>Altura da câmera (ou a roda do mouse)</dd></div>
             <div><dt><kbd>C</kbd></dt><dd>Status e pontos</dd></div>
             <div><dt><kbd>I</kbd></dt><dd>Inventário</dd></div>
-            <div><dt><kbd>P</kbd></dt><dd>Times (consulta)</dd></div>
+            <div><dt><kbd>TAB</kbd></dt><dd>Tabela da partida (segure)</dd></div>
             <div><dt><kbd>H</kbd></dt><dd>Resumo da última morte</dd></div>
             <div><dt><kbd>M</kbd></dt><dd>Liga e desliga o som</dd></div>
             <div><dt><kbd>Esc</kbd></dt><dd>Fecha a janela ou sai da partida</dd></div>
@@ -185,7 +185,7 @@
         <button type="button" id="som-hud" class="botao-volume" title="Volume (M liga e desliga o som)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som"></span></button>
         <button type="button" id="status-hud" class="botao-hud" title="Status e pontos do piloto (C)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="3.5" /><path d="M5 20c.8-4 3.3-6 7-6s6.2 2 7 6" /><path d="M18 3.5v4M16 5.5h4" /></svg><span>Status</span><kbd>C</kbd></button>
         <button type="button" id="inventario-hud" class="botao-hud" title="Inventário da nave (I)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="7" height="7" rx="1.2" /><rect x="13.5" y="4" width="7" height="7" rx="1.2" /><rect x="3.5" y="14" width="7" height="7" rx="1.2" /><rect x="13.5" y="14" width="7" height="7" rx="1.2" /></svg><span>Inventário</span><kbd>I</kbd></button>
-        <button type="button" id="times-hud" class="botao-hud" title="Quem está em cada time (P)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3" /><path d="M2.5 19c.6-3.4 2.6-5 5.5-5s4.9 1.6 5.5 5" /><circle cx="16.5" cy="9" r="2.4" /><path d="M15 14.2c.5-.1 1-.2 1.5-.2 2.4 0 4 1.3 4.6 4.4" /></svg><span>Times</span><kbd>P</kbd></button>
+        <button type="button" id="tabela-hud" class="botao-hud" title="Tabela da partida: objetivos, farm, KDA e itens de todos (segure TAB)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="1.5" /><path d="M3 9h18M12 9v10.5M6 13h3M6 16h3M15 13h3M15 16h3" /></svg><span>Tabela</span><kbd>TAB</kbd></button>
         <button type="button" id="morte-hud" class="botao-hud" title="Resumo da última morte: quem destruiu a nave e o dano recebido (H)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" /></svg><span>Morte</span><kbd>H</kbd></button>
       </div>
 
@@ -219,23 +219,28 @@
         </dl>
       </footer>
 
-      <div id="times" hidden>
-        <section class="janela" role="dialog" aria-modal="true" aria-labelledby="times-titulo">
-          <header>
-            <h2 id="times-titulo">Times</h2>
-            <button class="fechar" type="button" title="Fechar (Esc)" aria-label="Fechar">✕</button>
+      <!-- Tabela da partida (tabela.js): segure TAB, como no LoL. Só leitura, não pega o mouse. -->
+      <div id="tabela" hidden aria-live="off">
+        <section class="janela" aria-label="Tabela da partida">
+          <header class="cab">
+            <div class="cab-meu objs"></div>
+            <div class="placar-abates" title="Abates de jogador de cada time">
+              <b class="abates-meu">0</b>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4l11 11M13.5 16.5l3-3M15 15l5 5M20 4L9 15M10.5 16.5l-3-3M9 15l-5 5" /></svg>
+              <b class="abates-inimigo">0</b>
+            </div>
+            <div class="cab-inimigo objs"></div>
           </header>
-          <div class="colunas">
-            <section class="time-col meu">
-              <h3>Seu time <span class="conta">0/3</span></h3>
-              <ul></ul>
+          <div class="times">
+            <section class="time-meu" aria-label="Seu time">
+              <h3><span class="titulo">Seu time</span><span>Farm</span><span>A/M/As</span><span>Itens</span></h3>
+              <ol></ol>
             </section>
-            <section class="time-col inimigo">
-              <h3>Inimigo <span class="conta">0/3</span></h3>
-              <ul></ul>
+            <section class="time-inimigo" aria-label="Time inimigo">
+              <h3><span class="titulo">Inimigo</span><span>Farm</span><span>A/M/As</span><span>Itens</span></h3>
+              <ol></ol>
             </section>
           </div>
-          <p class="dica">Os computadores se escolhem na tela inicial, antes de decolar. Cada um tem um papel: o 1º fica na lane com os mineradores, o 2º farma a jungle e os buffs, o 3º embosca nas nuvens de gás; Medusa e Núcleo, só em grupo<span class="so-teclado"> · <kbd>P</kbd> abre e fecha</span></p>
         </section>
       </div>
 
