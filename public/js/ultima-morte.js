@@ -9,6 +9,7 @@
 // "Morte" do HUD) abre e fecha o da última morte. A partida nova apaga o resumo.
 // linhasDoResumo é pura (testada em tests/ultima-morte.test.mjs).
 
+import { aoApertar } from './atalhos.js';
 import { SIGLA_TIPO } from '../../shared/equipamentos.js';
 
 /** A ordem e o nome de cada tipo no resumo (o `outro` é o golpe sem tipo). */
@@ -76,14 +77,7 @@ export class PainelUltimaMorte {
       },
       { signal },
     );
-    addEventListener(
-      'keydown',
-      (e) => {
-        if (e.code !== 'KeyH' || e.repeat || e.target instanceof HTMLInputElement) return;
-        this.alternar();
-      },
-      { signal },
-    );
+    aoApertar('morte', () => this.alternar(), { signal });
     this.#desenhar();
     this.#mostrar(false); // a sessão anterior (ESC volta à tela inicial) pode ter deixado aberto
   }

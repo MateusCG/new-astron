@@ -21,6 +21,7 @@
 // números mudam a todo snapshot (regeneração), então a janela é montada uma vez e
 // só os textos e as barras são trocados no lugar: o "+" não some debaixo do clique.
 
+import { aoApertar } from './atalhos.js';
 import {
   ORDEM_ATRIBUTOS,
   PONTO_MAX,
@@ -143,14 +144,7 @@ export class PainelStatus {
       },
       { signal },
     );
-    addEventListener(
-      'keydown',
-      (e) => {
-        if (e.code !== 'KeyC' || e.repeat || e.target instanceof HTMLInputElement) return;
-        this.alternar();
-      },
-      { signal },
-    );
+    aoApertar('status', () => this.alternar(), { signal });
   }
 
   get aberto() {

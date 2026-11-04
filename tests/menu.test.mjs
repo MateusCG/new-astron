@@ -1,7 +1,7 @@
 // Menu principal (public/js/menu-regras.js): as abas e os modos de jogo (os do online
 // ficam bloqueados e não decolam), o que cada modo manda no {t:'entrar'}, para onde o
 // ESC volta, o que se lê do navegador (saneado), as setas da lista e da grade, a régua
-// das barras das naves e a lista do teclado. E o contrato com o index.html: todo
+// das barras das naves. (Os atalhos de teclado e controle estão em atalhos.test.mjs.) E o contrato com o index.html: todo
 // elemento que menu.js procura tem de existir lá.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,7 +12,6 @@ import {
   MODO_PADRAO,
   ABA_PADRAO,
   CHAVES,
-  GRUPOS_TECLAS,
   modoDisponivel,
   pedidoDoModo,
   telaAnterior,
@@ -132,15 +131,6 @@ test('régua das barras: as primeiras naves para a Seleção e as 45 para o Hang
   // A régua das primeiras é menor (as naves crescem com o tier): a barra delas não fica nanica.
   assert.ok(escalaStatus(primeirasNaves()).hp < max.hp);
   assert.ok(!todas.some((n) => n.race === 'mechan'));
-});
-
-test('lista do teclado: grupos com teclas e ação, sem tecla repetida', () => {
-  const teclas = GRUPOS_TECLAS.flatMap((g) => g.teclas.flatMap(([t]) => t));
-  assert.ok(GRUPOS_TECLAS.every((g) => g.nome && g.teclas.length));
-  assert.equal(new Set(teclas).size, teclas.length);
-  for (const t of ['W', 'S', 'A', 'D', 'Shift', 'Z', 'X', 'Q', 'E', 'L', 'B', 'R', 'F', 'V', 'T', 'G', 'C', 'I', 'TAB', 'H', 'M', 'Esc']) {
-    assert.ok(teclas.includes(t), t);
-  }
 });
 
 test('index.html tem tudo o que menu.js procura', () => {

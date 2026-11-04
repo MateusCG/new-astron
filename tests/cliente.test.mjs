@@ -126,3 +126,27 @@ test('cliente: partida cheia recusa a entrada com o código do servidor', async 
   await assert.rejects(entrou, { message: 'partida_cheia' });
   assert.ok(ws.fechado, 'fecha a conexão');
 });
+
+test('cliente: a tecla trocada na aba Configurações vale na hora, e a antiga não', async () => {
+  const { atribuirAtalho, restaurarPadrao } = await import('../public/js/atalhos.js');
+  const c = new Controles(raiz);
+  atribuirAtalho('teclado', 'armaZ', 0, 'KeyU');
+  tecla('keydown', 'KeyU');
+  assert.equal(c.ler().f1, true, 'U atira com o Z');
+  tecla('keyup', 'KeyU');
+  tecla('keydown', 'KeyZ');
+  assert.equal(c.ler().f1, false, 'o Z saiu da casa');
+  tecla('keyup', 'KeyZ');
+  // L no recall: sai do pouso, e o pulso vai no campo r.
+  atribuirAtalho('teclado', 'recall', 0, 'KeyL');
+  tecla('keydown', 'KeyL');
+  const inp = c.ler();
+  assert.equal(inp.r, true);
+  assert.equal(inp.p, false);
+  tecla('keyup', 'KeyL');
+  restaurarPadrao('teclado');
+  tecla('keydown', 'KeyZ');
+  assert.equal(c.ler().f1, true, 'de fábrica de novo');
+  tecla('keyup', 'KeyZ');
+  c.destruir();
+});

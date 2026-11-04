@@ -28,7 +28,7 @@
         <p class="topo-abertura"><span class="agora-abertura">Carregando…</span><b class="pct-abertura">0%</b></p>
         <span class="barra-abertura"><i></i></span>
         <ul class="grupos-abertura"></ul>
-        <button type="button" class="jogar-abertura" disabled>Jogar<kbd>Enter</kbd></button>
+        <button type="button" class="jogar-abertura" data-joy-principal disabled>Jogar<kbd>Enter</kbd></button>
       </div>
       <aside class="dica-abertura"><b>Dica</b><p></p></aside>
       <button type="button" class="som-abertura botao-volume" title="Volume (M liga e desliga o som)" aria-label="Volume"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg></button>
@@ -131,7 +131,7 @@
             <h1 id="titulo-config" class="titulo-tela">Configurações</h1>
             <button type="button" data-secao="som" class="sel">Som</button>
             <button type="button" data-secao="teclado">Controles · Teclado</button>
-            <button type="button" data-secao="controle" disabled title="Ainda não: jogar com controle vem depois">Controles · Controle <span class="selo-breve">EM BREVE</span></button>
+            <button type="button" data-secao="controle">Controles · Controle</button>
           </nav>
           <section id="config-som" class="config-painel" data-secao="som" aria-label="Som">
             <h2>Som</h2>
@@ -150,11 +150,26 @@
               <input type="range" min="0" max="100" step="1" value="80" />
               <small>A voz do First Blood, Double Kill, Godlike…</small>
             </label>
-            <button type="button" class="alternar-mudo botao-volume" title="Liga e desliga todo o som (M)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som">Som ligado</span><kbd>M</kbd></button>
+            <button type="button" class="alternar-mudo botao-volume" title="Liga e desliga todo o som (M)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som">Som ligado</span><kbd data-acao-rotulo="som">M</kbd></button>
           </section>
-          <section class="config-painel" data-secao="teclado" hidden aria-label="Teclado">
-            <h2>Teclado</h2>
-            <div class="grupos-teclas"></div>
+          <section class="config-painel config-atalhos" data-secao="teclado" hidden aria-label="Teclado">
+            <header class="cabeca-atalhos">
+              <h2>Teclado</h2>
+              <button type="button" class="restaurar-atalhos" data-disp="teclado">Restaurar padrão</button>
+            </header>
+            <p class="ajuda-atalhos">Clique numa casa e aperte a tecla nova. <kbd>Esc</kbd> cancela, <kbd>Del</kbd> apaga (ou clique com o botão direito). Uma tecla serve a uma ação só: ela sai da outra.</p>
+            <p class="aviso-atalhos" aria-live="polite"></p>
+            <div class="lista-atalhos" data-disp="teclado"></div>
+          </section>
+          <section class="config-painel config-atalhos" data-secao="controle" hidden aria-label="Controle">
+            <header class="cabeca-atalhos">
+              <h2>Controle</h2>
+              <button type="button" class="restaurar-atalhos" data-disp="controle">Restaurar padrão</button>
+            </header>
+            <p class="estado-controle" aria-live="polite"></p>
+            <p class="ajuda-atalhos">Escolha uma casa (clique, ou <b>✕</b> no controle) e aperte o botão novo, um gatilho ou um lado do analógico. <kbd>Esc</kbd> cancela. Nos menus, o direcional leva o foco, o Confirmar clica e o Voltar fecha.</p>
+            <p class="aviso-atalhos" aria-live="polite"></p>
+            <div class="lista-atalhos" data-disp="controle"></div>
           </section>
         </section>
       </main>
@@ -211,7 +226,7 @@
       <!-- Resumo da última morte, como no Dota 2 (ultima-morte.js): abre sozinho com a
            nave destruída; viva, H abre e fecha. O corpo entra por JS. -->
       <section id="ultima-morte" hidden aria-label="Última morte">
-        <h2>Última morte<kbd class="so-teclado">H</kbd></h2>
+        <h2>Última morte<kbd class="so-teclado" data-acao-rotulo="morte">H</kbd></h2>
         <div class="corpo"></div>
       </section>
       <div id="rotulos-obj"></div>
@@ -278,7 +293,7 @@
           <footer class="contagem">
             <p>Voltando ao menu em <b class="segundos">30</b> s</p>
             <span class="barra" aria-hidden="true"><i></i></span>
-            <button type="button" class="sair">Voltar ao menu agora <kbd>Enter</kbd></button>
+            <button type="button" class="sair" data-joy-principal>Voltar ao menu agora <kbd>Enter</kbd></button>
           </footer>
         </div>
       </section>
@@ -293,10 +308,10 @@
       </section>
       <div id="atalhos-hud">
         <button type="button" id="som-hud" class="botao-volume" title="Volume (M liga e desliga o som)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som"></span></button>
-        <button type="button" id="status-hud" class="botao-hud" title="Status e pontos do piloto (C)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="3.5" /><path d="M5 20c.8-4 3.3-6 7-6s6.2 2 7 6" /><path d="M18 3.5v4M16 5.5h4" /></svg><span>Status</span><kbd>C</kbd></button>
-        <button type="button" id="inventario-hud" class="botao-hud" title="Inventário da nave (I)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="7" height="7" rx="1.2" /><rect x="13.5" y="4" width="7" height="7" rx="1.2" /><rect x="3.5" y="14" width="7" height="7" rx="1.2" /><rect x="13.5" y="14" width="7" height="7" rx="1.2" /></svg><span>Inventário</span><kbd>I</kbd></button>
-        <button type="button" id="tabela-hud" class="botao-hud" title="Tabela da partida: objetivos, farm, KDA e itens de todos (segure TAB)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="1.5" /><path d="M3 9h18M12 9v10.5M6 13h3M6 16h3M15 13h3M15 16h3" /></svg><span>Tabela</span><kbd>TAB</kbd></button>
-        <button type="button" id="morte-hud" class="botao-hud" title="Resumo da última morte: quem destruiu a nave e o dano recebido (H)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" /></svg><span>Morte</span><kbd>H</kbd></button>
+        <button type="button" id="status-hud" class="botao-hud" title="Status e pontos do piloto (C)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="3.5" /><path d="M5 20c.8-4 3.3-6 7-6s6.2 2 7 6" /><path d="M18 3.5v4M16 5.5h4" /></svg><span>Status</span><kbd data-acao-rotulo="status">C</kbd></button>
+        <button type="button" id="inventario-hud" class="botao-hud" title="Inventário da nave (I)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="7" height="7" rx="1.2" /><rect x="13.5" y="4" width="7" height="7" rx="1.2" /><rect x="3.5" y="14" width="7" height="7" rx="1.2" /><rect x="13.5" y="14" width="7" height="7" rx="1.2" /></svg><span>Inventário</span><kbd data-acao-rotulo="inventario">I</kbd></button>
+        <button type="button" id="tabela-hud" class="botao-hud" title="Tabela da partida: objetivos, farm, KDA e itens de todos (segure TAB)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="1.5" /><path d="M3 9h18M12 9v10.5M6 13h3M6 16h3M15 13h3M15 16h3" /></svg><span>Tabela</span><kbd data-acao-rotulo="tabela">TAB</kbd></button>
+        <button type="button" id="morte-hud" class="botao-hud" title="Resumo da última morte: quem destruiu a nave e o dano recebido (H)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" /></svg><span>Morte</span><kbd data-acao-rotulo="morte">H</kbd></button>
       </div>
 
       <footer id="painel">
@@ -316,10 +331,10 @@
         </div>
         <div id="itens-nave">
           <button id="item-reparo" class="item-nave vazio" type="button" title="Kit de reparo (R)">
-            <b class="tecla">R</b><span class="icone"></span><span class="qtd">0</span><i class="recarga"><i></i></i>
+            <b class="tecla" data-acao-rotulo="reparo">R</b><span class="icone"></span><span class="qtd">0</span><i class="recarga"><i></i></i>
           </button>
           <button id="item-energia" class="item-nave vazio" type="button" title="Célula de energia (F)">
-            <b class="tecla">F</b><span class="icone"></span><span class="qtd">0</span><i class="recarga"><i></i></i>
+            <b class="tecla" data-acao-rotulo="energia">F</b><span class="icone"></span><span class="qtd">0</span><i class="recarga"><i></i></i>
           </button>
         </div>
         <dl>
@@ -357,7 +372,7 @@
       <section id="status" class="janela-lateral" hidden aria-label="Status do piloto">
         <header>
           <h2>Status</h2>
-          <kbd class="so-teclado">C</kbd>
+          <kbd class="so-teclado" data-acao-rotulo="status">C</kbd>
           <button class="fechar" type="button" title="Fechar (Esc)" aria-label="Fechar">✕</button>
         </header>
         <div class="corpo"></div>
@@ -368,7 +383,7 @@
       <section id="inventario" class="janela-lateral" hidden aria-label="Inventário da nave">
         <header>
           <h2>Inventário</h2>
-          <kbd class="so-teclado">I</kbd>
+          <kbd class="so-teclado" data-acao-rotulo="inventario">I</kbd>
           <p class="ouro-janela" title="Vender devolve metade do que foi pago; evoluir cobra a taxa da versão">Ouro <b>0</b></p>
           <button class="fechar" type="button" title="Fechar (Esc)" aria-label="Fechar">✕</button>
         </header>
@@ -432,7 +447,7 @@
           <input type="range" min="0" max="100" step="1" value="80" />
           <small>A voz do First Blood, Double Kill, Godlike…</small>
         </label>
-        <button type="button" class="alternar-mudo botao-volume" title="Liga e desliga todo o som (M)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som">Som ligado</span><kbd>M</kbd></button>
+        <button type="button" class="alternar-mudo botao-volume" title="Liga e desliga todo o som (M)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som">Som ligado</span><kbd data-acao-rotulo="som">M</kbd></button>
       </section>
     </div>
 

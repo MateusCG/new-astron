@@ -22,6 +22,7 @@ import {
 } from '/shared/terrain.js';
 import { WEAPONS, ARMAS, TROCA_ARMA_S, armasIniciais, versaoArma } from '/shared/sim.js';
 import { iconeArma } from './armas.js';
+import { kbdAcao } from './atalhos.js';
 import { iconeItem } from './servicos.js';
 import { CORES_NUVEM } from './nuvens.js';
 import { ITENS, ORDEM_ITENS } from '/shared/loja.js';
@@ -462,11 +463,12 @@ export class Hud {
           ? NOME_OBJETIVO.plataforma
           : 'Área de pouso';
     let html = '';
-    if (pousada && area?.servico) html = painelAberto ? `${nome} · <kbd>L</kbd> decola` : `${nome} · <kbd>Enter</kbd> ou toque abre · <kbd>L</kbd> decola`;
-    else if (pousada && area?.plataforma) html = `${nome} · sem tiro enquanto pousada · <kbd>L</kbd> decola`;
-    else if (pousada) html = 'Pousada · consertando · <kbd>L</kbd> decola';
-    else if (area?.plataforma) html = `${nome} · Pouse 6 s: ouro para o time · <kbd>L</kbd> pousa`;
-    else if (area) html = `${nome} · <kbd>L</kbd> pousa`;
+    const L = kbdAcao('pouso');
+    if (pousada && area?.servico) html = painelAberto ? `${nome} · ${L} decola` : `${nome} · ${kbdAcao('loja')} ou toque abre · ${L} decola`;
+    else if (pousada && area?.plataforma) html = `${nome} · sem tiro enquanto pousada · ${L} decola`;
+    else if (pousada) html = `Pousada · consertando · ${L} decola`;
+    else if (area?.plataforma) html = `${nome} · Pouse 6 s: ouro para o time · ${L} pousa`;
+    else if (area) html = `${nome} · ${L} pousa`;
     if (this.avisoPouso.dataset.html !== html) {
       this.avisoPouso.innerHTML = html;
       this.avisoPouso.dataset.html = html;

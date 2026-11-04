@@ -33,6 +33,7 @@
 // janela: nome e versão, tipo, efeitos e classe. Preços e contas saem de
 // shared/loja.js (precoVenda, precoEvoluirInst, noCompartimento), as mesmas do servidor.
 
+import { aoApertar } from './atalhos.js';
 import { EQUIPAMENTOS, CATEGORIA_DO_SLOT, NIVEL_ITEM_MAX } from '/shared/equipamentos.js';
 import { ARMAS, IDX_ARMA } from '/shared/sim.js';
 import { COMPARTIMENTO_MAX, armaDaInst, instDoInv, noCompartimento, precoVenda, precoEvoluirInst, equipadoVazio } from '/shared/loja.js';
@@ -167,14 +168,7 @@ export class PainelInventario {
       },
       { signal },
     );
-    addEventListener(
-      'keydown',
-      (e) => {
-        if (e.code !== 'KeyI' || e.repeat || e.target instanceof HTMLInputElement) return;
-        this.alternar();
-      },
-      { signal },
-    );
+    aoApertar('inventario', () => this.alternar(), { signal });
   }
 
   get aberto() {

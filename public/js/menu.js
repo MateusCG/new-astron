@@ -16,8 +16,10 @@
 //   5 naves com o nível e o preço na Evolução. "Mostrar na tela Jogar" põe a nave
 //   aberta (qualquer tier) em destaque na aba Jogar, no lugar da primeira da Seleção;
 //   clicar de novo tira (fica no navegador, CHAVES.destaque).
-// - CONFIGURAÇÕES: as barras de volume (outro PainelVolume, sobre #config-som) e a
-//   lista do teclado agrupada (só mostra).
+// - CONFIGURAÇÕES: as barras de volume (outro PainelVolume, sobre #config-som) e os
+//   atalhos do teclado e do controle (joystick), cada ação com as suas casas: clicar
+//   numa casa espera a tecla ou o botão novo (atalhos.js, capturar), e o mapa fica no
+//   navegador.
 //
 // O canvas da nave 3D é um só (vitrine.js) e vai para o palco da tela aberta; nas
 // Configurações ele para. As miniaturas saem da mesma vitrine (cada uma uma vez por
@@ -35,11 +37,23 @@ import { modeloDaNave } from './nave.js';
 import { SONS_INTERFACE } from './sons.js';
 import { EscolhaTimes } from './escolha-times.js';
 import { PainelVolume } from './volume.js';
+import { ACAO, GRUPOS_ACOES, ATALHOS_POR_ACAO, nomeTecla, nomeEntrada } from './atalhos-regras.js';
+import {
+  mapasAtuais,
+  kbdAcao,
+  pintarRotulos,
+  capturar,
+  cancelarCaptura,
+  capturaAtual,
+  limparAtalho,
+  restaurarPadrao,
+  aoMudarAtalhos,
+} from './atalhos.js';
+import { controlesLigados, aoMudarControle } from './joystick.js';
 import {
   ABAS,
   MODOS,
   CHAVES,
-  GRUPOS_TECLAS,
   modoPorId,
   pedidoDoModo,
   telaAnterior,
@@ -68,6 +82,13 @@ const DICAS = {
   selecao: '<kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> escolhe a nave · <kbd>Esc</kbd> volta',
   naves: 'Arraste a nave para girar · <kbd>Esc</kbd> volta',
   config: '<kbd>Esc</kbd> volta',
+};
+/** As mesmas dicas com o controle (o rótulo segue o mapa: data-acao-rotulo). */
+const DICAS_CONTROLE = {
+  jogar: `${kbdAcao('uiCima')}${kbdAcao('uiBaixo')} escolhe o modo · ${kbdAcao('uiConfirmar')} entra`,
+  selecao: `${kbdAcao('uiEsq')}${kbdAcao('uiDir')}${kbdAcao('uiCima')}${kbdAcao('uiBaixo')} navega · ${kbdAcao('uiConfirmar')} escolhe · ${kbdAcao('uiVoltar')} volta`,
+  naves: `${kbdAcao('uiConfirmar')} escolhe · ${kbdAcao('uiVoltar')} volta`,
+  config: `${kbdAcao('uiConfirmar')} troca a casa · ${kbdAcao('uiVoltar')} volta`,
 };
 
 const ARRASTO_RAD_POR_PX = 0.012;
@@ -203,7 +224,10 @@ export class Menu {
       b.setAttribute('aria-selected', String(sel));
       b.tabIndex = sel ? 0 : -1;
     }
-    this.q('.menu-rodape .dicas').innerHTML = DICAS[tela] ?? '';
+    // As duas dicas; o CSS mostra a do aparelho em uso (html[data-aparelho]).
+    this.q('.menu-rodape .dicas').innerHTML = `<span class="dica-teclado">${DICAS[tela] ?? ''}</span><span class="dica-controle">${DICAS_CONTROLE[tela] ?? ''}</span>`;
+    pintarRotulos(this.q('.menu-rodape'));
+    if (tela !== 'config') cancelarCaptura();
     this.#atualizarPrevia();
     if (tela === 'config') this.volumeConfig.atualizar();
     if (tela === 'selecao') this.#atualizarSelecao();
@@ -650,19 +674,119 @@ export class Menu {
 
   #montarConfig() {
     const tela = this.q('#tela-config');
-    tela.querySelector('.grupos-teclas').innerHTML = GRUPOS_TECLAS.map(
-      (g) => `<section class="grupo-teclas"><h3>${g.nome}</h3><dl>${g.teclas
-        .map(([teclas, acao]) => `<div><dt>${teclas.map((t) => `<kbd>${t}</kbd>`).join('')}</dt><dd>${acao}</dd></div>`)
-        .join('')}</dl></section>`,
-    ).join('');
     tela.querySelector('.config-secoes').addEventListener('click', (e) => {
       const b = e.target.closest('[data-secao]:not(:disabled)');
       if (!b || b.dataset.secao === this.secao) return;
       this.secao = b.dataset.secao;
+      cancelarCaptura();
       this.#som(SONS_INTERFACE.clique);
       for (const x of tela.querySelectorAll('.config-secoes [data-secao]')) x.classList.toggle('sel', x === b);
       for (const p of tela.querySelectorAll('.config-painel')) p.hidden = p.dataset.secao !== this.secao;
       if (this.secao === 'som') this.volumeConfig.atualizar();
     });
+
+    // As listas de atalhos (atalhos.js): uma casa por tecla ou botão de cada ação;
+    // clicar espera a entrada nova (capturar), o botão direito apaga.
+    for (const lista of tela.querySelectorAll('.lista-atalhos')) {
+      const disp = lista.dataset.disp;
+      const painel = lista.closest('.config-atalhos');
+      const aviso = painel.querySelector('.aviso-atalhos');
+      lista.addEventListener('click', (e) => {
+        const casa = e.target.closest('.casa-atalho:not(:disabled)');
+        if (!casa) return;
+        const { acao } = casa.dataset;
+        const i = Number(casa.dataset.i);
+        if (casa.classList.contains('esperando')) return cancelarCaptura();
+        this.#som(SONS_INTERFACE.clique, 0.6);
+        aviso.textContent = '';
+        clearTimeout(this.tempoCaptura);
+        capturar(disp, acao, i, (r) => {
+          clearTimeout(this.tempoCaptura);
+          this.#desenharAtalhos();
+          if (r.entrada) {
+            const nome = disp === 'teclado' ? nomeTecla(r.entrada) : nomeEntrada(r.entrada, true);
+            aviso.textContent = r.tirouDe ? `${nome} saiu de "${ACAO[r.tirouDe].nome}" e agora é "${ACAO[acao].nome}".` : `${nome}: ${ACAO[acao].nome}.`;
+            // O foco volta à casa (o controle segue dali).
+            lista.querySelector(`.casa-atalho[data-acao="${acao}"][data-i="${Math.min(i, mapasAtuais()[disp][acao].length - 1)}"]`)?.focus();
+          } else if (r.limpou) aviso.textContent = `"${ACAO[acao].nome}" ficou sem essa casa.`;
+        });
+        casa.classList.add('esperando');
+        casa.textContent = disp === 'teclado' ? 'Aperte a tecla…' : 'Aperte o botão…';
+        // O controle não tem Esc: a espera acaba sozinha.
+        if (disp === 'controle') this.tempoCaptura = setTimeout(() => cancelarCaptura(), 8000);
+      });
+      lista.addEventListener('contextmenu', (e) => {
+        const casa = e.target.closest('.casa-atalho:not(:disabled)');
+        if (!casa) return;
+        e.preventDefault();
+        cancelarCaptura();
+        if (casa.classList.contains('vazia')) return;
+        limparAtalho(disp, casa.dataset.acao, Number(casa.dataset.i));
+        aviso.textContent = `"${ACAO[casa.dataset.acao].nome}" ficou sem essa casa.`;
+      });
+      painel.querySelector('.restaurar-atalhos').addEventListener('click', () => {
+        cancelarCaptura();
+        restaurarPadrao(disp);
+        this.#som(SONS_INTERFACE.clique);
+        aviso.textContent = disp === 'teclado' ? 'Teclado de fábrica de volta.' : 'Controle de fábrica de volta.';
+      });
+    }
+    aoMudarAtalhos(() => {
+      if (!capturaAtual()) this.#desenharAtalhos();
+    });
+    aoMudarControle(() => this.#estadoControle());
+    this.#desenharAtalhos();
+    this.#estadoControle();
+  }
+
+  /** As duas listas de atalhos, do mapa em uso. */
+  #desenharAtalhos() {
+    const mapas = mapasAtuais();
+    for (const lista of this.el.querySelectorAll('.lista-atalhos')) {
+      const disp = lista.dataset.disp;
+      // O teclado não lista a navegação dos menus (as setas, o Enter e o Esc de sempre).
+      const grupos = GRUPOS_ACOES.filter((g) => disp === 'controle' || g.nome !== 'Menus');
+      lista.innerHTML = grupos
+        .map(
+          (g) => `<section class="grupo-atalhos"><h3>${g.nome}</h3>${g.acoes
+            .map((a) => {
+              const casas = [];
+              if (disp === 'teclado' && a.fixaTeclado) {
+                casas.push(`<button type="button" class="casa-atalho fixa" disabled title="Esta tecla não muda">${escapar(a.fixaTeclado)}</button>`);
+              } else {
+                const atuais = mapas[disp][a.id] ?? [];
+                for (let i = 0; i < ATALHOS_POR_ACAO; i++) {
+                  const e = atuais[i];
+                  // Uma casa vazia por vez: a segunda só aparece com a primeira cheia.
+                  if (!e && i > atuais.length) break;
+                  const nome = e ? (disp === 'teclado' ? nomeTecla(e) : nomeEntrada(e)) : '+';
+                  const titulo = e ? (disp === 'teclado' ? `Tecla ${nomeTecla(e)}` : nomeEntrada(e, true)) : 'Acrescentar';
+                  casas.push(
+                    `<button type="button" class="casa-atalho${e ? '' : ' vazia'}" data-acao="${a.id}" data-i="${i}" title="${escapar(titulo)}: clique para trocar">${escapar(nome)}</button>`,
+                  );
+                }
+              }
+              return `<div class="linha-atalho"><span class="nome-acao">${escapar(a.nome)}</span><span class="casas">${casas.join('')}</span></div>`;
+            })
+            .join('')}</section>`,
+        )
+        .join('');
+    }
+  }
+
+  /** A linha do controle ligado (ou de como ligar um). */
+  #estadoControle() {
+    const el = this.q('.estado-controle');
+    if (!el) return;
+    const pads = controlesLigados();
+    if (!pads.length) {
+      el.className = 'estado-controle desligado';
+      el.textContent = 'Nenhum controle encontrado. Ligue o controle (USB ou Bluetooth) e aperte qualquer botão: o navegador só mostra o controle depois do primeiro botão.';
+      return;
+    }
+    el.className = 'estado-controle ligado';
+    el.textContent = pads
+      .map((p) => `Controle ligado: ${p.id.replace(/\s*\(.*?Vendor.*?\)\s*/i, ' ').trim()} · ${p.botoes} botões${p.mapping === 'standard' ? '' : ' · sem o mapeamento padrão: confira as casas abaixo apertando os botões'}`)
+      .join(' · ');
   }
 }

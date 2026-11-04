@@ -135,6 +135,8 @@ import { Sons, SONS_INTERFACE, SONS_VOLTA, SONS_NUCLEO, VOLUME_TIRO_PROPRIO } fr
 import { PainelVolume } from './volume.js';
 import { Efeitos, COR_TIME } from './efeitos.js';
 import { Controles } from './controles.js';
+import { aoApertar, pintarRotulos, capturaAtual } from './atalhos.js';
+import { iniciarJoystick } from './joystick.js';
 import { Hud, BONUS_NAVE } from './hud.js';
 import { ObjetivosNaTela, LUGARES_OBJETIVO, NOME_OBJETIVO } from './objetivos.js';
 import { criarLimitador } from './quadros.js';
@@ -249,11 +251,11 @@ function mostrarEstadoSom() {
   for (const el of document.querySelectorAll('.estado-som, .botao-volume')) el.classList.toggle('mudo', sons.mudo);
 }
 const painelVolume = new PainelVolume({ sons, aoMudarSom: mostrarEstadoSom });
-addEventListener('keydown', (e) => {
-  // Só o campo de nome engole o M; na barra de volume ele continua valendo.
-  if (e.code !== 'KeyM' || e.repeat || (e.target instanceof HTMLInputElement && e.target.type === 'text')) return;
-  alternarSom();
-});
+// M de fábrica (atalhos.js; o campo de nome engole a tecla, a barra de volume não).
+aoApertar('som', alternarSom);
+// Controle (joystick.js): o mapa da aba Configurações, a navegação dos menus e o voo.
+iniciarJoystick();
+pintarRotulos();
 
 let jogoAtual = null; // { sair } da partida em andamento; null no menu
 let cargaAtual = null; // o Carregamento da tela de carregamento aberta (ESC cancela)
@@ -286,24 +288,33 @@ function montarMenu() {
   // ou no menu), ESC só fecha ela. Com o painel da Loja ou da Evolução (#servico)
   // aberto, só fecha o painel; senão sai da partida. Na tela de carregamento, cancela
   // e volta para a Seleção; no menu, volta um passo (menu.voltar).
+  // No controle, o Start (menu) e o ○ dos menus (uiVoltar) são o mesmo ESC.
   addEventListener(
     'keydown',
     (e) => {
-      if (e.code !== 'Escape' || e.repeat) return;
-      if (painelVolume.aberto) {
-        painelVolume.fechar();
-        return;
-      }
-      if (!jogoAtual) {
-        if (cargaAtual) cargaAtual.cancelar();
-        else if (menu.voltar()) e.preventDefault();
-        return;
-      }
-      if (jogoAtual.fecharPainel()) return;
-      voltarParaEntrada();
+      if (e.code !== 'Escape' || e.repeat || capturaAtual()) return;
+      apertouEsc(e);
     },
     { capture: true },
   );
+  aoApertar('menu', () => apertouEsc());
+  aoApertar('uiVoltar', () => apertouEsc());
+}
+
+/** O ESC (tecla ou controle): fecha a janela de cima, volta no menu ou sai da partida. */
+function apertouEsc(e) {
+  if (painelVolume.aberto) {
+    painelVolume.fechar();
+    return;
+  }
+  if (!menu) return; // ainda na tela de abertura
+  if (!jogoAtual) {
+    if (cargaAtual) cargaAtual.cancelar();
+    else if (menu.voltar()) e?.preventDefault();
+    return;
+  }
+  if (jogoAtual.fecharPainel()) return;
+  voltarParaEntrada();
 }
 
 /** Sai da partida e mostra o menu na aba Jogar, com o nome, a raça e a classe de antes. */

@@ -33,14 +33,15 @@ import { WEAPONS, ARMAS, TIPOS_DANO, trocaLivre, armasIniciais } from '/shared/s
 import { versaoArma, resumoVersao, alcanceMaximo, visualEfeito, ORDEM_CATEGORIAS, PAPEIS, NIVEL_ARMA_MAX } from '/shared/armas.js';
 import { TROCA_RAPIDA, limparTrocaRapida, guardarNaTrocaRapida, equiparArmaRapida } from '/shared/loja.js';
 import { htmlIcone } from './icones-itens.js';
+import { aoApertar, kbdAcao } from './atalhos.js';
 
 /**
  * Tecla de tiro, tecla da troca rápida e botões de cada encaixe (0 = Z, 1 = X): o
  * encaixe do painel inferior e o TROCA Z/X do celular trocam como a tecla.
  */
 export const ENCAIXES = [
-  { tecla: 'Z', codigoTroca: 'KeyQ', letraTroca: TROCA_RAPIDA[0], botoes: ['#btn-arma-z', '#arma-z'] },
-  { tecla: 'X', codigoTroca: 'KeyE', letraTroca: TROCA_RAPIDA[1], botoes: ['#btn-arma-x', '#arma-x'] },
+  { tecla: 'Z', acaoTroca: 'trocaZ', letraTroca: TROCA_RAPIDA[0], botoes: ['#btn-arma-z', '#arma-z'] },
+  { tecla: 'X', acaoTroca: 'trocaX', letraTroca: TROCA_RAPIDA[1], botoes: ['#btn-arma-x', '#arma-x'] },
 ];
 
 const numero = (v, casas = 0) => v.toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas });
@@ -301,15 +302,7 @@ export class ArmasNave {
     });
     this.#desenharCasas();
 
-    addEventListener(
-      'keydown',
-      (e) => {
-        if (e.target instanceof HTMLInputElement || e.repeat) return;
-        const enc = ENCAIXES.findIndex((x) => x.codigoTroca === e.code);
-        if (enc >= 0) this.trocar(enc);
-      },
-      { signal },
-    );
+    ENCAIXES.forEach((x, enc) => aoApertar(x.acaoTroca, () => this.trocar(enc), { signal }));
     ENCAIXES.forEach((x, enc) => {
       for (const sel of x.botoes) {
         const el = document.querySelector(sel);
@@ -444,7 +437,7 @@ export class ArmasNave {
       const x = this.instDaCasa(enc);
       const { tecla, letraTroca } = ENCAIXES[enc];
       ind.casa.classList.toggle('vazia', !x);
-      ind.casa.innerHTML = `<kbd>${letraTroca}</kbd>${x ? iconeArma(ARMAS[x[1]], x[2]) : '<span class="icone-item vazio"></span>'}`;
+      ind.casa.innerHTML = `${kbdAcao(ENCAIXES[enc].acaoTroca)}${x ? iconeArma(ARMAS[x[1]], x[2]) : '<span class="icone-item vazio"></span>'}`;
       ind.el.title = x
         ? `${letraTroca} (ou clique) troca a arma do ${tecla} por ${WEAPONS[ARMAS[x[1]]].nome}`
         : `Nada guardado no ${letraTroca}: guarde uma arma no INVENTÁRIO (I) para trocar com o ${tecla}`;

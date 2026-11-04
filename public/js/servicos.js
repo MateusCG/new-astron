@@ -75,6 +75,7 @@ import { miniatura } from './vitrine.js';
 import { iconeEquip, textoClasses, classeTipo } from './equipamento.js';
 import { htmlIcone } from './icones-itens.js';
 import { ICONE_CONSUMIVEL } from './insumos.js';
+import { aoApertar, kbdAcao } from './atalhos.js';
 
 /** Mensagem curta para cada código de erro estável do servidor. */
 export const MENSAGEM_ERRO = {
@@ -107,7 +108,6 @@ const ABAS = {
     ['torretas', 'Torretas'],
   ],
 };
-const TECLA_ITEM = Object.fromEntries(ORDEM_ITENS.map((id) => [`Key${ITENS[id].tecla}`, id]));
 
 const numero = (v) => Math.round(v).toLocaleString('pt-BR');
 const pct = (f) => `${Math.round(f * 100)}%`;
@@ -205,15 +205,8 @@ export class PainelServicos {
     }
     // A dica de pouso na plataforma reabre o painel (toque no celular).
     aoClicar(document.querySelector('#pouso'), () => this.reabrir(), signal);
-    addEventListener(
-      'keydown',
-      (e) => {
-        if (e.target instanceof HTMLInputElement || e.repeat) return;
-        if (TECLA_ITEM[e.code]) this.usar(TECLA_ITEM[e.code]);
-        else if (e.code === 'Enter' || e.code === 'NumpadEnter') this.reabrir();
-      },
-      { signal },
-    );
+    for (const id of ORDEM_ITENS) aoApertar(id, () => this.usar(id), { signal }); // R e F de fábrica
+    aoApertar('loja', () => this.reabrir(), { signal }); // Enter
   }
 
   /** O painel está na tela? (enquanto estiver, o Z e o X não disparam) */
@@ -512,7 +505,7 @@ export class PainelServicos {
       else selo += ` · ${tem}/${it.max}`;
       return this.#cartao({
         icone: iconeItem(id),
-        nome: `<kbd>${it.tecla}</kbd> ${it.nome}`,
+        nome: `${kbdAcao(id)} ${it.nome}`,
         efeito,
         preco: it.preco,
         selo,

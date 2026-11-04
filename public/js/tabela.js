@@ -25,6 +25,7 @@ import { miniatura } from './vitrine.js';
 import { iconeArma, nomeArma } from './armas.js';
 import { iconeEquip, nomeEquip } from './equipamento.js';
 import { linhasDaTabela, kda } from './tabela-regras.js';
+import { aoApertar, aoSoltar } from './atalhos.js';
 
 // Vagas por time: o mesmo MAX_POR_TIME de server/partida.js (quem manda é o servidor).
 const MAX_POR_TIME = 3;
@@ -50,21 +51,19 @@ export class TabelaPartida {
     this.conteudo = new ConteudoTabela(this.el, { meuId, meuTime });
     this.segurando = false; // aberta pelo TAB (fecha ao soltar)
     this.fixa = false; // aberta pelo botão (fecha no botão ou no ESC)
-    addEventListener(
-      'keydown',
-      (e) => {
-        if (e.code !== 'Tab' || e.target instanceof HTMLInputElement) return;
-        e.preventDefault(); // o TAB do navegador passaria o foco para os botões
-        if (e.repeat) return;
+    // A tecla (o TAB de fábrica; controles.js segura o TAB do navegador, que passaria
+    // o foco para os botões) ou o botão do controle (Select).
+    aoApertar(
+      'tabela',
+      () => {
         this.segurando = true;
         this.#mostrar();
       },
       { signal },
     );
-    addEventListener(
-      'keyup',
-      (e) => {
-        if (e.code !== 'Tab') return;
+    aoSoltar(
+      'tabela',
+      () => {
         this.segurando = false;
         this.#mostrar();
       },
