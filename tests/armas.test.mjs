@@ -463,3 +463,18 @@ test('cartão: o crítico da arma (coluna 81 do original) e o alcance máximo', 
   assert.equal(alcanceMaximo(versaoArma('o112021', 1)), 0, 'o Teleporte mostra 0 m, como no original');
   assert.equal(alcanceMaximo(versaoArma('o312006', 1)), null, 'dispositivo: sem a linha');
 });
+
+test('voo: todo projétil do jogador voa o alcance do cartão do original (as ondas que aceleram não voam o dobro)', () => {
+  for (const k of ARMAS) {
+    const w = WEAPONS[k];
+    if (!w.versoes || w.npc) continue;
+    for (let nv = 1; nv <= NIVEL_ARMA_MAX; nv++) {
+      const v = versaoArma(k, nv);
+      if (v.golpe.forma !== 'projetil') continue;
+      assert.ok(Math.abs(v.golpe.alcance - alcanceMaximo(v)) <= 1, `${w.nome} V${nv}: voa ${v.golpe.alcance}, o cartão diz ${alcanceMaximo(v)}`);
+    }
+  }
+  // Onda de Choque: 163,8 m no original (sai a 0,11 m/ms e chega a 0,124 no fim da vida de 1,4 s), não 333.
+  const onda = versaoArma('o214003', 1);
+  assert.ok(Math.abs(onda.golpe.alcance - 163.8 * FATOR_VEL) < 1, `${onda.golpe.alcance}`);
+});

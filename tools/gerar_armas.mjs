@@ -220,9 +220,13 @@ function golpe(n, efeitos, subs, categoria, raiz) {
     rajadaMs: n.rajada > 1 ? n.intervaloRajadaMs : 0,
     varre: n.varredura ? { modo: n.varredura.modo, passo: n.varredura.passoGraus } : null,
     vel: n.velMax,
-    // Velocidade média (alcance do original / vida): quem acelera ou freia voa a
-    // esta velocidade constante no jogo novo, com o mesmo alcance e o mesmo tempo.
-    velMedia: n.acel && n.vidaMs ? r3(n.alcanceM / n.vidaMs) : 0,
+    // Velocidade média (o voo do original na vida dele / a vida): quem acelera ou freia
+    // voa a esta velocidade constante no jogo novo, com o mesmo alcance e o mesmo tempo.
+    // Quem acelera e tem a velocidade inicial (as armas do jogador) voa a conta do cartão
+    // do original (alcanceDoCartao): o alcanceM da pesquisa saía maior nas ondas que
+    // aceleram (a Onda de Choque voava o dobro). Quem freia e as armas dos monstros
+    // (sem velIni) seguem no alcanceM.
+    velMedia: n.acel && n.vidaMs ? r3((n.acel > 0 && n.velIni !== undefined ? alcanceDoCartao(n) : n.alcanceM) / n.vidaMs) : 0,
     cresce: n.nova ? { raio: n.nova.raioMax, cresce: n.nova.crescePorMs } : null,
     guia: n.teleguiado && n.teleguiado.giroGrausS > 0 ? { comecaMs: n.teleguiado.comecaMs, giro: n.teleguiado.giroGrausS } : null,
     mira: n.mira ? { modo: n.mira.modo, raio: n.mira.raioM } : null,
