@@ -7,10 +7,13 @@
 // e times) → Decolar → tela de carregamento → partida. ESC volta um passo; o ESC de
 // dentro da partida cai na aba Jogar.
 //
-// "Online" é jogar em tempo real com pilotos em outro lugar (um amigo que entra na
-// sua sala). Isso vem depois (servidor hospedado, salas e fila), então "Jogar New
-// Astron" e "Partida Pública com Bots" ficam bloqueados. Cada modo diz se está
-// disponível e o que manda no {t:'entrar'}: ligar um modo novo é mexer só aqui.
+// "Online" é jogar em tempo real com pilotos em outro lugar. "Jogar New Astron" (3
+// contra 3 de gente) e "Partida Pública com Bots" (3 de gente contra 3 computadores)
+// são modos de FILA (`fila`): a Seleção entra na fila do servidor (server/filas.js,
+// fila.js no cliente), o Decolar vira "Aguardando…" e a partida começa sozinha quando
+// a sala junta todos os pilotos e todos apertam Pronto. Os outros modos decolam
+// direto. Cada modo diz se está disponível e o que manda no {t:'entrar'}: ligar um
+// modo novo é mexer só aqui.
 //
 // O import de shared/ é relativo ('../../shared/...'): no navegador cai no mesmo
 // /shared/naves.js dos outros módulos, e no Node (o teste) acha o arquivo.
@@ -22,15 +25,17 @@ export const ABAS = Object.freeze([
   { id: 'jogar', nome: 'Jogar' },
   { id: 'naves', nome: 'Naves' },
   { id: 'config', nome: 'Configurações' },
-  { id: 'ranking', nome: 'Ranking', bloqueada: true, dica: 'Chega com o jogo online' },
-  { id: 'perfil', nome: 'Perfil', bloqueada: true, dica: 'Chega com o jogo online' },
+  { id: 'ranking', nome: 'Ranking', bloqueada: true, dica: 'Chega com as contas de piloto' },
+  { id: 'perfil', nome: 'Perfil', bloqueada: true, dica: 'Chega com as contas de piloto' },
 ]);
 
 /**
  * Modos de jogo da aba Jogar, na ordem da tela. `entrar` é o que o modo acrescenta ao
- * pedido de entrada (o servidor de hoje só conhece `teste`); `estado` é a linha em
- * mono embaixo do título; `selo` é o selo da tela de Seleção. Fila sem número: "—"
- * (nunca um número inventado).
+ * pedido de entrada (`teste`: mundo de teste; `privada`: uma partida só sua); `fila`
+ * é o modo da fila online (server/filas.js); `estado` é a linha em mono embaixo do
+ * título (nos de fila, a contagem real que chega do servidor substitui: fila-regras.js,
+ * textoContagemModo; sem conexão, "—", nunca um número inventado); `selo` é o selo da
+ * tela de Seleção.
  */
 export const MODOS = Object.freeze([
   {
@@ -38,7 +43,9 @@ export const MODOS = Object.freeze([
     titulo: 'Jogar New Astron',
     estado: '— na fila',
     texto: 'Partida padrão 3 contra 3 contra outros pilotos online.',
-    disponivel: false,
+    disponivel: true,
+    selo: 'Jogar New Astron',
+    fila: 'online',
   },
   {
     id: 'sandbox',
@@ -54,16 +61,18 @@ export const MODOS = Object.freeze([
     titulo: 'Partida Pública com Bots',
     estado: '— na fila',
     texto: 'Entre na fila com outros pilotos e enfrentem os computadores juntos.',
-    disponivel: false,
+    disponivel: true,
+    selo: 'Partida Pública com Bots',
+    fila: 'publica',
   },
   {
     id: 'privada',
     titulo: 'Partida Privada com Bots',
     estado: '3 contra 3 · 20 min',
-    texto: 'Uma partida normal contra os computadores. Jogar em grupo chega com o online.',
+    texto: 'Uma partida só sua contra os computadores, sem ninguém de fora.',
     disponivel: true,
     selo: 'Partida Privada com Bots',
-    entrar: { teste: false },
+    entrar: { teste: false, privada: true },
   },
 ]);
 
@@ -92,11 +101,19 @@ export function modoDisponivel(id) {
 
 /**
  * O que o modo manda no {t:'entrar'} além do nome, da raça, da classe e dos times.
- * Modo bloqueado ou desconhecido: null (não decola).
+ * Modo bloqueado ou desconhecido: null (não decola). Modo de fila: { fila: modo } (a
+ * Seleção entra na fila; quem decola é a sala, com o token).
  */
 export function pedidoDoModo(id) {
   const m = modoPorId(id);
-  return m?.disponivel ? { teste: false, ...m.entrar } : null;
+  if (!m?.disponivel) return null;
+  return m.fila ? { fila: m.fila } : { teste: false, ...m.entrar };
+}
+
+/** O modo da fila online do modo do menu (null: o modo decola direto). */
+export function filaDoModo(id) {
+  const m = modoPorId(id);
+  return m?.disponivel && m.fila ? m.fila : null;
 }
 
 /**

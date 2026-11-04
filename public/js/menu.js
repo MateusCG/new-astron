@@ -1,5 +1,5 @@
 // Menu principal (#entrada): o header com as abas (Jogar, Naves, Configurações e,
-// bloqueadas até o online, Ranking e Perfil) e uma tela por aba, mais a Seleção, que
+// bloqueadas até as contas de piloto, Ranking e Perfil) e uma tela por aba, mais a Seleção, que
 // abre depois de escolher o modo. As regras (modos, ESC, o que se guarda, escalas)
 // estão em menu-regras.js; aqui só o desenho e os eventos.
 //
@@ -10,7 +10,11 @@
 //   raças × 3 classes numa grade com miniaturas (escolha num clique, setas também), a
 //   nave grande no centro com a linha da Evolução, a ficha (barras na régua das
 //   primeiras naves e as duas armas de fábrica) e, embaixo, os times (escolha-times.js)
-//   e o Decolar.
+//   e o Decolar. Nos modos da fila online (Jogar New Astron e Partida Pública com
+//   Bots: fila.js, fila-regras.js, server/filas.js) abrir a Seleção já entra na fila:
+//   o Decolar fica "Aguardando…", os times viram a sala (companheiros, Pronto), e com a
+//   sala formada o botão vira "Pronto", com o contador embaixo; todos prontos, a
+//   partida começa sozinha. Sair da Seleção (ESC, aba) sai da fila.
 // - NAVES: o hangar, só leitura: filtros de raça e classe, a nave no visor (arrastar
 //   gira), a ficha com o tamanho real e as barras na régua das 45 naves, e a linha das
 //   5 naves com o nível e o preço na Evolução. "Mostrar na tela Jogar" põe a nave
@@ -36,6 +40,8 @@ import { mostrarPrevia, pararPrevia, miniatura, girarPrevia, segurarPrevia } fro
 import { modeloDaNave } from './nave.js';
 import { SONS_INTERFACE } from './sons.js';
 import { EscolhaTimes } from './escolha-times.js';
+import { ConexaoFila } from './fila.js';
+import { estadoFilaVazio, botaoDaFila, linhaDaFila, textoAviso, textoContagemModo } from './fila-regras.js';
 import { PainelVolume } from './volume.js';
 import { ACAO, GRUPOS_ACOES, ATALHOS_POR_ACAO, nomeTecla, nomeEntrada } from './atalhos-regras.js';
 import {
@@ -56,6 +62,7 @@ import {
   CHAVES,
   modoPorId,
   pedidoDoModo,
+  filaDoModo,
   telaAnterior,
   estadoGuardado,
   textoDestaque,
@@ -75,6 +82,12 @@ const DESCRICAO_RACA = {
   shrewdo: 'Corporações do terreno, com campo furtivo.',
   mechan: 'Biônicos do mundo tóxico, com droides de restauração.',
 };
+
+/** O contador da sala da fila (o mesmo SELECAO_S de server/filas.js; só para a barra). */
+const SELECAO_S = 60;
+/** De quanto em quanto tempo (ms) o contador e a espera da fila andam na tela. */
+const RELOGIO_FILA_MS = 250;
+const TITULO_ACHOU = '▶ Partida encontrada · New AstroN';
 
 /** Dicas do rodapé por tela. */
 const DICAS = {
@@ -180,6 +193,7 @@ export class Menu {
     this.nome.addEventListener('input', () => {
       gravar(CHAVES.nome, this.nome.value);
       this.times.definirVoce({ nome: this.nome.value.trim() });
+      if (this.#filaAtiva()) this.fila.escolher(this.#escolha());
     });
     this.nome.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.nome.blur();
@@ -188,8 +202,22 @@ export class Menu {
     this.q('#botao-som').addEventListener('click', () => painelVolume.abrir());
     this.volumeConfig = new PainelVolume({ sons, aoMudarSom, el: this.q('#config-som') });
 
-    this.times = new EscolhaTimes(this.q('#escolha-times'));
+    this.times = new EscolhaTimes(this.q('#escolha-times'), { miniatura });
     this.times.definirVoce({ nome: g.nome.trim() });
+
+    // Filas online: a conexão fica aberta com o menu (contagem em tempo real na aba
+    // Jogar) e leva a fila, a escolha e o Pronto da Seleção.
+    this.estadoFila = estadoFilaVazio();
+    this.contagemFila = null;
+    this.fila = new ConexaoFila({
+      aoContagem: (c) => {
+        this.contagemFila = c;
+        this.#mostrarContagem();
+      },
+      aoEstado: (e) => this.#mudouFila(e),
+    });
+    this.fila.ligar();
+    this.relogioFila = setInterval(() => this.#tiqueFila(), RELOGIO_FILA_MS);
 
     this.#montarAbas();
     this.#montarModos();
@@ -205,6 +233,10 @@ export class Menu {
   /** Abre uma tela: o id de uma aba ou 'selecao'. */
   mostrar(tela) {
     const aba = tela === 'selecao' ? 'jogar' : tela;
+    const antes = this.tela;
+    // Sair da Seleção sai da fila (numa sala, a desfaz); entrar nela num modo de fila
+    // já entra na fila.
+    if (antes === 'selecao' && tela !== 'selecao' && this.estadoFila.fase !== 'fora') this.fila.sair();
     this.tela = tela;
     this.aba = aba;
     gravar(CHAVES.aba, aba);
@@ -232,6 +264,13 @@ export class Menu {
     if (tela === 'config') this.volumeConfig.atualizar();
     if (tela === 'selecao') this.#atualizarSelecao();
     if (tela === 'naves') this.#atualizarNaves();
+    const fila = tela === 'selecao' ? filaDoModo(this.modo) : null;
+    this.times.mostrarFila(fila, this.estadoFila);
+    if (fila && antes !== 'selecao' && !this.decolando) {
+      this.q('#erro-entrada').textContent = '';
+      this.fila.entrar(fila, this.#escolha());
+    }
+    this.#pintarBotao();
   }
 
   /** ESC no menu: volta um passo (a Seleção para os modos, as outras abas para Jogar). */
@@ -251,10 +290,8 @@ export class Menu {
    */
   abrir(tela = 'jogar') {
     this.decolando = false;
-    const botao = this.q('.decolar');
-    botao.disabled = false;
-    botao.textContent = 'Decolar';
     this.q('#erro-entrada').textContent = '';
+    this.fila.ligar();
     this.el.hidden = false;
     this.mostrar(tela);
     this.#focarTela();
@@ -346,7 +383,7 @@ export class Menu {
       const bloqueado = !m.disponivel;
       return `<button type="button" role="listitem" class="modo${bloqueado ? ' bloqueado' : ''}" data-modo="${m.id}"${bloqueado ? ' aria-disabled="true"' : ''}>
         <strong>${m.titulo}</strong>
-        <span class="estado-modo">${m.estado}${bloqueado ? '<span class="selo-breve">EM BREVE</span>' : ''}</span>
+        <span class="estado-modo"><span class="texto-estado">${m.estado}</span>${bloqueado ? '<span class="selo-breve">EM BREVE</span>' : ''}</span>
         <span class="texto-modo">${m.texto}</span>
       </button>`;
     }).join('');
@@ -461,7 +498,7 @@ export class Menu {
   }
 
   #escolherNave(raca, classe) {
-    if (this.decolando || (raca === this.raca && classe === this.classe)) return;
+    if (this.decolando || this.#naveTravada() || (raca === this.raca && classe === this.classe)) return;
     this.raca = raca;
     this.classe = classe;
     gravar(CHAVES.raca, raca);
@@ -471,6 +508,7 @@ export class Menu {
     this.#atualizarSelecao();
     this.#atualizarLegenda();
     this.#atualizarPrevia();
+    if (this.#filaAtiva()) this.fila.escolher(this.#escolha());
   }
 
   #atualizarSelecao() {
@@ -532,6 +570,19 @@ export class Menu {
   async #decolar() {
     const pedido = pedidoDoModo(this.modo);
     if (!pedido || this.decolando) return;
+    if (pedido.fila) {
+      // Modo de fila: o botão procura partida de novo ou aperta Pronto.
+      const { acao } = botaoDaFila(this.estadoFila);
+      if (acao === 'entrar') {
+        this.q('#erro-entrada').textContent = '';
+        this.#som(SONS_INTERFACE.clique, 0.6);
+        this.fila.entrar(pedido.fila, this.#escolha());
+      } else if (acao === 'pronto') {
+        this.#som(SONS_INTERFACE.compra, 0.7);
+        this.fila.pronto(this.#escolha());
+      }
+      return;
+    }
     this.decolando = true;
     const botao = this.q('.decolar');
     const erro = this.q('#erro-entrada');
@@ -547,6 +598,7 @@ export class Menu {
     try {
       await this.aoDecolar({ nome: this.nome.value, race: this.raca, classe: this.classe, ...pedido, ia: this.times.pedido });
       this.el.hidden = true;
+      this.fila.desligar();
     } catch (err) {
       this.decolando = false;
       botao.disabled = false;
@@ -554,6 +606,131 @@ export class Menu {
       this.mostrar('selecao');
       if (err?.message === 'cancelado') return;
       console.error('Falha ao entrar no jogo:', err);
+      erro.textContent = this.mensagemErro(err);
+    }
+  }
+
+  // ---------- Fila online ----------
+
+  /** A Seleção está aberta num modo de fila. */
+  #filaAtiva() {
+    return this.tela === 'selecao' && !!filaDoModo(this.modo);
+  }
+
+  /** Depois do Pronto, a nave não muda mais (como o "travar campeão" dos MOBAs). */
+  #naveTravada() {
+    const e = this.estadoFila;
+    return this.#filaAtiva() && (e.fase === 'comecar' || (e.fase === 'sala' && !!e.voce?.pronto));
+  }
+
+  /** O que a fila leva da Seleção. */
+  #escolha() {
+    return { nome: this.nome.value.trim(), race: this.raca, classe: this.classe };
+  }
+
+  /** A contagem real das filas na linha de estado dos modos da aba Jogar. */
+  #mostrarContagem() {
+    for (const m of MODOS) {
+      if (!m.fila) continue;
+      const el = this.q(`.modo[data-modo="${m.id}"] .estado-modo .texto-estado`);
+      if (el) el.textContent = textoContagemModo(this.contagemFila?.[m.fila]) ?? m.estado;
+    }
+  }
+
+  /** Chegou um estado novo da fila (fila.js). */
+  #mudouFila(e) {
+    const antes = this.estadoFila;
+    this.estadoFila = e;
+    if (!this.#filaAtiva()) return;
+    this.times.mostrarFila(filaDoModo(this.modo), e);
+    if (e.fase === 'sala' && e.nova) {
+      // Sala formada: o som de alerta, o foco no Pronto e o título da aba piscando se
+      // o piloto estava em outra janela (como o "partida encontrada" dos MOBAs).
+      this.#som(SONS_INTERFACE.alerta, 0.9);
+      this.q('.decolar').focus({ preventScroll: true });
+      if (document.hidden) this.#avisarNoTitulo();
+    }
+    if (e.fase === 'procurando' && antes.fase === 'sala') this.#som(SONS_INTERFACE.erro, 0.5);
+    if (e.fase === 'fora' && e.aviso === 'sem_pronto') this.#som(SONS_INTERFACE.erro, 0.6);
+    this.#pintarBotao();
+    if (e.fase === 'comecar') this.#decolarNaSala(e);
+  }
+
+  /** O título da aba avisa a sala formada até o piloto voltar para ela. */
+  #avisarNoTitulo() {
+    if (document.title === TITULO_ACHOU) return;
+    const original = document.title;
+    document.title = TITULO_ACHOU;
+    const voltar = () => {
+      if (document.hidden) return;
+      document.title = original;
+      document.removeEventListener('visibilitychange', voltar);
+    };
+    document.addEventListener('visibilitychange', voltar);
+  }
+
+  /** O botão Decolar, a linha da fila e o aviso, do modo e do estado da fila. */
+  #pintarBotao() {
+    const botao = this.q('.decolar');
+    const linha = this.q('.estado-fila');
+    const aviso = this.q('.aviso-fila');
+    const tela = this.q('#tela-selecao');
+    if (!this.#filaAtiva()) {
+      if (!this.decolando) {
+        botao.disabled = false;
+        botao.textContent = 'Decolar';
+      }
+      botao.classList.remove('aguardando', 'pronto-acao');
+      linha.hidden = true;
+      aviso.textContent = '';
+      tela.classList.remove('travada');
+      return;
+    }
+    const b = botaoDaFila(this.estadoFila);
+    botao.textContent = b.texto;
+    botao.disabled = !b.habilitado;
+    botao.classList.toggle('aguardando', !b.habilitado && ['procurando', 'sala', 'conectando'].includes(this.estadoFila.fase));
+    botao.classList.toggle('pronto-acao', b.acao === 'pronto');
+    tela.classList.toggle('travada', this.#naveTravada());
+    aviso.textContent = textoAviso(this.estadoFila.aviso) ?? '';
+    this.#tiqueFila();
+  }
+
+  /** O relógio da linha da fila: a espera procurando e o contador da sala. */
+  #tiqueFila() {
+    if (!this.#filaAtiva() || this.el.hidden) return;
+    const l = linhaDaFila(this.estadoFila, performance.now(), SELECAO_S);
+    const linha = this.q('.estado-fila');
+    linha.hidden = !l.texto;
+    linha.classList.toggle('urgente', l.urgente);
+    linha.classList.toggle('com-barra', l.fracao !== null);
+    linha.querySelector('.texto').textContent = l.texto;
+    linha.querySelector('.contador').textContent = l.contador ?? '';
+    linha.querySelector('.barra-fila b').style.width = `${(l.fracao ?? 0) * 100}%`;
+    // Os últimos segundos sem Pronto: a contagem do original, uma vez por segundo.
+    if (l.urgente && this.estadoFila.fase === 'sala' && !this.estadoFila.voce?.pronto && l.contador !== this.ultimoContador) this.#som(SONS_INTERFACE.contagem, 0.5);
+    this.ultimoContador = l.contador;
+  }
+
+  /** Todos prontos: decola para a vaga da sala, com a nave travada nela. */
+  async #decolarNaSala(e) {
+    if (this.decolando) return;
+    this.decolando = true;
+    const erro = this.q('#erro-entrada');
+    erro.textContent = '';
+    document.activeElement?.blur();
+    pararPrevia();
+    this.#som(SONS_INTERFACE.painel, 0.8);
+    try {
+      await this.aoDecolar({ nome: e.nome, race: e.race, classe: e.classe, sala: e.sala, token: e.token });
+      this.el.hidden = true;
+      this.fila.desligar();
+    } catch (err) {
+      this.decolando = false;
+      this.estadoFila = { fase: 'fora', modo: e.modo, aviso: null };
+      this.mostrar('selecao');
+      if (err?.message === 'cancelado') return;
+      console.error('Falha ao entrar na partida da fila:', err);
       erro.textContent = this.mensagemErro(err);
     }
   }

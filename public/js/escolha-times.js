@@ -11,6 +11,16 @@
 // iaInimigo. Quem decide é o servidor: os números são o mínimo de vagas ocupadas, e
 // com a partida já rodando ele só completa o que falta com computadores, contando a
 // gente que já está lá (server/game.js, addPlayer).
+//
+// Nos modos da fila online (mostrarFila, fila-regras.js) as faixas viram a sala, como
+// a seleção de campeão dos MOBAs: sem o −/+ (quem escolhe é a fila), o seu time com a
+// nave e o nome de cada companheiro e o ✓ de quem já apertou Pronto, as vagas que a
+// fila ainda procura piscando, e o time inimigo às cegas (só o nome e o Pronto; na
+// pública, os três computadores).
+
+import { vagasDaFila } from './fila-regras.js';
+import { RACES } from '../../shared/sim.js';
+import { CLASSES } from '../../shared/naves.js';
 
 // Vagas por time: o mesmo MAX_POR_TIME de server/partida.js (quem manda é o servidor).
 const MAX_POR_TIME = 3;
@@ -41,12 +51,20 @@ const escapar = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<':
 const plural = (n) => (n === 1 ? '1 computador' : `${n} computadores`);
 
 export class EscolhaTimes {
-  /** @param {HTMLElement} el o #escolha-times */
-  constructor(el) {
+  /**
+   * @param {HTMLElement} el o #escolha-times
+   * @param {{ miniatura?: (race: string, classe: string, tier: number) => Promise<string|null> }} [op]
+   *   a miniatura das naves dos companheiros na sala da fila (vitrine.js)
+   */
+  constructor(el, { miniatura = null } = {}) {
     this.el = el;
+    this.miniatura = miniatura;
+    this.fila = null; // { modo, estado } nos modos da fila online
+    this.imgs = new Map(); // 'raça/classe' -> data URL (as miniaturas da sala)
     this.qtd = { meu: limitar(ler(CHAVE.meu), MAXIMO.meu), inimigo: limitar(ler(CHAVE.inimigo), MAXIMO.inimigo) };
     this.voce = { nome: '', img: null };
     el.addEventListener('click', (e) => {
+      if (this.fila) return;
       const b = e.target.closest('button');
       const lado = b?.closest('[data-lado]')?.dataset.lado;
       if (!lado) return;
@@ -70,13 +88,76 @@ export class EscolhaTimes {
     this.#desenhar();
   }
 
+  /**
+   * Modo da fila online: `modo` ('online' | 'publica') e o estado da fila
+   * (fila-regras.js); null volta às vagas dos computadores.
+   */
+  mostrarFila(modo, estado = null) {
+    this.fila = modo ? { modo, estado } : null;
+    this.el.classList.toggle('na-fila', !!modo);
+    this.#desenhar();
+  }
+
   definir(lado, n) {
     this.qtd[lado] = limitar(n, MAXIMO[lado]);
     gravar(CHAVE[lado], String(this.qtd[lado]));
     this.#desenhar();
   }
 
+  /** A miniatura da nave (do cache; pede e redesenha quando chega). */
+  #img(race, classe) {
+    const k = `${race}/${classe}`;
+    if (this.imgs.has(k)) return this.imgs.get(k);
+    this.imgs.set(k, null);
+    this.miniatura?.(race, classe, 0).then((url) => {
+      this.imgs.set(k, url ?? null);
+      if (url && this.fila) this.#desenhar();
+    });
+    return null;
+  }
+
+  /** As faixas como a sala da fila: companheiros, Pronto e as vagas que faltam. */
+  #desenharFila() {
+    const { modo, estado } = this.fila;
+    const vagas = vagasDaFila(estado, modo);
+    const naSala = estado?.fase === 'sala';
+    const procurando = estado?.fase === 'procurando' || estado?.fase === 'conectando';
+    for (const lado of ['meu', 'inimigo']) {
+      const caixa = this.el.querySelector(`[data-lado="${lado}"]`);
+      const html = vagas[lado].map((v) => {
+        if (v.tipo === 'voce') {
+          const { nome, img } = this.voce;
+          return `<span class="vaga voce${v.pronto ? ' pronto' : ''}" title="Esta vaga é sua">${img ? `<img src="${img}" alt="" draggable="false">` : ''}<b>${escapar(nome || 'Piloto')}</b><small>${v.pronto ? '✓ Pronto' : 'Você'}</small></span>`;
+        }
+        if (v.tipo === 'piloto') {
+          const img = v.race ? this.#img(v.race, v.classe) : null;
+          const nave = v.race ? `${RACES[v.race]?.nome ?? ''} ${CLASSES[v.classe]?.nome ?? ''}` : '';
+          return `<span class="vaga piloto${v.pronto ? ' pronto' : ''}" title="${escapar(`${v.nome} · ${nave}`)}">${img ? `<img src="${img}" alt="" draggable="false">` : ''}<b>${escapar(v.nome)}</b><small>${v.pronto ? '✓ Pronto' : 'Escolhendo'}</small></span>`;
+        }
+        if (v.tipo === 'oculto') {
+          return `<span class="vaga oculto${v.pronto ? ' pronto' : ''}" title="${escapar(v.nome)}: a nave do inimigo só aparece na partida"><b>${escapar(v.nome)}</b><small>${v.pronto ? '✓ Pronto' : 'Escolhendo'}</small></span>`;
+        }
+        if (v.tipo === 'ia') return '<span class="vaga ia" title="Computador">IA</span>';
+        if (!naSala && !procurando) return '<span class="vaga livre" title="Fora da fila">livre</span>';
+        return `<span class="vaga procurando" title="${naSala ? 'Vaga' : 'Procurando piloto'}">${naSala ? '—' : 'Procurando'}</span>`;
+      });
+      caixa.querySelector('.vagas').innerHTML = html.join('');
+      const gente = vagas[lado].filter((v) => v.tipo !== 'procurando' && v.tipo !== 'ia').length;
+      caixa.querySelector('.resumo').textContent =
+        lado === 'inimigo' && modo === 'publica'
+          ? '3 computadores'
+          : naSala
+            ? `${vagas[lado].filter((v) => v.pronto).length} de ${gente} prontos`
+            : !procurando
+              ? 'Fora da fila'
+              : lado === 'meu'
+                ? 'Procurando companheiros'
+                : 'Procurando adversários';
+    }
+  }
+
   #desenhar() {
+    if (this.fila) return this.#desenharFila();
     for (const lado of ['meu', 'inimigo']) {
       const caixa = this.el.querySelector(`[data-lado="${lado}"]`);
       const n = this.qtd[lado];
