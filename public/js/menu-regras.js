@@ -15,7 +15,7 @@
 // O import de shared/ é relativo ('../../shared/...'): no navegador cai no mesmo
 // /shared/naves.js dos outros módulos, e no Node (o teste) acha o arquivo.
 
-import { NAVES, RACAS_JOGAVEIS, ORDEM_CLASSES, classeValida, racaJogavel } from '../../shared/naves.js';
+import { NAVES, RACAS_JOGAVEIS, ORDEM_CLASSES, TIER_MAX, classeValida, racaJogavel } from '../../shared/naves.js';
 
 /** Abas do header, na ordem. Bloqueada: visível, apagada, sem clique, selo EM BREVE. */
 export const ABAS = Object.freeze([
@@ -79,6 +79,7 @@ export const CHAVES = Object.freeze({
   raca: 'astron.raca',
   classe: 'astron.classe',
   nome: 'astron.nome',
+  destaque: 'astron.destaque',
 });
 
 export const modoPorId = (id) => MODOS.find((m) => m.id === id) ?? null;
@@ -109,9 +110,36 @@ export function telaAnterior(tela) {
 }
 
 /**
+ * Nave em destaque na aba Jogar, escolhida no Hangar ("Mostrar na tela Jogar"):
+ * qualquer nave jogável, de qualquer tier, guardada como 'raça/classe/tier'. Sem
+ * destaque (null), a aba Jogar mostra a primeira nave da raça e da classe da Seleção.
+ */
+export function lerDestaque(texto) {
+  const [raca, classe, t] = String(texto ?? '').split('/');
+  const tier = /^\d+$/.test(t ?? '') ? Number(t) : -1;
+  if (!racaJogavel(raca) || !classeValida(classe) || tier < 0 || tier > TIER_MAX) return null;
+  return { raca, classe, tier };
+}
+
+/** O texto guardado no navegador para o destaque (null: sem destaque). */
+export function textoDestaque(d) {
+  return d ? `${d.raca}/${d.classe}/${d.tier}` : null;
+}
+
+/** As duas naves são a mesma (raça, classe e tier)? */
+export function mesmaNave(a, b) {
+  return !!a && !!b && a.raca === b.raca && a.classe === b.classe && a.tier === b.tier;
+}
+
+/** A nave da aba Jogar: o destaque do Hangar ou, sem ele, a primeira da Seleção. */
+export function naveDaVitrine(destaque, raca, classe) {
+  return destaque ?? { raca, classe, tier: 0 };
+}
+
+/**
  * O estado do menu a partir do que estava guardado (`ler(chave)` → string ou null),
  * saneado: aba que existe e não está bloqueada, modo disponível, raça jogável, classe
- * válida e nome de até 16 letras. A Seleção nunca abre sozinha: quem recarrega a
+ * válida, nome de até 16 letras e a nave em destaque (lerDestaque). A Seleção nunca abre sozinha: quem recarrega a
  * página cai na aba guardada.
  */
 export function estadoGuardado(ler) {
@@ -124,6 +152,7 @@ export function estadoGuardado(ler) {
     raca: racaJogavel(raca) ? raca : RACAS_JOGAVEIS[0],
     classe: classeValida(classe) ? classe : ORDEM_CLASSES[0],
     nome: String(ler(CHAVES.nome) ?? '').slice(0, 16),
+    destaque: lerDestaque(ler(CHAVES.destaque)),
   };
 }
 

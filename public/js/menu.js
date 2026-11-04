@@ -4,7 +4,8 @@
 // estão em menu-regras.js; aqui só o desenho e os eventos.
 //
 // - JOGAR: os modos numa coluna, como o "Select Play Mode" do Deadlock, com a nave
-//   escolhida girando à direita (a prévia da vitrine.js em #fundo-nave).
+//   girando à direita (a prévia da vitrine.js em #fundo-nave): a em destaque do
+//   Hangar ou, sem ela, a primeira da raça e da classe da Seleção.
 // - SELEÇÃO: a seleção de campeão dos MOBAs (LoL, Dota 2, Smite 2, Deadlock) com 3
 //   raças × 3 classes numa grade com miniaturas (escolha num clique, setas também), a
 //   nave grande no centro com a linha da Evolução, a ficha (barras na régua das
@@ -12,7 +13,9 @@
 //   e o Decolar.
 // - NAVES: o hangar, só leitura: filtros de raça e classe, a nave no visor (arrastar
 //   gira), a ficha com o tamanho real e as barras na régua das 45 naves, e a linha das
-//   5 naves com o nível e o preço na Evolução.
+//   5 naves com o nível e o preço na Evolução. "Mostrar na tela Jogar" põe a nave
+//   aberta (qualquer tier) em destaque na aba Jogar, no lugar da primeira da Seleção;
+//   clicar de novo tira (fica no navegador, CHAVES.destaque).
 // - CONFIGURAÇÕES: as barras de volume (outro PainelVolume, sobre #config-som) e a
 //   lista do teclado agrupada (só mostra).
 //
@@ -40,6 +43,9 @@ import {
   pedidoDoModo,
   telaAnterior,
   estadoGuardado,
+  textoDestaque,
+  mesmaNave,
+  naveDaVitrine,
   proximoModo,
   moverNaGrade,
   escalaStatus,
@@ -140,6 +146,7 @@ export class Menu {
     this.modo = g.modo;
     this.raca = g.raca;
     this.classe = g.classe;
+    this.destaque = g.destaque; // a nave da aba Jogar escolhida no Hangar (null: a da Seleção)
     this.tela = g.aba;
     this.catalogo = { raca: g.raca, classe: g.classe, tier: 0 };
     this.secao = 'som';
@@ -247,7 +254,8 @@ export class Menu {
       pararPrevia();
       return;
     }
-    const { raca, classe, tier } = this.tela === 'naves' ? this.catalogo : { raca: this.raca, classe: this.classe, tier: 0 };
+    const { raca, classe, tier } =
+      this.tela === 'naves' ? this.catalogo : this.tela === 'jogar' ? naveDaVitrine(this.destaque, this.raca, this.classe) : { raca: this.raca, classe: this.classe, tier: 0 };
     mostrarPrevia(this.q(palco), raca, classe, tier);
   }
 
@@ -337,14 +345,46 @@ export class Menu {
   }
 
   /** A legenda da nave da aba Jogar e o nome da raça no fundo. */
+  /**
+   * A legenda da nave da aba Jogar e o nome da raça no fundo: a nave em destaque do
+   * Hangar ("EM DESTAQUE") ou, sem ela, a primeira da Seleção ("SUA NAVE").
+   */
   #atualizarLegenda() {
-    const n = naveDe(this.raca, this.classe, 0);
+    const { raca, classe, tier } = naveDaVitrine(this.destaque, this.raca, this.classe);
+    const n = naveDe(raca, classe, tier);
     const leg = this.q('#tela-jogar .legenda-nave');
+    leg.querySelector('small').textContent = this.destaque ? 'Em destaque' : 'Sua nave';
     leg.querySelector('.nome-nave').textContent = n.nome;
-    leg.querySelector('.raca-classe').innerHTML = `<b style="color:${corCss(RACES[this.raca].cor)}">${RACES[this.raca].nome}</b> · ${CLASSES[this.classe].nome}`;
+    leg.querySelector('.raca-classe').innerHTML = `<b style="color:${corCss(RACES[raca].cor)}">${RACES[raca].nome}</b> · ${CLASSES[classe].nome}`;
     const fundo = this.q('#fundo-nave');
-    fundo.dataset.raca = RACES[this.raca].nome;
-    this.el.style.setProperty('--cor-raca', corCss(RACES[this.raca].cor));
+    fundo.dataset.raca = RACES[raca].nome;
+    this.el.style.setProperty('--cor-raca', corCss(RACES[raca].cor));
+  }
+
+  /** Põe (ou tira, se já é ela) a nave do Hangar em destaque na aba Jogar. */
+  #alternarDestaque() {
+    this.destaque = mesmaNave(this.destaque, this.catalogo) ? null : { ...this.catalogo };
+    const texto = textoDestaque(this.destaque);
+    if (texto) gravar(CHAVES.destaque, texto);
+    else {
+      try {
+        localStorage.removeItem(CHAVES.destaque);
+      } catch {}
+    }
+    this.#som(this.destaque ? SONS_INTERFACE.compra : SONS_INTERFACE.clique, 0.6);
+    this.#atualizarLegenda();
+    this.#mostrarBotaoDestaque();
+  }
+
+  /** O botão da ficha do Hangar diz se a nave aberta é a que está em destaque. */
+  #mostrarBotaoDestaque() {
+    const b = this.q('#tela-naves .botao-destaque');
+    if (!b) return;
+    const e = mesmaNave(this.destaque, this.catalogo);
+    b.classList.toggle('ativo', e);
+    b.setAttribute('aria-pressed', String(e));
+    b.querySelector('span').textContent = e ? 'Em destaque na tela Jogar' : 'Mostrar na tela Jogar';
+    b.title = e ? 'Clique para voltar a mostrar a nave da Seleção' : 'Esta nave passa a aparecer na aba Jogar';
   }
 
   // ---------- Seleção ----------
@@ -503,6 +543,9 @@ export class Menu {
       this.#atualizarNaves();
       this.#atualizarPrevia();
     });
+    tela.querySelector('.naves-ficha').addEventListener('click', (e) => {
+      if (e.target.closest('.botao-destaque')) this.#alternarDestaque();
+    });
     tela.querySelector('.naves-linha').addEventListener('click', (e) => {
       const li = e.target.closest('[data-tier]');
       if (!li || Number(li.dataset.tier) === this.catalogo.tier) return;
@@ -563,6 +606,7 @@ export class Menu {
     ficha.innerHTML = `
       <p class="rotulo-ficha">${RACES[raca].nome} · ${CLASSES[classe].nome} · nave ${tier + 1} de ${linha.length}</p>
       <h2 class="nome-nave-ficha">${escapar(n.nome)}</h2>
+      <button type="button" class="botao-destaque" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.9z" /></svg><span></span></button>
       <dl class="dados-nave">
         <div><dt>Na Evolução</dt><dd>${tier ? `nível ${n.nivel} · <b class="preco">${num(n.preco)} de ouro</b>` : 'Nave inicial'}</dd></div>
         <div><dt>Tamanho</dt><dd class="tamanho">…</dd></div>
@@ -572,6 +616,7 @@ export class Menu {
       ${barrasNave(n, this.escalaTodas)}
       <p class="rotulo-ficha">Armas de fábrica</p>
       ${armasDeFabrica(raca)}`;
+    this.#mostrarBotaoDestaque();
     // Tamanho real: a caixa do modelo já na escala do jogo (nave.js), em metros.
     const chave = `${raca}/${classe}/${tier}`;
     this.chaveCatalogo = chave;

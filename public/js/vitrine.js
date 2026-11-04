@@ -125,7 +125,9 @@ function girar(agora) {
   if (canvas.width !== Math.round(w * p.renderer.getPixelRatio()) || canvas.height !== Math.round(h * p.renderer.getPixelRatio())) {
     p.renderer.setSize(w, h);
   }
-  enquadrar(p.camera, w, h, 24, nave.userData.tamanho);
+  // O palco pode pedir a câmera mais longe (data-distancia, em m): o fundo da aba Jogar
+  // afasta para a nave grande não encostar na borda nem na legenda.
+  enquadrar(p.camera, w, h, Number(container.dataset.distancia) || 24, nave.userData.tamanho);
   // Enquanto o modelo da nave escolhida não chega, o losango (ou a nave da classe
   // anterior) fica escondido e o aviso aparece.
   const carregando = !naveDesenhada(nave);

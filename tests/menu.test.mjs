@@ -22,6 +22,10 @@ import {
   escalaStatus,
   navesJogaveis,
   primeirasNaves,
+  lerDestaque,
+  textoDestaque,
+  mesmaNave,
+  naveDaVitrine,
 } from '../public/js/menu-regras.js';
 import { RACAS_JOGAVEIS, ORDEM_CLASSES } from '../shared/naves.js';
 
@@ -73,12 +77,19 @@ test('ESC volta um passo: Seleção e as outras abas para Jogar; em Jogar fica',
 
 test('estado guardado: vazio cai no padrão', () => {
   const g = estadoGuardado(() => null);
-  assert.deepEqual(g, { aba: ABA_PADRAO, modo: MODO_PADRAO, raca: RACAS_JOGAVEIS[0], classe: ORDEM_CLASSES[0], nome: '' });
+  assert.deepEqual(g, { aba: ABA_PADRAO, modo: MODO_PADRAO, raca: RACAS_JOGAVEIS[0], classe: ORDEM_CLASSES[0], nome: '', destaque: null });
 });
 
 test('estado guardado: valores válidos voltam como estavam', () => {
-  const salvo = { [CHAVES.aba]: 'naves', [CHAVES.modo]: 'sandbox', [CHAVES.raca]: 'shrewdo', [CHAVES.classe]: 'mobile', [CHAVES.nome]: 'Mateus' };
-  assert.deepEqual(estadoGuardado((k) => salvo[k] ?? null), { aba: 'naves', modo: 'sandbox', raca: 'shrewdo', classe: 'mobile', nome: 'Mateus' });
+  const salvo = { [CHAVES.aba]: 'naves', [CHAVES.modo]: 'sandbox', [CHAVES.raca]: 'shrewdo', [CHAVES.classe]: 'mobile', [CHAVES.nome]: 'Mateus', [CHAVES.destaque]: 'bellico/functional/4' };
+  assert.deepEqual(estadoGuardado((k) => salvo[k] ?? null), {
+    aba: 'naves',
+    modo: 'sandbox',
+    raca: 'shrewdo',
+    classe: 'mobile',
+    nome: 'Mateus',
+    destaque: { raca: 'bellico', classe: 'functional', tier: 4 },
+  });
 });
 
 test('estado guardado: aba bloqueada, modo do online, Mechan e lixo são saneados', () => {
@@ -148,4 +159,23 @@ test('index.html tem tudo o que menu.js procura', () => {
   // Os modos e as abas entram por JS; as telas, uma por aba (menos as bloqueadas).
   for (const a of ABAS.filter((x) => !x.bloqueada)) assert.ok(html.includes(`id="tela-${a.id}"`), a.id);
   assert.ok(html.includes('id="tela-selecao"'));
+});
+
+test('nave em destaque do Hangar: guarda e lê raça, classe e tier; o inválido vira null', () => {
+  const d = { raca: 'bellico', classe: 'functional', tier: 3 };
+  assert.equal(textoDestaque(d), 'bellico/functional/3');
+  assert.deepEqual(lerDestaque(textoDestaque(d)), d);
+  assert.equal(textoDestaque(null), null);
+  for (const ruim of [null, '', 'lixo', 'mechan/assault/0', 'acron/tanque/0', 'acron/assault/5', 'acron/assault/-1', 'acron/assault/1.5', 'acron/assault/']) {
+    assert.equal(lerDestaque(ruim), null, String(ruim));
+  }
+});
+
+test('a aba Jogar mostra o destaque; sem ele, a primeira nave da Seleção', () => {
+  const d = { raca: 'shrewdo', classe: 'mobile', tier: 4 };
+  assert.deepEqual(naveDaVitrine(d, 'bellico', 'functional'), d);
+  assert.deepEqual(naveDaVitrine(null, 'bellico', 'functional'), { raca: 'bellico', classe: 'functional', tier: 0 });
+  assert.ok(mesmaNave(d, { ...d }));
+  assert.ok(!mesmaNave(d, { ...d, tier: 3 }));
+  assert.ok(!mesmaNave(null, d));
 });

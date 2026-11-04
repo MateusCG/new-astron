@@ -1402,6 +1402,55 @@ input:focus {
   font-size: 32px;
 }
 
+/* "Mostrar na tela Jogar": contorno --neon com a estrela vazada; em destaque, cheio
+   em --neon com a estrela preenchida e brilho. */
+.botao-destaque {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 2px 0 4px;
+  padding: 8px 14px;
+  border: 1px solid var(--neon);
+  border-radius: 6px;
+  background: rgba(0, 239, 192, 0.08);
+  color: var(--neon);
+  font: 700 15px system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    box-shadow 0.15s;
+}
+
+.botao-destaque svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+
+.botao-destaque:hover,
+.botao-destaque:focus-visible {
+  outline: none;
+  background: rgba(0, 239, 192, 0.18);
+  box-shadow: 0 0 12px rgba(0, 239, 192, 0.35);
+}
+
+.botao-destaque.ativo {
+  background: linear-gradient(180deg, #5effdc, var(--neon) 60%, #00c79f);
+  color: #032b22;
+  box-shadow: 0 0 14px rgba(0, 239, 192, 0.45);
+}
+
+.botao-destaque.ativo svg {
+  fill: currentColor;
+}
+
 .naves-linha {
   grid-area: linha;
   display: grid;
