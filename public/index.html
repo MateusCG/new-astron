@@ -14,44 +14,56 @@
   <body>
     <div id="jogo"></div>
 
-    <section id="entrada">
-      <form id="form-entrada">
-        <header class="topo-entrada">
-          <h1>NEW <span>ASTRON</span></h1>
-          <p class="sub">Setor M1 · Cânion de Traticera</p>
-        </header>
-        <div class="entrada-principal">
-          <label>Nome do piloto <input id="nome" maxlength="16" autocomplete="off" placeholder="Piloto" /></label>
-          <section id="passo-raca" class="passo">
-            <p class="rotulo-racas"><b>1</b> Escolha sua raça</p>
-            <div id="racas"></div>
-          </section>
-          <section id="passo-classe" class="passo" hidden>
-            <p class="rotulo-racas">
-              <button type="button" class="voltar-raca" title="Trocar de raça">‹ <span></span></button>
-              <b>2</b> Escolha sua classe
-            </p>
-            <div id="classes"></div>
-            <div id="previa-nave">
-              <div class="palco">
-                <p class="carregando-nave" hidden><span class="marca"></span><span class="texto">Carregando a nave</span></p>
-              </div>
-              <div class="ficha">
-                <small>Sua primeira nave</small>
-                <strong class="nome-nave"></strong>
-                <p class="linha-nave"></p>
-              </div>
-            </div>
-          </section>
-          <button type="submit" class="decolar">Decolar</button>
-          <p id="erro-entrada" role="alert"></p>
+    <!-- Menu principal (menu.js, regras em menu-regras.js): header com as abas e uma
+         tela por aba; a Seleção (raça, classe e times) abre depois de escolher o modo.
+         O canvas da nave 3D (vitrine.js) é um só e muda de lugar com a tela. -->
+    <section id="entrada" data-tela="jogar">
+      <div id="fundo-nave" class="palco-nave" aria-hidden="true">
+        <p class="carregando-nave" hidden><span class="marca"></span><span class="texto">Carregando a nave</span></p>
+      </div>
+
+      <header class="menu-topo">
+        <p class="marca-jogo">NEW <span>ASTRON</span></p>
+        <nav class="abas-menu" role="tablist" aria-label="Menu principal"></nav>
+        <div class="menu-conta">
+          <label class="chip-piloto" title="Nome do piloto">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c1-4.5 4.2-7 8-7s7 2.5 8 7" /></svg>
+            <input id="nome" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Piloto" aria-label="Nome do piloto" />
+          </label>
+          <button type="button" id="botao-som" class="botao-som botao-volume" title="Volume (M liga e desliga o som)" aria-label="Volume"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som">Som ligado</span></button>
         </div>
-        <aside class="comandos" aria-label="Times e comandos">
-          <!-- Computadores no seu time e no inimigo, escolhidos antes de decolar
-               (escolha-times.js); as vagas entram por JS. -->
-          <section id="escolha-times" aria-labelledby="escolha-times-titulo">
-            <h2 id="escolha-times-titulo">Times <small>3 contra 3</small></h2>
-            <div class="lados">
+      </header>
+
+      <main class="menu-corpo">
+        <!-- JOGAR: os modos numa coluna, como o "Select Play Mode" do Deadlock; a nave
+             escolhida gira à direita (#fundo-nave). -->
+        <section id="tela-jogar" class="tela-menu" aria-labelledby="titulo-jogar">
+          <div class="coluna-modos">
+            <h1 id="titulo-jogar" class="titulo-tela">Escolha o modo de jogo</h1>
+            <div class="modos" role="list"></div>
+          </div>
+          <p class="legenda-nave" aria-live="polite"><small>Sua nave</small><strong class="nome-nave"></strong><span class="raca-classe"></span></p>
+        </section>
+
+        <!-- SELEÇÃO: a seleção de campeão dos MOBAs com 3 raças × 3 classes. -->
+        <section id="tela-selecao" class="tela-menu" hidden aria-labelledby="titulo-selecao">
+          <header class="selecao-topo">
+            <button type="button" class="voltar" title="Voltar aos modos (Esc)">‹ Voltar</button>
+            <h1 id="titulo-selecao" class="titulo-tela">Escolha sua nave</h1>
+            <span class="selo-modo"></span>
+          </header>
+          <div class="selecao-grade" role="grid" aria-label="Raças e classes"></div>
+          <div class="selecao-centro">
+            <div class="palco-nave">
+              <p class="carregando-nave" hidden><span class="marca"></span><span class="texto">Carregando a nave</span></p>
+            </div>
+            <p class="nome-escolha"><strong class="nome-nave"></strong><span class="raca-classe"></span></p>
+            <ol class="linha-evolucao" aria-label="Linha da Evolução"></ol>
+          </div>
+          <aside class="selecao-ficha ficha-nave" aria-live="polite"></aside>
+          <footer class="selecao-base">
+            <section id="escolha-times" aria-labelledby="escolha-times-titulo">
+              <h2 id="escolha-times-titulo" class="vh">Times</h2>
               <div class="lado meu" data-lado="meu">
                 <p class="titulo-lado"><b>Seu time</b><span class="resumo"></span></p>
                 <div class="linha-lado">
@@ -61,6 +73,7 @@
                   </div>
                 </div>
               </div>
+              <p class="versus" title="Gente tem prioridade na vaga: com a partida já rolando, os computadores só completam o que falta"><b>3</b><small>contra</small><b>3</b></p>
               <div class="lado inimigo" data-lado="inimigo">
                 <p class="titulo-lado"><b>Inimigo</b><span class="resumo"></span></p>
                 <div class="linha-lado">
@@ -70,39 +83,64 @@
                   </div>
                 </div>
               </div>
+            </section>
+            <div class="caixa-decolar">
+              <button type="button" class="decolar">Decolar</button>
+              <p id="erro-entrada" role="alert"></p>
             </div>
-            <p class="nota-times">Gente tem prioridade na vaga: com a partida já rolando, os computadores só completam o que falta. Na partida, segure <kbd>TAB</kbd> para ver a tabela.</p>
-          </section>
-          <h2>Comandos</h2>
-          <dl>
-            <div><dt><kbd>W</kbd><kbd>S</kbd></dt><dd>Acelera e dá ré</dd></div>
-            <div><dt><kbd>A</kbd><kbd>D</kbd></dt><dd>Gira a nave</dd></div>
-            <div><dt><kbd>Shift</kbd></dt><dd>Boost</dd></div>
-            <div><dt><kbd>Z</kbd><kbd>X</kbd></dt><dd>Atiram (uma arma em cada)</dd></div>
-            <div><dt><kbd>Q</kbd></dt><dd>Troca o Z pela arma guardada no Q</dd></div>
-            <div><dt><kbd>E</kbd></dt><dd>Troca o X pela arma guardada no E</dd></div>
-            <div><dt><kbd>L</kbd></dt><dd>Pousa e decola (abre Loja e Evolução)</dd></div>
-            <div><dt><kbd>R</kbd></dt><dd>Kit de reparo</dd></div>
-            <div><dt><kbd>F</kbd></dt><dd>Célula de energia</dd></div>
-            <div><dt><kbd>B</kbd></dt><dd>Volta à base (6 s quase parado)</dd></div>
-            <div><dt><kbd>V</kbd></dt><dd>Troca a câmera</dd></div>
-            <div><dt><kbd>T</kbd><kbd>G</kbd></dt><dd>Altura da câmera (ou a roda do mouse)</dd></div>
-            <div><dt><kbd>C</kbd></dt><dd>Status e pontos</dd></div>
-            <div><dt><kbd>I</kbd></dt><dd>Inventário</dd></div>
-            <div><dt><kbd>TAB</kbd></dt><dd>Tabela da partida (segure)</dd></div>
-            <div><dt><kbd>H</kbd></dt><dd>Resumo da última morte</dd></div>
-            <div><dt><kbd>M</kbd></dt><dd>Liga e desliga o som</dd></div>
-            <div><dt><kbd>Esc</kbd></dt><dd>Fecha a janela ou sai da partida</dd></div>
-          </dl>
-          <div class="opcoes-entrada">
-          <label class="modo-teste" title="Para testar a progressão: a partida não acaba e um painel dá ouro e XP">
-            <input type="checkbox" id="modo-teste" /> <span>Modo de teste</span>
-            <small>Num mundo só seu: sem tempo de partida, ouro e XP à vontade</small>
-          </label>
-          <button type="button" id="botao-som" class="botao-som botao-volume" title="Volume da música e dos efeitos"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg> Volume · <span class="estado-som">Som ligado</span></button>
+          </footer>
+        </section>
+
+        <!-- NAVES: o hangar, todas as linhas com as evoluções (só leitura). -->
+        <section id="tela-naves" class="tela-menu" hidden aria-labelledby="titulo-naves">
+          <header class="naves-topo">
+            <h1 id="titulo-naves" class="titulo-tela">Hangar</h1>
+            <div class="filtro filtro-racas" role="group" aria-label="Raça"></div>
+            <div class="filtro filtro-classes" role="group" aria-label="Classe"></div>
+          </header>
+          <div class="naves-visor">
+            <div class="palco-nave">
+              <p class="carregando-nave" hidden><span class="marca"></span><span class="texto">Carregando a nave</span></p>
+            </div>
+            <p class="dica-arrastar">Arraste para girar</p>
           </div>
-        </aside>
-      </form>
+          <aside class="naves-ficha ficha-nave" aria-live="polite"></aside>
+          <ol class="naves-linha" aria-label="Naves da linha"></ol>
+        </section>
+
+        <!-- CONFIGURAÇÕES: som e controles. -->
+        <section id="tela-config" class="tela-menu" hidden aria-labelledby="titulo-config">
+          <nav class="config-secoes" aria-label="Seções">
+            <h1 id="titulo-config" class="titulo-tela">Configurações</h1>
+            <button type="button" data-secao="som" class="sel">Som</button>
+            <button type="button" data-secao="teclado">Controles · Teclado</button>
+            <button type="button" data-secao="controle" disabled title="Ainda não: jogar com controle vem depois">Controles · Controle <span class="selo-breve">EM BREVE</span></button>
+          </nav>
+          <section id="config-som" class="config-painel" data-secao="som" aria-label="Som">
+            <h2>Som</h2>
+            <label class="canal" data-canal="musica">
+              <span class="nome">Música</span><b class="pct">60%</b>
+              <input type="range" min="0" max="100" step="1" value="60" />
+              <small>Ainda sem música no jogo: o ajuste já fica guardado</small>
+            </label>
+            <label class="canal" data-canal="efeitos">
+              <span class="nome">Efeitos</span><b class="pct">80%</b>
+              <input type="range" min="0" max="100" step="1" value="80" />
+              <small>Tiros, explosões e sons do painel</small>
+            </label>
+            <button type="button" class="alternar-mudo botao-volume" title="Liga e desliga todo o som (M)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som">Som ligado</span><kbd>M</kbd></button>
+          </section>
+          <section class="config-painel" data-secao="teclado" hidden aria-label="Teclado">
+            <h2>Teclado</h2>
+            <div class="grupos-teclas"></div>
+          </section>
+        </section>
+      </main>
+
+      <footer class="menu-rodape">
+        <p class="dicas"></p>
+        <p class="contexto">Lago de Hélio-3 · 3 contra 3</p>
+      </footer>
     </section>
 
     <!-- Tela de carregamento (carregamento.js): do "Decolar" até a partida, baixa e

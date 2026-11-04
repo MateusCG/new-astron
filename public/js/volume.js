@@ -1,6 +1,8 @@
 // Janela de volume (#volume): duas barras, música e efeitos, de 0 a 100%. Abre pelo
-// botão de som da tela inicial (#botao-som) e pelo do HUD (#som-hud), fecha no ✕,
-// no ESC ou clicando fora. O jogo não pausa (é multijogador): a janela fica por cima
+// botão de som do header do menu (#botao-som) e pelo do HUD (#som-hud), fecha no ✕,
+// no ESC ou clicando fora. As mesmas barras aparecem fixas na aba Configurações do
+// menu (#config-som): outro PainelVolume sobre outro elemento, sem ✕ nem fundo, que
+// lê e grava o mesmo Sons (`atualizar` mostra os valores de agora ao abrir a aba). O jogo não pausa (é multijogador): a janela fica por cima
 // de tudo, sem tiro enquanto aberta, como o painel da Loja.
 //
 // Os volumes moram no Sons (sons.js), que guarda no navegador. A barra muda o som na
@@ -18,10 +20,10 @@ export class PainelVolume {
    * @param {{ sons: import('./sons.js').Sons, aoMudarSom?: () => void }} opcoes
    *   `aoMudarSom` é chamado quando o mudo muda por aqui (para os textos de estado).
    */
-  constructor({ sons, aoMudarSom = () => {} }) {
+  constructor({ sons, aoMudarSom = () => {}, el = document.querySelector('#volume') }) {
     this.sons = sons;
     this.aoMudarSom = aoMudarSom;
-    this.el = document.querySelector('#volume');
+    this.el = el;
     this.barras = {};
     for (const [canal, prop] of Object.entries(CANAIS)) {
       const caixa = this.el.querySelector(`[data-canal='${canal}']`);
@@ -38,7 +40,7 @@ export class PainelVolume {
       });
       if (canal === 'efeitos') barra.addEventListener('change', () => this.sons.tocarInterface(SONS_INTERFACE.clique));
     }
-    this.el.querySelector('.fechar').addEventListener('click', () => this.fechar());
+    this.el.querySelector('.fechar')?.addEventListener('click', () => this.fechar());
     this.el.querySelector('.alternar-mudo').addEventListener('click', (e) => {
       this.sons.mudo = !this.sons.mudo;
       this.aoMudarSom();
@@ -57,9 +59,14 @@ export class PainelVolume {
 
   abrir() {
     this.sons.desbloquear(); // abrir já é um gesto: o som do teste toca na hora
-    for (const canal of Object.keys(CANAIS)) this.#mostrar(canal, true);
+    this.atualizar();
     this.el.hidden = false;
     this.aoMudarSom();
+  }
+
+  /** Mostra nas barras os volumes de agora (mudados pela outra janela ou pelo M). */
+  atualizar() {
+    for (const canal of Object.keys(CANAIS)) this.#mostrar(canal, true);
   }
 
   fechar() {

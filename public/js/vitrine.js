@@ -1,5 +1,7 @@
-// Vitrine das naves: a prévia 3D girando na tela de entrada (a primeira nave da raça
-// e classe escolhidas) e as miniaturas dos cartões da Evolução.
+// Vitrine das naves: a prévia 3D girando no menu (a nave escolhida atrás dos modos da
+// aba Jogar, no centro da Seleção e no visor do catálogo de Naves: um canvas só, que
+// muda de lugar com a tela) e as miniaturas dos cartões do menu e da Evolução.
+// No catálogo dá para girar a nave arrastando (girarPrevia e segurarPrevia).
 //
 // Um renderer pequeno só para isso (o do jogo é criado ao entrar e ocupa a tela
 // inteira), com a mesma luz quente de fim de tarde da cena (cena.js) sobre um fundo
@@ -17,7 +19,9 @@ import { criarLimitador } from './quadros.js';
 const MINIATURA = { largura: 192, altura: 112 };
 
 let palco = null; // { renderer, cena, camera } (null: ainda não criado; false: sem WebGL)
-let previa = null; // { container, nave, chave, quadro }
+let previa = null; // { container, nave, quadro, ang, antes, segura }
+/** Giro sozinho da prévia (rad/s); parado enquanto o piloto arrasta. */
+const GIRO_POR_S = 0.6;
 const miniaturas = new Map(); // 'race/classe/tier' -> Promise<string | null>
 
 function montarPalco() {
@@ -74,7 +78,7 @@ export function mostrarPrevia(container, race, classe, tier = 0) {
   if (!previa) {
     const nave = criarNave(race, { aliado: true, classe, tier });
     p.cena.add(nave);
-    previa = { container, nave, quadro: 0, t0: performance.now() };
+    previa = { container, nave, quadro: 0, ang: 0, segura: false };
   }
   previa.container = container;
   definirNave(previa.nave, race, classe, tier);
@@ -127,12 +131,24 @@ function girar(agora) {
   const carregando = !naveDesenhada(nave);
   avisoCarregando(container, carregando, previa.erro === nave.userData.nave);
   nave.visible = !carregando;
-  nave.rotation.y = ((agora - previa.t0) / 1000) * 0.6;
+  const dt = Math.min(0.1, (agora - (previa.antes ?? agora)) / 1000);
+  if (!previa.segura) previa.ang += dt * GIRO_POR_S;
+  nave.rotation.y = previa.ang;
   nave.userData.corpo.rotation.z = Math.sin(agora / 900) * 0.12;
-  atualizarMotor(nave, { vitrine: true }, agora / 1000, Math.min(0.1, (agora - (previa.antes ?? agora)) / 1000));
+  atualizarMotor(nave, { vitrine: true }, agora / 1000, dt);
   previa.antes = agora;
   p.renderer.render(p.cena, p.camera);
   previa.quadro = requestAnimationFrame(girar);
+}
+
+/** Gira a prévia `rad` radianos (arrastar o mouse no visor do catálogo). */
+export function girarPrevia(rad) {
+  if (previa) previa.ang += rad;
+}
+
+/** Enquanto `sim`, a prévia não gira sozinha (o piloto está arrastando). */
+export function segurarPrevia(sim) {
+  if (previa) previa.segura = !!sim;
 }
 
 /** Para a prévia (ao entrar no jogo). */

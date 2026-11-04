@@ -1,10 +1,11 @@
-// Escolha dos times na tela inicial (#escolha-times, acima dos COMANDOS): quantos
+// Escolha dos times na tela de Seleção do menu (#escolha-times, embaixo, ao lado do
+// Decolar, como as faixas de time da seleção de campeão dos MOBAs): quantos
 // computadores jogam no seu time (0 a 2, porque você ocupa uma das 3 vagas) e no
 // time inimigo (0 a 3), ANTES de decolar. Dentro da partida não se mexe mais nisso
-// (a janela Times, tecla P, é só consulta).
+// (a tabela do TAB é só consulta).
 //
-// Cada time mostra as três vagas (a sua com "VOCÊ", as dos computadores com "IA",
-// as livres tracejadas) e o −/+ ao lado. Clicar numa vaga leva a conta até ela
+// Cada time mostra as três vagas (a sua com a miniatura da nave escolhida e o seu
+// nome, `definirVoce`; as dos computadores com "IA", as livres tracejadas) e o −/+. Clicar numa vaga leva a conta até ela
 // (clicar de novo na última acesa a apaga). A escolha fica no navegador (try/catch:
 // sem armazenamento, entra com 0 e 0) e vai no pedido de entrada como iaMeu e
 // iaInimigo. Quem decide é o servidor: os números são o mínimo de vagas ocupadas, e
@@ -35,6 +36,8 @@ const limitar = (v, max) => {
   return Number.isFinite(n) ? Math.max(0, Math.min(max, n)) : 0;
 };
 
+const escapar = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
 const plural = (n) => (n === 1 ? '1 computador' : `${n} computadores`);
 
 export class EscolhaTimes {
@@ -42,6 +45,7 @@ export class EscolhaTimes {
   constructor(el) {
     this.el = el;
     this.qtd = { meu: limitar(ler(CHAVE.meu), MAXIMO.meu), inimigo: limitar(ler(CHAVE.inimigo), MAXIMO.inimigo) };
+    this.voce = { nome: '', img: null };
     el.addEventListener('click', (e) => {
       const b = e.target.closest('button');
       const lado = b?.closest('[data-lado]')?.dataset.lado;
@@ -60,6 +64,12 @@ export class EscolhaTimes {
     return { iaMeu: this.qtd.meu, iaInimigo: this.qtd.inimigo };
   }
 
+  /** A sua vaga: o nome do piloto e a miniatura da nave (data URL ou null). */
+  definirVoce({ nome = this.voce.nome, img = this.voce.img } = {}) {
+    this.voce = { nome, img };
+    this.#desenhar();
+  }
+
   definir(lado, n) {
     this.qtd[lado] = limitar(n, MAXIMO[lado]);
     gravar(CHAVE[lado], String(this.qtd[lado]));
@@ -73,7 +83,12 @@ export class EscolhaTimes {
       const nomeTime = lado === 'meu' ? 'no seu time' : 'no time inimigo';
       // A sua vaga é fixa; as outras são dos computadores, da esquerda para a direita.
       const vagas = [];
-      if (lado === 'meu') vagas.push('<span class="vaga voce" title="Esta vaga é sua">Você</span>');
+      if (lado === 'meu') {
+        const { nome, img } = this.voce;
+        vagas.push(
+          `<span class="vaga voce" title="Esta vaga é sua">${img ? `<img src="${img}" alt="" draggable="false">` : ''}<b>${escapar(nome || 'Piloto')}</b><small>Você</small></span>`,
+        );
+      }
       for (let k = 1; k <= MAXIMO[lado]; k++) {
         const acesa = k <= n;
         vagas.push(

@@ -1,4 +1,4 @@
-// Laço principal do cliente: tela de entrada, predição da própria nave,
+// Laço principal do cliente: o menu (menu.js), predição da própria nave,
 // interpolação das outras, câmera de perseguição e desenho.
 //
 // Como a rede funciona do lado do cliente:
@@ -79,7 +79,7 @@
 // versões, todos os sons e as miniaturas da Evolução); depois monta a cena e aquece a
 // placa de vídeo (shaders, texturas e geometrias) com ela ainda coberta. Só então o
 // laço de quadros começa: até lá a nave espera parada na base (zona segura) e nenhum
-// comando sai. ESC na tela cancela e volta para a entrada.
+// comando sai. ESC na tela cancela e volta para a Seleção do menu.
 //
 // Naves (nave.js): cada jogador traz raça, classe e tier no snapshot, e definirNave
 // troca o modelo quando o tier muda (Evolução), para você e para os outros; o modelo
@@ -105,7 +105,7 @@
 // interpolar do ponto antigo. Morte de jogador fora da visão vem sem lugar: só a
 // notícia, sem explosão. Os nomes vêm da lista `jogadores` (o placar de abates é público).
 //
-// ESC sai da partida e volta para a tela de entrada (nome, raça e classe como estavam),
+// ESC sai da partida e volta para o menu, na aba Jogar (nome, raça e classe como estavam),
 // para trocar de piloto sem recarregar a página. Sair desmonta tudo o que a
 // partida criou (conexão, laço de quadros, listeners, cena na GPU); só o renderer
 // WebGL fica, porque é reaproveitado na próxima entrada.
@@ -114,7 +114,7 @@ import * as THREE from 'three';
 import { DT, RACES, WEAPONS, VEL_TOQUE, createBullet, stepShip, bulletHits, forward, pousoPermitido } from '/shared/sim.js';
 import { golpeDaArma, golpePrevisivel, versaoArma, visualDoOriginal } from '/shared/armas.js';
 import { disparoOriginal, turboNaNave } from './disparo-regras.js';
-import { CLASSES, ORDEM_CLASSES, RACAS_BLOQUEADAS, naveDe, linhaDe, classeValida, racaJogavel } from '/shared/naves.js';
+import { naveDe } from '/shared/naves.js';
 import { areaPouso, heightAt } from '/shared/terrain.js';
 import { alturaSolida } from '/shared/obstaculos.js';
 import { criarCena, liberarCena } from './cena.js';
@@ -141,13 +141,12 @@ import { criarLimitador } from './quadros.js';
 import { criarMonstro, animarMonstro, surgirMonstro, criarMarcadorNucleo, ROTULO_MONSTRO } from './monstros.js';
 import { TorretasNaTela } from './torretas.js';
 import { Rede } from './rede.js';
-import { mostrarPrevia, pararPrevia } from './vitrine.js';
 import { ArmasNave } from './armas.js';
 import { Placar, relogio } from './placar.js';
 import { PainelTeste } from './teste.js';
 import { TabelaPartida } from './tabela.js';
 import { BarraTime } from './companheiros.js';
-import { EscolhaTimes } from './escolha-times.js';
+import { Menu } from './menu.js';
 import { PainelServicos } from './servicos.js';
 import { PainelStatus } from './status.js';
 import { PainelInventario } from './inventario.js';
@@ -221,14 +220,12 @@ function lerCamAngulo() {
   }
 }
 
-// ---------- Tela de entrada ----------
+// ---------- Menu principal (tela inicial) ----------
 //
-// Dois passos, como no Astro-N: primeiro a raça (Acron, Bellico, Shrewdo; Mechan
-// aparece apagada, "EM BREVE"), depois a classe (Assault, Mobile, Functional), cada
-// uma com a especialidade e a primeira nave daquela raça e classe (nome, status e a
-// prévia 3D girando, que baixa só aquele modelo). A escolha fica no localStorage
-// (com try/catch: navegador sem armazenamento entra igual) e, na volta, a tela
-// abre direto no passo da classe.
+// menu.js: o header com as abas (Jogar, Naves, Configurações; Ranking e Perfil
+// bloqueados até o online), os modos de jogo, a Seleção de raça, classe e times e o
+// Decolar, que chama iniciar(). A escolha fica no navegador (menu-regras.js). ESC
+// volta um passo no menu; de dentro da partida, cai na aba Jogar.
 
 // Som: um só por página (o AudioContext sobrevive à saída e à volta da partida).
 const sons = new Sons();
@@ -254,168 +251,37 @@ addEventListener('keydown', (e) => {
   alternarSom();
 });
 
-let racaEscolhida = 'acron';
-let classeEscolhida = 'assault';
-let jogoAtual = null; // { sair } da partida em andamento; null na tela de entrada
+let jogoAtual = null; // { sair } da partida em andamento; null no menu
 let cargaAtual = null; // o Carregamento da tela de carregamento aberta (ESC cancela)
+let menu = null;
 
-const lerLocal = (k) => {
-  try {
-    return localStorage.getItem(k);
-  } catch {
-    return null;
-  }
-};
-const gravarLocal = (k, v) => {
-  try {
-    localStorage.setItem(k, v);
-  } catch {}
-};
-const corCss = (cor) => '#' + new THREE.Color(cor).getHexString();
-
-/** Barras de status da primeira nave de cada classe, na escala da maior da raça. */
-function barrasNave(n, max) {
-  // Cada status na cor dele no HUD: vida, energia, velocidade (neon) e, nas Bellico,
-  // a regeneração de vida em voo (o traço da raça no original).
-  const linhas = [
-    ['HP', n.hp, max.hp, n.hp, 'hp'],
-    ['Energia', n.energia, max.energia, n.energia, 'en'],
-    ['Veloc.', n.velocidade, max.velocidade, `${Math.round(n.velocidade)} m/s`, 'vel'],
-  ];
-  if (n.regenHpVoo > 0) linhas.push(['Regen.', n.regenHpVoo, 3, `${n.regenHpVoo.toLocaleString('pt-BR')}/s`, 'regen']);
-  return linhas
-    .map(([nome, v, m, txt, k]) => `<span class="stat ${k}"><em>${nome}</em><b style="width:${Math.min(100, (v / m) * 100)}%"></b><i>${txt}</i></span>`)
-    .join('');
-}
-
-function montarEntrada() {
-  const lista = document.querySelector('#racas');
-  const classes = document.querySelector('#classes');
-  const passoRaca = document.querySelector('#passo-raca');
-  const passoClasse = document.querySelector('#passo-classe');
-  const decolar = document.querySelector('#form-entrada .decolar');
-  const previa = document.querySelector('#previa-nave');
-  const salva = lerLocal('astron.raca');
-  if (racaJogavel(salva)) racaEscolhida = salva;
-  if (classeValida(lerLocal('astron.classe'))) classeEscolhida = lerLocal('astron.classe');
-
-  for (const [id, r] of Object.entries(RACES)) {
-    const bloqueada = RACAS_BLOQUEADAS.includes(id);
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'raca' + (bloqueada ? ' bloqueada' : '');
-    b.dataset.race = id;
-    b.disabled = bloqueada;
-    b.style.setProperty('--cor', corCss(r.cor));
-    b.innerHTML = `<strong>${r.nome}</strong><small>${r.bioma}</small>${
-      bloqueada ? '<span class="selo-breve">EM BREVE</span>' : `<span class="resumo">${ORDEM_CLASSES.map((c) => CLASSES[c].nome).join(' · ')}</span>`
-    }`;
-    if (!bloqueada) {
-      b.addEventListener('click', () => {
-        escolherRaca(id);
-        mostrarPasso('classe');
-      });
-    }
-    lista.append(b);
-  }
-
-  const escolherRaca = (id) => {
-    racaEscolhida = id;
-    gravarLocal('astron.raca', id);
-    for (const el of lista.children) el.classList.toggle('sel', el.dataset.race === id);
-    passoClasse.style.setProperty('--cor', corCss(RACES[id].cor));
-    passoClasse.querySelector('.voltar-raca span').textContent = RACES[id].nome;
-    // Cartões das classes: especialidade e a primeira nave da linha.
-    const primeiras = ORDEM_CLASSES.map((c) => naveDe(id, c, 0));
-    const max = { hp: 0, energia: 0, velocidade: 0 };
-    for (const n of primeiras) for (const k of Object.keys(max)) max[k] = Math.max(max[k], n[k]);
-    classes.innerHTML = ORDEM_CLASSES.map((c, i) => {
-      const n = primeiras[i];
-      return `<button type="button" class="classe" data-classe="${c}">
-        <strong>${CLASSES[c].nome}</strong><small>${CLASSES[c].especialidade}</small>
-        <span class="nave-classe">${n.nome}</span>${barrasNave(n, max)}
-      </button>`;
-    }).join('');
-    escolherClasse(classeEscolhida);
-  };
-  const escolherClasse = (c) => {
-    classeEscolhida = c;
-    gravarLocal('astron.classe', c);
-    for (const el of classes.children) el.classList.toggle('sel', el.dataset.classe === c);
-    const linha = linhaDe(racaEscolhida, c);
-    previa.querySelector('.nome-nave').textContent = linha[0].nome;
-    previa.querySelector('.linha-nave').textContent = `Na Evolução: ${linha.slice(1).map((n) => `${n.nome} (NV ${n.nivel})`).join(' › ')}`;
-    if (!passoClasse.hidden) mostrarPrevia(previa.querySelector('.palco'), racaEscolhida, c, 0);
-  };
-  classes.addEventListener('click', (e) => {
-    const c = e.target.closest('[data-classe]')?.dataset.classe;
-    if (c) escolherClasse(c);
+function montarMenu() {
+  menu = new Menu({
+    el: document.querySelector('#entrada'),
+    sons,
+    painelVolume,
+    aoMudarSom: mostrarEstadoSom,
+    mensagemErro: (err) => MENSAGENS_ERRO[err?.message] ?? `Erro ao iniciar o jogo (${err?.message ?? err}). Mande um print desta tela.`,
+    aoDecolar: async ({ nome, race, classe, teste, ia }) => {
+      try {
+        jogoAtual = await iniciar(nome, race, classe, teste, ia);
+      } finally {
+        telaCarregamento?.esconder();
+        cargaAtual = null;
+      }
+    },
   });
-  const mostrarPasso = (passo) => {
-    passoRaca.hidden = passo !== 'raca';
-    passoClasse.hidden = passo !== 'classe';
-    decolar.textContent = passo === 'raca' ? 'Escolher a classe ›' : 'Decolar';
-    if (passo === 'classe') mostrarPrevia(previa.querySelector('.palco'), racaEscolhida, classeEscolhida, 0);
-    else pararPrevia();
-  };
-  passoClasse.querySelector('.voltar-raca').addEventListener('click', () => mostrarPasso('raca'));
-  entrada.mostrarPasso = mostrarPasso;
-  escolherRaca(racaEscolhida);
-  // Quem já escolheu antes cai direto na classe (trocar de raça é um clique).
-  mostrarPasso(salva && racaJogavel(salva) ? 'classe' : 'raca');
-
-  const botaoSom = document.querySelector('#botao-som');
-  botaoSom?.addEventListener('click', () => painelVolume.abrir());
   document.querySelector('#som-hud')?.addEventListener('click', (e) => {
     painelVolume.alternar();
     e.currentTarget.blur(); // o foco no botão não pode prender as teclas do jogo
   });
   mostrarEstadoSom();
 
-  const escolhaTimes = new EscolhaTimes(document.querySelector('#escolha-times'));
-
-  const nome = document.querySelector('#nome');
-  nome.value = lerLocal('astron.nome') ?? '';
-  document.querySelector('#form-entrada').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!passoRaca.hidden) {
-      escolherRaca(racaEscolhida);
-      mostrarPasso('classe');
-      return;
-    }
-    const botao = decolar;
-    botao.disabled = true;
-    botao.textContent = 'Conectando…';
-    gravarLocal('astron.nome', nome.value);
-    const erro = document.querySelector('#erro-entrada');
-    erro.textContent = '';
-    // Quem decola com Enter no campo de nome deixaria o foco no <input>, e os
-    // controles ignoram teclas digitadas em campo de texto.
-    document.activeElement?.blur();
-    // A prévia para: a vitrine desenha as miniaturas da Evolução no carregamento.
-    pararPrevia();
-    try {
-      jogoAtual = await iniciar(nome.value, racaEscolhida, classeEscolhida, document.querySelector('#modo-teste').checked, escolhaTimes.pedido);
-      document.querySelector('#entrada').hidden = true;
-      telaCarregamento?.esconder();
-    } catch (err) {
-      telaCarregamento?.esconder();
-      botao.disabled = false;
-      botao.textContent = 'Decolar';
-      entrada.mostrarPasso('classe');
-      if (err?.message === 'cancelado') return;
-      console.error('Falha ao entrar no jogo:', err);
-      erro.textContent = MENSAGENS_ERRO[err?.message] ?? `Erro ao iniciar o jogo (${err?.message ?? err}). Mande um print desta tela.`;
-    } finally {
-      cargaAtual = null;
-    }
-  });
-
   // Fase de captura na janela: este handler roda antes de qualquer outro keydown,
   // então decide sozinho o que o ESC faz. Com a janela de volume aberta (na partida
-  // ou na tela de entrada), ESC só fecha ela. Com o painel da Loja ou da Evolução
-  // (#servico) aberto, só fecha o painel; senão sai da partida. Na tela
-  // de carregamento, cancela e volta para a entrada; na de entrada, não faz nada.
+  // ou no menu), ESC só fecha ela. Com o painel da Loja ou da Evolução (#servico)
+  // aberto, só fecha o painel; senão sai da partida. Na tela de carregamento, cancela
+  // e volta para a Seleção; no menu, volta um passo (menu.voltar).
   addEventListener(
     'keydown',
     (e) => {
@@ -425,7 +291,8 @@ function montarEntrada() {
         return;
       }
       if (!jogoAtual) {
-        cargaAtual?.cancelar();
+        if (cargaAtual) cargaAtual.cancelar();
+        else if (menu.voltar()) e.preventDefault();
         return;
       }
       if (jogoAtual.fecharPainel()) return;
@@ -435,25 +302,17 @@ function montarEntrada() {
   );
 }
 
-const entrada = { mostrarPasso: () => {} };
-
-/** Sai da partida e mostra a tela de entrada com o nome, a raça e a classe de antes. */
+/** Sai da partida e mostra o menu na aba Jogar, com o nome, a raça e a classe de antes. */
 function voltarParaEntrada() {
-  // A tela de entrada volta mesmo se o desmonte falhar: preso numa tela vazia, o
-  // jogador não teria como continuar sem recarregar a página.
+  // O menu volta mesmo se o desmonte falhar: preso numa tela vazia, o jogador não
+  // teria como continuar sem recarregar a página.
   try {
     jogoAtual?.sair();
   } catch (err) {
     console.error('Falha ao desmontar a partida:', err);
   }
   jogoAtual = null;
-  const botao = document.querySelector('#form-entrada .decolar');
-  botao.disabled = false;
-  botao.textContent = 'Decolar';
-  document.querySelector('#erro-entrada').textContent = '';
-  document.querySelector('#entrada').hidden = false;
-  entrada.mostrarPasso('classe');
-  document.querySelector('#nome').focus();
+  menu.abrir();
 }
 
 // Cada falha na entrada tem uma mensagem própria: "não conectou" para tudo
@@ -1622,4 +1481,4 @@ function montarJogo(rede, boas, renderer, race, classe) {
   return { sair, fecharPainel, aquecer, comecar };
 }
 
-montarEntrada();
+montarMenu();

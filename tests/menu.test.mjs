@@ -1,0 +1,151 @@
+// Menu principal (public/js/menu-regras.js): as abas e os modos de jogo (os do online
+// ficam bloqueados e não decolam), o que cada modo manda no {t:'entrar'}, para onde o
+// ESC volta, o que se lê do navegador (saneado), as setas da lista e da grade, a régua
+// das barras das naves e a lista do teclado. E o contrato com o index.html: todo
+// elemento que menu.js procura tem de existir lá.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import {
+  ABAS,
+  MODOS,
+  MODO_PADRAO,
+  ABA_PADRAO,
+  CHAVES,
+  GRUPOS_TECLAS,
+  modoDisponivel,
+  pedidoDoModo,
+  telaAnterior,
+  estadoGuardado,
+  proximoModo,
+  moverNaGrade,
+  escalaStatus,
+  navesJogaveis,
+  primeirasNaves,
+} from '../public/js/menu-regras.js';
+import { RACAS_JOGAVEIS, ORDEM_CLASSES } from '../shared/naves.js';
+
+test('abas na ordem do header, com Ranking e Perfil bloqueadas até o online', () => {
+  assert.deepEqual(
+    ABAS.map((a) => a.id),
+    ['jogar', 'naves', 'config', 'ranking', 'perfil'],
+  );
+  assert.deepEqual(
+    ABAS.filter((a) => a.bloqueada).map((a) => a.id),
+    ['ranking', 'perfil'],
+  );
+});
+
+test('modos: só o Sandbox e a Partida Privada decolam por enquanto', () => {
+  assert.deepEqual(
+    MODOS.map((m) => m.id),
+    ['online', 'sandbox', 'publica', 'privada'],
+  );
+  assert.deepEqual(
+    MODOS.filter((m) => m.disponivel).map((m) => m.id),
+    ['sandbox', 'privada'],
+  );
+  assert.equal(modoDisponivel('online'), false);
+  assert.equal(modoDisponivel('publica'), false);
+  assert.equal(modoDisponivel('xyz'), false);
+  assert.ok(modoDisponivel(MODO_PADRAO));
+});
+
+test('fila sem número: os modos do online mostram "—", nunca um número inventado', () => {
+  for (const m of MODOS.filter((x) => !x.disponivel)) assert.match(m.estado, /^— /);
+});
+
+test('o Sandbox é o modo de teste; a Partida Privada é a partida normal', () => {
+  assert.deepEqual(pedidoDoModo('sandbox'), { teste: true });
+  assert.deepEqual(pedidoDoModo('privada'), { teste: false });
+  assert.equal(pedidoDoModo('online'), null);
+  assert.equal(pedidoDoModo('publica'), null);
+  assert.equal(pedidoDoModo(undefined), null);
+});
+
+test('ESC volta um passo: Seleção e as outras abas para Jogar; em Jogar fica', () => {
+  assert.equal(telaAnterior('selecao'), 'jogar');
+  assert.equal(telaAnterior('naves'), 'jogar');
+  assert.equal(telaAnterior('config'), 'jogar');
+  assert.equal(telaAnterior('jogar'), null);
+  assert.equal(telaAnterior('qualquer'), null);
+});
+
+test('estado guardado: vazio cai no padrão', () => {
+  const g = estadoGuardado(() => null);
+  assert.deepEqual(g, { aba: ABA_PADRAO, modo: MODO_PADRAO, raca: RACAS_JOGAVEIS[0], classe: ORDEM_CLASSES[0], nome: '' });
+});
+
+test('estado guardado: valores válidos voltam como estavam', () => {
+  const salvo = { [CHAVES.aba]: 'naves', [CHAVES.modo]: 'sandbox', [CHAVES.raca]: 'shrewdo', [CHAVES.classe]: 'mobile', [CHAVES.nome]: 'Mateus' };
+  assert.deepEqual(estadoGuardado((k) => salvo[k] ?? null), { aba: 'naves', modo: 'sandbox', raca: 'shrewdo', classe: 'mobile', nome: 'Mateus' });
+});
+
+test('estado guardado: aba bloqueada, modo do online, Mechan e lixo são saneados', () => {
+  const salvo = { [CHAVES.aba]: 'ranking', [CHAVES.modo]: 'online', [CHAVES.raca]: 'mechan', [CHAVES.classe]: 'tanque', [CHAVES.nome]: 'x'.repeat(40) };
+  const g = estadoGuardado((k) => salvo[k] ?? null);
+  assert.equal(g.aba, ABA_PADRAO);
+  assert.equal(g.modo, MODO_PADRAO);
+  assert.equal(g.raca, RACAS_JOGAVEIS[0]);
+  assert.equal(g.classe, ORDEM_CLASSES[0]);
+  assert.equal(g.nome.length, 16);
+  // A Seleção nunca vem do navegador: quem recarrega cai numa aba.
+  assert.equal(estadoGuardado((k) => (k === CHAVES.aba ? 'selecao' : null)).aba, ABA_PADRAO);
+});
+
+test('setas na lista de modos pulam os bloqueados e param nas pontas', () => {
+  assert.equal(proximoModo('sandbox', 1), 'privada');
+  assert.equal(proximoModo('privada', 1), 'privada');
+  assert.equal(proximoModo('privada', -1), 'sandbox');
+  assert.equal(proximoModo('sandbox', -1), 'sandbox');
+  assert.equal(proximoModo('online', 1), 'sandbox');
+});
+
+test('setas na grade da Seleção andam por raça e classe e param nas bordas', () => {
+  assert.deepEqual(moverNaGrade('acron', 'assault', 1, 0), { raca: 'acron', classe: 'mobile' });
+  assert.deepEqual(moverNaGrade('acron', 'assault', 0, 1), { raca: 'bellico', classe: 'assault' });
+  assert.deepEqual(moverNaGrade('acron', 'assault', -1, -1), { raca: 'acron', classe: 'assault' });
+  assert.deepEqual(moverNaGrade('shrewdo', 'functional', 1, 1), { raca: 'shrewdo', classe: 'functional' });
+});
+
+test('régua das barras: as primeiras naves para a Seleção e as 45 para o Hangar', () => {
+  assert.equal(primeirasNaves().length, RACAS_JOGAVEIS.length * ORDEM_CLASSES.length);
+  assert.ok(primeirasNaves().every((n) => n.tier === 0));
+  const todas = navesJogaveis();
+  assert.equal(todas.length, RACAS_JOGAVEIS.length * ORDEM_CLASSES.length * 5);
+  const max = escalaStatus(todas);
+  for (const k of ['hp', 'energia', 'velocidade', 'regenHpVoo']) {
+    assert.equal(max[k], Math.max(...todas.map((n) => n[k])));
+    assert.ok(max[k] > 0, k);
+  }
+  // A régua das primeiras é menor (as naves crescem com o tier): a barra delas não fica nanica.
+  assert.ok(escalaStatus(primeirasNaves()).hp < max.hp);
+  assert.ok(!todas.some((n) => n.race === 'mechan'));
+});
+
+test('lista do teclado: grupos com teclas e ação, sem tecla repetida', () => {
+  const teclas = GRUPOS_TECLAS.flatMap((g) => g.teclas.flatMap(([t]) => t));
+  assert.ok(GRUPOS_TECLAS.every((g) => g.nome && g.teclas.length));
+  assert.equal(new Set(teclas).size, teclas.length);
+  for (const t of ['W', 'S', 'A', 'D', 'Shift', 'Z', 'X', 'Q', 'E', 'L', 'B', 'R', 'F', 'V', 'T', 'G', 'C', 'I', 'TAB', 'H', 'M', 'Esc']) {
+    assert.ok(teclas.includes(t), t);
+  }
+});
+
+test('index.html tem tudo o que menu.js procura', () => {
+  const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  const js = readFileSync(new URL('../public/js/menu.js', import.meta.url), 'utf8');
+  // Seletores simples usados com this.q('...') ou querySelector('...') no menu.
+  const seletores = [...js.matchAll(/(?:this\.q|querySelector)\('([^'$]+)'\)/g)].map((m) => m[1]);
+  assert.ok(seletores.length > 10);
+  for (const sel of seletores) {
+    // Cada parte do seletor (id ou classe) tem de aparecer no HTML.
+    for (const [, tipo, nome] of sel.matchAll(/([#.])([\w-]+)/g)) {
+      const achou = tipo === '#' ? html.includes(`id="${nome}"`) : new RegExp(`class="[^"]*\\b${nome}\\b`).test(html) || js.includes(`class="${nome}`) || js.includes(` ${nome}`);
+      assert.ok(achou, `${sel}: falta ${tipo}${nome}`);
+    }
+  }
+  // Os modos e as abas entram por JS; as telas, uma por aba (menos as bloqueadas).
+  for (const a of ABAS.filter((x) => !x.bloqueada)) assert.ok(html.includes(`id="tela-${a.id}"`), a.id);
+  assert.ok(html.includes('id="tela-selecao"'));
+});

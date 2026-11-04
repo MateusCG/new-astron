@@ -54,44 +54,15 @@ body {
   display: block;
 }
 
-/* ---------- Tela de entrada ---------- */
+/* ---------- Menu principal (tela inicial) ----------
 
-#entrada {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  overflow-y: auto;
-  background:
-    radial-gradient(ellipse at 50% 120%, #f59a45 0%, #a8402a 35%, #2a0f1c 75%),
-    #2a0f1c;
-}
-
-/* Tela inicial larga no computador: em cima o nome do jogo; embaixo, à esquerda,
-   piloto, raça, classe, prévia e Decolar; à direita, os comandos um embaixo do
-   outro ("tecla · ação"), em uma, duas ou três colunas conforme a largura. */
-#form-entrada {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-areas: 'topo topo' 'principal comandos';
-  gap: 4px 32px;
-  width: min(1480px, 100%);
-  padding: 16px 32px 20px;
-  border: 1px solid var(--neon-escuro);
-  border-radius: 10px;
-  background: linear-gradient(180deg, rgba(24, 48, 46, 0.92), rgba(10, 22, 21, 0.95));
-  box-shadow: 0 0 40px rgba(0, 239, 192, 0.15);
-}
-
-.topo-entrada {
-  grid-area: topo;
-}
-
-.entrada-principal {
-  grid-area: principal;
-  min-width: 0;
-}
+   menu.js / menu-regras.js. Header com as abas no alto, uma tela por aba no meio e um
+   rodapé com as dicas do teclado. O céu de fim de tarde de sempre no fundo; na aba
+   Jogar, a nave escolhida gira à direita, atrás do nome da raça em contorno, e os
+   modos ficam numa coluna escura à esquerda (o "Select Play Mode" do Deadlock). A
+   Seleção é a seleção de campeão dos MOBAs: grade à esquerda, nave no centro, ficha à
+   direita e, embaixo, os times e o Decolar. Cabe sem rolar em 1920×1004, 1366×768 e
+   1280×720; no celular vira coluna e rola. */
 
 h1 {
   margin: 0;
@@ -103,12 +74,6 @@ h1 {
 h1 span {
   color: var(--neon);
   text-shadow: 0 0 12px var(--neon);
-}
-
-.sub {
-  margin: 2px 0 12px;
-  text-align: center;
-  opacity: 0.7;
 }
 
 label {
@@ -129,67 +94,30 @@ input:focus {
   outline: 2px solid var(--neon);
 }
 
-.rotulo-racas {
-  margin: 18px 0 8px;
+/* Só para leitores de tela. */
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
-#racas {
+#entrada {
+  --cor-raca: var(--neon);
+  --alto-topo: 64px;
+  --alto-rodape: 36px;
+  --fundo-escuro: rgba(5, 10, 10, 0.9);
+  position: fixed;
+  inset: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 8px;
-}
-
-.raca {
-  display: grid;
-  gap: 4px;
-  padding: 10px;
-  border: 1px solid var(--chapa-clara);
-  border-top: 3px solid var(--cor);
-  border-radius: 6px;
-  background: #0f1e1d;
-  color: var(--texto);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.raca.sel {
-  border-color: var(--cor);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--cor) 45%, transparent);
-}
-
-.raca strong {
-  color: var(--cor);
-  font-size: 19px;
-}
-
-.raca small {
-  opacity: 0.6;
-  margin-bottom: 4px;
-}
-
-.rotulo-racas b {
-  display: inline-grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  margin-right: 6px;
-  border-radius: 50%;
-  background: var(--neon);
-  color: #032b22;
-  font: 700 16px system-ui, sans-serif;
-}
-
-.raca .resumo {
-  font-size: 15px;
-  opacity: 0.7;
-}
-
-/* Mechan: aparece, mas ainda sem naves. */
-.raca.bloqueada {
-  cursor: not-allowed;
-  opacity: 0.45;
-  filter: grayscale(0.6);
+  grid-template-rows: var(--alto-topo) minmax(0, 1fr) var(--alto-rodape);
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(8, 4, 10, 0.55) 0%, transparent 38%),
+    radial-gradient(ellipse at 68% 118%, #f59a45 0%, #a8402a 32%, #2a0f1c 70%),
+    #2a0f1c;
 }
 
 .selo-breve {
@@ -197,103 +125,30 @@ input:focus {
   padding: 1px 6px;
   border: 1px solid var(--chapa-clara);
   border-radius: 3px;
-  font: 700 14px ui-monospace, monospace;
+  font: 700 13px ui-monospace, monospace;
   letter-spacing: 0.1em;
-}
-
-.voltar-raca {
-  margin-right: 8px;
-  padding: 2px 8px;
-  border: 1px solid var(--cor, var(--chapa-clara));
-  border-radius: 4px;
-  background: #0b1716;
-  color: var(--cor, var(--texto));
-  font: 600 16px system-ui, sans-serif;
-  cursor: pointer;
-}
-
-#classes {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.classe {
-  display: grid;
-  align-content: start;
-  gap: 4px;
-  padding: 10px;
-  border: 1px solid var(--chapa-clara);
-  border-radius: 6px;
-  background: #0f1e1d;
   color: var(--texto);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
 }
 
-.classe.sel {
-  border-color: var(--neon);
-  box-shadow: 0 0 14px rgba(0, 239, 192, 0.3);
-}
-
-.classe strong {
-  color: var(--neon);
-  font-size: 19px;
-  letter-spacing: 0.04em;
-}
-
-.classe small {
-  min-height: 2.6em;
-  opacity: 0.75;
-}
-
-.classe .nave-classe {
-  margin: 2px 0;
-  color: var(--cor);
-  font-weight: 700;
-}
-
-.classe .stat {
-  grid-template-columns: 58px 1fr 54px;
-}
-
-.classe .stat.hp b {
-  background: var(--hp);
-}
-
-.classe .stat.en b {
-  background: var(--en);
-}
-
-.classe .stat.vel b {
-  background: var(--neon);
-}
-
-.classe .stat.regen b {
-  background: color-mix(in srgb, var(--hp) 55%, var(--texto));
-}
-
-#previa-nave {
-  display: grid;
-  grid-template-columns: 1fr 240px;
-  align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-  border: 1px solid var(--chapa-clara);
-  border-radius: 6px;
-  background: radial-gradient(ellipse at 40% 70%, rgba(245, 154, 69, 0.18), transparent 70%), #0b1716;
-}
-
-#previa-nave .palco {
+/* Palco da nave 3D (vitrine.js): o canvas ocupa tudo; o aviso fica por cima. */
+.palco-nave {
   position: relative;
-  height: 160px;
   min-width: 0;
+  min-height: 0;
+}
+
+.palco-nave canvas {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 /* Enquanto o modelo da nave baixa: anel girando e o texto piscando, como na tela de carregamento. */
-#previa-nave .carregando-nave {
+.palco-nave .carregando-nave {
   position: absolute;
+  z-index: 2;
   inset: 0;
   margin: 0;
   display: flex;
@@ -311,11 +166,11 @@ input:focus {
   pointer-events: none;
 }
 
-#previa-nave .carregando-nave[hidden] {
+.palco-nave .carregando-nave[hidden] {
   display: none;
 }
 
-#previa-nave .carregando-nave .marca {
+.palco-nave .carregando-nave .marca {
   flex: none;
   width: 14px;
   height: 14px;
@@ -325,201 +180,911 @@ input:focus {
   animation: girar-marca 0.9s linear infinite;
 }
 
-#previa-nave .carregando-nave.falhou {
+.palco-nave .carregando-nave.falhou {
   color: #ff8a70;
   animation: none;
 }
 
-#previa-nave .carregando-nave.falhou .marca {
+.palco-nave .carregando-nave.falhou .marca {
   display: none;
 }
 
-#previa-nave .palco canvas {
+/* Miniatura das naves (vitrine.js, 192 × 112) com o brilho da cor da raça embaixo. */
+#entrada .carta-nave img,
+#entrada .linha-evolucao img,
+#entrada .naves-linha img {
   display: block;
   width: 100%;
-  height: 100%;
+  aspect-ratio: 192 / 112;
+  object-fit: contain;
+  border-radius: 4px;
+  background: radial-gradient(ellipse at 50% 70%, color-mix(in srgb, var(--cor, var(--neon)) 24%, transparent), transparent 70%);
 }
 
-#previa-nave .ficha {
+#entrada img.carregando {
+  animation: piscar-carregando 1.2s ease-in-out infinite;
+  background-color: rgba(44, 74, 70, 0.35);
+}
+
+#entrada img.falhou {
+  visibility: hidden;
+}
+
+/* Entrada de cada tela: um fade com deslize curto, sem atrasar o clique. */
+.tela-menu.entrando {
+  animation: tela-entra 0.22s ease-out;
+}
+
+@keyframes tela-entra {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tela-menu.entrando,
+  #entrada img.carregando {
+    animation: none;
+  }
+}
+
+/* ----- Header ----- */
+
+.menu-topo {
+  position: relative;
+  z-index: 3;
   display: grid;
-  gap: 2px;
-  padding: 8px 10px 8px 0;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 28px;
+  padding: 0 28px;
+  background: linear-gradient(180deg, rgba(5, 10, 10, 0.94), rgba(5, 10, 10, 0.78));
+  border-bottom: 1px solid rgba(0, 239, 192, 0.2);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
 }
 
-#previa-nave .ficha small {
-  opacity: 0.6;
-  font-size: 15px;
+.marca-jogo {
+  margin: 0;
+  font: 800 22px system-ui, sans-serif;
+  letter-spacing: 0.16em;
+  white-space: nowrap;
 }
 
-#previa-nave .nome-nave {
-  color: var(--cor);
-  font-size: 22px;
-  letter-spacing: 0.04em;
+.marca-jogo span {
+  color: var(--neon);
+  text-shadow: 0 0 12px var(--neon);
 }
 
-#previa-nave .linha-nave {
-  margin: 4px 0 0;
-  font-size: 15px;
+.abas-menu {
+  display: flex;
+  justify-content: center;
+  align-self: stretch;
+  gap: 4px;
+  min-width: 0;
+}
+
+.abas-menu button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 18px;
+  border: 0;
+  background: none;
+  color: var(--texto);
+  opacity: 0.72;
+  font: 700 16px system-ui, sans-serif;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    opacity 0.15s,
+    color 0.15s;
+}
+
+.abas-menu button::after {
+  content: '';
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 0;
+  height: 3px;
+  border-radius: 2px 2px 0 0;
+  background: var(--neon);
+  box-shadow: 0 0 12px var(--neon);
+  transform: scaleX(0);
+  transition: transform 0.18s ease-out;
+}
+
+.abas-menu button:hover,
+.abas-menu button:focus-visible {
+  opacity: 1;
+  outline: none;
+}
+
+.abas-menu button:focus-visible {
+  background: rgba(0, 239, 192, 0.08);
+}
+
+.abas-menu button.sel {
+  opacity: 1;
+  color: var(--neon);
+  text-shadow: 0 0 10px rgba(0, 239, 192, 0.6);
+}
+
+.abas-menu button.sel::after {
+  transform: scaleX(1);
+}
+
+.abas-menu button.bloqueada {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.abas-menu .selo-breve {
+  padding: 0 4px;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+}
+
+.menu-conta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chip-piloto {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px 3px 12px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 999px;
+  background: rgba(11, 23, 22, 0.85);
+  cursor: text;
+}
+
+.chip-piloto:focus-within {
+  border-color: var(--neon);
+  box-shadow: 0 0 10px rgba(0, 239, 192, 0.3);
+}
+
+.chip-piloto svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: var(--neon);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.chip-piloto input {
+  width: 150px;
+  padding: 5px 4px;
+  border: 0;
+  background: transparent;
+  font: 600 16px system-ui, sans-serif;
+}
+
+.chip-piloto input:focus {
+  outline: none;
+}
+
+.menu-conta .botao-som {
+  margin: 0;
+  height: 36px;
+  border-radius: 999px;
+  padding: 0 12px 0 10px;
+}
+
+/* ----- Rodapé ----- */
+
+.menu-rodape {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 28px;
+  background: rgba(5, 10, 10, 0.88);
+  border-top: 1px solid rgba(0, 239, 192, 0.12);
+  font-size: 14px;
+}
+
+.menu-rodape p {
+  margin: 0;
   opacity: 0.7;
 }
 
-@media (max-width: 520px) {
-  #classes {
-    grid-template-columns: 1fr;
-  }
-
-  .classe small {
-    min-height: 0;
-  }
-
-  #previa-nave {
-    grid-template-columns: 1fr;
-  }
-
-  #previa-nave .ficha {
-    padding: 0 10px 10px;
-  }
+.menu-rodape kbd {
+  font-size: 13px;
+  line-height: 18px;
 }
 
-.stat {
-  display: grid;
-  grid-template-columns: 62px 1fr 28px;
-  align-items: center;
-  gap: 4px;
-  font-size: 15px;
+.menu-corpo {
+  position: relative;
+  z-index: 1;
+  min-height: 0;
 }
 
-.stat em {
-  font-style: normal;
-  opacity: 0.75;
+.tela-menu {
+  height: 100%;
+  min-height: 0;
 }
 
-.stat b {
-  display: block;
-  height: 5px;
-  border-radius: 3px;
-  background: var(--cor);
+.titulo-tela {
+  margin: 0;
+  font: 700 15px system-ui, sans-serif;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--neon);
 }
 
-.stat i {
-  font-style: normal;
-  text-align: right;
+/* ----- Jogar ----- */
+
+/* A nave escolhida, grande, à direita; atrás dela, o nome da raça em contorno e o
+   brilho no chão na cor da raça. Só na aba Jogar. */
+#fundo-nave {
+  position: absolute;
+  z-index: 0;
+  top: var(--alto-topo);
+  bottom: var(--alto-rodape);
+  left: 36%;
+  right: 0;
 }
 
-.decolar {
-  width: 100%;
-  margin-top: 18px;
-  padding: 12px;
-  border: 0;
-  border-radius: 6px;
-  background: var(--neon);
-  color: #032b22;
-  font: 700 20px system-ui, sans-serif;
+#entrada:not([data-tela='jogar']) #fundo-nave {
+  display: none;
+}
+
+#fundo-nave::before {
+  content: attr(data-raca);
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font: 900 clamp(110px, 17vw, 300px) / 1 system-ui, sans-serif;
   letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: transparent;
+  -webkit-text-stroke: 1.5px color-mix(in srgb, var(--cor-raca) 45%, transparent);
+  opacity: 0.55;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+#fundo-nave::after {
+  content: '';
+  position: absolute;
+  left: 16%;
+  right: 16%;
+  bottom: 8%;
+  height: 22%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, color-mix(in srgb, var(--cor-raca) 30%, transparent), transparent 70%);
+  pointer-events: none;
+}
+
+#tela-jogar {
+  display: grid;
+  grid-template-columns: minmax(420px, 600px) minmax(0, 1fr);
+  pointer-events: none;
+}
+
+.coluna-modos {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 24px 72px 24px 48px;
+  background: linear-gradient(90deg, var(--fundo-escuro) 0%, rgba(5, 10, 10, 0.86) 72%, rgba(5, 10, 10, 0) 100%);
+  pointer-events: auto;
+}
+
+.coluna-modos .titulo-tela {
+  margin-bottom: 16px;
+}
+
+.modos {
+  display: grid;
+  border-top: 1px solid rgba(44, 74, 70, 0.8);
+}
+
+.modo {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 20px 24px 20px 26px;
+  border: 0;
+  border-bottom: 1px solid rgba(44, 74, 70, 0.8);
+  background: transparent;
+  color: var(--texto);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.modo::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--neon);
+  box-shadow: 0 0 10px var(--neon);
+  transform: scaleY(0);
+  transition: transform 0.15s ease-out;
+}
+
+.modo:not(.bloqueado):hover,
+.modo:not(.bloqueado):focus-visible {
+  outline: none;
+  background: linear-gradient(90deg, rgba(0, 239, 192, 0.13), rgba(0, 239, 192, 0) 85%);
+}
+
+.modo:not(.bloqueado):hover::before,
+.modo:not(.bloqueado):focus-visible::before {
+  transform: scaleY(1);
+}
+
+.modo:not(.bloqueado):hover strong,
+.modo:not(.bloqueado):focus-visible strong {
+  text-shadow: 0 0 14px rgba(0, 239, 192, 0.45);
+}
+
+.modo strong {
+  font: 800 31px/1.1 system-ui, sans-serif;
+  letter-spacing: 0.01em;
+}
+
+.estado-modo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 600 14px ui-monospace, monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--neon);
+}
+
+.modo[data-modo='sandbox'] .estado-modo {
+  color: var(--ouro);
+}
+
+.texto-modo {
+  max-width: 42ch;
+  font-size: 17px;
+  opacity: 0.74;
+}
+
+.modo.bloqueado {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.modo.bloqueado .estado-modo {
+  color: var(--texto);
+}
+
+.modo .selo-breve {
+  font-size: 11.5px;
+}
+
+.legenda-nave {
+  align-self: end;
+  justify-self: end;
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  margin: 0 48px 30px 0;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+}
+
+.legenda-nave small {
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+
+.legenda-nave strong {
+  font: 800 36px/1.1 system-ui, sans-serif;
+  letter-spacing: 0.03em;
+}
+
+.legenda-nave .raca-classe {
+  font-size: 17px;
+}
+
+/* ----- Seleção ----- */
+
+#tela-selecao {
+  --cor: var(--neon);
+  display: grid;
+  grid-template-columns: minmax(320px, 410px) minmax(0, 1fr) minmax(300px, 380px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'topo topo topo'
+    'grade centro ficha'
+    'base base base';
+  column-gap: 24px;
+  padding: 14px 28px 0;
+  background: linear-gradient(180deg, rgba(5, 10, 10, 0.6), rgba(5, 10, 10, 0.82));
+}
+
+.selecao-topo {
+  grid-area: topo;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding-bottom: 12px;
+}
+
+.selecao-topo .voltar {
+  flex: none;
+  padding: 6px 14px;
+  white-space: nowrap;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 6px;
+  background: rgba(11, 23, 22, 0.85);
+  color: var(--texto);
+  font: 600 16px system-ui, sans-serif;
   cursor: pointer;
 }
 
-.decolar:disabled {
-  opacity: 0.6;
+.selecao-topo .voltar:hover,
+.selecao-topo .voltar:focus-visible {
+  border-color: var(--neon);
+  outline: none;
 }
 
-#erro-entrada {
-  min-height: 1em;
-  color: #ff8a70;
-}
-
-/* Comandos da tela inicial: um por linha, a tecla (ou as teclas) numa coluna fixa
-   e a ação ao lado; as linhas se arrumam em colunas conforme a largura. */
-.comandos {
-  grid-area: comandos;
-  min-width: 0;
-  padding-left: 28px;
-  border-left: 1px solid var(--chapa-clara);
-}
-
-.comandos h2 {
-  margin: 4px 0 6px;
-  font: 700 16px system-ui, sans-serif;
+.selo-modo {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--neon);
+  border-radius: 4px;
+  font: 700 13.5px ui-monospace, monospace;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--neon);
 }
 
-.comandos dl {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
-  gap: 2px 20px;
-  font-size: 15px;
+/* Sandbox é ferramenta, não jogo: a borda tracejada em ouro do painel de teste. */
+.selo-modo.sandbox {
+  border: 1px dashed var(--ouro);
+  color: var(--ouro);
 }
 
-.comandos dl > div {
+.selecao-grade {
+  grid-area: grade;
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr);
-  align-items: baseline;
+  align-content: start;
   gap: 10px;
-  padding: 3px 0;
-  border-bottom: 1px solid rgba(44, 74, 70, 0.6);
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px 4px 6px 2px;
 }
 
-/* Times da tela inicial (escolha-times.js), acima dos comandos: duas caixas lado a
-   lado, seu time em turquesa e o inimigo em vermelho, cada uma com as 3 vagas
-   ("VOCÊ" cheia em neon, "IA" acesa na cor do time, livre tracejada) e o −/+ com a
-   conta em mono. Clicar numa vaga também escolhe. */
-#escolha-times {
-  margin-bottom: 12px;
+.linha-raca {
+  display: grid;
+  gap: 5px;
 }
 
-#escolha-times h2 small {
-  margin-left: 6px;
-  font: 600 13px ui-monospace, monospace;
-  letter-spacing: 0.06em;
-  color: var(--texto);
+.nome-raca {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+}
+
+.nome-raca b {
+  color: var(--cor);
+  font: 800 16px system-ui, sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.nome-raca small {
+  font-size: 14px;
   opacity: 0.55;
+}
+
+.linha-raca.bloqueada {
+  opacity: 0.45;
+  filter: grayscale(0.5);
+}
+
+.linha-raca.bloqueada .selo-breve {
+  align-self: center;
+  font-size: 11px;
+}
+
+.cartas-raca {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.carta-nave {
+  display: grid;
+  justify-items: start;
+  gap: 1px;
+  padding: 5px 6px 7px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(24, 48, 46, 0.9), rgba(10, 22, 21, 0.95));
+  color: var(--texto);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
+}
+
+.carta-nave strong {
+  font: 700 14.5px system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.carta-nave small {
+  font-size: 13px;
+  opacity: 0.6;
+}
+
+.carta-nave:hover {
+  border-color: color-mix(in srgb, var(--cor) 60%, var(--chapa-clara));
+  transform: translateY(-1px);
+}
+
+.carta-nave:focus-visible {
+  outline: 2px solid var(--texto);
+  outline-offset: 2px;
+}
+
+.carta-nave.sel {
+  border-color: var(--cor);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--cor) 22%, #10201f), rgba(10, 22, 21, 0.95));
+  box-shadow:
+    0 0 0 1px var(--cor),
+    0 0 18px color-mix(in srgb, var(--cor) 45%, transparent);
+}
+
+.carta-nave.sel strong {
+  color: var(--cor);
+}
+
+.selecao-centro {
+  grid-area: centro;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* O "pad" do hangar embaixo da nave: elipse na cor da raça. */
+.selecao-centro .palco-nave {
+  background: radial-gradient(ellipse 46% 34% at 50% 62%, color-mix(in srgb, var(--cor) 22%, transparent), transparent);
+}
+
+.selecao-centro .palco-nave::after {
+  content: '';
+  position: absolute;
+  left: 20%;
+  right: 20%;
+  bottom: 9%;
+  height: 16%;
+  border: 1px solid color-mix(in srgb, var(--cor) 55%, transparent);
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 30px color-mix(in srgb, var(--cor) 25%, transparent),
+    0 0 20px color-mix(in srgb, var(--cor) 20%, transparent);
+  pointer-events: none;
+}
+
+.nome-escolha {
+  display: grid;
+  justify-items: center;
+  margin: 0;
+  text-align: center;
+}
+
+.nome-escolha strong {
+  font: 800 34px/1.1 system-ui, sans-serif;
+  letter-spacing: 0.04em;
+}
+
+.nome-escolha .raca-classe {
+  font-size: 16px;
+  opacity: 0.85;
+}
+
+.nome-escolha .raca-classe b {
+  color: var(--cor);
+}
+
+.linha-evolucao {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 8px 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.linha-evolucao li {
+  display: grid;
+  justify-items: center;
+  padding-top: 4px;
+  border-top: 2px solid rgba(44, 74, 70, 0.8);
+  text-align: center;
+  opacity: 0.6;
+}
+
+.linha-evolucao li.atual {
+  border-top-color: var(--cor);
+  opacity: 1;
+}
+
+#entrada .linha-evolucao img {
+  max-width: 96px;
+}
+
+.linha-evolucao span {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linha-evolucao small {
+  font: 12.5px ui-monospace, monospace;
+  opacity: 0.75;
+}
+
+/* Ficha da nave (Seleção e Hangar): chapa do painel com a borda de cima na cor da raça. */
+.ficha-nave {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 18px 16px;
+  border: 1px solid var(--chapa-clara);
+  border-top: 2px solid var(--cor, var(--neon));
+  border-radius: 10px 10px 6px 6px;
+  background: linear-gradient(180deg, rgba(44, 74, 70, 0.55), rgba(12, 26, 25, 0.94) 38%);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+
+.selecao-ficha {
+  grid-area: ficha;
+  margin-bottom: 6px;
+}
+
+.ficha-nave .rotulo-ficha {
+  margin: 8px 0 0;
+  font: 700 12.5px system-ui, sans-serif;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.ficha-nave .rotulo-ficha:first-child {
+  margin-top: 0;
+}
+
+.ficha-nave .rotulo-ficha small {
+  letter-spacing: 0.04em;
   text-transform: none;
 }
 
-#escolha-times .lados {
+.ficha-nave h2 {
+  margin: 0;
+  font: 800 23px/1.15 system-ui, sans-serif;
+}
+
+.ficha-nave h2 small {
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 0.65;
+}
+
+.ficha-nave .nome-raca-ficha {
+  color: var(--cor);
+}
+
+.ficha-nave .descricao {
+  margin: 0;
+  font-size: 16px;
+  opacity: 0.8;
+}
+
+.barras-nave {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
+  gap: 7px;
+  margin-top: 4px;
+}
+
+.barras-nave .stat {
+  --c: var(--neon);
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) 76px;
+  align-items: center;
+  gap: 8px;
+  font-size: 14.5px;
+}
+
+.barras-nave .stat em {
+  font-style: normal;
+  opacity: 0.75;
+}
+
+.barras-nave .trilho {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #0b1716;
+  box-shadow: inset 0 0 0 1px rgba(44, 74, 70, 0.9);
+}
+
+.barras-nave .trilho b {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--c);
+  box-shadow: 0 0 8px var(--c);
+}
+
+.barras-nave .stat i {
+  font: 14px ui-monospace, monospace;
+  text-align: right;
+}
+
+.barras-nave .stat.hp {
+  --c: var(--hp);
+}
+
+.barras-nave .stat.en {
+  --c: var(--en);
+}
+
+.barras-nave .stat.vel {
+  --c: var(--neon);
+}
+
+.barras-nave .stat.regen {
+  --c: #ff8a70;
+}
+
+.armas-fabrica {
+  display: grid;
+  gap: 6px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armas-fabrica li {
+  display: flex;
+  align-items: center;
   gap: 10px;
+}
+
+.armas-fabrica .icone-item {
+  --alt: 30px;
+}
+
+.armas-fabrica .nome-arma {
+  display: grid;
+  line-height: 1.2;
+}
+
+.armas-fabrica b {
+  font-size: 15.5px;
+}
+
+.armas-fabrica small {
+  font-size: 13.5px;
+  opacity: 0.6;
+}
+
+.dados-nave {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  margin: 4px 0 0;
+}
+
+.dados-nave div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(44, 74, 70, 0.6);
+}
+
+.dados-nave dt {
+  opacity: 0.65;
+}
+
+.dados-nave dd {
+  margin: 0;
+  font: 15px ui-monospace, monospace;
+  text-align: right;
+}
+
+#entrada .preco {
+  color: var(--ouro);
+  font-weight: 700;
+}
+
+/* Embaixo: os times como as faixas de time de uma seleção de MOBA e o Decolar. */
+.selecao-base {
+  grid-area: base;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 28px;
+  margin: 6px -28px 0;
+  padding: 12px 28px 14px;
+  background: linear-gradient(180deg, rgba(5, 10, 10, 0.7), rgba(5, 10, 10, 0.96));
+  border-top: 1px solid rgba(0, 239, 192, 0.2);
+}
+
+#escolha-times {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
 }
 
 #escolha-times .lado {
   --cor-lado: var(--neon);
-  --cor-lado-fraca: var(--neon-escuro);
-  --fundo-lado: rgba(0, 239, 192, 0.12);
-  padding: 7px 10px 9px;
+  min-width: 0;
+  padding: 7px 12px 9px;
   border: 1px solid var(--chapa-clara);
   border-left: 3px solid var(--cor-lado);
   border-radius: 6px;
-  background: #0f1e1d;
+  background: rgba(15, 30, 29, 0.88);
 }
 
 #escolha-times .lado.inimigo {
   --cor-lado: var(--inimigo);
-  --cor-lado-fraca: rgba(255, 74, 42, 0.45);
-  --fundo-lado: rgba(255, 74, 42, 0.14);
+  border-left: 1px solid var(--chapa-clara);
+  border-right: 3px solid var(--cor-lado);
 }
 
 #escolha-times .titulo-lado {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   margin: 0 0 6px;
 }
 
 #escolha-times .titulo-lado b {
   color: var(--cor-lado);
   font: 700 14px system-ui, sans-serif;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
 #escolha-times .resumo {
-  font-size: 14px;
-  opacity: 0.75;
-  white-space: nowrap;
+  font-size: 13.5px;
+  opacity: 0.65;
 }
 
 #escolha-times .linha-lado {
@@ -529,49 +1094,85 @@ input:focus {
 }
 
 #escolha-times .vagas {
-  display: grid;
   flex: 1;
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 5px;
+  gap: 6px;
+  min-width: 0;
+}
+
+#escolha-times .lado.meu .vagas {
+  grid-template-columns: minmax(0, 1.7fr) repeat(2, minmax(0, 1fr));
 }
 
 #escolha-times .vaga {
   display: grid;
   place-items: center;
+  height: 50px;
   min-width: 0;
-  height: 30px;
-  padding: 0 4px;
-  border: 1px dashed var(--cor-lado-fraca);
+  border: 1px dashed var(--chapa-clara);
   border-radius: 5px;
   background: transparent;
   color: var(--texto);
+  opacity: 0.55;
   font: 700 13px ui-monospace, monospace;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  opacity: 0.6;
   cursor: pointer;
 }
 
 #escolha-times .vaga:hover,
 #escolha-times .vaga:focus-visible {
-  border-style: solid;
   border-color: var(--cor-lado);
   opacity: 1;
+  outline: none;
 }
 
 #escolha-times .vaga.ia {
-  border: 1px solid var(--cor-lado);
-  background: var(--fundo-lado);
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--cor-lado) 70%, transparent);
+  background: color-mix(in srgb, var(--cor-lado) 12%, transparent);
   color: var(--cor-lado);
   opacity: 1;
 }
 
+/* A sua vaga: a miniatura da nave escolhida, o seu nome e "VOCÊ". */
 #escolha-times .vaga.voce {
-  border: 0;
-  background: var(--neon);
-  color: #032b22;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: 1fr 1fr;
+  place-items: center start;
+  column-gap: 6px;
+  padding: 2px 8px 2px 2px;
+  border: 1px solid var(--neon);
+  background: color-mix(in srgb, var(--neon) 14%, #0b1716);
+  box-shadow: 0 0 10px rgba(0, 239, 192, 0.25);
   opacity: 1;
   cursor: default;
+}
+
+#escolha-times .vaga.voce img {
+  grid-row: 1 / span 2;
+  height: 44px;
+  width: auto;
+  aspect-ratio: 192 / 112;
+}
+
+#escolha-times .vaga.voce b {
+  align-self: end;
+  max-width: 100%;
+  overflow: hidden;
+  font: 700 14px system-ui, sans-serif;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+#escolha-times .vaga.voce small {
+  align-self: start;
+  color: var(--neon);
+  font-size: 11.5px;
+  letter-spacing: 0.16em;
 }
 
 #escolha-times .passo-ia {
@@ -581,154 +1182,753 @@ input:focus {
 }
 
 #escolha-times .passo-ia button {
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--cor-lado-fraca);
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--chapa-clara);
   border-radius: 5px;
   background: #0b1716;
-  color: var(--cor-lado);
-  font: 700 18px/1 system-ui, sans-serif;
+  color: var(--texto);
+  font: 700 18px system-ui, sans-serif;
   cursor: pointer;
 }
 
 #escolha-times .passo-ia button:hover:not(:disabled),
 #escolha-times .passo-ia button:focus-visible {
   border-color: var(--cor-lado);
+  outline: none;
 }
 
 #escolha-times .passo-ia button:disabled {
-  opacity: 0.3;
+  opacity: 0.35;
   cursor: default;
 }
 
 #escolha-times .qtd {
   min-width: 18px;
-  color: var(--cor-lado);
   font: 700 18px ui-monospace, monospace;
   text-align: center;
 }
 
-#escolha-times .nota-times {
-  margin: 6px 0 0;
-  font-size: 13.5px;
-  line-height: 1.35;
+#escolha-times .versus {
+  display: grid;
+  justify-items: center;
+  margin: 0;
+  line-height: 1;
+}
+
+#escolha-times .versus b {
+  font: 800 26px ui-monospace, monospace;
+  color: var(--neon);
+}
+
+#escolha-times .versus b:last-child {
+  color: var(--inimigo);
+}
+
+#escolha-times .versus small {
+  margin: 2px 0;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
   opacity: 0.6;
 }
 
-#escolha-times .nota-times kbd {
-  color: var(--neon);
+.caixa-decolar {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
 }
 
-@media (pointer: coarse) {
-  #escolha-times .vaga,
-  #escolha-times .passo-ia button {
-    height: 44px;
-  }
-
-  #escolha-times .passo-ia button {
-    width: 44px;
-  }
+/* Decolar: o botão primário da tela, grande, em neon, com os cantos chanfrados. */
+.decolar {
+  min-width: 270px;
+  margin: 0;
+  padding: 18px 44px;
+  border: 0;
+  background: linear-gradient(180deg, #5effdc, var(--neon) 60%, #00c79f);
+  color: #032b22;
+  font: 800 24px system-ui, sans-serif;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  filter: drop-shadow(0 0 14px rgba(0, 239, 192, 0.45));
+  transition: filter 0.15s;
 }
 
-.comandos dt {
-  opacity: 1;
-  font-size: 14px;
+.decolar:hover:not(:disabled),
+.decolar:focus-visible {
+  outline: none;
+  filter: drop-shadow(0 0 22px rgba(0, 239, 192, 0.8)) brightness(1.06);
+}
+
+.decolar:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+#erro-entrada {
+  max-width: 440px;
+  margin: 0;
+  color: #ff8a70;
+  font-size: 15px;
+  text-align: right;
+}
+
+#erro-entrada:empty {
+  display: none;
+}
+
+/* ----- Naves (hangar) ----- */
+
+#tela-naves {
+  --cor: var(--neon);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'topo topo'
+    'visor ficha'
+    'linha linha';
+  gap: 14px 24px;
+  padding: 16px 28px 16px;
+  background: linear-gradient(180deg, rgba(5, 10, 10, 0.6), rgba(5, 10, 10, 0.82));
+}
+
+.naves-topo {
+  grid-area: topo;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 22px;
+}
+
+.filtro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filtro button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 5px;
+  background: rgba(11, 23, 22, 0.88);
+  color: var(--cor, var(--texto));
+  font: 700 14.5px system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.filtro-classes button {
+  --cor: var(--texto);
+}
+
+.filtro button:hover:not(:disabled),
+.filtro button:focus-visible {
+  border-color: color-mix(in srgb, var(--cor, var(--neon)) 70%, var(--chapa-clara));
+  outline: none;
+}
+
+.filtro button.sel {
+  border-color: var(--cor, var(--neon));
+  background: color-mix(in srgb, var(--cor, var(--neon)) 18%, #0b1716);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--cor, var(--neon)) 35%, transparent);
+}
+
+.filtro-classes button.sel {
+  --cor: var(--neon);
+}
+
+.filtro button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.filtro .selo-breve {
+  padding: 0 4px;
+  font-size: 10.5px;
+}
+
+.naves-visor {
+  grid-area: visor;
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgba(44, 74, 70, 0.7);
+  border-radius: 10px;
+  background:
+    radial-gradient(ellipse at 50% 66%, color-mix(in srgb, var(--cor) 24%, transparent), transparent 62%),
+    repeating-linear-gradient(0deg, rgba(0, 239, 192, 0.04) 0 1px, transparent 1px 48px),
+    repeating-linear-gradient(90deg, rgba(0, 239, 192, 0.04) 0 1px, transparent 1px 48px),
+    rgba(5, 10, 10, 0.5);
+  cursor: grab;
+  touch-action: none;
+}
+
+.naves-visor.arrastando {
+  cursor: grabbing;
+}
+
+.naves-visor .palco-nave {
+  position: absolute;
+  inset: 0;
+}
+
+.dica-arrastar {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  bottom: 10px;
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-align: center;
+  text-transform: uppercase;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.naves-ficha {
+  grid-area: ficha;
+}
+
+.naves-ficha .nome-nave-ficha {
+  font-size: 32px;
+}
+
+.naves-linha {
+  grid-area: linha;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.naves-linha li {
+  position: relative;
+  min-width: 0;
+}
+
+/* Seta entre uma nave e a próxima da linha. */
+.naves-linha li:not(:last-child)::after {
+  content: '›';
+  position: absolute;
+  top: 34%;
+  right: -11px;
+  font-size: 20px;
+  opacity: 0.5;
+}
+
+.naves-linha button {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  width: 100%;
+  padding: 6px 6px 8px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(24, 48, 46, 0.9), rgba(10, 22, 21, 0.95));
+  color: var(--texto);
+  font: inherit;
+  cursor: pointer;
+}
+
+#entrada .naves-linha img {
+  max-width: 150px;
+}
+
+.naves-linha strong {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 15px;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.comandos dt kbd {
+.naves-linha small {
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.naves-linha button:hover,
+.naves-linha button:focus-visible {
+  border-color: color-mix(in srgb, var(--cor) 60%, var(--chapa-clara));
+  outline: none;
+}
+
+.naves-linha button.sel {
+  border-color: var(--cor);
+  box-shadow:
+    0 0 0 1px var(--cor),
+    0 0 16px color-mix(in srgb, var(--cor) 40%, transparent);
+}
+
+/* ----- Configurações ----- */
+
+#tela-config {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  align-content: start;
+  gap: 32px;
+  overflow-y: auto;
+  padding: 24px 48px 16px;
+  background: linear-gradient(180deg, rgba(5, 10, 10, 0.66), rgba(5, 10, 10, 0.86));
+}
+
+.config-secoes {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+
+.config-secoes .titulo-tela {
+  margin-bottom: 14px;
+}
+
+.config-secoes button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 0;
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: var(--texto);
+  opacity: 0.75;
+  font: 700 16px system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  text-align: left;
+  cursor: pointer;
+}
+
+.config-secoes button:hover:not(:disabled),
+.config-secoes button:focus-visible {
+  opacity: 1;
+  outline: none;
+  background: rgba(0, 239, 192, 0.07);
+}
+
+.config-secoes button.sel {
+  border-left-color: var(--neon);
+  background: linear-gradient(90deg, rgba(0, 239, 192, 0.16), transparent);
+  color: var(--neon);
+  opacity: 1;
+}
+
+.config-secoes button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.config-secoes .selo-breve {
+  margin-left: auto;
+  padding: 0 4px;
+  font-size: 10.5px;
+}
+
+.config-painel {
+  align-self: start;
+  max-width: 1000px;
+  padding: 18px 26px 22px;
+  border: 1px solid var(--chapa-clara);
+  border-top: 2px solid var(--neon);
+  border-radius: 10px 10px 6px 6px;
+  background: linear-gradient(180deg, rgba(44, 74, 70, 0.5), rgba(12, 26, 25, 0.94) 30%);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+
+#config-som {
+  max-width: 560px;
+}
+
+.config-painel h2 {
+  margin: 0 0 10px;
+  font: 700 17px system-ui, sans-serif;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--neon);
+  text-shadow: 0 0 10px var(--neon);
+}
+
+.grupos-teclas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px 28px;
+}
+
+.grupo-teclas h3 {
+  margin: 0 0 4px;
+  font: 700 13.5px system-ui, sans-serif;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
   color: var(--neon);
 }
 
-.comandos dd {
+.grupo-teclas dl {
+  display: block;
   margin: 0;
-  text-align: left;
+}
+
+.grupo-teclas dl > div {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(44, 74, 70, 0.6);
+}
+
+.grupo-teclas dd {
+  margin: 0;
   font-family: inherit;
-  line-height: 1.3;
+  text-align: left;
+  font-size: 16px;
   opacity: 0.85;
 }
 
-/* Modo de teste e volume, embaixo dos comandos (o Decolar fica à vista sem rolar). */
-.opcoes-entrada {
-  display: grid;
-  justify-items: start;
-  gap: 6px;
-  margin-top: 10px;
-}
+/* ----- Telas baixas (1366×768, 1280×720) ----- */
 
-.opcoes-entrada .modo-teste {
-  margin: 0;
-}
-
-.opcoes-entrada .botao-som {
-  margin: 0;
-}
-
-/* Tela baixa (1366×768, 1280×720): a tela inicial aperta o alto para caber sem
-   rolar (título, margens, prévia da nave e Decolar menores). */
 @media (max-height: 860px) and (min-width: 761px) {
   #entrada {
-    padding: 8px 16px;
+    --alto-topo: 56px;
+    --alto-rodape: 32px;
   }
 
-  #form-entrada {
-    padding: 10px 28px 14px;
+  .modo {
+    padding: 15px 22px 15px 24px;
   }
 
-  h1 {
-    font-size: 36px;
+  .modo strong {
+    font-size: 27px;
   }
 
-  .sub {
-    margin-bottom: 6px;
+  .texto-modo {
+    font-size: 16px;
   }
 
-  .rotulo-racas {
-    margin: 10px 0 6px;
+  .carta-nave small {
+    display: none;
   }
 
-  #previa-nave .palco {
-    height: 128px;
+  .nome-escolha strong {
+    font-size: 28px;
+  }
+
+  #entrada .linha-evolucao img {
+    max-width: 72px;
+  }
+
+  .linha-evolucao {
+    margin: 4px 0 6px;
+  }
+
+  .ficha-nave {
+    gap: 4px;
+    padding: 12px 16px 14px;
+  }
+
+  .ficha-nave .rotulo-ficha {
+    margin-top: 6px;
+  }
+
+  .selecao-base {
+    padding: 8px 28px 10px;
+  }
+
+  #escolha-times .vaga {
+    height: 44px;
+  }
+
+  #escolha-times .vaga.voce img {
+    height: 38px;
   }
 
   .decolar {
-    margin-top: 12px;
-    padding: 10px;
+    padding: 14px 36px;
+    font-size: 22px;
+  }
+
+  #entrada .naves-linha img {
+    max-width: 110px;
+  }
+
+  #tela-naves {
+    gap: 10px 20px;
+    padding: 12px 28px;
   }
 }
 
-/* 1280×720: as linhas dos comandos e os times apertam mais um pouco. */
 @media (max-height: 760px) and (min-width: 761px) {
-  h1 {
-    font-size: 32px;
+  .coluna-modos .titulo-tela {
+    margin-bottom: 10px;
   }
 
-  .comandos dl > div {
-    padding: 1px 0;
+  .modo {
+    padding: 12px 20px 12px 22px;
+  }
+
+  .modo strong {
+    font-size: 25px;
+  }
+
+  .selecao-topo {
+    padding-bottom: 8px;
+  }
+
+  .selecao-grade {
+    gap: 6px;
+  }
+
+  .ficha-nave .descricao {
+    font-size: 15px;
+  }
+
+  .barras-nave {
+    gap: 5px;
+  }
+
+  #entrada .linha-evolucao img {
+    max-width: 60px;
+  }
+
+  #entrada .naves-linha img {
+    max-width: 90px;
+  }
+}
+
+/* Header em telas de até 1500 px: abas mais juntas e o som só com o ícone. */
+@media (max-width: 1500px) and (min-width: 761px) {
+  .menu-topo {
+    gap: 16px;
+    padding: 0 20px;
+  }
+
+  .marca-jogo {
+    font-size: 19px;
+    letter-spacing: 0.12em;
+  }
+
+  .abas-menu {
+    gap: 0;
+  }
+
+  .abas-menu button {
+    padding: 0 11px;
+    font-size: 15px;
+    letter-spacing: 0.1em;
+  }
+
+  .chip-piloto input {
+    width: 112px;
+  }
+
+  .menu-conta .estado-som {
+    display: none;
+  }
+
+  .menu-conta .botao-som {
+    padding: 0 10px;
+  }
+}
+
+/* Telas estreitas de computador: as colunas laterais da Seleção apertam. */
+@media (max-width: 1240px) and (min-width: 761px) {
+
+  #tela-selecao {
+    grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) minmax(270px, 320px);
+    column-gap: 18px;
+    padding: 12px 20px 0;
+  }
+
+  .selecao-base {
+    margin: 6px -20px 0;
+    padding-left: 20px;
+    padding-right: 20px;
+    gap: 18px;
+  }
+
+  .decolar {
+    min-width: 200px;
+    padding-left: 28px;
+    padding-right: 28px;
   }
 
   #escolha-times {
-    margin-bottom: 6px;
-  }
-
-  #escolha-times .lado {
-    padding: 5px 10px 7px;
-  }
-
-  .opcoes-entrada {
-    margin-top: 6px;
+    gap: 10px;
   }
 }
 
+/* ----- Celular ----- */
+
 @media (max-width: 760px) {
-  #form-entrada {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: 'topo' 'principal' 'comandos';
+  #entrada {
+    display: block;
+    overflow-y: auto;
+    touch-action: pan-y;
   }
 
-  .comandos {
-    padding-left: 0;
-    border-left: 0;
+  .menu-topo {
+    position: sticky;
+    top: 0;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 10px;
+    padding: 8px 16px 0;
+  }
+
+  .marca-jogo {
+    font-size: 18px;
+  }
+
+  .menu-conta .estado-som,
+  .menu-conta .chip-piloto svg {
+    display: none;
+  }
+
+  .chip-piloto input {
+    width: 96px;
+  }
+
+  .menu-conta {
+    grid-row: 1;
+    grid-column: 2;
+  }
+
+  .abas-menu {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    height: 48px;
+    overflow-x: auto;
+  }
+
+  .abas-menu button {
+    padding: 0 10px;
+    font-size: 14px;
+    letter-spacing: 0.08em;
+  }
+
+  .selecao-topo .titulo-tela {
+    display: none;
+  }
+
+  .menu-rodape {
+    display: none;
+  }
+
+  #fundo-nave {
+    position: absolute;
+    top: 104px;
+    left: 0;
+    right: 0;
+    bottom: auto;
+    height: 260px;
+  }
+
+  #tela-jogar {
+    display: block;
+  }
+
+  .coluna-modos {
+    padding: 250px 16px 24px;
+    background: linear-gradient(180deg, transparent 0, rgba(5, 10, 10, 0.9) 260px);
+  }
+
+  .modo {
+    min-height: 64px;
+    padding: 14px 12px 14px 16px;
+  }
+
+  .modo strong {
+    font-size: 24px;
+  }
+
+  .legenda-nave {
+    position: absolute;
+    top: 8px;
+    right: 0;
+    margin: 0 16px;
+  }
+
+  .legenda-nave strong {
+    font-size: 24px;
+  }
+
+  #tela-selecao,
+  #tela-naves,
+  #tela-config {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    height: auto;
+    padding: 12px 16px 16px;
+  }
+
+  .selecao-centro .palco-nave {
+    height: 220px;
+  }
+
+  .selecao-grade {
+    overflow: visible;
+  }
+
+  .carta-nave,
+  .naves-linha button,
+  .filtro button,
+  .config-secoes button {
+    min-height: 64px;
+  }
+
+  .selecao-base {
+    grid-template-columns: minmax(0, 1fr);
+    margin: 0 -16px;
+    padding: 12px 16px;
+  }
+
+  #escolha-times {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #escolha-times .versus {
+    display: none;
+  }
+
+  #escolha-times .vaga,
+  #escolha-times .passo-ia button {
+    height: 56px;
+    min-width: 48px;
+  }
+
+  .caixa-decolar {
+    justify-items: stretch;
+  }
+
+  .decolar {
+    width: 100%;
+  }
+
+  .naves-visor {
+    height: 280px;
+    flex: none;
+  }
+
+  .naves-linha {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .naves-linha li::after {
+    display: none;
+  }
+
+  .linha-evolucao {
+    gap: 4px;
   }
 }
 
@@ -1345,26 +2545,6 @@ kbd {
 #painel-teste button:hover {
   border-color: var(--ouro);
   color: var(--ouro);
-}
-
-.modo-teste {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: 8px;
-  align-items: center;
-  margin: 4px 0 10px;
-  font-size: 17px;
-  cursor: pointer;
-}
-
-.modo-teste small {
-  grid-column: 2;
-  opacity: 0.65;
-  font-size: 15px;
-}
-
-.modo-teste input {
-  accent-color: var(--ouro);
 }
 
 #aviso {
@@ -3125,7 +4305,7 @@ body.dano::after {
 }
 
 /* Um canal: nome à esquerda, porcentagem mono à direita, barra embaixo e a nota. */
-#volume .canal {
+:is(#volume, #config-som) .canal {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: baseline;
@@ -3134,25 +4314,25 @@ body.dano::after {
   border-top: 1px solid var(--chapa-clara);
 }
 
-#volume .canal .nome {
+:is(#volume, #config-som) .canal .nome {
   font: 600 16px system-ui, sans-serif;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
-#volume .canal .pct {
+:is(#volume, #config-som) .canal .pct {
   font: 700 20px ui-monospace, monospace;
   color: var(--neon);
 }
 
-#volume .canal small {
+:is(#volume, #config-som) .canal small {
   grid-column: 1 / -1;
   font-size: 14.5px;
   opacity: 0.65;
 }
 
 /* Barra: trilho escuro, parte cheia em neon até --pct e o pino neon com brilho. */
-#volume input[type='range'] {
+:is(#volume, #config-som) input[type='range'] {
   --pct: 50%;
   grid-column: 1 / -1;
   width: 100%;
@@ -3167,14 +4347,14 @@ body.dano::after {
   -webkit-appearance: none;
 }
 
-#volume input[type='range']::-webkit-slider-runnable-track {
+:is(#volume, #config-som) input[type='range']::-webkit-slider-runnable-track {
   height: 8px;
   border: 1px solid var(--neon-escuro);
   border-radius: 4px;
   background: linear-gradient(90deg, var(--neon) var(--pct), #0c1a19 var(--pct));
 }
 
-#volume input[type='range']::-webkit-slider-thumb {
+:is(#volume, #config-som) input[type='range']::-webkit-slider-thumb {
   width: 20px;
   height: 20px;
   margin-top: -7px;
@@ -3185,20 +4365,20 @@ body.dano::after {
   -webkit-appearance: none;
 }
 
-#volume input[type='range']::-moz-range-track {
+:is(#volume, #config-som) input[type='range']::-moz-range-track {
   height: 8px;
   border: 1px solid var(--neon-escuro);
   border-radius: 4px;
   background: #0c1a19;
 }
 
-#volume input[type='range']::-moz-range-progress {
+:is(#volume, #config-som) input[type='range']::-moz-range-progress {
   height: 8px;
   border-radius: 4px;
   background: var(--neon);
 }
 
-#volume input[type='range']::-moz-range-thumb {
+:is(#volume, #config-som) input[type='range']::-moz-range-thumb {
   width: 16px;
   height: 16px;
   border: 2px solid var(--chapa);
@@ -3207,20 +4387,20 @@ body.dano::after {
   box-shadow: 0 0 8px var(--neon);
 }
 
-#volume input[type='range']:focus-visible {
+:is(#volume, #config-som) input[type='range']:focus-visible {
   outline: none;
 }
 
-#volume input[type='range']:focus-visible::-webkit-slider-thumb {
+:is(#volume, #config-som) input[type='range']:focus-visible::-webkit-slider-thumb {
   outline: 2px solid var(--texto);
 }
 
 /* Com o jogo mudo, as barras apagam: o volume está guardado, mas não toca nada. */
-#volume:has(.alternar-mudo.mudo) .canal {
+:is(#volume, #config-som):has(.alternar-mudo.mudo) .canal {
   opacity: 0.45;
 }
 
-#volume .alternar-mudo {
+:is(#volume, #config-som) .alternar-mudo {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -3235,11 +4415,11 @@ body.dano::after {
   cursor: pointer;
 }
 
-#volume .alternar-mudo kbd {
+:is(#volume, #config-som) .alternar-mudo kbd {
   margin-left: auto;
 }
 
-#volume .alternar-mudo.mudo {
+:is(#volume, #config-som) .alternar-mudo.mudo {
   border-color: #ff8a70;
 }
 
@@ -3254,11 +4434,11 @@ body.dano::after {
 }
 
 @media (pointer: coarse) {
-  #volume input[type='range'] {
+  :is(#volume, #config-som) input[type='range'] {
     height: 44px;
   }
 
-  #volume .alternar-mudo,
+  :is(#volume, #config-som) .alternar-mudo,
   #volume .fechar {
     min-height: 44px;
   }
