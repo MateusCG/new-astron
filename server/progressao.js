@@ -8,11 +8,12 @@
 // server/torretas.js) e jogadores inimigos. Os valores por tipo ficam em RECOMPENSA
 // (o monstro entra pela espécie: chaveRecompensa).
 //
-// Curva: para passar do nível n para o n + 1 são xpParaNivel(n) pontos (60 no
-// primeiro, +20 a cada nível). Numa partida de 20 minutos, um jungler dedicado tira
-// uns 3000 a 3500 XP da jungle (PESQUISA-MONSTROS.md, "Ritmo"), perto do nível 15 a
-// 18 com os abates. NIVEL_MAX (25, como pediu o Mateus) fecha a conta; lá a barra
-// fica cheia.
+// Curva: para passar do nível n para o n + 1 são xpParaNivel(n) pontos (XP_NIVEL_1 =
+// 40 no primeiro, +XP_POR_NIVEL = 20 a cada nível; 4180 XP até o nível 20). Era 60 no
+// primeiro: o Mateus achou o começo difícil demais (03/nov/2026; na simulação 3
+// contra 3 dos computadores, a lane passava a partida inteira sem chegar ao 20), e o
+// primeiro degrau baixo tira 20 de cada nível, o que pesa mais nos primeiros.
+// NIVEL_MAX (25, como pediu o Mateus) fecha a conta; lá a barra fica cheia.
 //
 // Ouro passivo (como no Dota 2 e no League of Legends): com a partida em andamento,
 // cada jogador (gente e computador, vivo ou morto) ganha OURO_POR_SEGUNDO a cada
@@ -62,10 +63,12 @@
 // partida nova (novoCombate), que também zera os abates de jogador (abatesJog).
 //
 // XP do wing (pedido do Mateus, como o wing do AstroN original): o time é o wing.
-// Quando um piloto abate um monstro, cada aliado vivo a até WING_RAIO do lugar da
-// morte ganha WING_FRACAO_XP da XP do monstro (aliadosDoWing), sem tirar nada de
-// quem matou e sem dividir, pelo mesmo motivo da assistência. Só a XP: o ouro fica
-// com quem deu o golpe final. A Medusa fica de fora porque já paga o time inteiro.
+// Quando um piloto abate um monstro, um minerador, uma escolta ou uma torre sentinela
+// (WING_TIPOS: a lane também ganha junto, não só a jungle), cada aliado vivo a até
+// WING_RAIO do lugar da morte ganha WING_FRACAO_XP da XP dele (aliadosDoWing), sem
+// tirar nada de quem matou e sem dividir, pelo mesmo motivo da assistência. Só a XP:
+// o ouro fica com quem deu o golpe final (a torre já paga ouro ao time). A Medusa
+// fica de fora porque já paga o time inteiro; o abate de jogador tem a assistência.
 
 import { NAVE_SEM_CLASSE } from '../shared/sim.js';
 import { naveDe, CLASSE_PADRAO } from '../shared/naves.js';
@@ -117,9 +120,13 @@ export const ASSISTENCIA_FRACAO = 0.5; // do ouro e do XP do abate (pelo nível 
 export const SEQUENCIA_MIN = 2; // a partir daqui encerrar a sequência dá bônus
 export const ENCERRAR_OURO_POR_ABATE = 60; // ouro por abate da sequência da vítima
 export const ENCERRAR_OURO_MAX = 400; // teto do bônus
-// XP do wing no abate de monstro.
+// XP do wing: o que dá XP aos aliados perto quando morre (chaves de RECOMPENSA pelo tipo).
+export const WING_TIPOS = new Set(['monstro', 'minerador', 'escolta', 'torreta']);
 export const WING_RAIO = 550; // m do lugar da morte (o alcance da maior arma, o da visão da nave)
-export const WING_FRACAO_XP = 1; // da XP do monstro, para cada aliado perto
+export const WING_FRACAO_XP = 1; // da XP do que morreu, para cada aliado perto
+// Curva de nível (xpParaNivel).
+export const XP_NIVEL_1 = 40; // do nível 1 para o 2
+export const XP_POR_NIVEL = 20; // a mais a cada nível
 
 /**
  * Segundos até o jogador renascer: RENASCER_BASE_S + RENASCER_POR_NIVEL_S por
@@ -183,7 +190,7 @@ export function novaProgressao() {
 
 /** XP para passar do nível n para o n + 1 (0 no nível máximo). */
 export function xpParaNivel(n) {
-  return n >= NIVEL_MAX ? 0 : 60 + 20 * (n - 1);
+  return n >= NIVEL_MAX ? 0 : XP_NIVEL_1 + XP_POR_NIVEL * (n - 1);
 }
 
 /**
@@ -247,11 +254,10 @@ export function ganharXp(j, xp, eventos) {
 }
 
 /**
- * Os aliados de `matador` que ganham a XP do wing pelo monstro `alvo`: do mesmo
- * time, vivos, a até WING_RAIO do lugar da morte (`jogadores`: os do World).
+ * Os aliados de `matador` que ganham a XP do wing pelo que morreu em (x, z): do
+ * mesmo time, vivos, a até WING_RAIO do lugar da morte (`jogadores`: os do World).
  */
-export function aliadosDoWing(alvo, matador, jogadores) {
-  const { x, z } = alvo.ship;
+export function aliadosDoWing({ x, z }, matador, jogadores) {
   const perto = [];
   for (const j of jogadores) {
     if (j === matador || j.time !== matador.time || !j.vivo) continue;

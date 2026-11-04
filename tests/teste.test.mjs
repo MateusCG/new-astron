@@ -33,9 +33,9 @@ test('teste: ouro, XP, nível e nível máximo pelos pedidos do modo de teste', 
   assert.equal(w.pedidoTeste(j.id, { acao: 'ouro' }).ok, true);
   assert.equal(j.ouro, OURO_INICIAL + 1000);
   assert.equal(w.pedidoTeste(j.id, { acao: 'xp' }).ok, true);
-  assert.equal(j.nivel, 2, `100 XP passam do nível 1 (${xpParaNivel(1)})`);
+  assert.equal(j.nivel, 3, `100 XP passam do nível 1 e do 2 (${xpParaNivel(1)} + ${xpParaNivel(2)})`);
   assert.equal(w.pedidoTeste(j.id, { acao: 'nivel' }).ok, true);
-  assert.equal(j.nivel, 3);
+  assert.equal(j.nivel, 4);
   assert.ok(j.ship.maxHp > hp1, 'o HP do nível acompanha');
   assert.equal(w.pedidoTeste(j.id, { acao: 'nivelMax' }).ok, true);
   assert.equal(j.nivel, NIVEL_MAX);

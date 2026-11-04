@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World } from '../server/game.js';
-import { xpParaNivel, ganharXp, hpMaxDoNivel, RECOMPENSA, NIVEL_MAX, HP_POR_NIVEL, XP_OBJETIVO, OURO_POR_SEGUNDO, OURO_INICIAL, WING_FRACAO_XP } from '../server/progressao.js';
+import { xpParaNivel, XP_NIVEL_1, XP_POR_NIVEL, ganharXp, hpMaxDoNivel, RECOMPENSA, NIVEL_MAX, HP_POR_NIVEL, XP_OBJETIVO, OURO_POR_SEGUNDO, OURO_INICIAL, WING_FRACAO_XP, WING_RAIO } from '../server/progressao.js';
 import { ESPECIES } from '../server/especies.js';
 import { ZONA_SEGURA } from '../server/game.js';
 import { createShip } from '../shared/sim.js';
@@ -31,23 +31,26 @@ function abater(w, j, alvo, segundos = 40) {
 
 test('progressão: curva de XP sobe a cada nível e fecha no máximo', () => {
   assert.equal(NIVEL_MAX, 25, 'nível máximo do piloto (pedido do Mateus)');
-  assert.equal(xpParaNivel(1), 60);
-  assert.equal(xpParaNivel(24), 60 + 20 * 23);
+  assert.equal(xpParaNivel(1), 40, 'o começo barato (era 60: pedido do Mateus)');
+  assert.equal(XP_NIVEL_1, 40);
+  assert.equal(xpParaNivel(24), XP_NIVEL_1 + XP_POR_NIVEL * 23);
   for (let n = 1; n < NIVEL_MAX - 1; n++) assert.ok(xpParaNivel(n + 1) > xpParaNivel(n), `nível ${n}`);
   assert.equal(xpParaNivel(NIVEL_MAX), 0, 'no máximo não há próximo');
   // Marcos da Evolução alcançáveis numa partida de 10 minutos.
   let total = 0;
   for (let n = 1; n < 15; n++) total += xpParaNivel(n);
   assert.ok(total < 3000, `nível 15 com ${total} XP`);
+  for (let n = 15; n < 20; n++) total += xpParaNivel(n);
+  assert.equal(total, 4180, 'XP até o nível 20 (eram 4560)');
 });
 
 test('progressão: ganhar XP sobe de nível, avisa e dá +3% de HP máximo por nível', () => {
   const j = { id: 7, nivel: 1, xp: 0, ship: createShip('bellico', 0, 0, 0) };
   const ev = [];
   j.ship.hp = 200; // ferido: subir de nível não cura o resto
-  assert.equal(ganharXp(j, 50, ev), 0);
+  assert.equal(ganharXp(j, 30, ev), 0);
   assert.equal(j.nivel, 1);
-  assert.equal(ganharXp(j, xpParaNivel(1) - 50 + xpParaNivel(2) + 5, ev), 2, 'sobe dois de uma vez');
+  assert.equal(ganharXp(j, xpParaNivel(1) - 30 + xpParaNivel(2) + 5, ev), 2, 'sobe dois de uma vez');
   assert.equal(j.nivel, 3);
   assert.equal(j.xp, 5, 'sobra fica no nível novo');
   assert.deepEqual(ev, [{ e: 'nivel', id: 7, nivel: 2 }, { e: 'nivel', id: 7, nivel: 3 }]);
@@ -86,17 +89,18 @@ test('progressão: abates sobem o nível e a nave renasce com o HP do nível', (
   a.protegidoAte = b.protegidoAte = 0;
   abater(w, a, b, 30);
   assert.equal(b.vivo, false);
-  assert.equal(a.nivel, 2, `${RECOMPENSA.jogador.xp} XP do abate passam do nível 1`);
-  assert.equal(a.ship.maxHp, hpMaxDoNivel(naveDe('acron', 'assault', 0).hp, 2));
-  assert.ok(w.tirarEventos().some((e) => e.e === 'nivel' && e.id === a.id && e.nivel === 2));
-  // Morre e renasce: continua no nível 2, com o HP máximo dele.
+  assert.equal(xpParaNivel(1) + xpParaNivel(2), RECOMPENSA.jogador.xp, 'o abate de um nível 1 paga dois níveis');
+  assert.equal(a.nivel, 3, `${RECOMPENSA.jogador.xp} XP do abate passam do nível 1 e do 2`);
+  assert.equal(a.ship.maxHp, hpMaxDoNivel(naveDe('acron', 'assault', 0).hp, 3));
+  assert.ok(w.tirarEventos().some((e) => e.e === 'nivel' && e.id === a.id && e.nivel === 3));
+  // Morre e renasce: continua no nível 3, com o HP máximo dele.
   a.ship.hp = 0;
   a.vivo = false;
   a.respawnTick = w.tick + 1;
   w.step();
   w.step();
   assert.equal(a.vivo, true);
-  assert.equal(a.ship.maxHp, hpMaxDoNivel(naveDe('acron', 'assault', 0).hp, 2));
+  assert.equal(a.ship.maxHp, hpMaxDoNivel(naveDe('acron', 'assault', 0).hp, 3));
   assert.equal(a.ship.hp, a.ship.maxHp);
 });
 
@@ -299,4 +303,39 @@ test('monstros: golpe crítico vai a quem bateu com `por` e o ganho do golpe fin
   assert.ok(crits.length > 0, 'acertos críticos no monstro');
   assert.ok(crits.every((e) => e.por === j.id));
   assert.equal(ev.find((e) => e.e === 'ganho').crit, true);
+});
+
+test('XP do wing na lane: o aliado perto do minerador, da escolta e da torre sentinela que um companheiro derruba ganha a XP deles, sem o ouro', () => {
+  const w = new World({ preparacaoS: 0, jungle: false, rng: rngFixo(7), ouroPorSegundo: 0 });
+  const a = w.addPlayer('A', 'bellico');
+  const b = w.addPlayer('B', 'acron');
+  const perto = w.addPlayer('C', 'shrewdo');
+  assert.deepEqual([a.time, b.time, perto.time], [0, 1, 0]);
+  // Os mineradores e as escoltas do time 1 já saíram da base.
+  for (let i = 0; i < 20 * 30; i++) w.step();
+  const xpDe = (j) => Array.from({ length: j.nivel - 1 }, (_, i) => xpParaNivel(i + 1)).reduce((s, v) => s + v, j.xp);
+  const alvos = [
+    ['minerador', w.mineradores.lista.find((m) => m.vivo && m.time === 1)],
+    ['escolta', w.escoltas.lista.find((e) => e.vivo && e.time === 1)],
+    ['torreta', w.torretas.lista.find((t) => t.viva && t.time === 1)],
+  ];
+  for (const [tipo, alvo] of alvos) {
+    assert.ok(alvo, `há ${tipo} do time 1`);
+    const x = alvo.ship?.x ?? alvo.x;
+    const z = alvo.ship?.z ?? alvo.z;
+    perto.ship = createShip('shrewdo', x + WING_RAIO - 10, z, 0);
+    b.ship = createShip('acron', x - 30, z, 0); // colado, mas do outro time
+    const antes = { a: xpDe(a), perto: xpDe(perto), b: xpDe(b), ouro: perto.ouro };
+    w.tirarEventos();
+    if (tipo === 'torreta') w.torretas.area({ id: a.id }, x, alvo.y, z, 5, 1e9, 0);
+    else w.golpes.ctx.ferir(alvo, 1e9, a.id, null, {});
+    assert.equal(alvo.vivo ?? alvo.viva, false, `${tipo} caiu`);
+    const xp = RECOMPENSA[tipo].xp;
+    assert.equal(xpDe(a) - antes.a, xp, `${tipo}: quem derrubou leva a XP inteira`);
+    assert.equal(xpDe(perto) - antes.perto, Math.round(xp * WING_FRACAO_XP), `${tipo}: o aliado perto também`);
+    assert.equal(xpDe(b), antes.b, `${tipo}: o outro time não ganha`);
+    if (tipo !== 'torreta') assert.equal(perto.ouro, antes.ouro, `${tipo}: o ouro fica com quem derrubou`);
+    const ganho = w.tirarEventos().find((e) => e.e === 'ganho' && e.para === perto.id);
+    assert.deepEqual([ganho?.id, ganho?.ouro, ganho?.xp], [alvo.id, 0, Math.round(xp * WING_FRACAO_XP)], `${tipo}: o "+XP" sobe na tela dele`);
+  }
 });

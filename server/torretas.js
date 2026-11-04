@@ -35,7 +35,8 @@
 //   destruir as defesas é trabalho dos pilotos. Efeitos de arma (dreno, lentidão,
 //   EMP) não pegam em estrutura, e o míssil não a persegue (só curva atrás de nave).
 // - Destruída: sai da física nos dois lados (definirObstaculoAtivo, como a torre
-//   do buff de suporte), quem deu o último tiro ganha o XP de RECOMPENSA.torreta e o ouro
+//   do buff de suporte), quem deu o último tiro ganha o XP de RECOMPENSA.torreta (os aliados
+//   perto também, a XP do wing: World.xpDoWing) e o ouro
 //   do nível das torretas do time dono, e o resto do time dele um pouco menos cada
 //   (ouroTorreta em server/progressao.js: 200/100, 300/150, 400/200); evento 'torreta'. NÃO renasce
 //   sozinha: só se o time dono a reconstruir na Evolução (server/servicos.js), e aí
@@ -368,6 +369,7 @@ export class Torretas {
     definirObstaculoAtivo(t.id, false);
     const { ouro, ouroTime } = ouroTorreta(this.nivel[t.time]);
     recompensar(atirador, 'torreta', w.eventos, 1, { ouro });
+    w.xpDoWing({ id: t.id, x: t.x, y: t.y, z: t.z }, 'torreta', atirador); // XP do wing aos aliados perto
     for (const j of w.players.values()) {
       if (j !== atirador && j.time === atirador.time) j.ouro += ouroTime;
     }

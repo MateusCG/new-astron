@@ -21,6 +21,7 @@ import {
   ASSISTENCIA_JANELA_S,
   ENCERRAR_OURO_POR_ABATE,
   ENCERRAR_OURO_MAX,
+  xpParaNivel,
 } from '../server/progressao.js';
 import { createShip, IDX_ARMA } from '../shared/sim.js';
 import { CAMPO } from './lugares.mjs';
@@ -85,6 +86,9 @@ function golpear(w, a, alvo, mata = false) {
   return w.tirarEventos();
 }
 
+/** XP de toda a partida (os níveis passados + a do nível). */
+const xpTotal = (j) => Array.from({ length: j.nivel - 1 }, (_, i) => xpParaNivel(i + 1)).reduce((s, v) => s + v, j.xp);
+
 const morteDe = (ev, id) => ev.find((e) => e.e === 'morte' && e.id === id);
 
 test('renascimento: cresce com o nível e com a partida, com teto', () => {
@@ -138,13 +142,13 @@ test('assistência: paga quem do time do matador feriu na janela, e só ele', ()
   golpear(w, d, b); // D é aliado de B: o choque não o fere, não conta
   const ouroC = c.ouro;
   const ouroD = d.ouro;
-  const xpC = c.xp;
+  const xpC = xpTotal(c);
   const ev = golpear(w, a, b, true);
   const m = morteDe(ev, b.id);
   assert.deepEqual(m.assist, [c.id]);
   assert.equal(m.ouroAssist, r.ouro);
   assert.equal(c.ouro - ouroC, r.ouro, 'C ganhou a assistência');
-  assert.equal(c.xp - xpC, r.xp);
+  assert.equal(xpTotal(c) - xpC, r.xp);
   assert.equal(d.ouro, ouroD, 'aliado da vítima não ganha');
   assert.equal(m.ouro, RECOMPENSA.jogador.ouro, 'o matador leva o abate cheio');
   assert.equal(a.abates, 1);
