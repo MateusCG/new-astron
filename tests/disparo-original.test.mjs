@@ -25,6 +25,7 @@ import {
   pontoDoImpacto,
   acabouAntes,
   escalaDaArea,
+  escalaDoProjetil,
   atravessa,
   explodeNoFim,
   ESTADOS_NA_NAVE,
@@ -320,6 +321,10 @@ test('disparo original: as seis armas de início e as revistas, com o modo de cl
   assert.equal(golpeDaArma('o312018', 1, 1), null, 'sem subprojétil');
   // As armas dos monstros seguem na média (o original não dá a velocidade inicial delas).
   for (const k of Object.keys(WEAPONS)) if (WEAPONS[k].npc) assert.equal(golpeDaArma(k, 1, 0)?.curva, undefined, k);
+  // O Raio Rastreador sai na metade do tamanho do original (pedido do Mateus); o resto, igual.
+  assert.equal(escalaDoProjetil('o312030'), 0.5);
+  assert.equal(escalaDoProjetil('o312030', 1), 1, 'só o disparo');
+  for (const k of Object.keys(DISPARO_ORIGINAL)) if (k !== 'o312030') assert.equal(escalaDoProjetil(k), 1, k);
   // O Teleporte toca o CUnitTeleportEffect (1163010) na saída e na chegada.
   assert.equal(DISPARO_ORIGINAL.o112021.teleporte, '1163010');
   // Coluna 53 do subprojétil 113001 vazia (modo 0): o clarão dos clones parado onde nascem.

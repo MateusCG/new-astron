@@ -15,6 +15,7 @@
 //   linha do tiro de verdade (o desvio de efeitos.js). O que acelera ou freia (a carga
 //   do Canhão de Faíscas, os mísseis, as lâminas) anda a curva do original no próprio
 //   tiro (shared/sim.js, stepBullet), junto com o do servidor, apontado pelo rumo dela.
+//   O Raio Rastreador sai na metade do tamanho (escalaDoProjetil).
 // - Impacto (impacto, impactoLocal): no casco do alvo, virado como o alvo; o seu tiro
 //   desenha na hora em que encosta no alvo na tela, e o acerto do servidor que chega
 //   depois não desenha de novo. O feixe que atravessa deixa um em cada alvo e segue.
@@ -64,6 +65,7 @@ import {
   pontoDoImpacto,
   acabouAntes,
   escalaDaArea,
+  escalaDoProjetil,
   explodeNoFim,
   quantumDoEscudo,
   direcaoDoQuantum,
@@ -221,7 +223,7 @@ export class DisparoOriginal {
     const id = this.#id(b.kind, b.nv, 'p', p);
     if (!id) return false;
     const como = disparoOriginal(b.kind);
-    const inst = criarEfeitoOriginal(id, { escala: ESCALA_DISPARO, loop: true });
+    const inst = criarEfeitoOriginal(id, { escala: ESCALA_DISPARO * escalaDoProjetil(b.kind, p), loop: true });
     inst.obj.position.set(b.x, b.y, b.z);
     // O rumo: o da curva do original (a carga que sai parada já aponta para a frente) ou a velocidade.
     if (b.dx !== undefined) inst.obj.lookAt(b.x + b.dx, b.y, b.z + b.dz);

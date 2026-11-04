@@ -136,7 +136,9 @@ import { forward } from '../../shared/sim.js';
  * parado na matriz do tiro, onde ele nasce) ou null (coluna 51 '0': sem clarão);
  * `fim` 'area' (modo 7: o fim deitado e esticado até a área); `claraoSub` 'parado'
  * (modo 0) no clarão dos subprojéteis; `teleporte`: o efeito do CUnitTeleportEffect,
- * onde a nave some (na matriz dela) e onde aparece (de pé). A curva do projétil que
+ * onde a nave some (na matriz dela) e onde aparece (de pé); `escalaProjetil`: o
+ * projétil desenhado menor que o do original (pedido do Mateus: o Raio Rastreador na
+ * metade, que no tamanho do original ficava grande demais). A curva do projétil que
  * acelera ou freia (colunas 64 a 66) vem do catálogo (`curva` do golpe).
  */
 export const DISPARO_ORIGINAL = Object.freeze({
@@ -273,7 +275,7 @@ export const DISPARO_ORIGINAL = Object.freeze({
   o312016: Object.freeze({ clarao: null }), // Acelerador (Acceleration Device)
   o312037: Object.freeze({ clarao: 'preso' }), // Míssil Carga Elétrica (ChargeBolt Missile)
   o312040: Object.freeze({ clarao: null }), // Campo de Plasma (Plasma Field)
-  o312030: Object.freeze({ clarao: 'preso', fim: 'area' }), // Raio Rastreador (Tracking Bolt)
+  o312030: Object.freeze({ clarao: 'preso', fim: 'area', escalaProjetil: 0.5 }), // Raio Rastreador (Tracking Bolt)
   o312035: Object.freeze({ clarao: 'preso' }), // Rifle Shrewdo (ShrewdoBlow Rifle)
   o312036: Object.freeze({ clarao: 'preso' }), // Míssil Giratório T2
   // Shrewdo Functional.
@@ -404,11 +406,18 @@ export const FOLGA_FIM_S = 0.1;
 /** Campos do golpe (`vis` do catálogo) que o disparo usa: clarão, projétil, impacto, fim, armadilha e rastro do míssil. */
 export const CAMPOS_DISPARO = Object.freeze(['d', 'p', 'i', 'f', 'a', 'r']);
 
-/** Como o original desenha a arma `kind` ({ clarao, fim?, claraoSub? }), ou null se ela não é desenhada como lá. */
+/** Como o original desenha a arma `kind` ({ clarao, fim?, claraoSub?, escalaProjetil? }), ou null se ela não é desenhada como lá. */
 export function disparoOriginal(kind) {
   return DISPARO_ORIGINAL[kind] ?? null;
 }
 
+/**
+ * Quanto o projétil do golpe `prof` da arma `kind` é desenhado sobre o tamanho do
+ * original (1: igual; o Raio Rastreador, 0,5). Só o disparo; os subprojéteis, 1.
+ */
+export function escalaDoProjetil(kind, prof = 0) {
+  return (!prof && DISPARO_ORIGINAL[kind]?.escalaProjetil) || 1;
+}
 
 /**
  * O efeito que a armadilha `g` mostra parada (CUnitBeam::ProcessNonActiveTrap): a que
