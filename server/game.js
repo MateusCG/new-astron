@@ -75,7 +75,8 @@
 // shared/equipamentos.js): o dano que sai de um jogador é × (1 + poder) do tipo de
 // dano da arma (multDanoDe, o ponto único dos multiplicadores do atacante: tiro,
 // área, nova, mina, campo, dreno, torre e torretas); em #ferir, o golpe direto pode
-// sair crítico (chance `critico` do atacante, × CRITICO_MULT, sorteio só aqui com o
+// sair crítico (chance = o crítico da arma × (1 + `critico` do atacante), como no
+// original, chanceCritico em shared/armas.js; × CRITICO_MULT, sorteio só aqui com o
 // rng do World), a resistência do alvo jogador àquele tipo, menos a penetração do
 // atacante, tira a sua parte, os estados das armas agem (server/golpes.js:
 // modificarDano, com o escudo de arma), a defesa dos mineradores do time conta, e o
@@ -170,6 +171,7 @@ import { RECALL_S, motivoRecall } from '../shared/recall.js';
 import { Bots, nomeDeBot } from './bots.js';
 import { Visao } from './visao.js';
 import { ORDEM_TIPOS_DANO, RESIST_MAX } from '../shared/equipamentos.js';
+import { chanceCritico } from '../shared/armas.js';
 
 export const TICK_HZ = 30;
 const SNAP_CADA = 2; // ticks entre snapshots (15 Hz)
@@ -227,6 +229,8 @@ export class World {
    * (OURO_POR_SEGUNDO; 0 nos testes que contam o ouro de um abate exato).
    * preparacaoS troca a contagem antes dos 20 minutos (PREPARACAO_S de
    * server/partida.js; 0 começa a partida na hora, como fazem os testes).
+   * critico = false: golpe nenhum sai crítico (os testes que medem o dano exato; o
+   * crítico das armas é sorteado em todo golpe).
    */
   constructor({
     rng = Math.random,
@@ -240,8 +244,10 @@ export class World {
     teste = false,
     objetivos,
     ouroPorSegundo = OURO_POR_SEGUNDO,
+    critico = true,
   } = {}) {
     this.teste = teste;
+    this.critico = critico;
     this.ouroPorSegundo = ouroPorSegundo;
     this.rng = rng;
     this.torretasAtiram = torretas;
@@ -680,9 +686,11 @@ export class World {
       return;
     }
     const tipo = opcoes.tipoDano;
-    // Golpe crítico do atacante (só golpe direto de arma; o sorteio é só do servidor).
+    // Golpe crítico do atacante (só golpe direto de arma de jogador; o sorteio é só do
+    // servidor): o crítico da arma × (1 + o dos potenciadores), como no original.
     let crit = false;
-    if (quem?.status?.critico > 0 && tipo && opcoes.direto !== false && dano > 0 && this.rng() < quem.status.critico) {
+    const chance = this.critico && quem && tipo && opcoes.direto !== false && dano > 0 ? chanceCritico(ev?.kind, ev?.nv, quem.status?.critico) : 0;
+    if (chance > 0 && this.rng() < chance) {
       dano *= CRITICO_MULT;
       crit = true;
     }

@@ -29,7 +29,7 @@ const perto = (a, b, msg) => assert.ok(Math.abs(a - b) < 1e-6, `${msg ?? ''} ${a
 const valor = (chave, tipo) => versaoEquip(chave, 1).efeitos.find((e) => e.tipo === tipo).valor;
 
 function mundo() {
-  const w = new World({ preparacaoS: 0, jungle: false, torretas: false });
+  const w = new World({ preparacaoS: 0, jungle: false, critico: false, torretas: false });
   w.mineradores.passo = () => {};
   return w;
 }
@@ -232,17 +232,34 @@ test('status: a Tenda de Luz comprada e disparada dobra a Op. do equipamento no 
 
 test('status: golpe crítico dobra o dano (o sorteio é do servidor)', () => {
   const sempre = tiro((w, a) => {
-    equipar(w, a, [FATAL]);
+    w.critico = true;
     w.rng = () => 0; // tudo abaixo da chance
   });
   perto(sempre.perdeu, DANO * CRITICO_MULT);
   assert.ok(sempre.acertos.length > 0 && sempre.acertos.every((e) => e.crit === true), 'o evento avisa');
   const nunca = tiro((w, a) => {
-    equipar(w, a, [FATAL]);
+    w.critico = true;
     w.rng = () => 0.999;
   });
   perto(nunca.perdeu, DANO);
   assert.ok(nunca.acertos.every((e) => e.crit === undefined));
+});
+
+test('status: a chance de crítico é a da arma × (1 + a do Golpe Fatal), como no original', () => {
+  // Feixe Rifle Triplo V1: 10% (coluna 81). Com o Golpe Fatal V1 (+15%): 11,5% → 11%.
+  assert.equal(versaoArma(FEIXE, 1).critico, 0.1);
+  const sorteio = 0.105; // entre 10% e 11%
+  const sem = tiro((w) => {
+    w.critico = true;
+    w.rng = () => sorteio;
+  });
+  perto(sem.perdeu, DANO, 'só a arma: 0,105 não passa de 10%');
+  const com = tiro((w, a) => {
+    w.critico = true;
+    equipar(w, a, [FATAL]);
+    w.rng = () => sorteio;
+  });
+  perto(com.perdeu, DANO * CRITICO_MULT, 'com o Golpe Fatal: 0,105 fica abaixo de 11%');
 });
 
 test('escudo: segura o dano antes do HP, recupera sempre (mesmo logo depois do dano) e enche ao renascer', () => {

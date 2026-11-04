@@ -59,7 +59,7 @@ function enxugar(origem, origemNpc) {
     }
     return out;
   };
-  const CAMPOS_NUMEROS = ['danoTiro', 'projeteis', 'vaoCanos', 'lequeGraus', 'anguloInicialGraus', 'velMax', 'acel', 'vidaMs',
+  const CAMPOS_NUMEROS = ['danoTiro', 'criticoPct', 'projeteis', 'vaoCanos', 'lequeGraus', 'anguloInicialGraus', 'velMax', 'acel', 'vidaMs',
     'alcanceM', 'raioColisao', 'nova', 'teleguiado', 'divide', 'subprojetilNoChao', 'atravessa', 'acertaInimigo', 'acertaAliado',
     'explodeNoFimDaVida', 'mira', 'areaDano', 'intervaloDanoMs', 'rajada', 'intervaloRajadaMs', 'varredura', 'armadilha'];
   const numeros = (n) => Object.fromEntries(CAMPOS_NUMEROS.filter((k) => n[k] !== undefined).map((k) => [k, n[k]]));
@@ -259,6 +259,9 @@ function gerar() {
         energia: v.energia,
         hpPorS: v.gastoHpPorS,
         segurar: v.segurarTecla,
+        // Chance de crítico da arma em % (coluna 81 do original): CMyPilot::CalCriticalAttack
+        // sorteia rand() % 100 < criticoPct × (1 + o % de crítico do piloto).
+        critico: v.numeros.criticoPct,
         som: som(v.som),
         golpe: g,
       });

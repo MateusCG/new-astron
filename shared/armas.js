@@ -551,6 +551,7 @@ function converterArma(a, fatorRecarga = FATOR_RECARGA_ARMA) {
       energia: (v.energia ?? 0) * FATOR_ENERGIA_ARMA, // por disparo; por segundo nas de segurar
       segurar,
       hpPorS: (v.hpPorS ?? 0) * FATOR_DANO,
+      critico: (v.critico ?? 0) / 100, // chance de crítico da arma (coluna 81 do original)
       golpe,
       som: v.som ?? a.som,
       zeraEnergia: golpe.efeitos.some((e) => e.tipo === 'zeraPropria'),
@@ -722,6 +723,18 @@ export function versaoArma(arma, nivel = 1) {
 }
 
 /**
+ * Chance (0 a 1) de o golpe da arma `arma` na versão `nivel` sair crítico, como no
+ * original (CMyPilot::CalCriticalAttack): o crítico da arma × (1 + `criticoPiloto`,
+ * o dos potenciadores), truncado no ponto percentual (rand() % 100 < (int)(...)).
+ * Arma sem crítico (as de NPC, os dispositivos) dá 0.
+ */
+export function chanceCritico(arma, nivel = 1, criticoPiloto = 0) {
+  const base = versaoArma(arma, nivel)?.critico ?? 0;
+  if (!(base > 0)) return 0;
+  return Math.min(1, Math.floor(base * 100 * (1 + Math.max(0, criticoPiloto || 0)) + 1e-9) / 100);
+}
+
+/**
  * O golpe de profundidade `prof` da versão (0 = o disparo; 1 = o subprojétil ou o
  * que a mina dispara; e assim por diante). Cada golpe tem no máximo um filho.
  */
@@ -776,6 +789,30 @@ export function resumoVersao(v) {
     area: Math.round(g.area || x?.area || 0),
     efeitos,
   };
+}
+
+/**
+ * Alcance máximo da versão em metros do jogo, o "Shooting range" do cartão do original
+ * (CWindowItemInfo::redrawItemInfoWeapon: o quanto o projétil voa na vida dele, com a
+ * aceleração): no projétil, a velocidade × a vida (g.alcance), somando o dos projéteis
+ * que nascem dele (o clone, o que se divide) e o raio em que atira a armadilha em que
+ * ele vira, que o original não conta; na armadilha
+ * que atira, o raio em que ela atira; no Teleporte, o salto. 0 quando não se aplica
+ * (nova, mina, campo e dispositivo, que agem em volta da nave).
+ */
+export function alcanceMaximo(v) {
+  const g = v?.golpe;
+  if (!g) return 0;
+  if (g.forma === 'projetil') {
+    let total = 0;
+    let x = g;
+    for (; x?.forma === 'projetil'; x = x.divide) total += x.alcance ?? 0;
+    if (x?.forma === 'mina' && x.dispara) total += x.atira ?? 0; // a carga que vira armadilha e atira
+    return Math.round(total);
+  }
+  if (g.forma === 'mina' && g.dispara) return Math.round(g.atira ?? 0);
+  const teleporte = g.efeitos?.find((e) => e.tipo === 'teleporte');
+  return teleporte ? Math.round(teleporte.dist) : 0;
 }
 
 /** Efeitos visuais de um golpe: { d, p, r, i, f, a } -> { texturas, cor } (ou null). */

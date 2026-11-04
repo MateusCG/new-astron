@@ -290,7 +290,7 @@ export class PainelStatus {
     // O que mais o equipamento dá (só o que não é zero).
     const st = s.status;
     const extras = [
-      st.critico > 0 ? `Crítico ${pct(st.critico)}` : '',
+      st.critico > 0 ? `Crítico das armas +${pct(st.critico)}` : '',
       st.velMult && st.velMult !== 1 ? `Velocidade ${st.velMult > 1 ? '+' : ''}${pct(st.velMult - 1)}` : '',
       st.acelMult && st.acelMult !== 1 ? `Aceleração ${st.acelMult > 1 ? '+' : ''}${pct(st.acelMult - 1)}` : '',
       st.regenEscudo > 0 ? `Escudo +${num(st.regenEscudo, 1)}/s` : '',
@@ -349,7 +349,7 @@ export class PainelStatus {
       Math.abs((s.res?.[a] ?? 0) - (st.resist?.[a] ?? 0)) >= 5e-4 ? `Resistência do equipamento: ${pct(st.resist?.[a] ?? 0)}` : '',
       `Recarga das armas de dano ${sig}: ${pct(st.recarga?.[a] ?? 0)} mais rápida`,
       st.penetra?.[a] > 0 ? `Penetração ${sig}: ignora ${pct(st.penetra[a])}` : '',
-      st.critico > 0 ? `Golpe crítico: ${pct(st.critico)}` : '',
+      st.critico > 0 ? `Chance de crítico das armas +${pct(st.critico)}` : '',
     ].filter(Boolean);
     return `<strong class="${classeTipo(a)}">Poder ${sig} · ${n} ponto${n === 1 ? '' : 's'}</strong>
       ${linhas.map((l) => `<p>${l}</p>`).join('')}

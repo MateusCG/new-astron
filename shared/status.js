@@ -43,7 +43,8 @@
 // - poderPontos: a parte do poder que vem só dos pontos do piloto (sem os potenciadores):
 //   no original é o "skill" (GetSkillAddElectric) que escala os dispositivos elétricos e
 //   a chance dos debuffs elétricos (shared/armas.js, fatorDispositivo);
-// - critico: chance (0 a 1) de o golpe sair com dano dobrado (sorteio só no servidor);
+// - critico: o % a mais sobre a chance de crítico da arma (0,15 = a chance da arma × 1,15,
+//   como no original: chanceCritico em shared/armas.js; dano dobrado, sorteio só no servidor);
 // - velMult e acelMult: multiplicadores (1 = sem mudança).
 // O que está na nave chega como uma LISTA de itens, [[chave, nível], ...] (no
 // servidor, equipadosDoInv de shared/loja.js tira do inventário por instância): cada

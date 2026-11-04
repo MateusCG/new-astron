@@ -42,6 +42,8 @@ import {
   FATOR_AREA,
   FATOR_OURO,
   CATEGORIAS,
+  chanceCritico,
+  alcanceMaximo,
 } from '../shared/armas.js';
 import { NAVES, RACAS_JOGAVEIS, ORDEM_CLASSES, naveDe } from '../shared/naves.js';
 import { pontoLivre } from '../shared/obstaculos.js';
@@ -434,4 +436,28 @@ test('npc: drone e monstro atiram os tiros de NPC (fora do catálogo do jogador)
   assert.equal(WEAPONS.plasma.dano, 210);
   for (const race of RACAS_JOGAVEIS) for (const c of ORDEM_CLASSES) assert.ok(!armasDisponiveis(race, c).includes(IDX_ARMA.laser));
   assert.ok(NAVES.acron);
+});
+
+test('cartão: o crítico da arma (coluna 81 do original) e o alcance máximo', () => {
+  // Toda arma de loja traz o crítico do original em todas as versões (0 a 50%).
+  for (const a of ARMAS_ORIGINAL) {
+    for (const v of a.versoes) assert.ok(Number.isFinite(v.critico ?? 0) && (v.critico ?? 0) <= 50, a.nome);
+  }
+  // Feixe Rifle Triplo: 10%; com +15% de potenciador, 11,5% truncado em 11%, como o (int) do original.
+  assert.equal(versaoArma('o111001', 1).critico, 0.1);
+  assert.equal(chanceCritico('o111001', 1, 0), 0.1);
+  assert.equal(chanceCritico('o111001', 1, 0.15), 0.11);
+  assert.equal(chanceCritico('o111001', 1, 50), 1, 'no máximo 100%');
+  assert.equal(chanceCritico('o312006', 1, 0.5), 0, 'dispositivo não crita');
+  assert.equal(chanceCritico('laser', 1, 0.5), 0, 'tiro de NPC não crita');
+  // Alcance: o projétil voa velocidade × vida (o original 780 m × FATOR_VEL); o Teleporte, o salto; dispositivo, nada.
+  const feixe = versaoArma('o111001', 1);
+  assert.equal(alcanceMaximo(feixe), Math.round(feixe.golpe.vel * feixe.golpe.vida));
+  assert.equal(alcanceMaximo(feixe), 780 * FATOR_VEL);
+  assert.equal(alcanceMaximo(versaoArma('o112021', 1)), Math.round(golpeDaArma('o112021', 1).efeitos[0].dist));
+  // O que se divide em projéteis soma o voo dos filhos (Feixe Clone em Fila).
+  const clone = golpeDaArma('o211007', 1);
+  assert.equal(clone.divide.forma, 'projetil');
+  assert.equal(alcanceMaximo(versaoArma('o211007', 1)), Math.round(clone.alcance + clone.divide.alcance));
+  assert.equal(alcanceMaximo(versaoArma('o312006', 1)), 0);
 });

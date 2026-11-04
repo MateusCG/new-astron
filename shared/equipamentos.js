@@ -268,7 +268,7 @@ export function textoEfeitoEquip(ef) {
     case 'penetra':
       return `Penetração${t}: ignora ${p(ef.valor)} da resistência`;
     case 'critico':
-      return `Golpe crítico: ${p(ef.valor)} de chance de dano dobrado`;
+      return `Chance de crítico da arma +${p(ef.valor)} (dano dobrado)`;
     case 'velocidade':
       return `Velocidade +${p(ef.valor)}`;
     case 'aceleracao':
