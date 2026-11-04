@@ -1300,6 +1300,274 @@ input:focus {
   display: none;
 }
 
+/* ----- Fila online (Jogar New Astron e Partida Pública com Bots) ----- */
+
+/* "Aguardando…": o Decolar apagado em chapa, com o fio de luz correndo embaixo
+   (procurando ou esperando os outros apertarem Pronto). */
+.decolar.aguardando {
+  position: relative;
+  background: linear-gradient(180deg, #16302c, #0e211e);
+  color: var(--neon);
+  opacity: 1;
+  cursor: default;
+  filter: drop-shadow(0 0 10px rgba(0, 239, 192, 0.25));
+}
+
+.decolar.aguardando::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--neon), transparent);
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: fila-varre 1.6s linear infinite;
+}
+
+/* "Pronto": o botão aceso pulsando até o piloto apertar. */
+.decolar.pronto-acao {
+  animation: fila-pronto 1.2s ease-in-out infinite;
+}
+
+@keyframes fila-varre {
+  from {
+    background-position: -40% 0;
+  }
+  to {
+    background-position: 140% 0;
+  }
+}
+
+@keyframes fila-pronto {
+  50% {
+    filter: drop-shadow(0 0 26px rgba(0, 239, 192, 0.95)) brightness(1.08);
+  }
+}
+
+/* A linha em cima do botão: o que a fila está fazendo, o tempo (espera ou contador da
+   sala, em mono) e a barra do contador esvaziando. */
+.estado-fila {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: end;
+  align-items: baseline;
+  column-gap: 12px;
+  row-gap: 5px;
+  min-width: 270px;
+  margin: 0;
+  font: 600 12px/1.35 ui-monospace, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.estado-fila .texto {
+  opacity: 0.8;
+  text-align: right;
+}
+
+.estado-fila .contador {
+  color: var(--neon);
+  font: 800 22px ui-monospace, monospace;
+  letter-spacing: 0.04em;
+}
+
+.estado-fila .barra-fila {
+  display: none;
+  grid-column: 1 / -1;
+  height: 4px;
+  background: rgba(0, 239, 192, 0.14);
+}
+
+.estado-fila.com-barra .barra-fila {
+  display: block;
+}
+
+.estado-fila .barra-fila b {
+  display: block;
+  height: 100%;
+  margin-left: auto;
+  background: var(--neon);
+  box-shadow: 0 0 8px rgba(0, 239, 192, 0.7);
+  transition: width 0.25s linear;
+}
+
+.estado-fila.urgente .contador {
+  color: var(--inimigo);
+  text-shadow: 0 0 12px rgba(255, 74, 42, 0.6);
+}
+
+.estado-fila.urgente .barra-fila b {
+  background: var(--inimigo);
+  box-shadow: 0 0 8px rgba(255, 74, 42, 0.7);
+}
+
+.aviso-fila {
+  max-width: 440px;
+  margin: 0;
+  color: var(--ouro);
+  font-size: 14.5px;
+  text-align: right;
+}
+
+.aviso-fila:empty {
+  display: none;
+}
+
+/* Nave travada depois do Pronto: a grade não escolhe mais. */
+#tela-selecao.travada .selecao-grade {
+  pointer-events: none;
+}
+
+#tela-selecao.travada .carta-nave:not(.sel) {
+  opacity: 0.35;
+}
+
+/* As faixas dos times como a sala da fila: sem o −/+ dos computadores. */
+#escolha-times.na-fila .passo-ia {
+  display: none;
+}
+
+#escolha-times.na-fila .vaga {
+  cursor: default;
+}
+
+#escolha-times.na-fila .lado.meu .vagas {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Na sala as três vagas dividem a faixa: a miniatura menor, o nome e o estado cortam
+   com reticências em vez de passar por cima da vaga do lado. */
+#escolha-times.na-fila .vaga {
+  overflow: hidden;
+}
+
+/* A miniatura da nave fica no fundo, à direita, apagada: o nome e o estado usam a
+   largura toda da vaga. */
+#escolha-times.na-fila .vaga {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr) !important;
+  padding-left: 9px !important;
+}
+
+#escolha-times.na-fila .vaga img {
+  position: absolute;
+  right: 2px;
+  bottom: 1px;
+  height: 34px !important;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+#escolha-times.na-fila .vaga b,
+#escolha-times.na-fila .vaga small {
+  position: relative;
+}
+
+#escolha-times.na-fila .vaga small {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
+
+/* As vagas da sala não são botões: sem o realce de passar o mouse. */
+#escolha-times.na-fila .vaga.procurando:hover,
+#escolha-times.na-fila .vaga.livre:hover {
+  border-color: var(--chapa-clara);
+  opacity: 0.55;
+}
+
+#escolha-times.na-fila .vaga.ia:hover {
+  border-color: color-mix(in srgb, var(--cor-lado) 70%, transparent);
+}
+
+/* Com a fila a caixa do botão não cresce: a frase quebra em duas linhas e os times
+   ficam com a largura. */
+.caixa-decolar:has(.estado-fila:not([hidden])) {
+  max-width: 340px;
+}
+
+/* Companheiro e inimigo na sala: o nome e "ESCOLHENDO"/"PRONTO"; o companheiro com a
+   miniatura da nave que escolheu. */
+#escolha-times .vaga.piloto,
+#escolha-times .vaga.oculto {
+  position: relative;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: 1fr 1fr;
+  place-items: center start;
+  column-gap: 6px;
+  padding: 2px 8px 2px 2px;
+  border: 1px solid color-mix(in srgb, var(--cor-lado) 55%, transparent);
+  background: color-mix(in srgb, var(--cor-lado) 8%, #0b1716);
+  opacity: 1;
+}
+
+#escolha-times .vaga.oculto {
+  grid-template-columns: minmax(0, 1fr);
+  padding-left: 10px;
+}
+
+#escolha-times .vaga.piloto img {
+  grid-row: 1 / span 2;
+  height: 44px;
+  width: auto;
+  aspect-ratio: 192 / 112;
+}
+
+#escolha-times .vaga.piloto b,
+#escolha-times .vaga.oculto b {
+  align-self: end;
+  max-width: 100%;
+  overflow: hidden;
+  font: 700 14px system-ui, sans-serif;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+#escolha-times .vaga.piloto small,
+#escolha-times .vaga.oculto small {
+  align-self: start;
+  font-size: 11.5px;
+  letter-spacing: 0.16em;
+  opacity: 0.7;
+}
+
+#escolha-times .vaga.pronto {
+  border-color: var(--cor-lado);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--cor-lado) 35%, transparent);
+}
+
+#escolha-times .vaga.pronto small {
+  color: var(--cor-lado);
+  opacity: 1;
+}
+
+/* A vaga que a fila ainda procura: tracejada, piscando devagar. */
+#escolha-times .vaga.procurando {
+  cursor: default;
+  animation: piscar-vaga 1.8s ease-in-out infinite;
+}
+
+@keyframes piscar-vaga {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .decolar.aguardando::after,
+  .decolar.pronto-acao,
+  #escolha-times .vaga.procurando {
+    animation: none;
+  }
+}
+
 /* ----- Naves (hangar) ----- */
 
 #tela-naves {
@@ -2096,6 +2364,24 @@ kbd.sem-atalho,
 
   .caixa-decolar {
     justify-items: stretch;
+  }
+
+  .caixa-decolar:has(.estado-fila:not([hidden])) {
+    max-width: none;
+  }
+
+  .estado-fila {
+    min-width: 0;
+    justify-content: space-between;
+  }
+
+  .estado-fila .texto {
+    text-align: left;
+  }
+
+  .aviso-fila {
+    max-width: none;
+    text-align: left;
   }
 
   .decolar {

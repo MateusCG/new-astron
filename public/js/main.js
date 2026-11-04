@@ -229,7 +229,7 @@ function lerCamAngulo() {
 // ---------- Menu principal (tela inicial) ----------
 //
 // menu.js: o header com as abas (Jogar, Naves, Configurações; Ranking e Perfil
-// bloqueados até o online), os modos de jogo, a Seleção de raça, classe e times e o
+// bloqueados até as contas de piloto), os modos de jogo, a Seleção de raça, classe e times e o
 // Decolar, que chama iniciar(). A escolha fica no navegador (menu-regras.js). ESC
 // volta um passo no menu; de dentro da partida, cai na aba Jogar.
 
@@ -268,9 +268,11 @@ function montarMenu() {
     painelVolume,
     aoMudarSom: mostrarEstadoSom,
     mensagemErro: (err) => MENSAGENS_ERRO[err?.message] ?? `Erro ao iniciar o jogo (${err?.message ?? err}). Mande um print desta tela.`,
-    aoDecolar: async ({ nome, race, classe, teste, ia }) => {
+    aoDecolar: async ({ nome, race, classe, teste, ia, privada, sala, token }) => {
+      // Partida Privada: um mundo só seu; fila online: a vaga da sala, pelo token.
+      const extra = sala !== undefined ? { sala, token } : privada ? { privada: true } : null;
       try {
-        jogoAtual = await iniciar(nome, race, classe, teste, ia);
+        jogoAtual = await iniciar(nome, race, classe, teste, ia, extra);
       } finally {
         telaCarregamento?.esconder();
         cargaAtual = null;
@@ -340,6 +342,8 @@ const MENSAGENS_ERRO = {
   conexao_fechada: 'O servidor fechou a conexão antes de você entrar. Tente de novo.',
   partida_cheia: 'A partida está cheia (3 contra 3). Tente de novo em instantes.',
   teste_cheio: 'Muitos pilotos no modo de teste agora. Tente de novo em instantes ou entre na partida normal.',
+  privada_cheia: 'Muitas partidas privadas rodando agora. Tente de novo em instantes ou entre numa fila online.',
+  sala_invalida: 'A vaga da sua sala não vale mais (a sala acabou ou o tempo para entrar passou). Procure outra partida.',
   raca_bloqueada: 'Essa raça ainda não está liberada. Escolha Acron, Bellico ou Shrewdo.',
   raca_invalida: 'Raça desconhecida. Escolha Acron, Bellico ou Shrewdo.',
 };
@@ -368,7 +372,7 @@ function criarRenderer() {
  * fecha a conexão para a nave não ficar parada no mundo. Devolve { sair } para
  * desmontar a partida.
  */
-async function iniciar(nome, race, classe, teste = false, ia = null) {
+async function iniciar(nome, race, classe, teste = false, ia = null, extra = null) {
   const renderer = criarRenderer();
   telaCarregamento ??= new TelaCarregamento();
   telaCarregamento.mostrar(race, classe);
@@ -377,7 +381,7 @@ async function iniciar(nome, race, classe, teste = false, ia = null) {
   const rede = new Rede();
   let jogo = null;
   try {
-    const entrou = rede.entrar(nome, race, classe, teste, ia).then((boas) => {
+    const entrou = rede.entrar(nome, race, classe, teste, ia, extra).then((boas) => {
       carga.conectado(boas);
       return boas;
     });

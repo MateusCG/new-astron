@@ -1,5 +1,5 @@
 // Menu principal (public/js/menu-regras.js): as abas e os modos de jogo (os do online
-// ficam bloqueados e não decolam), o que cada modo manda no {t:'entrar'}, para onde o
+// são modos de fila: a Seleção entra na fila em vez de decolar), o que cada modo manda no {t:'entrar'}, para onde o
 // ESC volta, o que se lê do navegador (saneado), as setas da lista e da grade, a régua
 // das barras das naves. (Os atalhos de teclado e controle estão em atalhos.test.mjs.) E o contrato com o index.html: todo
 // elemento que menu.js procura tem de existir lá.
@@ -14,6 +14,7 @@ import {
   CHAVES,
   modoDisponivel,
   pedidoDoModo,
+  filaDoModo,
   telaAnterior,
   estadoGuardado,
   proximoModo,
@@ -28,7 +29,7 @@ import {
 } from '../public/js/menu-regras.js';
 import { RACAS_JOGAVEIS, ORDEM_CLASSES } from '../shared/naves.js';
 
-test('abas na ordem do header, com Ranking e Perfil bloqueadas até o online', () => {
+test('abas na ordem do header, com Ranking e Perfil bloqueadas até as contas de piloto', () => {
   assert.deepEqual(
     ABAS.map((a) => a.id),
     ['jogar', 'naves', 'config', 'ranking', 'perfil'],
@@ -39,30 +40,34 @@ test('abas na ordem do header, com Ranking e Perfil bloqueadas até o online', (
   );
 });
 
-test('modos: só o Sandbox e a Partida Privada decolam por enquanto', () => {
+test('modos: os quatro liberados; os dois do online são de fila', () => {
   assert.deepEqual(
     MODOS.map((m) => m.id),
     ['online', 'sandbox', 'publica', 'privada'],
   );
   assert.deepEqual(
     MODOS.filter((m) => m.disponivel).map((m) => m.id),
-    ['sandbox', 'privada'],
+    ['online', 'sandbox', 'publica', 'privada'],
   );
-  assert.equal(modoDisponivel('online'), false);
-  assert.equal(modoDisponivel('publica'), false);
+  assert.equal(modoDisponivel('online'), true);
+  assert.equal(modoDisponivel('publica'), true);
   assert.equal(modoDisponivel('xyz'), false);
   assert.ok(modoDisponivel(MODO_PADRAO));
+  assert.equal(filaDoModo('online'), 'online');
+  assert.equal(filaDoModo('publica'), 'publica');
+  assert.equal(filaDoModo('privada'), null);
+  assert.equal(filaDoModo('sandbox'), null);
 });
 
-test('fila sem número: os modos do online mostram "—", nunca um número inventado', () => {
-  for (const m of MODOS.filter((x) => !x.disponivel)) assert.match(m.estado, /^— /);
+test('fila sem conexão: os modos de fila mostram "—", nunca um número inventado', () => {
+  for (const m of MODOS.filter((x) => x.fila)) assert.match(m.estado, /^— /);
 });
 
-test('o Sandbox é o modo de teste; a Partida Privada é a partida normal', () => {
+test('o Sandbox é o modo de teste; a Partida Privada é um mundo só seu; os de fila não decolam direto', () => {
   assert.deepEqual(pedidoDoModo('sandbox'), { teste: true });
-  assert.deepEqual(pedidoDoModo('privada'), { teste: false });
-  assert.equal(pedidoDoModo('online'), null);
-  assert.equal(pedidoDoModo('publica'), null);
+  assert.deepEqual(pedidoDoModo('privada'), { teste: false, privada: true });
+  assert.deepEqual(pedidoDoModo('online'), { fila: 'online' });
+  assert.deepEqual(pedidoDoModo('publica'), { fila: 'publica' });
   assert.equal(pedidoDoModo(undefined), null);
 });
 
@@ -91,8 +96,8 @@ test('estado guardado: valores válidos voltam como estavam', () => {
   });
 });
 
-test('estado guardado: aba bloqueada, modo do online, Mechan e lixo são saneados', () => {
-  const salvo = { [CHAVES.aba]: 'ranking', [CHAVES.modo]: 'online', [CHAVES.raca]: 'mechan', [CHAVES.classe]: 'tanque', [CHAVES.nome]: 'x'.repeat(40) };
+test('estado guardado: aba bloqueada, modo que não existe, Mechan e lixo são saneados', () => {
+  const salvo = { [CHAVES.aba]: 'ranking', [CHAVES.modo]: 'ranqueada', [CHAVES.raca]: 'mechan', [CHAVES.classe]: 'tanque', [CHAVES.nome]: 'x'.repeat(40) };
   const g = estadoGuardado((k) => salvo[k] ?? null);
   assert.equal(g.aba, ABA_PADRAO);
   assert.equal(g.modo, MODO_PADRAO);
@@ -103,12 +108,13 @@ test('estado guardado: aba bloqueada, modo do online, Mechan e lixo são saneado
   assert.equal(estadoGuardado((k) => (k === CHAVES.aba ? 'selecao' : null)).aba, ABA_PADRAO);
 });
 
-test('setas na lista de modos pulam os bloqueados e param nas pontas', () => {
-  assert.equal(proximoModo('sandbox', 1), 'privada');
-  assert.equal(proximoModo('privada', 1), 'privada');
-  assert.equal(proximoModo('privada', -1), 'sandbox');
-  assert.equal(proximoModo('sandbox', -1), 'sandbox');
+test('setas na lista de modos andam na ordem e param nas pontas', () => {
   assert.equal(proximoModo('online', 1), 'sandbox');
+  assert.equal(proximoModo('sandbox', 1), 'publica');
+  assert.equal(proximoModo('publica', 1), 'privada');
+  assert.equal(proximoModo('privada', 1), 'privada');
+  assert.equal(proximoModo('online', -1), 'online');
+  assert.equal(proximoModo('privada', -1), 'publica');
 });
 
 test('setas na grade da Seleção andam por raça e classe e param nas bordas', () => {

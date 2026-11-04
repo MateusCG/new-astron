@@ -8,11 +8,16 @@
 
 const TEMPO_ENTRADA_MS = 10000;
 
+/** O endereço do WebSocket do servidor: o da página, ou ?servidor=ws://... (o jogo e as filas). */
+export function urlDoServidor() {
+  const param = new URLSearchParams(location.search).get('servidor');
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return param || `${proto}//${location.host}/ws`;
+}
+
 export class Rede {
   constructor() {
-    const param = new URLSearchParams(location.search).get('servidor');
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    this.url = param || `${proto}//${location.host}/ws`;
+    this.url = urlDoServidor();
     this.aoReceber = () => {};
     this.aoFechar = () => {};
     this.ping = 0;
@@ -22,8 +27,10 @@ export class Rede {
    * Conecta e entra no jogo. Resolve quando chega o 'bemvindo'. `teste` pede o modo
    * de teste (um mundo só seu, sem relógio). `ia` = {iaMeu, iaInimigo}, os
    * computadores escolhidos na tela inicial (o servidor sanea e completa os times).
+   * `extra` vai junto no pedido: { privada: true } (Partida Privada, um mundo só seu)
+   * ou { sala, token } (a vaga da sala da fila online, server/filas.js).
    */
-  entrar(nome, race, classe, teste = false, ia = null) {
+  entrar(nome, race, classe, teste = false, ia = null, extra = null) {
     return new Promise((ok, falha) => {
       let decidido = false; // a promessa só resolve ou falha uma vez
       const desistir = (codigo) => {
@@ -40,7 +47,8 @@ export class Rede {
         desistir('sem_conexao');
         return;
       }
-      this.ws.onopen = () => this.enviar({ t: 'entrar', nome, race, classe, ...(teste ? { teste: true } : {}), ...(ia ? { iaMeu: ia.iaMeu, iaInimigo: ia.iaInimigo } : {}) });
+      this.ws.onopen = () =>
+        this.enviar({ t: 'entrar', nome, race, classe, ...(teste ? { teste: true } : {}), ...(ia ? { iaMeu: ia.iaMeu, iaInimigo: ia.iaInimigo } : {}), ...(extra ?? {}) });
       this.ws.onerror = () => desistir('sem_conexao');
       this.ws.onclose = () => (decidido ? this.aoFechar() : desistir('conexao_fechada'));
       this.ws.onmessage = (e) => {

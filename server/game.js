@@ -327,11 +327,19 @@ export class World {
    * bloqueada ou inválida antes); aqui, raça sem naves vira a primeira jogável e
    * classe inválida vira CLASSE_PADRAO. `pedido` = {iaMeu, iaInimigo} da entrada
    * (como veio da rede; saneado aqui): os computadores que completam os times (ver
-   * completarComBots).
+   * completarComBots). `pedido.time` (só do servidor, nunca da rede: a vaga que a
+   * sala da fila online reservou, server/filas.js) põe no time dado; cheio de gente,
+   * null; com computador nele, o computador sai.
    */
   addPlayer(nome, race, classe, pedido = {}) {
-    let time = this.partida.escolherTime(this.#tamanhos());
-    if (time === null) time = this.#cederVagaDeBot();
+    let time;
+    if (Number.isInteger(pedido.time) && pedido.time >= 0 && pedido.time < N_TIMES) {
+      time = pedido.time;
+      if (this.#tamanhos()[time] >= MAX_POR_TIME) time = this.#cederVagaDeBot(time);
+    } else {
+      time = this.partida.escolherTime(this.#tamanhos());
+      if (time === null) time = this.#cederVagaDeBot();
+    }
     if (time === null) return null;
     const j = this.#novoJogador(limpaNome(nome), race, classe, time);
     const { iaMeu, iaInimigo } = computadoresDaEntrada(pedido);
@@ -361,13 +369,14 @@ export class World {
   /**
    * Partida cheia, mas com computador: tira um do time com menos humanos (empate:
    * o time 0) e devolve esse time para o humano que chega. Null se só há humanos.
+   * Com `soDoTime`, só um computador daquele time.
    */
-  #cederVagaDeBot() {
+  #cederVagaDeBot(soDoTime = null) {
     const humanos = Array.from({ length: N_TIMES }, () => 0);
     for (const j of this.players.values()) if (!j.ia) humanos[j.time]++;
     let escolhido = null;
     for (const j of this.players.values()) {
-      if (!j.ia) continue;
+      if (!j.ia || (soDoTime !== null && j.time !== soDoTime)) continue;
       if (!escolhido || humanos[j.time] < humanos[escolhido.time]) escolhido = j;
     }
     if (!escolhido) return null;
