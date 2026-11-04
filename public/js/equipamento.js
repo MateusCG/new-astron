@@ -18,7 +18,7 @@ import { EQUIPAMENTOS, CATEGORIAS_EQUIP, ORDEM_TIPOS_DANO, SIGLA_TIPO, versaoEqu
 import { ARMAS, WEAPONS, TIPOS_DANO } from '/shared/sim.js';
 import { versaoArma, resumoVersao, CATEGORIAS } from '/shared/armas.js';
 import { CLASSES, ORDEM_CLASSES } from '/shared/naves.js';
-import { iconeArma, nomeArma, descreverArma, textoDano } from './armas.js';
+import { iconeArma, nomeArma, numerosArma, linhasDescricao, textoDano } from './armas.js';
 import { htmlIcone } from './icones-itens.js';
 
 /** Ordem das linhas da tabela de tipos, como no original: Ph., El., Op. */
@@ -79,15 +79,15 @@ export function detalheArma(idx, nivel = 1, acao = '') {
   const w = WEAPONS[kind];
   if (!w || w.npc) return '';
   const v = versaoArma(idx, nivel);
-  const r = resumoVersao(v);
-  const um = (x) => x.toLocaleString('pt-BR', { maximumFractionDigits: x < 1 ? 2 : 1 });
+  // Uma informação por linha, como no cartão do original: o dano (na cor do tipo), o
+  // crítico, o alcance máximo, a recarga e a energia, e depois o que a arma faz.
+  const numeros = numerosArma(kind, nivel).map(([rotulo, valor]) =>
+    rotulo === 'Dano' ? `<li class="${classeTipo(w.tipoDano)}">Dano ${TIPOS_DANO[w.tipoDano].toLowerCase()} ${valor}</li>` : `<li>${rotulo} ${esc(valor)}</li>`,
+  );
+  const faz = linhasDescricao(kind, nivel).map((t) => `<li class="faz">${esc(t)}</li>`);
   return `<div class="detalhe-cab">${iconeArma(kind, nivel)}<strong>[${nomeArma(kind)} V${v.nivel}]</strong></div>
     <p class="tipo-item">Arma · ${CATEGORIAS[w.categoria] ?? ''} <small class="original">${esc(w.nomeEn ?? '')}</small></p>
-    <ul class="efeitos-item">
-      <li class="${classeTipo(w.tipoDano)}">Dano ${TIPOS_DANO[w.tipoDano].toLowerCase()} ${textoDano(kind, nivel)}</li>
-      <li>${r.segurar ? `Energia ${um(r.energia)}/s · segure a tecla` : `Recarga ${um(r.cd)} s · energia ${um(r.energia)}`}</li>
-      <li>${esc(descreverArma(kind, nivel))}</li>
-    </ul>
+    <ul class="efeitos-item">${numeros.join('')}${faz.join('')}</ul>
     <p class="exige">Classe: <b>${textoClasses(w.classes)}</b></p>
     ${acao ? `<p class="acao-item">${acao}</p>` : ''}`;
 }

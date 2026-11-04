@@ -59,7 +59,6 @@
 import { ARMAS, WEAPONS } from '/shared/sim.js';
 import { ITENS, ORDEM_ITENS, COMPARTIMENTO_MAX, ARMA_COPIAS_MAX, armasAVenda, noCompartimento, armasDoInv, copiasDaArma, gruposPorTipo } from '/shared/loja.js';
 import { EQUIPAMENTOS, SIGLA_TIPO, equipamentosAVenda, versaoEquip, textoEfeitoEquip } from '/shared/equipamentos.js';
-import { versaoArma, resumoVersao } from '/shared/armas.js';
 import { linhaDe, CLASSES } from '/shared/naves.js';
 import {
   MELHORIAS_MINERADOR,
@@ -71,7 +70,7 @@ import {
   precoNivelTorretas,
 } from '/shared/evolucao.js';
 import { TORRETAS } from '/shared/terrain.js';
-import { iconeArma, descreverArma, etiquetasArma, textoDano, nomeArma, ordenarPorCategoria } from './armas.js';
+import { iconeArma, linhasDescricao, numerosArma, etiquetasArma, nomeArma, ordenarPorCategoria } from './armas.js';
 import { miniatura } from './vitrine.js';
 import { iconeEquip, textoClasses, classeTipo } from './equipamento.js';
 import { htmlIcone } from './icones-itens.js';
@@ -364,7 +363,8 @@ export class PainelServicos {
   }
 
   /**
-   * Um cartão: ícone, nome, efeito, preço e o selo do estado. estado: 'livre'
+   * Um cartão: ícone, nome, efeito (texto ou lista: uma informação por linha), preço
+   * e o selo do estado. estado: 'livre'
    * (dá para comprar), 'comprado', 'equipado', 'bloqueado' (nível), 'sem-ouro',
    * 'max' ou 'passou' (nave da linha que já ficou para trás). Só 'livre' e
    * 'sem-ouro' ficam clicáveis (o servidor responde o porquê).
@@ -374,7 +374,7 @@ export class PainelServicos {
     const custo = preco == null ? '' : `<span class="preco">${numero(preco)}</span>`;
     return `<button type="button" class="carta-servico ${estado} ${classe}" ${ativo ? '' : 'disabled'} data-pedido='${JSON.stringify(pedido)}'>
       <span class="cab">${icone}<strong>${nome}</strong></span>
-      ${efeito ? `<small class="efeito">${efeito}</small>` : ''}${extra}
+      ${efeito?.length ? `<small class="efeito">${[].concat(efeito).map((l) => `<span>${l}</span>`).join('')}</small>` : ''}${extra}
       <span class="rodape">${custo}<span class="selo">${selo}</span></span>
     </button>`;
   }
@@ -410,11 +410,11 @@ export class PainelServicos {
     return { html, filtrada: grupos.find((g) => g.id === sel).itens };
   }
 
-  /** Dano, recarga e energia da arma no nível (linha de números do cartão). */
+  /** Dano, crítico, alcance máximo, recarga e energia da arma no nível, um por linha. */
   #numerosArma(i, nivel) {
-    const r = resumoVersao(versaoArma(i, nivel));
-    const um = (v) => v.toLocaleString('pt-BR', { maximumFractionDigits: v < 1 ? 2 : 1 });
-    return `<dl class="stats-arma"><dt>Dano</dt><dd>${textoDano(ARMAS[i], nivel)}</dd><dt>Recarga</dt><dd>${r.segurar ? 'segure' : `${um(r.cd)} s`}</dd><dt>Energia</dt><dd>${um(r.energia)}${r.segurar ? '/s' : ''}</dd></dl>`;
+    return `<dl class="stats-arma">${numerosArma(ARMAS[i], nivel)
+      .map(([rotulo, valor]) => `<dt>${rotulo}</dt><dd>${valor}</dd>`)
+      .join('')}</dl>`;
   }
 
   /** Armas à venda da raça e da classe do piloto, por categoria. */
@@ -441,7 +441,7 @@ export class PainelServicos {
       return this.#cartao({
         icone: iconeArma(kind),
         nome: nomeArma(kind, true),
-        efeito: descreverArma(kind),
+        efeito: linhasDescricao(kind),
         preco: cheia ? null : preco,
         selo,
         estado,
@@ -471,7 +471,7 @@ export class PainelServicos {
     const cartoes = lista.map((k) => {
       const e = EQUIPAMENTOS[k];
       const n = inv.filter((x) => x.tipo === 'equip' && x.chave === k).length;
-      const efeitos = versaoEquip(k, 1).efeitos.map(textoEfeitoEquip).join(' · ');
+      const efeitos = versaoEquip(k, 1).efeitos.map(textoEfeitoEquip);
       const classes = e.classes.length < 3 ? `<i class="so-classe">${textoClasses(e.classes)}</i>` : '';
       const original = `<small class="original">${e.nome.trim()}</small>`;
       const [estado, selo] = this.#paraOCompartimento(e.preco);
@@ -506,7 +506,7 @@ export class PainelServicos {
     return ORDEM_ITENS.map((id) => {
       const it = ITENS[id];
       const tem = this.estado.itens[id] ?? 0;
-      const efeito = (id === 'reparo' ? `Cura ${pct(it.cura)} do HP na hora` : 'Enche a energia na hora') + ` · recarga ${it.recargaS} s`;
+      const efeito = [id === 'reparo' ? `Cura ${pct(it.cura)} do HP na hora` : 'Enche a energia na hora', `Recarga ${it.recargaS} s`];
       let [estado, selo] = this.#pelaCarteira(it.preco);
       if (tem >= it.max) [estado, selo] = ['max', `CHEIO ${tem}/${it.max}`];
       else selo += ` · ${tem}/${it.max}`;

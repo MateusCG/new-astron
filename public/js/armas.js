@@ -30,7 +30,7 @@
 // painel da Loja (servicos.js), o INVENTÁRIO e o painel inferior (hud.js).
 
 import { WEAPONS, ARMAS, TIPOS_DANO, trocaLivre, armasIniciais } from '/shared/sim.js';
-import { versaoArma, resumoVersao, visualEfeito, ORDEM_CATEGORIAS, PAPEIS, NIVEL_ARMA_MAX } from '/shared/armas.js';
+import { versaoArma, resumoVersao, alcanceMaximo, visualEfeito, ORDEM_CATEGORIAS, PAPEIS, NIVEL_ARMA_MAX } from '/shared/armas.js';
 import { TROCA_RAPIDA, limparTrocaRapida, guardarNaTrocaRapida, equiparArmaRapida } from '/shared/loja.js';
 import { htmlIcone } from './icones-itens.js';
 
@@ -189,6 +189,37 @@ export function descreverArma(kind, nivel = 1) {
   const partes = formaDoGolpe(v);
   const texto = [partes.slice(0, 3).join(', '), r.efeitos[0]].filter(Boolean).join(' · ');
   return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+/**
+ * O que a arma faz no nível, uma informação por linha (o cartão do original lista
+ * assim): cada parte da forma do golpe e cada efeito, com a primeira letra maiúscula.
+ */
+export function linhasDescricao(kind, nivel = 1) {
+  const v = versaoArma(kind, nivel);
+  if (!v) return [];
+  const maiuscula = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+  return [...formaDoGolpe(v), ...resumoVersao(v).efeitos].filter(Boolean).map(maiuscula);
+}
+
+/**
+ * Os números da arma no nível, um por linha, como no cartão do original: dano,
+ * crítico, alcance máximo, recarga e energia. [[rótulo, valor], ...]; o crítico e o
+ * alcance só quando a arma tem.
+ */
+export function numerosArma(kind, nivel = 1) {
+  const v = versaoArma(kind, nivel);
+  if (!v) return [];
+  const r = resumoVersao(v);
+  const alcance = alcanceMaximo(v);
+  const fino = (x) => x.toLocaleString('pt-BR', { maximumFractionDigits: x < 1 ? 2 : 1 });
+  return [
+    ['Dano', textoDano(kind, nivel)],
+    v.critico > 0 ? ['Crítico', `${um(v.critico * 100)}%`] : null,
+    alcance > 0 ? ['Alcance máximo', `${numero(alcance, 0)} m`] : null,
+    r.segurar ? null : ['Recarga', `${fino(r.cd)} s`],
+    ['Energia', `${fino(r.energia)}${r.segurar ? '/s, segurando a tecla' : ''}`],
+  ].filter(Boolean);
 }
 
 /** Etiquetas de tipo de dano e papel ("Laser · Bloqueio"), para o menu e a Loja. */
