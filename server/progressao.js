@@ -60,6 +60,12 @@
 // derruba alguém com sequência de SEQUENCIA_MIN ou mais ganha bônus de ouro por
 // encerrá-la (ouroEncerrar). Sequência e o registro de dano zeram ao morrer e na
 // partida nova (novoCombate), que também zera os abates de jogador (abatesJog).
+//
+// XP do wing (pedido do Mateus, como o wing do AstroN original): o time é o wing.
+// Quando um piloto abate um monstro, cada aliado vivo a até WING_RAIO do lugar da
+// morte ganha WING_FRACAO_XP da XP do monstro (aliadosDoWing), sem tirar nada de
+// quem matou e sem dividir, pelo mesmo motivo da assistência. Só a XP: o ouro fica
+// com quem deu o golpe final. A Medusa fica de fora porque já paga o time inteiro.
 
 import { NAVE_SEM_CLASSE } from '../shared/sim.js';
 import { naveDe, CLASSE_PADRAO } from '../shared/naves.js';
@@ -111,6 +117,9 @@ export const ASSISTENCIA_FRACAO = 0.5; // do ouro e do XP do abate (pelo nível 
 export const SEQUENCIA_MIN = 2; // a partir daqui encerrar a sequência dá bônus
 export const ENCERRAR_OURO_POR_ABATE = 60; // ouro por abate da sequência da vítima
 export const ENCERRAR_OURO_MAX = 400; // teto do bônus
+// XP do wing no abate de monstro.
+export const WING_RAIO = 550; // m do lugar da morte (o alcance da maior arma, o da visão da nave)
+export const WING_FRACAO_XP = 1; // da XP do monstro, para cada aliado perto
 
 /**
  * Segundos até o jogador renascer: RENASCER_BASE_S + RENASCER_POR_NIVEL_S por
@@ -235,6 +244,20 @@ export function ganharXp(j, xp, eventos) {
   }
   if (j.nivel >= NIVEL_MAX) j.xp = 0;
   return subiu;
+}
+
+/**
+ * Os aliados de `matador` que ganham a XP do wing pelo monstro `alvo`: do mesmo
+ * time, vivos, a até WING_RAIO do lugar da morte (`jogadores`: os do World).
+ */
+export function aliadosDoWing(alvo, matador, jogadores) {
+  const { x, z } = alvo.ship;
+  const perto = [];
+  for (const j of jogadores) {
+    if (j === matador || j.time !== matador.time || !j.vivo) continue;
+    if (Math.hypot(j.ship.x - x, j.ship.z - z) <= WING_RAIO) perto.push(j);
+  }
+  return perto;
 }
 
 /** Chave de RECOMPENSA do que morreu: a espécie, no monstro; o tipo, no resto. */

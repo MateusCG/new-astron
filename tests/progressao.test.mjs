@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World } from '../server/game.js';
-import { xpParaNivel, ganharXp, hpMaxDoNivel, RECOMPENSA, NIVEL_MAX, HP_POR_NIVEL, XP_OBJETIVO, OURO_POR_SEGUNDO, OURO_INICIAL } from '../server/progressao.js';
+import { xpParaNivel, ganharXp, hpMaxDoNivel, RECOMPENSA, NIVEL_MAX, HP_POR_NIVEL, XP_OBJETIVO, OURO_POR_SEGUNDO, OURO_INICIAL, WING_FRACAO_XP } from '../server/progressao.js';
 import { ESPECIES } from '../server/especies.js';
 import { ZONA_SEGURA } from '../server/game.js';
 import { createShip } from '../shared/sim.js';
@@ -238,7 +238,7 @@ function abaterColetando(w, j, m, segundos = 40) {
   return eventos;
 }
 
-test('monstros: o ouro e o XP do abate vão só para quem matou, no lugar da morte (evento ganho)', () => {
+test('monstros: o ouro e o XP do abate vão para quem matou, no lugar da morte (evento ganho); o aliado perto só a XP do wing', () => {
   const w = new World({ preparacaoS: 0, jungle: false, torretas: false, rng: rngFixo(11) });
   const j = w.addPlayer('Caçador', 'acron');
   const outro = w.addPlayer('Outro', 'shrewdo');
@@ -266,8 +266,12 @@ test('monstros: o ouro e o XP do abate vão só para quem matou, no lugar da mor
   for (const o of [aliado, outro]) {
     const ev = w.snapshotPara(o, [], eventos).ev;
     assert.ok(ev.some((e) => e.e === 'morte' && e.id === m.id), `${o.nome} vê a morte`);
-    assert.ok(!ev.some((e) => e.e === 'ganho'), `${o.nome} não recebe o ganho de outro`);
+    assert.ok(!ev.some((e) => e.e === 'ganho' && e.para !== o.id), `${o.nome} não recebe o ganho de outro`);
   }
+  // O aliado perto ganha a XP do wing (sem o ouro); o inimigo, nada.
+  const doAliado = w.snapshotPara(aliado, [], eventos).ev.filter((e) => e.e === 'ganho');
+  assert.deepEqual(doAliado.map((e) => [e.para, e.id, e.ouro, e.xp]), [[aliado.id, m.id, 0, Math.round(RECOMPENSA.sn3.xp * WING_FRACAO_XP)]]);
+  assert.ok(!w.snapshotPara(outro, [], eventos).ev.some((e) => e.e === 'ganho'), 'o outro time não ganha nada');
 });
 
 test('monstros: no nível máximo o ganho traz só o ouro (XP 0)', () => {

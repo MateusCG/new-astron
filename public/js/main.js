@@ -1061,7 +1061,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
         // A sua nave foi destruída: quem deu o golpe final, quem feriu e quanto de cada tipo.
         if (e.para === meuId) ultimaMorte.registrar(e);
       } else if (e.e === 'ganho') {
-        // Monstro que você abateu: o ouro e o XP que o servidor deu sobem do lugar da morte.
+        // Monstro que você abateu (ou que um aliado abateu perto de você, a XP do wing): o
+        // ouro e o XP que o servidor deu sobem do lugar da morte.
         const linhas = [];
         if (e.crit) linhas.push({ txt: 'CRÍTICO', classe: 'crit' });
         if (e.ouro > 0) linhas.push({ txt: `+${e.ouro} ouro`, classe: 'ouro' });

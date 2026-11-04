@@ -9,7 +9,7 @@ import { ACAMPAMENTOS, BUFFS, MEDUSA, trajetoSonda } from '../shared/terrain.js'
 import { pontoLivre } from '../shared/obstaculos.js';
 import { TEMPOS_JUNGLE, COMPOSICAO, idNoTime0, BONUS_ATAQUE_S, BONUS_SONDA_S, BONUS_MEDUSA_S } from '../server/jungle.js';
 import { ESPECIES } from '../server/especies.js';
-import { RECOMPENSA, xpParaNivel, OURO_INICIAL } from '../server/progressao.js';
+import { RECOMPENSA, xpParaNivel, OURO_INICIAL, WING_RAIO, WING_FRACAO_XP } from '../server/progressao.js';
 
 function rngFixo(semente = 1) {
   let s = semente;
@@ -162,6 +162,41 @@ test('jungle: a Medusa paga ouro e XP a cada piloto do time de quem a matou e li
   assert.equal(w.bonus.ativo(b.time, 'medusa', w.tick), false);
   assert.equal(Math.round(w.bonus.restante(a.time, 'medusa', w.tick)), BONUS_MEDUSA_S);
   assert.deepEqual(w.snapshotPara(a, [], []).obj.MEDUSA, { estado: 'recarga', volta: 5, time: a.time });
+});
+
+test('jungle: XP do wing: o aliado vivo perto do monstro abatido ganha a XP dele, sem o ouro; longe, morto ou do outro time, nada', () => {
+  const { w, a, b } = mundo({ acampamento: JA });
+  const perto = w.addPlayer('C', 'shrewdo');
+  const inimigo = w.addPlayer('D', 'acron');
+  const morto = w.addPlayer('E', 'bellico');
+  assert.deepEqual([perto, inimigo, morto].map((j) => j.time), [a.time, b.time, a.time]);
+  w.step();
+  const m = w.monstros.find((x) => x.vivo && x.esp === 'sn3');
+  const { x, z } = m.ship;
+  a.ship = createShip('bellico', x, z - 200, 0);
+  perto.ship = createShip('shrewdo', x + WING_RAIO - 10, z, 0);
+  morto.ship = createShip('bellico', x + 50, z, 0);
+  morto.vivo = false;
+  inimigo.ship = createShip('acron', x - 50, z, 0); // colado, mas do outro time
+  const antes = new Map([a, b, perto, inimigo, morto].map((j) => [j, { xp: xpTotal(j), ouro: j.ouro }]));
+  w.tirarEventos();
+  matar(w, m, a);
+  const ganhou = (j) => ({ xp: xpTotal(j) - antes.get(j).xp, ouro: j.ouro - antes.get(j).ouro });
+  const xp = ESPECIES.sn3.xp;
+  assert.deepEqual(ganhou(a), { xp, ouro: ESPECIES.sn3.ouro }, 'quem matou não perde nada');
+  assert.deepEqual(ganhou(perto), { xp: Math.round(xp * WING_FRACAO_XP), ouro: 0 }, 'aliado perto: a XP, sem o ouro');
+  for (const j of [morto, inimigo, b]) assert.deepEqual(ganhou(j), { xp: 0, ouro: 0 }, j.nome);
+  // O "+N XP" sobe na tela do aliado, do lugar da morte, só com a XP.
+  const ev = w.tirarEventos().filter((e) => e.e === 'ganho' && e.id === m.id);
+  assert.deepEqual(ev.map((e) => e.para).sort(), [a.id, perto.id].sort());
+  const doAliado = ev.find((e) => e.para === perto.id);
+  assert.deepEqual([doAliado.ouro, doAliado.xp, doAliado.crit], [0, Math.round(xp * WING_FRACAO_XP), undefined]);
+  // Fora do raio, nada.
+  const m2 = w.monstros.find((y) => y.vivo && y.esp === 'sn3');
+  perto.ship = createShip('shrewdo', m2.ship.x + WING_RAIO + 10, m2.ship.z, 0);
+  const xpPerto = xpTotal(perto);
+  matar(w, m2, a);
+  assert.equal(xpTotal(perto), xpPerto, 'fora do raio do wing');
 });
 
 test('jungle: a sonda não aparece com a Medusa ou o Núcleo vivos, anda pelo trajeto e alterna a ponta', () => {

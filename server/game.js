@@ -161,6 +161,9 @@ import {
   xpAbateJogador,
   ASSISTENCIA_JANELA_S,
   chaveRecompensa,
+  RECOMPENSA,
+  aliadosDoWing,
+  WING_FRACAO_XP,
   OURO_POR_SEGUNDO,
   OURO_INICIAL,
 } from './progressao.js';
@@ -795,6 +798,7 @@ export class World {
       const ganho = { e: 'ganho', para: matador.id, id: alvo.id, esp: alvo.esp, x: +alvo.ship.x.toFixed(2), y: +alvo.ship.y.toFixed(2), z: +alvo.ship.z.toFixed(2), ouro: matador.ouro - ouroAntes, xp: (matador.xpGanho ?? 0) - xpAntes };
       if (crit) ganho.crit = true;
       if (ganho.ouro > 0 || ganho.xp > 0 || crit) this.eventos.push(ganho);
+      this.#xpDoWing(alvo, matador, ganho);
     }
     if (alvo.tipo === 'jogador') {
       // O resumo da morte (quem deu o golpe final, quem feriu e quanto de cada tipo)
@@ -808,6 +812,22 @@ export class World {
       morte.renasce = Math.round((alvo.respawnTick - this.tick) / TICK_HZ);
     }
     this.objetivos.aoMorrer(alvo, matador);
+  }
+
+  /**
+   * XP do wing (server/progressao.js): os aliados vivos perto do monstro que `matador`
+   * abateu ganham WING_FRACAO_XP da XP dele, e o 'ganho' (só a XP) sobe na tela de
+   * cada um, do lugar da morte (`ganho`: o do matador, de onde vem o lugar).
+   */
+  #xpDoWing(alvo, matador, ganho) {
+    const xp = Math.round((RECOMPENSA[chaveRecompensa(alvo)]?.xp ?? 0) * WING_FRACAO_XP);
+    if (xp <= 0) return; // a Medusa (paga o time inteiro em server/jungle.js)
+    for (const j of aliadosDoWing(alvo, matador, this.players.values())) {
+      const antes = j.xpGanho ?? 0;
+      ganharXp(j, xp, this.eventos);
+      const ganhou = (j.xpGanho ?? 0) - antes; // 0 no nível máximo
+      if (ganhou > 0 && !j.ia) this.eventos.push({ e: 'ganho', para: j.id, id: ganho.id, esp: ganho.esp, x: ganho.x, y: ganho.y, z: ganho.z, ouro: 0, xp: ganhou });
+    }
   }
 
   /**
