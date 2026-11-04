@@ -90,6 +90,7 @@
             <div><dt><kbd>C</kbd></dt><dd>Status e pontos</dd></div>
             <div><dt><kbd>I</kbd></dt><dd>Inventário</dd></div>
             <div><dt><kbd>P</kbd></dt><dd>Times (consulta)</dd></div>
+            <div><dt><kbd>H</kbd></dt><dd>Resumo da última morte</dd></div>
             <div><dt><kbd>M</kbd></dt><dd>Liga e desliga o som</dd></div>
             <div><dt><kbd>Esc</kbd></dt><dd>Fecha a janela ou sai da partida</dd></div>
           </dl>
@@ -147,6 +148,12 @@
       <ul id="feed"></ul>
       <!-- Debuffs que a sua nave recebeu, com o ícone do original (debuffs.js). -->
       <ul id="debuffs" aria-live="polite" aria-label="Efeitos recebidos"></ul>
+      <!-- Resumo da última morte, como no Dota 2 (ultima-morte.js): abre sozinho com a
+           nave destruída; viva, H abre e fecha. O corpo entra por JS. -->
+      <section id="ultima-morte" hidden aria-label="Última morte">
+        <h2>Última morte<kbd class="so-teclado">H</kbd></h2>
+        <div class="corpo"></div>
+      </section>
       <div id="rotulos-obj"></div>
       <div id="rotulos"></div>
       <div id="flutuantes" aria-hidden="true"></div>
@@ -179,6 +186,7 @@
         <button type="button" id="status-hud" class="botao-hud" title="Status e pontos do piloto (C)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="3.5" /><path d="M5 20c.8-4 3.3-6 7-6s6.2 2 7 6" /><path d="M18 3.5v4M16 5.5h4" /></svg><span>Status</span><kbd>C</kbd></button>
         <button type="button" id="inventario-hud" class="botao-hud" title="Inventário da nave (I)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="7" height="7" rx="1.2" /><rect x="13.5" y="4" width="7" height="7" rx="1.2" /><rect x="3.5" y="14" width="7" height="7" rx="1.2" /><rect x="13.5" y="14" width="7" height="7" rx="1.2" /></svg><span>Inventário</span><kbd>I</kbd></button>
         <button type="button" id="times-hud" class="botao-hud" title="Quem está em cada time (P)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3" /><path d="M2.5 19c.6-3.4 2.6-5 5.5-5s4.9 1.6 5.5 5" /><circle cx="16.5" cy="9" r="2.4" /><path d="M15 14.2c.5-.1 1-.2 1.5-.2 2.4 0 4 1.3 4.6 4.4" /></svg><span>Times</span><kbd>P</kbd></button>
+        <button type="button" id="morte-hud" class="botao-hud" title="Resumo da última morte: quem destruiu a nave e o dano recebido (H)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" /></svg><span>Morte</span><kbd>H</kbd></button>
       </div>
 
       <footer id="painel">

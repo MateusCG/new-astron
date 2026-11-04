@@ -411,6 +411,18 @@
 //                                    (a Medusa conta o que ela paga a ele); xp = 0 no
 //                                    nível máximo; crit = o golpe final foi crítico.
 //                                    O cliente faz os números subirem do lugar
+//         {e:'resumoMorte', para, janela, por, fontes, tipos, total}   PRIVADO (só o
+//                                    jogador `para`, que acabou de morrer; logo depois
+//                                    do 'morte'): o resumo da morte, como no Dota 2
+//                                    (server/resumo-morte.js). janela = os s somados
+//                                    (RESUMO_MORTE_S); por = quem deu o golpe final
+//                                    ({id, nome, tipo, esp?, time?, nivel?, ia?}; tipo
+//                                    'campo' no campo de força da base; null sem autor);
+//                                    fontes = quem feriu na janela, a que mais tirou
+//                                    primeiro ({...a fonte, total, fisico, laser,
+//                                    eletrico, outro}); tipos = {fisico, laser,
+//                                    eletrico, outro}; total; tudo em inteiros, o dano
+//                                    que entrou (escudo + HP)
 //         {e:'explosao', arma, nv, p, dono, time, x, y, z, raio, mina?, expirou?}   área de um
 //                                    golpe (impacto com área, fim da vida, mina; raio
 //                                    0 = mina que atirou e sumiu (a que espera

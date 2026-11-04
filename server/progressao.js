@@ -159,10 +159,12 @@ export function recompensaAssistencia(nivelVitima = 1) {
  * tick do último dano que levou dele (para a assistência), que zeram ao morrer e na
  * partida nova; e abatesJog, os abates de JOGADOR inimigo da partida (o `abates`
  * conta tudo, monstros e mineradores inclusive), que só zera na partida nova: é o
- * número do card do piloto na barra do time (public/js/companheiros.js).
+ * número do card do piloto na barra do time (public/js/companheiros.js). E
+ * danoRecente, o dano dos últimos segundos para o resumo da morte
+ * (server/resumo-morte.js), que zera ao morrer e na partida nova.
  */
 export function novoCombate() {
-  return { sequencia: 0, danoPor: new Map(), abatesJog: 0 };
+  return { sequencia: 0, danoPor: new Map(), abatesJog: 0, danoRecente: [] };
 }
 
 /** Campos de progressão de um jogador que acabou de entrar (ou da partida nova): nível, XP e pontos. */

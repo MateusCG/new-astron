@@ -29,8 +29,8 @@
 //     chegou) que o time não vê;
 //   - 'reflexo' do Núcleo de He-3: só os raios até as naves do time e as que ele vê
 //     (sem nenhuma, só se ele vê o Núcleo);
-//   - eventos privados (PRIVADOS, campo `para`: o 'ganho' do abate de monstro e o
-//     'debuff' recebido) só para o próprio jogador, nunca para o time;
+//   - eventos privados (PRIVADOS, campo `para`: o 'ganho' do abate de monstro, o
+//     'debuff' recebido e o 'resumoMorte') só para o próprio jogador, nunca para o time;
 //   - eventos de jogo sem lugar (entrou, saiu, partida, nivel, nave, melhoria,
 //     objetivo, entrega, torreta...) e os que não têm x/z vão para todos.
 // - construções, torretas, `obj`, placar e a lista de jogadores não passam por aqui:
@@ -68,7 +68,7 @@ const PUBLICOS = new Set([
 ]);
 
 /** Eventos de um jogador só (campo `para`): vão a ele e a mais ninguém ('ganho': ouro e XP do monstro que ele abateu). */
-const PRIVADOS = new Set(['ganho', 'debuff', 'miss']);
+const PRIVADOS = new Set(['ganho', 'debuff', 'miss', 'resumoMorte']);
 
 /** Campos de um evento que nomeiam uma entidade envolvida (autor ou alvo), por tipo de evento. */
 const ENVOLVIDOS = {

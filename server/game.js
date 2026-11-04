@@ -172,6 +172,7 @@ import { Bots, nomeDeBot } from './bots.js';
 import { Visao } from './visao.js';
 import { ORDEM_TIPOS_DANO, RESIST_MAX } from '../shared/equipamentos.js';
 import { chanceCritico } from '../shared/armas.js';
+import { anotarDano, fonteDoGolpe, resumoDaMorte } from './resumo-morte.js';
 
 export const TICK_HZ = 30;
 const SNAP_CADA = 2; // ticks entre snapshots (15 Hz)
@@ -724,6 +725,8 @@ export class World {
         if (alvo.time !== undefined && alvo.time !== quem.time) quem.agrediu = { tick: this.tick, time: alvo.time, x: alvo.ship.x, z: alvo.ship.z };
       }
     }
+    // Todo dano que entrou numa nave de jogador (escudo + HP) vai para o resumo da morte.
+    if (alvo.tipo === 'jogador' && total > 0) anotarDano(alvo, this.tick, this.#fonte(autor), tipo, total);
     // Dano de jogador inimigo (no escudo também): anota para a assistência.
     const atacante = alvo.tipo === 'jogador' && total > 0 ? quem : undefined;
     if (atacante && atacante.time !== alvo.time) alvo.danoPor.set(atacante.id, this.tick);
@@ -794,6 +797,10 @@ export class World {
       if (ganho.ouro > 0 || ganho.xp > 0 || crit) this.eventos.push(ganho);
     }
     if (alvo.tipo === 'jogador') {
+      // O resumo da morte (quem deu o golpe final, quem feriu e quanto de cada tipo)
+      // só para quem morreu; o computador não lê, mas a anotação zera do mesmo jeito.
+      const resumo = resumoDaMorte(alvo, this.tick, this.#golpeFinal(alvo, autor, extra));
+      if (!alvo.ia) this.eventos.push({ e: 'resumoMorte', para: alvo.id, ...resumo });
       // Morrer (para quem for) zera a sequência, o registro de dano e os bônus de nave.
       alvo.sequencia = 0;
       alvo.danoPor.clear();
@@ -801,6 +808,43 @@ export class World {
       morte.renasce = Math.round((alvo.respawnTick - this.tick) / TICK_HZ);
     }
     this.objetivos.aoMorrer(alvo, matador);
+  }
+
+  /**
+   * A entidade de id `id` em qualquer lugar do mundo (jogador, monstro, minerador,
+   * escolta, Núcleo ou torre sentinela), viva ou não, ou undefined.
+   */
+  #entidade(id) {
+    if (id === null || id === undefined) return undefined;
+    const igual = (e) => e.id === id;
+    return (
+      this.players.get(id) ??
+      this.jungle.lista.find(igual) ??
+      this.escoltas.lista.find(igual) ??
+      this.mineradores.lista.find(igual) ??
+      this.objetivos.entidades().find(igual) ??
+      this.torretas.torreta(id)
+    );
+  }
+
+  /** A fonte de um golpe de `autor` para o resumo da morte (server/resumo-morte.js). */
+  #fonte(autor) {
+    const ent = this.#entidade(autor);
+    // A torre sentinela não é entidade do mundo e tem o nome do lugar: no resumo, o que ela é.
+    if (ent && !ent.tipo) return { id: ent.id, nome: 'Torre sentinela', tipo: 'torreta', time: ent.time };
+    if (!ent && autor !== null && autor !== undefined) return { id: autor, nome: 'Desconhecido', tipo: 'desconhecido' };
+    return fonteDoGolpe(ent);
+  }
+
+  /**
+   * Quem deu o golpe final em `alvo` para o resumo da morte: o campo de força da base
+   * (sem autor), quem bateu como estava no golpe (o último anotado: o nível ainda sem
+   * a XP do abate) ou null.
+   */
+  #golpeFinal(alvo, autor, extra) {
+    if (extra?.motivo === 'campo') return { id: null, nome: 'Campo de força da base', tipo: 'campo', time: extra.campo };
+    if (autor === null || autor === undefined) return null;
+    return alvo.danoRecente?.findLast((d) => d.f.id === autor)?.f ?? this.#fonte(autor);
   }
 
   /**

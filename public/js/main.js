@@ -152,6 +152,7 @@ import { PainelServicos } from './servicos.js';
 import { PainelStatus } from './status.js';
 import { PainelInventario } from './inventario.js';
 import { ListaDebuffs } from './debuffs.js';
+import { PainelUltimaMorte } from './ultima-morte.js';
 import { Destruicoes } from './destruicao-3d.js';
 import { destruicaoDe } from './destruicao.js';
 import { TelaCarregamento, Carregamento, aquecerGpu } from './carregamento.js';
@@ -591,6 +592,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
     aoAbrir: () => status.fechar(),
   });
   const times = new PainelTimes({ meuId, meuTime, signal: controles.parar.signal }); // só consulta
+  // Resumo da última morte (como no Dota 2): sozinho com a nave destruída, H com ela viva.
+  const ultimaMorte = new PainelUltimaMorte({ meuId, meuTime, signal: controles.parar.signal });
   // Barra do time no alto (companheiros.js): cards dos aliados e o teleporte até o Functional.
   const barraTime = new BarraTime({
     meuId,
@@ -784,6 +787,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     // Torreta que caiu: a explosão do original (os destroços com a textura dela).
     for (const t of torretas.atualizar(m.torretas)) destruicoes.destruir({ ...t, d: destruicaoDe({ tipo: 'torreta' }), obj: torretas.lista.get(t.id)?.obj });
     tratarEventos(m.ev);
+    ultimaMorte.definirVivo(!!m.vivo);
     efeitos.corrigirGuiados(m.guiados);
     efeitos.atualizarMinas(m.minas, meuTime);
     estadosArmas = m.st ?? {};
@@ -1053,6 +1057,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
       } else if (e.e === 'debuff') {
         // Debuff que a sua nave recebeu: a linha do original com o ícone, no canto esquerdo.
         if (e.para === meuId) debuffs.adicionar(e);
+      } else if (e.e === 'resumoMorte') {
+        // A sua nave foi destruída: quem deu o golpe final, quem feriu e quanto de cada tipo.
+        if (e.para === meuId) ultimaMorte.registrar(e);
       } else if (e.e === 'ganho') {
         // Monstro que você abateu: o ouro e o XP que o servidor deu sobem do lugar da morte.
         const linhas = [];
@@ -1099,6 +1106,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
         placar.faseFinal();
         hud.noticia(`Fase final: minério entregue vale ×${e.mult} até o fim`, 'bom');
       } else if (e.e === 'preparacao') {
+        ultimaMorte.limpar(); // partida nova: a morte da anterior não conta mais
         hud.noticia(`Preparação: a partida começa em ${relogio(e.s)} · explore o mapa e se prepare`, 'bom');
       } else if (e.e === 'partida') {
         hud.noticia('A partida começou: mineradores e jungle em campo · o time que minerar mais vence', 'bom');

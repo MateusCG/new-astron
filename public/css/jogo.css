@@ -825,6 +825,234 @@ kbd {
   color: #ff6464;
 }
 
+/* Resumo da última morte (ultima-morte.js), como o do Dota 2: no lugar da lista dos
+   debuffs (que desce para baixo dele: --alto-morte, a altura que o JS mede), uma
+   chapa estreita e translúcida com a borda de cima em --hp (é a morte). "Morto por"
+   com o nome na cor de quem é; as fontes com o total em mono e a barrinha dividida
+   pelas cores dos tipos de dano; "Danos recebidos" com o total e uma linha por tipo
+   ("Op.: 1000"), do maior para o menor. Só leitura: não pega o mouse. */
+#hud {
+  --topo-morte: 44%;
+}
+
+#hud:has(#ultima-morte:not([hidden])) #debuffs {
+  top: calc(var(--topo-morte) + var(--alto-morte, 0px) + 8px);
+}
+
+/* Tela baixa: sobe um pouco para não encostar no painel inferior. */
+@media (max-height: 800px) {
+  #hud {
+    --topo-morte: 37%;
+  }
+}
+
+#ultima-morte {
+  position: absolute;
+  top: var(--topo-morte);
+  left: 12px;
+  width: min(260px, calc(100vw - 24px));
+  padding: 7px 10px 8px;
+  border: 1px solid var(--chapa-clara);
+  border-top: 2px solid var(--hp);
+  border-radius: 8px 8px 6px 6px;
+  background: linear-gradient(180deg, rgba(44, 74, 70, 0.82), rgba(12, 26, 25, 0.86) 40%);
+  box-shadow: 0 0 0 1px rgba(10, 95, 80, 0.55), 0 4px 14px rgba(0, 0, 0, 0.45);
+  color: var(--texto);
+  font: 13px/1.3 system-ui, sans-serif;
+  pointer-events: none;
+  animation: surge 0.15s ease-out;
+}
+
+#ultima-morte[hidden] {
+  display: none;
+}
+
+#ultima-morte h2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 5px;
+  font: 700 13px system-ui, sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hp);
+  text-shadow: 0 0 8px rgba(255, 90, 60, 0.55);
+}
+
+#ultima-morte h2 kbd {
+  font-size: 11px;
+  letter-spacing: 0;
+  text-shadow: none;
+  opacity: 0.7;
+}
+
+#ultima-morte h3 {
+  display: flex;
+  justify-content: space-between;
+  margin: 7px 0 3px;
+  padding-top: 5px;
+  border-top: 1px solid var(--neon-escuro);
+  font: 600 11px system-ui, sans-serif;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(223, 245, 239, 0.62);
+}
+
+#ultima-morte .num {
+  font: 600 13px ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  color: var(--texto);
+  letter-spacing: 0;
+}
+
+#ultima-morte h3 .num {
+  font-size: 12px;
+}
+
+#ultima-morte ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#ultima-morte .morto-por {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  min-width: 0;
+}
+
+#ultima-morte .rot {
+  flex: none;
+  font-size: 12px;
+  color: rgba(223, 245, 239, 0.62);
+}
+
+#ultima-morte .quem {
+  overflow: hidden;
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+#ultima-morte .selo {
+  flex: none;
+  padding: 0 4px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font: 600 10px ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-style: normal;
+  opacity: 0.75;
+}
+
+#ultima-morte .inimigo {
+  color: var(--inimigo);
+}
+
+#ultima-morte .aliado {
+  color: var(--neon);
+}
+
+#ultima-morte .objetivo {
+  color: var(--objetivo);
+}
+
+#ultima-morte .apagado {
+  color: rgba(223, 245, 239, 0.55);
+}
+
+#ultima-morte .fontes li {
+  display: grid;
+  grid-template-columns: minmax(0, auto) auto 1fr;
+  align-items: baseline;
+  column-gap: 5px;
+  margin: 2px 0 4px;
+}
+
+#ultima-morte .fontes .nome {
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+#ultima-morte .fontes .num {
+  justify-self: end;
+}
+
+#ultima-morte .fontes .barra {
+  grid-column: 1 / -1;
+  display: flex;
+  height: 3px;
+  margin-top: 2px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+#ultima-morte .barra i {
+  height: 100%;
+}
+
+#ultima-morte .t-fisico {
+  --cor-tipo: var(--dano-fisico);
+}
+
+#ultima-morte .t-laser {
+  --cor-tipo: var(--dano-laser);
+}
+
+#ultima-morte .t-eletrico {
+  --cor-tipo: var(--dano-eletrico);
+}
+
+#ultima-morte .t-outro {
+  --cor-tipo: var(--texto);
+}
+
+#ultima-morte .barra i {
+  background: var(--cor-tipo);
+}
+
+#ultima-morte .tipos li {
+  display: flex;
+  justify-content: space-between;
+  margin: 1px 0;
+}
+
+#ultima-morte .tipos span {
+  font-weight: 700;
+  color: var(--cor-tipo);
+}
+
+#ultima-morte .tipos li.zero {
+  opacity: 0.4;
+}
+
+#ultima-morte .vazio,
+#ultima-morte .fontes li.vazio {
+  display: block;
+  margin: 2px 0;
+  color: rgba(223, 245, 239, 0.55);
+}
+
+#ultima-morte .janela {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: rgba(223, 245, 239, 0.45);
+}
+
+/* Celular: a barra do time vira coluna à esquerda nessa altura; o painel vai para o lado dela. */
+@media (max-width: 760px) {
+  #ultima-morte {
+    top: 168px;
+    left: calc(12px + 140px + 8px);
+    width: min(230px, calc(100vw - 172px));
+  }
+
+}
+
 #feed {
   position: absolute;
   top: 104px; /* abaixo do placar */
