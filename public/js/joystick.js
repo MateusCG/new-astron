@@ -14,6 +14,13 @@
 // Na troca de contexto o botão que estava segurado não dispara de novo: o ○ que
 // fecha a Loja não pode decolar a nave no quadro seguinte.
 //
+// O foco do controle (o botão com o contorno, .foco-joy) não some sozinho: só sai
+// quando o piloto mexe no teclado ou fecha a janela em que está. Se o painel troca o
+// HTML (a Loja, o INVENTÁRIO e o STATUS se redesenham quando o ouro sobe), o foco
+// volta ao mesmo botão no HTML novo; se o botão deixou de existir, ao mais perto de
+// onde ele estava. O clique do mouse leva o foco do controle junto. Com o controle
+// em uso, a janela que abre já vem com o foco no primeiro botão.
+//
 // A captura de um botão novo (aba Configurações) também é daqui: o primeiro botão ou
 // eixo que passa do LIMIAR_APERTO depois de solto (o ✕ que abriu a captura precisa
 // ser solto antes) vai para a ação.
@@ -28,10 +35,16 @@ import {
   proximoNaDirecao,
   valorAcao,
 } from './atalhos-regras.js';
-import { mapasAtuais, emitirAcao, definirDispositivo, capturaAtual, concluirCaptura } from './atalhos.js';
+import { mapasAtuais, emitirAcao, definirDispositivo, dispositivoAtual, capturaAtual, concluirCaptura } from './atalhos.js';
 
 /** Janelas em que o controle navega, da que fica por cima para a de baixo. */
 const ESCOPOS = [['#volume'], ['#resultado'], ['#servico', '#inventario', '#status'], ['#carregamento'], ['#entrada'], ['#abertura']];
+
+/** Qualquer uma das janelas (a raiz do foco). */
+const RAIZES = ESCOPOS.flat().join(', ');
+
+/** As janelas da partida (as que se redesenham com o snapshot). */
+const JANELAS_DA_PARTIDA = '#servico, #inventario, #status';
 
 /** O que o foco do controle visita. */
 const FOCAVEIS =
@@ -46,6 +59,10 @@ let bloqueadas = null; // na captura: as entradas seguradas quando ela começou
 let nav = null; // { acao, prox }: direção segurada e quando repete
 let ultimoFoco = null; // o último elemento que o controle focou
 let ultimoCentro = null; // o centro dele (para achar o vizinho se ele sumir num redesenho)
+let ultimaAssinatura = null; // quem ele é (assinatura): o mesmo botão no HTML novo
+let focoAtivo = false; // o controle tem um botão focado (até o teclado ou a janela fechar)
+let raizFoco = null; // a janela dele
+let chaveEscopo = ''; // as janelas abertas no quadro anterior
 let ultimo = 0;
 const aoMudarControles = new Set();
 
@@ -61,9 +78,8 @@ export function iniciarJoystick() {
   };
   addEventListener('gamepadconnected', avisar);
   addEventListener('gamepaddisconnected', avisar);
-  // Mouse ou teclado de novo: o foco do controle sai de cena.
-  addEventListener('pointerdown', () => tirarDestaque(), { capture: true });
-  addEventListener('keydown', () => tirarDestaque(), { capture: true });
+  // O teclado tira o foco do controle (o mouse não: o clique o leva junto).
+  addEventListener('keydown', () => soltarFoco(), { capture: true });
   requestAnimationFrame(laco);
 }
 
@@ -142,8 +158,89 @@ function focar(el) {
   rolarAte(el);
   el.classList.add('foco-joy');
   ultimoFoco = el;
+  focoAtivo = true;
+  raizFoco = el.closest(RAIZES);
+  ultimaAssinatura = assinatura(el);
   const r = ret(el);
   ultimoCentro = { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+}
+
+/**
+ * Quem é o botão, para achá-lo de novo depois de um redesenho: a tag e os atributos
+ * que dizem o que ele faz (id, data-*, role); sem nenhum, o texto. A classe fica de
+ * fora, porque muda com o estado (a carta da Loja fica "compravel" com mais ouro).
+ */
+function assinatura(el) {
+  const attrs = [...el.attributes]
+    .filter((a) => a.name === 'id' || a.name === 'role' || a.name.startsWith('data-'))
+    .map((a) => `${a.name}=${a.value}`)
+    .sort()
+    .join('|');
+  return `${el.tagName}|${attrs || el.textContent.trim().slice(0, 60)}`;
+}
+
+/**
+ * Tira o foco do controle (o piloto mexeu no teclado ou a janela fechou). Numa
+ * janela da partida o botão também perde o foco do navegador, senão o Espaço (que
+ * também atira) clicaria nele.
+ */
+function soltarFoco() {
+  if (!focoAtivo) return;
+  focoAtivo = false;
+  const ativo = document.activeElement;
+  if (ativo?.classList.contains('foco-joy') && ativo.closest(JANELAS_DA_PARTIDA)) ativo.blur();
+  tirarDestaque();
+  ultimoFoco = raizFoco = ultimaAssinatura = ultimoCentro = null;
+}
+
+/** O elemento de `els` mais perto do centro do último foco (até `max` px). */
+function maisPerto(els, max = Infinity) {
+  let melhor = null;
+  let dist = max;
+  for (const el of els) {
+    const r = ret(el);
+    const d = Math.hypot(r.x + r.w / 2 - ultimoCentro.x, r.y + r.h / 2 - ultimoCentro.y);
+    if (d < dist) {
+      dist = d;
+      melhor = el;
+    }
+  }
+  return melhor;
+}
+
+/**
+ * O foco do controle a cada quadro (as regras no topo do arquivo): solta quando a
+ * janela dele fecha, segue o clique do mouse, devolve o foco que o clique tirou (os
+ * painéis tiram o foco do botão clicado, por causa do Espaço), reencontra o botão
+ * redesenhado (pela assinatura; entre iguais, o mais perto) ou o vizinho, e põe o
+ * foco na janela que abre com o controle em uso.
+ */
+function atualizarFoco(escopo) {
+  const chave = escopo.map((el) => el.id).join(',');
+  const mudou = chave !== chaveEscopo;
+  chaveEscopo = chave;
+  if (focoAtivo && (!raizFoco || !escopo.includes(raizFoco))) soltarFoco();
+  if (!escopo.length) return;
+  if (!focoAtivo) {
+    if (mudou && dispositivoAtual() === 'controle') {
+      const p = primeiroFoco(candidatos(escopo));
+      if (p) focar(p);
+    }
+    return;
+  }
+  // O caminho de todo quadro sem a lista inteira: o foco onde estava.
+  const naJanela = (el) => el && el !== document.body && el.isConnected && escopo.some((r) => r.contains(el)) && visivel(el);
+  const ativo = document.activeElement;
+  // O mouse (ou o próprio menu) focou outro botão da janela: o controle vai junto.
+  if (ativo !== ultimoFoco && naJanela(ativo) && ativo.matches(FOCAVEIS)) return focar(ativo);
+  if (naJanela(ultimoFoco)) {
+    if (ativo !== ultimoFoco || !ultimoFoco.classList.contains('foco-joy')) focar(ultimoFoco);
+    return;
+  }
+  // O botão sumiu (redesenho, caixinha que fechou, tela que trocou).
+  const lista = candidatos(escopo);
+  const novo = maisPerto(lista.filter((el) => assinatura(el) === ultimaAssinatura)) ?? maisPerto(lista) ?? primeiroFoco(lista);
+  if (novo) focar(novo);
 }
 
 /** De onde o controle parte: o foco, o último que ele focou ou o vizinho do lugar dele. */
@@ -153,17 +250,7 @@ function pontoDePartida(lista) {
   if (ultimoFoco && lista.includes(ultimoFoco)) return ultimoFoco;
   if (!ultimoCentro) return null;
   // O botão foi redesenhado (o painel trocou o HTML): o que está no mesmo lugar.
-  let melhor = null;
-  let dist = 60; // px: longe disso, já é outro botão
-  for (const el of lista) {
-    const r = ret(el);
-    const d = Math.hypot(r.x + r.w / 2 - ultimoCentro.x, r.y + r.h / 2 - ultimoCentro.y);
-    if (d < dist) {
-      dist = d;
-      melhor = el;
-    }
-  }
-  return melhor;
+  return maisPerto(lista, 60);
 }
 
 /** O primeiro foco numa janela: o botão principal, o selecionado ou o primeiro. */
@@ -269,6 +356,7 @@ function laco(agora) {
       if (nav?.acao === a.id) nav = null;
     }
   }
+  atualizarFoco(escopo);
   // Direção segurada: repete no ritmo da lista.
   if (nav && ctx === 'menu' && apertada[nav.acao]) {
     nav.prox -= dt;
