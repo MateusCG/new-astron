@@ -17,7 +17,24 @@
     <!-- Menu principal (menu.js, regras em menu-regras.js): header com as abas e uma
          tela por aba; a Seleção (raça, classe e times) abre depois de escolher o modo.
          O canvas da nave 3D (vitrine.js) é um só e muda de lugar com a tela. -->
-    <section id="entrada" data-tela="jogar">
+    <!-- Tela de abertura (abertura.js, regras em abertura-regras.js): a primeira coisa
+         do site. A arte das naves, o nome do jogo, a barra do que o menu usa e o JOGAR,
+         que acende com tudo pronto e abre o menu. -->
+    <section id="abertura" aria-label="New AstroN: carregando">
+      <img class="arte-abertura" alt="A Alchemium Wing e a Chimera em combate sobre o lago de Hélio-3" draggable="false" />
+      <div class="veu-abertura" aria-hidden="true"></div>
+      <h1 class="marca-abertura"><small>NEW</small><span>ASTRON</span><em>Guerra de naves · 3 contra 3</em></h1>
+      <div class="carga-abertura" aria-live="polite">
+        <p class="topo-abertura"><span class="agora-abertura">Carregando…</span><b class="pct-abertura">0%</b></p>
+        <span class="barra-abertura"><i></i></span>
+        <ul class="grupos-abertura"></ul>
+        <button type="button" class="jogar-abertura" disabled>Jogar<kbd>Enter</kbd></button>
+      </div>
+      <aside class="dica-abertura"><b>Dica</b><p></p></aside>
+      <button type="button" class="som-abertura botao-volume" title="Volume (M liga e desliga o som)" aria-label="Volume"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg></button>
+    </section>
+
+    <section id="entrada" data-tela="jogar" hidden>
       <div id="fundo-nave" class="palco-nave" data-distancia="30" aria-hidden="true">
         <p class="carregando-nave" hidden><span class="marca"></span><span class="texto">Carregando a nave</span></p>
       </div>

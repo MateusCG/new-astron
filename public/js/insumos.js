@@ -13,11 +13,12 @@
 // daqui): se o desenho de um efeito passar a usar outra textura, a lista do
 // carregamento acompanha sozinha.
 
-import { WEAPONS, ARMAS, armasDisponiveis, visualEfeito, visualDoOriginal } from '../../shared/armas.js';
+import { WEAPONS, ARMAS, armasDisponiveis, armasIniciais, visualEfeito, visualDoOriginal } from '../../shared/armas.js';
 import { linhaDe, RACAS_JOGAVEIS, ORDEM_CLASSES } from '../../shared/naves.js';
 import { EQUIPAMENTOS, equipamentosAVenda } from '../../shared/equipamentos.js';
 import { SONS_INTERFACE, SONS_ARMA, SONS_VOLTA, SONS_NUCLEO } from './sons.js';
 import { EFEITOS_DESTRUICAO, SONS_DESTRUICAO } from './destruicao.js';
+import { SONS_LOCUTOR } from './locutor-regras.js';
 
 /** Pasta das texturas dos efeitos de arma do original. */
 export const PASTA_TEXTURAS_EFEITO = '/texturas/efeitos/';
@@ -317,6 +318,41 @@ export function insumosDaPartida(race, classe) {
 /** Os arquivos dos modelos da asa de uma lista de armas, sem repetição (peças compartilhadas baixam uma vez). */
 export function modelosDasArmas(armas) {
   return [...new Set(armas.flatMap((a) => a.modelos))];
+}
+
+// ---------- Menu (tela de abertura) ----------
+
+/**
+ * Tudo o que o menu mostra antes de uma partida, para a tela de abertura (abertura.js)
+ * baixar ao abrir o site e nenhuma aba carregar nada na hora:
+ * - `naves`: as 45 (o Hangar abre qualquer uma, a aba Jogar mostra a em destaque), a
+ *   primeira de cada linha antes (a grade da Seleção e a nave da aba Jogar);
+ * - `propulsao`: as raças jogáveis (a nave da vitrine gira com o motor aceso);
+ * - `icones`: as armas de fábrica de cada raça (a ficha da Seleção e a do Hangar);
+ * - `sons`: os da interface (clique, abrir) e as vozes do locutor (a barra do locutor
+ *   nas Configurações toca o "Godlike").
+ * As miniaturas saem das mesmas `naves` (uma por nave: as cartas da Seleção, a linha
+ * da Evolução e as do Hangar).
+ */
+export function insumosDoMenu() {
+  const naves = [];
+  for (let tier = 0; tier < 5; tier++) {
+    for (const race of RACAS_JOGAVEIS) {
+      for (const classe of ORDEM_CLASSES) {
+        const n = linhaDe(race, classe)[tier];
+        if (n) naves.push({ race, classe, tier, nome: n.nome, url: '/' + n.modelo });
+      }
+    }
+  }
+  const icones = new Set();
+  for (const race of RACAS_JOGAVEIS) {
+    for (const idx of armasIniciais(race)) {
+      const w = WEAPONS[ARMAS[idx]];
+      if (w?.icone) icones.add(w.icone);
+    }
+  }
+  const sons = [...new Set([...Object.values(SONS_INTERFACE), ...SONS_LOCUTOR])];
+  return { naves, propulsao: [...RACAS_JOGAVEIS], icones: [...icones], sons };
 }
 
 // ---------- Mapa e monstros ----------

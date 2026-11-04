@@ -158,6 +158,7 @@ import { anunciosDaMorte } from './locutor-regras.js';
 import { Destruicoes } from './destruicao-3d.js';
 import { destruicaoDe } from './destruicao.js';
 import { TelaCarregamento, Carregamento, aquecerGpu } from './carregamento.js';
+import { TelaAbertura } from './abertura.js';
 import { MELHORIAS_MINERADOR, MELHORIA_TORRETAS } from '/shared/evolucao.js';
 import { RECALL_S } from '/shared/recall.js';
 import { TORRETAS } from '/shared/terrain.js';
@@ -1505,4 +1506,18 @@ function montarJogo(rede, boas, renderer, race, classe) {
   return { sair, fecharPainel, aquecer, comecar };
 }
 
-montarMenu();
+// Tela de abertura (abertura.js): a primeira coisa do site. Baixa tudo o que o menu
+// mostra (as 45 naves, as miniaturas, os ícones, os sons) e o JOGAR monta e abre o
+// menu, que já acha tudo no cache.
+const abertura = new TelaAbertura({
+  el: document.querySelector('#abertura'),
+  sons,
+  painelVolume,
+  aoJogar: () => {
+    montarMenu();
+    menu.abrir(menu.aba);
+  },
+});
+window.__abertura = abertura; // para os testes de navegador
+mostrarEstadoSom();
+abertura.carregar();

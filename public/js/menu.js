@@ -21,7 +21,8 @@
 //
 // O canvas da nave 3D é um só (vitrine.js) e vai para o palco da tela aberta; nas
 // Configurações ele para. As miniaturas saem da mesma vitrine (cada uma uma vez por
-// página) e só das naves que a tela mostra: nada de baixar as 45 de uma vez.
+// página). O menu só é montado depois da tela de abertura (abertura.js), que já baixou
+// as 45 naves e desenhou todas as miniaturas: nenhuma aba carrega nada na hora.
 
 import * as THREE from 'three';
 import { RACES } from '/shared/sim.js';
@@ -220,15 +221,18 @@ export class Menu {
     return true;
   }
 
-  /** Mostra o menu de novo (saiu da partida): aba Jogar, Decolar liberado. */
-  abrir() {
+  /**
+   * Mostra o menu (saiu da partida, ou o JOGAR da tela de abertura): a aba `tela`
+   * (Jogar, a não ser na abertura, que volta à aba de antes), Decolar liberado.
+   */
+  abrir(tela = 'jogar') {
     this.decolando = false;
     const botao = this.q('.decolar');
     botao.disabled = false;
     botao.textContent = 'Decolar';
     this.q('#erro-entrada').textContent = '';
     this.el.hidden = false;
-    this.mostrar('jogar');
+    this.mostrar(tela);
     this.#focarTela();
   }
 

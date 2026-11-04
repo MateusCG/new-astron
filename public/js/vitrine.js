@@ -5,11 +5,11 @@
 //
 // Um renderer pequeno só para isso (o do jogo é criado ao entrar e ocupa a tela
 // inteira), com a mesma luz quente de fim de tarde da cena (cena.js) sobre um fundo
-// transparente. Só carrega o modelo que vai mostrar (modeloDaNave, com o cache de
-// nave.js): a entrada baixa uma nave, não as 45. As miniaturas das 5 naves da linha
-// já saem na tela de carregamento (carregamento.js), para o cartão da Evolução e o
-// inventário abrirem sem desenhar nada na hora (cada miniatura é feita uma vez por
-// página). Sem WebGL a vitrine fica vazia e a miniatura devolve null (o cartão
+// transparente. Os modelos vêm do cache de nave.js (modeloDaNave): a tela de abertura
+// (abertura.js) baixa as 45 naves, desenha todas as miniaturas e aquece a placa de
+// vídeo da vitrine (aquecerVitrine) antes do menu abrir, então nenhuma aba do menu,
+// nem o cartão da Evolução e o inventário na partida, desenha nada na hora (cada
+// miniatura é feita uma vez por página). Sem WebGL a vitrine fica vazia e a miniatura devolve null (o cartão
 // mostra um ícone), sem quebrar a tela.
 
 import * as THREE from 'three';
@@ -157,6 +157,39 @@ export function segurarPrevia(sim) {
 export function pararPrevia() {
   if (previa?.quadro) cancelAnimationFrame(previa.quadro);
   if (previa) previa.quadro = 0;
+}
+
+/**
+ * Prepara a placa de vídeo da vitrine antes do menu abrir (tela de abertura): monta as
+ * naves de `lista` ({ race, classe, tier }) com o motor aceso, tudo visível, compila os
+ * shaders e desenha um quadro pequeno, para a primeira nave girando não travar
+ * compilando a propulsão. As naves saem de cena sem liberar nada (os materiais e as
+ * geometrias são os do cache de nave.js, que a prévia usa). False sem WebGL.
+ */
+export function aquecerVitrine(lista) {
+  const p = montarPalco();
+  if (!p) return false;
+  const grupo = new THREE.Group();
+  lista.forEach(({ race, classe, tier }, i) => {
+    const nave = criarNave(race, { aliado: true, classe, tier });
+    nave.position.x = (i - (lista.length - 1) / 2) * 16;
+    atualizarMotor(nave, { vitrine: true }, 0, 1 / 30);
+    grupo.add(nave);
+  });
+  grupo.traverse((o) => {
+    o.visible = true;
+    o.frustumCulled = false;
+  });
+  const outra = previa?.nave;
+  if (outra) outra.visible = false;
+  p.cena.add(grupo);
+  p.renderer.setSize(MINIATURA.largura, MINIATURA.altura, false);
+  enquadrar(p.camera, MINIATURA.largura, MINIATURA.altura, 60);
+  p.renderer.compile(p.cena, p.camera);
+  p.renderer.render(p.cena, p.camera);
+  p.cena.remove(grupo);
+  if (outra) outra.visible = true;
+  return true;
 }
 
 /**

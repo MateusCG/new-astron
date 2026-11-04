@@ -88,8 +88,8 @@ const LINHAS = [
 /** Passos da linha da placa de vídeo (aquecerGpu): montar, compilar, texturas, desenhar. */
 const PASSOS_GPU = 4;
 
-/** Roda as tarefas com no máximo `n` ao mesmo tempo, na ordem da lista. */
-function emFila(tarefas, n) {
+/** Roda as tarefas com no máximo `n` ao mesmo tempo, na ordem da lista (a tela de abertura também usa). */
+export function emFila(tarefas, n) {
   let i = 0;
   const trabalhador = async () => {
     while (i < tarefas.length) await tarefas[i++]();
