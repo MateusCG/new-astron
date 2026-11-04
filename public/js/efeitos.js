@@ -24,7 +24,8 @@
 // clarão, impacto, área, nova e o decalque das minas e campos vêm de
 // efeitos-armas.js, com as texturas e as cores do original. O tiro nasce na boca da
 // arma pendurada na asa e escorrega para a linha do tiro de verdade (a da física) em
-// DESVIO_S, para o desenho sair da arma sem mentir onde a bala está. As armas de início
+// DESVIO_S (o que anda a curva do original, no ritmo dela: a carga parada fica na boca),
+// para o desenho sair da arma sem mentir onde a bala está. As armas de início
 // (as duas de fábrica de cada raça) e as revistas depois (o Feixe Perfurante de Magma, o
 // Canhão de Faíscas e o Rebatedor de Projéteis) saem com os efeitos do original tocados
 // como no original, do clarão preso na boca ao impacto no casco (disparo-original.js).
@@ -70,7 +71,7 @@
 // carregamento (preencherReservas, chamado pelo aquecimento da placa de vídeo).
 
 import * as THREE from 'three';
-import { HOVER, RACES, stepBullet, WEAPONS } from '/shared/sim.js';
+import { HOVER, RACES, stepBullet, WEAPONS, porCurva } from '/shared/sim.js';
 import { heightAt, topoPouso } from '/shared/terrain.js';
 import { FATOR_AREA, golpeDaArma, visualDoOriginal, visualEfeito } from '/shared/armas.js';
 import { ALFA_CAMUFLADA, atravessa, ESCALA_DISPARO, ESTADOS_NA_NAVE, efeitosNaNave } from './disparo-regras.js';
@@ -230,6 +231,31 @@ const caixaVolta = new THREE.Box3();
 const RESERVA_INICIAL = { brilho: 160, fumaca: 120, faiscas: 12, anelArea: 12, feixe: 4 };
 // Faíscas de uma explosão: 14 por tamanho, até este tanto (o buffer da reserva é deste tamanho).
 const FAISCAS_MAX = 128;
+
+/**
+ * O tiro `b` que chegou do servidor com o rumo da curva do original (`dx`, `dz`, `esp`:
+ * o evento 'tiro', o 'rebatido', o snapshot dos teleguiados) passa a andar a curva no
+ * stepBullet, como lá (porCurva; a herança da nave sai de vx/vz). `refazer`: o tiro já
+ * andava a curva e o servidor mandou o estado de agora. O previsto (createBullet) já
+ * nasce com ela.
+ */
+function ligarCurva(b, refazer = false) {
+  if (b.dx === undefined || (b.acel !== undefined && !refazer)) return;
+  const curva = golpeDaArma(b.kind, b.nv ?? 1, b.p ?? 0)?.curva;
+  if (curva) porCurva(b, curva, { dx: b.dx, dz: b.dz, esp: b.esp });
+}
+
+/**
+ * Vira o desenho `g` (em `de`, ou onde ele está) para onde o tiro `b` aponta: o rumo da
+ * curva (o míssil que ainda cai para trás olha para a frente; a carga parada também) ou
+ * a velocidade.
+ */
+function olharNoRumo(g, b, de = g.position) {
+  if (b.dx !== undefined) {
+    const k = Math.max(Math.abs(b.esp ?? 0), 1);
+    g.lookAt(de.x + b.dx * k, de.y + (b.vy ?? 0), de.z + b.dz * k);
+  } else g.lookAt(de.x + b.vx, de.y + b.vy, de.z + b.vz);
+}
 
 function spriteAditivo(cor, tamanho) {
   const s = new THREE.Sprite(
@@ -1101,12 +1127,15 @@ export class Efeitos {
         // Míssil de monstro (atq), de torre (tiro de NPC sem atq: o evento se perdeu ou
         // entrou agora na visão) ou de arma de jogador.
         const npc = !visualDoOriginal(g.kind);
-        const b = { id: g.id, kind: g.kind ?? 'plasma', atq: g.atq, nv: g.nv, p: g.p, x: g.x, y: g.y, z: g.z, vx: g.vx, vy: g.vy, vz: g.vz, vida: 3 };
+        const curva = g.dx !== undefined ? { dx: g.dx, dz: g.dz, esp: g.esp } : {};
+        const b = { id: g.id, kind: g.kind ?? 'plasma', atq: g.atq, nv: g.nv, p: g.p, x: g.x, y: g.y, z: g.z, vx: g.vx, vy: g.vy, vz: g.vz, vida: 3, ...curva };
         if (npc && !g.atq) this.tiro({ ...b, kind: 'missil' }, true);
         else this.tiro(b);
         continue;
       }
       Object.assign(t.b, { x: g.x, y: g.y, z: g.z, vx: g.vx, vy: g.vy, vz: g.vz });
+      // Com a curva do original: o rumo e a velocidade própria de agora (a herança sai de vx/vz).
+      if (g.dx !== undefined) ligarCurva(Object.assign(t.b, { dx: g.dx, dz: g.dz, esp: g.esp }), true);
       t.acc = 0;
     }
   }
@@ -1124,6 +1153,7 @@ export class Efeitos {
    * dela (efeitos-armas.js); `boca` (Vector3) é de onde o desenho sai.
    */
   tiro(b, inimigo = false, cor = null, boca = null) {
+    ligarCurva(b);
     if (b.atq && this.#tiroOriginal(b)) return;
     if (!inimigo && !cor && this.disparo.tiro(b, boca)) return;
     const w = WEAPONS[b.kind];
@@ -1132,7 +1162,7 @@ export class Efeitos {
     if (visualDoOriginal(b.kind) && (w.original || !inimigo) && !cor) {
       const p = this.armas.projetil(b.kind, b.nv ?? 1, b.p ?? 0);
       p.g.position.set(b.x, b.y, b.z);
-      p.g.lookAt(b.x + b.vx, b.y + b.vy, b.z + b.vz);
+      olharNoRumo(p.g, b);
       this.scene.add(p.g);
       const desvio = boca ? { x: boca.x - b.x, y: boca.y - b.y, z: boca.z - b.z, t: 0 } : null;
       this.tiros.set(b.id, { b, g: p.g, visual: true, guiado: p.guiado, giro: p.giro, onda: p.onda, corRastro: p.rastro, rastro: { x: b.x, y: b.y, z: b.z }, desvio });
@@ -1343,6 +1373,8 @@ export class Efeitos {
     }
     if (!t) return;
     Object.assign(t.b, { x: e.x, y: e.y, z: e.z, vx: e.vx, vy: e.vy, vz: e.vz, owner: e.dono });
+    // Com a curva do original: o rumo novo, sem a herança da nave (como no servidor).
+    if (e.dx !== undefined) ligarCurva(Object.assign(t.b, { dx: e.dx, dz: e.dz, esp: e.esp }), true);
     t.b.ox = t.b.oz = undefined;
     t.rebatido = true;
     t.desvio = null;
@@ -1416,26 +1448,28 @@ export class Efeitos {
       }
       t.g.position.set(t.b.x, t.b.y, t.b.z);
       if (t.desvio) {
-        // Sai da boca da arma e encontra a linha do tiro de verdade.
-        t.desvio.t += dt;
+        // Sai da boca da arma e encontra a linha do tiro de verdade. O que anda a curva do
+        // original escorrega no ritmo dela (a velocidade própria sobre a média do golpe): a
+        // carga que sai parada fica na boca e não desliza de lado (o rastro sairia de lado).
+        if (t.b.acel !== undefined) t.desvio.media ??= golpeDaArma(t.b.kind, t.b.nv ?? 1, t.b.p ?? 0)?.vel || 1;
+        t.desvio.t += t.desvio.media ? dt * Math.min(1, Math.abs(t.b.esp) / t.desvio.media) : dt;
         const k = Math.max(0, 1 - t.desvio.t / DESVIO_S);
         if (k > 0) t.g.position.add(this.v.set(t.desvio.x * k, t.desvio.y * k, t.desvio.z * k));
         else t.desvio = null;
       }
-      if (t.comoOriginal) this.disparo.posicionar(t);
       if (t.visual) {
         this.armas.animarProjetil(t, dt);
-        if (t.b.vx || t.b.vz) t.g.lookAt(t.g.position.x + t.b.vx, t.g.position.y + t.b.vy, t.g.position.z + t.b.vz);
+        if (t.b.vx || t.b.vz || t.b.dx !== undefined) olharNoRumo(t.g, t.b);
       }
       if (t.original) {
-        if (t.b.vx || t.b.vz) t.g.lookAt(t.g.position.x + t.b.vx, t.g.position.y + t.b.vy, t.g.position.z + t.b.vz);
+        if (t.b.vx || t.b.vz || t.b.dx !== undefined) olharNoRumo(t.g, t.b);
         tocarEfeitoOriginal(t.original, dt, this.camera);
         if (t.particula) this.#rastroParticulas(t);
         if (t.cauda) this.disparo.rastro(t, dt);
       }
       if (t.guiado) {
         // O míssil vira com a curva e deixa fumaça para trás.
-        t.g.lookAt(t.b.x + t.b.vx, t.b.y + t.b.vy, t.b.z + t.b.vz);
+        olharNoRumo(t.g, t.b, t.b);
         const r = t.rastro;
         const dist = Math.hypot(t.b.x - r.x, t.b.y - r.y, t.b.z - r.z);
         const n = Math.min(FUMACA_MAX, Math.floor(dist / FUMACA_PASSO));

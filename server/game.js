@@ -137,7 +137,7 @@
 // Como no recall, é a mesma nave e a fila de comandos segue: o cliente reconcilia
 // pelo `me` e o evento 'teleporte' corta a suavização da predição e da câmera.
 
-import { DT, WEAPONS, createShip, sanitizeInput, stepShip, VEL_TOQUE, velocidadeBase, pousadaNaBase, BASE_CURA_FRAC, forward, HOVER, folgaTeleporte, custoTeleporte, SHIP_RADIUS } from '../shared/sim.js';
+import { DT, WEAPONS, createShip, sanitizeInput, stepShip, VEL_TOQUE, velocidadeBase, pousadaNaBase, BASE_CURA_FRAC, forward, HOVER, folgaTeleporte, custoTeleporte, SHIP_RADIUS, rumoDaCurva } from '../shared/sim.js';
 import { BASE, BASES, CAMPOS_BASE, heightAt, cruzaCampoBase, encostaNoCampo, dentroDoCampo } from '../shared/terrain.js';
 import { pontoLivre } from '../shared/obstaculos.js';
 import { racaJogavel, RACAS_JOGAVEIS, classeOuPadrao } from '../shared/naves.js';
@@ -1440,7 +1440,7 @@ export class World {
   #guiadosSnap() {
     return this.bullets
       .filter((b) => b.g?.guia)
-      .map((b) => ({ id: b.id, kind: b.kind, nv: b.nivel, p: b.prof, ...(b.g.atq ? { atq: b.g.atq } : {}), x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2), vx: +b.vx.toFixed(2), vy: +b.vy.toFixed(2), vz: +b.vz.toFixed(2) }));
+      .map((b) => ({ id: b.id, kind: b.kind, nv: b.nivel, p: b.prof, ...(b.g.atq ? { atq: b.g.atq } : {}), x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2), vx: +b.vx.toFixed(2), vy: +b.vy.toFixed(2), vz: +b.vz.toFixed(2), ...(b.acel !== undefined ? rumoDaCurva(b) : {}) }));
   }
 
   /** Esvazia a lista de eventos acumulados desde o último snapshot. */

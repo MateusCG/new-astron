@@ -227,6 +227,12 @@ function golpe(n, efeitos, subs, categoria, raiz) {
     // aceleram (a Onda de Choque voava o dobro). Quem freia e as armas dos monstros
     // (sem velIni) seguem no alcanceM.
     velMedia: n.acel && n.vidaMs ? r3((n.acel > 0 && n.velIni !== undefined ? alcanceDoCartao(n) : n.alcanceM) / n.vidaMs) : 0,
+    // A curva do original (colunas 64 e 66: a velocidade inicial e a aceleração, m/ms e
+    // m/ms²), que o jogo anda de verdade (shared/sim.js, stepBullet): a carga sai parada
+    // e acelera, o míssil cai para trás antes de acelerar, a lâmina freia. Só as armas
+    // do jogador têm a velocidade inicial; as dos monstros seguem na média.
+    vel0: n.acel && n.velIni !== undefined ? n.velIni : undefined,
+    acel: n.acel && n.velIni !== undefined ? n.acel : undefined,
     cresce: n.nova ? { raio: n.nova.raioMax, cresce: n.nova.crescePorMs } : null,
     guia: n.teleguiado && n.teleguiado.giroGrausS > 0 ? { comecaMs: n.teleguiado.comecaMs, giro: n.teleguiado.giroGrausS } : null,
     mira: n.mira ? { modo: n.mira.modo, raio: n.mira.raioM } : null,

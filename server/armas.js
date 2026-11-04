@@ -19,7 +19,7 @@
 //   opostos do plano não se pegam (explosão, nova, mina e campo de arma, de quem
 //   for). A mira e o teleguiado também não escolhem alvo do outro lado.
 
-import { DT, HOVER, AREA_ALTURA, SHIP_RADIUS, forward } from '../shared/sim.js';
+import { DT, HOVER, AREA_ALTURA, SHIP_RADIUS, forward, porCurva, virarCurva } from '../shared/sim.js';
 import { MIRA_CONE } from '../shared/armas.js';
 import { heightAt, cruzaCampoBase } from '../shared/terrain.js';
 
@@ -66,13 +66,19 @@ export function guiarMissil(b, alvo, guia, dt = DT) {
     b.vy = 0;
     return;
   }
+  // O tiro com a curva do original (porCurva) vira o rumo dele (o nariz), não a
+  // velocidade: o míssil que ainda cai para trás já aponta para o alvo.
+  const curva = b.acel !== undefined;
   const vel = Math.hypot(b.vx, b.vz);
-  const rumo = Math.atan2(b.vx, b.vz);
+  const rumo = curva ? Math.atan2(b.dx, b.dz) : Math.atan2(b.vx, b.vz);
   const quer = Math.atan2(alvo.ship.x - b.x, alvo.ship.z - b.z);
   const giro = Math.max(-guia.giro * dt, Math.min(guia.giro * dt, anguloEntre(rumo, quer)));
   const novo = rumo + giro;
-  b.vx = Math.sin(novo) * vel;
-  b.vz = Math.cos(novo) * vel;
+  if (curva) virarCurva(b, Math.sin(novo), Math.cos(novo));
+  else {
+    b.vx = Math.sin(novo) * vel;
+    b.vz = Math.cos(novo) * vel;
+  }
   b.vy = Math.max(-VEL_SUBIDA_MISSIL, Math.min(VEL_SUBIDA_MISSIL, (alvo.ship.y - b.y) * 3));
 }
 
@@ -108,7 +114,9 @@ export function tiroFilho(g, id, x, y, z, yaw, off = 0, ang = 0) {
   const vel = g.vel ?? 0;
   const px = x - f.z * off;
   const pz = z + f.x * off;
-  return { id, x: px, y, z: pz, px, pz, vx: d.x * vel, vy: 0, vz: d.z * vel, vida: g.vida, raio: g.raio, dano: g.dano, prof: g.prof };
+  const b = { id, x: px, y, z: pz, px, pz, vx: d.x * vel, vy: 0, vz: d.z * vel, vida: g.vida, raio: g.raio, dano: g.dano, prof: g.prof };
+  if (g.curva) porCurva(b, g.curva, { dx: d.x, dz: d.z, hx: 0, hz: 0 }); // a curva do original (o raio da armadilha freia)
+  return b;
 }
 
 /** Altura de uma mina ou campo parado no ponto: no chão (ou na plataforma) embaixo de y. */

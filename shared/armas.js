@@ -492,6 +492,13 @@ function converterGolpe(o, versao, prof = 0, fatorRecarga = FATOR_RECARGA_ARMA) 
     varre: o.varre ? varredura(o) : null,
     alcance: vel * g.vida,
   });
+  if (o.acel) {
+    // A curva do original (m/s e m/s² no jogo): o tiro sai a v0 e acelera (ou freia) até
+    // vmax, como o CUnitBeam::MoveBullet (só limita por cima: o que freia passa de zero e
+    // volta). O stepBullet anda ela nos dois lados; `vel` continua a média (o alcance, a
+    // mira dos computadores).
+    g.curva = { v0: (o.vel0 ?? 0) * MS * FATOR_VEL, vmax: (o.vel ?? 0) * MS * FATOR_VEL, acel: o.acel * MS * MS * FATOR_VEL };
+  }
   if (o.cresce) {
     // Onda: o raio de acerto cresce em voo até o da esfera do original.
     g.cresce = { raio: o.cresce.raio * FATOR_AREA, vel: o.cresce.cresce * MS * FATOR_AREA };

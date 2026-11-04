@@ -12,8 +12,10 @@
 //   modo 0 (o Míssil Descarga Dupla), parado na boca, onde o tiro nasce, sem seguir a nave.
 // - Projétil (tiro): o efeito do projétil da versão, repetindo, no rumo do tiro; nasce
 //   na boca, com os projéteis paralelos espalhados em volta dela, e escorrega até a
-//   linha do tiro de verdade (o desvio de efeitos.js). O que acelera (a carga do Canhão
-//   de Faíscas) anda pela curva do original na linha do tiro (posicionar).
+//   linha do tiro de verdade (o desvio de efeitos.js). O que acelera ou freia (a carga
+//   do Canhão de Faíscas, os mísseis, as lâminas) anda a curva do original no próprio
+//   tiro (shared/sim.js, stepBullet), junto com o do servidor, apontado pelo rumo dela.
+//   O Raio Rastreador sai na metade do tamanho (escalaDoProjetil).
 // - Impacto (impacto, impactoLocal): no casco do alvo, virado como o alvo; o seu tiro
 //   desenha na hora em que encosta no alvo na tela, e o acerto do servidor que chega
 //   depois não desenha de novo. O feixe que atravessa deixa um em cada alvo e segue.
@@ -55,7 +57,6 @@ import { criarEfeitoOriginal, efeitoOriginalPronto, matrizDaPeca, soltarEfeitoOr
 import { criarRastro, seguirRastro, soltarRastro } from './rastro-missil.js';
 import {
   disparoOriginal,
-  cargaDoGolpe,
   graficoDaArmadilha,
   ESCALA_DISPARO,
   ESCUDO_REC,
@@ -64,7 +65,7 @@ import {
   pontoDoImpacto,
   acabouAntes,
   escalaDaArea,
-  recuoDaCarga,
+  escalaDoProjetil,
   explodeNoFim,
   quantumDoEscudo,
   direcaoDoQuantum,
@@ -221,34 +222,22 @@ export class DisparoOriginal {
     const p = b.p ?? 0;
     const id = this.#id(b.kind, b.nv, 'p', p);
     if (!id) return false;
-    const inst = criarEfeitoOriginal(id, { escala: ESCALA_DISPARO, loop: true });
+    const como = disparoOriginal(b.kind);
+    const inst = criarEfeitoOriginal(id, { escala: ESCALA_DISPARO * escalaDoProjetil(b.kind, p), loop: true });
     inst.obj.position.set(b.x, b.y, b.z);
-    inst.obj.lookAt(b.x + b.vx, b.y + b.vy, b.z + b.vz);
+    // O rumo: o da curva do original (a carga que sai parada já aponta para a frente) ou a velocidade.
+    if (b.dx !== undefined) inst.obj.lookAt(b.x + b.dx, b.y, b.z + b.dz);
+    else inst.obj.lookAt(b.x + b.vx, b.y + b.vy, b.z + b.vz);
     this.ef.scene.add(inst.obj);
     const desvio = boca ? { x: boca.x - b.x, y: boca.y - b.y, z: boca.z - b.z, t: 0 } : null;
-    const como = disparoOriginal(b.kind);
     const golpe = golpeDaArma(b.kind, b.nv ?? 1, p);
-    // A curva do original do disparo ou do subprojétil (o raio que a armadilha atira).
-    const curva = cargaDoGolpe(b.kind, p);
-    const carga = curva ? golpe : null;
     // Míssil com rastro (tipo de gráfico 6): a fita do original presa ao nó Tail dele.
     const cauda = golpe?.vis?.tipo === 'missil_com_rastro' && golpe.vis.r ? criarRastro(golpe.vis.r) : null;
     if (cauda) this.ef.scene.add(cauda.obj);
-    this.ef.tiros.set(b.id, { b, g: inst.obj, original: inst, comoOriginal: true, carga, curva, cauda, rastro: { x: b.x, y: b.y, z: b.z }, desvio });
+    this.ef.tiros.set(b.id, { b, g: inst.obj, original: inst, comoOriginal: true, cauda, rastro: { x: b.x, y: b.y, z: b.z }, desvio });
     const clarao = p > 0 && como.claraoSub === 'parado' ? this.#id(b.kind, b.nv, 'd', p) : null;
     if (clarao) this.#umaVez(clarao, ESCALA_DISPARO, b.x, b.y, b.z, this.#rumo(b));
     return true;
-  }
-
-  /**
-   * Ajusta o desenho do tiro `t` já posto na posição do tiro: o projétil que acelera
-   * (a carga do Canhão de Faíscas) fica para trás na linha dele, onde o original estaria.
-   */
-  posicionar(t) {
-    if (!t.carga) return;
-    const recuo = recuoDaCarga(t.carga.vida - t.b.vida, t.carga, t.curva);
-    const v = Math.hypot(t.b.vx, t.b.vy, t.b.vz);
-    if (recuo !== 0 && v > 0) t.g.position.addScaledVector(this.v.set(t.b.vx, t.b.vy, t.b.vz), -recuo / v);
   }
 
   /** O rastro do míssil `t` segue o nó Tail dele (chamar depois de o efeito tocar o quadro). */

@@ -25,7 +25,7 @@ import {
   pontoDoImpacto,
   acabouAntes,
   escalaDaArea,
-  recuoDaCarga,
+  escalaDoProjetil,
   atravessa,
   explodeNoFim,
   ESTADOS_NA_NAVE,
@@ -39,11 +39,10 @@ import {
   giroDaFaisca,
   alfaDaFaisca,
   turboNaNave,
-  cargaDoGolpe,
   graficoDaArmadilha,
 } from '../public/js/disparo-regras.js';
 import { EFEITOS_ORIGINAIS, ICONES_ESTADO, insumosDaPartida } from '../public/js/insumos.js';
-import { INICIAIS_ORIGINAL, WEAPONS, golpeDaArma } from '../shared/armas.js';
+import { INICIAIS_ORIGINAL, WEAPONS, golpeDaArma, MS, FATOR_VEL } from '../shared/armas.js';
 import { FATOR_TAMANHO_NAVE } from '../shared/naves.js';
 import { createBullet, stepBullet, forward } from '../shared/sim.js';
 
@@ -215,6 +214,32 @@ const IMPACTO_POR_VERSAO = ['o112003', 'o112001', 'o114003', 'o212001', 'o212004
 const FIM_BELLICO = ['o211015', 'o212002', 'o212011', 'o212005', 'o212013', 'o212022', 'o212023', 'o212025', 'o212004', 'o211003', 'o212021', 'o212026', 'o212034'];
 // Coluna 94 = 7 nas Shrewdo (no disparo ou num subprojétil: a armadilha e o raio que ela atira).
 const FIM_SHREWDO = ['o312001', 'o312022', 'o312012', 'o317020', 'o312004', 'o312015', 'o312009', 'o312024', 'o312020', 'o312030', 'o311003', 'o314001', 'o312003'];
+// Colunas 64 a 66 (velocidade inicial, máxima e aceleração, m/ms e m/ms²) das Acron que
+// não voam constante: as cargas do Canhão de Faíscas, do Descarregador, dos canhões da
+// terceira leva e do de Recuo saem paradas e aceleram até 0,5; a Lâmina Reforçada sai a
+// 0,5 e freia; a Onda de Sopro sai a 0,2 e acelera; os mísseis saem a −0,05 (caindo para
+// trás); a Armadilha Circular freia; a Lâmina Giratória sai parada e acelera até 0,35.
+const CARGA_ACRON = {
+  o112028: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o112010: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o112003: { v0: 0.5, vmax: 0.5, acel: -0.0002 },
+  o112030: { v0: 0.2, vmax: 0.5, acel: 0.0004 },
+  o112011: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o112027: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o112025: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o112020: { v0: -0.05, vmax: 0.4, acel: 0.0002 },
+  o112009: { v0: -0.05, vmax: 0.4, acel: 0.0002 },
+  o112004: { v0: 0.2, vmax: 0.2, acel: -0.0001 },
+  o112026: { v0: 0, vmax: 0.5, acel: 0.0003 },
+  o114003: { v0: 0, vmax: 0.35, acel: 0.0002 },
+};
+/** A curva do golpe do catálogo de volta nas unidades do original (m/ms, m/ms²), ou null. */
+function curvaNoOriginal(g) {
+  if (!g?.curva) return null;
+  const r = (x) => +x.toPrecision(6);
+  const { v0, vmax, acel } = g.curva;
+  return { v0: r(v0 / (MS * FATOR_VEL)) || 0, vmax: r(vmax / (MS * FATOR_VEL)), acel: r(acel / (MS * MS * FATOR_VEL)) };
+}
 // Colunas 64 a 66 das Shrewdo que não voam constante (o disparo; os subprojéteis em CARGA_SUB_SHREWDO).
 const CARGA_SHREWDO = {
   o312001: { v0: 0, vmax: 0.5, acel: 0.0003 },
@@ -287,33 +312,19 @@ test('disparo original: as seis armas de início e as revistas, com o modo de cl
   const comFimEArea = (k) => [0, 1, 2].some((p) => golpeDaArma(k, 1, p)?.vis?.f && golpeDaArma(k, 1, p).area > 0);
   for (const k of comFim) assert.ok(comFimEArea(k), k);
   assert.equal(ESCALA_DISPARO, FATOR_TAMANHO_NAVE, 'na escala das naves');
-  // Colunas 64 a 66: a carga do Canhão de Faíscas e a do Descarregador saem paradas e
-  // aceleram até 0,5 m/ms; a Lâmina Reforçada sai a 0,5 e freia.
-  assert.deepEqual(DISPARO_ORIGINAL.o112028.carga, { v0: 0, vmax: 0.5, acel: 0.0003 });
-  assert.deepEqual(DISPARO_ORIGINAL.o112010.carga, { v0: 0, vmax: 0.5, acel: 0.0003 });
-  assert.deepEqual(DISPARO_ORIGINAL.o112003.carga, { v0: 0.5, vmax: 0.5, acel: -0.0002 });
-  // A Onda de Sopro Acron sai a 0,2 m/ms e acelera 0,0004 até 0,5.
-  assert.deepEqual(DISPARO_ORIGINAL.o112030.carga, { v0: 0.2, vmax: 0.5, acel: 0.0004 });
-  // Terceira leva: os canhões e o Bombardeiro Elétrico como o Descarregador; os mísseis
-  // saem a −0,05 (caindo para trás) e aceleram 0,0002 até 0,4; a Armadilha Circular sai a
-  // 0,2 e freia 0,0001.
-  for (const k of ['o112011', 'o112027', 'o112025']) assert.deepEqual(DISPARO_ORIGINAL[k].carga, { v0: 0, vmax: 0.5, acel: 0.0003 }, k);
-  for (const k of ['o112020', 'o112009']) assert.deepEqual(DISPARO_ORIGINAL[k].carga, { v0: -0.05, vmax: 0.4, acel: 0.0002 }, k);
-  assert.deepEqual(DISPARO_ORIGINAL.o112004.carga, { v0: 0.2, vmax: 0.2, acel: -0.0001 });
-  // Quarta leva: o Canhão de Recuo como o Descarregador.
-  assert.deepEqual(DISPARO_ORIGINAL.o112026.carga, { v0: 0, vmax: 0.5, acel: 0.0003 });
-  // A Lâmina Giratória sai parada e acelera 0,0002 até 0,35 (a Reforçada freia).
-  assert.deepEqual(DISPARO_ORIGINAL.o114003.carga, { v0: 0, vmax: 0.35, acel: 0.0002 });
-  // Bellico: as cargas de cada uma (colunas 64 a 66 do original, iguais de V1 a V8).
-  for (const [k, carga] of Object.entries(CARGA_BELLICO)) assert.deepEqual(DISPARO_ORIGINAL[k].carga, carga, k);
-  // Shrewdo: as cargas do disparo e as dos subprojéteis (cargaDoGolpe).
-  for (const [k, carga] of Object.entries(CARGA_SHREWDO)) assert.deepEqual(cargaDoGolpe(k, 0), carga, k);
-  for (const [k, subs] of Object.entries(CARGA_SUB_SHREWDO)) for (const [p, c] of Object.entries(subs)) assert.deepEqual(cargaDoGolpe(k, +p), c, `${k} golpe ${p}`);
-  const comCarga = ['o112028', 'o112010', 'o112003', 'o112030', 'o112011', 'o112027', 'o112025', 'o112020', 'o112009', 'o112004', 'o112026', 'o114003', ...Object.keys(CARGA_BELLICO), ...Object.keys(CARGA_SHREWDO)];
-  for (const k of Object.keys(DISPARO_ORIGINAL)) if (!comCarga.includes(k)) assert.equal(DISPARO_ORIGINAL[k].carga, undefined, k);
-  for (const k of Object.keys(DISPARO_ORIGINAL)) if (!CARGA_SUB_SHREWDO[k]) assert.equal(DISPARO_ORIGINAL[k].cargaSub, undefined, k);
-  assert.equal(cargaDoGolpe('o312018', 1), null, 'sem subprojétil');
-  assert.equal(cargaDoGolpe('o999999', 0), null);
+  // Colunas 64 a 66 de cada arma que não voa constante (iguais de V1 a V8 no original),
+  // na `curva` do catálogo, que o tiro anda nos dois lados (shared/sim.js, stepBullet).
+  const tabelas = { ...CARGA_ACRON, ...CARGA_BELLICO, ...CARGA_SHREWDO };
+  for (const [k, carga] of Object.entries(tabelas)) for (let nv = 1; nv <= 8; nv++) assert.deepEqual(curvaNoOriginal(golpeDaArma(k, nv, 0)), carga, `${k} V${nv}`);
+  for (const [k, subs] of Object.entries(CARGA_SUB_SHREWDO)) for (const [p, c] of Object.entries(subs)) assert.deepEqual(curvaNoOriginal(golpeDaArma(k, 1, +p)), c, `${k} golpe ${p}`);
+  for (const k of Object.keys(DISPARO_ORIGINAL)) if (!tabelas[k]) assert.equal(golpeDaArma(k, 1, 0).curva, undefined, k);
+  assert.equal(golpeDaArma('o312018', 1, 1), null, 'sem subprojétil');
+  // As armas dos monstros seguem na média (o original não dá a velocidade inicial delas).
+  for (const k of Object.keys(WEAPONS)) if (WEAPONS[k].npc) assert.equal(golpeDaArma(k, 1, 0)?.curva, undefined, k);
+  // O Raio Rastreador sai na metade do tamanho do original (pedido do Mateus); o resto, igual.
+  assert.equal(escalaDoProjetil('o312030'), 0.5);
+  assert.equal(escalaDoProjetil('o312030', 1), 1, 'só o disparo');
+  for (const k of Object.keys(DISPARO_ORIGINAL)) if (k !== 'o312030') assert.equal(escalaDoProjetil(k), 1, k);
   // O Teleporte toca o CUnitTeleportEffect (1163010) na saída e na chegada.
   assert.equal(DISPARO_ORIGINAL.o112021.teleporte, '1163010');
   // Coluna 53 do subprojétil 113001 vazia (modo 0): o clarão dos clones parado onde nascem.
@@ -471,37 +482,45 @@ test('disparo original: o feixe do Magma atravessa; a carga e o Rebatedor não',
   assert.equal(v8.fim, false);
 });
 
-test('disparo original: a carga do Canhão de Faíscas sai devagar e chega junto com o tiro do jogo', () => {
-  const g = golpeDaArma('o112028', 1);
-  const carga = DISPARO_ORIGINAL.o112028.carga;
-  assert.equal(recuoDaCarga(0, g, carga), 0, 'sai da boca');
-  assert.ok(recuoDaCarga(g.vida, g, carga) < 1e-9, 'chega ao fim junto');
-  // No meio do caminho ela está atrás (acelerando); o recuo é o que falta à curva do original.
-  const meio = recuoDaCarga(0.5, g, carga);
-  const andouOriginal = (0.0003 * 500 ** 2) / 2; // m do original em 0,5 s, ainda acelerando
-  const total = 0.5 * 1900 - 0.5 ** 2 / (2 * 0.0003); // vmax × T − vmax² / 2a
-  assert.ok(perto(meio, g.vel * 0.5 - g.vel * g.vida * (andouOriginal / total), 1e-9), `${meio}`);
-  assert.ok(meio > 40, 'bem atrás no começo');
-  // Nunca à frente do tiro do jogo, e o recuo some no fim.
-  let antes = Infinity;
-  for (let t = 0; t <= g.vida + 0.2; t += 0.05) {
-    const r = recuoDaCarga(t, g, carga);
-    assert.ok(r >= 0, `t ${t}`);
-    if (t > 1.2) {
-      assert.ok(r <= antes + 1e-9, `t ${t}: só diminui no fim`);
-      antes = r;
-    }
+/** Anda o tiro de `kind` (golpe `p`) parado no mundo até a vida acabar: [{ t, d, esp }] a cada passo (d: m da boca). */
+function voo(kind, p = 0) {
+  const g = golpeDaArma(kind, 1, p);
+  const b = createBullet({ x: 0, y: 10, z: 0, yaw: 0, vx: 0, vz: 0 }, kind, 1, 1, 0, 0, 1, g);
+  const x0 = b.x;
+  const z0 = b.z;
+  const passos = [];
+  for (let t = 1 / 30; b.vida > 1e-9; t += 1 / 30) {
+    stepBullet(b); // o chão e o campo não importam aqui: só a curva
+    passos.push({ t, d: Math.hypot(b.x - x0, b.z - z0) * Math.sign(-(b.z - z0) || 1), esp: b.esp });
   }
+  return { g, passos };
+}
+
+test('curva do original: a carga do Canhão de Faíscas sai parada, acelera até 0,5 m/ms e anda o alcance do jogo', () => {
+  const { g, passos } = voo('o112028');
+  const ac = 0.0003 * MS * MS * FATOR_VEL; // m/s²
+  // Começo: parada e acelerando (0,5 a² t²): em 0,5 s, 0,0003 × 500² / 2 = 37,5 m do original (× 0,5).
+  const meio = passos.find((s) => s.t >= 0.5 - 1e-9);
+  assert.ok(perto(meio.d, 0.5 * ac * 0.25, 1.5), `${meio.d}`);
+  assert.ok(meio.d < g.vel * 0.5 * 0.5, 'bem mais devagar que a média no começo');
+  // A máxima não passa de 0,5 m/ms e o caminho todo é o alcance do jogo (o do original × 0,5).
+  assert.ok(passos.every((s) => s.esp <= 0.5 * MS * FATOR_VEL + 1e-9));
+  assert.ok(perto(passos.at(-1).d, g.alcance, 5), `${passos.at(-1).d} × ${g.alcance}`);
 });
 
-test('disparo original: a Lâmina Reforçada sai na frente do tiro do jogo e chega junto (freia)', () => {
-  const g = golpeDaArma('o112003', 1);
-  const carga = DISPARO_ORIGINAL.o112003.carga;
+test('curva do original: a Lâmina Reforçada sai a 0,5 m/ms e freia, mais rápida no começo', () => {
+  const { g, passos } = voo('o112003');
   // O alcance do original (0,5 × 1500 − 0,0001 × 1500² = 525) é o do jogo × 2.
   assert.ok(perto(g.alcance * 2, 525, 1e-6), `${g.alcance}`);
-  assert.equal(recuoDaCarga(0, g, carga), 0, 'sai da boca');
-  assert.ok(Math.abs(recuoDaCarga(g.vida, g, carga)) < 1e-9, 'chega ao fim junto');
-  for (let t = 0.05; t < g.vida; t += 0.05) assert.ok(recuoDaCarga(t, g, carga) < 0, `t ${t}: na frente (mais rápida no começo)`);
+  assert.ok(perto(passos.at(-1).d, g.alcance, 5), `${passos.at(-1).d}`);
+  for (const s of passos.slice(0, 10)) assert.ok(s.d > g.vel * s.t, `t ${s.t}: na frente da média`);
+  assert.ok(passos.at(-1).esp < passos[0].esp);
+});
+
+test('curva do original: o míssil sai a −0,05 m/ms, cai para trás e depois acelera', () => {
+  const { passos } = voo('o312013');
+  assert.ok(passos[0].d < 0 && passos[5].d < 0, 'caindo para trás no começo');
+  assert.ok(passos.at(-1).d > 100);
 });
 
 test('disparo original: o que explode no fim da vida (coluna 74, 6º dígito 2) deixa o impacto ali', () => {
@@ -686,11 +705,8 @@ test('quarta leva: o Feixe Tempestade Teleguiado e a Lâmina Giratória como no 
   assert.deepEqual(WEAPONS.o114003.versoes.map((v) => v.golpe.vis.i), ['1401107', '1401107', '1401207', '1401207', '1401207', '1401307', '1401307', '1401307']);
   const lamina = golpeDaArma('o114003', 1);
   assert.ok(atravessa(lamina) && explodeNoFim(lamina) && !(lamina.area > 0));
-  // Sai da boca parada, fica atrás do tiro do jogo (que voa a média) e chega junto no fim.
-  const carga = DISPARO_ORIGINAL.o114003.carga;
-  assert.equal(recuoDaCarga(0, lamina, carga), 0);
-  assert.ok(recuoDaCarga(1, lamina, carga) > 0);
-  assert.ok(Math.abs(recuoDaCarga(lamina.vida, lamina, carga)) < 1e-9);
+  // Sai da boca parada e acelera até 0,35 m/ms: a curva do original no próprio tiro.
+  assert.deepEqual(curvaNoOriginal(lamina), { v0: 0, vmax: 0.35, acel: 0.0002 });
 });
 
 test('Bellico Assault: os projéteis de cada degrau, o clarão e o fim do original', () => {
@@ -725,10 +741,10 @@ test('Bellico Assault: os projéteis de cada degrau, o clarão e o fim do origin
   assert.deepEqual(projeteis('o212003'), degraus('1332025', '1332026', '1332027'));
   const lanca = golpeDaArma('o212003', 1);
   assert.ok(atravessa(lanca) && explodeNoFim(lanca) && !(lanca.area > 0));
-  // A lança freia até voltar (0,9 − 0,00103 × 1100 < 0): o desenho passa do ponto do jogo e volta.
-  const meio = recuoDaCarga(0.874, lanca, DISPARO_ORIGINAL.o212003.carga);
-  assert.ok(meio < 0, 'na frente do tiro do jogo');
-  assert.ok(Math.abs(recuoDaCarga(lanca.vida, lanca, DISPARO_ORIGINAL.o212003.carga)) < 1e-9, 'chega junto');
+  // A lança freia até voltar (0,9 − 0,00103 × 1100 < 0): vai, para e volta (o MoveBullet só limita por cima).
+  const lancaVoo = voo('o212003').passos;
+  assert.ok(lancaVoo.at(-1).esp < 0, 'de ré no fim');
+  assert.ok(Math.max(...lancaVoo.map((s) => s.d)) > lancaVoo.at(-1).d + 1, 'passou do ponto e voltou');
   // Onda de Choque: a onda física (1162022) que só cresce o raio de acerto, clarão do Vulcan girado.
   assert.deepEqual(projeteis('o214003'), Array(8).fill('1162022'));
   assert.equal(golpeDaArma('o214003', 1).vis.d, '1121001');
@@ -925,8 +941,8 @@ test('Shrewdo Assault: a Armadilha de Raios Reforçada espera inimigo com o pró
   const raio = golpeDaArma('o317020', 1, 2);
   assert.ok(!raio.guia && explodeNoFim(raio) && raio.area > 0);
   assert.equal(raio.vis.f, '2432001');
-  assert.ok(recuoDaCarga(raio.vida / 2, raio, cargaDoGolpe('o317020', 2)) < 0, 'freia: o desenho vai na frente no começo');
-  assert.ok(Math.abs(recuoDaCarga(raio.vida, raio, cargaDoGolpe('o317020', 2))) < 1e-9, 'chega junto');
+  const raioMeio = voo('o317020', 2).passos.find((s) => s.t >= raio.vida / 2 - 1e-9);
+  assert.ok(raioMeio.d > raio.vel * raioMeio.t, 'freia: na frente da média no começo');
   // As armadilhas que ativam na hora seguem com o gráfico ativo (coluna 105) quando têm.
   assert.equal(graficoDaArmadilha(golpeDaArma('o212033', 1, 1)), '2253007');
   assert.equal(graficoDaArmadilha(golpeDaArma('o112004', 1, 1)), golpeDaArma('o112004', 1, 1).vis.p);
@@ -954,10 +970,10 @@ test('Shrewdo Mobile: os feixes, as metralhas, os canhões, os mísseis e o raio
     assert.deepEqual([g.vis.d, g.vis.p, g.vis.f], [d, p, f], k);
     assert.ok(explodeNoFim(g) && g.area > 0, k);
   }
-  // O Quebra-Escudo Rápido sai parado e acelera 0,0009 até 0,6 m/ms: o desenho atrás e chega junto.
-  const rapido = golpeDaArma('o312004', 1);
-  assert.ok(recuoDaCarga(rapido.vida / 3, rapido, cargaDoGolpe('o312004')) > 0);
-  assert.ok(Math.abs(recuoDaCarga(rapido.vida, rapido, cargaDoGolpe('o312004'))) < 1e-9);
+  // O Quebra-Escudo Rápido sai parado e acelera 0,0009 até 0,6 m/ms: atrás da média no começo.
+  const rapido = voo('o312004');
+  const rapidoTerco = rapido.passos.find((s) => s.t >= rapido.g.vida / 3 - 1e-9);
+  assert.ok(rapidoTerco.d < rapido.g.vel * rapidoTerco.t);
   // Os mísseis com o rastro do original: o Enfraquecedor e o Carga Elétrica com o de 4
   // ossos; o Giratório T2 com o de 7 e o impacto que cresce.
   for (const [k, p, r] of [['o312013', '2343009', '2343101'], ['o312037', '2443007', '2343101']]) {
@@ -992,11 +1008,13 @@ test('Shrewdo Mobile: a Armadilha Teleguiada e a de Raios esperam o inimigo e at
   const ogiva = golpeDaArma('o312008', 1, 2);
   assert.ok(ogiva.guia && explodeNoFim(ogiva));
   assert.deepEqual([1, 2, 4, 7].map((nv) => golpeDaArma('o312008', nv, 2).vis.i), ['1401007', '1401107', '1401207', '1401307']);
-  assert.ok(recuoDaCarga(ogiva.vida / 3, ogiva, cargaDoGolpe('o312008', 2)) > 0, 'acelera: atrás no começo');
-  assert.ok(Math.abs(recuoDaCarga(ogiva.vida, ogiva, cargaDoGolpe('o312008', 2))) < 1e-9);
+  const ogivaTerco = voo('o312008', 2).passos.find((s) => s.t >= ogiva.vida / 3 - 1e-9);
+  assert.ok(ogivaTerco.d < ogiva.vel * ogivaTerco.t, 'acelera: atrás da média no começo');
   // A carga freia até parar no fim da vida (0,2 − 0,0002 × 1000 = 0).
-  const carga = golpeDaArma('o312008', 1);
-  assert.ok(recuoDaCarga(carga.vida / 2, carga, cargaDoGolpe('o312008')) < 0);
+  const carga = voo('o312008');
+  assert.ok(Math.abs(carga.passos.at(-1).esp) < 1, 'parada no fim');
+  const cargaMeio = carga.passos.find((s) => s.t >= carga.g.vida / 2 - 1e-9);
+  assert.ok(cargaMeio.d > carga.g.vel * cargaMeio.t);
   // De Raios: a mesma família da Reforçada.
   const raios = golpeDaArma('o312020', 1, 1);
   assert.ok(raios.ativaPerto && raios.vis.f === '2432001' && raios.area > 0);

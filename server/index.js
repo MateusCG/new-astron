@@ -272,8 +272,9 @@
 //         profundidade do golpe, para o desenho; campo = área que fere a cada
 //         intervalo; raio = gatilho da mina ou área do campo; armada = já age;
 //         atq = ataque de monstro, ver "Ataques de monstro" abaixo)
-//   guiados: [{id, kind, nv, p, atq?, x, y, z, vx, vy, vz}]   teleguiados em voo: o
-//         cliente não prevê a curva e corrige o desenho por aqui
+//   guiados: [{id, kind, nv, p, atq?, x, y, z, vx, vy, vz, dx?, dz?, esp?}]   teleguiados
+//         em voo: o cliente não prevê a curva e corrige o desenho por aqui (dx, dz, esp:
+//         o rumo e a velocidade própria do tiro que anda a curva do original)
 //   st: {cego?, invisivel?, revelado?, invulneravel?, escudo?, converte?, regen?,
 //         fraco?, vulneravel?, recuo?, curaTempo?, resiste_<tipo>?}   estados das
 //         armas no próprio jogador que só o servidor conta (s restantes; invisivel
@@ -318,19 +319,24 @@
 //         e tier só nos jogadores (raça + classe + tier = o modelo da nave); recall
 //         (0 a 1) só em quem está canalizando a volta à base
 //   ev:   {e:'tiro'|'acerto'|'fim'|'renasceu'|'saiu', ...}
-//         {e:'tiro', id, dono, kind, nv, p, x, y, z, vx, vy, vz, vida, enc?}   projétil
-//                                    de arma (nv = versão, p = profundidade do golpe:
-//                                    0 o disparo, 1+ subprojétil; enc = encaixe de
-//                                    onde saiu, para o desenho sair da boca da arma)
+//         {e:'tiro', id, dono, kind, nv, p, x, y, z, vx, vy, vz, vida, enc?, dx?, dz?, esp?}
+//                                    projétil de arma (nv = versão, p = profundidade do
+//                                    golpe: 0 o disparo, 1+ subprojétil; enc = encaixe de
+//                                    onde saiu, para o desenho sair da boca da arma;
+//                                    dx, dz, esp no que anda a curva do original, a
+//                                    `curva` do golpe: o rumo unitário e a velocidade
+//                                    própria de saída, e o cliente anda a mesma curva no
+//                                    stepBullet, com a herança da nave tirada de vx/vz)
 //         {e:'fim', bala, x, y, z, campo?}   o projétil acabou sem acertar (vida, rocha,
 //                                    construção); campo = time dono quando ele bateu
 //                                    no campo de força da base desse time (x, z no
 //                                    plano, CAMPO_RECUO antes dele: o cliente pisca
 //                                    o campo ali). Nenhum tiro atravessa esse campo
-//         {e:'rebatido', bala, kind, dono, time, x, y, z, vx, vy, vz}   o Rebatedor de
-//                                    Projéteis virou o tiro: sai do centro dele para
-//                                    fora (o rumo do original), agora de `dono`; o
-//                                    cliente põe o desenho no ponto e no rumo novos
+//         {e:'rebatido', bala, kind, dono, time, x, y, z, vx, vy, vz, dx?, dz?, esp?}   o
+//                                    Rebatedor de Projéteis virou o tiro: sai do centro
+//                                    dele para fora (o rumo do original), agora de
+//                                    `dono`; o cliente põe o desenho no ponto e no rumo
+//                                    novos (o de curva perde a herança da nave)
 //         {e:'entrou', id, nome, time}
 //         {e:'morte', id, por, tipo, time?, esp?, x, y, z, ouro?, renasce?, assist?, ouroAssist?,
 //          seq?, encerrou?, seqPor?, multi?, primeiro?, motivo?, campo?}   (esp = espécie, na morte de monstro)
