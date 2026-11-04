@@ -132,10 +132,10 @@ export class EscolhaTimes {
         if (v.tipo === 'piloto') {
           const img = v.race ? this.#img(v.race, v.classe) : null;
           const nave = v.race ? `${RACES[v.race]?.nome ?? ''} ${CLASSES[v.classe]?.nome ?? ''}` : '';
-          return `<span class="vaga piloto${v.pronto ? ' pronto' : ''}" title="${escapar(`${v.nome} · ${nave}`)}">${img ? `<img src="${img}" alt="" draggable="false">` : ''}<b>${escapar(v.nome)}</b><small>${v.pronto ? '✓ Pronto' : 'Escolhendo'}</small></span>`;
+          return `<span class="vaga piloto${v.pronto ? ' pronto' : ''}" title="${escapar(`${v.nome} · ${nave}`)}">${img ? `<img src="${img}" alt="" draggable="false">` : ''}<b>${escapar(v.nome)}</b><small>${v.pronto ? '✓ Pronto' : naSala ? 'Escolhendo' : 'Na fila'}</small></span>`;
         }
         if (v.tipo === 'oculto') {
-          return `<span class="vaga oculto${v.pronto ? ' pronto' : ''}" title="${escapar(v.nome)}: a nave do inimigo só aparece na partida"><b>${escapar(v.nome)}</b><small>${v.pronto ? '✓ Pronto' : 'Escolhendo'}</small></span>`;
+          return `<span class="vaga oculto${v.pronto ? ' pronto' : ''}" title="${escapar(v.nome)}: a nave do inimigo só aparece na partida"><b>${escapar(v.nome)}</b><small>${v.pronto ? '✓ Pronto' : naSala ? 'Escolhendo' : 'Na fila'}</small></span>`;
         }
         if (v.tipo === 'ia') return '<span class="vaga ia" title="Computador">IA</span>';
         if (!naSala && !procurando) return '<span class="vaga livre" title="Fora da fila">livre</span>';

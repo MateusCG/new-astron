@@ -49,6 +49,48 @@ test('filas: os pilotos chegando aparecem na hora para quem está na fila', () =
   assert.equal(entrar(filas, cliente('C'), 'sandbox'), 'invalido', 'só os modos de fila');
 });
 
+test('filas: procurando, cada um já vê o seu grupo chegando, o time às claras e a nave mudando na hora', () => {
+  const { filas, cliente, ultima } = montar();
+  const a = cliente('Mateus');
+  const b = cliente('Tereza');
+  entrar(filas, a, 'publica', { race: 'bellico' });
+  entrar(filas, b, 'publica');
+  for (const [eu, outro] of [[a, b], [b, a]]) {
+    const m = ultima(eu);
+    assert.equal(m.estado, 'procurando');
+    assert.equal(m.n, 2);
+    const meu = m.times[m.voce.time];
+    assert.deepEqual(meu.map((x) => x.nome).sort(), ['Mateus', 'Tereza'], 'os dois no mesmo time');
+    assert.ok(meu.find((x) => x.nome === eu.nome).voce);
+    assert.ok(meu.find((x) => x.nome === outro.nome).race, 'a nave do companheiro aparece');
+  }
+  filas.escolher(b, { race: 'shrewdo', classe: 'functional' });
+  const visto = ultima(a).times[0].find((x) => x.nome === 'Tereza');
+  assert.deepEqual([visto.race, visto.classe], ['shrewdo', 'functional']);
+});
+
+test('filas: no 3 contra 3 o grupo se reparte por ordem de chegada e a sala mantém os times', () => {
+  let lugar = false;
+  const { filas, cliente, ultima } = montar({ podeAbrirSala: () => lugar });
+  const cs = 'ABCDEFG'.split('').map(cliente);
+  for (const c of cs.slice(0, 4)) entrar(filas, c, 'online');
+  const a = ultima(cs[0]);
+  assert.deepEqual(a.times[a.voce.time].map((x) => x.nome), ['A', 'C']);
+  assert.deepEqual(a.times[1 - a.voce.time].map((x) => x.nome), ['B', 'D']);
+  assert.ok(a.times[1 - a.voce.time].every((x) => x.race === undefined), 'o outro time às cegas');
+  const b = ultima(cs[1]);
+  assert.deepEqual(b.times[b.voce.time].map((x) => x.nome), ['B', 'D']);
+  for (const c of cs.slice(4)) entrar(filas, c, 'online');
+  const g = ultima(cs[6]);
+  assert.equal(g.n, 1, 'o sétimo já é do grupo da sala seguinte');
+  assert.deepEqual(g.times.flat().map((x) => x.nome), ['G']);
+  lugar = true;
+  filas.passo();
+  const sala = ultima(cs[0]);
+  assert.equal(sala.estado, 'sala');
+  assert.deepEqual(sala.times[sala.voce.time].map((x) => x.nome), ['A', 'C', 'E'], 'os mesmos times da fila');
+});
+
 test('filas: o menu observa a contagem das filas em tempo real', () => {
   const { filas, cliente, ultima } = montar();
   const menu = cliente('menu');

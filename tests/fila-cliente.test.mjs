@@ -84,6 +84,13 @@ test('fila no cliente: o tempo em m:ss e a contagem dos modos na aba Jogar', () 
 });
 
 test('fila no cliente: as vagas da Seleção, procurando e na sala', () => {
+  // O grupo da fila já aparece: o companheiro com a nave, ainda sem Pronto.
+  const grupo = aplicarMsgFila(null, { t: 'fila', estado: 'procurando', modo: 'publica', n: 2, precisa: 3, espera: 0, voce: { time: 0 }, times: [[{ nome: 'Mateus', pronto: 0, race: 'bellico', classe: 'assault' }, { nome: 'Tereza', pronto: 0, race: 'acron', classe: 'assault', voce: 1 }], []] }, 0);
+  const vg = vagasDaFila(grupo, 'publica');
+  assert.deepEqual(vg.meu.map((x) => [x.tipo, x.nome]), [['voce', 'Tereza'], ['piloto', 'Mateus'], ['procurando', undefined]]);
+  assert.deepEqual(vg.inimigo.map((x) => x.tipo), ['ia', 'ia', 'ia']);
+  const comAviso = aplicarMsgFila(null, { t: 'fila', estado: 'procurando', modo: 'publica', n: 1, precisa: 3, aviso: 'sala_saiu' }, 0);
+  assert.equal(aplicarMsgFila(comAviso, { t: 'fila', estado: 'procurando', modo: 'publica', n: 2, precisa: 3 }, 0).aviso, 'sala_saiu', 'o aviso fica enquanto procura');
   const procurando = vagasDaFila({ fase: 'procurando' }, 'publica');
   assert.deepEqual(procurando.meu.map((v) => v.tipo), ['voce', 'procurando', 'procurando']);
   assert.deepEqual(procurando.inimigo.map((v) => v.tipo), ['ia', 'ia', 'ia']);

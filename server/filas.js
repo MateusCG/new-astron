@@ -6,7 +6,13 @@
 // seleção de campeão; sem a tela de "Aceitar" separada):
 //
 //   1. PROCURANDO: o piloto abre a Seleção num modo de fila e entra nela na hora; o
-//      Decolar vira "Aguardando…" com o tempo de espera e quantos pilotos faltam.
+//      Decolar vira "Aguardando…" com o tempo de espera e quantos pilotos faltam. A
+//      fila já se reparte nos grupos da próxima sala (os primeiros `humanos`, os
+//      seguintes...) e cada um vê o seu grupo chegando: os do próprio time com o nome
+//      e a nave (que muda na hora), os do outro só com o nome (pedido do Mateus).
+//      No 3 contra 3 o time é pela ordem de chegada no grupo, alternando (1º, 3º e 5º
+//      contra 2º, 4º e 6º), e a sala mantém esses times: ninguém troca de lado quando
+//      ela fecha.
 //   2. SALA: com gente bastante na fila (MODOS_FILA: 6 no 3 contra 3, 3 na pública,
 //      que joga os 3 contra 3 computadores), os primeiros da fila viram uma sala e
 //      começa o contador de SELECAO_S. Cada um escolhe a nave (os do próprio time
@@ -61,6 +67,15 @@ export function escolhaDaFila(msg, antes = null) {
     race: racaJogavel(msg?.race) ? msg.race : (antes?.race ?? RACAS_JOGAVEIS[0]),
     classe: classeValida(msg?.classe) ? msg.classe : (antes?.classe ?? ORDEM_CLASSES[0]),
   };
+}
+
+/**
+ * O time do `i`-ésimo piloto (pela ordem de chegada) do grupo de uma sala: na pública
+ * todos juntos (0; o lado do mapa é sorteado quando a sala fecha), no 3 contra 3
+ * alternando.
+ */
+export function timeNoGrupo(modo, i) {
+  return MODOS_FILA[modo]?.bots ? 0 : i % N_TIMES;
 }
 
 export class Filas {
@@ -135,6 +150,8 @@ export class Filas {
     const e = this.#naFila(cliente);
     if (!e) return 'fora';
     Object.assign(e, escolhaDaFila(msg, e));
+    // O grupo vê a nave nova na hora.
+    this.#avisarFila(e.modo);
     return null;
   }
 
@@ -233,9 +250,8 @@ export class Filas {
         const time = this.rng() < 0.5 ? 0 : 1;
         for (const m of membros) m.time = time;
       } else {
-        // Times sorteados: embaralha e reparte em metades.
-        const ordem = membros.map((m) => ({ m, k: this.rng() })).sort((a, b) => a.k - b.k);
-        ordem.forEach(({ m }, i) => (m.time = i < humanos / N_TIMES ? 0 : 1));
+        // Os mesmos times que o grupo já mostrava na fila (timeNoGrupo).
+        membros.forEach((m, i) => (m.time = timeNoGrupo(modo, i)));
       }
       const sala = { id: this.proximaSala++, modo, fim: this.agora() + this.selecaoMs, membros };
       this.salas.set(sala.id, sala);
@@ -261,15 +277,35 @@ export class Filas {
     this.#avisarFila(sala.modo, new Set(voltam.map((e) => e.cliente)), aviso);
   }
 
-  /** O estado de quem está na fila. */
+  /**
+   * O estado de quem está na fila: o grupo da próxima sala em que ele está (`n`
+   * pilotos de `precisa`) com os times, como na sala (o seu time às claras, o outro
+   * às cegas, sem Pronto).
+   */
   #estadoFila(e, aviso) {
+    const { humanos } = MODOS_FILA[e.modo];
+    const fila = this.filas[e.modo];
+    const pos = fila.indexOf(e);
+    const inicio = Math.floor(pos / humanos) * humanos;
+    const grupo = fila.slice(inicio, inicio + humanos);
+    const meuTime = timeNoGrupo(e.modo, pos - inicio);
+    const times = Array.from({ length: N_TIMES }, () => []);
+    grupo.forEach((m, i) => {
+      const time = timeNoGrupo(e.modo, i);
+      const linha = { nome: m.nome, pronto: 0 };
+      if (time === meuTime) Object.assign(linha, { race: m.race, classe: m.classe });
+      if (m === e) linha.voce = 1;
+      times[time].push(linha);
+    });
     const msg = {
       t: 'fila',
       estado: 'procurando',
       modo: e.modo,
-      n: this.filas[e.modo].length,
-      precisa: MODOS_FILA[e.modo].humanos,
+      n: grupo.length,
+      precisa: humanos,
       espera: Math.max(0, (this.agora() - e.desde) / 1000),
+      voce: { time: meuTime },
+      times,
     };
     if (aviso) msg.aviso = aviso;
     return msg;

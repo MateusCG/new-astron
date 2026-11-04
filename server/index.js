@@ -163,9 +163,12 @@
 //                        humanos por sala (6 e 3)
 //                       {t:'fila', estado:'fora', aviso?}   fora da fila (aviso
 //                        'sem_pronto': o contador zerou sem o seu Pronto)
-//                       {t:'fila', estado:'procurando', modo, n, precisa, espera, aviso?}
-//                        n pilotos na fila do modo (você conta), espera = s desde que
-//                        entrou; aviso 'sala_tempo' (alguém não apertou Pronto) ou
+//                       {t:'fila', estado:'procurando', modo, n, precisa, espera, voce:
+//                        {time}, times, aviso?}   n pilotos no seu grupo (o da próxima
+//                        sala, você conta) de `precisa`, times como os da sala (o seu
+//                        time com raça e classe, o outro só o nome; no 3 contra 3 pela
+//                        ordem de chegada, alternando, e a sala mantém), espera = s
+//                        desde que entrou; aviso 'sala_tempo' (alguém não apertou Pronto) ou
 //                        'sala_saiu' (alguém saiu da sala): você voltou ao começo da fila
 //                       {t:'fila', estado:'sala', modo, id, restante, prontos, total,
 //                        bots, voce: {time, pronto, race, classe}, times: [[{nome,

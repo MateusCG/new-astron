@@ -27,7 +27,11 @@ export function aplicarMsgFila(antes, msg, agora) {
         n: msg.n,
         precisa: msg.precisa,
         desde: agora - (msg.espera ?? 0) * 1000,
-        aviso: msg.aviso ?? null,
+        // O grupo da próxima sala, já repartido nos times (server/filas.js).
+        voce: msg.voce ?? null,
+        times: msg.times ?? null,
+        // O aviso ("voltou para o começo da fila") fica enquanto procura.
+        aviso: msg.aviso ?? (antes?.fase === 'procurando' ? antes.aviso : null),
       };
     case 'sala':
       return {
@@ -136,8 +140,9 @@ export const VAGAS_POR_TIME = 3;
 /**
  * As vagas dos dois times para desenhar (o seu time primeiro): cada vaga
  * { tipo: 'voce' | 'piloto' | 'oculto' | 'ia' | 'procurando', nome?, race?, classe?, pronto? }.
- * Procurando: a sua vaga e as outras "procurando"; na pública o outro time é "ia".
- * Na sala: os pilotos do seu time às claras, os do outro às cegas ('oculto').
+ * Procurando e na sala: os pilotos do grupo (os do seu time às claras, os do outro às
+ * cegas, 'oculto') e as vagas que faltam "procurando"; na pública o outro time é "ia".
+ * Sem o grupo (fora da fila): só a sua vaga.
  */
 export function vagasDaFila(estado, modo) {
   const bots = modo === 'publica';
@@ -145,13 +150,13 @@ export function vagasDaFila(estado, modo) {
     while (lista.length < VAGAS_POR_TIME) lista.push({ tipo });
     return lista;
   };
-  if (estado?.fase === 'sala') {
+  if ((estado?.fase === 'sala' || estado?.fase === 'procurando') && estado.times) {
     const meuT = estado.voce?.time ?? 0;
     const meu = (estado.times?.[meuT] ?? []).map((m) => ({ tipo: m.voce ? 'voce' : 'piloto', nome: m.nome, race: m.race, classe: m.classe, pronto: !!m.pronto }));
     // A sua vaga primeiro.
     meu.sort((a, b) => (b.tipo === 'voce') - (a.tipo === 'voce'));
-    const outro = estado.bots ? [] : (estado.times?.[1 - meuT] ?? []).map((m) => ({ tipo: 'oculto', nome: m.nome, pronto: !!m.pronto }));
-    return { meu: preencher(meu, 'procurando'), inimigo: preencher(outro, estado.bots ? 'ia' : 'procurando') };
+    const outro = bots || estado.bots ? [] : (estado.times?.[1 - meuT] ?? []).map((m) => ({ tipo: 'oculto', nome: m.nome, pronto: !!m.pronto }));
+    return { meu: preencher(meu, 'procurando'), inimigo: preencher(outro, bots || estado.bots ? 'ia' : 'procurando') };
   }
   return { meu: preencher([{ tipo: 'voce' }], 'procurando'), inimigo: preencher([], bots ? 'ia' : 'procurando') };
 }
