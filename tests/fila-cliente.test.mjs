@@ -124,7 +124,7 @@ class WsFalso {
 }
 
 test('fila no cliente: a conexão observa a contagem, entra na fila e entra de novo quando cai', async (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] });
   WsFalso.todos = [];
   const estados = [];
   const contagens = [];
@@ -135,6 +135,10 @@ test('fila no cliente: a conexão observa a contagem, entra na fila e entra de n
   assert.deepEqual(ws.enviadas[0], { t: 'filas' });
   ws.receber({ t: 'filas', online: { fila: 1 }, publica: { fila: 0 } });
   assert.equal(contagens.at(-1).online.fila, 1);
+  // O batimento mantém a conexão viva no proxy da hospedagem.
+  t.mock.timers.tick(20000);
+  assert.deepEqual(ws.enviadas.at(-1), { t: 'ping', c: 0 });
+  ws.enviadas.pop();
 
   fila.entrar('online', { nome: 'Eu', race: 'acron', classe: 'assault' });
   assert.deepEqual(ws.enviadas.at(-1), { t: 'entrarFila', modo: 'online', nome: 'Eu', race: 'acron', classe: 'assault' });
@@ -167,6 +171,8 @@ test('fila no cliente: a conexão observa a contagem, entra na fila e entra de n
   assert.deepEqual(ws2.enviadas.at(-1), { t: 'sairFila' });
   assert.equal(fila.estado.fase, 'fora');
   fila.desligar();
+  const antes = ws2.enviadas.length;
   t.mock.timers.tick(20000);
   assert.equal(WsFalso.todos.length, 2);
+  assert.equal(ws2.enviadas.length, antes, 'desligada, o batimento para');
 });

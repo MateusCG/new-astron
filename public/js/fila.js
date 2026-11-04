@@ -8,12 +8,18 @@
 // RECONEXAO_MAX_MS) e, se o piloto ainda está na Seleção de um modo de fila, entra na
 // fila outra vez (no fim dela: a vaga de antes ficou no servidor que caiu ou foi
 // liberada). As regras do estado e do botão ficam em fila-regras.js.
+//
+// Batimento: a cada BATIMENTO_MS manda um {t:'ping'} (o servidor responde 'pong').
+// Na fila e na sala a conexão pode ficar muito tempo sem mensagem, e o proxy da
+// hospedagem (Railway) derruba WebSocket parado; cair no meio da sala a desfaz
+// para todos.
 
 import { urlDoServidor } from './rede.js';
 import { estadoFilaVazio, aplicarMsgFila } from './fila-regras.js';
 
 const RECONEXAO_MIN_MS = 1000;
 const RECONEXAO_MAX_MS = 10000;
+const BATIMENTO_MS = 20000;
 
 export class ConexaoFila {
   /**
@@ -48,6 +54,7 @@ export class ConexaoFila {
     this.ligada = false;
     this.quer = null;
     clearTimeout(this.relogio);
+    clearInterval(this.batimento);
     if (this.ws) {
       this.ws.onclose = null;
       this.ws.onmessage = null;
@@ -108,6 +115,8 @@ export class ConexaoFila {
     this.ws = ws;
     ws.onopen = () => {
       this.esperaMs = RECONEXAO_MIN_MS;
+      clearInterval(this.batimento);
+      this.batimento = setInterval(() => this.#enviar({ t: 'ping', c: 0 }), BATIMENTO_MS);
       this.#enviar({ t: 'filas' });
       if (this.quer) this.#enviar({ t: 'entrarFila', modo: this.quer.modo, ...this.quer.escolha });
     };
@@ -137,6 +146,7 @@ export class ConexaoFila {
   }
 
   #caiu() {
+    clearInterval(this.batimento);
     this.ws = null;
     this.contagem = null;
     this.aoContagem(null);
