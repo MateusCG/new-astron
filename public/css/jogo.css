@@ -18,6 +18,7 @@
   --evolucao: #a58bff;
   --loja: #ff6fd8;
   --vida-aliado: #3f8cff;
+  --time-verde: #3ee07c; /* o TIME VERDE da fila do 3 contra 3 (a cor fixa do time 0 no menu) */
   /* Escudo do equipamento: o mesmo azul-gelo da aura de escudo das armas. */
   --escudo: #8fd0ff;
   /* Tipos de dano (STATUS, INVENTÁRIO, ícones de escudo, armadura e potenciador): a
@@ -1097,6 +1098,8 @@ input:focus {
 }
 
 #escolha-times .titulo-lado b {
+  flex: none;
+  white-space: nowrap;
   color: var(--cor-lado);
   font: 700 14px system-ui, sans-serif;
   letter-spacing: 0.16em;
@@ -1104,6 +1107,10 @@ input:focus {
 }
 
 #escolha-times .resumo {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 13.5px;
   opacity: 0.65;
 }
@@ -1429,7 +1436,7 @@ input:focus {
   display: none;
 }
 
-#escolha-times.na-fila .vaga {
+#escolha-times.na-fila .vaga:not(.trocar) {
   cursor: default;
 }
 
@@ -1546,6 +1553,48 @@ input:focus {
 #escolha-times .vaga.pronto small {
   color: var(--cor-lado);
   opacity: 1;
+}
+
+/* 3 contra 3 (pedido do Mateus): TIME VERDE à esquerda e TIME VERMELHO à direita,
+   com cor fixa (não é "seu" nem "inimigo": o piloto escolhe o lado). A faixa em que
+   você está ganha o brilho; a sua vaga leva a cor do time. */
+#escolha-times.cores-fixas .lado.meu {
+  --cor-lado: var(--time-verde);
+}
+
+#escolha-times.cores-fixas .versus b:first-child {
+  color: var(--time-verde);
+}
+
+#escolha-times.cores-fixas .lado.seu {
+  box-shadow: 0 0 16px color-mix(in srgb, var(--cor-lado) 28%, transparent);
+}
+
+#escolha-times.cores-fixas .vaga.voce {
+  border-color: var(--cor-lado);
+  background: color-mix(in srgb, var(--cor-lado) 14%, #0b1716);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--cor-lado) 30%, transparent);
+}
+
+#escolha-times.cores-fixas .vaga.voce small {
+  color: var(--cor-lado);
+}
+
+/* A vaga livre do outro time: um botão tracejado na cor dele; clicar troca de time. */
+#escolha-times .vaga.trocar {
+  border: 1px dashed color-mix(in srgb, var(--cor-lado) 75%, transparent);
+  color: var(--cor-lado);
+  opacity: 0.85;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+#escolha-times.na-fila .vaga.trocar:hover,
+#escolha-times.na-fila .vaga.trocar:focus-visible {
+  border-style: solid;
+  background: color-mix(in srgb, var(--cor-lado) 16%, transparent);
+  opacity: 1;
+  outline: none;
 }
 
 /* A vaga que a fila ainda procura: tracejada, piscando devagar. */

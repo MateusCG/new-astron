@@ -16,9 +16,11 @@
 // a seleção de campeão dos MOBAs: sem o −/+ (quem escolhe é a fila), o seu time com a
 // nave e o nome de cada companheiro e o ✓ de quem já apertou Pronto, as vagas que a
 // fila ainda procura piscando, e o time inimigo às cegas (só o nome e o Pronto; na
-// pública, os três computadores).
+// pública, os três computadores). No 3 contra 3 as faixas são o TIME VERDE e o TIME
+// VERMELHO, com cor fixa, e enquanto a fila procura as vagas livres do outro time são
+// botões: clicar troca de time (aoTrocarTime → {t:'trocarTime'}).
 
-import { vagasDaFila } from './fila-regras.js';
+import { vagasDaFila, titulosDosLados } from './fila-regras.js';
 import { RACES } from '../../shared/sim.js';
 import { CLASSES } from '../../shared/naves.js';
 
@@ -53,18 +55,24 @@ const plural = (n) => (n === 1 ? '1 computador' : `${n} computadores`);
 export class EscolhaTimes {
   /**
    * @param {HTMLElement} el o #escolha-times
-   * @param {{ miniatura?: (race: string, classe: string, tier: number) => Promise<string|null> }} [op]
-   *   a miniatura das naves dos companheiros na sala da fila (vitrine.js)
+   * @param {{ miniatura?: (race: string, classe: string, tier: number) => Promise<string|null>,
+   *   aoTrocarTime?: () => void }} [op]
+   *   a miniatura das naves dos companheiros na sala da fila (vitrine.js) e o clique
+   *   numa vaga livre do outro time no 3 contra 3
    */
-  constructor(el, { miniatura = null } = {}) {
+  constructor(el, { miniatura = null, aoTrocarTime = () => {} } = {}) {
     this.el = el;
     this.miniatura = miniatura;
+    this.aoTrocarTime = aoTrocarTime;
     this.fila = null; // { modo, estado } nos modos da fila online
     this.imgs = new Map(); // 'raça/classe' -> data URL (as miniaturas da sala)
     this.qtd = { meu: limitar(ler(CHAVE.meu), MAXIMO.meu), inimigo: limitar(ler(CHAVE.inimigo), MAXIMO.inimigo) };
     this.voce = { nome: '', img: null };
     el.addEventListener('click', (e) => {
-      if (this.fila) return;
+      if (this.fila) {
+        if (e.target.closest('.vaga.trocar')) this.aoTrocarTime();
+        return;
+      }
       const b = e.target.closest('button');
       const lado = b?.closest('[data-lado]')?.dataset.lado;
       if (!lado) return;
@@ -95,6 +103,10 @@ export class EscolhaTimes {
   mostrarFila(modo, estado = null) {
     this.fila = modo ? { modo, estado } : null;
     this.el.classList.toggle('na-fila', !!modo);
+    // Cores fixas (verde e vermelho) só no 3 contra 3.
+    this.el.classList.toggle('cores-fixas', modo === 'online');
+    const titulos = titulosDosLados(modo);
+    for (const lado of ['meu', 'inimigo']) this.el.querySelector(`[data-lado="${lado}"] .titulo-lado b`).textContent = titulos[lado];
     this.#desenhar();
   }
 
@@ -138,21 +150,23 @@ export class EscolhaTimes {
           return `<span class="vaga oculto${v.pronto ? ' pronto' : ''}" title="${escapar(v.nome)}: a nave do inimigo só aparece na partida"><b>${escapar(v.nome)}</b><small>${v.pronto ? '✓ Pronto' : naSala ? 'Escolhendo' : 'Na fila'}</small></span>`;
         }
         if (v.tipo === 'ia') return '<span class="vaga ia" title="Computador">IA</span>';
+        if (v.tipo === 'trocar') {
+          return `<button type="button" class="vaga trocar" title="Passar para o ${lado === 'meu' ? 'time verde' : 'time vermelho'}">Trocar para cá</button>`;
+        }
         if (!naSala && !procurando) return '<span class="vaga livre" title="Fora da fila">livre</span>';
         return `<span class="vaga procurando" title="${naSala ? 'Vaga' : 'Procurando piloto'}">${naSala ? '—' : 'Procurando'}</span>`;
       });
       caixa.querySelector('.vagas').innerHTML = html.join('');
-      const gente = vagas[lado].filter((v) => v.tipo !== 'procurando' && v.tipo !== 'ia').length;
-      caixa.querySelector('.resumo').textContent =
-        lado === 'inimigo' && modo === 'publica'
-          ? '3 computadores'
-          : naSala
-            ? `${vagas[lado].filter((v) => v.pronto).length} de ${gente} prontos`
-            : !procurando
-              ? 'Fora da fila'
-              : lado === 'meu'
-                ? 'Procurando companheiros'
-                : 'Procurando adversários';
+      const gente = vagas[lado].filter((v) => !['procurando', 'ia', 'trocar'].includes(v.tipo)).length;
+      const seu = vagas[lado].some((v) => v.tipo === 'voce');
+      let resumo;
+      if (lado === 'inimigo' && modo === 'publica') resumo = '3 computadores';
+      else if (naSala) resumo = `${vagas[lado].filter((v) => v.pronto).length} de ${gente} prontos`;
+      else if (!procurando) resumo = 'Fora da fila';
+      else if (modo === 'online') resumo = seu ? `Seu time · ${gente} de 3` : gente < 3 ? `${gente} de 3 · clique para trocar` : '3 de 3 · completo';
+      else resumo = lado === 'meu' ? 'Procurando companheiros' : 'Procurando adversários';
+      caixa.querySelector('.resumo').textContent = resumo;
+      caixa.classList.toggle('seu', modo === 'online' && seu);
     }
   }
 

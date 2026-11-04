@@ -138,10 +138,24 @@ export function textoContagemModo(c) {
 export const VAGAS_POR_TIME = 3;
 
 /**
- * As vagas dos dois times para desenhar (o seu time primeiro): cada vaga
- * { tipo: 'voce' | 'piloto' | 'oculto' | 'ia' | 'procurando', nome?, race?, classe?, pronto? }.
- * Procurando e na sala: os pilotos do grupo (os do seu time às claras, os do outro às
- * cegas, 'oculto') e as vagas que faltam "procurando"; na pública o outro time é "ia".
+ * Os títulos das duas faixas (a da esquerda, `meu`, e a da direita, `inimigo`). No 3
+ * contra 3 os times têm cor fixa, como pediu o Mateus: TIME VERDE (0, a esquerda) e
+ * TIME VERMELHO (1, a direita), e o piloto escolhe em qual fica; na pública, o seu
+ * time contra os computadores.
+ */
+export function titulosDosLados(modo) {
+  return modo === 'online' ? { meu: 'Time verde', inimigo: 'Time vermelho' } : { meu: 'Seu time', inimigo: 'Inimigo' };
+}
+
+/**
+ * As vagas das duas faixas para desenhar: cada vaga { tipo: 'voce' | 'piloto' |
+ * 'oculto' | 'ia' | 'procurando' | 'trocar', nome?, race?, classe?, pronto? }.
+ *
+ * Na pública: a faixa da esquerda é o seu time (a sua vaga primeiro) e a da direita os
+ * computadores ('ia'). No 3 contra 3: a esquerda é o time verde e a direita o
+ * vermelho, cada um na ordem de chegada, com você no que estiver; os do seu time às
+ * claras, os do outro às cegas ('oculto'). As vagas que faltam são "procurando" no
+ * seu time e, procurando no 3 contra 3, 'trocar' no outro (clicar troca de time).
  * Sem o grupo (fora da fila): só a sua vaga.
  */
 export function vagasDaFila(estado, modo) {
@@ -152,11 +166,16 @@ export function vagasDaFila(estado, modo) {
   };
   if ((estado?.fase === 'sala' || estado?.fase === 'procurando') && estado.times) {
     const meuT = estado.voce?.time ?? 0;
-    const meu = (estado.times?.[meuT] ?? []).map((m) => ({ tipo: m.voce ? 'voce' : 'piloto', nome: m.nome, race: m.race, classe: m.classe, pronto: !!m.pronto }));
-    // A sua vaga primeiro.
-    meu.sort((a, b) => (b.tipo === 'voce') - (a.tipo === 'voce'));
-    const outro = bots || estado.bots ? [] : (estado.times?.[1 - meuT] ?? []).map((m) => ({ tipo: 'oculto', nome: m.nome, pronto: !!m.pronto }));
-    return { meu: preencher(meu, 'procurando'), inimigo: preencher(outro, bots || estado.bots ? 'ia' : 'procurando') };
+    const linha = (m, time) =>
+      time === meuT ? { tipo: m.voce ? 'voce' : 'piloto', nome: m.nome, race: m.race, classe: m.classe, pronto: !!m.pronto } : { tipo: 'oculto', nome: m.nome, pronto: !!m.pronto };
+    if (bots || estado.bots) {
+      const meu = (estado.times[meuT] ?? []).map((m) => linha(m, meuT));
+      meu.sort((a, b) => (b.tipo === 'voce') - (a.tipo === 'voce'));
+      return { meu: preencher(meu, 'procurando'), inimigo: preencher([], 'ia') };
+    }
+    const vaga = (time) => (time === meuT || estado.fase !== 'procurando' ? 'procurando' : 'trocar');
+    const [verde, vermelho] = [0, 1].map((t) => preencher((estado.times[t] ?? []).map((m) => linha(m, t)), vaga(t)));
+    return { meu: verde, inimigo: vermelho };
   }
   return { meu: preencher([{ tipo: 'voce' }], 'procurando'), inimigo: preencher([], bots ? 'ia' : 'procurando') };
 }

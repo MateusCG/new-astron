@@ -144,12 +144,16 @@
 //                        computadores); já na fila, só reenvia o estado
 //                       {t:'escolha', nome?, race?, classe?}   troca a nave na fila ou na
 //                        sala (os do seu time veem na hora); depois do Pronto, 'travada'
+//                       {t:'trocarTime'}   só no 3 contra 3 ('online'), procurando: passa
+//                        do time verde (0) para o vermelho (1) ou o contrário, se o
+//                        outro tem vaga livre no seu grupo ('cheio' sem vaga, 'invalido'
+//                        na pública, 'fora' na sala); com 3 em cada, a sala fecha
 //                       {t:'pronto', nome?, race?, classe?}   trava a nave (com a escolha
 //                        final junto); todos prontos, a partida começa
 //                       {t:'sairFila'}   sai (na sala, a desfaz: os outros voltam ao
 //                        começo da fila); fechar a conexão é o mesmo
 //                       (recusa: {t:'resultado', acao, ok:false, codigo} 'invalido',
-//                        'fora' (não está na fila/sala), 'travada', 'raca_bloqueada',
+//                        'fora' (não está na fila/sala), 'travada', 'cheio', 'raca_bloqueada',
 //                        'raca_invalida')
 //   servidor → cliente  {t:'bemvindo', id, tickHz, time, teste, modo}   time = 0 (base de baixo) ou 1;
 //                        modo 'partida' (o mundo principal) | 'teste' | 'privada' |
@@ -165,9 +169,11 @@
 //                        'sem_pronto': o contador zerou sem o seu Pronto)
 //                       {t:'fila', estado:'procurando', modo, n, precisa, espera, voce:
 //                        {time}, times, aviso?}   n pilotos no seu grupo (o da próxima
-//                        sala, você conta) de `precisa`, times como os da sala (o seu
-//                        time com raça e classe, o outro só o nome; no 3 contra 3 pela
-//                        ordem de chegada, alternando, e a sala mantém), espera = s
+//                        sala, você conta) de `precisa`, times como os da sala
+//                        ([verde, vermelho]; o seu time com raça e classe, o outro só
+//                        o nome; no 3 contra 3 o time escolhido na fila: quem chega
+//                        vai para o que tem menos gente, e {t:'trocarTime'} troca;
+//                        a sala mantém), espera = s
 //                        desde que entrou; aviso 'sala_tempo' (alguém não apertou Pronto) ou
 //                        'sala_saiu' (alguém saiu da sala): você voltou ao começo da fila
 //                       {t:'fila', estado:'sala', modo, id, restante, prontos, total,
@@ -599,7 +605,7 @@ const RESERVA_S = 120;
 // as reservas vencidas.
 const PASSO_FILAS_MS = 250;
 // Mensagens da fila (antes do {t:'entrar'}): server/filas.js.
-const PEDIDOS_FILA = new Set(['filas', 'entrarFila', 'escolha', 'pronto', 'sairFila']);
+const PEDIDOS_FILA = new Set(['filas', 'entrarFila', 'escolha', 'trocarTime', 'pronto', 'sairFila']);
 const PEDIDOS = new Set(['comprar', 'evoluir', 'melhorar', 'reconstruir', 'usar', 'pontos', 'equipar', 'vender', 'evoluirItem']); // server/servicos.js
 
 async function servirArquivo(req, res) {
@@ -718,6 +724,7 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
           const recusa = motivoRacaRecusada(msg.race);
           codigo = recusa ?? filas.entrar(ws, msg);
         } else if (msg.t === 'escolha') codigo = filas.escolher(ws, msg);
+        else if (msg.t === 'trocarTime') codigo = filas.trocarTime(ws);
         else if (msg.t === 'pronto') codigo = filas.pronto(ws, msg);
         else if (msg.t === 'sairFila') filas.sair(ws);
         if (codigo) ws.send(JSON.stringify({ t: 'resultado', acao: msg.t, ok: false, codigo }));

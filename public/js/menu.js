@@ -202,7 +202,14 @@ export class Menu {
     this.q('#botao-som').addEventListener('click', () => painelVolume.abrir());
     this.volumeConfig = new PainelVolume({ sons, aoMudarSom, el: this.q('#config-som') });
 
-    this.times = new EscolhaTimes(this.q('#escolha-times'), { miniatura });
+    this.times = new EscolhaTimes(this.q('#escolha-times'), {
+      miniatura,
+      // 3 contra 3, procurando: a vaga livre do outro time troca de time.
+      aoTrocarTime: () => {
+        this.#som(SONS_INTERFACE.clique, 0.6);
+        this.fila.trocarTime();
+      },
+    });
     this.times.definirVoce({ nome: g.nome.trim() });
 
     // Filas online: a conexão fica aberta com o menu (contagem em tempo real na aba

@@ -14,6 +14,7 @@ import {
   textoAviso,
   textoContagemModo,
   vagasDaFila,
+  titulosDosLados,
 } from '../public/js/fila-regras.js';
 import { SELECAO_S } from '../server/filas.js';
 
@@ -94,12 +95,20 @@ test('fila no cliente: as vagas da Seleção, procurando e na sala', () => {
   const procurando = vagasDaFila({ fase: 'procurando' }, 'publica');
   assert.deepEqual(procurando.meu.map((v) => v.tipo), ['voce', 'procurando', 'procurando']);
   assert.deepEqual(procurando.inimigo.map((v) => v.tipo), ['ia', 'ia', 'ia']);
+  // 3 contra 3: a esquerda é o time verde e a direita o vermelho, com você no seu.
   const v = vagasDaFila(aplicarMsgFila(null, sala(), 0), 'online');
-  assert.deepEqual(v.meu.map((x) => x.tipo), ['voce', 'piloto', 'procurando'], 'a sua vaga primeiro');
-  assert.deepEqual([v.meu[1].nome, v.meu[1].race], ['B', 'bellico']);
-  assert.deepEqual(v.inimigo.map((x) => x.tipo), ['oculto', 'oculto', 'oculto']);
-  assert.equal(v.inimigo[0].pronto, true);
-  assert.equal(v.inimigo[0].race, undefined, 'o outro time às cegas');
+  assert.deepEqual(v.inimigo.map((x) => x.tipo), ['piloto', 'voce', 'procurando'], 'você no vermelho, na ordem de chegada');
+  assert.deepEqual([v.inimigo[0].nome, v.inimigo[0].race], ['B', 'bellico']);
+  assert.deepEqual(v.meu.map((x) => x.tipo), ['oculto', 'oculto', 'oculto']);
+  assert.equal(v.meu[0].pronto, true);
+  assert.equal(v.meu[0].race, undefined, 'o outro time às cegas');
+  // Procurando no 3 contra 3: a vaga livre do outro time troca de time; a do seu, procura.
+  const fila = aplicarMsgFila(null, { t: 'fila', estado: 'procurando', modo: 'online', n: 2, precisa: 6, voce: { time: 0 }, times: [[{ nome: 'Eu', pronto: 0, race: 'acron', classe: 'assault', voce: 1 }], [{ nome: 'B', pronto: 0 }]] }, 0);
+  const vf = vagasDaFila(fila, 'online');
+  assert.deepEqual(vf.meu.map((x) => x.tipo), ['voce', 'procurando', 'procurando']);
+  assert.deepEqual(vf.inimigo.map((x) => x.tipo), ['oculto', 'trocar', 'trocar']);
+  assert.deepEqual(titulosDosLados('online'), { meu: 'Time verde', inimigo: 'Time vermelho' });
+  assert.deepEqual(titulosDosLados('publica'), { meu: 'Seu time', inimigo: 'Inimigo' });
 });
 
 /** WebSocket de mentira: guarda o que se manda e deixa o teste falar pelo servidor. */
@@ -153,6 +162,8 @@ test('fila no cliente: a conexão observa a contagem, entra na fila e entra de n
   assert.equal(fila.estado.fase, 'procurando');
   fila.escolher({ nome: 'Eu', race: 'shrewdo', classe: 'mobile' });
   assert.deepEqual(ws.enviadas.at(-1), { t: 'escolha', nome: 'Eu', race: 'shrewdo', classe: 'mobile' });
+  fila.trocarTime();
+  assert.deepEqual(ws.enviadas.at(-1), { t: 'trocarTime' });
 
   // Caiu: fica "conectando", com o aviso, e na volta entra de novo com a escolha de agora.
   ws.cair();

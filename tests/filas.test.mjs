@@ -69,7 +69,7 @@ test('filas: procurando, cada um já vê o seu grupo chegando, o time às claras
   assert.deepEqual([visto.race, visto.classe], ['shrewdo', 'functional']);
 });
 
-test('filas: no 3 contra 3 o grupo se reparte por ordem de chegada e a sala mantém os times', () => {
+test('filas: no 3 contra 3 quem chega vai para o time com menos gente e a sala mantém os times', () => {
   let lugar = false;
   const { filas, cliente, ultima } = montar({ podeAbrirSala: () => lugar });
   const cs = 'ABCDEFG'.split('').map(cliente);
@@ -89,6 +89,47 @@ test('filas: no 3 contra 3 o grupo se reparte por ordem de chegada e a sala mant
   const sala = ultima(cs[0]);
   assert.equal(sala.estado, 'sala');
   assert.deepEqual(sala.times[sala.voce.time].map((x) => x.nome), ['A', 'C', 'E'], 'os mesmos times da fila');
+});
+
+test('filas: no 3 contra 3 o piloto troca de time na fila clicando numa vaga livre do outro', () => {
+  let lugar = false;
+  const { filas, cliente, ultima } = montar({ podeAbrirSala: () => lugar });
+  const [a, b, c, d, e, f] = 'ABCDEF'.split('').map(cliente);
+  entrar(filas, a, 'online');
+  assert.equal(ultima(a).voce.time, 0, 'o primeiro vai para o verde');
+  assert.equal(filas.trocarTime(a), null);
+  assert.equal(ultima(a).voce.time, 1, 'trocou para o vermelho');
+  entrar(filas, b, 'online');
+  assert.equal(ultima(b).voce.time, 0, 'quem chega vai para o que tem menos gente');
+  assert.deepEqual(ultima(a).times[1].map((x) => x.nome), ['A']);
+  assert.deepEqual(ultima(a).times[0].map((x) => [x.nome, x.race]), [['B', undefined]], 'o outro time às cegas');
+  // B vai para o vermelho também: os dois juntos, com a nave um do outro.
+  filas.trocarTime(b);
+  assert.deepEqual(ultima(a).times[1].map((x) => [x.nome, !!x.race]), [['A', true], ['B', true]]);
+  assert.equal(ultima(a).times[0].length, 0);
+  for (const x of [c, d, e]) entrar(filas, x, 'online');
+  assert.deepEqual(ultima(a).times.map((t) => t.map((x) => x.nome)), [['C', 'D', 'E'], ['A', 'B']]);
+  assert.equal(filas.trocarTime(c), null, 'o vermelho ainda tem vaga');
+  // Vermelho cheio (A, B, C): ninguém do verde entra nele.
+  assert.deepEqual(ultima(c).times[1].map((x) => x.nome).sort(), ['A', 'B', 'C']);
+  assert.equal(filas.trocarTime(d), 'cheio');
+  // O sexto completa 3 contra 3 e a sala fecha com os times escolhidos.
+  lugar = true;
+  entrar(filas, f, 'online');
+  const s = ultima(a);
+  assert.equal(s.estado, 'sala');
+  assert.deepEqual(s.times[1].map((x) => x.nome).sort(), ['A', 'B', 'C']);
+  assert.deepEqual(s.times[0].map((x) => x.nome).sort(), ['D', 'E', 'F']);
+  assert.equal(filas.trocarTime(a), 'fora', 'na sala não troca mais');
+  // Desfeita a sala (alguém sai), os outros voltam à fila no time em que estavam.
+  filas.sair(f);
+  assert.equal(ultima(a).estado, 'procurando');
+  assert.equal(ultima(a).voce.time, 1);
+  assert.equal(ultima(d).voce.time, 0);
+  // Na pública não há troca.
+  const p = cliente('P');
+  entrar(filas, p, 'publica');
+  assert.equal(filas.trocarTime(p), 'invalido');
 });
 
 test('filas: o menu observa a contagem das filas em tempo real', () => {

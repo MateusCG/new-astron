@@ -91,6 +91,11 @@ export class ConexaoFila {
     this.#enviar({ t: 'pronto', ...escolha });
   }
 
+  /** No 3 contra 3, procurando: passa para o outro time (o servidor confere a vaga). */
+  trocarTime() {
+    if (this.estado.fase === 'procurando') this.#enviar({ t: 'trocarTime' });
+  }
+
   /** Sai da fila (e da sala, que se desfaz). */
   sair() {
     this.quer = null;
