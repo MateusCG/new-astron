@@ -13,8 +13,14 @@
 //      No 3 contra 3 os times são o TIME VERDE (0, a base da esquerda) e o TIME
 //      VERMELHO (1): quem chega entra no que tem menos gente na fila (empate: verde)
 //      e, enquanto procura, pode trocar para o outro clicando numa vaga livre dele
-//      ({t:'trocarTime'}; pedido do Mateus). A sala fecha quando há 3 em cada (os
-//      primeiros de cada time, pela ordem de chegada) e mantém os times.
+//      ({t:'trocarTime'}; pedido do Mateus). A sala fecha quando há 3 em cada e
+//      mantém os times.
+//      NUNCA mais de 3 num time de uma sala (pedido do Mateus): cada time é uma fila
+//      própria, na ordem em que cada um entrou NELE (`ordem`: ao chegar, ou ao trocar,
+//      que vai para o fim do outro time), cortada em pedaços de 3; o g-ésimo pedaço
+//      de cada time é a g-ésima sala. O 4º de um time já é da sala seguinte, e trocar
+//      para um time cheio só é aceito se for para a vaga de uma sala seguinte (quem
+//      troca nunca empurra ninguém para fora da sala dele).
 //   2. SALA: com gente bastante na fila (MODOS_FILA: 6 no 3 contra 3, 3 na pública,
 //      que joga os 3 contra 3 computadores), os primeiros da fila viram uma sala e
 //      começa o contador de SELECAO_S. Cada um escolhe a nave (os do próprio time
@@ -94,6 +100,8 @@ export class Filas {
     this.salaDe = new Map(); // cliente -> sala
     this.observadores = new Set();
     this.proximaSala = 1;
+    this.proximaOrdem = 1; // a posição no time (3 contra 3): cresce a cada entrada e troca
+    this.ordemVolta = 0; // quem volta de uma sala desfeita fica na frente (decresce)
     this.ultimaContagem = '';
   }
 
@@ -128,6 +136,7 @@ export class Filas {
       // O time com menos gente na fila (empate: o verde).
       const n = [0, 1].map((t) => this.filas[modo].filter((x) => x.time === t).length);
       e.time = n[1] < n[0] ? 1 : 0;
+      e.ordem = this.proximaOrdem++;
     }
     this.filas[modo].push(e);
     this.#formar(modo);
@@ -163,10 +172,14 @@ export class Filas {
     const e = this.#naFila(cliente);
     if (!e) return 'fora';
     if (MODOS_FILA[e.modo].bots) return 'invalido';
-    const { grupo } = this.#grupoDe(e);
+    // Quem troca vai para o fim do outro time: a sala em que cai é a do pedaço de 3
+    // dele. Só vale se for a sua sala (ou uma antes dela); cair numa sala seguinte é
+    // o time cheio.
     const alvo = 1 - e.time;
-    if (grupo[alvo].length >= MAX_POR_TIME) return 'cheio';
+    const minhaSala = Math.floor(this.#doTime(e.modo, e.time).indexOf(e) / MAX_POR_TIME);
+    if (Math.floor(this.#doTime(e.modo, alvo).length / MAX_POR_TIME) > minhaSala) return 'cheio';
     e.time = alvo;
+    e.ordem = this.proximaOrdem++;
     this.#formar(e.modo);
     this.#avisarFila(e.modo);
     this.avisarContagem();
@@ -264,9 +277,14 @@ export class Filas {
     const { humanos, bots } = MODOS_FILA[modo];
     const fila = this.filas[modo];
     if (bots) return fila.length >= humanos ? fila.slice(0, humanos) : null;
-    const verde = fila.filter((e) => e.time === 0).slice(0, MAX_POR_TIME);
-    const vermelho = fila.filter((e) => e.time === 1).slice(0, MAX_POR_TIME);
+    const verde = this.#doTime(modo, 0).slice(0, MAX_POR_TIME);
+    const vermelho = this.#doTime(modo, 1).slice(0, MAX_POR_TIME);
     return verde.length === MAX_POR_TIME && vermelho.length === MAX_POR_TIME ? [...verde, ...vermelho] : null;
+  }
+
+  /** Os da fila do 3 contra 3 num time, na ordem em que entraram nele. */
+  #doTime(modo, time) {
+    return this.filas[modo].filter((x) => x.time === time).sort((a, b) => a.ordem - b.ordem);
   }
 
   /** Forma as salas que a fila do modo já dá. Devolve se formou alguma. */
@@ -304,6 +322,8 @@ export class Filas {
       .filter(volta)
       .map(({ cliente, modo, desde, nome, race, classe, time }) => ({ cliente, modo, desde, nome, race, classe, time: MODOS_FILA[modo].bots ? 0 : time }));
     voltam.sort((a, b) => a.desde - b.desde);
+    // Na frente de quem já esperava, inclusive dentro de cada time.
+    for (let i = voltam.length - 1; i >= 0; i--) voltam[i].ordem = this.ordemVolta--;
     this.filas[sala.modo].unshift(...voltam);
     this.#formar(sala.modo);
     // Quem voltou e não caiu numa sala nova recebe o aviso junto com o tamanho da fila.
@@ -322,7 +342,7 @@ export class Filas {
       const inicio = Math.floor(fila.indexOf(e) / humanos) * humanos;
       return { grupo: [fila.slice(inicio, inicio + humanos), []] };
     }
-    const porTime = [0, 1].map((t) => fila.filter((x) => x.time === t));
+    const porTime = [0, 1].map((t) => this.#doTime(e.modo, t));
     const g = Math.floor(porTime[e.time].indexOf(e) / MAX_POR_TIME);
     return { grupo: porTime.map((l) => l.slice(g * MAX_POR_TIME, (g + 1) * MAX_POR_TIME)) };
   }

@@ -132,6 +132,67 @@ test('filas: no 3 contra 3 o piloto troca de time na fila clicando numa vaga liv
   assert.equal(filas.trocarTime(p), 'invalido');
 });
 
+test('filas: nunca 4 num time; quem sobra ou troca para um time cheio vai para a sala seguinte, sem empurrar ninguém', () => {
+  let lugar = false;
+  const { filas, cliente, ultima } = montar({ podeAbrirSala: () => lugar });
+  const cs = 'ABCDEFGH'.split('').map(cliente);
+  const [A, B, C, D, E, F, G, H] = cs;
+  // A, C, E no verde e B, D, F no vermelho (o servidor está sem lugar: a sala espera).
+  for (const c of [A, B, C, D, E, F]) entrar(filas, c, 'online');
+  // G chega com 3 e 3: vai para o verde, mas como 4º dele é da sala seguinte.
+  entrar(filas, G, 'online');
+  assert.equal(ultima(G).voce.time, 0);
+  assert.deepEqual(ultima(G).times.map((t) => t.map((x) => x.nome)), [['G'], []], 'G está sozinho na sala seguinte');
+  assert.deepEqual(ultima(A).times.map((t) => t.map((x) => x.nome)), [['A', 'C', 'E'], ['B', 'D', 'F']]);
+  // Da sala da frente ninguém troca para um time cheio.
+  assert.equal(filas.trocarTime(B), 'cheio');
+  // G troca para o vermelho: vai para o fim dele, ainda na sala seguinte; F não sai da sala dele.
+  assert.equal(filas.trocarTime(G), null);
+  assert.deepEqual(ultima(F).times[1].map((x) => x.nome), ['B', 'D', 'F']);
+  assert.deepEqual(ultima(G).times.map((t) => t.map((x) => x.nome)), [[], ['G']]);
+  // H chega: o verde tem menos gente, vai para a sala seguinte junto de G, do outro lado.
+  entrar(filas, H, 'online');
+  assert.deepEqual(ultima(H).times.map((t) => t.map((x) => x.nome)), [['H'], ['G']]);
+  // Abriu lugar: a sala da frente fecha com os 3 e 3 dela; G e H continuam na fila.
+  lugar = true;
+  filas.passo();
+  assert.equal(ultima(A).estado, 'sala');
+  assert.deepEqual(ultima(A).times.map((t) => t.length), [3, 3]);
+  assert.equal(ultima(G).estado, 'procurando');
+  // Agora G e H são a sala da frente: H troca para o vermelho (tem vaga), G e H juntos.
+  assert.equal(filas.trocarTime(H), null);
+  assert.deepEqual(ultima(G).times.map((t) => t.map((x) => x.nome)), [[], ['G', 'H']]);
+});
+
+test('filas: com entradas, trocas e saídas ao acaso, nenhuma sala nem grupo passa de 3 num time', () => {
+  let lugar = true;
+  const { filas, cliente, caixas } = montar({ podeAbrirSala: () => lugar });
+  let k = 7;
+  const sorte = () => ((k = (k * 1103515245 + 12345) % 2147483648) / 2147483648);
+  const clientes = [];
+  for (let passo = 0; passo < 3000; passo++) {
+    lugar = sorte() < 0.3;
+    const r = sorte();
+    if (r < 0.35 || clientes.length === 0) {
+      const c = cliente(`P${passo}`);
+      clientes.push(c);
+      entrar(filas, c, 'online');
+    } else if (r < 0.75) filas.trocarTime(clientes[Math.floor(sorte() * clientes.length)]);
+    else if (r < 0.9) {
+      const c = clientes.splice(Math.floor(sorte() * clientes.length), 1)[0];
+      filas.esquecer(c);
+    } else filas.pronto(clientes[Math.floor(sorte() * clientes.length)]);
+    for (const [c, msgs] of caixas) {
+      const m = msgs.at(-1);
+      if (m?.t !== 'fila' || !m.times) continue;
+      assert.ok(m.times.every((t) => t.length <= 3), `passo ${passo}: ${c.nome} vê ${m.times.map((t) => t.length)}`);
+    }
+    for (const sala of filas.salas.values()) {
+      assert.deepEqual([0, 1].map((t) => sala.membros.filter((x) => x.time === t).length), [3, 3], `passo ${passo}: sala com times de 3`);
+    }
+  }
+});
+
 test('filas: o menu observa a contagem das filas em tempo real', () => {
   const { filas, cliente, ultima } = montar();
   const menu = cliente('menu');

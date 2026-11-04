@@ -146,7 +146,9 @@
 //                        sala (os do seu time veem na hora); depois do Pronto, 'travada'
 //                       {t:'trocarTime'}   só no 3 contra 3 ('online'), procurando: passa
 //                        do time verde (0) para o vermelho (1) ou o contrário, se o
-//                        outro tem vaga livre no seu grupo ('cheio' sem vaga, 'invalido'
+//                        outro tem vaga livre no seu grupo (vai para o fim do outro time;
+//                        nunca mais de 3 num time de uma sala: o 4º é da sala seguinte;
+//                        'cheio' sem vaga, 'invalido'
 //                        na pública, 'fora' na sala); com 3 em cada, a sala fecha
 //                       {t:'pronto', nome?, race?, classe?}   trava a nave (com a escolha
 //                        final junto); todos prontos, a partida começa
