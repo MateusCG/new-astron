@@ -848,7 +848,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
         // O tiro direto sai da nave: o primeiro passo do campo de força da base conta de
         // onde ela está (stepBullet), para o tiro que nasce já do outro lado parar no plano.
         const origem = p === 0 && dono?.obj ? { ox: dono.obj.position.x, oz: dono.obj.position.z } : {};
-        const b = { id: e.id, kind: e.kind, atq: e.atq, nv: e.nv, p, x: e.x, y: e.y, z: e.z, vx: e.vx, vy: e.vy, vz: e.vz, vida: e.vida ?? 2.5, ...origem };
+        // `dx`/`dz`/`esp`: o tiro anda a curva do original (efeitos.tiro a liga, shared/sim.js porCurva).
+        const curva = e.dx !== undefined ? { dx: e.dx, dz: e.dz, esp: e.esp } : {};
+        const b = { id: e.id, kind: e.kind, atq: e.atq, nv: e.nv, p, x: e.x, y: e.y, z: e.z, vx: e.vx, vy: e.vy, vz: e.vz, vida: e.vida ?? 2.5, ...origem, ...curva };
         const nave = dono?.obj && { x: dono.obj.position.x, z: dono.obj.position.z, yaw: dono.obj.rotation.y };
         efeitos.tiro(b, !!dono?.drone, null, efeitos.disparo.inicio(b, nave, daBoca));
         if (proprio && p === 0) continue; // clarão e som já saíram na predição

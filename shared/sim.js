@@ -718,7 +718,7 @@ export function createBullet(s, kind, id, owner, off = 0, ang = 0, nivel = 1, g 
   const vel = g.vel ?? 0;
   const frente = vel > 0 ? 6 : -MINA_ATRAS;
   const herda = vel > 0 ? 0.5 : 0;
-  return {
+  const b = {
     id,
     owner,
     kind,
@@ -736,6 +736,46 @@ export function createBullet(s, kind, id, owner, off = 0, ang = 0, nivel = 1, g 
     raio: g.raio,
     dano: g.dano,
   };
+  if (g.curva) porCurva(b, g.curva, { dx: d.x, dz: d.z, hx: s.vx * herda, hz: s.vz * herda });
+  return b;
+}
+
+/**
+ * Tiro que anda a curva do original (`curva` do golpe: sai a v0 e acelera, ou freia,
+ * `acel` m/s² até vmax): guarda a velocidade própria (`esp`, m/s, negativa = de ré), o
+ * rumo dela (`dx`, `dz`, unitário: para onde o tiro aponta, mesmo parado), o que ele
+ * herdou da nave que atirou (`hx`, `hz`, constante) e acerta vx/vz. `esp` (padrão v0)
+ * serve para retomar um tiro já em voo (o snapshot dos teleguiados); sem `hx`/`hz`,
+ * eles saem de vx/vz (o evento 'tiro' traz a velocidade de saída e o rumo).
+ */
+export function porCurva(b, curva, { dx, dz, esp = curva.v0, hx, hz }) {
+  b.acel = curva.acel;
+  b.vmax = curva.vmax;
+  b.esp = esp;
+  b.dx = dx;
+  b.dz = dz;
+  b.hx = hx ?? b.vx - dx * esp;
+  b.hz = hz ?? b.vz - dz * esp;
+  b.vx = dx * esp + b.hx;
+  b.vz = dz * esp + b.hz;
+  return b;
+}
+
+/**
+ * O que o cliente precisa para andar a curva de um tiro que ele não criou (no evento
+ * 'tiro', no 'rebatido' e no snapshot dos teleguiados): o rumo e a velocidade própria.
+ * A herança sai de vx/vz (porCurva).
+ */
+export function rumoDaCurva(b) {
+  return { dx: +b.dx.toFixed(4), dz: +b.dz.toFixed(4), esp: +b.esp.toFixed(2) };
+}
+
+/** Vira o tiro com curva para o rumo (dx, dz) unitário, na velocidade própria de agora. */
+export function virarCurva(b, dx, dz) {
+  b.dx = dx;
+  b.dz = dz;
+  b.vx = dx * b.esp + b.hx;
+  b.vz = dz * b.esp + b.hz;
 }
 
 /**
@@ -747,6 +787,14 @@ export function stepBullet(b, dt = DT) {
   const ax = b.ox ?? b.x;
   const az = b.oz ?? b.z;
   if (b.ox !== undefined) b.ox = b.oz = undefined; // só no primeiro passo
+  if (b.acel !== undefined) {
+    // A curva do original (porCurva): a velocidade muda e depois o tiro anda, como o
+    // MoveBullet, que só limita por cima (o que freia passa de zero e volta).
+    b.esp += b.acel * dt;
+    if (b.acel > 0 && b.esp > b.vmax) b.esp = b.vmax;
+    b.vx = b.dx * b.esp + b.hx;
+    b.vz = b.dz * b.esp + b.hz;
+  }
   b.px = b.x;
   b.pz = b.z;
   b.x += b.vx * dt;

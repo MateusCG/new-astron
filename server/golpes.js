@@ -46,7 +46,7 @@
 // escolhem alvo do mesmo lado, e a mina ou o campo de arma que cairia do outro lado
 // fica embaixo da nave de quem soltou.
 
-import { DT, HOVER, createBullet, stepBullet, bulletHits, forward } from '../shared/sim.js';
+import { DT, HOVER, createBullet, stepBullet, bulletHits, forward, virarCurva, rumoDaCurva } from '../shared/sim.js';
 import {
   WEAPONS,
   ARMAS,
@@ -216,8 +216,11 @@ export class Golpes {
         // Mira sem curva: o tiro sai apontado para o alvo.
         const vel = Math.hypot(b.vx, b.vz);
         const ny = yawPara(b.x, b.z, alvo.ship.x, alvo.ship.z);
-        b.vx = -Math.sin(ny) * vel;
-        b.vz = -Math.cos(ny) * vel;
+        if (b.acel !== undefined) virarCurva(b, -Math.sin(ny), -Math.cos(ny));
+        else {
+          b.vx = -Math.sin(ny) * vel;
+          b.vz = -Math.cos(ny) * vel;
+        }
       }
     }
   }
@@ -240,6 +243,7 @@ export class Golpes {
       vz: +b.vz.toFixed(2),
       vida: +b.vida.toFixed(2),
       ...(b.enc !== undefined ? { enc: b.enc } : {}),
+      ...(b.acel !== undefined ? rumoDaCurva(b) : {}), // a curva do original: o rumo (o cliente anda ela igual)
       ...(g.atq ? { atq: g.atq } : {}), // ataque de monstro (server/jungle.js)
     });
   }
@@ -340,7 +344,8 @@ export class Golpes {
     const f = { id: b.owner, time: b.time, drone: b.drone, mult: b.mult, kind: b.kind, nivel: b.nivel };
     if (filho.forma === 'nova') return this.#nova(f, filho, b.x, b.y, b.z);
     if (filho.forma === 'mina' || filho.forma === 'campo') return this.#mina(f, filho, b.x, b.y, b.z);
-    const yaw = Math.atan2(-b.vx, -b.vz);
+    // No rumo dele: o da curva (o nariz), no que anda a curva do original.
+    const yaw = b.acel !== undefined ? Math.atan2(-b.dx, -b.dz) : Math.atan2(-b.vx, -b.vz);
     for (const { off, ang } of tirosDoGolpe(filho, 0)) {
       const t = tiroFilho(filho, this.#id(), b.x, b.y, b.z, yaw, off, ang);
       this.#prepararTiro(t, f, filho, yaw + ang);
@@ -556,7 +561,14 @@ export class Golpes {
       const d = Math.hypot(b.x - x, b.z - z);
       if (d > raio || cruzaCampoBase(x, z, b.x, b.z)) continue;
       const v = Math.hypot(b.vx, b.vz);
-      if (d > 1e-6) {
+      if (b.acel !== undefined) {
+        // Com a curva do original: o movimento vira para fora, sem a herança da nave, e a
+        // velocidade própria segue a curva (o que anda de ré fica com o nariz para dentro).
+        const sinal = b.esp < 0 ? -1 : 1;
+        const [ux, uz] = d > 1e-6 ? [(b.x - x) / d, (b.z - z) / d] : [-b.dx * sinal, -b.dz * sinal];
+        b.hx = b.hz = 0;
+        virarCurva(b, ux * sinal, uz * sinal);
+      } else if (d > 1e-6) {
         b.vx = ((b.x - x) / d) * v;
         b.vz = ((b.z - z) / d) * v;
       } else {
@@ -571,7 +583,7 @@ export class Golpes {
       b.atingidos = undefined;
       b.rebatido = true;
       const r2 = (n) => +n.toFixed(2);
-      this.world.eventos.push({ e: 'rebatido', bala: b.id, kind: b.kind, dono: como.owner, time: como.time, x: r2(b.x), y: r2(b.y), z: r2(b.z), vx: r2(b.vx), vy: r2(b.vy), vz: r2(b.vz) });
+      this.world.eventos.push({ e: 'rebatido', bala: b.id, kind: b.kind, dono: como.owner, time: como.time, x: r2(b.x), y: r2(b.y), z: r2(b.z), vx: r2(b.vx), vy: r2(b.vy), vz: r2(b.vz), ...(b.acel !== undefined ? rumoDaCurva(b) : {}) });
     }
   }
 

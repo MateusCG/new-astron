@@ -44,9 +44,12 @@
 //   vida 0 e some no primeiro quadro: não aparece.
 // - Projétil que acelera (colunas 64 a 66: o Canhão de Faíscas sai parado e acelera
 //   0,0003 m/ms² até 0,5 m/ms; a Lâmina Giratória, 0,0002 até 0,35, e segue nela até o
-//   fim da vida): CUnitBeam::MoveBullet soma a aceleração a cada quadro.
-//   O jogo voa a velocidade média (o mesmo alcance no mesmo tempo, shared/armas.js);
-//   o desenho anda pela curva do original na mesma linha (recuoDaCarga).
+//   fim da vida): CUnitBeam::MoveBullet soma a aceleração a cada quadro e só limita a
+//   velocidade por cima. O jogo anda a mesma curva no próprio tiro (a `curva` do golpe
+//   em shared/armas.js, o stepBullet de shared/sim.js), no servidor, na predição e no
+//   desenho: o tiro do servidor e o desenhado andam juntos. Antes o servidor voava a
+//   velocidade média e o desenho ficava até 100 m atrás: o míssil sumia perto da nave
+//   e o impacto aparecia no alvo.
 // - Esfera que cresce (tipo de gráfico 17, coluna 59: o subprojétil do Canhão de
 //   Faíscas): o .eff na escala raio máximo da nova / 100 (coluna 55; o 2142018 chega a
 //   raio 100 no último quadro), deitado onde o tiro acabou; sem repetir (OnStateEnd não
@@ -102,7 +105,7 @@
 //   da coluna 102 no piloto mais perto (GetNearestPilot, a até a coluna 103 m) e some
 //   com OnDeleteMe(true): o som de impacto e o fim (coluna 92, modo 94) no lugar dela. A
 //   vida acabando antes, some sem nada (OnDeleteMe(false)). O raio que ela atira freia
-//   como o original (cargaDoGolpe: a curva do subprojétil, `cargaSub`).
+//   como o original (a `curva` do subprojétil no catálogo).
 // - Suporte (coluna 74 com o 4º dígito '1': as novas de Reparo, Antiparalisia e
 //   Doadora; o Druida Reparador e o Canhão Antiparalisia, tiros que só pegam aliado): o
 //   ProcessDamage cria o impacto em cada aliado que a nova, o tiro ou a área pega.
@@ -131,12 +134,10 @@ import { forward } from '../../shared/sim.js';
  * a V8 no inititemweapon.cfg): `clarao` 'giro' (modo 14), 'preso' (15), 'area' (2,
  * parado onde a nave estava, na escala da área), 'parado' (0, o Míssil Descarga Dupla:
  * parado na matriz do tiro, onde ele nasce) ou null (coluna 51 '0': sem clarão);
- * `fim` 'area' (modo 7: o fim deitado e esticado até a área); `carga`: o projétil que
- * acelera (ou freia), com a velocidade inicial, a máxima (m/ms) e a aceleração (m/ms²)
- * do original (colunas 64, 65 e 66; os mísseis saem a −0,05, caindo para trás);
- * `cargaSub`: a mesma curva para o subprojétil de cada profundidade (cargaDoGolpe);
- * `claraoSub` 'parado' (modo 0) no clarão dos subprojéteis; `teleporte`: o efeito do
- * CUnitTeleportEffect, onde a nave some (na matriz dela) e onde aparece (de pé).
+ * `fim` 'area' (modo 7: o fim deitado e esticado até a área); `claraoSub` 'parado'
+ * (modo 0) no clarão dos subprojéteis; `teleporte`: o efeito do CUnitTeleportEffect,
+ * onde a nave some (na matriz dela) e onde aparece (de pé). A curva do projétil que
+ * acelera ou freia (colunas 64 a 66) vem do catálogo (`curva` do golpe).
  */
 export const DISPARO_ORIGINAL = Object.freeze({
   o111001: Object.freeze({ clarao: 'giro' }), // Feixe Rifle Triplo (Acron)
@@ -146,15 +147,15 @@ export const DISPARO_ORIGINAL = Object.freeze({
   o311001: Object.freeze({ clarao: 'giro' }), // Feixe Duplo (Shrewdo)
   o311004: Object.freeze({ clarao: 'preso', fim: 'area' }), // Metralha Shrewdo
   o111003: Object.freeze({ clarao: 'giro' }), // Feixe Perfurante de Magma (Acron Functional)
-  o112028: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão de Faíscas
+  o112028: Object.freeze({ clarao: 'preso' }), // Canhão de Faíscas
   o112014: Object.freeze({ clarao: 'area' }), // Rebatedor de Projéteis
   // Segunda leva Acron.
   o111009: Object.freeze({ clarao: 'giro', fim: 'area' }), // Feixe Circular (CircleBlow Beam)
   o111005: Object.freeze({ clarao: 'giro', fim: 'area' }), // Feixe Tempestade Circular (CircleStorm Beam)
   o111017: Object.freeze({ clarao: 'preso', fim: 'area' }), // Metralha Rotativa (Spinradius Gun)
   o111019: Object.freeze({ clarao: 'preso', fim: 'area' }), // Bombardeiro Frontal (Front Storm Bomber)
-  o112003: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0.5, vmax: 0.5, acel: -0.0002 }) }), // Lâmina Giratória Reforçada
-  o112010: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Descarregador
+  o112003: Object.freeze({ clarao: 'preso' }), // Lâmina Giratória Reforçada
+  o112010: Object.freeze({ clarao: 'preso', fim: 'area' }), // Canhão Descarregador
   o116006: Object.freeze({ clarao: 'preso' }), // Ciclone (Cyclone Storm)
   o112034: Object.freeze({ clarao: 'preso' }), // Armadilha Supressora (Suppress Trap)
   o112001: Object.freeze({ clarao: 'preso', claraoSub: 'parado' }), // Míssil Clone Teleguiado
@@ -164,17 +165,17 @@ export const DISPARO_ORIGINAL = Object.freeze({
   o112007: Object.freeze({ clarao: null }), // Reparador de Escudo (Shield Recovering Device)
   o112019: Object.freeze({ clarao: null }), // Conversor de Impacto (Shock Converter)
   o112033: Object.freeze({ clarao: null }), // Disjuntor (Circuit Breaking Device)
-  o112030: Object.freeze({ clarao: 'giro', carga: Object.freeze({ v0: 0.2, vmax: 0.5, acel: 0.0004 }) }), // Onda de Sopro Acron (Acron Blow Wave)
+  o112030: Object.freeze({ clarao: 'giro' }), // Onda de Sopro Acron (Acron Blow Wave)
   o112008: Object.freeze({ clarao: null }), // Tenda de Luz (Optical Beam Tent)
   // Terceira leva Acron.
   o112035: Object.freeze({ clarao: 'giro', fim: 'area' }), // Rifle Relâmpago (LightningStorm Rifle)
   o112038: Object.freeze({ clarao: 'giro', fim: 'area' }), // Feixe Relâmpago (Bolt Storm Beam)
-  o112011: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Amplificador
-  o112027: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Congelante (Freezer Cannon)
-  o112025: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Bombardeiro Elétrico (El. Bomber)
-  o112020: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: -0.05, vmax: 0.4, acel: 0.0002 }) }), // Míssil Sugador de Energia
-  o112009: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: -0.05, vmax: 0.4, acel: 0.0002 }) }), // Míssil Tempestade Paralisante
-  o112004: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0.2, vmax: 0.2, acel: -0.0001 }) }), // Armadilha Circular (Circle Trap)
+  o112011: Object.freeze({ clarao: 'preso', fim: 'area' }), // Canhão Amplificador
+  o112027: Object.freeze({ clarao: 'preso', fim: 'area' }), // Canhão Congelante (Freezer Cannon)
+  o112025: Object.freeze({ clarao: 'preso', fim: 'area' }), // Bombardeiro Elétrico (El. Bomber)
+  o112020: Object.freeze({ clarao: 'preso' }), // Míssil Sugador de Energia
+  o112009: Object.freeze({ clarao: 'preso', fim: 'area' }), // Míssil Tempestade Paralisante
+  o112004: Object.freeze({ clarao: 'preso' }), // Armadilha Circular (Circle Trap)
   o112036: Object.freeze({ clarao: 'preso', fim: 'area' }), // Armadilha Elétrica (El. Trap)
   o112013: Object.freeze({ clarao: null }), // Nova Reveladora (Cloak Sensing Nova)
   o112017: Object.freeze({ clarao: null }), // Nova Freio (SpeedTrap Nova)
@@ -189,11 +190,11 @@ export const DISPARO_ORIGINAL = Object.freeze({
   o111013: Object.freeze({ clarao: 'preso', fim: 'area' }), // Metralha Larga (WideStorm Gun)
   o111015: Object.freeze({ clarao: 'preso' }), // Metralha Teleguiada (Homing Sector Gun)
   o111007: Object.freeze({ clarao: 'giro' }), // Feixe Clone em Leque (Clone Sector Beam)
-  o112026: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão de Recuo
+  o112026: Object.freeze({ clarao: 'preso', fim: 'area' }), // Canhão de Recuo
   o112031: Object.freeze({ clarao: null }), // Onda de Energia Larga (Wide Energy Wave)
   o112032: Object.freeze({ clarao: 'preso' }), // Ciclone Varredor (Cyclone Wiper)
   o112005: Object.freeze({ clarao: 'giro', fim: 'area' }), // Feixe Tempestade Teleguiado (HomingStorm Beam)
-  o114003: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0, vmax: 0.35, acel: 0.0002 }) }), // Lâmina Giratória (Revolving Blade)
+  o114003: Object.freeze({ clarao: 'preso' }), // Lâmina Giratória (Revolving Blade)
   // Bellico Assault.
   o211007: Object.freeze({ clarao: 'giro' }), // Feixe Clone em Fila (Clone Array Beam)
   o211009: Object.freeze({ clarao: 'preso' }), // Feixe Perfurante Circular (Piercing Circle Beam)
@@ -201,11 +202,11 @@ export const DISPARO_ORIGINAL = Object.freeze({
   o211015: Object.freeze({ clarao: 'preso', fim: 'area' }), // Vulcan Tempestade (VulkanStorm Gun)
   o211017: Object.freeze({ clarao: 'preso' }), // Metralha Crítica (Critic Blow Gun)
   o211019: Object.freeze({ clarao: 'giro' }), // Vulcan Perfurante (Piercing Vulkan Gun)
-  o212002: Object.freeze({ clarao: 'giro', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão de Magma em Leque
-  o212011: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão de Choque Acelerado
-  o212003: Object.freeze({ clarao: 'giro', carga: Object.freeze({ v0: 0.9, vmax: 0.9, acel: -0.00103 }) }), // Lança de Energia (Energy Spear)
-  o214003: Object.freeze({ clarao: 'giro', carga: Object.freeze({ v0: 0.11, vmax: 0.5, acel: 0.00001 }) }), // Onda de Choque (Ph. Shock Wave)
-  o212001: Object.freeze({ clarao: 'giro', carga: Object.freeze({ v0: 0, vmax: 0.4, acel: 0.00055 }) }), // Mísseis em Fila Acelerados
+  o212002: Object.freeze({ clarao: 'giro', fim: 'area' }), // Canhão de Magma em Leque
+  o212011: Object.freeze({ clarao: 'preso', fim: 'area' }), // Canhão de Choque Acelerado
+  o212003: Object.freeze({ clarao: 'giro' }), // Lança de Energia (Energy Spear)
+  o214003: Object.freeze({ clarao: 'giro' }), // Onda de Choque (Ph. Shock Wave)
+  o212001: Object.freeze({ clarao: 'giro' }), // Mísseis em Fila Acelerados
   o212008: Object.freeze({ clarao: null }), // Reparador de Escudo (Shield Recovering Device)
   o212018: Object.freeze({ clarao: null }), // Amplificador de Energia (Energy Amplifier)
   o212019: Object.freeze({ clarao: null }), // Invulnerabilidade (Invulnerability Device)
@@ -213,31 +214,31 @@ export const DISPARO_ORIGINAL = Object.freeze({
   o212031: Object.freeze({ clarao: null }), // Disjuntor (Circuit Breaking Device)
   // Bellico Mobile.
   o211005: Object.freeze({ clarao: 'giro' }), // Feixe Clone Duplo (Double Clone Beam)
-  o212024: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0.5, vmax: 0.7, acel: 0.0003 }) }), // Feixe de Faísca Perfurante
-  o212005: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão em Fila (Array Cannon)
-  o212013: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Revelador
-  o212022: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Anticadência
-  o212023: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Redutor de Energia
-  o212025: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Consumidor
-  o212010: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: -0.05, vmax: 0.4, acel: 0.0002 }) }), // Míssil Quebra-Escudo
+  o212024: Object.freeze({ clarao: 'preso' }), // Feixe de Faísca Perfurante
+  o212005: Object.freeze({ clarao: 'preso', fim: 'area' }), // Canhão em Fila (Array Cannon)
+  o212013: Object.freeze({ clarao: 'preso', fim: 'area' }), // Canhão Revelador
+  o212022: Object.freeze({ clarao: 'preso', fim: 'area' }), // Canhão Anticadência
+  o212023: Object.freeze({ clarao: 'preso', fim: 'area' }), // Canhão Redutor de Energia
+  o212025: Object.freeze({ clarao: 'preso', fim: 'area' }), // Canhão Consumidor
+  o212010: Object.freeze({ clarao: 'preso' }), // Míssil Quebra-Escudo
   o212004: Object.freeze({ clarao: 'preso', fim: 'area' }), // Armadilha Tempestade (Storm Trap)
-  o212006: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0.5, vmax: 0.5, acel: -0.0002 }) }), // Armadilha Atiradora (Rifle Trap)
+  o212006: Object.freeze({ clarao: 'preso' }), // Armadilha Atiradora (Rifle Trap)
   o212014: Object.freeze({ clarao: null }), // Arrancada (Instant Acceleration Device)
   o212027: Object.freeze({ clarao: 'giro' }), // Rifle Perfurante (Piercing Rifle)
-  o212028: Object.freeze({ clarao: 'giro', carga: Object.freeze({ v0: 0.2, vmax: 0.5, acel: 0.0015 }) }), // Onda de Choque Frontal
-  o212029: Object.freeze({ clarao: 'giro', carga: Object.freeze({ v0: 0, vmax: 0.45, acel: 0.00055 }) }), // Míssil de Cruzeiro
-  o212032: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0, vmax: 0.45, acel: 0.00055 }) }), // Míssil de Choque
+  o212028: Object.freeze({ clarao: 'giro' }), // Onda de Choque Frontal
+  o212029: Object.freeze({ clarao: 'giro' }), // Míssil de Cruzeiro
+  o212032: Object.freeze({ clarao: 'preso' }), // Míssil de Choque
   o212033: Object.freeze({ clarao: 'preso' }), // Armadilha de Magma (Magma Trap)
   // Bellico Functional.
   o211003: Object.freeze({ clarao: 'giro', fim: 'area' }), // Feixe Tempestade de Magma (MagmaStorm Beam)
-  o212021: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Antiparalisia
-  o212007: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: -0.05, vmax: 0.4, acel: 0.0002 }) }), // Míssil Perfurante em Leque
-  o212026: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0.25, vmax: 0.25, acel: -0.00002 }) }), // Raio de Faísca Perfurante
+  o212021: Object.freeze({ clarao: 'preso', fim: 'area' }), // Canhão Antiparalisia
+  o212007: Object.freeze({ clarao: 'preso' }), // Míssil Perfurante em Leque
+  o212026: Object.freeze({ clarao: 'preso', fim: 'area' }), // Raio de Faísca Perfurante
   o212009: Object.freeze({ clarao: null }), // Amortecedor (Shock Reducing Device)
   o212015: Object.freeze({ clarao: null }), // Nova Trava-Aceleração (Acceleration Paralysis Nova)
-  o212030: Object.freeze({ clarao: 'giro', carga: Object.freeze({ v0: 0.11, vmax: 0.5, acel: 0.00001 }) }), // Onda de Choque Elétrica
+  o212030: Object.freeze({ clarao: 'giro' }), // Onda de Choque Elétrica
   o212034: Object.freeze({ clarao: 'preso', fim: 'area' }), // Vulcan Tempestade Teleguiada
-  o212017: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0002 }) }), // Druida Reparador (Repair Druid)
+  o212017: Object.freeze({ clarao: 'preso' }), // Druida Reparador (Repair Druid)
   // Shrewdo Assault.
   o311002: Object.freeze({ clarao: 'giro' }), // Feixe Perfurante em Fila (Piercing Array Beam)
   o311008: Object.freeze({ clarao: 'giro' }), // Feixe Triplo (3way Rifle Beam)
@@ -246,17 +247,12 @@ export const DISPARO_ORIGINAL = Object.freeze({
   o311006: Object.freeze({ clarao: 'preso' }), // Metralha Giratória (Array Spin Gun)
   o311009: Object.freeze({ clarao: 'preso' }), // Metralha Trovão (Array Thunder Gun)
   o311010: Object.freeze({ clarao: 'preso' }), // Vulcan em Leque (Vulkan Sector Gun)
-  o312001: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Tempestade em Leque
-  o312022: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Antirradar
-  o312012: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Quebra-Resistência
-  o312018: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: -0.05, vmax: 0.4, acel: 0.0002 }) }), // Míssil Giratório (Homing Spin Missile)
+  o312001: Object.freeze({ clarao: 'preso', fim: 'area' }), // Canhão Tempestade em Leque
+  o312022: Object.freeze({ clarao: 'preso', fim: 'area' }), // Canhão Antirradar
+  o312012: Object.freeze({ clarao: 'preso', fim: 'area' }), // Canhão Quebra-Resistência
+  o312018: Object.freeze({ clarao: 'preso' }), // Míssil Giratório (Homing Spin Missile)
   o312007: Object.freeze({ clarao: 'preso' }), // Campo de Energia (Energy Field Trap)
-  o317020: Object.freeze({
-    clarao: 'preso',
-    fim: 'area',
-    carga: Object.freeze({ v0: 0.2, vmax: 0.2, acel: -0.00005 }),
-    cargaSub: Object.freeze({ 2: Object.freeze({ v0: 0.2, vmax: 0.2, acel: -0.0001 }) }),
-  }), // Armadilha de Raios Reforçada (Reinforced EnergyBolt Trap)
+  o317020: Object.freeze({ clarao: 'preso', fim: 'area' }), // Armadilha de Raios Reforçada (Reinforced EnergyBolt Trap)
   o312006: Object.freeze({ clarao: null }), // Reforço de Escudo (Shield Reinforcing Device)
   o312014: Object.freeze({ clarao: null }), // Camuflagem (Cloak Device)
   o312017: Object.freeze({ clarao: null }), // Invulnerabilidade (Invulnerability Device)
@@ -266,39 +262,30 @@ export const DISPARO_ORIGINAL = Object.freeze({
   // Shrewdo Mobile.
   o311007: Object.freeze({ clarao: 'giro' }), // Feixe de Magma (Force Magma Beam)
   o314009: Object.freeze({ clarao: 'preso' }), // Rifle Trovão (Rifle Thunder Gun)
-  o312004: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.6, acel: 0.0009 }) }), // Canhão Quebra-Escudo Rápido
-  o312015: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Revelador (Cloak Sensing Cannon)
-  o312009: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Freio (SpeedTrap Cannon)
-  o312024: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Desgoverno (Control Disturbing Cannon)
-  o312013: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: -0.05, vmax: 0.4, acel: 0.0002 }) }), // Míssil Enfraquecedor
-  o312008: Object.freeze({
-    clarao: 'preso',
-    carga: Object.freeze({ v0: 0.2, vmax: 0.2, acel: -0.0002 }),
-    cargaSub: Object.freeze({ 2: Object.freeze({ v0: 0.2, vmax: 0.3, acel: 0.0001 }) }),
-  }), // Armadilha Teleguiada (Homing Trap)
-  o312020: Object.freeze({
-    clarao: 'preso',
-    fim: 'area',
-    carga: Object.freeze({ v0: 0.2, vmax: 0.2, acel: -0.00005 }),
-    cargaSub: Object.freeze({ 2: Object.freeze({ v0: 0.2, vmax: 0.2, acel: -0.0001 }) }),
-  }), // Armadilha de Raios (EnergyBolt Trap)
+  o312004: Object.freeze({ clarao: 'preso', fim: 'area' }), // Canhão Quebra-Escudo Rápido
+  o312015: Object.freeze({ clarao: 'preso', fim: 'area' }), // Canhão Revelador (Cloak Sensing Cannon)
+  o312009: Object.freeze({ clarao: 'preso', fim: 'area' }), // Canhão Freio (SpeedTrap Cannon)
+  o312024: Object.freeze({ clarao: 'preso', fim: 'area' }), // Canhão Desgoverno (Control Disturbing Cannon)
+  o312013: Object.freeze({ clarao: 'preso' }), // Míssil Enfraquecedor
+  o312008: Object.freeze({ clarao: 'preso' }), // Armadilha Teleguiada (Homing Trap)
+  o312020: Object.freeze({ clarao: 'preso', fim: 'area' }), // Armadilha de Raios (EnergyBolt Trap)
   o312031: Object.freeze({ clarao: 'preso' }), // Campo Magnético (Magnetic Field Trap)
   o312016: Object.freeze({ clarao: null }), // Acelerador (Acceleration Device)
-  o312037: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0, vmax: 0.4, acel: 0.0002 }) }), // Míssil Carga Elétrica (ChargeBolt Missile)
+  o312037: Object.freeze({ clarao: 'preso' }), // Míssil Carga Elétrica (ChargeBolt Missile)
   o312040: Object.freeze({ clarao: null }), // Campo de Plasma (Plasma Field)
   o312030: Object.freeze({ clarao: 'preso', fim: 'area' }), // Raio Rastreador (Tracking Bolt)
   o312035: Object.freeze({ clarao: 'preso' }), // Rifle Shrewdo (ShrewdoBlow Rifle)
-  o312036: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: 0, vmax: 0.4, acel: 0.0002 }) }), // Míssil Giratório T2
+  o312036: Object.freeze({ clarao: 'preso' }), // Míssil Giratório T2
   // Shrewdo Functional.
   o311003: Object.freeze({ clarao: 'giro', fim: 'area' }), // Feixe Clone Tempestade (Clone Storm Beam)
   o311032: Object.freeze({ clarao: 'preso' }), // Rifle de Magma (Magma Rifle Gun)
-  o314001: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Tempestade (Rifle Storm Cannon)
-  o312003: Object.freeze({ clarao: 'preso', fim: 'area', carga: Object.freeze({ v0: 0, vmax: 0.5, acel: 0.0003 }) }), // Canhão Paralisante
-  o312010: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: -0.05, vmax: 0.4, acel: 0.0002 }) }), // Míssil Paralisante (Lock-Down Missile)
-  o312023: Object.freeze({ clarao: 'parado', carga: Object.freeze({ v0: -0.05, vmax: 0.4, acel: 0.0002 }) }), // Míssil Descarga Dupla
+  o314001: Object.freeze({ clarao: 'preso', fim: 'area' }), // Canhão Tempestade (Rifle Storm Cannon)
+  o312003: Object.freeze({ clarao: 'preso', fim: 'area' }), // Canhão Paralisante
+  o312010: Object.freeze({ clarao: 'preso' }), // Míssil Paralisante (Lock-Down Missile)
+  o312023: Object.freeze({ clarao: 'parado' }), // Míssil Descarga Dupla
   o312005: Object.freeze({ clarao: null }), // Reparador de Escudo (Shield Recovering Device)
   o312021: Object.freeze({ clarao: 'preso', claraoSub: 'parado' }), // Lançador de Metralha (Case Shot Launcher)
-  o312025: Object.freeze({ clarao: 'preso', carga: Object.freeze({ v0: -0.05, vmax: 0.4, acel: 0.0002 }) }), // Druida Reparador (Repair Druid)
+  o312025: Object.freeze({ clarao: 'preso' }), // Druida Reparador (Repair Druid)
   o312028: Object.freeze({ clarao: null }), // Nova Antiparalisia (Paralysis Removing Nova)
   o312033: Object.freeze({ clarao: null }), // Nova Recarrega-Escudo (Shield Recharging Nova)
   o312038: Object.freeze({ clarao: 'giro' }), // Feixe Elétrico Duplo (Array Bolt Beam)
@@ -417,21 +404,11 @@ export const FOLGA_FIM_S = 0.1;
 /** Campos do golpe (`vis` do catálogo) que o disparo usa: clarão, projétil, impacto, fim, armadilha e rastro do míssil. */
 export const CAMPOS_DISPARO = Object.freeze(['d', 'p', 'i', 'f', 'a', 'r']);
 
-/** Como o original desenha a arma `kind` ({ clarao, fim?, carga?, claraoSub? }), ou null se ela não é desenhada como lá. */
+/** Como o original desenha a arma `kind` ({ clarao, fim?, claraoSub? }), ou null se ela não é desenhada como lá. */
 export function disparoOriginal(kind) {
   return DISPARO_ORIGINAL[kind] ?? null;
 }
 
-/**
- * A curva do original (colunas 64 a 66) do golpe `prof` da arma `kind`: a do disparo
- * (`carga`) ou a de um subprojétil (`cargaSub`: o raio que a Armadilha de Raios atira),
- * ou null quando ele voa constante.
- */
-export function cargaDoGolpe(kind, prof = 0) {
-  const como = DISPARO_ORIGINAL[kind];
-  if (!como) return null;
-  return (prof ? como.cargaSub?.[prof] : como.carga) ?? null;
-}
 
 /**
  * O efeito que a armadilha `g` mostra parada (CUnitBeam::ProcessNonActiveTrap): a que
@@ -557,32 +534,4 @@ export function acabouAntes(b, x, z) {
 /** Escala (m por unidade do original) do efeito que o original estica pela área (modos 7 e 2, tipo 17) numa área de `raio` m. */
 export function escalaDaArea(raio) {
   return raio / RAIO_AREA_ORIGINAL;
-}
-
-/**
- * Distância (m do original) que o projétil de `carga` andou em `ms` ms: acelera de v0
- * até vmax e segue; o que freia (aceleração negativa) cai sem limite por baixo, como no
- * MoveBullet do original.
- */
-function andouNoOriginal(ms, { v0, vmax, acel }) {
-  if (!(acel > 0)) return v0 * ms + (acel * ms * ms) / 2;
-  const ate = Math.max(0, (vmax - v0) / acel);
-  if (ms <= ate) return v0 * ms + (acel * ms * ms) / 2;
-  return v0 * ate + (acel * ate * ate) / 2 + vmax * (ms - ate);
-}
-
-/**
- * Quanto (m) o desenho do projétil que acelera fica atrás do tiro do jogo, que voa a
- * velocidade média do golpe `g` (vel em m/s, vida em s): a fração do caminho que o
- * original já andou na `idade` (s) do tiro, sobre o caminho inteiro. Começa e termina
- * em 0 (sai da boca e chega junto ao fim da vida); negativo no que freia (o desenho
- * vai na frente no começo).
- */
-export function recuoDaCarga(idade, g, carga) {
-  const vida = g.vida;
-  if (!(vida > 0) || !(g.vel > 0)) return 0;
-  const t = Math.min(Math.max(idade, 0), vida);
-  const caminho = g.vel * vida;
-  const fracao = andouNoOriginal(t * 1000, carga) / andouNoOriginal(vida * 1000, carga);
-  return g.vel * t - caminho * fracao;
 }
