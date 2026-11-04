@@ -104,6 +104,17 @@ input:focus {
   white-space: nowrap;
 }
 
+/* A cor da raça da nave mostrada (menu.js, #pintarFundo): registrada como cor para o
+   céu do menu passar de uma raça para a outra devagar, em vez de trocar num estalo. */
+@property --cor-raca {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #00efc0;
+}
+
+/* O céu do menu na cor da raça da nave que a tela mostra (Acron azul, Bellico
+   vermelho, Shrewdo verde): o brilho sobe do canto de baixo, atrás da nave, e escurece
+   até quase preto no alto. */
 #entrada {
   --cor-raca: var(--neon);
   --alto-topo: 64px;
@@ -115,9 +126,15 @@ input:focus {
   grid-template-rows: var(--alto-topo) minmax(0, 1fr) var(--alto-rodape);
   overflow: hidden;
   background:
-    linear-gradient(180deg, rgba(8, 4, 10, 0.55) 0%, transparent 38%),
-    radial-gradient(ellipse at 68% 118%, #f59a45 0%, #a8402a 32%, #2a0f1c 70%),
-    #2a0f1c;
+    linear-gradient(180deg, rgba(4, 6, 10, 0.6) 0%, transparent 40%),
+    radial-gradient(
+      ellipse at 68% 118%,
+      color-mix(in srgb, var(--cor-raca) 78%, #fff) 0%,
+      color-mix(in srgb, var(--cor-raca) 62%, #000) 30%,
+      color-mix(in srgb, var(--cor-raca) 18%, #07080c) 70%
+    ),
+    #07080c;
+  transition: --cor-raca 0.45s ease-out;
 }
 
 .selo-breve {
@@ -436,6 +453,8 @@ input:focus {
   bottom: var(--alto-rodape);
   left: 36%;
   right: 0;
+  /* O nome da raça atrás da nave mede pela largura deste palco (cqi): nunca sai da tela. */
+  container-type: inline-size;
 }
 
 #entrada:not([data-tela='jogar']) #fundo-nave {
@@ -448,12 +467,14 @@ input:focus {
   top: 46%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font: 900 clamp(110px, 17vw, 300px) / 1 system-ui, sans-serif;
+  font: 900 clamp(48px, 13.5cqi, 260px) / 1 system-ui, sans-serif;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: transparent;
-  -webkit-text-stroke: 1.5px color-mix(in srgb, var(--cor-raca) 45%, transparent);
-  opacity: 0.55;
+  /* Traço claro puxado para a cor da raça: sobre o céu da mesma cor, o traço só na cor
+     dela sumia. */
+  -webkit-text-stroke: 1.5px color-mix(in srgb, var(--cor-raca) 35%, #fff);
+  opacity: 0.32;
   white-space: nowrap;
   pointer-events: none;
 }

@@ -249,6 +249,7 @@ export class Menu {
 
   /** A nave 3D no palco da tela aberta. */
   #atualizarPrevia() {
+    this.#pintarFundo();
     const palco = { jogar: '#fundo-nave', selecao: '.selecao-centro .palco-nave', naves: '.naves-visor .palco-nave' }[this.tela];
     if (!palco) {
       pararPrevia();
@@ -356,8 +357,16 @@ export class Menu {
     leg.querySelector('small').textContent = this.destaque ? 'Em destaque' : 'Sua nave';
     leg.querySelector('.nome-nave').textContent = n.nome;
     leg.querySelector('.raca-classe').innerHTML = `<b style="color:${corCss(RACES[raca].cor)}">${RACES[raca].nome}</b> · ${CLASSES[classe].nome}`;
-    const fundo = this.q('#fundo-nave');
-    fundo.dataset.raca = RACES[raca].nome;
+    this.q('#fundo-nave').dataset.raca = RACES[raca].nome;
+  }
+
+  /**
+   * O céu do menu na cor da raça da nave que a tela aberta mostra: na aba Jogar, a em
+   * destaque (ou a da Seleção); na Seleção, a escolhida; no Hangar, a aberta; nas
+   * Configurações, a da aba Jogar.
+   */
+  #pintarFundo() {
+    const raca = this.tela === 'naves' ? this.catalogo.raca : this.tela === 'selecao' ? this.raca : naveDaVitrine(this.destaque, this.raca, this.classe).raca;
     this.el.style.setProperty('--cor-raca', corCss(RACES[raca].cor));
   }
 
@@ -373,6 +382,7 @@ export class Menu {
     }
     this.#som(this.destaque ? SONS_INTERFACE.compra : SONS_INTERFACE.clique, 0.6);
     this.#atualizarLegenda();
+    this.#pintarFundo();
     this.#mostrarBotaoDestaque();
   }
 
