@@ -450,14 +450,16 @@ test('cartão: o crítico da arma (coluna 81 do original) e o alcance máximo', 
   assert.equal(chanceCritico('o111001', 1, 50), 1, 'no máximo 100%');
   assert.equal(chanceCritico('o312006', 1, 0.5), 0, 'dispositivo não crita');
   assert.equal(chanceCritico('laser', 1, 0.5), 0, 'tiro de NPC não crita');
-  // Alcance: o projétil voa velocidade × vida (o original 780 m × FATOR_VEL); o Teleporte, o salto; dispositivo, nada.
-  const feixe = versaoArma('o111001', 1);
-  assert.equal(alcanceMaximo(feixe), Math.round(feixe.golpe.vel * feixe.golpe.vida));
-  assert.equal(alcanceMaximo(feixe), 780 * FATOR_VEL);
-  assert.equal(alcanceMaximo(versaoArma('o112021', 1)), Math.round(golpeDaArma('o112021', 1).efeitos[0].dist));
-  // O que se divide em projéteis soma o voo dos filhos (Feixe Clone em Fila).
-  const clone = golpeDaArma('o211007', 1);
-  assert.equal(clone.divide.forma, 'projetil');
-  assert.equal(alcanceMaximo(versaoArma('o211007', 1)), Math.round(clone.alcance + clone.divide.alcance));
-  assert.equal(alcanceMaximo(versaoArma('o312006', 1)), 0);
+  // Alcance: o "Shooting range" do original (só o projétil de cima, acelerando até a
+  // máxima) × FATOR_VEL; o que se divide não soma os filhos; nova parada dá 0 m;
+  // dispositivo sem vida não tem a linha.
+  assert.equal(alcanceMaximo(versaoArma('o111001', 1)), 780 * FATOR_VEL);
+  assert.equal(alcanceMaximo(versaoArma('o111001', 8)), 1020 * FATOR_VEL);
+  const clone = versaoArma('o211007', 1);
+  assert.ok(clone.golpe.divide, 'o Feixe Clone em Fila se divide');
+  assert.equal(alcanceMaximo(clone), 180 * FATOR_VEL);
+  assert.equal(alcanceMaximo(clone), Math.round(clone.golpe.alcance), 'o mesmo voo do tiro de cima no servidor');
+  assert.equal(alcanceMaximo(versaoArma('o214003', 1)), 163.8 * FATOR_VEL, 'acelera: a conta do original');
+  assert.equal(alcanceMaximo(versaoArma('o112021', 1)), 0, 'o Teleporte mostra 0 m, como no original');
+  assert.equal(alcanceMaximo(versaoArma('o312006', 1)), null, 'dispositivo: sem a linha');
 });

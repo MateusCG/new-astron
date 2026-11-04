@@ -204,8 +204,8 @@ export function linhasDescricao(kind, nivel = 1) {
 
 /**
  * Os números da arma no nível, um por linha, como no cartão do original: dano,
- * crítico, alcance máximo, recarga e energia. [[rótulo, valor], ...]; o crítico e o
- * alcance só quando a arma tem.
+ * crítico, alcance máximo, recarga e energia. [[rótulo, valor], ...]; o crítico só
+ * quando a arma tem, e o alcance quando o original mostra (até 0 m, como nas novas).
  */
 export function numerosArma(kind, nivel = 1) {
   const v = versaoArma(kind, nivel);
@@ -216,7 +216,7 @@ export function numerosArma(kind, nivel = 1) {
   return [
     ['Dano', textoDano(kind, nivel)],
     v.critico > 0 ? ['Crítico', `${um(v.critico * 100)}%`] : null,
-    alcance > 0 ? ['Alcance máximo', `${numero(alcance, 0)} m`] : null,
+    alcance !== null ? ['Alcance máximo', `${numero(alcance, 0)} m`] : null,
     r.segurar ? null : ['Recarga', `${fino(r.cd)} s`],
     ['Energia', `${fino(r.energia)}${r.segurar ? '/s, segurando a tecla' : ''}`],
   ].filter(Boolean);

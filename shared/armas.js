@@ -552,6 +552,7 @@ function converterArma(a, fatorRecarga = FATOR_RECARGA_ARMA) {
       segurar,
       hpPorS: (v.hpPorS ?? 0) * FATOR_DANO,
       critico: (v.critico ?? 0) / 100, // chance de crítico da arma (coluna 81 do original)
+      alcanceCartao: v.alcance == null ? null : v.alcance * FATOR_VEL, // alcanceMaximo
       golpe,
       som: v.som ?? a.som,
       zeraEnergia: golpe.efeitos.some((e) => e.tipo === 'zeraPropria'),
@@ -792,27 +793,14 @@ export function resumoVersao(v) {
 }
 
 /**
- * Alcance máximo da versão em metros do jogo, o "Shooting range" do cartão do original
- * (CWindowItemInfo::redrawItemInfoWeapon: o quanto o projétil voa na vida dele, com a
- * aceleração): no projétil, a velocidade × a vida (g.alcance), somando o dos projéteis
- * que nascem dele (o clone, o que se divide) e o raio em que atira a armadilha em que
- * ele vira, que o original não conta; na armadilha
- * que atira, o raio em que ela atira; no Teleporte, o salto. 0 quando não se aplica
- * (nova, mina, campo e dispositivo, que agem em volta da nave).
+ * Alcance máximo da versão em metros do jogo, ou null sem a linha: o "Shooting range"
+ * do cartão do original (CWindowItemInfo::redrawItemInfoWeapon), o quanto o projétil
+ * de cima voa na vida dele (os que nascem dele não contam; a nova e a armadilha
+ * paradas dão 0 m; sem vida, os dispositivos, não há linha), × FATOR_VEL como o voo
+ * no jogo (a vida fica igual e a velocidade cai pela metade).
  */
 export function alcanceMaximo(v) {
-  const g = v?.golpe;
-  if (!g) return 0;
-  if (g.forma === 'projetil') {
-    let total = 0;
-    let x = g;
-    for (; x?.forma === 'projetil'; x = x.divide) total += x.alcance ?? 0;
-    if (x?.forma === 'mina' && x.dispara) total += x.atira ?? 0; // a carga que vira armadilha e atira
-    return Math.round(total);
-  }
-  if (g.forma === 'mina' && g.dispara) return Math.round(g.atira ?? 0);
-  const teleporte = g.efeitos?.find((e) => e.tipo === 'teleporte');
-  return teleporte ? Math.round(teleporte.dist) : 0;
+  return v?.alcanceCartao ?? null;
 }
 
 /** Efeitos visuais de um golpe: { d, p, r, i, f, a } -> { texturas, cor } (ou null). */

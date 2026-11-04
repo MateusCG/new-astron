@@ -59,7 +59,7 @@ function enxugar(origem, origemNpc) {
     }
     return out;
   };
-  const CAMPOS_NUMEROS = ['danoTiro', 'criticoPct', 'projeteis', 'vaoCanos', 'lequeGraus', 'anguloInicialGraus', 'velMax', 'acel', 'vidaMs',
+  const CAMPOS_NUMEROS = ['danoTiro', 'criticoPct', 'projeteis', 'vaoCanos', 'lequeGraus', 'anguloInicialGraus', 'velIni', 'velMax', 'acel', 'vidaMs',
     'alcanceM', 'raioColisao', 'nova', 'teleguiado', 'divide', 'subprojetilNoChao', 'atravessa', 'acertaInimigo', 'acertaAliado',
     'explodeNoFimDaVida', 'mira', 'areaDano', 'intervaloDanoMs', 'rajada', 'intervaloRajadaMs', 'varredura', 'armadilha'];
   const numeros = (n) => Object.fromEntries(CAMPOS_NUMEROS.filter((k) => n[k] !== undefined).map((k) => [k, n[k]]));
@@ -132,6 +132,23 @@ function limpo(o) {
 }
 
 const r3 = (x) => Math.round(x * 1000) / 1000;
+
+/**
+ * O "Shooting range" do cartão da arma no original, em metros do original
+ * (CWindowItemInfo::redrawItemInfoWeapon): o quanto o projétil de cima voa na vida
+ * dele, acelerando da velocidade inicial até a máxima; os projéteis que nascem dele
+ * não contam. null quando o original não mostra a linha (sem vida: os dispositivos).
+ */
+function alcanceDoCartao(n) {
+  const t = n.vidaMs ?? 0;
+  if (!(t > 0)) return null;
+  const vi = n.velIni ?? 0;
+  const vm = n.velMax ?? 0;
+  const ac = n.acel ?? 0;
+  if (ac <= 0 || vi + ac * t <= vm) return r3(ac * 0.5 * t * t + vi * t);
+  const ate = (vm - vi) / ac; // acelera até a máxima e segue nela
+  return r3(ac * 0.5 * ate * ate + ate * vi + (t - ate) * vm);
+}
 
 /**
  * Forma do golpe (o que o servidor cria): 'projetil' (voa), 'nova' (esfera que
@@ -250,7 +267,7 @@ function gerar() {
     const versoes = a.versoes.map((v) => {
       const g = golpe(v.numeros, v.efeitos, v.subprojeteis, a.categoria, true);
       g.vis = visualIds(v.visual);
-      return limpo({
+      const versao = limpo({
         id: v.id,
         nivel: v.nivelExigido,
         preco: v.preco,
@@ -265,6 +282,10 @@ function gerar() {
         som: som(v.som),
         golpe: g,
       });
+      // Fora do limpo: 0 m também vai para o cartão (a nova e a armadilha paradas).
+      const alcance = alcanceDoCartao(v.numeros);
+      if (alcance !== null) versao.alcance = alcance;
+      return versao;
     });
     return limpo({
       id: a.id,
