@@ -1,4 +1,5 @@
-// Placar da partida (canto superior direito) e tela de fim de partida.
+// Placar da partida (canto superior direito). A tela de fim de partida é a de
+// resultado (resultado.js).
 //
 // Tudo vem do snapshot (`partida` e `bonus`, ver o topo de server/index.js): o
 // cliente não conta tempo nem minério, só mostra. O seu time fica sempre à
@@ -40,7 +41,6 @@ export class Placar {
     this.tempo = this.el.querySelector('.relogio');
     this.faixaFinal = this.el.querySelector('.fase-final');
     this.faixaPrep = this.el.querySelector('.preparacao');
-    this.fim = $('#fim-partida');
     this.ultimo = '';
     this.el.hidden = false;
   }
@@ -62,7 +62,6 @@ export class Placar {
     this.faixaPrep.hidden = partida.estado !== 'preparacao';
     this.#bonus(this.meu.querySelector('.bonus'), bonus[this.meuTime]);
     this.#bonus(this.outro.querySelector('.bonus'), bonus[this.outroTime]);
-    this.#telaFim(partida);
   }
 
   #bonus(ul, ativos = {}) {
@@ -74,21 +73,6 @@ export class Placar {
       )
       .join('');
     if (ul.innerHTML !== html) ul.innerHTML = html;
-  }
-
-  #telaFim(partida) {
-    const mostrar = partida.estado === 'fim';
-    this.fim.hidden = !mostrar;
-    if (!mostrar) return;
-    const v = partida.vencedor;
-    const titulo = v === -1 ? 'EMPATE' : v === this.meuTime ? 'VITÓRIA' : 'DERROTA';
-    const frase = v === -1 ? 'Os dois times mineraram igual' : v === this.meuTime ? 'Seu time minerou mais' : 'O outro time minerou mais';
-    this.fim.className = v === -1 ? 'empate' : v === this.meuTime ? 'vitoria' : 'derrota';
-    this.fim.querySelector('h2').textContent = titulo;
-    this.fim.querySelector('.frase').textContent = frase;
-    this.fim.querySelector('.meu').textContent = partida.placar[this.meuTime];
-    this.fim.querySelector('.outro').textContent = partida.placar[this.outroTime];
-    this.fim.querySelector('.nova').textContent = `Nova partida em ${partida.novaEm}s`;
   }
 
   /** Pisca o número do time que acabou de receber minério. */
@@ -110,7 +94,6 @@ export class Placar {
   /** Esconde tudo (saída da partida). */
   limpar() {
     this.el.hidden = true;
-    this.fim.hidden = true;
     this.ultimo = '';
   }
 }

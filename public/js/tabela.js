@@ -16,6 +16,10 @@
 // com os ícones do original). Tudo da lista pública `jogadores` do snapshot, que os
 // dois times recebem (como no LoL, os itens do inimigo são públicos; a vida e o
 // lugar não).
+//
+// O desenho fica em ConteudoTabela, que a tela de resultado (resultado.js) usa de novo
+// sobre a cópia da tabela dela, com os números congelados no fim da partida e o
+// destaque da partida (MVP) marcado em ouro.
 
 import { miniatura } from './vitrine.js';
 import { iconeArma, nomeArma } from './armas.js';
@@ -42,15 +46,10 @@ const SEM_MINI = '<svg class="sem-mini" viewBox="0 0 24 24" aria-hidden="true"><
 export class TabelaPartida {
   /** @param {{ meuId: number, meuTime: number, signal: AbortSignal }} opcoes */
   constructor({ meuId, meuTime, signal }) {
-    this.meuId = meuId;
-    this.meuTime = meuTime;
     this.el = document.querySelector('#tabela');
-    this.jogadores = [];
-    this.estat = null;
-    this.chave = '';
+    this.conteudo = new ConteudoTabela(this.el, { meuId, meuTime });
     this.segurando = false; // aberta pelo TAB (fecha ao soltar)
     this.fixa = false; // aberta pelo botão (fecha no botão ou no ESC)
-    this.minis = new Map(); // 'raça/classe/tier' -> data URL (null: sem miniatura)
     addEventListener(
       'keydown',
       (e) => {
@@ -100,9 +99,8 @@ export class TabelaPartida {
 
   /** Snapshot: a lista pública `jogadores` e o `partida` (com `estat` por time). */
   atualizar(jogadores, partida) {
-    if (Array.isArray(jogadores)) this.jogadores = jogadores;
-    if (partida?.estat) this.estat = partida.estat;
-    if (this.aberto) this.#desenhar();
+    this.conteudo.definir(jogadores, partida?.estat);
+    if (this.aberto) this.conteudo.desenhar();
   }
 
   #mostrar() {
@@ -110,11 +108,37 @@ export class TabelaPartida {
     if (abrir === this.aberto) return;
     this.el.hidden = !abrir;
     document.querySelector('#tabela-hud')?.classList.toggle('ativo', abrir);
-    if (abrir) this.#desenhar(true);
+    if (abrir) this.conteudo.desenhar(true);
+  }
+}
+
+/**
+ * O conteúdo da tabela (o cabeçalho com os objetivos e os abates de cada time e as
+ * linhas dos pilotos) dentro de `el`, que tem a marcação da tabela (.cab-meu,
+ * .cab-inimigo, .abates-meu, .abates-inimigo, .time-meu ol, .time-inimigo ol).
+ */
+export class ConteudoTabela {
+  /** @param {HTMLElement} el @param {{ meuId: number, meuTime: number }} opcoes */
+  constructor(el, { meuId, meuTime }) {
+    this.el = el;
+    this.meuId = meuId;
+    this.meuTime = meuTime;
+    this.jogadores = [];
+    this.estat = null;
+    this.mvp = null; // id do destaque da partida (a linha em ouro), ou null
+    this.chave = '';
+    this.minis = new Map(); // 'raça/classe/tier' -> data URL (null: sem miniatura)
   }
 
-  #desenhar(forcar = false) {
-    const chave = JSON.stringify([this.jogadores, this.estat]);
+  /** Os dados da tabela: a lista `jogadores`, o `estat` por time e o destaque (id). */
+  definir(jogadores, estat, mvp = this.mvp) {
+    if (Array.isArray(jogadores)) this.jogadores = jogadores;
+    if (estat) this.estat = estat;
+    this.mvp = mvp;
+  }
+
+  desenhar(forcar = false) {
+    const chave = JSON.stringify([this.jogadores, this.estat, this.mvp]);
     if (!forcar && chave === this.chave) return; // nada mudou: não mexe no DOM
     this.chave = chave;
     const { meu, inimigo } = linhasDaTabela(this.jogadores, { meuId: this.meuId, meuTime: this.meuTime });
@@ -143,10 +167,12 @@ export class TabelaPartida {
 
   #linha(p) {
     const selo = p.ia ? '<span class="selo">IA</span>' : ''; // você: a linha com a borda acesa
+    const mvp = p.id === this.mvp;
+    const seloMvp = mvp ? '<span class="selo-mvp" title="Destaque da partida">MVP</span>' : '';
     const itens = p.itens.map((it, k) => this.#item(it, k)).join('');
-    return `<li class="${p.voce ? 'voce' : ''}${p.vivo === false ? ' morto' : ''}">
+    return `<li class="${p.voce ? 'voce' : ''}${p.vivo === false ? ' morto' : ''}${mvp ? ' mvp' : ''}">
       <span class="retrato">${this.#mini(p)}<b class="nv" title="Nível">${p.nivel ?? 1}</b></span>
-      <span class="nome"><span>${esc(p.nome)}</span>${selo}</span>
+      <span class="nome"><span>${esc(p.nome)}</span>${selo}${seloMvp}</span>
       <span class="farm" title="Farm: monstros, mineradores e escoltas abatidos">${p.farm ?? 0}</span>
       <span class="kda" title="Abates / mortes / assistências">${kda(p)}</span>
       <span class="itens">${itens}</span>
@@ -169,10 +195,15 @@ export class TabelaPartida {
       this.minis.set(k, undefined);
       miniatura(p.race, p.classe, p.tier ?? 0).then((url) => {
         this.minis.set(k, url ?? null);
-        if (this.aberto) this.#desenhar(true);
+        if (!this.el.closest('[hidden]')) this.desenhar(true);
       });
     }
     const url = this.minis.get(k);
     return url ? `<img src="${url}" alt="" draggable="false">` : SEM_MINI;
   }
+}
+
+/** Miniatura da nave (a mesma da tabela), para o cartão do destaque da partida. */
+export function miniaturaDoPiloto(p) {
+  return p?.race ? miniatura(p.race, p.classe, p.tier ?? 0) : Promise.resolve(null);
 }

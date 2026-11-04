@@ -38,7 +38,12 @@
 import { DT } from '../shared/sim.js';
 
 export const DURACAO_PARTIDA_S = 1200; // 20 minutos
-export const INTERVALO_FIM_S = 15; // tela de fim antes da próxima partida
+// Tela de resultado antes da próxima partida (public/js/resultado.js): a VITÓRIA ou
+// DERROTA, o destaque da partida e a tabela do TAB congelada. 30 s dão para ler os 6
+// pilotos com folga (o botão "Voltar ao menu agora" sai antes); o cliente sai para o
+// menu quando ela acaba, e por isso o servidor espera o mesmo tempo: com menos, a
+// partida nova começava por baixo da tela e zerava os números dela.
+export const INTERVALO_FIM_S = 30;
 export const MAX_POR_TIME = 3;
 export const N_TIMES = 2;
 export const FASE_FINAL_S = 180; // últimos 3 minutos: minério vale mais

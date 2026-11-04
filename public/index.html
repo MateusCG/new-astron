@@ -204,11 +204,60 @@
         <p data-enc="1" hidden><b class="rot">Carregando</b><span class="enc">Arma <kbd>X</kbd></span><span class="ic"></span><span class="nm"></span><b class="seg"></b><span class="barra"><i></i></span></p>
       </div>
       <p id="pouso" hidden></p>
-      <section id="fim-partida" hidden aria-live="polite">
-        <h2></h2>
-        <p class="frase"></p>
-        <p class="resultado"><span class="meu"></span><i>×</i><span class="outro"></span></p>
-        <p class="nova"></p>
+      <!-- Tela de resultado (resultado.js): no fim da partida, a VITÓRIA ou DERROTA, o
+           destaque da partida e a tabela do TAB congelada; volta ao menu no fim da contagem. -->
+      <section id="resultado" hidden role="dialog" aria-modal="true" aria-labelledby="resultado-titulo">
+        <div class="conteudo-resultado">
+          <header class="faixa-resultado">
+            <p class="rotulo-fim">Fim da partida · Lago de Hélio-3</p>
+            <h2 id="resultado-titulo"></h2>
+            <p class="frase"></p>
+            <p class="minerio" title="Minério de He-3 de cada time">
+              <span class="minerio-meu"><small>Seu time</small><b>0</b></span>
+              <i>×</i>
+              <span class="minerio-outro"><small>Inimigo</small><b>0</b></span>
+            </p>
+          </header>
+          <section class="mvp" hidden aria-label="Destaque da partida">
+            <span class="retrato-mvp"><img alt="" draggable="false" hidden><b class="nivel-mvp" title="Nível">1</b></span>
+            <span class="quem-mvp">
+              <small class="rotulo-mvp"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.9z" /></svg>Destaque da partida</small>
+              <strong class="nome-mvp"></strong>
+              <span class="time-mvp"></span>
+            </span>
+            <dl class="numeros-mvp">
+              <div><dt>A/M/As</dt><dd class="kda-mvp"></dd></div>
+              <div><dt>KDA</dt><dd class="razao-mvp"></dd></div>
+              <div><dt>Farm</dt><dd class="farm-mvp"></dd></div>
+            </dl>
+          </section>
+          <section id="resultado-tabela" class="janela" aria-label="Tabela da partida">
+            <header class="cab">
+              <div class="cab-meu objs"></div>
+              <div class="placar-abates" title="Abates de jogador de cada time">
+                <b class="abates-meu">0</b>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4l11 11M13.5 16.5l3-3M15 15l5 5M20 4L9 15M10.5 16.5l-3-3M9 15l-5 5" /></svg>
+                <b class="abates-inimigo">0</b>
+              </div>
+              <div class="cab-inimigo objs"></div>
+            </header>
+            <div class="times">
+              <section class="time-meu" aria-label="Seu time">
+                <h3><span class="titulo">Seu time</span><span>Farm</span><span>A/M/As</span><span>Itens</span></h3>
+                <ol></ol>
+              </section>
+              <section class="time-inimigo" aria-label="Time inimigo">
+                <h3><span class="titulo">Inimigo</span><span>Farm</span><span>A/M/As</span><span>Itens</span></h3>
+                <ol></ol>
+              </section>
+            </div>
+          </section>
+          <footer class="contagem">
+            <p>Voltando ao menu em <b class="segundos">30</b> s</p>
+            <span class="barra" aria-hidden="true"><i></i></span>
+            <button type="button" class="sair">Voltar ao menu agora <kbd>Enter</kbd></button>
+          </footer>
+        </div>
       </section>
       <span id="ping"></span>
       <section id="painel-teste" hidden aria-label="Modo de teste">

@@ -145,6 +145,7 @@ import { ArmasNave } from './armas.js';
 import { Placar, relogio } from './placar.js';
 import { PainelTeste } from './teste.js';
 import { TabelaPartida } from './tabela.js';
+import { TelaResultado } from './resultado.js';
 import { BarraTime } from './companheiros.js';
 import { Menu } from './menu.js';
 import { PainelServicos } from './servicos.js';
@@ -451,6 +452,16 @@ function montarJogo(rede, boas, renderer, race, classe) {
     aoAbrir: () => status.fechar(),
   });
   const tabela = new TabelaPartida({ meuId, meuTime, signal: controles.parar.signal }); // TAB, só leitura
+  // Fim da partida: VITÓRIA/DERROTA, o destaque e a tabela congelada; no fim da
+  // contagem (ou no botão), volta ao menu na aba Jogar. Fora do handler do snapshot,
+  // para não desmontar a conexão no meio da mensagem.
+  const resultado = new TelaResultado({
+    meuId,
+    meuTime,
+    signal: controles.parar.signal,
+    aoSair: () => setTimeout(() => jogoAtual && voltarParaEntrada()),
+    som: (nome) => sons.tocarInterface(nome),
+  });
   // Resumo da última morte (como no Dota 2): sozinho com a nave destruída, H com ela viva.
   const ultimaMorte = new PainelUltimaMorte({ meuId, meuTime, signal: controles.parar.signal });
   // Barra do time no alto (companheiros.js): cards dos aliados e o teleporte até o Functional.
@@ -563,7 +574,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     // ou a janela de volume aberta não sai tiro. Com o STATUS, o INVENTÁRIO ou a
     // tabela da partida (TAB) aberta, sai (são de consulta, como o TAB do LoL).
     [inp.a, inp.a2] = armasNave.encaixes;
-    if (painel.aberto || painelVolume.aberto) inp.f1 = inp.f2 = false;
+    if (painel.aberto || painelVolume.aberto || resultado.aberto) inp.f1 = inp.f2 = false;
     seq++;
     rede.enviar({ t: 'in', s: seq, ...inp });
     ant = pose(pred);
@@ -630,6 +641,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     recallLocal = euNoSnap?.recall !== undefined ? { frac: euNoSnap.recall, t: performance.now() } : null;
     placar.atualizar(m.partida, m.bonus);
     tabela.atualizar(m.jogadores, m.partida);
+    resultado.atualizar(m.partida, m.jogadores);
     barraTime.atualizar(m.jogadores, m.ents, m.vivo, m.me?.en);
     bonusAtivos = m.bonus ?? {};
     meusBonus = Object.keys(m.me?.bonusNave ?? {});
@@ -1441,6 +1453,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     removeEventListener('resize', redimensionar);
     hud.limpar();
     placar.limpar();
+    resultado.limpar();
     objetivos.limpar();
     torretas.limpar();
     renderer.domElement.remove();
@@ -1456,6 +1469,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
    * o INVENTÁRIO ou o painel da Loja/Evolução aberto: fecha só ele. Devolve se fechou.
    */
   function fecharPainel() {
+    if (resultado.aberto) return false; // na tela de resultado, ESC volta ao menu
     if (barraTime.fecharCaixa()) return true; // a caixinha do teleporte, antes de tudo
     if (inventario.fecharCaixa()) return true; // a caixinha do item fecha antes da janela
     // O INVENTÁRIO que a Loja abriu fecha com ela, no mesmo ESC.

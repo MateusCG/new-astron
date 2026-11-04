@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import WebSocket from 'ws';
 import { iniciar } from '../server/index.js';
 import { World, ZONA_SEGURA } from '../server/game.js';
-import { MAX_POR_TIME, Partida, FASE_FINAL_S, MULT_FASE_FINAL, DURACAO_PARTIDA_S, PREPARACAO_S } from '../server/partida.js';
+import { MAX_POR_TIME, Partida, FASE_FINAL_S, MULT_FASE_FINAL, DURACAO_PARTIDA_S, PREPARACAO_S, INTERVALO_FIM_S } from '../server/partida.js';
 import { MINERADOR } from '../server/mineradores.js';
 import { createShip, createBullet, pousoPermitido, WEAPONS } from '../shared/sim.js';
 import { BASES, SERVICOS, PLATAFORMAS_POUSO } from '../shared/terrain.js';
@@ -417,4 +417,26 @@ test('preparação: no mundo, nada sai nem nasce, as torretas e o ouro passivo e
   assert.ok(prep2, 'segunda partida com preparação');
   assert.equal(w.mineradores.lista.length, 0);
   assert.equal(w.jungle.vivos().length, 0);
+});
+
+test('tela de resultado: 30 s antes da partida nova, com os números da partida intactos', () => {
+  // O cliente mostra a tela de resultado (public/js/resultado.js) durante todo o
+  // 'fim' e sai para o menu quando ele acaba: o servidor não pode zerar nada antes.
+  assert.equal(INTERVALO_FIM_S, 30);
+  const w = new World({ preparacaoS: 0, jungle: false, critico: false, duracaoPartidaS: 2 });
+  const a = w.addPlayer('A', 'acron');
+  w.step();
+  a.abatesJog = 3;
+  a.mortesPartida = 1;
+  for (let i = 0; i < 2 * SEGUNDO; i++) w.step();
+  assert.equal(w.partida.estado, 'fim');
+  const snap = w.snapshotPara(a, [], []);
+  assert.equal(snap.partida.novaEm, INTERVALO_FIM_S);
+  for (let i = 0; i < (INTERVALO_FIM_S - 1) * SEGUNDO; i++) w.step();
+  assert.equal(w.partida.estado, 'fim', 'ainda na tela de resultado');
+  const eu = w.snapshotPara(a, [], []).jogadores.find((p) => p.id === a.id);
+  assert.equal(eu.abatesJog, 3);
+  assert.equal(eu.mortesPartida, 1);
+  for (let i = 0; i < 2 * SEGUNDO; i++) w.step();
+  assert.equal(w.partida.estado, 'andamento', 'passou a tela: partida nova');
 });

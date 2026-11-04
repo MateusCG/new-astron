@@ -1,5 +1,6 @@
-// Contas da tabela da partida (TAB, public/js/tabela.js), puras e testadas
-// (tests/tabela.test.mjs): as linhas de cada time na ordem da tabela e o KDA.
+// Contas da tabela da partida (TAB, public/js/tabela.js, e a tela de resultado,
+// public/js/resultado.js), puras e testadas (tests/tabela.test.mjs): as linhas de cada
+// time na ordem da tabela, o KDA e o destaque da partida.
 
 /** Abates de jogador inimigo / mortes na partida / assistências, como no LoL ("2/7/5"). */
 export function kda(p) {
@@ -23,4 +24,39 @@ export function linhasDaTabela(jogadores, { meuId, meuTime }) {
   });
   const doTime = (t) => (jogadores ?? []).filter((j) => j.time === t).sort(ordem).map(linha);
   return { meu: doTime(meuTime), inimigo: doTime(1 - meuTime) };
+}
+
+/** A razão do KDA, como no LoL: (abates + assistências) / mortes (0 morte conta como 1). */
+export function razaoKda(p) {
+  return ((p.abatesJog ?? 0) + (p.assist ?? 0)) / Math.max(1, p.mortesPartida ?? 0);
+}
+
+/**
+ * O destaque da partida (o MVP da tela de resultado), dos dois times: o melhor KDA
+ * (razaoKda); no empate, mais abates de jogador, mais assistências, menos mortes,
+ * mais farm e, por fim, quem entrou primeiro (o menor id). Numa partida sem nenhum
+ * abate, assistência nem farm de ninguém, não há destaque (null). Devolve o id.
+ */
+export function melhorDaPartida(jogadores) {
+  const chave = (j) => [razaoKda(j), j.abatesJog ?? 0, j.assist ?? 0, -(j.mortesPartida ?? 0), j.farm ?? 0];
+  let melhor = null;
+  let melhorChave = null;
+  for (const j of jogadores ?? []) {
+    const k = chave(j);
+    if (!k[0] && !k[4]) continue; // nada feito na partida
+    let cmp = 0;
+    for (let i = 0; i < k.length && melhorChave && !cmp; i++) cmp = Math.sign(k[i] - melhorChave[i]);
+    if (!melhor || cmp > 0 || (cmp === 0 && j.id < melhor.id)) {
+      melhor = j;
+      melhorChave = k;
+    }
+  }
+  return melhor ? melhor.id : null;
+}
+
+/** A razão do KDA para mostrar ("3,5"; "Perfeito" sem morte e com abate ou assistência). */
+export function textoRazaoKda(p) {
+  const r = razaoKda(p);
+  if (!(p.mortesPartida > 0) && r > 0) return 'Perfeito';
+  return r.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }

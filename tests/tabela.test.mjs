@@ -12,7 +12,7 @@ import { estatisticasVazias } from '../server/partida.js';
 import { DT, createShip } from '../shared/sim.js';
 import { armasIniciais, ARMAS } from '../shared/armas.js';
 import { CAMPO } from './lugares.mjs';
-import { linhasDaTabela, kda } from '../public/js/tabela-regras.js';
+import { linhasDaTabela, kda, razaoKda, melhorDaPartida, textoRazaoKda } from '../public/js/tabela-regras.js';
 
 function rngFixo(semente = 1) {
   let s = semente;
@@ -155,4 +155,29 @@ test('tabela (cliente): linhas por time, você primeiro, e o KDA como no LoL', (
   assert.equal(kda(jogadores[0]), '2/1/4');
   assert.equal(kda({}), '0/0/0');
   assert.equal(meu[0].itens.length, 6, 'sem itens na lista: seis vazios');
+});
+
+test('destaque da partida: o melhor KDA dos dois times, desempatado por abates', () => {
+  const p = (id, abatesJog, mortesPartida, assist, farm = 0) => ({ id, abatesJog, mortesPartida, assist, farm });
+  assert.equal(razaoKda(p(1, 6, 2, 1)), 3.5);
+  assert.equal(razaoKda(p(1, 2, 0, 1)), 3, 'sem morte divide por 1');
+  // 8/3/2 (3,33) ganha de 1/0/0 (1).
+  assert.equal(melhorDaPartida([p(1, 1, 0, 0), p(2, 8, 3, 2)]), 2);
+  // Empate na razão (2): ganha quem abateu mais.
+  assert.equal(melhorDaPartida([p(1, 2, 0, 0), p(2, 8, 4, 0)]), 2);
+  // Mesma razão e mesmos abates: mais assistências, depois menos mortes.
+  assert.equal(melhorDaPartida([p(1, 4, 2, 0), p(2, 4, 2, 0, 50), p(3, 2, 1, 0)]), 2, 'o farm desempata o resto');
+  // Ninguém abateu: o de mais farm.
+  assert.equal(melhorDaPartida([p(1, 0, 3, 0, 12), p(2, 0, 0, 0, 30)]), 2);
+  // Nada feito por ninguém: sem destaque.
+  assert.equal(melhorDaPartida([p(1, 0, 2, 0), p(2, 0, 0, 0)]), null);
+  assert.equal(melhorDaPartida([]), null);
+  // Tudo igual: quem entrou primeiro.
+  assert.equal(melhorDaPartida([p(5, 2, 1, 0), p(3, 2, 1, 0)]), 3);
+});
+
+test('razão do KDA na tela: uma casa decimal, "Perfeito" sem morte', () => {
+  assert.equal(textoRazaoKda({ abatesJog: 6, mortesPartida: 2, assist: 1 }), '3,5');
+  assert.equal(textoRazaoKda({ abatesJog: 3, mortesPartida: 0, assist: 0 }), 'Perfeito');
+  assert.equal(textoRazaoKda({ abatesJog: 0, mortesPartida: 0, assist: 0 }), '0,0');
 });

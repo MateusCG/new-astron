@@ -2500,68 +2500,424 @@ kbd {
   }
 }
 
-/* ---------- Fim de partida ---------- */
+/* ---------- Tela de resultado (fim de partida) ----------
 
-#fim-partida {
-  position: absolute;
-  top: 22%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(360px, calc(100% - 32px));
-  padding: 14px 18px 12px;
-  border: 2px solid var(--chapa-clara);
-  border-radius: 14px 14px 8px 8px;
-  background: linear-gradient(180deg, var(--chapa-clara), var(--chapa) 30%, #0c1a19);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
-    0 0 0 1px var(--neon-escuro),
-    0 4px 30px rgba(0, 0, 0, 0.6);
+   resultado.js. Por cima de tudo, com o jogo escurecido e desfocado atrás e um brilho
+   no alto na cor do resultado (VITÓRIA turquesa, DERROTA vermelho, EMPATE claro): o
+   título grande que entra encolhendo, o minério dos dois times, o cartão do destaque
+   da partida em ouro, a tabela do TAB (a mesma chapa e as mesmas linhas, com a do
+   destaque em ouro) e a contagem para voltar ao menu com a barra esvaziando. */
+#resultado {
+  --cor-res: var(--neon);
+  position: fixed;
+  z-index: 35;
+  inset: 0;
+  display: grid;
+  place-items: start center;
+  overflow-y: auto;
+  padding: 24px 16px 20px;
+  background:
+    radial-gradient(ellipse 70% 45% at 50% 0%, color-mix(in srgb, var(--cor-res) 24%, transparent), transparent),
+    rgba(3, 7, 8, 0.8);
+  backdrop-filter: blur(3px);
+  pointer-events: auto;
+  animation: resultado-entra 0.35s ease-out;
+}
+
+#resultado.derrota {
+  --cor-res: var(--inimigo);
+}
+
+#resultado.empate {
+  --cor-res: var(--texto);
+}
+
+.conteudo-resultado {
+  display: grid;
+  gap: 14px;
+  width: min(1320px, 100%);
+}
+
+.faixa-resultado {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
   text-align: center;
 }
 
-#fim-partida h2 {
+/* A faixa de luz atrás do título, como o estandarte de vitória dos MOBAs. */
+.faixa-resultado::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: 8%;
+  right: 8%;
+  top: 22px;
+  height: 92px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--cor-res) 20%, transparent) 30%, color-mix(in srgb, var(--cor-res) 20%, transparent) 70%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--cor-res) 45%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--cor-res) 45%, transparent);
+  -webkit-mask: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent);
+  mask: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent);
+}
+
+.rotulo-fim {
   margin: 0;
-  font: 700 32px system-ui, sans-serif;
-  letter-spacing: 0.14em;
+  font-size: 13px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  opacity: 0.65;
 }
 
-#fim-partida.vitoria h2 {
-  color: var(--neon);
-  text-shadow: 0 0 12px var(--neon);
+#resultado h2 {
+  margin: 0;
+  font: 900 76px/1.1 system-ui, sans-serif;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cor-res);
+  text-shadow:
+    0 0 26px color-mix(in srgb, var(--cor-res) 70%, transparent),
+    0 2px 0 rgba(0, 0, 0, 0.4);
+  animation: titulo-resultado 0.6s cubic-bezier(0.2, 1.3, 0.4, 1);
 }
 
-#fim-partida.derrota h2 {
-  color: var(--inimigo);
-  text-shadow: 0 0 12px var(--inimigo);
+#resultado .frase {
+  margin: 0;
+  font-size: 18px;
+  opacity: 0.8;
 }
 
-#fim-partida p {
+.minerio {
+  display: flex;
+  align-items: center;
+  gap: 18px;
   margin: 6px 0 0;
 }
 
-#fim-partida .resultado {
-  display: flex;
-  justify-content: center;
-  gap: 14px;
-  font: 700 34px ui-monospace, monospace;
+.minerio > span {
+  display: grid;
+  justify-items: center;
 }
 
-#fim-partida .resultado .meu {
-  color: var(--neon);
-}
-
-#fim-partida .resultado .outro {
-  color: var(--inimigo);
-}
-
-#fim-partida .resultado i {
-  font-style: normal;
+.minerio small {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
   opacity: 0.6;
 }
 
-#fim-partida .nova {
+.minerio b {
+  font: 800 40px/1 ui-monospace, monospace;
+}
+
+.minerio-meu b {
+  color: var(--neon);
+}
+
+.minerio-outro b {
+  color: var(--inimigo);
+}
+
+.minerio i {
+  font-size: 26px;
+  font-style: normal;
+  opacity: 0.5;
+}
+
+/* Destaque da partida: cartão em ouro com a miniatura da nave, o nick e os números. */
+.mvp {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  justify-self: center;
+  width: min(780px, 100%);
+  padding: 10px 22px 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--ouro) 55%, transparent);
+  border-left: 4px solid var(--ouro);
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(255, 209, 102, 0.17), rgba(12, 26, 25, 0.94) 60%);
+  box-shadow: 0 0 26px rgba(255, 209, 102, 0.18);
+  animation: surge 0.4s 0.2s ease-out both;
+}
+
+.retrato-mvp {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 120px;
+  height: 70px;
+  border-radius: 6px;
+  background: radial-gradient(ellipse at 50% 65%, rgba(255, 209, 102, 0.22), rgba(0, 0, 0, 0.35) 70%);
+}
+
+.retrato-mvp img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.nivel-mvp {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  min-width: 22px;
+  padding: 0 4px;
+  border: 1px solid var(--xp);
+  border-radius: 10px;
+  background: #081413;
+  color: var(--xp);
+  font: 700 12.5px/18px ui-monospace, monospace;
+  text-align: center;
+}
+
+.quem-mvp {
+  display: grid;
+  min-width: 0;
+}
+
+.rotulo-mvp {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ouro);
+  font: 700 13px system-ui, sans-serif;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.rotulo-mvp svg {
+  width: 16px;
+  height: 16px;
+  fill: var(--ouro);
+}
+
+.nome-mvp {
+  overflow: hidden;
+  font: 800 28px/1.15 system-ui, sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nome-mvp .selo {
+  padding: 0 4px;
+  border: 1px solid var(--neon-escuro);
+  border-radius: 4px;
+  color: var(--neon);
+  font: 700 12px ui-monospace, monospace;
+  vertical-align: 5px;
+}
+
+.time-mvp {
+  font-size: 14px;
+  color: var(--neon);
+}
+
+.mvp.inimigo .time-mvp {
+  color: #ff8a70;
+}
+
+.numeros-mvp {
+  display: flex;
+  gap: 22px;
+  margin: 0;
+}
+
+.numeros-mvp div {
+  display: grid;
+  justify-items: center;
+}
+
+.numeros-mvp dt {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.numeros-mvp dd {
+  font: 800 24px ui-monospace, monospace;
+  text-align: center;
+}
+
+.numeros-mvp .razao-mvp {
+  color: var(--ouro);
+}
+
+#resultado-tabela {
+  --col-tabela: 48px minmax(0, 1fr) 40px 66px auto;
+  width: 100%;
+  animation: surge 0.4s 0.3s ease-out both;
+}
+
+/* A linha do destaque na tabela: borda e brilho em ouro e o selo MVP. */
+:is(#tabela, #resultado-tabela) .times li.mvp {
+  border-color: var(--ouro);
+  border-left-color: var(--ouro);
+  background: linear-gradient(90deg, rgba(255, 209, 102, 0.22), #0f1e1d 60%);
+  box-shadow: 0 0 12px rgba(255, 209, 102, 0.35);
+}
+
+:is(#tabela, #resultado-tabela) .selo-mvp {
+  flex: none;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--ouro);
+  color: #2a1d00;
+  font: 800 11px/16px ui-monospace, monospace;
+  letter-spacing: 0.08em;
+}
+
+.contagem {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.contagem p {
+  margin: 0;
   font-size: 16px;
-  opacity: 0.75;
+  opacity: 0.85;
+}
+
+.contagem .segundos {
+  color: var(--cor-res);
+  font: 800 20px ui-monospace, monospace;
+}
+
+.contagem .barra {
+  display: block;
+  width: min(420px, 100%);
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #0b1716;
+  box-shadow: inset 0 0 0 1px var(--chapa-clara);
+}
+
+.contagem .barra i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--cor-res);
+  box-shadow: 0 0 10px var(--cor-res);
+  transition: width 1s linear;
+}
+
+.contagem .sair {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 22px;
+  border: 1px solid var(--neon);
+  border-radius: 6px;
+  background: rgba(0, 239, 192, 0.1);
+  color: var(--neon);
+  font: 700 15px system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.contagem .sair:hover,
+.contagem .sair:focus-visible {
+  outline: none;
+  background: rgba(0, 239, 192, 0.2);
+  box-shadow: 0 0 14px rgba(0, 239, 192, 0.35);
+}
+
+@keyframes resultado-entra {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes titulo-resultado {
+  from {
+    opacity: 0;
+    transform: scale(1.35);
+    letter-spacing: 0.4em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #resultado,
+  #resultado h2,
+  .mvp,
+  #resultado-tabela {
+    animation: none;
+  }
+}
+
+/* Tela baixa (1366×768, 1280×720): título, minério e cartão menores. */
+@media (max-height: 820px) {
+  #resultado {
+    padding-top: 14px;
+  }
+
+  .conteudo-resultado {
+    gap: 10px;
+  }
+
+  #resultado h2 {
+    font-size: 56px;
+  }
+
+  .faixa-resultado::before {
+    top: 18px;
+    height: 70px;
+  }
+
+  .minerio b {
+    font-size: 32px;
+  }
+
+  .mvp {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .retrato-mvp {
+    width: 96px;
+    height: 56px;
+  }
+
+  .nome-mvp {
+    font-size: 24px;
+  }
+}
+
+/* Celular: o cartão do destaque empilha, e a tabela é a do TAB no celular. */
+@media (max-width: 560px) {
+  #resultado h2 {
+    font-size: 44px;
+  }
+
+  .mvp {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .numeros-mvp {
+    grid-column: 1 / -1;
+    justify-content: space-around;
+  }
+
+  #resultado-tabela {
+    --col-tabela: 44px minmax(0, 1fr) 34px 62px;
+  }
+
+  .contagem .sair {
+    min-height: 56px;
+  }
+
+  /* A contagem e o botão ficam presos embaixo enquanto a tabela rola. */
+  .contagem {
+    position: sticky;
+    bottom: -20px;
+    margin: 0 -16px;
+    padding: 10px 16px 20px;
+    background: linear-gradient(180deg, transparent, rgba(3, 7, 8, 0.96) 30%);
+  }
 }
 
 #ping {
@@ -4551,7 +4907,8 @@ body.dano::after {
   pointer-events: none;
 }
 
-#tabela .janela {
+:is(#tabela, #resultado-tabela) .janela,
+#resultado-tabela {
   width: min(1320px, 100%);
   min-width: 0;
   padding: 8px 14px 14px;
@@ -4567,7 +4924,7 @@ body.dano::after {
   animation: surge 0.12s ease-out;
 }
 
-#tabela .cab {
+:is(#tabela, #resultado-tabela) .cab {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -4576,28 +4933,28 @@ body.dano::after {
   border-bottom: 1px solid var(--chapa-clara);
 }
 
-#tabela .objs {
+:is(#tabela, #resultado-tabela) .objs {
   display: flex;
   gap: 18px;
 }
 
-#tabela .cab-meu {
+:is(#tabela, #resultado-tabela) .cab-meu {
   color: var(--neon);
 }
 
-#tabela .cab-inimigo {
+:is(#tabela, #resultado-tabela) .cab-inimigo {
   justify-content: flex-end;
   color: var(--inimigo);
 }
 
-#tabela .obj {
+:is(#tabela, #resultado-tabela) .obj {
   display: inline-flex;
   align-items: center;
   gap: 5px;
 }
 
-#tabela .obj svg,
-#tabela .placar-abates svg {
+:is(#tabela, #resultado-tabela) .obj svg,
+:is(#tabela, #resultado-tabela) .placar-abates svg {
   width: 20px;
   height: 20px;
   fill: none;
@@ -4607,41 +4964,41 @@ body.dano::after {
   stroke-linejoin: round;
 }
 
-#tabela .obj b {
+:is(#tabela, #resultado-tabela) .obj b {
   font: 700 17px ui-monospace, monospace;
 }
 
-#tabela .placar-abates {
+:is(#tabela, #resultado-tabela) .placar-abates {
   display: flex;
   align-items: center;
   gap: 10px;
   color: var(--texto);
 }
 
-#tabela .placar-abates b {
+:is(#tabela, #resultado-tabela) .placar-abates b {
   min-width: 2ch;
   font: 700 28px ui-monospace, monospace;
 }
 
-#tabela .abates-meu {
+:is(#tabela, #resultado-tabela) .abates-meu {
   color: var(--neon);
   text-align: right;
   text-shadow: 0 0 10px rgba(0, 239, 192, 0.45);
 }
 
-#tabela .abates-inimigo {
+:is(#tabela, #resultado-tabela) .abates-inimigo {
   color: var(--inimigo);
   text-shadow: 0 0 10px rgba(255, 74, 42, 0.45);
 }
 
-#tabela .times {
+:is(#tabela, #resultado-tabela) .times {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
   margin-top: 8px;
 }
 
-#tabela h3 {
+:is(#tabela, #resultado-tabela) h3 {
   display: grid;
   grid-template-columns: var(--col-tabela);
   gap: 8px;
@@ -4653,29 +5010,29 @@ body.dano::after {
   opacity: 0.7;
 }
 
-#tabela h3 > span {
+:is(#tabela, #resultado-tabela) h3 > span {
   text-align: center;
 }
 
-#tabela h3 > span:last-child {
+:is(#tabela, #resultado-tabela) h3 > span:last-child {
   text-align: left;
 }
 
-#tabela h3 .titulo {
+:is(#tabela, #resultado-tabela) h3 .titulo {
   grid-column: 1 / 3;
   text-align: left;
   opacity: 1;
 }
 
-#tabela .time-meu h3 .titulo {
+:is(#tabela, #resultado-tabela) .time-meu h3 .titulo {
   color: var(--neon);
 }
 
-#tabela .time-inimigo h3 .titulo {
+:is(#tabela, #resultado-tabela) .time-inimigo h3 .titulo {
   color: var(--inimigo);
 }
 
-#tabela ol {
+:is(#tabela, #resultado-tabela) ol {
   display: grid;
   gap: 4px;
   margin: 0;
@@ -4683,7 +5040,7 @@ body.dano::after {
   list-style: none;
 }
 
-#tabela li {
+:is(#tabela, #resultado-tabela) li {
   display: grid;
   grid-template-columns: var(--col-tabela);
   align-items: center;
@@ -4696,22 +5053,22 @@ body.dano::after {
   background: #0f1e1d;
 }
 
-#tabela .time-meu li {
+:is(#tabela, #resultado-tabela) .time-meu li {
   border-left-color: var(--neon);
   background: linear-gradient(90deg, rgba(0, 239, 192, 0.13), #0f1e1d 55%);
 }
 
-#tabela .time-inimigo li {
+:is(#tabela, #resultado-tabela) .time-inimigo li {
   border-left-color: var(--inimigo);
   background: linear-gradient(90deg, rgba(255, 74, 42, 0.16), #0f1e1d 55%);
 }
 
-#tabela li.voce {
+:is(#tabela, #resultado-tabela) li.voce {
   border-color: var(--neon);
   box-shadow: 0 0 10px rgba(0, 239, 192, 0.3);
 }
 
-#tabela .retrato {
+:is(#tabela, #resultado-tabela) .retrato {
   position: relative;
   display: grid;
   place-items: center;
@@ -4721,17 +5078,17 @@ body.dano::after {
   background: radial-gradient(ellipse at 50% 65%, rgba(0, 239, 192, 0.14), rgba(0, 0, 0, 0.4) 70%);
 }
 
-#tabela .time-inimigo .retrato {
+:is(#tabela, #resultado-tabela) .time-inimigo .retrato {
   background: radial-gradient(ellipse at 50% 65%, rgba(255, 74, 42, 0.16), rgba(0, 0, 0, 0.4) 70%);
 }
 
-#tabela .retrato img {
+:is(#tabela, #resultado-tabela) .retrato img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-#tabela .sem-mini {
+:is(#tabela, #resultado-tabela) .sem-mini {
   width: 14px;
   height: 14px;
   fill: none;
@@ -4740,16 +5097,16 @@ body.dano::after {
   opacity: 0.6;
 }
 
-#tabela .time-meu .sem-mini {
+:is(#tabela, #resultado-tabela) .time-meu .sem-mini {
   color: var(--neon);
 }
 
-#tabela .time-inimigo .sem-mini {
+:is(#tabela, #resultado-tabela) .time-inimigo .sem-mini {
   color: var(--inimigo);
 }
 
 /* O nível no canto do retrato, como o número do campeão no LoL. */
-#tabela .retrato .nv {
+:is(#tabela, #resultado-tabela) .retrato .nv {
   position: absolute;
   right: -5px;
   bottom: -5px;
@@ -4763,15 +5120,15 @@ body.dano::after {
   text-align: center;
 }
 
-#tabela li.morto .retrato img {
+:is(#tabela, #resultado-tabela) li.morto .retrato img {
   filter: grayscale(1) brightness(0.6);
 }
 
-#tabela li.morto .nome {
+:is(#tabela, #resultado-tabela) li.morto .nome {
   opacity: 0.5;
 }
 
-#tabela .nome {
+:is(#tabela, #resultado-tabela) .nome {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -4779,13 +5136,13 @@ body.dano::after {
   font: 600 15px system-ui, sans-serif;
 }
 
-#tabela .nome > span:first-child {
+:is(#tabela, #resultado-tabela) .nome > span:first-child {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-#tabela .selo {
+:is(#tabela, #resultado-tabela) .selo {
   flex: none;
   padding: 0 4px;
   border: 1px solid var(--neon-escuro);
@@ -4795,32 +5152,32 @@ body.dano::after {
   letter-spacing: 0.06em;
 }
 
-#tabela .time-inimigo .selo {
+:is(#tabela, #resultado-tabela) .time-inimigo .selo {
   border-color: rgba(255, 74, 42, 0.45);
   color: #ff8a70;
 }
 
-#tabela .farm,
-#tabela .kda {
+:is(#tabela, #resultado-tabela) .farm,
+:is(#tabela, #resultado-tabela) .kda {
   font: 600 15px ui-monospace, monospace;
   text-align: center;
   white-space: nowrap;
 }
 
-#tabela .farm {
+:is(#tabela, #resultado-tabela) .farm {
   color: var(--ouro);
 }
 
-#tabela .itens {
+:is(#tabela, #resultado-tabela) .itens {
   display: flex;
   gap: 2px;
 }
 
-#tabela .itens .icone-item {
+:is(#tabela, #resultado-tabela) .itens .icone-item {
   --alt: 20px;
 }
 
-#tabela li.vaga {
+:is(#tabela, #resultado-tabela) li.vaga {
   display: block;
   min-height: 0;
   padding: 10px;
@@ -4834,11 +5191,12 @@ body.dano::after {
 
 /* Abaixo de 1180 px os times ficam um embaixo do outro. */
 @media (max-width: 1180px) {
-  #tabela .times {
+  :is(#tabela, #resultado-tabela) .times {
     grid-template-columns: 1fr;
   }
 
-  #tabela .janela {
+  :is(#tabela, #resultado-tabela) .janela,
+#resultado-tabela {
     width: min(640px, 100%);
   }
 }
@@ -4850,55 +5208,56 @@ body.dano::after {
     padding-top: 70px;
   }
 
-  #tabela .itens {
+  :is(#tabela, #resultado-tabela) .itens {
     grid-column: 1 / -1;
   }
 
-  #tabela h3 > span:last-child {
+  :is(#tabela, #resultado-tabela) h3 > span:last-child {
     display: none;
   }
 
-  #tabela .farm,
-  #tabela .kda {
+  :is(#tabela, #resultado-tabela) .farm,
+  :is(#tabela, #resultado-tabela) .kda {
     font-size: 14px;
   }
 
-  #tabela .placar-abates b {
+  :is(#tabela, #resultado-tabela) .placar-abates b {
     font-size: 22px;
   }
 
-  #tabela .cab {
+  :is(#tabela, #resultado-tabela) .cab {
     gap: 6px;
     padding: 2px 0 8px;
   }
 
-  #tabela .objs {
+  :is(#tabela, #resultado-tabela) .objs {
     gap: 6px;
   }
 
-  #tabela .obj {
+  :is(#tabela, #resultado-tabela) .obj {
     gap: 2px;
   }
 
-  #tabela .obj svg,
-  #tabela .placar-abates svg {
+  :is(#tabela, #resultado-tabela) .obj svg,
+  :is(#tabela, #resultado-tabela) .placar-abates svg {
     width: 15px;
     height: 15px;
   }
 
-  #tabela .obj b {
+  :is(#tabela, #resultado-tabela) .obj b {
     font-size: 13px;
   }
 
-  #tabela .placar-abates {
+  :is(#tabela, #resultado-tabela) .placar-abates {
     gap: 4px;
   }
 
-  #tabela .janela {
+  :is(#tabela, #resultado-tabela) .janela,
+#resultado-tabela {
     padding: 8px 8px 10px;
   }
 
-  #tabela .itens .icone-item {
+  :is(#tabela, #resultado-tabela) .itens .icone-item {
     --alt: 22px;
   }
 }
