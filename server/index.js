@@ -7,7 +7,16 @@
 // modelo da nave em public/modelos/) em /vendor/addons/.
 //
 // Protocolo (JSON):
-//   cliente → servidor  {t:'entrar', nome, race, classe, teste?, iaMeu?, iaInimigo?}
+//   cliente → servidor  {t:'entrar', nome, race, classe, teste?, privada?, iaMeu?, iaInimigo?}
+//                        privada: true = Partida Privada com Bots, num mundo só seu
+//                        (com relógio; MAX_MUNDOS_PRIVADOS ao mesmo tempo, senão
+//                        'privada_cheia'); sem teste nem privada, o mundo principal
+//                        (o dos testes automáticos)
+//                       {t:'entrar', sala, token}   a vaga reservada de uma sala da
+//                        fila online (o token do {t:'fila', estado:'comecar'}): o
+//                        servidor usa o nome, a nave e o time travados na sala; token
+//                        que não existe, já usado ou vencido (RESERVA_S): {t:'erro',
+//                        codigo:'sala_invalida'}
 //                        teste: true = modo de teste, num mundo só seu (partida sem
 //                        relógio; MAX_MUNDOS_TESTE ao mesmo tempo, senão {t:'erro',
 //                        codigo:'teste_cheio'}); iaMeu (0 a 2) e iaInimigo (0 a 3) =
@@ -127,9 +136,44 @@
 //                        computador é sempre "NOME (IA)" (server/bots.js). Humano que
 //                        entra com a partida cheia fica com a vaga de um computador.
 //                       {t:'ping', c}
-//   servidor → cliente  {t:'bemvindo', id, tickHz, time, teste}   time = 0 (base de baixo) ou 1
+//                       Filas online (server/filas.js), na conexão do menu, que não
+//                        vira jogo (o jogo abre outra conexão com o token):
+//                       {t:'filas'}   observar: recebe {t:'filas'} agora e a cada mudança
+//                       {t:'entrarFila', modo, nome, race, classe}   modo 'online' (3
+//                        contra 3, 6 humanos) | 'publica' (3 humanos contra 3
+//                        computadores); já na fila, só reenvia o estado
+//                       {t:'escolha', nome?, race?, classe?}   troca a nave na fila ou na
+//                        sala (os do seu time veem na hora); depois do Pronto, 'travada'
+//                       {t:'pronto', nome?, race?, classe?}   trava a nave (com a escolha
+//                        final junto); todos prontos, a partida começa
+//                       {t:'sairFila'}   sai (na sala, a desfaz: os outros voltam ao
+//                        começo da fila); fechar a conexão é o mesmo
+//                       (recusa: {t:'resultado', acao, ok:false, codigo} 'invalido',
+//                        'fora' (não está na fila/sala), 'travada', 'raca_bloqueada',
+//                        'raca_invalida')
+//   servidor → cliente  {t:'bemvindo', id, tickHz, time, teste, modo}   time = 0 (base de baixo) ou 1;
+//                        modo 'partida' (o mundo principal) | 'teste' | 'privada' |
+//                        'online' | 'publica'
 //                       {t:'erro', codigo}   codigo 'partida_cheia' (3 em cada time),
-//                        'raca_bloqueada' ou 'raca_invalida'; fecha
+//                        'raca_bloqueada', 'raca_invalida', 'teste_cheio',
+//                        'privada_cheia' ou 'sala_invalida'; fecha
+//                       {t:'filas', online: {fila, escolhendo, jogando, precisa},
+//                        publica: {...}}   contagem em tempo real para o menu: pilotos
+//                        procurando, na seleção de alguma sala e jogando; `precisa` =
+//                        humanos por sala (6 e 3)
+//                       {t:'fila', estado:'fora', aviso?}   fora da fila (aviso
+//                        'sem_pronto': o contador zerou sem o seu Pronto)
+//                       {t:'fila', estado:'procurando', modo, n, precisa, espera, aviso?}
+//                        n pilotos na fila do modo (você conta), espera = s desde que
+//                        entrou; aviso 'sala_tempo' (alguém não apertou Pronto) ou
+//                        'sala_saiu' (alguém saiu da sala): você voltou ao começo da fila
+//                       {t:'fila', estado:'sala', modo, id, restante, prontos, total,
+//                        bots, voce: {time, pronto, race, classe}, times: [[{nome,
+//                        pronto, race?, classe?, voce?}], [...]]}   a seleção da sala:
+//                        restante = s do contador (SELECAO_S); raça e classe só do seu
+//                        time; bots 1 = o outro time é de computadores
+//                       {t:'fila', estado:'comecar', modo, sala, token, time, nome,
+//                        race, classe}   todos prontos: entre com {t:'entrar', sala, token}
 //                       {t:'snap', tick, ack, vivo, renasceEm, time, me, ouro, abates, mortes,
 //                        nivel, xp, xpProx, partida, bonus, obj, torretas, melhorias, minas,
 //                        guiados, jogadores, st, ents, ev}
@@ -503,7 +547,10 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { WebSocketServer } from 'ws';
+import { randomUUID } from 'node:crypto';
 import { World, TICK_HZ } from './game.js';
+import { Filas, MODOS_FILA } from './filas.js';
+import { MAX_POR_TIME } from './partida.js';
 import { motivoRacaRecusada } from '../shared/naves.js';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -534,6 +581,22 @@ const MAX_MSG = 2048;
 // progressão da nave sem mexer na partida dos outros. Limite de mundos de teste ao
 // mesmo tempo, porque cada um roda a simulação inteira (monstros, mineradores...).
 const MAX_MUNDOS_TESTE = 4;
+// Partida Privada com Bots: cada piloto que entra com {privada: true} ganha uma
+// partida só dele com os computadores (ninguém de fora cai nela). Mesmo limite por
+// custo de simulação.
+const MAX_MUNDOS_PRIVADOS = 4;
+// Salas das filas online (server/filas.js): cada sala que começa vira um mundo novo.
+// Sem lugar, a fila espera a próxima partida acabar.
+const MAX_SALAS = 8;
+// Vaga reservada da sala: o piloto tem RESERVA_S para entrar no mundo (a tela de
+// carregamento baixa tudo antes). Passou disso, um computador fica com a vaga, para
+// o time não jogar com um a menos.
+const RESERVA_S = 120;
+// De quanto em quanto tempo (ms) o relógio das filas olha os contadores das salas e
+// as reservas vencidas.
+const PASSO_FILAS_MS = 250;
+// Mensagens da fila (antes do {t:'entrar'}): server/filas.js.
+const PEDIDOS_FILA = new Set(['filas', 'entrarFila', 'escolha', 'pronto', 'sairFila']);
 const PEDIDOS = new Set(['comprar', 'evoluir', 'melhorar', 'reconstruir', 'usar', 'pontos', 'equipar', 'vender', 'evoluirItem']); // server/servicos.js
 
 async function servirArquivo(req, res) {
@@ -569,7 +632,7 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
   const server = http.createServer((req, res) => {
     if (req.url === '/healthz') {
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, jogadores: world.players.size, tick: world.tick }));
+      res.end(JSON.stringify({ ok: true, jogadores: world.players.size, tick: world.tick, mundos: mundos.size, filas: filas.contagem() }));
       return;
     }
     servirArquivo(req, res).catch(() => {
@@ -579,13 +642,62 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
   });
 
   const wss = new WebSocketServer({ server, path: '/ws', maxPayload: MAX_MSG });
-  // Mundos rodando: o da partida de verdade e os de teste. Cada um com os sockets
-  // dos seus jogadores (os ids de jogador são por mundo).
+  // Mundos rodando: o da partida de verdade (o `world`, de quem entra sem modo: os
+  // testes), os de teste, os das partidas privadas e os das salas da fila online.
+  // Cada um com os sockets dos seus jogadores (os ids de jogador são por mundo).
+  // Os mundos que não são o `world` levam `modo` ('teste', 'privada', 'online' ou
+  // 'publica') e somem quando o último humano sai.
   const mundos = new Map([[world, new Map()]]); // World -> (id do jogador -> ws)
+  const contar = (modo) => [...mundos.keys()].filter((m) => m.modo === modo).length;
+  // Vagas das salas que começaram: token -> { mundo, nome, race, classe, time, expira }.
+  const reservas = new Map();
+  const humanosEm = (w) => [...w.players.values()].filter((j) => !j.ia).length;
+
+  const filas = new Filas({
+    enviar: (ws, msg) => {
+      if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(msg));
+    },
+    novoToken: () => randomUUID(),
+    podeAbrirSala: () => contar('online') + contar('publica') < MAX_SALAS,
+    jogando: () => {
+      const n = {};
+      for (const w of mundos.keys()) if (Object.hasOwn(MODOS_FILA, w.modo ?? '')) n[w.modo] = (n[w.modo] ?? 0) + humanosEm(w);
+      return n;
+    },
+    aoComecar: (sala) => {
+      // A sala da fila vira um mundo novo; cada piloto tem a vaga dele reservada no
+      // time que a sala sorteou, com a nave travada na seleção.
+      const w = new World();
+      w.modo = sala.modo;
+      w.sala = sala.id;
+      mundos.set(w, new Map());
+      const expira = Date.now() + RESERVA_S * 1000;
+      for (const m of sala.membros) reservas.set(m.token, { mundo: w, nome: m.nome, race: m.race, classe: m.classe, time: m.time, expira });
+    },
+  });
+
+  /** Some com o mundo que não é o principal quando não há mais humano nem vaga reservada. */
+  const limparMundo = (w) => {
+    if (w === world || humanosEm(w) > 0) return;
+    for (const r of reservas.values()) if (r.mundo === w) return;
+    mundos.delete(w);
+  };
+
+  /** Entrada com o token da sala da fila: a vaga reservada, com o time e a nave dela. */
+  const entrarNaSala = (msg) => {
+    const r = typeof msg.token === 'string' ? reservas.get(msg.token) : null;
+    if (!r || !mundos.has(r.mundo)) return { codigo: 'sala_invalida' };
+    reservas.delete(msg.token);
+    // Na pública, o outro time é dos computadores (os três entram com o primeiro humano).
+    const iaInimigo = MODOS_FILA[r.mundo.modo]?.bots ? MAX_POR_TIME : 0;
+    const jogador = r.mundo.addPlayer(r.nome, r.race, r.classe, { time: r.time, iaMeu: 0, iaInimigo });
+    return jogador ? { mundo: r.mundo, jogador } : { codigo: 'sala_invalida' };
+  };
 
   wss.on('connection', (ws) => {
     let jogador = null;
     let mundo = world;
+    let naFila = false; // a conexão é do menu (filas), não de um jogo
     ws.on('message', (bruto) => {
       let msg;
       try {
@@ -593,34 +705,58 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
       } catch {
         return;
       }
-      if (msg?.t === 'entrar' && !jogador) {
-        // Raça sem naves (Mechan, "em breve") ou que não existe: recusa com código.
-        const recusa = motivoRacaRecusada(msg.race);
-        if (recusa) {
-          ws.send(JSON.stringify({ t: 'erro', codigo: recusa }));
+      if (PEDIDOS_FILA.has(msg?.t) && !jogador) {
+        // Filas online (server/filas.js): o menu observa a contagem, entra na fila,
+        // escolhe a nave, aperta Pronto e sai. Tudo em tempo real.
+        naFila = true;
+        let codigo = null;
+        if (msg.t === 'filas') filas.observar(ws);
+        else if (msg.t === 'entrarFila') {
+          const recusa = motivoRacaRecusada(msg.race);
+          codigo = recusa ?? filas.entrar(ws, msg);
+        } else if (msg.t === 'escolha') codigo = filas.escolher(ws, msg);
+        else if (msg.t === 'pronto') codigo = filas.pronto(ws, msg);
+        else if (msg.t === 'sairFila') filas.sair(ws);
+        if (codigo) ws.send(JSON.stringify({ t: 'resultado', acao: msg.t, ok: false, codigo }));
+      } else if (msg?.t === 'entrar' && !jogador) {
+        // A conexão do menu não vira jogo: o jogo abre uma conexão própria.
+        if (naFila) return;
+        const recusar = (codigo) => {
+          ws.send(JSON.stringify({ t: 'erro', codigo }));
           ws.close();
-          return;
-        }
-        if (msg.teste === true) {
-          const testes = [...mundos.keys()].filter((m) => m.teste).length;
-          if (testes >= MAX_MUNDOS_TESTE) {
-            ws.send(JSON.stringify({ t: 'erro', codigo: 'teste_cheio' }));
-            ws.close();
-            return;
+        };
+        if (msg.sala !== undefined || msg.token !== undefined) {
+          // Vaga da sala da fila online: o servidor decide nome, nave e time.
+          const r = entrarNaSala(msg);
+          if (r.codigo) return recusar(r.codigo);
+          mundo = r.mundo;
+          jogador = r.jogador;
+        } else {
+          // Raça sem naves (Mechan, "em breve") ou que não existe: recusa com código.
+          const recusa = motivoRacaRecusada(msg.race);
+          if (recusa) return recusar(recusa);
+          if (msg.teste === true) {
+            if (contar('teste') >= MAX_MUNDOS_TESTE) return recusar('teste_cheio');
+            mundo = new World({ teste: true });
+            mundo.modo = 'teste';
+            mundos.set(mundo, new Map());
+          } else if (msg.privada === true) {
+            if (contar('privada') >= MAX_MUNDOS_PRIVADOS) return recusar('privada_cheia');
+            mundo = new World();
+            mundo.modo = 'privada';
+            mundos.set(mundo, new Map());
           }
-          mundo = new World({ teste: true });
-          mundos.set(mundo, new Map());
-        }
-        // Os computadores da tela inicial vêm junto; o World sanea e completa os times.
-        jogador = mundo.addPlayer(msg.nome, msg.race, msg.classe, { iaMeu: msg.iaMeu, iaInimigo: msg.iaInimigo });
-        if (!jogador) {
-          // Os dois times cheios: código estável que o cliente traduz na tela de entrada.
-          ws.send(JSON.stringify({ t: 'erro', codigo: 'partida_cheia' }));
-          ws.close();
-          return;
+          // Os computadores da tela inicial vêm junto; o World sanea e completa os times.
+          jogador = mundo.addPlayer(msg.nome, msg.race, msg.classe, { iaMeu: msg.iaMeu, iaInimigo: msg.iaInimigo });
+          if (!jogador) {
+            limparMundo(mundo);
+            // Os dois times cheios: código estável que o cliente traduz na tela de entrada.
+            return recusar('partida_cheia');
+          }
         }
         mundos.get(mundo).set(jogador.id, ws);
-        ws.send(JSON.stringify({ t: 'bemvindo', id: jogador.id, tickHz: TICK_HZ, time: jogador.time, teste: mundo.teste }));
+        ws.send(JSON.stringify({ t: 'bemvindo', id: jogador.id, tickHz: TICK_HZ, time: jogador.time, teste: mundo.teste, modo: mundo.modo ?? 'partida' }));
+        filas.avisarContagem();
       } else if (msg?.t === 'in' && jogador) {
         mundo.pushInput(jogador.id, msg);
       } else if (PEDIDOS.has(msg?.t) && jogador) {
@@ -641,12 +777,30 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
       }
     });
     ws.on('close', () => {
+      if (naFila) filas.esquecer(ws);
       if (!jogador) return;
       mundos.get(mundo)?.delete(jogador.id);
+      const time = jogador.time;
       mundo.removePlayer(jogador.id);
-      if (mundo.teste) mundos.delete(mundo); // o mundo de teste era só dele
+      // Saiu alguém de uma partida online no meio: um computador fica com a vaga, para
+      // o time não jogar com um a menos (sem humano nenhum, o mundo some).
+      if (Object.hasOwn(MODOS_FILA, mundo.modo ?? '') && humanosEm(mundo) > 0 && mundo.partida.estado !== 'fim') mundo.adicionarBot(time);
+      limparMundo(mundo);
+      filas.avisarContagem();
     });
   });
+
+  // Relógio das filas: contadores das salas e vagas reservadas que ninguém usou.
+  const relogioFilas = setInterval(() => {
+    filas.passo();
+    const agora = Date.now();
+    for (const [token, r] of reservas) {
+      if (agora < r.expira) continue;
+      reservas.delete(token);
+      if (humanosEm(r.mundo) > 0) r.mundo.adicionarBot(r.time);
+      limparMundo(r.mundo);
+    }
+  }, PASSO_FILAS_MS);
 
   // Passo fixo com acumulador: setInterval atrasa às vezes, e o mundo não pode
   // andar mais devagar por isso.
@@ -676,10 +830,13 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
   return {
     server,
     world,
+    mundos,
+    filas,
     porta: server.address().port,
     fechar: () =>
       new Promise((ok) => {
         clearInterval(loop);
+        clearInterval(relogioFilas);
         for (const c of wss.clients) c.terminate();
         wss.close();
         server.close(ok);
