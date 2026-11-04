@@ -120,6 +120,8 @@ export const ASSISTENCIA_FRACAO = 0.5; // do ouro e do XP do abate (pelo nível 
 export const SEQUENCIA_MIN = 2; // a partir daqui encerrar a sequência dá bônus
 export const ENCERRAR_OURO_POR_ABATE = 60; // ouro por abate da sequência da vítima
 export const ENCERRAR_OURO_MAX = 400; // teto do bônus
+// Anúncios do locutor (public/js/locutor-regras.js): o servidor marca no evento 'morte'.
+export const MULTI_JANELA_S = 10; // até isto entre um abate de jogador e o seguinte: multi-abate (Double, Triple...)
 // XP do wing: o que dá XP aos aliados perto quando morre (chaves de RECOMPENSA pelo tipo).
 export const WING_TIPOS = new Set(['monstro', 'minerador', 'escolta', 'torreta']);
 export const WING_RAIO = 550; // m do lugar da morte (o alcance da maior arma, o da visão da nave)
@@ -185,7 +187,7 @@ export function recompensaAssistencia(nivelVitima = 1) {
  * jogador inimigo) e farm (monstros, mineradores e escoltas abatidos: o CS do LoL).
  */
 export function novoCombate() {
-  return { sequencia: 0, danoPor: new Map(), abatesJog: 0, danoRecente: [], mortesPartida: 0, assist: 0, farm: 0 };
+  return { sequencia: 0, danoPor: new Map(), abatesJog: 0, danoRecente: [], mortesPartida: 0, assist: 0, farm: 0, multi: 0, multiTick: -Infinity };
 }
 
 /** O que conta como farm na tabela da partida: os abates de tropa e de jungle. */

@@ -2987,6 +2987,127 @@ kbd {
   white-space: nowrap;
 }
 
+/* Locutor (public/js/locutor.js): a faixa do First Blood, Double Kill, Godlike... um pouco
+   acima do centro, abaixo da barra do time e da linha de atalhos (que fica a 136 px), e na
+   frente dos painéis do HUD (o do modo de teste, a barra do time em coluna no celular),
+   mas atrás das janelas (Loja, tabela, volume, resultado). Cor de quem fez: você em ouro, seu time em
+   turquesa, o outro em vermelho. Entra encolhendo com as letras se fechando (como o título
+   da tela de resultado) sobre uma faixa de luz que some nas pontas; não pega o mouse. */
+#locutor {
+  --cor-loc: var(--neon);
+  position: absolute;
+  top: max(176px, 22%);
+  z-index: 8;
+  left: calc((100% - var(--lateral, 0px)) / 2);
+  transform: translateX(-50%);
+  width: min(760px, calc(100% - 32px));
+  padding: 10px 0 12px;
+  text-align: center;
+  pointer-events: none;
+  background: radial-gradient(ellipse 50% 60% at 50% 50%, color-mix(in srgb, var(--cor-loc) 22%, transparent), transparent 75%);
+  animation: locutor-entra 0.28s ease-out;
+}
+
+#locutor::before,
+#locutor::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cor-loc) 30%, var(--cor-loc) 70%, transparent);
+  box-shadow: 0 0 10px var(--cor-loc);
+}
+
+#locutor::before {
+  top: 0;
+}
+
+#locutor::after {
+  bottom: 0;
+}
+
+#locutor[data-cor='voce'] {
+  --cor-loc: var(--ouro);
+}
+
+#locutor[data-cor='inimigo'] {
+  --cor-loc: var(--inimigo);
+}
+
+#locutor .titulo {
+  margin: 0;
+  color: var(--cor-loc);
+  font: 900 54px/1.05 system-ui, sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-shadow: 0 0 18px color-mix(in srgb, var(--cor-loc) 70%, transparent), 0 2px 0 rgba(0, 0, 0, 0.6);
+  animation: locutor-titulo 0.32s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+#locutor .sub {
+  margin: 4px 0 0;
+  color: var(--texto);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+#locutor .sub:empty {
+  display: none;
+}
+
+#locutor.saindo {
+  animation: locutor-sai 0.32s ease-in forwards;
+}
+
+@keyframes locutor-entra {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes locutor-titulo {
+  from {
+    opacity: 0;
+    transform: scale(1.45);
+    letter-spacing: 0.42em;
+  }
+}
+
+@keyframes locutor-sai {
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+}
+
+@media (max-height: 800px) {
+  #locutor .titulo {
+    font-size: 42px;
+  }
+}
+
+@media (max-width: 560px) {
+  #locutor .titulo {
+    font-size: 30px;
+    letter-spacing: 0.08em;
+  }
+
+  #locutor .sub {
+    font-size: 13px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #locutor,
+  #locutor .titulo,
+  #locutor.saindo {
+    animation: none;
+  }
+}
+
 #pouso {
   position: absolute;
   bottom: calc(var(--alto-painel) + 6px);

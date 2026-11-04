@@ -49,11 +49,14 @@
 // - `tom` muda a velocidade de reprodução (1 = original). `variacao` sorteia um tom em
 //   volta dele (ex. 0.05 = ±5%), para a mesma metralhadora não soar como máquina de
 //   repetir. Isto é cliente e só visual/sonoro: Math.random aqui não afeta a simulação.
-// - Dois canais de volume, cada um com o seu ganho: efeitos (tudo o que `tocar` e
-//   `tocarInterface` tocam) e música (`saidaMusica`, onde a trilha vai se ligar quando
-//   existir). Os dois passam pelo mestre, que só cuida do mudo: o M desliga tudo sem
-//   mexer nos dois ajustes. Volumes e mudo ficam no localStorage (dentro de try/catch:
+// - Três canais de volume, cada um com o seu ganho: efeitos (tudo o que `tocar` e
+//   `tocarInterface` tocam), música (`saidaMusica`, onde a trilha vai se ligar quando
+//   existir) e o locutor (`tocarLocutor`: a voz do First Blood, Double Kill etc., de
+//   locutor.js; pedido do Mateus, com barra própria). Os três passam pelo mestre, que só
+//   cuida do mudo: o M desliga tudo sem mexer nos ajustes. Volumes e mudo ficam no localStorage (dentro de try/catch:
 //   navegação privada ou armazenamento bloqueado não podem impedir o jogo de abrir).
+// - Nome com extensão (ex. 'locutor/double_kill.mp3') é buscado como está; sem, ganha a
+//   `extensao` (os arquivos do original são WAV, as vozes do locutor vêm em MP3).
 //
 // Exemplo de uso (quem integrar no main.js):
 //
@@ -162,10 +165,14 @@ const GANHO_MIN = 0.01;
 // A chave dos efeitos é a do antigo volume geral, para quem já tinha ajustado.
 const CHAVE_EFEITOS = 'astron.som.volume';
 const CHAVE_MUSICA = 'astron.som.musica';
+const CHAVE_LOCUTOR = 'astron.som.locutor';
 const CHAVE_MUDO = 'astron.som.mudo';
 /** Volume de cada canal na primeira vez (0 a 1). */
 export const VOLUME_EFEITOS_PADRAO = 0.8;
 export const VOLUME_MUSICA_PADRAO = 0.6;
+export const VOLUME_LOCUTOR_PADRAO = 0.8;
+/** A voz do locutor: uma de cada vez (a nova corta a anterior). */
+const ORIGEM_LOCUTOR = 'locutor';
 
 /**
  * Ganho pela distância: 1 até `ref`, curva inversa depois, zero em `alcance`
@@ -247,6 +254,7 @@ export class Sons {
     this.efeitos = null;
     this.limitador = null;
     this.musica = null;
+    this.locutor = null;
     /** nome → { bytes: Promise<ArrayBuffer|null>, buffer: AudioBuffer|null, nivel, falhou, decodificando } */
     this._cache = new Map();
     /** Vozes tocando: { nome, origem, fonte, ganho, valor, inicio } */
@@ -254,6 +262,7 @@ export class Sons {
     this._ouvinte = { x: 0, z: 0, yaw: 0 };
     this._volumeEfeitos = lerVolume(CHAVE_EFEITOS, VOLUME_EFEITOS_PADRAO);
     this._volumeMusica = lerVolume(CHAVE_MUSICA, VOLUME_MUSICA_PADRAO);
+    this._volumeLocutor = lerVolume(CHAVE_LOCUTOR, VOLUME_LOCUTOR_PADRAO);
     this._mudo = lerArmazenado(CHAVE_MUDO) === '1';
   }
 
@@ -280,6 +289,9 @@ export class Sons {
       this.musica = this.ctx.createGain();
       this.musica.gain.value = this._volumeMusica;
       this.musica.connect(this.mestre);
+      this.locutor = this.ctx.createGain();
+      this.locutor.gain.value = this._volumeLocutor;
+      this.locutor.connect(this.mestre);
       for (const nome of this._cache.keys()) this._decodificar(nome);
     }
     if (this.ctx.state === 'suspended') this.ctx.resume?.().catch(() => {});
@@ -311,6 +323,11 @@ export class Sons {
     return !!this._cache.get(nome)?.buffer;
   }
 
+  /** Duração (s) do som decodificado, 0 se ainda não está pronto. */
+  duracao(nome) {
+    return this._cache.get(nome)?.buffer?.duration ?? 0;
+  }
+
   /** True se o som foi pedido e não deu para buscar ou decodificar (a tela de carregamento avisa no console). */
   falhou(nome) {
     return !!this._cache.get(nome)?.falhou;
@@ -321,7 +338,7 @@ export class Sons {
     if (!item) {
       item = { bytes: null, buffer: null, nivel: 1, falhou: false, decodificando: null };
       item.bytes = Promise.resolve()
-        .then(() => this._buscar(this.pasta + nome + this.extensao))
+        .then(() => this._buscar(this.pasta + nome + (/\.[a-z0-9]+$/i.test(nome) ? '' : this.extensao)))
         .then((r) => {
           if (!r || !r.ok) throw new Error(`som ${nome}: ${r?.status}`);
           return r.arrayBuffer();
@@ -396,6 +413,19 @@ export class Sons {
     this._aplicarGanho(this.musica, this._volumeMusica);
   }
 
+  /** Volume da voz do locutor de 0 a 1, guardado no navegador. */
+  get volumeLocutor() {
+    return this._volumeLocutor;
+  }
+
+  set volumeLocutor(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return;
+    this._volumeLocutor = Math.max(0, Math.min(1, n));
+    gravarArmazenado(CHAVE_LOCUTOR, this._volumeLocutor);
+    this._aplicarGanho(this.locutor, this._volumeLocutor);
+  }
+
   /**
    * Onde a música se liga (já com o volume da música e o mudo aplicados); null antes
    * do desbloqueio.
@@ -443,6 +473,14 @@ export class Sons {
   }
 
   /**
+   * Toca a voz do locutor no canal dele (sem posição, cheio e no centro); a voz nova
+   * corta a anterior. Devolve se tocou (não carregado ainda: false).
+   */
+  tocarLocutor(nome, { volume = 1 } = {}) {
+    return !!this._tocar(nome, volume, 0, 1, 0, { origem: ORIGEM_LOCUTOR, canal: 'locutor' });
+  }
+
+  /**
    * Toca um som que quem chamou controla, a partir de `desde` s do arquivo (sem x/z, no
    * ouvinte). Devolve a voz, `{ mover(x, z, volume), parar(s) }`, ou null se não deu
    * para tocar (sem contexto, som não carregado, vozes cheias de sons mais altos).
@@ -481,7 +519,7 @@ export class Sons {
     return [volume * ganhoPorDistancia(Math.hypot(x - o.x, z - o.z)), panPorDirecao(x, z, o.x, o.z, o.yaw)];
   }
 
-  _tocar(nome, ganho, pan, tom, variacao, { atraso = 0, desde = 0, controlado = false, origem = null } = {}) {
+  _tocar(nome, ganho, pan, tom, variacao, { atraso = 0, desde = 0, controlado = false, origem = null, canal = 'efeitos' } = {}) {
     if ((!controlado && ganho < GANHO_MIN) || !this.ctx || this.ctx.state === 'closed') return null;
     const item = this._cache.get(nome);
     if (!item) {
@@ -529,7 +567,7 @@ export class Sons {
       saida = p;
     }
     fonte.connect(g);
-    saida.connect(this.efeitos);
+    saida.connect(canal === 'locutor' && this.locutor ? this.locutor : this.efeitos);
     // `inicio` é quando o começo do arquivo tocaria: a conta do fim (_limpar) vale com
     // atraso e com `desde`.
     const desdeOk = Math.max(0, Math.min(desde, item.buffer.duration ?? 0));

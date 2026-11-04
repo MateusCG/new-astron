@@ -333,7 +333,7 @@
 //                                    cliente põe o desenho no ponto e no rumo novos
 //         {e:'entrou', id, nome, time}
 //         {e:'morte', id, por, tipo, time?, esp?, x, y, z, ouro?, renasce?, assist?, ouroAssist?,
-//          seq?, encerrou?, seqPor?, motivo?, campo?}   (esp = espécie, na morte de monstro)
+//          seq?, encerrou?, seqPor?, multi?, primeiro?, motivo?, campo?}   (esp = espécie, na morte de monstro)
 //                                    motivo = 'campo' (com campo = time dono): nave de
 //                                    jogador que encostou no campo de força da base
 //                                    do outro time (CAMPOS_BASE), destruída na hora;
@@ -344,7 +344,12 @@
 //                                    feriram a vítima na janela, ouroAssist = ouro de
 //                                    cada um; seq = sequência da vítima encerrada e
 //                                    encerrou = bônus de ouro (só com seq >= 2);
-//                                    seqPor = sequência do matador com este abate
+//                                    seqPor = sequência do matador com este abate;
+//                                    os anúncios do locutor (public/js/locutor-regras.js):
+//                                    multi = abates de jogador do matador com até
+//                                    MULTI_JANELA_S entre um e outro (só com 2 ou mais) e
+//                                    primeiro = 1 no primeiro abate de jogador da
+//                                    partida (First Blood; a preparação conta)
 //         Ataques de monstro (server/especies.js): os eventos 'tiro', 'acerto',
 //                                    'explosao' e 'nova', as `minas` e os `guiados`
 //                                    de um golpe de monstro trazem atq =

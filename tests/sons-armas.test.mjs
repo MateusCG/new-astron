@@ -12,6 +12,7 @@ import { World } from '../server/game.js';
 import {
   Sons,
   VOLUME_MUSICA_PADRAO,
+  VOLUME_LOCUTOR_PADRAO,
   VOLUME_TIRO_PROPRIO,
   LIMITADOR,
   SONS_INTERFACE,
@@ -278,10 +279,12 @@ test('sons.js: volume e mudo ficam guardados no navegador', () => {
     const a = new Sons({ criarContexto: () => contextoFalso(), buscar: buscarFalso });
     a.volumeEfeitos = 0.3;
     a.volumeMusica = 0.45;
+    a.volumeLocutor = 0.6;
     a.mudo = true;
     const b = new Sons({ criarContexto: () => contextoFalso(), buscar: buscarFalso });
     assert.equal(b.volumeEfeitos, 0.3);
     assert.equal(b.volumeMusica, 0.45);
+    assert.equal(b.volumeLocutor, 0.6);
     assert.equal(b.mudo, true);
     b.volumeMusica = 7;
     assert.equal(b.volumeMusica, 1, 'volume fica entre 0 e 1');
@@ -293,6 +296,7 @@ test('sons.js: volume e mudo ficam guardados no navegador', () => {
     const velho = new Sons({ criarContexto: () => contextoFalso(), buscar: buscarFalso });
     assert.equal(velho.volumeEfeitos, 0.25);
     assert.equal(velho.volumeMusica, VOLUME_MUSICA_PADRAO);
+    assert.equal(velho.volumeLocutor, VOLUME_LOCUTOR_PADRAO);
     globalThis.localStorage = {
       getItem() {
         throw new Error('bloqueado');

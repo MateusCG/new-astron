@@ -11,7 +11,11 @@
 //
 // As categorias dão a hierarquia: a destruição de uma nave acima do tiro, o tiro acima do
 // impacto (que se repete a cada acerto), a interface discreta. Os sons nossos da volta à
-// base (tools/sons_volta.py) já foram feitos no nível certo e ficam como estão.
+// base (tools/sons_volta.py) já foram feitos no nível certo e ficam como estão. As vozes
+// do locutor (public/sons/locutor/, geradas no ElevenLabs, cada uma num volume: de −6,8 a
+// −11,9) sobem em escada, como a intensidade da fala: 1 dB por degrau, do First Blood
+// (−16) ao Godlike (−13, o da destruição). A frase tem de se ouvir no meio da briga, e
+// tem o canal e a barra dela; voz nova sem degrau fica no alvo `locutor`.
 
 /** Alvo de cada categoria (LUFS, loudness momentânea máxima). */
 export const ALVO_CATEGORIA = Object.freeze({
@@ -21,14 +25,26 @@ export const ALVO_CATEGORIA = Object.freeze({
   morte: -15,
   destruicao: -13,
   interface: -20,
+  locutor: -14,
 });
+
+/** As vozes do locutor (public/sons/locutor/, locutor-regras.js): o degrau de ALVO_POR_SOM ou o alvo `locutor`. */
+const PREFIXO_LOCUTOR = 'locutor/';
 
 /**
  * Alvos por arquivo, por cima da categoria. O de subir de nível e evoluir a nave é o que
  * o Mateus pediu em 29/out/2026 (70% mais baixo que o arquivo do original, que media −12).
+ * As vozes do locutor na escada de intensidade que o Mateus pediu (04/nov/2026): First
+ * Blood, depois Double Kill e Dominating, Triple Kill e Unstoppable, e Godlike.
  */
 export const ALVO_POR_SOM = Object.freeze({
   level_up: -22.5,
+  'locutor/first_blood.mp3': -16,
+  'locutor/double_kill.mp3': -15,
+  'locutor/dominating.mp3': -15,
+  'locutor/triple_kill.mp3': -14,
+  'locutor/unstoppable.mp3': -14,
+  'locutor/godlike.mp3': -13,
 });
 
 const lista = (cat, nomes) => nomes.split(' ').map((n) => [n, cat]);
@@ -137,6 +153,7 @@ export function loudnessMaxima(canais, fs) {
 /** Alvo (LUFS) do som `nome`, ou null se ele toca com o volume do arquivo. */
 export function alvoDoSom(nome) {
   if (Object.hasOwn(ALVO_POR_SOM, nome)) return ALVO_POR_SOM[nome];
+  if (typeof nome === 'string' && nome.startsWith(PREFIXO_LOCUTOR)) return ALVO_CATEGORIA.locutor;
   const cat = Object.hasOwn(CATEGORIA_DO_SOM, nome) ? CATEGORIA_DO_SOM[nome] : null;
   return cat ? ALVO_CATEGORIA[cat] : null;
 }

@@ -168,6 +168,7 @@ import {
   WING_TIPOS,
   OURO_POR_SEGUNDO,
   OURO_INICIAL,
+  MULTI_JANELA_S,
 } from './progressao.js';
 import { Servicos, novoEquipamento, prepararNave } from './servicos.js';
 import { Jungle } from './jungle.js';
@@ -917,7 +918,8 @@ export class World {
    * feriram a vítima na janela, cada um com recompensaAssistencia) e a sequência
    * (o matador soma um; encerrar a da vítima dá ouroEncerrar). Completa o evento
    * de morte com `assist` (ids), `ouroAssist`, `seq` (sequência encerrada),
-   * `encerrou` (bônus) e `seqPor` (sequência nova do matador).
+   * `encerrou` (bônus), `seqPor` (sequência nova do matador) e os anúncios do
+   * locutor: `multi` (2 ou mais no multi-abate) e `primeiro` (First Blood).
    */
   #abateDeJogador(alvo, matador, morte) {
     const assist = [];
@@ -943,6 +945,17 @@ export class World {
     }
     matador.sequencia++;
     morte.seqPor = matador.sequencia;
+    // Anúncios do locutor (public/js/locutor-regras.js; pedido do Mateus, como no Dota 2).
+    // Multi-abate: cada abate de jogador até MULTI_JANELA_S depois do anterior soma um
+    // (morrer não zera: o tiro que já ia, a mina e o dreno ainda contam, como no LoL).
+    const janela = Math.round(MULTI_JANELA_S * TICK_HZ);
+    matador.multi = this.tick - (matador.multiTick ?? -Infinity) <= janela ? (matador.multi ?? 0) + 1 : 1;
+    matador.multiTick = this.tick;
+    if (matador.multi >= 2) morte.multi = matador.multi;
+    // First Blood: o primeiro abate de jogador da partida. A preparação conta, como no
+    // Dota 2 antes da buzina (o abate já somou no cabeçalho da tabela, que zera na partida nova).
+    const est = this.partida.estat;
+    if (est[0].abates + est[1].abates === 1) morte.primeiro = 1;
   }
 
   /**

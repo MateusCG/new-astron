@@ -153,6 +153,8 @@ import { PainelStatus } from './status.js';
 import { PainelInventario } from './inventario.js';
 import { ListaDebuffs } from './debuffs.js';
 import { PainelUltimaMorte } from './ultima-morte.js';
+import { Locutor } from './locutor.js';
+import { anunciosDaMorte } from './locutor-regras.js';
 import { Destruicoes } from './destruicao-3d.js';
 import { destruicaoDe } from './destruicao.js';
 import { TelaCarregamento, Carregamento, aquecerGpu } from './carregamento.js';
@@ -464,6 +466,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
   });
   // Resumo da última morte (como no Dota 2): sozinho com a nave destruída, H com ela viva.
   const ultimaMorte = new PainelUltimaMorte({ meuId, meuTime, signal: controles.parar.signal });
+  // Locutor (locutor.js): First Blood, Double Kill, Godlike... na faixa e na voz, para todos.
+  const locutor = new Locutor({ sons });
+  locutor.limpar();
+  controles.parar.signal.addEventListener('abort', () => locutor.limpar(), { once: true });
   // Barra do time no alto (companheiros.js): cards dos aliados e o teleporte até o Functional.
   const barraTime = new BarraTime({
     meuId,
@@ -979,6 +985,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
         hud.noticia(`Fase final: minério entregue vale ×${e.mult} até o fim`, 'bom');
       } else if (e.e === 'preparacao') {
         ultimaMorte.limpar(); // partida nova: a morte da anterior não conta mais
+        locutor.limpar();
         hud.noticia(`Preparação: a partida começa em ${relogio(e.s)} · explore o mapa e se prepare`, 'bom');
       } else if (e.e === 'partida') {
         hud.noticia('A partida começou: mineradores e jungle em campo · o time que minerar mais vence', 'bom');
@@ -1006,6 +1013,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
         }
         if (e.assist?.includes(meuId)) hud.noticia(`Assistência no abate de ${quem} · +${e.ouroAssist} ouro`, 'bom');
         if (e.seqPor >= 2) hud.noticia(`${matador} está em sequência de ${e.seqPor} abates`, e.por === meuId ? 'bom' : '');
+        // O locutor: First Blood, multi-abate, sequência, Shut Down e Ace (todos ouvem).
+        locutor.anunciar(anunciosDaMorte(e, { meuId, meuTime, nome: (id) => nomes.get(id) ?? '?' }));
       } else if (e.e === 'nivel') {
         // Subiu de nível: a luz da raça na nave de quem subiu (você ou outro).
         subidaDeNave(e.id, false, `NÍVEL ${e.nivel}`);
@@ -1426,6 +1435,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     status,
     inventario,
     sons,
+    locutor,
     objetivos,
     torretas,
     efeitos,

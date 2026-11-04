@@ -2,7 +2,7 @@
 // medida bate com a do BS.1770 e, com o ganho, cada som fica no volume da categoria.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -45,7 +45,8 @@ test('nivel-sons: todo som de public/sons/ tem categoria, e toda categoria tem a
   for (const nome of ARQUIVOS) assert.ok(Object.hasOwn(CATEGORIA_DO_SOM, nome), `${nome} sem categoria`);
   for (const nome of Object.keys(CATEGORIA_DO_SOM)) assert.ok(ARQUIVOS.includes(nome), `${nome} não existe`);
   for (const cat of Object.values(CATEGORIA_DO_SOM)) assert.ok(cat === null || cat in ALVO_CATEGORIA, cat);
-  for (const nome of Object.keys(ALVO_POR_SOM)) assert.ok(ARQUIVOS.includes(nome), nome);
+  // O que leva extensão (as vozes do locutor, em MP3) é o caminho do arquivo em public/sons/.
+  for (const nome of Object.keys(ALVO_POR_SOM)) assert.ok(ARQUIVOS.includes(nome) || existsSync(path.join(SONS, nome)), nome);
 });
 
 test('nivel-sons: a medida bate com a loudness momentânea do BS.1770', () => {

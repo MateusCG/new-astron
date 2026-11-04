@@ -1,4 +1,4 @@
-// Janela de volume (#volume): duas barras, música e efeitos, de 0 a 100%. Abre pelo
+// Janela de volume (#volume): três barras, música, efeitos e locutor, de 0 a 100%. Abre pelo
 // botão de som do header do menu (#botao-som) e pelo do HUD (#som-hud), fecha no ✕,
 // no ESC ou clicando fora. As mesmas barras aparecem fixas na aba Configurações do
 // menu (#config-som): outro PainelVolume sobre outro elemento, sem ✕ nem fundo, que
@@ -7,13 +7,17 @@
 //
 // Os volumes moram no Sons (sons.js), que guarda no navegador. A barra muda o som na
 // hora, enquanto arrasta; ao soltar, toca o clique da interface no volume novo dos
-// efeitos, para o jogador ouvir onde deixou. Mexer numa barra com o jogo mudo (M)
+// efeitos, para o jogador ouvir onde deixou (a do locutor toca uma frase dele, se já
+// carregou). Mexer numa barra com o jogo mudo (M)
 // liga o som: quem sobe o volume quer ouvir. A música ainda não existe no jogo, mas
 // a barra já vale: a trilha vai tocar por `sons.saidaMusica`, no volume escolhido.
 
 import { SONS_INTERFACE } from './sons.js';
+import { somDoAnuncio } from './locutor-regras.js';
 
-const CANAIS = { musica: 'volumeMusica', efeitos: 'volumeEfeitos' };
+const CANAIS = { musica: 'volumeMusica', efeitos: 'volumeEfeitos', locutor: 'volumeLocutor' };
+/** A frase que a barra do locutor toca ao soltar, para ouvir o volume. */
+const AMOSTRA_LOCUTOR = somDoAnuncio('godlike');
 
 export class PainelVolume {
   /**
@@ -39,6 +43,11 @@ export class PainelVolume {
         this.#mostrar(canal);
       });
       if (canal === 'efeitos') barra.addEventListener('change', () => this.sons.tocarInterface(SONS_INTERFACE.clique));
+      if (canal === 'locutor') {
+        barra.addEventListener('change', () => {
+          this.sons.carregar(AMOSTRA_LOCUTOR).then(() => this.sons.tocarLocutor(AMOSTRA_LOCUTOR));
+        });
+      }
     }
     this.el.querySelector('.fechar')?.addEventListener('click', () => this.fechar());
     this.el.querySelector('.alternar-mudo').addEventListener('click', (e) => {

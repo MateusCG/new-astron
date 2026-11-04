@@ -128,6 +128,11 @@
               <input type="range" min="0" max="100" step="1" value="80" />
               <small>Tiros, explosões e sons do painel</small>
             </label>
+            <label class="canal" data-canal="locutor">
+              <span class="nome">Locutor</span><b class="pct">80%</b>
+              <input type="range" min="0" max="100" step="1" value="80" />
+              <small>A voz do First Blood, Double Kill, Godlike…</small>
+            </label>
             <button type="button" class="alternar-mudo botao-volume" title="Liga e desliga todo o som (M)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som">Som ligado</span><kbd>M</kbd></button>
           </section>
           <section class="config-painel" data-secao="teclado" hidden aria-label="Teclado">
@@ -196,6 +201,7 @@
       <div id="rotulos"></div>
       <div id="flutuantes" aria-hidden="true"></div>
       <p id="aviso" hidden></p>
+      <div id="locutor" hidden aria-live="polite"><p class="titulo"></p><p class="sub"></p></div>
       <ul id="bonus-nave" hidden aria-label="Bônus da nave"></ul>
       <div id="prog-obj" hidden><span class="txt"></span><span class="barra"><i></i></span></div>
       <div id="prog-recall" hidden><span class="txt"></span><span class="barra"><i></i></span></div>
@@ -403,6 +409,11 @@
           <span class="nome">Efeitos</span><b class="pct">80%</b>
           <input type="range" min="0" max="100" step="1" value="80" />
           <small>Tiros, explosões e sons do painel</small>
+        </label>
+        <label class="canal" data-canal="locutor">
+          <span class="nome">Locutor</span><b class="pct">80%</b>
+          <input type="range" min="0" max="100" step="1" value="80" />
+          <small>A voz do First Blood, Double Kill, Godlike…</small>
         </label>
         <button type="button" class="alternar-mudo botao-volume" title="Liga e desliga todo o som (M)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som">Som ligado</span><kbd>M</kbd></button>
       </section>

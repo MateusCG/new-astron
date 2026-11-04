@@ -64,6 +64,7 @@ import { carregarPropulsao, texturasDaPropulsao } from './propulsao.js';
 import { COR_TIME } from './efeitos.js';
 import { miniatura } from './vitrine.js';
 import { carregarIcone } from './icones-itens.js';
+import { SONS_LOCUTOR } from './locutor-regras.js';
 
 /** Arquivos baixando ao mesmo tempo na tela de carregamento (o navegador abre ~6 por servidor). */
 const SIMULTANEOS = 6;
@@ -250,7 +251,7 @@ export class Carregamento {
     t?.linha('naves', { total: naves.length + RACAS_JOGAVEIS.length });
     t?.linha('armas', { total: modelosArma.length });
     t?.linha('efeitos', { total: texturas.length + efeitosOriginais.length });
-    t?.linha('sons', { total: sons.length });
+    t?.linha('sons', { total: sons.length + SONS_LOCUTOR.length });
     t?.linha('miniaturas', { total: linha.length });
     t?.linha('icones', { total: icones.length });
     t?.linha('servidor', { total: 1, texto: 'Conectando…' });
@@ -269,6 +270,13 @@ export class Carregamento {
       // Os sons já saem decodificados (o contexto de áudio nasce no clique do Decolar).
       ...sons.map((nome) =>
         this.#item('sons', `som ${nome}`, async () => {
+          await this.sons.carregar(nome);
+          return !this.sons.falhou(nome);
+        }),
+      ),
+      // As vozes do locutor (First Blood, Double Kill...: public/sons/locutor/, em MP3).
+      ...SONS_LOCUTOR.map((nome) =>
+        this.#item('sons', `locutor ${nome}`, async () => {
           await this.sons.carregar(nome);
           return !this.sons.falhou(nome);
         }),
