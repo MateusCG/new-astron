@@ -152,6 +152,7 @@ import { BarraTime } from './companheiros.js';
 import { Menu } from './menu.js';
 import { PainelServicos } from './servicos.js';
 import { PainelStatus } from './status.js';
+import { UparPontos } from './upar.js';
 import { PainelInventario } from './inventario.js';
 import { ListaDebuffs } from './debuffs.js';
 import { PainelUltimaMorte } from './ultima-morte.js';
@@ -477,6 +478,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
     signal: controles.parar.signal,
     aoAbrir: () => inventario.fechar(),
   });
+  // Abas de pontos no topo do painel inferior (como no LoL): clique ou 1 a 5 põem 10.
+  const upar = new UparPontos({ enviar: (m) => rede.enviar(m), signal: controles.parar.signal });
   const inventario = new PainelInventario({
     enviar: (m) => rede.enviar(m),
     armasNave,
@@ -702,6 +705,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     estadosArmas = m.st ?? {};
     painel.atualizar({ ouro: m.ouro, nivel: m.nivel, me: m.me, melhorias: m.melhorias, torretas: m.torretas });
     status.atualizar({ me: m.me, nivel: m.nivel, xp: m.xp, xpProx: m.xpProx, ouro: m.ouro, nome: euNoSnap?.nome ?? meuNome });
+    upar.atualizar({ me: m.me, nivel: m.nivel, vivo: !!m.vivo });
     inventario.atualizar({ me: m.me, nivel: m.nivel, ouro: m.ouro });
     // A nave da linha que você pilota (muda ao evoluir na Evolução).
     if (m.me) definirNave(minhaNave, race, m.me.classe ?? classe, m.me.tier ?? 0);
@@ -1093,8 +1097,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
       if (!m.ok) sons.tocarInterface(SONS_INTERFACE.erro);
     }
     else if (m.t === 'resultado' && (m.acao === 'pontos' || m.acao === 'equipar' || m.acao === 'vender' || m.acao === 'evoluirItem')) {
-      if (m.acao === 'pontos') status.resultado(m);
-      else inventario.resultado(m);
+      if (m.acao === 'pontos') {
+        status.resultado(m);
+        upar.resultado(m);
+      } else inventario.resultado(m);
       // Vender e evoluir mexem no ouro: o som da compra; o resto, o clique.
       const ouro = m.acao === 'vender' || m.acao === 'evoluirItem';
       sons.tocarInterface(!m.ok ? SONS_INTERFACE.erro : ouro ? SONS_INTERFACE.compra : SONS_INTERFACE.clique);

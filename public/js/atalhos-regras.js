@@ -54,6 +54,11 @@ export const ACOES = Object.freeze([
   { id: 'tabela', grupo: 'Janelas', nome: 'Tabela da partida (segure)', ctx: 'voo', segurar: true },
   { id: 'morte', grupo: 'Janelas', nome: 'Resumo da última morte', ctx: 'voo' },
   { id: 'loja', grupo: 'Janelas', nome: 'Reabre a Loja ou a Evolução, pousado', ctx: 'voo' },
+  { id: 'pontoHp', grupo: 'Pontos', nome: '+10 pontos em HP (Durabilidade)', ctx: 'voo' },
+  { id: 'pontoEn', grupo: 'Pontos', nome: '+10 pontos em EN (Energia)', ctx: 'voo' },
+  { id: 'pontoFis', grupo: 'Pontos', nome: '+10 pontos em Ph. (Físico)', ctx: 'voo' },
+  { id: 'pontoEl', grupo: 'Pontos', nome: '+10 pontos em El. (Elétrico)', ctx: 'voo' },
+  { id: 'pontoOp', grupo: 'Pontos', nome: '+10 pontos em Op. (Operacional)', ctx: 'voo' },
   { id: 'som', grupo: 'Sistema', nome: 'Liga e desliga o som', ctx: 'sempre' },
   { id: 'menu', grupo: 'Sistema', nome: 'Fecha a janela ou sai da partida', ctx: 'sempre', fixaTeclado: 'Esc' },
   { id: 'uiCima', grupo: 'Menus', nome: 'Navega para cima', ctx: 'menu', fixaTeclado: '↑', segurar: true },
@@ -100,6 +105,11 @@ export const TECLADO_PADRAO = Object.freeze({
   tabela: ['Tab'],
   morte: ['KeyH'],
   loja: ['Enter', 'NumpadEnter'],
+  pontoHp: ['Digit1', 'Numpad1'],
+  pontoEn: ['Digit2', 'Numpad2'],
+  pontoFis: ['Digit3', 'Numpad3'],
+  pontoEl: ['Digit4', 'Numpad4'],
+  pontoOp: ['Digit5', 'Numpad5'],
   som: ['KeyM'],
 });
 
@@ -107,7 +117,9 @@ export const TECLADO_PADRAO = Object.freeze({
  * Controle de fábrica, no mapeamento padrão (DualShock 3: ✕ 0, ○ 1, □ 2, △ 3, L1 4,
  * R1 5, L2 6, R2 7, Select 8, Start 9, L3 10, R3 11, direcional 12–15, PS 16; eixos:
  * analógico esquerdo 0 e 1, direito 2 e 3). O lado direito é o Z (R2 atira, R1 troca)
- * e o esquerdo o X (L2 e L1), como as teclas Z e X no teclado.
+ * e o esquerdo o X (L2 e L1), como as teclas Z e X no teclado. Os pontos (pontoHp a
+ * pontoOp) ficam sem botão: os 17 já têm ação no voo, e no controle os pontos se põem
+ * pela janela STATUS (direcional para cima); quem quiser atribui na aba Configurações.
  */
 export const CONTROLE_PADRAO = Object.freeze({
   frente: ['a1-'],

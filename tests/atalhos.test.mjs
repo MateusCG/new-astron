@@ -58,7 +58,7 @@ test('ações: ids únicos, grupos na ordem, contexto conhecido', () => {
   for (const a of ACOES) assert.ok(['voo', 'menu', 'sempre'].includes(a.ctx), a.id);
   assert.deepEqual(
     GRUPOS_ACOES.map((g) => g.nome),
-    ['Voo', 'Armas', 'Itens', 'Câmera', 'Janelas', 'Sistema', 'Menus'],
+    ['Voo', 'Armas', 'Itens', 'Câmera', 'Janelas', 'Pontos', 'Sistema', 'Menus'],
   );
   assert.equal(GRUPOS_ACOES.flatMap((g) => g.acoes).length, ACOES.length);
 });
@@ -70,7 +70,7 @@ test('teclado de fábrica: as teclas de sempre, sem conflito, até duas por aç�
     assert.ok(ACAO[acao], acao);
     assert.ok(teclas.length <= ATALHOS_POR_ACAO, acao);
   }
-  const esperado = { frente: 'KeyW', re: 'KeyS', esq: 'KeyA', dir: 'KeyD', boost: 'ShiftLeft', pouso: 'KeyL', recall: 'KeyB', armaZ: 'KeyZ', armaX: 'KeyX', trocaZ: 'KeyQ', trocaX: 'KeyE', reparo: 'KeyR', energia: 'KeyF', camTroca: 'KeyV', camCima: 'KeyT', camBaixo: 'KeyG', status: 'KeyC', inventario: 'KeyI', tabela: 'Tab', morte: 'KeyH', loja: 'Enter', som: 'KeyM' };
+  const esperado = { frente: 'KeyW', re: 'KeyS', esq: 'KeyA', dir: 'KeyD', boost: 'ShiftLeft', pouso: 'KeyL', recall: 'KeyB', armaZ: 'KeyZ', armaX: 'KeyX', trocaZ: 'KeyQ', trocaX: 'KeyE', reparo: 'KeyR', energia: 'KeyF', camTroca: 'KeyV', camCima: 'KeyT', camBaixo: 'KeyG', status: 'KeyC', inventario: 'KeyI', tabela: 'Tab', morte: 'KeyH', loja: 'Enter', som: 'KeyM', pontoHp: 'Digit1', pontoEn: 'Digit2', pontoFis: 'Digit3', pontoEl: 'Digit4', pontoOp: 'Digit5' };
   for (const [acao, tecla] of Object.entries(esperado)) assert.ok(m[acao].includes(tecla), `${acao}: ${tecla}`);
   assert.ok(m.armaZ.includes('Space'));
   // O Esc e a navegação dos menus são fixos: sem tecla no mapa.
@@ -84,8 +84,8 @@ test('controle de fábrica: DualShock 3 no mapeamento padrão, sem conflito no m
   assert.deepEqual([m.frente, m.re, m.esq, m.dir], [['a1-'], ['a1+'], ['a0-'], ['a0+']]);
   assert.deepEqual([m.armaZ, m.armaX, m.menu], [['b7'], ['b6'], ['b9']]);
   assert.deepEqual([m.uiConfirmar, m.uiVoltar], [['b0'], ['b1']]);
-  // Toda ação de voo e de janela tem um botão (o som não precisa).
-  for (const a of ACOES.filter((x) => x.id !== 'som')) assert.ok(m[a.id].length, a.id);
+  // Toda ação de voo e de janela tem um botão (o som não precisa, e os pontos vão pelo STATUS).
+  for (const a of ACOES.filter((x) => x.id !== 'som' && x.grupo !== 'Pontos')) assert.ok(m[a.id].length, a.id);
   // Cabe num DualShock 3: 17 botões (0–16) e 4 eixos.
   for (const e of Object.values(CONTROLE_PADRAO).flat()) {
     if (e[0] === 'b') assert.ok(Number(e.slice(1)) <= 16, e);
@@ -207,12 +207,13 @@ test('navegação espacial: o vizinho mais perto daquele lado, sem pular de colu
 test('quem ouve as ações: os módulos pedem a ação, não a tecla', () => {
   const ler = (f) => readFileSync(new URL(`../public/js/${f}`, import.meta.url), 'utf8');
   const ouvidas = new Set();
-  for (const f of ['controles.js', 'main.js', 'status.js', 'inventario.js', 'ultima-morte.js', 'tabela.js', 'armas.js', 'servicos.js']) {
+  for (const f of ['controles.js', 'main.js', 'status.js', 'inventario.js', 'ultima-morte.js', 'tabela.js', 'armas.js', 'servicos.js', 'upar.js']) {
     const js = ler(f);
     assert.ok(!/e\.code\s*[!=]==\s*'Key[A-Z]'/.test(js), `${f} ainda olha a tecla`);
     for (const m of js.matchAll(/aoApertar\(\s*'(\w+)'/g)) ouvidas.add(m[1]);
   }
   ouvidas.add('trocaZ').add('trocaX').add('reparo').add('energia'); // por variável
+  for (const a of ACOES.filter((x) => x.grupo === 'Pontos')) ouvidas.add(a.id); // upar.js, pela lista OPCOES_UPAR
   for (const a of ACOES.filter((x) => x.ctx !== 'menu' || x.id === 'uiVoltar')) {
     const lida = ['frente', 're', 'esq', 'dir', 'boost', 'armaZ', 'armaX', 'camCima', 'camBaixo'].includes(a.id); // Controles.ler
     assert.ok(lida || ouvidas.has(a.id), `ninguém ouve ${a.id}`);
