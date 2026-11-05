@@ -183,6 +183,14 @@ function nav() {
   return navegacao;
 }
 
+/**
+ * Monta a grade dos monstros agora: o servidor chama ao ligar, para a primeira jungle
+ * não travar o processo (eram ~80 ms no passo em que ela nascia).
+ */
+export function prepararJungle() {
+  nav();
+}
+
 function anguloEntre(a, b) {
   let d = b - a;
   while (d > Math.PI) d -= 2 * Math.PI;

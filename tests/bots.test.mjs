@@ -658,3 +658,26 @@ test('computador: alvo do outro time dentro da própria base, atrás do campo, n
   assert.equal(h.ship.hp, hp);
   assert.ok(bot.vivo);
 });
+
+test('computadores: as grades de custo do A* são do processo, prontas antes da primeira partida', async () => {
+  const { prepararBots, gradePerigo } = await import('../server/bots.js');
+  const { TORRETAS } = await import('../shared/terrain.js');
+  const { MapaNavegacao } = await import('../server/navegacao.js');
+  prepararBots();
+  const inimigas = TORRETAS.filter((t) => t.time !== 0);
+  const g = gradePerigo(0, inimigas);
+  // A mesma grade para qualquer partida com as mesmas torres de pé (nada recalcula).
+  assert.equal(gradePerigo(0, inimigas), g);
+  // Uma torre a menos é outra grade, e a célula da torre caída deixa de ser perigo.
+  const sem = gradePerigo(0, inimigas.slice(1));
+  assert.notEqual(sem, g);
+  const n = new MapaNavegacao();
+  assert.ok(g[n.indice(inimigas[0].x, inimigas[0].z + 40)] > 0, 'perto da torre de pé é perigo');
+  const perigosas = (grade) => grade.reduce((c, v) => c + (v > 0 ? 1 : 0), 0);
+  assert.ok(perigosas(sem) < perigosas(g), 'sem a torre, menos células de perigo');
+  // Os dois computadores usam a grade do processo: duas partidas, o mesmo objeto.
+  const w1 = new World({ preparacaoS: 0, jungle: false });
+  const w2 = new World({ preparacaoS: 0, jungle: false });
+  for (const w of [w1, w2]) w.addPlayer('H', 'acron', 'assault', { iaInimigo: 1 });
+  assert.equal(gradePerigo(0, w1.torretas.lista.filter((t) => t.time !== 0 && t.viva)), gradePerigo(0, w2.torretas.lista.filter((t) => t.time !== 0 && t.viva)));
+});

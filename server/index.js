@@ -560,6 +560,8 @@ import path from 'node:path';
 import { WebSocketServer } from 'ws';
 import { randomUUID } from 'node:crypto';
 import { World, TICK_HZ } from './game.js';
+import { prepararBots } from './bots.js';
+import { prepararJungle } from './jungle.js';
 import { Filas, MODOS_FILA } from './filas.js';
 import { MAX_POR_TIME } from './partida.js';
 import { motivoRacaRecusada } from '../shared/naves.js';
@@ -640,6 +642,11 @@ async function servirArquivo(req, res) {
  * @param {{ porta?: number, world?: World }} [opcoes]
  */
 export async function iniciar({ porta = Number(process.env.PORT) || 5090, world = new World() } = {}) {
+  // As grades de navegação dos computadores e dos monstros e os mapas de perigo das
+  // torres são por processo e custavam ~250 ms na primeira partida (um tranco no
+  // ping de todo mundo): montados aqui, antes de abrir a porta.
+  prepararBots();
+  prepararJungle();
   const server = http.createServer((req, res) => {
     if (req.url === '/healthz') {
       res.writeHead(200, { 'content-type': 'application/json' });

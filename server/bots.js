@@ -127,6 +127,7 @@ import {
   dentroDoCampo,
   cruzaCampoBase,
   trajetoSonda,
+  TORRETAS,
 } from '../shared/terrain.js';
 import { enxerga, bloqueiaVisao, olho, olhosDaBase, algumOlhoVe, VISAO_RAIO, VISAO_MINERADOR, VISAO_TORRETA } from '../shared/visao.js';
 import { naveDe } from '../shared/naves.js';
@@ -274,6 +275,67 @@ function nav() {
   return grade;
 }
 
+// As grades de custo do A* também são por processo, não por partida: dependem só do
+// terreno e de quais torres do outro time estão de pé (as posições são fixas,
+// TORRETAS). Antes cada partida nova recalculava as duas (10–16 ms no mesmo passo,
+// um tranco para todas as partidas do servidor). SO_BASE[time] = só o bolsão da base
+// do outro time; PERIGOS 'time|ids das torres vivas' = mais o alcance delas (no
+// máximo 2 × 16 combinações).
+const SO_BASE = BASES.map(() => null);
+const PERIGOS = new Map();
+
+/** Grade só com o bolsão da base do outro time (ver Bots#soBase). */
+function gradeSoBase(time) {
+  if (!SO_BASE[time]) {
+    const n = nav();
+    const g = new Float32Array(n.total);
+    const outra = BASES.find((b) => b.time !== time);
+    for (let x = outra.x - 260; x <= outra.x + 260; x += CELULA) {
+      for (let z = outra.z - 260; z <= outra.z + 260; z += CELULA) {
+        const k = n.indice(x, z);
+        if (k < 0) continue;
+        const c = n.centro(k);
+        if (dentroDoCampo(outra.time, c.x, IA.campoFolga + CELULA / 2)) g[k] = Infinity;
+        else if (Math.abs(c.x) >= BOLSAO.xMin - 25) g[k] = IA.custoBaseInimiga;
+      }
+    }
+    SO_BASE[time] = g;
+  }
+  return SO_BASE[time];
+}
+
+/** A grade de SO_BASE mais o alcance das torres `vivas` (ver Bots#perigo). Não mexa nela: é de todas as partidas. */
+export function gradePerigo(time, vivas) {
+  const chave = `${time}|${vivas.map((t) => t.id).join(',')}`;
+  let g = PERIGOS.get(chave);
+  if (g) return g;
+  const n = nav();
+  g = gradeSoBase(time).slice();
+  const r = TORRETA.alcance + IA.torretaFolga;
+  for (const t of vivas) {
+    for (let x = t.x - r; x <= t.x + r; x += CELULA) {
+      for (let z = t.z - r; z <= t.z + r; z += CELULA) {
+        const k = n.indice(x, z);
+        if (k < 0 || g[k] > 0) continue;
+        const p = n.centro(k);
+        if (enxerga(t.x, t.z, p.x, p.z, r)) g[k] = IA.custoPerigo;
+      }
+    }
+  }
+  PERIGOS.set(chave, g);
+  return g;
+}
+
+/**
+ * Monta agora o que os computadores calculariam na primeira vez (a grade de 10 m e as
+ * grades de custo com todas as torres de pé): o servidor chama ao ligar, para a
+ * primeira partida não travar o processo (eram ~150 ms no 3º passo dela).
+ */
+export function prepararBots() {
+  nav();
+  for (const b of BASES) gradePerigo(b.time, TORRETAS.filter((t) => t.time !== b.time));
+}
+
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const yawPara = (s, x, z) => Math.atan2(-(x - s.x), -(z - s.z));
@@ -370,7 +432,6 @@ export class Bots {
     this.world = world;
     this.zonaSegura = zonaSegura;
     this.conhece = BASES.map(() => null); // o que cada time vê, por tick (#saber)
-    this.perigos = BASES.map(() => null); // grade do alcance das torres inimigas (#perigo)
     this.memoria = BASES.map(() => new Map()); // acampamentos que o time viu (#campoVivo)
     this.planos = BASES.map(() => null); // objetivo épico do time, por tick (#plano)
     this.desistiu = BASES.map(() => ({})); // { nucleo: tick, medusa: tick }: até quando não tenta de novo
@@ -642,29 +703,13 @@ export class Bots {
   /**
    * Grade de custo a mais do `time` para o A*: as células cobertas pelas torres de pé
    * do outro time (IA.custoPerigo) e o bolsão da base do outro time
-   * (IA.custoBaseInimiga). Refeita só quando muda o conjunto de torres de pé.
+   * (IA.custoBaseInimiga). Uma por conjunto de torres de pé, guardada para o
+   * processo todo (gradePerigo).
    */
   #perigo(time) {
     const w = this.world;
     const vivas = w.torretasAtiram ? w.torretas.lista.filter((t) => t.time !== time && t.viva) : [];
-    const chave = vivas.map((t) => t.id).join(',');
-    const c = this.perigos[time];
-    if (c?.chave === chave) return c.grade;
-    const n = nav();
-    const g = this.#soBase(time).slice();
-    const r = TORRETA.alcance + IA.torretaFolga;
-    for (const t of vivas) {
-      for (let x = t.x - r; x <= t.x + r; x += CELULA) {
-        for (let z = t.z - r; z <= t.z + r; z += CELULA) {
-          const k = n.indice(x, z);
-          if (k < 0 || g[k] > 0) continue;
-          const p = n.centro(k);
-          if (enxerga(t.x, t.z, p.x, p.z, r)) g[k] = IA.custoPerigo;
-        }
-      }
-    }
-    this.perigos[time] = { chave, grade: g };
-    return g;
+    return gradePerigo(time, vivas);
   }
 
   /**
@@ -675,23 +720,7 @@ export class Bots {
    * passa).
    */
   #soBase(time) {
-    this.semTorres ??= BASES.map(() => null);
-    if (!this.semTorres[time]) {
-      const n = nav();
-      const g = new Float32Array(n.total);
-      const outra = BASES.find((b) => b.time !== time);
-      for (let x = outra.x - 260; x <= outra.x + 260; x += CELULA) {
-        for (let z = outra.z - 260; z <= outra.z + 260; z += CELULA) {
-          const k = n.indice(x, z);
-          if (k < 0) continue;
-          const c = n.centro(k);
-          if (dentroDoCampo(outra.time, c.x, IA.campoFolga + CELULA / 2)) g[k] = Infinity;
-          else if (Math.abs(c.x) >= BOLSAO.xMin - 25) g[k] = IA.custoBaseInimiga;
-        }
-      }
-      this.semTorres[time] = g;
-    }
-    return this.semTorres[time];
+    return gradeSoBase(time);
   }
 
   // ---------- Papéis e plano do time ----------
