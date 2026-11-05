@@ -26,6 +26,15 @@ function tecla(tipo, code) {
 
 const raiz = { classList: { add() {}, remove() {} } };
 
+/** Evento de mouse com o alvo de mentira: na tela do jogo (#jogo) ou num painel. */
+function mouse(tipo, button, noJogo = true) {
+  const e = new Event(tipo, { cancelable: true });
+  e.button = button;
+  Object.defineProperty(e, 'target', { value: { closest: (sel) => (noJogo && sel === '#jogo' ? {} : null) } });
+  janela.dispatchEvent(e);
+  return e;
+}
+
 test('cliente: controles destruídos não escutam mais o teclado', () => {
   const c = new Controles(raiz);
   tecla('keydown', 'KeyW');
@@ -149,4 +158,51 @@ test('cliente: a tecla trocada na aba Configurações vale na hora, e a antiga n
   assert.equal(c.ler().f1, true, 'de fábrica de novo');
   tecla('keyup', 'KeyZ');
   c.destruir();
+});
+
+test('cliente: o Z no clique esquerdo e o X no direito atiram com o clique na tela do jogo', async () => {
+  const { atribuirAtalho, restaurarPadrao } = await import('../public/js/atalhos.js');
+  const c = new Controles(raiz);
+  atribuirAtalho('teclado', 'armaZ', 0, 'Mouse0');
+  atribuirAtalho('teclado', 'armaX', 0, 'Mouse2');
+  mouse('mousedown', 0);
+  assert.equal(c.ler().f1, true, 'segurando o esquerdo atira com o Z');
+  mouse('mousedown', 2);
+  assert.equal(c.ler().f2, true, 'segurando o direito atira com o X');
+  assert.equal(mouse('contextmenu', 2).defaultPrevented, true, 'sem o menu do navegador em cima do jogo');
+  mouse('mouseup', 0);
+  mouse('mouseup', 2);
+  const solto = c.ler();
+  assert.deepEqual([solto.f1, solto.f2], [false, false], 'soltou, parou');
+  // Clique num painel (Loja, INVENTÁRIO, botão do HUD) é da interface, não tiro.
+  mouse('mousedown', 0, false);
+  assert.equal(c.ler().f1, false);
+  mouse('mouseup', 0, false);
+  restaurarPadrao('teclado');
+  mouse('mousedown', 0);
+  assert.equal(c.ler().f1, false, 'de fábrica o clique não atira');
+  mouse('mouseup', 0);
+  c.destruir();
+});
+
+test('cliente: na aba Configurações, o clique na casa que espera vira o atalho e é engolido', async () => {
+  const { capturar, mapasAtuais, restaurarPadrao } = await import('../public/js/atalhos.js');
+  let fim = null;
+  capturar('teclado', 'armaX', 0, (r) => (fim = r));
+  let chegou = 0;
+  const contar = () => chegou++;
+  addEventListener('mousedown', contar);
+  addEventListener('click', contar);
+  addEventListener('contextmenu', contar);
+  mouse('mousedown', 2, false);
+  mouse('contextmenu', 2, false);
+  mouse('mouseup', 2, false);
+  mouse('click', 2, false);
+  assert.equal(fim?.entrada, 'Mouse2');
+  assert.deepEqual(mapasAtuais().teclado.armaX, ['Mouse2', 'KeyK']);
+  assert.equal(chegou, 0, 'nem a casa nem o botão direito (que apaga) recebem o clique');
+  removeEventListener('mousedown', contar);
+  removeEventListener('click', contar);
+  removeEventListener('contextmenu', contar);
+  restaurarPadrao('teclado');
 });

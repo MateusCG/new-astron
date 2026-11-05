@@ -32,6 +32,8 @@ import {
   alemDaZonaMorta,
   proximoNaDirecao,
   DIRECOES,
+  teclaDoMouse,
+  ehMouse,
 } from '../public/js/atalhos-regras.js';
 
 /** Nenhuma entrada em duas ações de contextos que conflitam. */
@@ -146,6 +148,29 @@ test('atribuir: troca a casa, acrescenta, tira da outra ação do mesmo contexto
   semConflito(s.mapa);
   // Apagar.
   assert.deepEqual(limpar(mapaPadrao('teclado'), 'frente', 0).frente, ['ArrowUp']);
+});
+
+test('mouse: os botões entram no mapa do teclado (Z no clique esquerdo, X no direito)', () => {
+  assert.equal(teclaDoMouse(0), 'Mouse0');
+  assert.equal(teclaDoMouse(2), 'Mouse2');
+  assert.equal(teclaDoMouse(4), 'Mouse4');
+  assert.equal(teclaDoMouse(7), null, 'botão fora da lista não entra');
+  assert.ok(ehMouse('Mouse1') && !ehMouse('KeyM'));
+  assert.equal(nomeTecla('Mouse0'), 'Clique esq.');
+  assert.equal(nomeTecla('Mouse1'), 'Clique meio');
+  assert.equal(nomeTecla('Mouse2'), 'Clique dir.');
+  assert.equal(nomeTecla('Mouse3'), 'Mouse 4');
+  let m = atribuir('teclado', mapaPadrao('teclado'), 'armaZ', 0, 'Mouse0').mapa;
+  m = atribuir('teclado', m, 'armaX', 0, 'Mouse2').mapa;
+  assert.deepEqual([m.armaZ, m.armaX], [['Mouse0', 'Space'], ['Mouse2', 'KeyK']]);
+  assert.equal(rotuloAcao({ teclado: m }, 'teclado', 'armaZ'), 'Clique esq.');
+  // O guardado no navegador volta igual.
+  const lido = lerAtalhos(textoAtalhos({ teclado: m, controle: mapaPadrao('controle') }));
+  assert.deepEqual([lido.teclado.armaZ, lido.teclado.armaX], [['Mouse0', 'Space'], ['Mouse2', 'KeyK']]);
+  // O mesmo botão em outra ação do voo sai da primeira.
+  const r = atribuir('teclado', m, 'boost', 0, 'Mouse2');
+  assert.equal(r.tirouDe, 'armaX');
+  assert.deepEqual(r.mapa.armaX, ['KeyK']);
 });
 
 test('nomes: teclas, botões do DualShock e eixos', () => {

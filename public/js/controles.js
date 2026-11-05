@@ -12,7 +12,8 @@
 // uma vez. Sem isso, sair para a tela inicial e entrar de novo somaria um segundo
 // conjunto de listeners, e cada toque contaria duas vezes.
 
-import { aoApertar, teclaFaz, teclaNoMapa, campoDeTexto } from './atalhos.js';
+import { aoApertar, teclaFaz, teclaNoMapa, campoDeTexto, cliqueNoJogo } from './atalhos.js';
+import { teclaDoMouse } from './atalhos-regras.js';
 import { valorJoystick } from './joystick.js';
 
 /** Teclas que o navegador usaria (rolar a página, passar o foco): o jogo segura. */
@@ -41,6 +42,16 @@ export class Controles {
     aoApertar('recall', () => (this.pulsoRecall = true), { signal });
     aoApertar('camTroca', () => (this.pulsoCamera = true), { signal });
     addEventListener('keyup', (e) => this.apertadas.delete(e.code), { signal });
+    // Botões do mouse (no mapa como 'Mouse0', 'Mouse2'...): seguram como uma tecla,
+    // mas só apertam com o clique na tela do jogo, não num painel por cima dela.
+    addEventListener('mousedown', (e) => {
+      const code = teclaDoMouse(e.button);
+      if (code && cliqueNoJogo(e.target)) this.apertadas.add(code);
+    }, { signal });
+    addEventListener('mouseup', (e) => {
+      const code = teclaDoMouse(e.button);
+      if (code) this.apertadas.delete(code);
+    }, { signal });
     // Roda do mouse sobre o jogo (não sobre um painel que rola): sobe e desce a
     // câmera. Acumula até o laço ler (rodaCamera).
     this.roda = 0;

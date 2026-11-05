@@ -9,6 +9,13 @@
 // Os listeners globais entram uma vez, quando o módulo carrega (antes do main.js
 // registrar os dele): a captura de uma tecla nova na tela de configurar vem antes de
 // tudo e engole a tecla (o Esc que cancela a captura não pode voltar o menu).
+//
+// Os botões do mouse são teclas do mapa do teclado ('Mouse0' o esquerdo, 'Mouse2' o
+// direito). Na partida só contam com o clique na tela do jogo (#jogo, onde o HUD
+// deixa o clique passar): o clique num botão do HUD, na Loja ou numa janela é da
+// interface, não um tiro. Na captura, o clique que vira o atalho é engolido inteiro
+// (o click, o auxclick e o menu do botão direito), senão ele clicaria a casa de novo
+// ou o botão direito a apagaria.
 
 import {
   ACAO,
@@ -20,6 +27,7 @@ import {
   atribuir,
   limpar,
   TECLAS_RESERVADAS,
+  teclaDoMouse,
 } from './atalhos-regras.js';
 
 const lerGuardado = () => {
@@ -66,6 +74,16 @@ export function teclaNoMapa(code) {
 export function campoDeTexto(alvo) {
   if (alvo?.isContentEditable || (typeof HTMLTextAreaElement !== 'undefined' && alvo instanceof HTMLTextAreaElement)) return true;
   return typeof HTMLInputElement !== 'undefined' && alvo instanceof HTMLInputElement && !['range', 'checkbox', 'radio', 'button', 'submit'].includes(alvo.type);
+}
+
+/** O clique caiu na tela do jogo (e não num painel ou botão por cima dela)? */
+export function cliqueNoJogo(alvo) {
+  return !!alvo?.closest?.('#jogo');
+}
+
+/** Algum botão do mouse está no mapa do teclado? */
+function mouseNoMapa(code) {
+  return Object.values(mapas.teclado).some((l) => l.includes(code));
 }
 
 function ouvir(tipo, acao, fn, { signal, repetir = false } = {}) {
@@ -230,6 +248,37 @@ if (typeof addEventListener === 'function') {
     if (captura) e.stopImmediatePropagation();
   }, { capture: true });
 
+  // Captura de um botão do mouse: o mousedown vira o atalho, e o resto do clique
+  // (mouseup, click, auxclick, menu do botão direito) é engolido até o fim dele.
+  let engolindo = null; // o botão cujo clique está sendo engolido
+  addEventListener(
+    'mousedown',
+    (e) => {
+      if (captura?.disp !== 'teclado') return void (engolindo = null);
+      const code = teclaDoMouse(e.button);
+      if (!code) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      engolindo = e.button;
+      concluirCaptura(code);
+    },
+    { capture: true },
+  );
+  for (const tipo of ['mouseup', 'click', 'auxclick', 'contextmenu']) {
+    addEventListener(
+      tipo,
+      (e) => {
+        if (engolindo === null || (tipo !== 'contextmenu' && e.button !== engolindo)) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        // O click vem logo depois do mouseup; o menu do botão direito, no Windows,
+        // um pouco depois. Um clique novo também para de engolir (mousedown acima).
+        if (tipo === 'mouseup') setTimeout(() => (engolindo = null), 250);
+      },
+      { capture: true },
+    );
+  }
+
   addEventListener('keydown', (e) => {
     definirDispositivo('teclado');
     if (campoDeTexto(e.target)) return;
@@ -239,4 +288,24 @@ if (typeof addEventListener === 'function') {
     for (const [acao, lista] of Object.entries(mapas.teclado)) if (lista.includes(e.code)) emitirAcao('soltou', acao, e);
   });
   addEventListener('pointerdown', () => definirDispositivo('teclado'), { capture: true });
+
+  // Botões do mouse na partida: só o clique na tela do jogo aperta; soltar vale em
+  // qualquer lugar (o botão pode ser solto em cima de um painel).
+  addEventListener('mousedown', (e) => {
+    const code = teclaDoMouse(e.button);
+    if (!code || !cliqueNoJogo(e.target)) return;
+    // O botão do meio rola a página e os laterais voltam e avançam no histórico.
+    if (e.button !== 0 && mouseNoMapa(code)) e.preventDefault();
+    for (const [acao, lista] of Object.entries(mapas.teclado)) if (lista.includes(code)) emitirAcao('apertou', acao, e);
+  });
+  addEventListener('mouseup', (e) => {
+    const code = teclaDoMouse(e.button);
+    if (!code) return;
+    if (e.button > 2 && mouseNoMapa(code)) e.preventDefault();
+    for (const [acao, lista] of Object.entries(mapas.teclado)) if (lista.includes(code)) emitirAcao('soltou', acao, e);
+  });
+  // O menu do botão direito não abre em cima do jogo (o botão direito pode ser o X).
+  addEventListener('contextmenu', (e) => {
+    if (cliqueNoJogo(e.target)) e.preventDefault();
+  });
 }

@@ -132,7 +132,7 @@
           <nav class="config-secoes" aria-label="Seções">
             <h1 id="titulo-config" class="titulo-tela">Configurações</h1>
             <button type="button" data-secao="som" class="sel">Som</button>
-            <button type="button" data-secao="teclado">Controles · Teclado</button>
+            <button type="button" data-secao="teclado">Controles · Teclado e mouse</button>
             <button type="button" data-secao="controle">Controles · Controle</button>
           </nav>
           <section id="config-som" class="config-painel" data-secao="som" aria-label="Som">
@@ -154,12 +154,12 @@
             </label>
             <button type="button" class="alternar-mudo botao-volume" title="Liga e desliga todo o som (M)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som">Som ligado</span><kbd data-acao-rotulo="som">M</kbd></button>
           </section>
-          <section class="config-painel config-atalhos" data-secao="teclado" hidden aria-label="Teclado">
+          <section class="config-painel config-atalhos" data-secao="teclado" hidden aria-label="Teclado e mouse">
             <header class="cabeca-atalhos">
-              <h2>Teclado</h2>
+              <h2>Teclado e mouse</h2>
               <button type="button" class="restaurar-atalhos" data-disp="teclado">Restaurar padrão</button>
             </header>
-            <p class="ajuda-atalhos">Clique numa casa e aperte a tecla nova. <kbd>Esc</kbd> cancela, <kbd>Del</kbd> apaga (ou clique com o botão direito). Uma tecla serve a uma ação só: ela sai da outra.</p>
+            <p class="ajuda-atalhos">Clique numa casa e aperte a tecla nova ou clique com o botão do mouse (esquerdo, direito, do meio ou os laterais). <kbd>Esc</kbd> cancela, <kbd>Del</kbd> apaga (ou clique com o botão direito na casa). Uma tecla serve a uma ação só: ela sai da outra. Na partida, o clique só atira em cima do jogo, não nos painéis.</p>
             <p class="aviso-atalhos" aria-live="polite"></p>
             <div class="lista-atalhos" data-disp="teclado"></div>
           </section>

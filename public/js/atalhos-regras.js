@@ -7,7 +7,9 @@
 // eventos das ações e rótulos na tela) e joystick.js lê o controle pela Gamepad API.
 //
 // Teclas são o `KeyboardEvent.code` (a posição da tecla: o W continua no mesmo lugar
-// num teclado AZERTY). Entradas do controle são texto curto: 'b7' é o botão 7 e
+// num teclado AZERTY). Os botões do mouse entram no mapa do teclado como teclas de
+// nome 'Mouse<n>' (o `MouseEvent.button`: 0 esquerdo, 1 meio, 2 direito, 3 e 4 os
+// laterais), para o piloto pôr o Z no clique esquerdo e o X no direito. Entradas do controle são texto curto: 'b7' é o botão 7 e
 // 'a1-' o eixo 1 para o lado negativo (o analógico esquerdo para cima). Os números
 // são os do mapeamento padrão da Gamepad API ("standard"), que é o de um DualShock 3
 // ou 4 e do controle do Xbox; os padrões abaixo usam os 17 botões e os 4 eixos dele,
@@ -163,6 +165,15 @@ export const teclaValida = (c) => typeof c === 'string' && RE_TECLA.test(c);
 /** É uma entrada do controle aceitável ('b7', 'a1-')? */
 export const entradaValida = (c) => typeof c === 'string' && RE_ENTRADA.test(c);
 
+/** Os botões do mouse que entram no mapa (esquerdo, meio, direito e os dois laterais). */
+export const BOTOES_MOUSE = Object.freeze([0, 1, 2, 3, 4]);
+
+/** A "tecla" de um botão do mouse ('Mouse0'), ou null para um botão fora de BOTOES_MOUSE. */
+export const teclaDoMouse = (botao) => (BOTOES_MOUSE.includes(botao) ? `Mouse${botao}` : null);
+
+/** A tecla do mapa é um botão do mouse? */
+export const ehMouse = (code) => typeof code === 'string' && /^Mouse\d$/.test(code);
+
 /** Teclas que nunca entram no mapa: o Esc é o menu e as do sistema. */
 export const TECLAS_RESERVADAS = Object.freeze(['Escape', 'MetaLeft', 'MetaRight', 'ContextMenu', 'F5', 'F11', 'F12']);
 
@@ -309,10 +320,14 @@ const NOMES_TECLA = {
   NumpadDecimal: 'Num ,',
 };
 
-/** Nome curto de uma tecla (o `code`) para a tela: 'KeyW' → 'W', 'Space' → 'Espaço'. */
+/** Nomes dos botões do mouse, pelo `MouseEvent.button`. */
+const NOMES_MOUSE = ['Clique esq.', 'Clique meio', 'Clique dir.', 'Mouse 4', 'Mouse 5'];
+
+/** Nome curto de uma tecla (o `code`) para a tela: 'KeyW' → 'W', 'Space' → 'Espaço', 'Mouse0' → 'Clique esq.'. */
 export function nomeTecla(code) {
   if (!code) return '';
   if (NOMES_TECLA[code]) return NOMES_TECLA[code];
+  if (ehMouse(code)) return NOMES_MOUSE[Number(code.slice(5))] ?? code;
   let m = /^Key([A-Z])$/.exec(code);
   if (m) return m[1];
   m = /^Digit(\d)$/.exec(code);

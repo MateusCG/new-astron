@@ -877,7 +877,9 @@ export class Menu {
     });
 
     // As listas de atalhos (atalhos.js): uma casa por tecla ou botão de cada ação;
-    // clicar espera a entrada nova (capturar), o botão direito apaga.
+    // clicar espera a entrada nova (capturar), o botão direito apaga. No teclado, a
+    // entrada nova pode ser um clique (o botão do mouse: atalhos.js engole o clique
+    // inteiro), então o clique na casa que espera vira o clique esquerdo; Esc cancela.
     for (const lista of tela.querySelectorAll('.lista-atalhos')) {
       const disp = lista.dataset.disp;
       const painel = lista.closest('.config-atalhos');
@@ -902,7 +904,7 @@ export class Menu {
           } else if (r.limpou) aviso.textContent = `"${ACAO[acao].nome}" ficou sem essa casa.`;
         });
         casa.classList.add('esperando');
-        casa.textContent = disp === 'teclado' ? 'Aperte a tecla…' : 'Aperte o botão…';
+        casa.textContent = disp === 'teclado' ? 'Tecla ou clique…' : 'Aperte o botão…';
         // O controle não tem Esc: a espera acaba sozinha.
         if (disp === 'controle') this.tempoCaptura = setTimeout(() => cancelarCaptura(), 8000);
       });
