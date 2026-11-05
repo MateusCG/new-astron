@@ -65,26 +65,20 @@ import { COR_TIME } from './efeitos.js';
 import { miniatura } from './vitrine.js';
 import { carregarIcone } from './icones-itens.js';
 import { SONS_LOCUTOR } from './locutor-regras.js';
+import { DICAS_ABERTURA, DICA_S, proximaDica } from './abertura-regras.js';
+import {
+  ARTE_CARREGAMENTO,
+  MAPA_DA_PARTIDA,
+  GRUPOS_CARREGAMENTO,
+  grupoCarregado,
+  fracaoCarregamento,
+  pctCarregamento,
+  textoCarregamento,
+} from './carregamento-regras.js';
 
 /** Arquivos baixando ao mesmo tempo na tela de carregamento (o navegador abre ~6 por servidor). */
 const SIMULTANEOS = 6;
 
-// Linhas da tela, na ordem em que carregam. `peso` é a parte da barra de cada uma,
-// mais ou menos pelo tamanho (naves ~7 MB, armas ~3,7 MB, sons ~4,2 MB e a
-// decodificação, efeitos ~1,4 MB, monstros ~1,2 MB, mapa ~0,9 MB) e pelo tempo da
-// placa de vídeo (agora com tudo isso para compilar e enviar).
-const LINHAS = [
-  { id: 'mapa', nome: 'Cenário · lago de Hélio-3', curto: 'Cenário', peso: 5 },
-  { id: 'monstros', nome: 'Monstros da jungle', curto: 'Monstros', peso: 6 },
-  { id: 'naves', nome: 'Naves · todas as raças e classes', curto: 'Naves', peso: 28 },
-  { id: 'armas', nome: 'Armas na asa · todas', curto: 'Armas', peso: 15 },
-  { id: 'efeitos', nome: 'Efeitos das armas · V1 a V8', curto: 'Efeitos', peso: 7 },
-  { id: 'sons', nome: 'Sons das armas e da interface', curto: 'Sons', peso: 20 },
-  { id: 'miniaturas', nome: 'Miniaturas da Evolução', curto: 'Miniaturas', peso: 3 },
-  { id: 'icones', nome: 'Ícones da Loja e do inventário', curto: 'Ícones', peso: 1 },
-  { id: 'servidor', nome: 'Servidor', curto: 'Conectando ao servidor', peso: 3 },
-  { id: 'gpu', nome: 'Placa de vídeo · shaders, texturas e modelos', curto: 'Preparando a placa de vídeo', peso: 13 },
-];
 /** Passos da linha da placa de vídeo (aquecerGpu): montar, compilar, texturas, desenhar. */
 const PASSOS_GPU = 4;
 
@@ -99,38 +93,81 @@ export function emFila(tarefas, n) {
 
 // ---------- A tela ----------
 
-/** A tela (#carregamento): barra com a porcentagem, o que está carregando e uma linha por grupo. */
+/**
+ * A tela (#carregamento), no estilo da tela de abertura: o mapa da partida em tela
+ * cheia (ARTE_CARREGAMENTO), o nome do jogo e o do mapa no alto à esquerda, a sua
+ * nave no alto à direita, a barra embaixo com um chip por grupo (marca, nome,
+ * contagem e um fio que enche) e as dicas da abertura no canto. Sem botão: main.js
+ * fecha a tela e começa a partida quando a placa de vídeo termina.
+ */
 export class TelaCarregamento {
   constructor(el = document.querySelector('#carregamento')) {
     this.el = el;
-    this.lista = el.querySelector('.grupos');
+    this.q = (s) => el.querySelector(s);
+    this.lista = this.q('.grupos-carregamento');
     this.linhas = new Map();
-    for (const l of LINHAS) {
+    for (const g of GRUPOS_CARREGAMENTO) {
       const li = document.createElement('li');
-      li.dataset.grupo = l.id;
-      li.innerHTML = `<i class="marca" aria-hidden="true"></i><span class="nome">${l.nome}</span><b class="conta"></b><span class="fio"><i></i></span>`;
+      li.dataset.grupo = g.id;
+      li.title = g.titulo;
+      li.innerHTML = `<i class="marca" aria-hidden="true"></i><span class="nome">${g.nome}</span><b class="conta"></b><span class="fio"><i></i></span>`;
       this.lista.append(li);
-      this.linhas.set(l.id, { ...l, li, feitos: 0, total: 0, falhas: 0, texto: '', ativa: true });
+      this.linhas.set(g.id, { ...g, li, feitos: 0, total: 0, falhas: 0, texto: '', ativa: true });
     }
+    this.q('.nome-mapa').textContent = MAPA_DA_PARTIDA.nome;
+    this.q('.linha-mapa').textContent = MAPA_DA_PARTIDA.linha;
+    // A arte chega esmaecendo (sem ela, fica o céu de fim de tarde do CSS).
+    const arte = this.q('.arte-carregamento');
+    arte.addEventListener('load', () => arte.classList.add('pronta'), { once: true });
+    arte.src = ARTE_CARREGAMENTO;
+    if (arte.complete && arte.naturalWidth) arte.classList.add('pronta');
   }
 
-  /** Abre a tela zerada para a raça e a classe (e o nome da primeira nave). */
+  /** Abre a tela zerada para a raça e a classe (a primeira nave da linha, com a miniatura). */
   mostrar(race, classe) {
     const r = RACES[race];
+    const nave = naveDe(race, classe, 0);
     this.el.style.setProperty('--cor-raca', '#' + new THREE.Color(r?.cor ?? 0xffffff).getHexString());
-    this.el.querySelector('.piloto').innerHTML = `<b>${r?.nome ?? race}</b> · ${CLASSES[classe]?.nome ?? classe} · <span>${naveDe(race, classe, 0)?.nome ?? ''}</span>`;
+    this.q('.nave-piloto').textContent = nave?.nome ?? '';
+    this.q('.piloto').innerHTML = `<b>${r?.nome ?? race}</b> · ${CLASSES[classe]?.nome ?? classe}`;
+    // A miniatura já está pronta desde a abertura (o hangar desenha todas).
+    const img = this.q('.mini-piloto');
+    img.hidden = true;
+    const pedido = (this.pedidoMini = `${race}/${classe}`);
+    miniatura(race, classe, 0).then((url) => {
+      if (!url || this.pedidoMini !== pedido) return;
+      img.src = url;
+      img.hidden = false;
+    });
     for (const l of this.linhas.values()) Object.assign(l, { feitos: 0, total: 0, falhas: 0, texto: '', ativa: true });
     this.el.classList.remove('saindo');
     this.el.hidden = false;
+    // A dica troca sozinha enquanto a tela está aberta (as mesmas da abertura).
+    this.dica = Math.floor(Math.random() * DICAS_ABERTURA.length);
+    this.#mostrarDica();
+    clearInterval(this.relogioDica);
+    this.relogioDica = setInterval(() => {
+      this.dica = proximaDica(this.dica);
+      this.#mostrarDica();
+    }, DICA_S * 1000);
     this.desenhar();
   }
 
   /** Fecha a tela (some com um esmaecer curto). */
   esconder() {
+    clearInterval(this.relogioDica);
     this.el.classList.add('saindo');
     setTimeout(() => {
       if (this.el.classList.contains('saindo')) this.el.hidden = true;
-    }, 220);
+    }, 350);
+  }
+
+  #mostrarDica() {
+    const p = this.q('.dica-carregamento p');
+    p.classList.remove('entrando');
+    void p.offsetWidth; // reinicia a animação de entrada
+    p.innerHTML = DICAS_ABERTURA[this.dica];
+    p.classList.add('entrando');
   }
 
   /** Muda uma linha: { feitos, total, falhas, texto, ativa } (o que vier). */
@@ -149,14 +186,7 @@ export class TelaCarregamento {
 
   /** Fração da barra (0 a 1), pelo peso de cada linha ativa. */
   get fracao() {
-    let soma = 0;
-    let feito = 0;
-    for (const l of this.linhas.values()) {
-      if (!l.ativa) continue;
-      soma += l.peso;
-      feito += l.peso * (l.total > 0 ? Math.min(1, l.feitos / l.total) : 0);
-    }
-    return soma ? feito / soma : 0;
+    return fracaoCarregamento(Object.fromEntries(this.linhas));
   }
 
   desenhar() {
@@ -164,25 +194,21 @@ export class TelaCarregamento {
     // Um desenho por quadro, por mais arquivos que terminem nele.
     this.quadro = requestAnimationFrame(() => {
       this.quadro = 0;
-      const pct = Math.floor(this.fracao * 100);
-      this.el.querySelector('.pct').textContent = `${pct}%`;
-      this.el.querySelector('.barra-total i').style.width = `${this.fracao * 100}%`;
-      let agora = null;
+      const estado = Object.fromEntries(this.linhas);
+      const pct = pctCarregamento(estado);
+      this.q('.pct-carregamento').textContent = `${pct}%`;
+      this.q('.barra-carregamento i').style.width = `${fracaoCarregamento(estado) * 100}%`;
+      this.q('.agora-carregamento').textContent = textoCarregamento(estado);
       for (const l of this.linhas.values()) {
         l.li.hidden = !l.ativa;
-        const pronto = l.total > 0 && l.feitos >= l.total;
-        l.li.classList.toggle('pronto', pronto);
+        l.li.classList.toggle('pronto', grupoCarregado(l));
         l.li.classList.toggle('falhou', l.falhas > 0);
-        const conta = l.texto || (l.total ? `${l.feitos}/${l.total}` : '—');
-        l.li.querySelector('.conta').textContent = l.falhas ? `${conta} · ${l.falhas} falh${l.falhas > 1 ? 'aram' : 'ou'}` : conta;
+        const conta = l.texto || (l.total ? `${l.feitos}/${l.total}` : '');
+        l.li.querySelector('.conta').textContent = conta;
+        l.li.title = l.falhas ? `${l.titulo} · ${l.falhas} não carrega${l.falhas > 1 ? 'ram' : 'u'} (o jogo tenta de novo quando precisar)` : l.titulo;
         l.li.querySelector('.fio i').style.width = `${l.total ? (Math.min(l.feitos, l.total) / l.total) * 100 : 0}%`;
-        if (l.ativa && !pronto && !agora) agora = l;
       }
-      this.el.querySelector('.agora').textContent = agora
-        ? agora.id === 'servidor' || agora.id === 'gpu'
-          ? `${agora.curto}…`
-          : `Carregando · ${agora.curto} ${agora.feitos}/${agora.total || '…'}`
-        : 'Pronto · decolando';
+      this.el.classList.toggle('pronta', pct >= 100);
     });
   }
 }

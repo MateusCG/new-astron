@@ -182,20 +182,28 @@
       </footer>
     </section>
 
-    <!-- Tela de carregamento (carregamento.js): do "Decolar" até a partida, baixa e
-         prepara tudo o que a nave pode precisar. As linhas dos grupos entram por JS. -->
-    <section id="carregamento" hidden aria-live="polite" aria-label="Carregando a partida">
-      <div class="chapa-carregamento">
-        <h1>NEW <span>ASTRON</span></h1>
-        <p class="titulo-carregamento">Preparando a decolagem</p>
-        <p class="piloto"></p>
-        <div class="medidor">
-          <b class="pct">0%</b>
-          <span class="barra-total"><i></i></span>
-          <p class="agora">Carregando…</p>
-        </div>
-        <ul class="grupos"></ul>
-        <p class="dica-carregamento">Tudo o que a sua nave usa carrega agora, para nada travar no meio da partida. Sua nave espera na base, na zona segura. <kbd>Esc</kbd> cancela</p>
+    <!-- Tela de carregamento (carregamento.js, regras em carregamento-regras.js): do
+         "Decolar" até a partida, baixa e prepara tudo o que a nave pode precisar. No
+         estilo da tela de abertura, com o mapa da partida de fundo e sem botão: termina
+         e a partida começa. Os chips dos grupos entram por JS. -->
+    <section id="carregamento" hidden aria-label="Carregando a partida">
+      <img class="arte-carregamento" alt="O lago de Hélio-3 visto do alto" draggable="false" />
+      <div class="veu-carregamento" aria-hidden="true"></div>
+      <header class="topo-carregamento">
+        <h1 class="marca-carregamento"><small>NEW</small><span>ASTRON</span></h1>
+        <div class="mapa-carregamento"><small>Mapa</small><b class="nome-mapa"></b><em class="linha-mapa"></em></div>
+      </header>
+      <aside class="nave-carregamento" aria-label="Sua nave">
+        <img class="mini-piloto" alt="" hidden />
+        <div><small>Sua nave</small><b class="nave-piloto"></b><p class="piloto"></p></div>
+      </aside>
+      <div class="carga-carregamento" aria-live="polite">
+        <aside class="dica-carregamento"><b>Dica</b><p></p></aside>
+        <p class="cabeca-carregamento"><span class="titulo-carregamento">Preparando a decolagem</span><b class="pct-carregamento">0%</b></p>
+        <span class="barra-carregamento"><i></i></span>
+        <p class="agora-carregamento">Carregando…</p>
+        <ul class="grupos-carregamento"></ul>
+        <p class="esc-carregamento">Sua nave espera na base, na zona segura · <kbd>Esc</kbd> cancela</p>
       </div>
     </section>
 

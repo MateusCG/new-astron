@@ -6748,23 +6748,23 @@ body.dano::after {
 }
 
 /* ---------- Tela de carregamento (#carregamento, carregamento.js) ----------
-   Do "Decolar" até a partida: o mesmo céu de fim de tarde e a mesma chapa da tela
-   inicial, com o nome do jogo, a barra geral (porcentagem em mono, barra --neon com
-   brilho) e uma linha por grupo (naves, armas, efeitos, sons...) com a contagem e um
-   fio de 3 px que enche, como a recarga das armas no painel inferior. Por cima de
-   tudo (o jogo monta e aquece atrás dela) e só some quando a nave pode voar. */
+   Do "Decolar" até a partida, no estilo da tela de abertura: o mapa da partida em
+   tela cheia (o lago de Hélio-3 do alto; sem a arte, o céu de fim de tarde), um véu
+   escuro à esquerda e embaixo para o texto ler, o nome do jogo e o do mapa no alto à
+   esquerda, a sua nave no alto à direita, a barra no meio de baixo (o que carrega e a
+   porcentagem, a barra de 6 px neon e um chip por grupo com um fio que enche) e a dica
+   no canto de baixo à esquerda. Sem botão: some sozinha quando a nave pode voar. Por
+   cima de tudo (o jogo monta e aquece atrás dela). */
 #carregamento {
   position: fixed;
   inset: 0;
   z-index: 40;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  overflow-y: auto;
+  overflow: hidden;
   background:
-    radial-gradient(ellipse at 50% 120%, #f59a45 0%, #a8402a 35%, #2a0f1c 75%),
+    radial-gradient(ellipse at 50% 112%, #f59a45 0%, #a8402a 32%, #2a0f1c 72%),
     #2a0f1c;
-  transition: opacity 0.2s ease-out;
+  transition: opacity 0.35s ease-out;
+  animation: entrar-carregamento 0.35s ease-out both;
 }
 
 #carregamento.saindo {
@@ -6772,175 +6772,377 @@ body.dano::after {
   pointer-events: none;
 }
 
-.chapa-carregamento {
-  width: min(760px, 100%);
-  padding: 22px 36px 20px;
-  border: 1px solid var(--neon-escuro);
-  border-top: 2px solid var(--neon);
-  border-radius: 10px;
-  background: linear-gradient(180deg, rgba(24, 48, 46, 0.94), rgba(10, 22, 21, 0.96));
-  box-shadow: 0 0 40px rgba(0, 239, 192, 0.15);
+/* O mapa cobre a tela, chega esmaecendo e se aproxima devagar (como uma câmera
+   descendo para a partida), parado com prefers-reduced-motion. */
+.arte-carregamento {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 58% 50%;
+  opacity: 0;
+  transition: opacity 0.8s ease-out;
 }
 
-.chapa-carregamento h1 {
-  font-size: 36px;
+.arte-carregamento.pronta {
+  opacity: 1;
+  animation: aproximar-mapa 40s cubic-bezier(0.2, 0.6, 0.3, 1) both;
 }
 
-.titulo-carregamento {
-  margin: 6px 0 0;
-  text-align: center;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.24em;
+.veu-carregamento {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(5, 8, 10, 0.72) 0%, rgba(5, 8, 10, 0.3) 30%, transparent 52%),
+    linear-gradient(0deg, rgba(5, 8, 10, 0.94) 0%, rgba(5, 8, 10, 0.6) 26%, transparent 50%),
+    linear-gradient(180deg, rgba(5, 8, 10, 0.5) 0%, transparent 24%);
+  pointer-events: none;
+}
+
+/* O nome do jogo (a marca da abertura, menor) e, embaixo, o do mapa da partida. */
+.topo-carregamento {
+  position: absolute;
+  top: clamp(24px, 7vh, 90px);
+  left: clamp(20px, 6vw, 120px);
+  display: grid;
+  justify-items: start;
+  gap: clamp(14px, 3vh, 30px);
+  animation: entrar-marca 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.marca-carregamento {
+  display: grid;
+  justify-items: start;
+  margin: 0;
+  line-height: 1;
+}
+
+.marca-carregamento small {
+  margin: 0 0 2px 0.3em;
+  font: 800 clamp(13px, 1.2vw, 20px) system-ui, sans-serif;
+  letter-spacing: 0.62em;
+  color: var(--texto);
+  opacity: 0.9;
+}
+
+.marca-carregamento span {
+  font: italic 900 clamp(44px, 5.6vw, 104px) / 0.95 system-ui, sans-serif;
+  letter-spacing: 0.03em;
+  background: linear-gradient(180deg, #ffffff 18%, #a9fff0 52%, var(--neon) 82%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 16px rgba(0, 239, 192, 0.45)) drop-shadow(0 3px 0 rgba(3, 43, 34, 0.9));
+  padding-right: 0.08em; /* o itálico não corta a última letra */
+}
+
+.mapa-carregamento {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  padding-left: 14px;
+  border-left: 3px solid var(--neon);
+}
+
+.mapa-carregamento small {
+  font: 700 12px ui-monospace, monospace;
+  letter-spacing: 0.32em;
   text-transform: uppercase;
   color: var(--neon);
-  animation: piscar-carregando 1.6s ease-in-out infinite;
 }
 
-.chapa-carregamento .piloto {
-  margin: 4px 0 16px;
-  text-align: center;
-  opacity: 0.85;
+.mapa-carregamento b {
+  font: 800 clamp(22px, 2.2vw, 36px) / 1.05 system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texto);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.7);
 }
 
-/* A raça na cor dela (como o botão de voltar da tela inicial); a nave em neon. */
-.chapa-carregamento .piloto b {
+.mapa-carregamento em {
+  font: 600 clamp(12px, 0.95vw, 15px) system-ui, sans-serif;
+  font-style: normal;
+  letter-spacing: 0.04em;
+  color: var(--texto);
+  opacity: 0.8;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+}
+
+/* A sua nave no alto à direita: a miniatura da abertura, o nome em neon e a raça na
+   cor dela, numa chapa translúcida com o fio da cor da raça. */
+.nave-carregamento {
+  position: absolute;
+  top: clamp(24px, 7vh, 90px);
+  right: clamp(20px, 4vw, 80px);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 20px 10px 10px;
+  border: 1px solid var(--chapa-clara);
+  border-right: 3px solid var(--cor-raca, var(--neon));
+  border-radius: 6px;
+  background: rgba(8, 20, 19, 0.7);
+  backdrop-filter: blur(4px);
+  animation: entrar-nave 0.8s 0.1s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.mini-piloto {
+  width: 96px;
+  height: 72px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6));
+}
+
+.nave-carregamento div {
+  display: grid;
+  gap: 2px;
+}
+
+.nave-carregamento small {
+  font: 700 11px ui-monospace, monospace;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+
+.nave-piloto {
+  font: 800 22px/1.1 system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  color: var(--neon);
+}
+
+.nave-carregamento .piloto {
+  margin: 0;
+  font-size: 15px;
+  opacity: 0.9;
+}
+
+.nave-carregamento .piloto b {
   color: var(--cor-raca, var(--texto));
 }
 
-.chapa-carregamento .piloto span {
-  color: var(--neon);
-}
-
-.medidor {
+/* A barra no meio de baixo: "Preparando a decolagem" piscando e a porcentagem em
+   cima, a barra de 6 px, o que está carregando agora e os chips dos grupos. */
+.carga-carregamento {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: clamp(20px, 6vh, 72px);
+  width: min(860px, calc(100% - 32px));
+  margin: 0 auto; /* centrada sem transform: a dica de dentro dela fica presa à tela */
   display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 4px 16px;
+  gap: 8px;
 }
 
-.medidor .pct {
-  min-width: 3.4em;
-  font: 700 34px/1 ui-monospace, monospace;
+.cabeca-carregamento {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0;
+}
+
+.titulo-carregamento {
+  font: 700 15px system-ui, sans-serif;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
   color: var(--neon);
-  text-shadow: 0 0 12px rgba(0, 239, 192, 0.55);
-  text-align: right;
+  text-shadow: 0 0 10px rgba(0, 239, 192, 0.45);
+  animation: piscar-carregando 1.6s ease-in-out infinite;
 }
 
-.barra-total {
+#carregamento.pronta .titulo-carregamento {
+  animation: none;
+}
+
+.pct-carregamento {
+  font: 700 24px ui-monospace, monospace;
+  color: var(--texto);
+  text-shadow: 0 0 12px rgba(0, 239, 192, 0.4);
+}
+
+.barra-carregamento {
   position: relative;
-  height: 16px;
-  border: 1px solid var(--neon-escuro);
-  border-radius: 8px;
-  background: #0b1716;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(223, 245, 239, 0.14);
   overflow: hidden;
 }
 
-.barra-total i {
+.barra-carregamento i {
   position: absolute;
   inset: 0 auto 0 0;
   width: 0;
-  border-radius: 8px;
-  background: var(--neon);
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--neon-escuro), var(--neon));
   box-shadow: 0 0 12px var(--neon);
-  transition: width 0.15s linear;
+  transition: width 0.2s linear;
 }
 
-.medidor .agora {
-  grid-column: 2;
+.agora-carregamento {
   margin: 0;
-  font-size: 16px;
-  opacity: 0.85;
-}
-
-.grupos {
-  display: grid;
-  gap: 7px;
-  margin: 18px 0 0;
-  padding: 14px 16px;
-  border: 1px solid var(--chapa-clara);
-  border-radius: 8px;
-  background: rgba(8, 20, 19, 0.6);
-  list-style: none;
-}
-
-.grupos li {
-  display: grid;
-  grid-template-columns: 14px 1fr auto;
-  grid-template-areas: 'marca nome conta' '. fio fio';
-  align-items: center;
-  gap: 3px 10px;
-  font-size: 16px;
-}
-
-/* Marca do grupo: anel apagado esperando, anel neon girando enquanto carrega e
-   ponto neon cheio quando termina. */
-.grupos .marca {
-  grid-area: marca;
-  width: 12px;
-  height: 12px;
-  border: 2px solid var(--chapa-clara);
-  border-radius: 50%;
-}
-
-.grupos li:not(.pronto) .marca {
-  border-color: var(--neon-escuro);
-  border-top-color: var(--neon);
-  animation: girar-marca 0.9s linear infinite;
-}
-
-.grupos li.pronto .marca {
-  border-color: var(--neon);
-  background: var(--neon);
-  box-shadow: 0 0 6px var(--neon);
-}
-
-.grupos .nome {
-  grid-area: nome;
+  font: 600 13px ui-monospace, monospace;
+  color: var(--texto);
   opacity: 0.75;
 }
 
-.grupos li.pronto .nome {
-  opacity: 1;
+/* Um chip por grupo, cinco por linha: marca (anel girando, ponto neon pronto), nome,
+   contagem e o fio de 2 px que enche, como a recarga das armas no painel. */
+.grupos-carregamento {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
 }
 
-.grupos .conta {
-  grid-area: conta;
-  font: 600 15px ui-monospace, monospace;
-  color: var(--texto);
+.grupos-carregamento li {
+  display: grid;
+  grid-template-columns: 11px minmax(0, 1fr) auto;
+  grid-template-areas: 'marca nome nome' 'fio fio conta';
+  align-items: center;
+  gap: 4px 7px;
+  padding: 7px 9px 6px;
+  border: 1px solid rgba(44, 74, 70, 0.8);
+  border-radius: 4px;
+  background: rgba(8, 20, 19, 0.66);
+  backdrop-filter: blur(3px);
+}
+
+.grupos-carregamento li.pronto {
+  border-color: var(--neon-escuro);
+}
+
+.grupos-carregamento .marca {
+  grid-area: marca;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--neon-escuro);
+  border-top-color: var(--neon);
+  border-radius: 50%;
+  animation: girar-marca 0.9s linear infinite;
+}
+
+.grupos-carregamento li.pronto .marca {
+  border-color: var(--neon);
+  background: var(--neon);
+  box-shadow: 0 0 6px var(--neon);
+  animation: none;
+}
+
+.grupos-carregamento .nome {
+  grid-area: nome;
+  overflow: hidden;
+  font: 700 12px system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   opacity: 0.8;
 }
 
-.grupos li.pronto .conta {
+.grupos-carregamento li.pronto .nome {
+  opacity: 1;
+}
+
+.grupos-carregamento .conta {
+  grid-area: conta;
+  font: 600 11px ui-monospace, monospace;
+  opacity: 0.6;
+}
+
+.grupos-carregamento li.pronto .conta {
   color: var(--neon);
   opacity: 1;
 }
 
-.grupos li.falhou .conta {
+.grupos-carregamento li.falhou .conta {
   color: #ff8a70;
+  opacity: 1;
 }
 
-.grupos .fio {
+.grupos-carregamento .fio {
   grid-area: fio;
   position: relative;
-  height: 3px;
-  border-radius: 2px;
+  height: 2px;
+  border-radius: 1px;
   background: rgba(223, 245, 239, 0.12);
   overflow: hidden;
 }
 
-.grupos .fio i {
+.grupos-carregamento .fio i {
   position: absolute;
   inset: 0 auto 0 0;
   width: 0;
   background: var(--neon);
+  transition: width 0.15s linear;
 }
 
-.dica-carregamento {
-  margin: 14px 0 0;
+.esc-carregamento {
+  margin: 4px 0 0;
   text-align: center;
-  font-size: 14px;
-  opacity: 0.65;
+  font-size: 13px;
+  opacity: 0.6;
+}
+
+.esc-carregamento kbd {
+  padding: 0 5px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.35);
+  font: 600 12px ui-monospace, monospace;
+  color: var(--neon);
+}
+
+/* A dica do canto: a mesma chapa da abertura (selo "DICA" em neon, o texto entra
+   deslizando a cada troca). Mora dentro da barra: na tela larga vai para o canto de
+   baixo à esquerda (fixa na tela); na estreita fica em cima da barra. */
+.dica-carregamento {
+  position: fixed;
+  left: clamp(16px, 2.4vw, 40px);
+  bottom: clamp(16px, 4vh, 40px);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: min(380px, calc(50% - 490px));
+  padding: 12px 16px;
+  border: 1px solid var(--chapa-clara);
+  border-left: 3px solid var(--neon);
+  border-radius: 6px;
+  background: rgba(8, 20, 19, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.dica-carregamento b {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: var(--neon);
+  color: #032b22;
+  font: 800 12px ui-monospace, monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.dica-carregamento p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.dica-carregamento p.entrando {
+  animation: entrar-dica 0.4s ease-out both;
+}
+
+.dica-carregamento kbd {
+  padding: 0 5px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.35);
+  font: 600 13px ui-monospace, monospace;
+  color: var(--neon);
 }
 
 @keyframes girar-marca {
@@ -6955,39 +7157,80 @@ body.dano::after {
   }
 }
 
-@media (max-height: 760px) {
-  .chapa-carregamento {
-    padding: 14px 28px 14px;
+@keyframes entrar-carregamento {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes aproximar-mapa {
+  from {
+    transform: scale(1.08);
+  }
+}
+
+@keyframes entrar-nave {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+/* Tela estreita: a dica não cabe ao lado da barra e sobe para cima dela; mais
+   estreita ainda, a chapa da nave sai (ficaria em cima do nome do mapa). */
+@media (max-width: 1520px) {
+  .dica-carregamento {
+    position: static;
+    width: auto;
+    margin-bottom: 10px;
+  }
+}
+
+@media (max-width: 900px) {
+  .grupos-carregamento {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .chapa-carregamento h1 {
-    font-size: 30px;
-  }
-
-  .grupos {
-    gap: 5px;
-    margin-top: 12px;
-    padding: 10px 14px;
+  .nave-carregamento {
+    display: none;
   }
 }
 
 @media (max-width: 600px) {
-  .chapa-carregamento {
-    padding: 14px 16px;
+  .grupos-carregamento {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .medidor .pct {
-    font-size: 26px;
+  .pct-carregamento {
+    font-size: 20px;
   }
 
-  .grupos li {
+  .titulo-carregamento {
     font-size: 13px;
+    letter-spacing: 0.16em;
+  }
+}
+
+@media (max-height: 640px) {
+  .dica-carregamento,
+  .mapa-carregamento em,
+  .esc-carregamento {
+    display: none;
+  }
+
+  .grupos-carregamento li {
+    padding: 5px 8px 4px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  #carregamento,
+  .arte-carregamento.pronta,
+  .topo-carregamento,
+  .nave-carregamento,
   .titulo-carregamento,
-  .grupos li:not(.pronto) .marca {
+  .grupos-carregamento .marca,
+  .dica-carregamento p.entrando {
     animation: none;
   }
 }
