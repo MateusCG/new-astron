@@ -33,7 +33,7 @@
 // A aba "Recomendados" é a primeira (e a que abre): as seções Armas, Escudos,
 // Armaduras e Potenciadores com o que vale comprar para a raça e a classe do piloto
 // (shared/recomendados.js), nos mesmos cartões das outras abas; nas de
-// equipamento, um dos três tipos (Op., Ph. ou El.), e as armas da Bellico EM BREVE.
+// equipamento, um dos três tipos (Op., Ph. ou El.).
 //
 // As abas "Escudos", "Armaduras" e "Potenciadores" mostram os itens do original à
 // venda para a CLASSE do piloto (equipamentosAVenda em shared/equipamentos.js, com
@@ -422,8 +422,8 @@ export class PainelServicos {
   /**
    * Aba Recomendados (a primeira da Loja): as quatro seções de shared/recomendados.js
    * para a raça e a classe do piloto, com os mesmos cartões das outras abas. Nas de
-   * equipamento a recomendação é um dos três tipos; a seção sem lista (as armas da
-   * Bellico) mostra EM BREVE.
+   * equipamento a recomendação é um dos três tipos; a seção sem lista
+   * (null em ARMAS_RECOMENDADAS) mostra EM BREVE.
    */
   #recomendados() {
     const { race, classe } = this.estado;

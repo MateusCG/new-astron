@@ -1,7 +1,7 @@
 // Aba Recomendados da Loja (shared/recomendados.js): cada item recomendado existe no
 // catálogo e está à venda para a raça e a classe dele (senão o cartão compraria algo
 // que o servidor recusa), as quatro seções na ordem, os três tipos em cada seção de
-// equipamento e as armas da Bellico em EM BREVE.
+// equipamento e o equipamento da Bellico igual ao das outras.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -52,6 +52,9 @@ test('recomendados: os itens da lista do Mateus', () => {
   assert.deepEqual(armas('acron', 'assault'), ['Feixe Circular', 'Onda de Sopro Acron', 'Bombardeiro Frontal', 'Tenda de Luz', 'Reparador de Escudo']);
   assert.deepEqual(armas('acron', 'mobile'), ['Feixe Tempestade Circular', 'Feixe Clone em Leque', 'Teleporte', 'Camuflagem', 'Bombardeiro Elétrico']);
   assert.deepEqual(armas('acron', 'functional'), ['Feixe Tempestade Circular', 'Feixe Perfurante de Magma', 'Feixe Relâmpago', 'Canhão de Faíscas', 'Rebatedor de Projéteis']);
+  assert.deepEqual(armas('bellico', 'assault'), ['Metralha Crítica', 'Vulcan Teleguiada', 'Feixe Perfurante Circular', 'Canhão de Magma em Leque', 'Invulnerabilidade']);
+  assert.deepEqual(armas('bellico', 'mobile'), ['Feixe Clone Duplo', 'Canhão em Fila', 'Míssil Quebra-Escudo', 'Canhão Redutor de Energia', 'Invulnerabilidade']);
+  assert.deepEqual(armas('bellico', 'functional'), ['Feixe Perfurante Circular', 'Feixe Clone Duplo', 'Canhão em Fila', 'Vulcan Tempestade Teleguiada', 'Reparador de Escudo']);
   assert.deepEqual(armas('shrewdo', 'assault'), ['Metralha Trovão', 'Feixe Triplo', 'Canhão Tempestade em Leque', 'Invulnerabilidade', 'Camuflagem']);
   assert.deepEqual(armas('shrewdo', 'mobile'), ['Feixe Triplo', 'Feixe de Magma', 'Raio Rastreador', 'Canhão Desgoverno', 'Acelerador']);
   assert.deepEqual(armas('shrewdo', 'functional'), ['Rifle de Magma', 'Feixe Triplo', 'Feixe de Magma', 'Canhão Paralisante', 'Acelerador']);
@@ -66,17 +69,16 @@ test('recomendados: os itens da lista do Mateus', () => {
   for (const classe of ORDEM_CLASSES) assert.deepEqual(equip(classe, 3), ['Reforço Op.', 'Reforço Ph.', 'Reforço El.']);
 });
 
-test('recomendados: as armas da Bellico em EM BREVE, o equipamento dela igual ao das outras', () => {
+test('recomendados: nenhuma raça jogável em EM BREVE, o equipamento da Bellico igual ao das outras', () => {
+  for (const race of RACAS_JOGAVEIS)
+    for (const classe of ORDEM_CLASSES) assert.equal(recomendadosDe(race, classe)[0].emBreve, false, `${race} ${classe}`);
   for (const classe of ORDEM_CLASSES) {
-    const [armas, ...equip] = recomendadosDe('bellico', classe);
-    assert.equal(armas.emBreve, true);
-    assert.deepEqual(armas.itens, []);
+    const [, ...equip] = recomendadosDe('bellico', classe);
     assert.deepEqual(
       equip.map((s) => s.itens),
       recomendadosDe('acron', classe).slice(1).map((s) => s.itens),
     );
   }
-  assert.equal(recomendadosDe('acron', 'assault')[0].emBreve, false);
 });
 
 test('recomendados: raça ou classe desconhecida dá seções vazias, sem quebrar', () => {

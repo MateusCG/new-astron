@@ -7,7 +7,7 @@
 // então as três versões aparecem, com a dica de como escolher (`dica`): o escudo e
 // a armadura pelo dano que mais acerta o piloto, o potenciador para potencializar
 // os status dele.
-// As armas da Bellico ainda não foram escolhidas: a seção mostra "EM BREVE".
+// Raça sem armas escolhidas (null na lista) mostra "EM BREVE" na seção.
 //
 // As chaves são as do catálogo (WEAPONS em shared/armas.js, EQUIPAMENTOS em
 // shared/equipamentos.js); tests/recomendados.test.mjs confere que cada uma existe e
@@ -49,7 +49,14 @@ export const ARMAS_RECOMENDADAS = {
     // Feixe Tempestade Circular, Feixe Perfurante de Magma, Feixe Relâmpago, Canhão de Faíscas, Rebatedor de Projéteis
     functional: ['o111005', 'o111003', 'o112038', 'o112028', 'o112014'],
   },
-  bellico: { assault: null, mobile: null, functional: null },
+  bellico: {
+    // Metralha Crítica, Vulcan Teleguiada, Feixe Perfurante Circular, Canhão de Magma em Leque, Invulnerabilidade
+    assault: ['o211017', 'o211013', 'o211009', 'o212002', 'o212019'],
+    // Feixe Clone Duplo, Canhão em Fila, Míssil Quebra-Escudo, Canhão Redutor de Energia, Invulnerabilidade
+    mobile: ['o211005', 'o212005', 'o212010', 'o212023', 'o212019'],
+    // Feixe Perfurante Circular, Feixe Clone Duplo, Canhão em Fila, Vulcan Tempestade Teleguiada, Reparador de Escudo
+    functional: ['o211009', 'o211005', 'o212005', 'o212034', 'o212008'],
+  },
   shrewdo: {
     // Metralha Trovão, Feixe Triplo, Canhão Tempestade em Leque, Invulnerabilidade, Camuflagem
     assault: ['o311009', 'o311008', 'o312001', 'o312017', 'o312014'],
@@ -63,7 +70,7 @@ export const ARMAS_RECOMENDADAS = {
 /**
  * As quatro seções da aba Recomendados para a raça e a classe: `[{id, nome,
  * categoria, dica?, itens: [chave...], emBreve?}]`. `emBreve` quando a seção
- * ainda não tem recomendação (as armas da Bellico); raça ou classe desconhecida
+ * ainda não tem recomendação (null em ARMAS_RECOMENDADAS); raça ou classe desconhecida
  * dá seções vazias.
  */
 export function recomendadosDe(race, classe) {
