@@ -30,6 +30,11 @@
 // `aoAbrir`/`aoFechar` do painel; o painel encolhe para a janela caber ao lado). Compartimento cheio: os cartões de comprar apagam
 // ("COMPARTIMENTO CHEIO") e o servidor recusaria com 'cheio'.
 //
+// A aba "Recomendados" é a primeira (e a que abre): as seções Armas, Escudos,
+// Armaduras e Potenciadores com o que vale comprar para a raça e a classe do piloto
+// (shared/recomendados.js), nos mesmos cartões das outras abas; nas de
+// equipamento, um dos três tipos (Op., Ph. ou El.), e as armas da Bellico EM BREVE.
+//
 // As abas "Escudos", "Armaduras" e "Potenciadores" mostram os itens do original à
 // venda para a CLASSE do piloto (equipamentosAVenda em shared/equipamentos.js, com
 // filtro por tipo de dano: Todos, Ph., Op., El. e Gerais, se houver), com os efeitos e o preço da V1
@@ -56,10 +61,11 @@
 //
 // Listeners no `signal` dos controles: sair da partida e entrar de novo não duplica.
 
-import { ARMAS, WEAPONS } from '/shared/sim.js';
+import { ARMAS, WEAPONS, IDX_ARMA } from '/shared/sim.js';
 import { ITENS, ORDEM_ITENS, COMPARTIMENTO_MAX, ARMA_COPIAS_MAX, armasAVenda, noCompartimento, armasDoInv, copiasDaArma, gruposPorTipo } from '/shared/loja.js';
 import { EQUIPAMENTOS, SIGLA_TIPO, equipamentosAVenda, versaoEquip, textoEfeitoEquip } from '/shared/equipamentos.js';
 import { linhaDe, CLASSES } from '/shared/naves.js';
+import { recomendadosDe } from '/shared/recomendados.js';
 import {
   MELHORIAS_MINERADOR,
   ORDEM_MELHORIAS,
@@ -96,6 +102,7 @@ export const MENSAGEM_ERRO = {
 const NOME_SERVICO = { loja: 'Loja', evolucao: 'Evolução' };
 const ABAS = {
   loja: [
+    ['recomendados', 'Recomendados'],
     ['armas', 'Armas'],
     ['escudo', 'Escudos'],
     ['armadura', 'Armaduras'],
@@ -166,7 +173,7 @@ export class PainelServicos {
     this.el.hidden = true;
     this.servico = null; // serviço do painel aberto (ou do último aberto)
     this.onde = null; // serviço da plataforma onde a nave está pousada (ou null)
-    this.aba = { loja: 'armas', evolucao: 'nave' };
+    this.aba = { loja: 'recomendados', evolucao: 'nave' };
     this.filtroTipo = { armas: 'todos', escudo: 'todos', armadura: 'todos', potenciador: 'todos' }; // tipo de dano do filtro de cada aba da Loja
     this.compEl = this.el.querySelector('.comp-loja');
     this.estado = { ouro: 0, nivel: 1, armas: [], inv: [], compMax: COMPARTIMENTO_MAX, noComp: 0, encInst: [], equipado: {}, itens: {}, race: null, classe: null, tier: 0, melhorias: {}, torretas: [] };
@@ -342,7 +349,9 @@ export class PainelServicos {
       .join('');
     const grade = (html) => `<div class="grade">${html}</div>`;
     this.cartas.innerHTML =
-      aba === 'armas'
+      aba === 'recomendados'
+        ? this.#recomendados()
+        : aba === 'armas'
         ? this.#armas()
         : aba === 'escudo' || aba === 'armadura' || aba === 'potenciador'
           ? this.#equipamentos(aba)
@@ -410,41 +419,99 @@ export class PainelServicos {
       .join('')}</dl>`;
   }
 
+  /**
+   * Aba Recomendados (a primeira da Loja): as quatro seções de shared/recomendados.js
+   * para a raça e a classe do piloto, com os mesmos cartões das outras abas. Nas de
+   * equipamento a recomendação é um dos três tipos; a seção sem lista (as armas da
+   * Bellico) mostra EM BREVE.
+   */
+  #recomendados() {
+    const { race, classe } = this.estado;
+    const secoes = recomendadosDe(race, classe).map((s) => {
+      const cab = `<h3 class="secao-rec">${s.nome}${s.umDos && s.itens.length ? ' <small>escolha um: Op., Ph. ou El., pelo dano que mais te acerta</small>' : ''}</h3>`;
+      if (s.emBreve) return `${cab}<p class="nota em-breve-rec">EM BREVE</p>`;
+      if (!s.itens.length) return `${cab}<p class="nota">Sem recomendação para esta nave.</p>`;
+      const cartoes = s.itens.map((k) => (s.categoria === 'arma' ? this.#cartaoArma(k) : this.#cartaoEquip(k)));
+      return `${cab}<div class="grade">${cartoes.join('')}</div>`;
+    });
+    const nota = `<p class="nota">O que vale comprar para a ${CLASSES[classe]?.nome ?? ''} ${race ? race[0].toUpperCase() + race.slice(1) : ''}. O comprado vai para o compartimento do Inventário (<kbd>I</kbd>) na V1, como nas outras abas.</p>`;
+    return `${nota}${secoes.join('')}`;
+  }
+
+  /**
+   * Cartão de compra de uma arma (chave `kind`): ícone, nome, descrição, números da
+   * V1, etiquetas, preço e quantas cópias o piloto já tem (Armas e Recomendados).
+   */
+  #cartaoArma(kind) {
+    const { inv, encInst } = this.estado;
+    const preco = WEAPONS[kind].preco;
+    const n = copiasDaArma(inv, kind);
+    const cheia = n >= ARMA_COPIAS_MAX;
+    const [estado, selo] = cheia ? ['comprado', `MÁXIMO ×${ARMA_COPIAS_MAX}`] : this.#paraOCompartimento(preco);
+    const naNave = inv.some((x) => x.tipo === 'arma' && x.chave === kind && encInst.includes(x.id));
+    const fabrica = inv.some((x) => x.chave === kind && x.fabrica);
+    const marcas = [
+      naNave ? '<i class="selo-nave">NA NAVE</i>' : '',
+      n > 0 ? `<i class="selo-nave guardado">NO INVENTÁRIO ×${n}</i>` : '',
+      fabrica ? '<i class="so-classe">DE FÁBRICA</i>' : '',
+    ].join('');
+    return this.#cartao({
+      icone: iconeArma(kind),
+      nome: nomeArma(kind, true),
+      efeito: linhasDescricao(kind),
+      preco: cheia ? null : preco,
+      selo,
+      estado,
+      pedido: { t: 'comprar', item: kind },
+      extra: `${this.#numerosArma(IDX_ARMA[kind], 1)}${etiquetasArma(kind)}${marcas ? `<span class="linha-nivel">${marcas}</span>` : ''}`,
+      classe: n > 0 ? 'possuido' : '',
+    });
+  }
+
   /** Armas à venda da raça e da classe do piloto, por categoria. */
   #armas() {
-    const { race, classe, inv, encInst } = this.estado;
+    const { race, classe } = this.estado;
     const venda = ordenarPorCategoria(armasAVenda(race, classe));
     if (!venda.length) return '<p class="nota">Sem armas à venda para esta nave.</p>';
     // Filtro por tipo de dano, como nos equipamentos (os cartões seguem na ordem das categorias).
     const { html, filtrada: doTipo } = this.#filtroTipo('armas', venda.map((i) => ARMAS[i]));
-    const filtrada = venda.filter((i) => doTipo.includes(ARMAS[i]));
-    const cartoes = filtrada.map((i) => {
-      const kind = ARMAS[i];
-      const preco = WEAPONS[kind].preco;
-      const n = copiasDaArma(inv, kind);
-      const cheia = n >= ARMA_COPIAS_MAX;
-      const [estado, selo] = cheia ? ['comprado', `MÁXIMO ×${ARMA_COPIAS_MAX}`] : this.#paraOCompartimento(preco);
-      const naNave = inv.some((x) => x.tipo === 'arma' && x.chave === kind && encInst.includes(x.id));
-      const fabrica = inv.some((x) => x.chave === kind && x.fabrica);
-      const marcas = [
-        naNave ? '<i class="selo-nave">NA NAVE</i>' : '',
-        n > 0 ? `<i class="selo-nave guardado">NO INVENTÁRIO ×${n}</i>` : '',
-        fabrica ? '<i class="so-classe">DE FÁBRICA</i>' : '',
-      ].join('');
-      return this.#cartao({
-        icone: iconeArma(kind),
-        nome: nomeArma(kind, true),
-        efeito: linhasDescricao(kind),
-        preco: cheia ? null : preco,
-        selo,
-        estado,
-        pedido: { t: 'comprar', item: kind },
-        extra: `${this.#numerosArma(i, 1)}${etiquetasArma(kind)}${marcas ? `<span class="linha-nivel">${marcas}</span>` : ''}`,
-        classe: n > 0 ? 'possuido' : '',
-      });
-    });
+    const cartoes = venda.filter((i) => doTipo.includes(ARMAS[i])).map((i) => this.#cartaoArma(ARMAS[i]));
     const nota = `<p class="nota">Armas da ${CLASSES[classe]?.nome ?? ''} ${race ? race[0].toUpperCase() + race.slice(1) : ''}, até ${ARMA_COPIAS_MAX} cópias de cada (a de fábrica conta como a primeira), cada uma na sua versão: com duas, a mesma arma vai no Z e no X. A comprada vai para o compartimento do Inventário (<kbd>I</kbd>), de onde se equipa no Z ou no X (ou com Q e E), se evolui e se vende (as de fábrica também, pela metade do que se pagou nelas: na V1, de graça, não rendem ouro).</p>`;
     return `${nota}${html}<div class="grade">${cartoes.join('')}</div>`;
+  }
+
+  /**
+   * Cartão de compra de um escudo, armadura ou potenciador (chave `k`): efeitos e
+   * preço da V1, quantos o piloto tem ("NO INVENTÁRIO ×n") e se um está num encaixe
+   * ("NA NAVE"). Usado nas abas de equipamento e em Recomendados.
+   */
+  #cartaoEquip(k) {
+    const { inv, equipado } = this.estado;
+    const e = EQUIPAMENTOS[k];
+    // Equipado traz ids de instância: algum dos quatro encaixes tem esta chave?
+    const idsNaNave = new Set([equipado?.escudo, equipado?.armadura, ...(equipado?.pot ?? [])].filter((x) => x != null));
+    const naNave = inv.some((x) => idsNaNave.has(x.id) && x.chave === k);
+    const n = inv.filter((x) => x.tipo === 'equip' && x.chave === k).length;
+    const efeitos = versaoEquip(k, 1).efeitos.map(textoEfeitoEquip);
+    const classes = e.classes.length < 3 ? `<i class="so-classe">${textoClasses(e.classes)}</i>` : '';
+    const original = `<small class="original">${e.nome.trim()}</small>`;
+    const [estado, selo] = this.#paraOCompartimento(e.preco);
+    const marcas = [
+      naNave ? '<i class="selo-nave">NA NAVE</i>' : '',
+      n > 0 ? `<i class="selo-nave guardado">NO INVENTÁRIO ×${n}</i>` : '',
+      classes,
+    ].join('');
+    return this.#cartao({
+      icone: iconeEquip(k),
+      nome: `${e.nomePt} ${original}`,
+      efeito: efeitos,
+      preco: e.preco,
+      selo,
+      estado,
+      pedido: { t: 'comprar', item: k },
+      extra: marcas ? `<span class="linha-nivel">${marcas}</span>` : '',
+      classe: n > 0 ? `possuido ${classeTipo(e.tipoDano)}` : classeTipo(e.tipoDano),
+    });
   }
 
   /**
@@ -455,36 +522,10 @@ export class PainelServicos {
    * nas três abas.
    */
   #equipamentos(categoria) {
-    const { classe, inv, equipado } = this.estado;
+    const { classe } = this.estado;
     const venda = equipamentosAVenda(classe, categoria);
     const { html: filtro, filtrada: lista } = venda.length ? this.#filtroTipo(categoria, venda) : { html: '', filtrada: [] };
-    // Chaves dos equipamentos que estão nos quatro encaixes (equipado traz ids de instância).
-    const idsNaNave = new Set([equipado?.escudo, equipado?.armadura, ...(equipado?.pot ?? [])].filter((x) => x != null));
-    const naNave = new Set(inv.filter((x) => idsNaNave.has(x.id)).map((x) => x.chave));
-    const cartoes = lista.map((k) => {
-      const e = EQUIPAMENTOS[k];
-      const n = inv.filter((x) => x.tipo === 'equip' && x.chave === k).length;
-      const efeitos = versaoEquip(k, 1).efeitos.map(textoEfeitoEquip);
-      const classes = e.classes.length < 3 ? `<i class="so-classe">${textoClasses(e.classes)}</i>` : '';
-      const original = `<small class="original">${e.nome.trim()}</small>`;
-      const [estado, selo] = this.#paraOCompartimento(e.preco);
-      const marcas = [
-        naNave.has(k) ? '<i class="selo-nave">NA NAVE</i>' : '',
-        n > 0 ? `<i class="selo-nave guardado">NO INVENTÁRIO ×${n}</i>` : '',
-        classes,
-      ].join('');
-      return this.#cartao({
-        icone: iconeEquip(k),
-        nome: `${e.nomePt} ${original}`,
-        efeito: efeitos,
-        preco: e.preco,
-        selo,
-        estado,
-        pedido: { t: 'comprar', item: k },
-        extra: marcas ? `<span class="linha-nivel">${marcas}</span>` : '',
-        classe: n > 0 ? `possuido ${classeTipo(e.tipoDano)}` : classeTipo(e.tipoDano),
-      });
-    });
+    const cartoes = lista.map((k) => this.#cartaoEquip(k));
     const textos = {
       escudo: 'O escudo tem energia própria, que recupera sozinha: o dano tira primeiro dele e, acabando, do HP. Também segura um pouco de um tipo de dano.',
       armadura: 'A armadura soma HP máximo e resistência aos três tipos de dano (a geral igual nos três; a Op., Ph. ou El. forte em um).',

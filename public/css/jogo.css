@@ -4788,6 +4788,37 @@ small.original {
   opacity: 0.75;
 }
 
+/* Aba Recomendados da Loja: o título de cada seção (Armas, Escudos, Armaduras, Potenciadores). */
+#servico .secao-rec {
+  margin: 14px 0 6px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--chapa-clara);
+  color: var(--cor-servico);
+  font: 700 17px system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+#servico .secao-rec:first-of-type {
+  margin-top: 4px;
+}
+
+#servico .secao-rec small {
+  margin-left: 8px;
+  color: var(--texto);
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0.7;
+}
+
+#servico .em-breve-rec {
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  opacity: 0.55;
+}
+
 /* Filtro por categoria das abas de armas da Loja (com a contagem de cada uma). */
 .filtro-armas {
   display: flex;
@@ -4838,6 +4869,13 @@ small.original {
   margin: 0;
   font-family: ui-monospace, monospace;
   white-space: nowrap;
+}
+
+/* No cartão da Loja, valor comprido ("5/s, segurando a tecla") quebra em vez de
+   empurrar o preço para fora do cartão. */
+.carta-servico .stats-arma dd {
+  white-space: normal;
+  text-align: right;
 }
 
 #servico .msg {
