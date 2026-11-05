@@ -16,8 +16,8 @@ export const UPAR_QTD = 10;
  * últimos, como no STATUS).
  */
 export const OPCOES_UPAR = Object.freeze([
-  { atributo: 'durabilidade', sigla: 'HP', acao: 'pontoHp', cor: 'hp', nome: 'Durabilidade (HP máximo e regeneração de HP)' },
-  { atributo: 'energia', sigla: 'EN', acao: 'pontoEn', cor: 'en', nome: 'Energia (máxima e regeneração)' },
+  { atributo: 'durabilidade', sigla: 'Hp.', acao: 'pontoHp', cor: 'hp', nome: 'Durabilidade (HP máximo e regeneração de HP)' },
+  { atributo: 'energia', sigla: 'En.', acao: 'pontoEn', cor: 'en', nome: 'Energia (máxima e regeneração)' },
   { atributo: 'fisico', sigla: 'Ph.', acao: 'pontoFis', cor: 'fisico', nome: 'Físico (dano das armas físicas)' },
   { atributo: 'eletrico', sigla: 'El.', acao: 'pontoEl', cor: 'eletrico', nome: 'Elétrico (dano das armas elétricas)' },
   { atributo: 'laser', sigla: 'Op.', acao: 'pontoOp', cor: 'laser', nome: 'Operacional (dano das armas de laser)' },

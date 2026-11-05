@@ -3781,7 +3781,7 @@ kbd {
    ponto livre, saem do topo do painel em cima das barras, coladas na borda (cobrem o
    contorno de cima e parecem crescer da chapa). As setas pulsam em --xp (é o nível
    que deu os pontos), a sigla vem na cor do atributo (HP, EN e os três tipos de dano)
-   e a tecla no canto segue o mapa de atalhos. */
+   e a tecla (1 a 5) não aparece: ela se vê na aba Configurações. */
 #upar {
   position: absolute;
   left: 22px;
@@ -3869,24 +3869,6 @@ kbd {
   text-shadow: 0 1px 2px #000;
 }
 
-.aba-upar kbd {
-  position: absolute;
-  top: -8px;
-  right: -6px;
-  min-width: 16px;
-  padding: 1px 3px;
-  border: 1px solid var(--neon-escuro);
-  border-radius: 3px;
-  background: #081110;
-  color: var(--texto);
-  font: 700 10px/1.2 ui-monospace, monospace;
-  text-align: center;
-}
-
-.aba-upar kbd.sem-atalho {
-  display: none;
-}
-
 .aba-upar:hover,
 .aba-upar.foco-joy {
   background: linear-gradient(180deg, #33605a, #1d3a37 70%);
@@ -3957,7 +3939,6 @@ kbd {
   height: 36px;
 }
 
-.toque .aba-upar kbd,
 .toque #upar .livres {
   display: none;
 }

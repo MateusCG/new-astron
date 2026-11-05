@@ -1,10 +1,11 @@
 // As abas de pôr pontos no topo do painel inferior (#upar), como as setas de subir
 // habilidade do LoL: aparecem com ponto livre (subiu de nível) e somem quando acabam.
 // Clique ou as teclas das ações pontoHp..pontoOp (1 a 5 de fábrica) pedem UPAR_QTD
-// pontos no atributo; o servidor valida e o snapshot traz o resto. As regras estão em
-// upar-regras.js.
+// pontos no atributo; o servidor valida e o snapshot traz o resto. A tecla não vai
+// na aba (pedido do Mateus): ela se vê e se troca na aba Configurações. As regras
+// estão em upar-regras.js.
 
-import { aoApertar, kbdAcao, pintarRotulos } from './atalhos.js';
+import { aoApertar } from './atalhos.js';
 import { OPCOES_UPAR, UPAR_QTD, estadoUpar, mostraUpar, pedidoUpar } from './upar-regras.js';
 
 /** Duas setas para cima, como a do LoL. */
@@ -24,12 +25,11 @@ export class UparPontos {
       OPCOES_UPAR.map(
         (o) =>
           `<button type="button" class="aba-upar ${o.cor}" data-atributo="${o.atributo}" title="+${UPAR_QTD} em ${o.nome}">` +
-          `<span class="setas">${SETAS}</span><b class="sigla">${o.sigla}</b>${kbdAcao(o.acao)}</button>`,
+          `<span class="setas">${SETAS}</span><b class="sigla">${o.sigla}</b></button>`,
       ).join('');
     this.qtdLivres = this.el.querySelector('.livres b');
     this.abas = new Map([...this.el.querySelectorAll('.aba-upar')].map((b) => [b.dataset.atributo, b]));
     this.el.hidden = true;
-    pintarRotulos(this.el);
 
     this.el.addEventListener(
       'click',

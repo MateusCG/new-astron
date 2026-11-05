@@ -12,7 +12,7 @@ const me = (pontos, livres) => ({ pontos: { ...pontosVazios(), ...pontos }, pont
 
 test('as cinco abas na ordem do STATUS, com as teclas 1 a 5', () => {
   assert.deepEqual(OPCOES_UPAR.map((o) => o.atributo), ORDEM_ATRIBUTOS);
-  assert.deepEqual(OPCOES_UPAR.map((o) => o.sigla), ['HP', 'EN', 'Ph.', 'El.', 'Op.']);
+  assert.deepEqual(OPCOES_UPAR.map((o) => o.sigla), ['Hp.', 'En.', 'Ph.', 'El.', 'Op.']);
   OPCOES_UPAR.forEach((o, i) => {
     assert.ok(ACAO[o.acao], o.acao);
     assert.equal(ACAO[o.acao].ctx, 'voo');
