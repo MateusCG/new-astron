@@ -29,6 +29,12 @@
 // encaixes vão nos campos a/a2 de cada comando), o mesmo caminho do Q/E
 // (ArmasNave.equipar, com a recarga de troca fora da base).
 //
+// Também dá para clicar, segurar e ARRASTAR o item até o lugar dele (no toque,
+// segurar parado e depois arrastar): cada encaixe só aceita o que é dele (arma no Z,
+// no X e nas casas Q/E; escudo no Escudo; armadura na Armadura; potenciador no 1 ou
+// no 2), e soltar no compartimento tira da nave. As regras estão em
+// inventario-regras.js; a jogada vai pelo mesmo caminho das opções da caixinha.
+//
 // Passar o mouse (ou tocar) num item mostra o detalhe como no original, à esquerda da
 // janela: nome e versão, tipo, efeitos e classe. Preços e contas saem de
 // shared/loja.js (precoVenda, precoEvoluirInst, noCompartimento), as mesmas do servidor.
@@ -43,6 +49,7 @@ import { MENSAGEM_ERRO } from './servicos.js';
 import { miniatura } from './vitrine.js';
 import { naveDe } from '/shared/naves.js';
 import { resistDoMe } from './cor-resistencia.js';
+import { jogadaDoArrasto, ARRASTO_MIN_PX, SEGURAR_TOQUE_MS } from './inventario-regras.js';
 
 /** Encaixes na ordem da janela (duas colunas, como no original). */
 const ENCAIXES_INV = [
@@ -71,6 +78,10 @@ const INVALIDO = {
   vender: 'Arma de fábrica não se vende',
   evoluirItem: 'Esse item não evolui',
 };
+
+/** Arrasto perto da borda da área que rola (px): ela rola até ROLAR_PX por quadro. */
+const BORDA_ROLAR_PX = 48;
+const ROLAR_PX = 14;
 
 const numero = (v) => Math.round(v).toLocaleString('pt-BR');
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -130,6 +141,7 @@ export class PainelInventario {
     this.el.addEventListener(
       'click',
       (e) => {
+        if (this.engolirClique) return; // o soltar do arrasto
         const b = e.target.closest('button');
         if (!b) {
           if (!e.target.closest('.caixa-item')) this.fecharCaixa();
@@ -147,7 +159,7 @@ export class PainelInventario {
     this.el.addEventListener(
       'pointerover',
       (e) => {
-        if (this.caixa || e.target.closest?.('.caixa-item')) return;
+        if (this.caixa || this.arrasto?.ativo || e.target.closest?.('.caixa-item')) return;
         const alvo = e.target.closest?.('[data-slot], [data-inst], [data-casa]');
         if (alvo) this.#focar(alvo);
       },
@@ -160,6 +172,28 @@ export class PainelInventario {
       },
       { signal },
     );
+    // Arrastar e soltar (#apertou, #moveu, #soltou): o mover e o soltar são ouvidos na
+    // janela toda, para o arrasto seguir mesmo com o ponteiro fora do inventário.
+    this.arrasto = null;
+    this.fantasma = null;
+    this.engolirClique = false;
+    this.el.addEventListener('pointerdown', (e) => this.#apertou(e), { signal });
+    window.addEventListener('pointermove', (e) => this.#moveu(e), { signal });
+    window.addEventListener('pointerup', (e) => this.#soltou(e), { signal });
+    window.addEventListener('pointercancel', () => this.#cancelarArrasto(), { signal });
+    window.addEventListener('blur', () => this.#cancelarArrasto(), { signal });
+    // A figura do item não sai como arrasto nativo do navegador (ele cancelaria o nosso),
+    // e com o item seguro no toque a janela não rola.
+    this.el.addEventListener('dragstart', (e) => e.preventDefault(), { signal });
+    this.el.addEventListener('contextmenu', (e) => this.arrasto && e.preventDefault(), { signal });
+    this.el.addEventListener(
+      'touchmove',
+      (e) => {
+        if (this.arrasto?.ativo) e.preventDefault();
+      },
+      { signal, passive: false },
+    );
+    signal?.addEventListener('abort', () => this.#cancelarArrasto());
     document.querySelector('#inventario-hud')?.addEventListener(
       'click',
       (e) => {
@@ -184,6 +218,7 @@ export class PainelInventario {
 
   fechar() {
     if (this.el.contains(document.activeElement)) document.activeElement.blur();
+    this.#cancelarArrasto();
     this.fecharCaixa();
     this.el.hidden = true;
     this.#focar(null);
@@ -418,24 +453,19 @@ export class PainelInventario {
     const d = b.dataset;
     const inst = instDoInv(this.estado.inv, Number(d.inst));
     if (d.acao === 'arma') {
-      if (this.armasNave.equipar(Number(d.enc), Number(d.inst))) {
-        this.msg.textContent = '';
-        this.fecharCaixa();
-        this.#desenhar(true);
-      }
+      this.#jogar({ acao: 'arma', enc: Number(d.enc), inst: Number(d.inst) });
       return;
     }
-    if (d.acao === 'trocarCasa' || d.acao === 'guardar') {
-      const ok = d.acao === 'trocarCasa' ? this.armasNave.trocar(Number(d.enc)) : this.armasNave.guardar(Number(d.casa), d.inst === '' ? null : Number(d.inst));
-      if (ok) {
-        this.msg.textContent = '';
-        this.fecharCaixa();
-        this.#desenhar(true);
-      }
+    if (d.acao === 'trocarCasa') {
+      if (this.armasNave.trocar(Number(d.enc))) this.#mexeuArmas();
       return;
     }
-    if (d.acao === 'equipar') this.enviar({ t: 'equipar', slot: d.slot, inst: Number(d.inst) });
-    else if (d.acao === 'tirar' && d.slot) this.enviar({ t: 'equipar', slot: d.slot, inst: null });
+    if (d.acao === 'guardar') {
+      this.#jogar({ acao: 'guardar', casa: Number(d.casa), inst: d.inst === '' ? null : Number(d.inst) });
+      return;
+    }
+    if (d.acao === 'equipar') this.#jogar({ acao: 'equipar', slot: d.slot, inst: Number(d.inst) });
+    else if (d.acao === 'tirar' && d.slot) this.#jogar({ acao: 'equipar', slot: d.slot, inst: null });
     else if (d.acao === 'vender' && inst) {
       this.pedidos.set(inst.id, `Vendido: ${nomeInst(inst)} · +${numero(Number(d.valor))} ouro`);
       this.enviar({ t: 'vender', inst: inst.id });
@@ -446,6 +476,188 @@ export class PainelInventario {
       return;
     }
     this.fecharCaixa();
+  }
+
+  /**
+   * Faz uma jogada de inventario-regras.js (da caixinha ou do arrasto): as armas pelo
+   * ArmasNave (no cliente), o equipamento pedido ao servidor. Devolve se fez.
+   */
+  #jogar(j) {
+    if (j.acao === 'arma' || j.acao === 'guardar') {
+      const ok = j.acao === 'arma' ? this.armasNave.equipar(j.enc, j.inst) : this.armasNave.guardar(j.casa, j.inst);
+      if (ok) this.#mexeuArmas();
+      return ok;
+    }
+    if (j.acao === 'equipar') {
+      this.enviar({ t: 'equipar', slot: j.slot, inst: j.inst });
+      return true;
+    }
+    return false;
+  }
+
+  /** As armas Z/X ou as casas mudaram no cliente: redesenha na hora. */
+  #mexeuArmas() {
+    this.msg.textContent = '';
+    this.fecharCaixa();
+    this.#desenhar(true);
+  }
+
+  // --- Arrastar e soltar -------------------------------------------------------
+  // Mouse: apertar e mover mais que ARRASTO_MIN_PX pega o item (menos que isso é o
+  // clique de sempre, que abre a caixinha). Toque: segurar parado SEGURAR_TOQUE_MS
+  // pega (mexer antes rola a janela). Enquanto arrasta, a figura do item segue o
+  // ponteiro, os lugares que aceitam acendem (.pode-soltar), os outros apagam, e o
+  // lugar sob o ponteiro fica marcado (.sob-arrasto, vermelho se não aceita).
+  // Soltar fora de um lugar que aceita não faz nada. A janela é redesenhada a cada
+  // snapshot: as marcas são refeitas no fim de #desenhar (#marcarArrasto).
+
+  /** A origem do arrasto (formato de inventario-regras.js) a partir do botão, ou null. */
+  #origemDe(el) {
+    let inst = null;
+    const o = {};
+    if (el.dataset.slot) {
+      inst = this.#instDoSlot(el.dataset.slot);
+      o.slot = el.dataset.slot;
+    } else if (el.dataset.casa) {
+      o.casa = Number(el.dataset.casa);
+      inst = this.#instDaCasa(o.casa);
+    } else if (el.dataset.inst) {
+      inst = instDoInv(this.estado.inv, Number(el.dataset.inst));
+      o.comp = true;
+    }
+    if (!inst) return null;
+    o.inst = inst;
+    if (inst.tipo !== 'arma') o.categoria = EQUIPAMENTOS[inst.chave]?.categoria;
+    return o;
+  }
+
+  /** O destino sob o elemento (encaixe, casa ou o compartimento), ou null. */
+  #destinoDe(el) {
+    const alvo = el?.closest?.('#inventario .slot[data-slot], #inventario .slot[data-casa], #inventario .grade-inv');
+    if (!alvo) return null;
+    if (alvo.dataset.slot) return { slot: alvo.dataset.slot, el: alvo };
+    if (alvo.dataset.casa) {
+      const casa = Number(alvo.dataset.casa);
+      return { casa, ocupante: this.armasNave.casas[casa], el: alvo };
+    }
+    return { comp: true, el: alvo };
+  }
+
+  #apertou(e) {
+    if (this.arrasto || e.button !== 0 || !e.isPrimary) return;
+    const el = e.target.closest?.('.slot[data-slot], .slot[data-casa], .item-inv[data-inst]');
+    if (!el || !this.#origemDe(el)) return;
+    const toque = e.pointerType === 'touch';
+    this.arrasto = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, el, ativo: false, toque, timer: 0 };
+    if (toque) this.arrasto.timer = setTimeout(() => this.#pegar(), SEGURAR_TOQUE_MS);
+  }
+
+  #moveu(e) {
+    const a = this.arrasto;
+    if (!a || e.pointerId !== a.id) return;
+    a.x = e.clientX;
+    a.y = e.clientY;
+    if (!a.ativo) {
+      if (Math.hypot(a.x - a.x0, a.y - a.y0) < ARRASTO_MIN_PX) return;
+      if (a.toque) return this.#cancelarArrasto(); // mexeu antes de segurar: é rolar a janela
+      if (!this.#pegar()) return;
+    }
+    e.preventDefault();
+    this.fantasma.style.transform = `translate(${a.x}px, ${a.y}px)`;
+    this.#marcarArrasto();
+  }
+
+  /**
+   * Com o item seguro perto da borda de cima ou de baixo da área que rola, ela rola
+   * sozinha (mais rápido quanto mais perto): os encaixes ficam em cima e o
+   * compartimento embaixo, e numa tela baixa os dois não cabem juntos.
+   */
+  #rolarArrasto() {
+    const a = this.arrasto;
+    if (!a?.ativo) return;
+    const r = this.corpo.getBoundingClientRect();
+    const dentro = a.x >= r.left && a.x <= r.right;
+    const cima = a.y - r.top;
+    const baixo = r.bottom - a.y;
+    let passo = 0;
+    if (dentro && cima < BORDA_ROLAR_PX) passo = -ROLAR_PX * (1 - Math.max(cima, 0) / BORDA_ROLAR_PX);
+    else if (dentro && baixo < BORDA_ROLAR_PX) passo = ROLAR_PX * (1 - Math.max(baixo, 0) / BORDA_ROLAR_PX);
+    if (passo) {
+      const antes = this.corpo.scrollTop;
+      this.corpo.scrollTop += passo;
+      if (this.corpo.scrollTop !== antes) this.#marcarArrasto();
+    }
+    a.quadro = requestAnimationFrame(() => this.#rolarArrasto());
+  }
+
+  /** Começa o arrasto do item apertado; false se ele sumiu nesse meio-tempo. */
+  #pegar() {
+    const a = this.arrasto;
+    if (!a || a.ativo) return false;
+    a.origem = this.#origemDe(a.el);
+    if (!a.origem) {
+      this.#cancelarArrasto();
+      return false;
+    }
+    a.ativo = true;
+    a.de = a.origem.slot !== undefined ? `.slot[data-slot="${a.origem.slot}"]` : a.origem.casa !== undefined ? `.slot[data-casa="${a.origem.casa}"]` : `.item-inv[data-inst="${a.origem.inst.id}"]`;
+    this.fecharCaixa();
+    this.#focar(null);
+    const x = a.origem.inst;
+    this.fantasma = document.createElement('div');
+    this.fantasma.className = 'fantasma-inv';
+    this.fantasma.innerHTML = x.tipo === 'arma' ? iconeArma(x.chave, x.nivel) : iconeEquip(x.chave, x.nivel);
+    this.fantasma.style.transform = `translate(${a.x}px, ${a.y}px)`;
+    document.body.append(this.fantasma);
+    this.el.classList.add('arrastando');
+    this.#marcarArrasto();
+    a.quadro = requestAnimationFrame(() => this.#rolarArrasto());
+    return true;
+  }
+
+  /** Acende os lugares que aceitam o item arrastado e marca o que está sob o ponteiro. */
+  #marcarArrasto() {
+    const a = this.arrasto;
+    if (!a?.ativo) return;
+    const sob = this.#destinoDe(document.elementFromPoint(a.x, a.y));
+    for (const el of this.el.querySelectorAll('.slot[data-slot], .slot[data-casa], .grade-inv')) {
+      const d = this.#destinoDe(el);
+      const ok = !!(d && d.el === el && jogadaDoArrasto(a.origem, d));
+      el.classList.toggle('pode-soltar', ok);
+      el.classList.toggle('sob-arrasto', sob?.el === el);
+      el.classList.toggle('nao-aceita', sob?.el === el && !ok);
+    }
+    for (const el of this.el.querySelectorAll('.origem-arrasto')) el.classList.remove('origem-arrasto');
+    this.el.querySelector(a.de)?.classList.add('origem-arrasto');
+  }
+
+  #soltou(e) {
+    const a = this.arrasto;
+    if (!a || e.pointerId !== a.id) return;
+    if (!a.ativo) return this.#cancelarArrasto();
+    const destino = this.#destinoDe(document.elementFromPoint(e.clientX, e.clientY));
+    // A origem de agora (o item pode ter mudado de lugar pelo servidor no meio).
+    const origem = this.#origemDe(this.el.querySelector(a.de) ?? a.el) ?? a.origem;
+    const jogada = origem.inst.id === a.origem.inst.id ? jogadaDoArrasto(origem, destino) : null;
+    this.engolirClique = true; // o clique que vem com o soltar não abre a caixinha
+    setTimeout(() => (this.engolirClique = false), 0);
+    this.#cancelarArrasto();
+    if (jogada) this.#jogar(jogada);
+  }
+
+  /** Larga o arrasto sem fazer nada (e limpa as marcas). */
+  #cancelarArrasto() {
+    const a = this.arrasto;
+    if (!a) return;
+    clearTimeout(a.timer);
+    cancelAnimationFrame(a.quadro);
+    this.arrasto = null;
+    this.fantasma?.remove();
+    this.fantasma = null;
+    this.el.classList.remove('arrastando');
+    for (const el of this.el.querySelectorAll('.pode-soltar, .sob-arrasto, .nao-aceita, .origem-arrasto')) {
+      el.classList.remove('pode-soltar', 'sob-arrasto', 'nao-aceita', 'origem-arrasto');
+    }
   }
 
   #desenhar(forcar) {
@@ -520,6 +732,7 @@ export class PainelInventario {
       this.#desenharCaixa();
     }
     if (this.foco) this.#focar(this.el.querySelector(this.foco), true);
+    this.#marcarArrasto();
   }
 
   /** Miniatura da nave atual (vitrine.js; uma por modelo, com cache). */

@@ -6768,6 +6768,81 @@ body.dano::after {
   opacity: 1;
 }
 
+/* Arrastar e soltar no INVENTÁRIO (inventario.js): enquanto um item é arrastado, os
+   lugares que aceitam ele acendem em neon tracejado e os outros apagam; sob o
+   ponteiro, o que aceita fica cheio de neon e o que não aceita, com a borda da
+   mensagem ruim. O lugar de onde o item saiu fica meio transparente, e a figura
+   dele (.fantasma-inv) segue o ponteiro. Segurar no toque não abre o menu do navegador. */
+#inventario .slot,
+#inventario .item-inv {
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+#inventario.arrastando,
+#inventario.arrastando * {
+  cursor: grabbing;
+}
+
+#inventario.arrastando .slot:not(.pode-soltar),
+#inventario.arrastando .item-inv {
+  opacity: 0.45;
+}
+
+#inventario.arrastando .slot:hover,
+#inventario.arrastando .item-inv:hover {
+  border-color: var(--chapa-clara);
+}
+
+#inventario .pode-soltar {
+  border: 1px dashed var(--neon);
+  box-shadow: 0 0 10px rgba(0, 239, 192, 0.25);
+}
+
+#inventario .grade-inv.pode-soltar {
+  border-radius: 6px;
+  outline: 1px dashed var(--neon);
+  outline-offset: 3px;
+  border: 0;
+  box-shadow: none;
+}
+
+#inventario .slot.pode-soltar.sob-arrasto {
+  border-style: solid;
+  background: #12302b;
+  box-shadow: 0 0 16px rgba(0, 239, 192, 0.5);
+}
+
+#inventario .grade-inv.pode-soltar.sob-arrasto {
+  outline-style: solid;
+  background: rgba(0, 239, 192, 0.06);
+}
+
+#inventario.arrastando .slot.nao-aceita {
+  opacity: 0.8;
+  border-color: #ff8a70;
+  box-shadow: 0 0 10px rgba(255, 138, 112, 0.3);
+}
+
+#inventario .origem-arrasto {
+  opacity: 0.3 !important;
+}
+
+.fantasma-inv {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 50;
+  pointer-events: none;
+  margin: -24px 0 0 -24px;
+  filter: drop-shadow(0 0 10px rgba(0, 239, 192, 0.6));
+}
+
+.fantasma-inv .icone-item {
+  --alt: 48px;
+  display: block;
+}
+
 /* Item com a caixinha aberta: borda neon, como selecionado. */
 .slot.com-caixa,
 .item-inv.com-caixa {
