@@ -7,7 +7,8 @@
 //   girando à direita (a prévia da vitrine.js em #fundo-nave): a em destaque do
 //   Hangar ou, sem ela, a primeira da raça e da classe da Seleção.
 // - SELEÇÃO: a seleção de campeão dos MOBAs (LoL, Dota 2, Smite 2, Deadlock) com 3
-//   raças × 3 classes numa grade com miniaturas (escolha num clique, setas também), a
+//   raças × 3 classes numa grade com miniaturas (escolha num clique, setas também) e o
+//   mapa da partida embaixo dela (mapa-selecao.js, a sua base marcada), a
 //   nave grande no centro com a linha da Evolução, a ficha (barras na régua das
 //   primeiras naves e as duas armas de fábrica) e, embaixo, os times (escolha-times.js)
 //   e o Decolar. Nos modos da fila online (Jogar New Astron e Partida Pública com
@@ -42,6 +43,8 @@ import { mostrarPrevia, pararPrevia, miniatura, girarPrevia, segurarPrevia } fro
 import { modeloDaNave } from './nave.js';
 import { SONS_INTERFACE } from './sons.js';
 import { EscolhaTimes } from './escolha-times.js';
+import { MapaSelecao } from './mapa-selecao.js';
+import { timeDoPiloto } from './mapa-selecao-regras.js';
 import { ConexaoFila } from './fila.js';
 import { estadoFilaVazio, botaoDaFila, linhaDaFila, textoAviso, textoContagemModo } from './fila-regras.js';
 import { PainelVolume } from './volume.js';
@@ -275,6 +278,7 @@ export class Menu {
     if (tela === 'naves') this.#atualizarNaves();
     const fila = tela === 'selecao' ? filaDoModo(this.modo) : null;
     this.times.mostrarFila(fila, this.estadoFila);
+    if (tela === 'selecao') this.mapa.mostrar(timeDoPiloto(fila, this.estadoFila));
     if (fila && antes !== 'selecao' && !this.decolando) {
       this.q('#erro-entrada').textContent = '';
       this.fila.entrar(fila, this.#escolha());
@@ -490,6 +494,7 @@ export class Menu {
     });
     grade.innerHTML = linhas.join('');
     this.primeirasMontadas = false;
+    this.mapa = new MapaSelecao(this.q('.mapa-partida'));
     grade.addEventListener('click', (e) => {
       const b = e.target.closest('.carta-nave');
       if (b) this.#escolherNave(b.dataset.raca, b.dataset.classe);
@@ -652,6 +657,8 @@ export class Menu {
     this.estadoFila = e;
     if (!this.#filaAtiva()) return;
     this.times.mostrarFila(filaDoModo(this.modo), e);
+    // No 3 contra 3 a sua base é a do time em que você está (troca de time troca a base).
+    this.mapa.mostrar(timeDoPiloto(filaDoModo(this.modo), e));
     if (e.fase === 'sala' && e.nova) {
       // Sala formada: o som de alerta, o foco no Pronto e o título da aba piscando se
       // o piloto estava em outra janela (como o "partida encontrada" dos MOBAs).

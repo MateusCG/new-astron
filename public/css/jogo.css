@@ -631,10 +631,11 @@ input:focus {
   --cor: var(--neon);
   display: grid;
   grid-template-columns: minmax(320px, 410px) minmax(0, 1fr) minmax(300px, 380px);
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   grid-template-areas:
     'topo topo topo'
     'grade centro ficha'
+    'mapa centro ficha'
     'base base base';
   column-gap: 24px;
   padding: 14px 28px 0;
@@ -783,6 +784,183 @@ input:focus {
 
 .carta-nave.sel strong {
   color: var(--cor);
+}
+
+/* O mapa da partida (mapa-selecao.js), no espaço embaixo da grade: só o Lago de
+   Hélio-3 visto de cima, do tamanho que sobrar na coluna sem deformar, e a caixinha
+   da peça embaixo do mouse (.dica-mapa-pop). O verde e o vermelho das bases são as
+   cores fixas dos times da fila do 3 contra 3. Com pouca altura o mapa some. */
+.mapa-partida {
+  grid-area: mapa;
+  container-type: size;
+  min-height: 0;
+  margin: 10px 4px 8px 2px;
+}
+
+.quadro-mapa {
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.quadro-mapa svg {
+  display: block;
+  height: 100%;
+  max-width: 100%;
+  aspect-ratio: 3000 / 2240;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+}
+
+@container (max-height: 120px) {
+  .quadro-mapa svg {
+    display: none;
+  }
+}
+
+.quadro-mapa .item {
+  cursor: help;
+  transition: filter 0.12s;
+}
+
+.quadro-mapa .item.sob-mouse {
+  filter: brightness(1.35) drop-shadow(0 0 30px rgba(255, 255, 255, 0.55));
+}
+
+.quadro-mapa .alvo-nuvem {
+  fill: transparent;
+}
+
+.quadro-mapa .lane {
+  fill: #cfe9e4;
+  fill-opacity: 0.1;
+}
+
+.quadro-mapa .lane-meio {
+  stroke: #cfe9e4;
+  stroke-opacity: 0.35;
+  stroke-width: 6;
+  stroke-dasharray: 34 26;
+  pointer-events: none;
+}
+
+.quadro-mapa .sonda-trajeto {
+  fill: none;
+  stroke: var(--objetivo);
+  stroke-opacity: 0.55;
+  stroke-width: 9;
+  stroke-dasharray: 22 18;
+}
+
+.quadro-mapa .nuvens {
+  opacity: 0.32;
+  pointer-events: none;
+}
+
+.quadro-mapa .acampamento {
+  fill-opacity: 0.16;
+  stroke: #ff4a2a;
+  stroke-opacity: 0.75;
+  stroke-width: 9;
+  stroke-dasharray: 22 14;
+}
+
+.quadro-mapa .mineradora rect:first-of-type {
+  fill: #4f5b59;
+  stroke: #9fe8ff;
+  stroke-width: 10;
+}
+
+.quadro-mapa .base-area {
+  fill: var(--cor-time);
+  fill-opacity: 0.14;
+  stroke: var(--cor-time);
+  stroke-width: 12;
+}
+
+.quadro-mapa .base.sua .base-area {
+  fill-opacity: 0.24;
+  stroke-width: 18;
+}
+
+.quadro-mapa .base-anel {
+  fill: none;
+  stroke: var(--cor-time);
+  stroke-opacity: 0.6;
+  stroke-width: 8;
+  stroke-dasharray: 20 14;
+  pointer-events: none;
+}
+
+.quadro-mapa .base-campo {
+  stroke: var(--cor-time);
+  stroke-width: 24;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 30px var(--cor-time));
+}
+
+.quadro-mapa .base-selo {
+  fill: var(--cor-time);
+  font: 900 92px system-ui, sans-serif;
+  letter-spacing: 6px;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.8);
+  stroke-width: 18px;
+  pointer-events: none;
+}
+
+.quadro-mapa .torreta,
+.quadro-mapa .servico {
+  stroke: rgba(0, 0, 0, 0.7);
+  stroke-width: 9;
+}
+
+.quadro-mapa .obj-fundo {
+  fill: var(--objetivo);
+  stroke: rgba(0, 0, 0, 0.7);
+  stroke-width: 10;
+}
+
+.quadro-mapa .obj-icone {
+  fill: none;
+  stroke: #2a1a00;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* A caixinha do mapa: chapa escura com a borda na cor da peça, o nome em cima e o que
+   ela faz embaixo; fica à direita do mapa, na altura do mouse, e não pega o clique. */
+.dica-mapa-pop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  display: grid;
+  gap: 3px;
+  max-width: 280px;
+  padding: 8px 12px 9px;
+  border: 1px solid var(--cor-dica, var(--neon));
+  border-left-width: 3px;
+  border-radius: 6px;
+  background: rgba(7, 15, 15, 0.95);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
+  color: var(--texto);
+  font: 14px/1.35 system-ui, sans-serif;
+  pointer-events: none;
+}
+
+.dica-mapa-pop b {
+  color: var(--cor-dica, var(--neon));
+  font: 800 13px system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dica-mapa-pop span {
+  opacity: 0.88;
 }
 
 .selecao-centro {
