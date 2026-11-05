@@ -14,7 +14,9 @@
 //   Bots: fila.js, fila-regras.js, server/filas.js) abrir a Seleção já entra na fila:
 //   o Decolar fica "Aguardando…", os times viram a sala (companheiros, Pronto), e com a
 //   sala formada o botão vira "Pronto", com o contador embaixo; todos prontos, a
-//   partida começa sozinha. Sair da Seleção (ESC, aba) sai da fila.
+//   partida começa sozinha. No Jogar New Astron, com pelo menos um piloto em cada
+//   time, o "Pronto" já acende na fila: todos prontos, começa com quem está (1 contra
+//   1 com um colega). Sair da Seleção (ESC, aba) sai da fila.
 // - NAVES: o hangar, só leitura: filtros de raça e classe, a nave no visor (arrastar
 //   gira), a ficha com o tamanho real e as barras na régua das 45 naves, e a linha das
 //   5 naves com o nível e o preço na Evolução. "Mostrar na tela Jogar" põe a nave
@@ -627,7 +629,7 @@ export class Menu {
   /** Depois do Pronto, a nave não muda mais (como o "travar campeão" dos MOBAs). */
   #naveTravada() {
     const e = this.estadoFila;
-    return this.#filaAtiva() && (e.fase === 'comecar' || (e.fase === 'sala' && !!e.voce?.pronto));
+    return this.#filaAtiva() && (e.fase === 'comecar' || ((e.fase === 'sala' || e.fase === 'procurando') && !!e.voce?.pronto));
   }
 
   /** O que a fila leva da Seleção. */
@@ -658,6 +660,11 @@ export class Menu {
       if (document.hidden) this.#avisarNoTitulo();
     }
     if (e.fase === 'procurando' && antes.fase === 'sala') this.#som(SONS_INTERFACE.erro, 0.5);
+    // Chegou piloto no outro time: já dá para começar mais cedo (o Pronto acende).
+    if (e.fase === 'procurando' && e.cedo && !e.voce?.pronto && !(antes.fase === 'procurando' && antes.cedo)) {
+      this.#som(SONS_INTERFACE.alerta, 0.7);
+      if (document.hidden) this.#avisarNoTitulo();
+    }
     if (e.fase === 'fora' && e.aviso === 'sem_pronto') this.#som(SONS_INTERFACE.erro, 0.6);
     this.#pintarBotao();
     if (e.fase === 'comecar') this.#decolarNaSala(e);

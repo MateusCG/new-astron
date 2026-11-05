@@ -163,7 +163,7 @@ export class EscolhaTimes {
       if (lado === 'inimigo' && modo === 'publica') resumo = '3 computadores';
       else if (naSala) resumo = `${vagas[lado].filter((v) => v.pronto).length} de ${gente} prontos`;
       else if (!procurando) resumo = 'Fora da fila';
-      else if (modo === 'online') resumo = seu ? `Seu time · ${gente} de 3` : gente < 3 ? `${gente} de 3 · clique para trocar` : '3 de 3 · completo';
+      else if (modo === 'online') resumo = seu ? `Seu time · ${gente} de 3` : gente >= 3 ? '3 de 3 · completo' : estado?.voce?.pronto ? `${gente} de 3` : `${gente} de 3 · clique para trocar`;
       else resumo = lado === 'meu' ? 'Procurando companheiros' : 'Procurando adversários';
       caixa.querySelector('.resumo').textContent = resumo;
       caixa.classList.toggle('seu', modo === 'online' && seu);

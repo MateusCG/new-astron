@@ -347,6 +347,93 @@ test('filas: entrar de novo não muda de lugar e o nome é saneado', () => {
   assert.equal(MODOS_FILA.publica.humanos, MAX_POR_TIME);
 });
 
+test('filas: no 3 contra 3, um em cada time já pode apertar Pronto e, todos prontos, a partida começa só com os dois', () => {
+  const { filas, cliente, ultima, salas } = montar();
+  const a = cliente('Mateus');
+  const b = cliente('Colega');
+  entrar(filas, a, 'online');
+  assert.equal(ultima(a).cedo, undefined, 'sozinho no grupo, ainda não');
+  assert.equal(filas.pronto(a), 'cedo');
+  entrar(filas, b, 'online');
+  assert.deepEqual([ultima(a).cedo, ultima(b).cedo], [1, 1], 'um no verde e um no vermelho: dá para começar');
+  assert.equal(filas.pronto(a, { race: 'bellico', classe: 'mobile' }), null);
+  assert.deepEqual([ultima(a).voce.pronto, ultima(b).times[0][0].pronto], [1, 1], 'o Pronto aparece para o outro');
+  assert.equal(filas.escolher(a, { race: 'shrewdo' }), 'travada', 'o Pronto trava a nave');
+  assert.equal(filas.trocarTime(a), 'travada', 'e o time');
+  assert.equal(salas.length, 0);
+  filas.pronto(b);
+  assert.equal(salas.length, 1, 'os dois prontos: começou');
+  const [sala] = salas;
+  assert.equal(sala.modo, 'online');
+  assert.deepEqual(sala.membros.map((m) => [m.nome, m.time]), [['Mateus', 0], ['Colega', 1]]);
+  assert.deepEqual([sala.membros[0].race, sala.membros[0].classe], ['bellico', 'mobile'], 'a escolha final vai junto do Pronto');
+  for (const c of [a, b]) assert.equal(ultima(c).estado, 'comecar');
+  assert.deepEqual(filas.contagem().online, { fila: 0, escolhendo: 0, jogando: 0, precisa: 6 });
+  // Quem procura depois cai num grupo novo.
+  const c = cliente('Terceiro');
+  entrar(filas, c, 'online');
+  assert.deepEqual([ultima(c).n, ultima(c).cedo], [1, undefined]);
+});
+
+test('filas: quem chega no grupo antes de começar também precisa do Pronto; quem sai deixa os prontos começarem', () => {
+  const { filas, cliente, ultima, salas } = montar();
+  const [a, b, c] = ['A', 'B', 'C'].map(cliente);
+  entrar(filas, a, 'online');
+  entrar(filas, b, 'online');
+  filas.pronto(a);
+  entrar(filas, c, 'online'); // verde, com A
+  filas.pronto(b);
+  assert.equal(salas.length, 0, 'C ainda não apertou');
+  assert.match(String(ultima(c).times[0].map((m) => m.pronto)), /1,0/);
+  filas.sair(c);
+  assert.equal(salas.length, 1, 'C saiu: A e B prontos, começa');
+  assert.deepEqual(salas[0].membros.map((m) => m.nome), ['A', 'B']);
+});
+
+test('filas: 2 contra 1 também começa, e completar 3 contra 3 vira a sala com quem já estava pronto', () => {
+  const { filas, cliente, salas } = montar();
+  const cs = 'ABC'.split('').map(cliente);
+  for (const c of cs) entrar(filas, c, 'online'); // A e C verdes, B vermelho
+  for (const c of cs) filas.pronto(c);
+  assert.equal(salas.length, 1);
+  assert.deepEqual(salas[0].membros.map((m) => [m.nome, m.time]), [['A', 0], ['C', 0], ['B', 1]]);
+
+  // Cinco na fila, dois prontos, e o sexto chega antes do resto apertar.
+  const { filas: f, cliente: cl, ultima: u, salas: s } = montar();
+  const gs = 'GHIJKL'.split('').map(cl);
+  for (const c of gs.slice(0, 5)) entrar(f, c, 'online');
+  f.pronto(gs[0]);
+  f.pronto(gs[1]);
+  entrar(f, gs[5], 'online');
+  const m = u(gs[0]);
+  assert.equal(m.estado, 'sala', 'o sexto fechou a sala de sempre, com o contador');
+  assert.equal(m.restante, SELECAO_S);
+  assert.equal(m.prontos, 2, 'quem já estava pronto continua pronto');
+  assert.equal(s.length, 0);
+});
+
+test('filas: na pública o Pronto só vale com a sala cheia', () => {
+  const { filas, cliente } = montar();
+  const [a, b] = ['A', 'B'].map(cliente);
+  entrar(filas, a, 'publica');
+  entrar(filas, b, 'publica');
+  assert.equal(filas.pronto(a), 'cedo');
+});
+
+test('filas: sem lugar para outro mundo os prontos esperam, e começam quando abre', () => {
+  let lugar = false;
+  const { filas, cliente, salas } = montar({ podeAbrirSala: () => lugar });
+  const [a, b] = ['A', 'B'].map(cliente);
+  entrar(filas, a, 'online');
+  entrar(filas, b, 'online');
+  filas.pronto(a);
+  filas.pronto(b);
+  assert.equal(salas.length, 0);
+  lugar = true;
+  filas.passo();
+  assert.equal(salas.length, 1);
+});
+
 // ---------- Servidor de verdade (WebSocket) ----------
 
 function conectar(porta) {
@@ -423,6 +510,33 @@ test('filas: pela rede, 3 pilotos na pública entram juntos num mundo novo contr
     jogos[2].ws.close();
     await new Promise((ok) => setTimeout(ok, 100));
     assert.ok(!srv.mundos.has(mundo));
+  } finally {
+    await srv.fechar();
+  }
+});
+
+test('filas: pela rede, dois colegas no Jogar New Astron jogam 1 contra 1, sem computadores', async () => {
+  const principal = new World({ preparacaoS: 0, jungle: false, torretas: false });
+  const srv = await iniciar({ porta: 0, world: principal });
+  try {
+    const menus = [conectar(srv.porta), conectar(srv.porta)];
+    await Promise.all(menus.map((m) => m.aberto));
+    ['Mateus', 'Colega'].forEach((nome, i) => menus[i].enviar({ t: 'entrarFila', modo: 'online', nome, race: 'acron', classe: 'assault' }));
+    await Promise.all(menus.map((m) => m.esperar((x) => x.t === 'fila' && x.cedo === 1)));
+    menus.forEach((m) => m.enviar({ t: 'pronto' }));
+    const comecos = await Promise.all(menus.map((m) => m.esperar((x) => x.t === 'fila' && x.estado === 'comecar')));
+    for (const m of menus) m.ws.close();
+    assert.deepEqual(comecos.map((c) => c.time).sort(), [0, 1]);
+
+    const jogos = comecos.map(() => conectar(srv.porta));
+    await Promise.all(jogos.map((j) => j.aberto));
+    jogos.forEach((j, i) => j.enviar({ t: 'entrar', sala: comecos[i].sala, token: comecos[i].token }));
+    const boas = await Promise.all(jogos.map((j) => j.esperar((x) => x.t === 'bemvindo' || x.t === 'erro')));
+    assert.deepEqual(boas.map((b) => [b.t, b.modo]), [['bemvindo', 'online'], ['bemvindo', 'online']]);
+    const mundo = [...srv.mundos.keys()].find((w) => w.modo === 'online');
+    const js = [...mundo.world.players.values()];
+    assert.deepEqual(js.map((j) => [j.nome, j.time, !!j.ia]).sort(), [['Colega', 1, false], ['Mateus', 0, false]], 'só os dois, um em cada time');
+    for (const j of jogos) j.ws.close();
   } finally {
     await srv.fechar();
   }

@@ -82,18 +82,18 @@ export class ConexaoFila {
   /** A nave (ou o nome) mudou na Seleção: os do time veem na hora. */
   escolher(escolha) {
     if (this.quer) this.quer.escolha = { ...escolha };
-    if (this.estado.fase === 'procurando' || (this.estado.fase === 'sala' && !this.estado.voce?.pronto)) this.#enviar({ t: 'escolha', ...escolha });
+    if ((this.estado.fase === 'procurando' || this.estado.fase === 'sala') && !this.estado.voce?.pronto) this.#enviar({ t: 'escolha', ...escolha });
   }
 
-  /** Trava a nave (com a escolha final junto). */
+  /** Trava a nave (com a escolha final junto): na sala, ou procurando com o grupo pronto para começar mais cedo. */
   pronto(escolha) {
-    if (this.estado.fase !== 'sala') return;
+    if (!(this.estado.fase === 'sala' || (this.estado.fase === 'procurando' && this.estado.cedo))) return;
     this.#enviar({ t: 'pronto', ...escolha });
   }
 
   /** No 3 contra 3, procurando: passa para o outro time (o servidor confere a vaga). */
   trocarTime() {
-    if (this.estado.fase === 'procurando') this.#enviar({ t: 'trocarTime' });
+    if (this.estado.fase === 'procurando' && !this.estado.voce?.pronto) this.#enviar({ t: 'trocarTime' });
   }
 
   /** Sai da fila (e da sala, que se desfaz). */

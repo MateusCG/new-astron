@@ -6,7 +6,9 @@
 //
 // O botão (pedido do Mateus): procurando, "Aguardando…" apagado; com a sala formada,
 // "Pronto" aceso até apertar, e depois "Aguardando…" de novo até todos apertarem; no
-// fim, "Decolando…". Fora da fila (o contador zerou sem o seu Pronto, ou caiu a
+// fim, "Decolando…". No 3 contra 3, com pelo menos um piloto em cada time no grupo
+// (`cedo` do servidor), o "Pronto" já acende procurando: todos prontos, a partida
+// começa com quem está (pedido do Mateus, para jogar só com um colega). Fora da fila (o contador zerou sem o seu Pronto, ou caiu a
 // conexão), "Procurar partida" põe de volta.
 
 /** Estado da fila fora dela. `fase`: 'fora' | 'conectando' | 'procurando' | 'sala' | 'comecar'. */
@@ -30,6 +32,8 @@ export function aplicarMsgFila(antes, msg, agora) {
         // O grupo da próxima sala, já repartido nos times (server/filas.js).
         voce: msg.voce ?? null,
         times: msg.times ?? null,
+        // O grupo já pode começar mais cedo, com todos prontos (o Pronto acende).
+        cedo: !!msg.cedo,
         // O aviso ("voltou para o começo da fila") fica enquanto procura.
         aviso: msg.aviso ?? (antes?.fase === 'procurando' ? antes.aviso : null),
       };
@@ -72,7 +76,7 @@ export function botaoDaFila(estado) {
     case 'conectando':
       return { texto: 'Conectando…', habilitado: false, acao: null };
     case 'procurando':
-      return { texto: 'Aguardando…', habilitado: false, acao: null };
+      return estado.cedo && !estado.voce?.pronto ? { texto: 'Pronto', habilitado: true, acao: 'pronto' } : { texto: 'Aguardando…', habilitado: false, acao: null };
     case 'sala':
       return estado.voce?.pronto ? { texto: 'Aguardando…', habilitado: false, acao: null } : { texto: 'Pronto', habilitado: true, acao: 'pronto' };
     case 'comecar':
@@ -92,7 +96,13 @@ export function linhaDaFila(estado, agora, selecaoS) {
       return { texto: 'Conectando ao servidor', contador: null, fracao: null, urgente: false };
     case 'procurando': {
       const faltam = Math.max(0, estado.precisa - estado.n);
-      const texto = faltam ? `Procurando partida · ${estado.n} de ${estado.precisa} pilotos` : `Pilotos encontrados · abrindo a sala`;
+      let texto = faltam ? `Procurando partida · ${estado.n} de ${estado.precisa} pilotos` : `Pilotos encontrados · abrindo a sala`;
+      if (faltam && estado.cedo) {
+        const prontos = (estado.times ?? []).flat().filter((m) => m.pronto).length;
+        texto = estado.voce?.pronto
+          ? `Nave travada · ${prontos} de ${estado.n} prontos · começa com todos prontos`
+          : `${estado.n} de ${estado.precisa} pilotos · aperte Pronto para começar já · ${prontos} de ${estado.n} prontos`;
+      }
       return { texto, contador: formatarTempo((agora - estado.desde) / 1000), fracao: null, urgente: false };
     }
     case 'sala': {
@@ -173,7 +183,8 @@ export function vagasDaFila(estado, modo) {
       meu.sort((a, b) => (b.tipo === 'voce') - (a.tipo === 'voce'));
       return { meu: preencher(meu, 'procurando'), inimigo: preencher([], 'ia') };
     }
-    const vaga = (time) => (time === meuT || estado.fase !== 'procurando' ? 'procurando' : 'trocar');
+    // Depois do Pronto na fila (começar mais cedo) o time também fica travado.
+    const vaga = (time) => (time === meuT || estado.fase !== 'procurando' || estado.voce?.pronto ? 'procurando' : 'trocar');
     const [verde, vermelho] = [0, 1].map((t) => preencher((estado.times[t] ?? []).map((m) => linha(m, t)), vaga(t)));
     return { meu: verde, inimigo: vermelho };
   }

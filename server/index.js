@@ -151,11 +151,15 @@
 //                        'cheio' sem vaga, 'invalido'
 //                        na pública, 'fora' na sala); com 3 em cada, a sala fecha
 //                       {t:'pronto', nome?, race?, classe?}   trava a nave (com a escolha
-//                        final junto); todos prontos, a partida começa
+//                        final junto); todos prontos, a partida começa. No 3 contra 3
+//                        vale também procurando, com o grupo já tendo 1 em cada time
+//                        (o `cedo` do estado; antes disso, 'cedo'): trava a nave e o
+//                        time, e todos do grupo prontos começam a partida só com eles
+//                        (1 contra 1, 2 contra 1...), sem computadores
 //                       {t:'sairFila'}   sai (na sala, a desfaz: os outros voltam ao
 //                        começo da fila); fechar a conexão é o mesmo
 //                       (recusa: {t:'resultado', acao, ok:false, codigo} 'invalido',
-//                        'fora' (não está na fila/sala), 'travada', 'cheio', 'raca_bloqueada',
+//                        'fora' (não está na fila/sala), 'travada', 'cheio', 'cedo', 'raca_bloqueada',
 //                        'raca_invalida')
 //   (No servidor de verdade cada partida roda numa worker thread, server/mundos.js:
 //    o protocolo com o cliente é o mesmo; só o pong sai sempre da linha principal.)
@@ -172,7 +176,8 @@
 //                       {t:'fila', estado:'fora', aviso?}   fora da fila (aviso
 //                        'sem_pronto': o contador zerou sem o seu Pronto)
 //                       {t:'fila', estado:'procurando', modo, n, precisa, espera, voce:
-//                        {time}, times, aviso?}   n pilotos no seu grupo (o da próxima
+//                        {time, pronto}, times, cedo?, aviso?}   cedo 1 = o grupo já pode
+//                        começar com todos prontos (o Pronto acende);   n pilotos no seu grupo (o da próxima
 //                        sala, você conta) de `precisa`, times como os da sala
 //                        ([verde, vermelho]; o seu time com raça e classe, o outro só
 //                        o nome; no 3 contra 3 o time escolhido na fila: quem chega

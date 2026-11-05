@@ -111,6 +111,19 @@ test('fila no cliente: as vagas da Seleção, procurando e na sala', () => {
   assert.deepEqual(titulosDosLados('publica'), { meu: 'Seu time', inimigo: 'Inimigo' });
 });
 
+test('fila no cliente: no 3 contra 3, com um em cada time o Pronto acende procurando e trava o time', () => {
+  const msg = (extra = {}) => ({ t: 'fila', estado: 'procurando', modo: 'online', n: 2, precisa: 6, espera: 0, voce: { time: 0, pronto: 0 }, times: [[{ nome: 'Eu', pronto: 0, race: 'acron', classe: 'assault', voce: 1 }], [{ nome: 'B', pronto: 0 }]], ...extra });
+  const sem = aplicarMsgFila(null, msg(), 0);
+  assert.deepEqual(botaoDaFila(sem), { texto: 'Aguardando…', habilitado: false, acao: null }, 'sem o cedo do servidor, espera');
+  const cedo = aplicarMsgFila(null, msg({ cedo: 1 }), 0);
+  assert.deepEqual(botaoDaFila(cedo), { texto: 'Pronto', habilitado: true, acao: 'pronto' });
+  assert.match(linhaDaFila(cedo, 0, 60).texto, /2 de 6 pilotos · aperte Pronto para começar já · 0 de 2 prontos/);
+  const pronto = aplicarMsgFila(cedo, msg({ cedo: 1, voce: { time: 0, pronto: 1 }, times: [[{ nome: 'Eu', pronto: 1, voce: 1 }], [{ nome: 'B', pronto: 0 }]] }), 0);
+  assert.deepEqual(botaoDaFila(pronto), { texto: 'Aguardando…', habilitado: false, acao: null });
+  assert.match(linhaDaFila(pronto, 0, 60).texto, /Nave travada · 1 de 2 prontos/);
+  assert.deepEqual(vagasDaFila(pronto, 'online').inimigo.map((x) => x.tipo), ['oculto', 'procurando', 'procurando'], 'pronto, não troca mais de time');
+});
+
 /** WebSocket de mentira: guarda o que se manda e deixa o teste falar pelo servidor. */
 class WsFalso {
   static todos = [];
