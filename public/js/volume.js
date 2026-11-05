@@ -1,8 +1,9 @@
 // Janela de volume (#volume): três barras, música, efeitos e locutor, de 0 a 100%. Abre pelo
-// botão de som do header do menu (#botao-som) e pelo do HUD (#som-hud), fecha no ✕,
+// botão de som do header do menu (#botao-som), fecha no ✕,
 // no ESC ou clicando fora. As mesmas barras aparecem fixas na aba Configurações do
 // menu (#config-som): outro PainelVolume sobre outro elemento, sem ✕ nem fundo, que
-// lê e grava o mesmo Sons (`atualizar` mostra os valores de agora ao abrir a aba). O jogo não pausa (é multijogador): a janela fica por cima
+// lê e grava o mesmo Sons (`atualizar` mostra os valores de agora ao abrir a aba); na
+// partida, as barras ficam na janela de Opções (opcoes.js, `.opcoes-som`). O jogo não pausa (é multijogador): a janela fica por cima
 // de tudo, sem tiro enquanto aberta, como o painel da Loja.
 //
 // Os volumes moram no Sons (sons.js), que guarda no navegador. A barra muda o som na
@@ -23,8 +24,11 @@ export class PainelVolume {
   /**
    * @param {{ sons: import('./sons.js').Sons, aoMudarSom?: () => void }} opcoes
    *   `aoMudarSom` é chamado quando o mudo muda por aqui (para os textos de estado).
+   *   `fundo`: o `el` é o fundo escurecido da janela (clicar nele fecha). As barras
+   *   dentro de outra tela (Configurações, Opções da partida) vão com `false`: o
+   *   clique na sobra da caixa não pode esconder as barras.
    */
-  constructor({ sons, aoMudarSom = () => {}, el = document.querySelector('#volume') }) {
+  constructor({ sons, aoMudarSom = () => {}, el = document.querySelector('#volume'), fundo = true }) {
     this.sons = sons;
     this.aoMudarSom = aoMudarSom;
     this.el = el;
@@ -56,9 +60,11 @@ export class PainelVolume {
       e.currentTarget.blur(); // o foco no botão não pode prender as teclas do jogo
     });
     // Clique no fundo escurecido (fora da janela) fecha.
-    this.el.addEventListener('pointerdown', (e) => {
-      if (e.target === this.el) this.fechar();
-    });
+    if (fundo) {
+      this.el.addEventListener('pointerdown', (e) => {
+        if (e.target === this.el) this.fechar();
+      });
+    }
   }
 
   /** A janela está na tela? (enquanto estiver, o Z e o X não disparam) */

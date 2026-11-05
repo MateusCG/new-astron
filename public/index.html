@@ -307,7 +307,6 @@
           </footer>
         </div>
       </section>
-      <span id="ping"></span>
       <section id="painel-teste" hidden aria-label="Modo de teste">
         <h3>Modo de teste</h3>
         <button type="button" data-acao="ouro">+1000 ouro</button>
@@ -316,12 +315,9 @@
         <button type="button" data-acao="nivelMax">Nível máx.</button>
         <button type="button" data-acao="nucleo" title="O Núcleo de He-3 volta ao começo na hora: nível 1, escudo cheio">Resetar Núcleo</button>
       </section>
+      <!-- Engrenagem (opcoes.js): abre a janela de Opções da partida (O). -->
       <div id="atalhos-hud">
-        <button type="button" id="som-hud" class="botao-volume" title="Volume (M liga e desliga o som)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som"></span></button>
-        <button type="button" id="status-hud" class="botao-hud" title="Status e pontos do piloto (C)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="3.5" /><path d="M5 20c.8-4 3.3-6 7-6s6.2 2 7 6" /><path d="M18 3.5v4M16 5.5h4" /></svg><span>Status</span><kbd data-acao-rotulo="status">C</kbd></button>
-        <button type="button" id="inventario-hud" class="botao-hud" title="Inventário da nave (I)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="7" height="7" rx="1.2" /><rect x="13.5" y="4" width="7" height="7" rx="1.2" /><rect x="3.5" y="14" width="7" height="7" rx="1.2" /><rect x="13.5" y="14" width="7" height="7" rx="1.2" /></svg><span>Inventário</span><kbd data-acao-rotulo="inventario">I</kbd></button>
-        <button type="button" id="tabela-hud" class="botao-hud" title="Tabela da partida: objetivos, farm, KDA e itens de todos (segure TAB)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="1.5" /><path d="M3 9h18M12 9v10.5M6 13h3M6 16h3M15 13h3M15 16h3" /></svg><span>Tabela</span><kbd data-acao-rotulo="tabela">TAB</kbd></button>
-        <button type="button" id="morte-hud" class="botao-hud" title="Resumo da última morte: quem destruiu a nave e o dano recebido (H)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" /></svg><span>Morte</span><kbd data-acao-rotulo="morte">H</kbd></button>
+        <button type="button" id="opcoes-hud" class="botao-hud" title="Opções: volume, janelas e conexão (O)" aria-label="Opções"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg><kbd data-acao-rotulo="opcoes">O</kbd></button>
       </div>
 
       <footer id="painel">
@@ -460,6 +456,45 @@
           <small>A voz do First Blood, Double Kill, Godlike…</small>
         </label>
         <button type="button" class="alternar-mudo botao-volume" title="Liga e desliga todo o som (M)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som">Som ligado</span><kbd data-acao-rotulo="som">M</kbd></button>
+      </section>
+    </div>
+
+    <!-- Opções da partida (opcoes.js): a engrenagem do HUD ou O. As janelas (Status,
+         Inventário, Tabela, Última morte), o volume, a conexão e o Sair da partida. -->
+    <div id="opcoes" hidden>
+      <section class="janela" role="dialog" aria-modal="true" aria-labelledby="opcoes-titulo">
+        <header>
+          <h2 id="opcoes-titulo"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>Opções</h2>
+          <span class="conexao" title="Tempo de ida e volta até o servidor">Ping <b id="ping"></b></span>
+          <button class="fechar" type="button" title="Fechar (O ou Esc)" aria-label="Fechar">✕</button>
+        </header>
+        <h3>Janelas</h3>
+        <div class="opcoes-janelas">
+          <button type="button" id="status-hud" class="botao-hud" data-joy-principal title="Status e pontos do piloto (C)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="3.5" /><path d="M5 20c.8-4 3.3-6 7-6s6.2 2 7 6" /><path d="M18 3.5v4M16 5.5h4" /></svg><span>Status</span><kbd data-acao-rotulo="status">C</kbd></button>
+          <button type="button" id="inventario-hud" class="botao-hud" title="Inventário da nave (I)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="7" height="7" rx="1.2" /><rect x="13.5" y="4" width="7" height="7" rx="1.2" /><rect x="3.5" y="14" width="7" height="7" rx="1.2" /><rect x="13.5" y="14" width="7" height="7" rx="1.2" /></svg><span>Inventário</span><kbd data-acao-rotulo="inventario">I</kbd></button>
+          <button type="button" id="tabela-hud" class="botao-hud" title="Tabela da partida: objetivos, farm, KDA e itens de todos (segure TAB)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="1.5" /><path d="M3 9h18M12 9v10.5M6 13h3M6 16h3M15 13h3M15 16h3" /></svg><span>Tabela</span><kbd data-acao-rotulo="tabela">TAB</kbd></button>
+          <button type="button" id="morte-hud" class="botao-hud" title="Resumo da última morte: quem destruiu a nave e o dano recebido (H)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" /></svg><span>Morte</span><kbd data-acao-rotulo="morte">H</kbd></button>
+        </div>
+        <h3>Som</h3>
+        <div class="opcoes-som">
+          <label class="canal" data-canal="musica">
+            <span class="nome">Música</span><b class="pct">60%</b>
+            <input type="range" min="0" max="100" step="1" value="60" />
+            <small>Ainda sem música no jogo: o ajuste já fica guardado</small>
+          </label>
+          <label class="canal" data-canal="efeitos">
+            <span class="nome">Efeitos</span><b class="pct">80%</b>
+            <input type="range" min="0" max="100" step="1" value="80" />
+            <small>Tiros, explosões e sons do painel</small>
+          </label>
+          <label class="canal" data-canal="locutor">
+            <span class="nome">Locutor</span><b class="pct">80%</b>
+            <input type="range" min="0" max="100" step="1" value="80" />
+            <small>A voz do First Blood, Double Kill, Godlike…</small>
+          </label>
+          <button type="button" class="alternar-mudo botao-volume" title="Liga e desliga todo o som (M)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som">Som ligado</span><kbd data-acao-rotulo="som">M</kbd></button>
+        </div>
+        <button type="button" class="sair-partida">Sair da partida <kbd data-acao-rotulo="menu">Esc</kbd></button>
       </section>
     </div>
 

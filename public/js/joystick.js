@@ -7,7 +7,7 @@
 //   (Controles.ler lê valorJoystick, analógico de verdade no acelerar e no girar) e o
 //   apertar de cada um dispara a ação, como a tecla (emitirAcao).
 // - 'menu': a tela de abertura, o menu, a tela de carregamento, a de resultado, a
-//   janela de volume, a Loja/Evolução, o STATUS ou o INVENTÁRIO aberto. O controle
+//   janela de volume, a de Opções, a Loja/Evolução, o STATUS ou o INVENTÁRIO aberto. O controle
 //   navega nela: o direcional (ou o analógico) leva o foco ao botão mais perto
 //   daquele lado (navegação espacial, proximoNaDirecao), o Confirmar clica e o
 //   Voltar é o Esc (main.js ouve uiVoltar). Numa barra (volume), ← e → mexem nela.
@@ -38,7 +38,7 @@ import {
 import { mapasAtuais, emitirAcao, definirDispositivo, dispositivoAtual, capturaAtual, concluirCaptura } from './atalhos.js';
 
 /** Janelas em que o controle navega, da que fica por cima para a de baixo. */
-const ESCOPOS = [['#volume'], ['#sair-partida'], ['#resultado'], ['#servico', '#inventario', '#status'], ['#carregamento'], ['#entrada'], ['#abertura']];
+const ESCOPOS = [['#volume'], ['#sair-partida'], ['#opcoes'], ['#resultado'], ['#servico', '#inventario', '#status'], ['#carregamento'], ['#entrada'], ['#abertura']];
 
 /** Qualquer uma das janelas (a raiz do foco). */
 const RAIZES = ESCOPOS.flat().join(', ');
