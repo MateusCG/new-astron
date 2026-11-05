@@ -110,7 +110,7 @@ export class Hud {
         espera.className = 'espera';
         el.querySelector('.recarga').before(espera);
       }
-      return { el, icone: el.querySelector('.icone'), nome: el.querySelector('.nome'), recarga: el.querySelector('.recarga i'), espera, kind: null, txtEspera: '' };
+      return { el, icone: el.querySelector('.icone'), recarga: el.querySelector('.recarga i'), espera, kind: null, txtEspera: '' };
     });
     // Itens consumíveis (R e F): ícone, quantidade e a linha da recarga.
     this.itens = ORDEM_ITENS.map((id) => {
@@ -422,8 +422,9 @@ export class Hud {
       if (kind !== slot.kind || nivel !== slot.nivel) {
         slot.kind = kind;
         slot.nivel = nivel;
+        // O painel mostra só o ícone (com a versão no canto); o nome fica no tooltip.
         slot.icone.innerHTML = iconeArma(kind, nivel);
-        slot.nome.textContent = nivel > 1 ? `${w.nome} ${nivel}` : w.nome;
+        slot.icone.title = nivel > 1 ? `${w.nome} ${nivel}` : w.nome;
       }
       const cd = (enc === 0 ? me.cd1 : me.cd2) ?? 0;
       const troca = (enc === 0 ? me.troca1 : me.troca2) ?? 0;

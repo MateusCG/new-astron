@@ -3681,8 +3681,8 @@ kbd {
 }
 
 /* Com a janela lateral aberta numa tela de até 1500 px, o painel inferior fica estreito:
-   o quadro Ouro/Abates/Vel. sai (o ouro aparece na própria janela) e o nome da arma
-   corta com reticências, para as barras não espremerem. */
+   o quadro Ouro/Abates/Vel. sai (o ouro aparece na própria janela), para as barras
+   não espremerem. */
 @media (max-width: 1500px) {
   #hud:has(.janela-lateral:not([hidden])) #painel {
     gap: 16px;
@@ -3690,12 +3690,6 @@ kbd {
 
   #hud:has(.janela-lateral:not([hidden])) #painel dl {
     display: none;
-  }
-
-  #hud:has(.janela-lateral:not([hidden])) .arma-encaixe .nome {
-    max-width: 150px;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 }
 
@@ -4150,6 +4144,18 @@ dl {
   font-size: 16px;
 }
 
+/* Ouro/Abates/Vel. do painel inferior: largura fixa e sem quebra de linha, para o
+   número crescer (ouro de cinco dígitos, "120 km/h") sem passar da borda do painel
+   nem empurrar as barras a cada quadro. */
+#painel dl {
+  flex: none;
+  white-space: nowrap;
+}
+
+#painel dd {
+  min-width: 8ch;
+}
+
 dt {
   opacity: 0.65;
 }
@@ -4164,9 +4170,10 @@ dd {
   color: var(--ouro);
 }
 
-/* As duas armas no painel, uma por encaixe ("Z · ícone nome"), com a recarga de
-   cada uma numa linha fina embaixo e, à direita, a arma guardada na troca rápida
-   ("Q ▸ ícone"); clicar troca, como a tecla. */
+/* As duas armas no painel, uma por encaixe ("Z · ícone", o nome só no tooltip: o
+   espaço vai para as barras), com a recarga de cada uma numa linha fina embaixo e,
+   à direita, a arma guardada na troca rápida ("Q ▸ ícone"); clicar troca, como a
+   tecla. */
 #armas-nave {
   display: grid;
   gap: 4px;
@@ -5060,10 +5067,6 @@ body.dano::after {
 
 .toque .so-toque {
   display: inline;
-}
-
-.toque .arma-encaixe .nome {
-  display: none;
 }
 
 /* No celular a arma guardada não cabe no painel (empurraria R e F para baixo do
