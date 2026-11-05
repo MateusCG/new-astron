@@ -569,9 +569,11 @@ export function stepShip(s, inp, dt = DT) {
   }
 
   // Energia zerada no boost trava o boost até soltar o botão; sem isso ele piscaria
-  // liga/desliga a cada passo com a energia que regenera.
+  // liga/desliga a cada passo com a energia que regenera. O turbo vale acelerando
+  // para a frente e também de ré (a ré com turbo é BOOST_MULT vezes a ré normal);
+  // parada, sem acelerar para lado nenhum, não liga nem gasta.
   if (!inp.b) s.boostTravado = false;
-  const querBoost = !pousado && !semBoost && inp.b && inp.th > 0 && s.en > 0 && !s.boostTravado;
+  const querBoost = !pousado && !semBoost && inp.b && inp.th !== 0 && s.en > 0 && !s.boostTravado;
   s.boost = querBoost;
   // s.velocidade: a da nave (shared/naves.js); s.velMult e s.acelMult: status do
   // piloto (potenciadores; o servidor põe e vão no `me`). s.lentoMult: força do lento de quem acertou

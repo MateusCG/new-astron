@@ -21,6 +21,7 @@ import {
   armasDisponiveis,
   versaoArma,
   ID_ENCAIXE_MAX,
+  BOOST_MULT,
 } from '../shared/sim.js';
 import { podePousar, topoPouso, AREAS_POUSO } from '../shared/terrain.js';
 import { NAVES, ORDEM_CLASSES } from '../shared/naves.js';
@@ -66,6 +67,30 @@ test('boost gasta energia e trava ao zerar até soltar o botão', () => {
   stepShip(s, FRENTE); // soltou
   stepShip(s, { ...FRENTE, b: true });
   assert.equal(s.boost, true, 'apertou de novo com energia: volta');
+});
+
+test('turbo vale de ré também: a ré fica BOOST_MULT vezes mais rápida e gasta energia', () => {
+  const RE = { ...PARADO, th: -1 };
+  const re = (b) => {
+    const s = createShip('bellico', BASE.x, BASE.z, rumoLane());
+    s.en = s.maxEn = 1000; // energia para 3 s de turbo (a de fábrica dura uns 1,6 s)
+    const en0 = s.en;
+    for (let i = 0; i < 30 * 3; i++) stepShip(s, { ...RE, b });
+    return { s, v: Math.hypot(s.vx, s.vz), gastou: en0 - s.en };
+  };
+  const normal = re(false);
+  const turbo = re(true);
+  assert.equal(turbo.s.boost, true, 'o turbo ligou de ré');
+  assert.ok(Math.abs(turbo.v / normal.v - BOOST_MULT) < 0.05, `${turbo.v} vs ${normal.v} × ${BOOST_MULT}`);
+  assert.ok(turbo.gastou > 0 && normal.gastou <= 0, 'só o turbo gasta energia');
+  const vf = (s) => s.vx * forward(s.yaw).x + s.vz * forward(s.yaw).z;
+  assert.ok(vf(turbo.s) < 0, 'continua andando para trás');
+  // Parada, só segurando o turbo: não liga nem gasta.
+  const s = createShip('bellico', BASE.x, BASE.z, rumoLane());
+  const en0 = s.en;
+  stepShip(s, { ...PARADO, b: true });
+  assert.equal(s.boost, false);
+  assert.ok(s.en >= en0);
 });
 
 test('arma respeita recarga e energia', () => {
