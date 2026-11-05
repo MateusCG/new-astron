@@ -13,7 +13,7 @@ import { hpMaxDoNivel } from '../server/progressao.js';
 import { naveDe } from '../shared/naves.js';
 import { BASES, SERVICOS, PLATAFORMAS_POUSO } from '../shared/terrain.js';
 import { EQUIPAMENTOS, versaoEquip, precoEvoluirEquip } from '../shared/equipamentos.js';
-import { COMPARTIMENTO_MAX, ARMA_COPIAS_MAX, precoArma, armasAVenda } from '../shared/loja.js';
+import { COMPARTIMENTO_MAX, ARMA_COPIAS_MAX, precoArma, armasAVenda, precoVenda } from '../shared/loja.js';
 import { PONTO_MAX, efeitoDosPontos, somaEquipamento } from '../shared/status.js';
 import { ARMAS, IDX_ARMA, armasIniciais } from '../shared/sim.js';
 
@@ -317,7 +317,7 @@ test('inventário: vender dá metade do pago, só do compartimento, na própria 
   assert.equal(vender(w, j, e).codigo, 'nao_pousado', 'plataforma de pouso não é base');
   // No anel da própria base vale (qualquer área de pouso dela).
   pousarEm(j, BASES[j.time].x, BASES[j.time].z);
-  assert.equal(vender(w, j, fabrica.id).codigo, 'invalido', 'arma de fábrica não se vende');
+  assert.equal(vender(w, j, fabrica.id).codigo, 'equipado', 'a de fábrica no encaixe está na nave');
   assert.equal(vender(w, j, 999).codigo, 'sem_item');
   assert.equal(equipar(w, j, 'armadura', e).ok, true);
   assert.equal(vender(w, j, e).codigo, 'equipado', 'na nave não');
@@ -341,6 +341,41 @@ test('inventário: vender dá metade do pago, só do compartimento, na própria 
   assert.equal(comprar(w, j, ARMAS[arma]).codigo, 'nao_pousado', 'no anel não compra, só na Loja');
   pousar(j, 'loja');
   assert.equal(comprar(w, j, ARMAS[arma]).ok, true, 'vendida, pode comprar de novo');
+});
+
+test('inventário: a arma de fábrica também se vende, pela metade do pago (só as evoluções), e o encaixe pega outra', () => {
+  const w = mundo();
+  const j = w.addPlayer('A', 'bellico', 'assault');
+  pousar(j, 'loja');
+  j.ouro = 100000;
+  const [z, x] = j.ship.encInst;
+  const fabZ = inst(j, z);
+  assert.equal(fabZ.fabrica, true);
+  assert.equal(precoVenda(fabZ), 0, 'veio de graça: na V1 não rende ouro');
+  assert.equal(vender(w, j, z).codigo, 'equipado', 'no Z, não');
+
+  // Uma comprada vai no Z; a de fábrica, no compartimento, evoluída uma vez.
+  const a = novo(w, j, ARMAS[compravel('bellico', 'assault')]);
+  w.pushInput(j.id, { s: 1, a, a2: x });
+  w.step();
+  assert.deepEqual(j.ship.encInst, [a, x]);
+  assert.equal(evoluir(w, j, z).ok, true);
+  const taxa = inst(j, z).pago;
+  assert.ok(taxa > 0, 'a evolução soma no pago');
+  const ouro = j.ouro;
+  assert.deepEqual(vender(w, j, z), { t: 'resultado', acao: 'vender', item: z, ok: true });
+  assert.equal(j.ouro, ouro + Math.floor(taxa / 2), 'metade das evoluções');
+  assert.equal(inst(j, z), undefined, 'saiu do inventário');
+  assert.deepEqual(j.ship.encInst, [a, x], 'a nave continua com as duas armas');
+
+  // O comando que ainda pede a vendida cai em outra arma que a nave tem.
+  w.pushInput(j.id, { s: 2, a: z, a2: x });
+  w.step();
+  assert.ok(j.ship.encInst.every((id) => inst(j, id)), 'os dois encaixes com armas do inventário');
+  assert.notEqual(j.ship.encInst[0], j.ship.encInst[1]);
+
+  // Vendida, a de fábrica volta à venda na Loja.
+  assert.equal(comprar(w, j, fabZ.chave).ok, true, 'pode comprar de novo');
 });
 
 test('inventário: evoluirItem sobe só aquela instância, soma no pago e para na V8', () => {
@@ -470,7 +505,7 @@ test('inventário: pelo WebSocket, pontos, equipar, vender e evoluirItem voltam 
       acao: 'vender',
       item: j.inv[0].id,
       ok: false,
-      codigo: 'invalido',
+      codigo: 'equipado', // a de fábrica se vende, mas está no encaixe
     });
     ws.send(JSON.stringify({ t: 'equipar', slot: 'escudo', inst: id }));
     const snap = await esperar((m) => m.t === 'snap' && m.me.equipado?.escudo === id);

@@ -268,8 +268,8 @@
 //         gastos), inv = [{id, tipo: 'arma' | 'equip', chave, nivel (1 a 8), pago,
 //         fabrica?}] o inventário por instância (id inteiro único do piloto;
 //         chave 'o311001' da arma ou 'e330010' do equipamento; pago = ouro gasto
-//         nela, compra + evoluções; fabrica: true nas duas armas de fábrica, que
-//         não se vendem; até 2 instâncias da mesma arma), compMax = tamanho do
+//         nela, compra + evoluções; fabrica: true nas duas armas de fábrica, de
+//         pago 0, que também se vendem; até 2 instâncias da mesma arma), compMax = tamanho do
 //         compartimento (12: o que está em inv e não na nave, as instâncias de arma
 //         fora de me.encInst inclusive), equipado =
 //         {escudo, armadura, pot: [a, b]} (id de instância ou null) o que está na nave,

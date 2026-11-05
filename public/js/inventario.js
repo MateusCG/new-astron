@@ -14,8 +14,9 @@
 // cada cópia aparece como um item (no Z, no X ou no compartimento). Clicar (ou tocar) num item abre uma caixinha junto dele com o que dá
 // para fazer, e cada opção que não dá agora fica apagada com o porquê embaixo:
 // - Item do compartimento: Equipar (arma: no Z ou no X; potenciador: no 1 ou no 2),
-//   arma também Guardar no Q / no E, Vender (metade do que foi pago; arma de fábrica
-//   não vende) e Evoluir (Vn → Vn+1 pela taxa de tuning; na V8 acabou).
+//   arma também Guardar no Q / no E, Vender (metade do que foi pago; a arma de
+//   fábrica veio de graça, então só as evoluções dela voltam) e Evoluir (Vn → Vn+1
+//   pela taxa de tuning; na V8 acabou).
 // - Casa da troca rápida: ocupada, Trocar com o Z/X agora, Tirar (volta para o resto
 //   do compartimento), Vender e Evoluir; vazia, Guardar cada arma do compartimento.
 // - Encaixe ocupado: Tirar (volta para o compartimento; cheio, não cabe) e Evoluir.
@@ -75,7 +76,7 @@ const MENSAGEM = {
 /** 'invalido' muda de sentido conforme o pedido. */
 const INVALIDO = {
   equipar: 'Esse item não vai nesse encaixe',
-  vender: 'Arma de fábrica não se vende',
+  vender: 'Esse item não se vende',
   evoluirItem: 'Esse item não evolui',
 };
 
@@ -346,7 +347,6 @@ export class PainelInventario {
 
   /** Por que não dá para vender a instância agora ('' = dá). */
   #porqueNaoVende(inst) {
-    if (inst.fabrica) return 'Arma de fábrica não se vende';
     if (!this.naBase) return 'Só pousado e parado na sua base';
     return '';
   }

@@ -36,8 +36,12 @@
 //   'cheio'). Trocar de escudo zera o escudo atual (sem trocar para encher).
 // - vender: pousado e parado numa área de pouso da própria base (senão
 //   'nao_pousado'); só do compartimento (na nave, 'equipado': a instância que está
-//   num encaixe Z/X, s.encInst, ou de equipamento); arma de fábrica,
-//   'invalido'; dá precoVenda (metade do pago, para baixo).
+//   num encaixe Z/X, s.encInst, ou de equipamento); dá precoVenda (metade do
+//   pago, para baixo). A arma de fábrica também se vende (pedido do Mateus,
+//   05/nov/2026): ela veio de graça (pago 0), então na V1 sai por 0 e evoluída
+//   devolve metade das evoluções; o encaixe que a perde cai em outra arma da nave
+//   (fabricaDoEncaixe em shared/sim.js), e como só se vende do compartimento a nave
+//   nunca fica com menos de duas.
 // - evoluirItem: pousado e parado na própria base (senão 'nao_pousado'); vale no
 //   compartimento e na nave; paga a taxa de tuning da versão (precoEvoluirInst), que
 //   soma no pago; na V8, 'limite'. Sem nível do piloto (o limite é o ouro). Muda só
@@ -320,7 +324,6 @@ export class Servicos {
     if (!pousadoNaPropriaBase(j)) return 'nao_pousado';
     const x = instDoInv(j.inv, inst);
     if (!x) return 'sem_item';
-    if (x.fabrica) return 'invalido'; // as de fábrica não se vendem
     if (naNave(x, j.equipado, j.ship.encInst)) return 'equipado';
     j.ouro += precoVenda(x);
     j.inv = j.inv.filter((y) => y !== x);

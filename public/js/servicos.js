@@ -443,7 +443,7 @@ export class PainelServicos {
         classe: n > 0 ? 'possuido' : '',
       });
     });
-    const nota = `<p class="nota">Armas da ${CLASSES[classe]?.nome ?? ''} ${race ? race[0].toUpperCase() + race.slice(1) : ''}, até ${ARMA_COPIAS_MAX} cópias de cada (a de fábrica conta como a primeira), cada uma na sua versão: com duas, a mesma arma vai no Z e no X. A comprada vai para o compartimento do Inventário (<kbd>I</kbd>), de onde se equipa no Z ou no X (ou com Q e E), se evolui e se vende. As de fábrica não se vendem.</p>`;
+    const nota = `<p class="nota">Armas da ${CLASSES[classe]?.nome ?? ''} ${race ? race[0].toUpperCase() + race.slice(1) : ''}, até ${ARMA_COPIAS_MAX} cópias de cada (a de fábrica conta como a primeira), cada uma na sua versão: com duas, a mesma arma vai no Z e no X. A comprada vai para o compartimento do Inventário (<kbd>I</kbd>), de onde se equipa no Z ou no X (ou com Q e E), se evolui e se vende (as de fábrica também, pela metade do que se pagou nelas: na V1, de graça, não rendem ouro).</p>`;
     return `${nota}${html}<div class="grade">${cartoes.join('')}</div>`;
   }
 

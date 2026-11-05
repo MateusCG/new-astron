@@ -20,8 +20,9 @@
 //   ARMA_COPIAS_MAX cópias (pedido do Mateus, como os potenciadores): cada cópia é
 //   uma instância com a sua versão, e a mesma arma no Z e no X são duas cópias (os
 //   encaixes do comando escolhem a INSTÂNCIA pelo id); passou disso, 'ja_possui'.
-//   As duas de fábrica da raça já vêm no inventário (fabrica: true, pago 0), contam
-//   como a primeira cópia e não se vendem (a segunda, comprada, sim). Arma de outra
+//   As duas de fábrica da raça já vêm no inventário (fabrica: true, pago 0) e contam
+//   como a primeira cópia; vendem-se como as outras, pela metade do pago (na V1, 0;
+//   evoluída, metade das evoluções). Arma de outra
 //   raça ou classe é 'invalido'.
 // - Equipamentos: os escudos, armaduras e potenciadores do original
 //   (shared/equipamentos.js) que a CLASSE do piloto usa (equipamentosAVenda; de
@@ -221,9 +222,12 @@ export function slotAceita(slot, categoria) {
   return Object.hasOwn(CATEGORIA_DO_SLOT, slot ?? '') && CATEGORIA_DO_SLOT[slot] === categoria;
 }
 
-/** Ouro que a venda da instância dá (FRACAO_VENDA do que se pagou nela); null na arma de fábrica. */
+/**
+ * Ouro que a venda da instância dá (FRACAO_VENDA do que se pagou nela); a arma de
+ * fábrica veio de graça (pago 0): só as evoluções dela contam. Null sem instância.
+ */
 export function precoVenda(inst) {
-  if (!inst || inst.fabrica) return null;
+  if (!inst) return null;
   return Math.floor((inst.pago ?? 0) * FRACAO_VENDA);
 }
 
