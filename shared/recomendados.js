@@ -3,8 +3,10 @@
 // Armaduras e Potenciadores). É só uma vitrine: cada cartão compra o mesmo item das
 // outras abas ({t:'comprar', item}), e o servidor valida como sempre.
 //
-// Nas seções de equipamento a recomendação é UM dos três tipos (Op., Ph. ou El.):
-// o piloto escolhe pelo dano que mais o acerta, então as três versões aparecem.
+// Nas seções de equipamento a recomendação é UM dos três tipos (Op., Ph. ou El.),
+// então as três versões aparecem, com a dica de como escolher (`dica`): o escudo e
+// a armadura pelo dano que mais acerta o piloto, o potenciador para potencializar
+// os status dele.
 // As armas da Bellico ainda não foram escolhidas: a seção mostra "EM BREVE".
 //
 // As chaves são as do catálogo (WEAPONS em shared/armas.js, EQUIPAMENTOS em
@@ -12,12 +14,14 @@
 // está à venda para a raça e a classe dela. Sem imports, puro, mesmo arquivo nos
 // dois lados (os computadores podem usar um dia).
 
-/** Ordem das seções da aba, com o nome e a categoria do item. */
+const PELO_DANO = 'escolha um: Op., Ph. ou El., pelo dano que mais te acerta';
+
+/** Ordem das seções da aba, com o nome, a categoria do item e a dica ao lado do título. */
 export const SECOES_RECOMENDADOS = [
   { id: 'armas', nome: 'Armas', categoria: 'arma' },
-  { id: 'escudo', nome: 'Escudos', categoria: 'escudo', umDos: true },
-  { id: 'armadura', nome: 'Armaduras', categoria: 'armadura', umDos: true },
-  { id: 'potenciador', nome: 'Potenciadores', categoria: 'potenciador', umDos: true },
+  { id: 'escudo', nome: 'Escudos', categoria: 'escudo', dica: PELO_DANO },
+  { id: 'armadura', nome: 'Armaduras', categoria: 'armadura', dica: PELO_DANO },
+  { id: 'potenciador', nome: 'Potenciadores', categoria: 'potenciador', dica: 'escolha um: Op., Ph. ou El., para potencializar seus status' },
 ];
 
 // Equipamento: Op., Ph. e El. de cada linha (a ordem da lista do Mateus).
@@ -58,7 +62,7 @@ export const ARMAS_RECOMENDADAS = {
 
 /**
  * As quatro seções da aba Recomendados para a raça e a classe: `[{id, nome,
- * categoria, umDos?, itens: [chave...], emBreve?}]`. `emBreve` quando a seção
+ * categoria, dica?, itens: [chave...], emBreve?}]`. `emBreve` quando a seção
  * ainda não tem recomendação (as armas da Bellico); raça ou classe desconhecida
  * dá seções vazias.
  */

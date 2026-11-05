@@ -428,7 +428,7 @@ export class PainelServicos {
   #recomendados() {
     const { race, classe } = this.estado;
     const secoes = recomendadosDe(race, classe).map((s) => {
-      const cab = `<h3 class="secao-rec">${s.nome}${s.umDos && s.itens.length ? ' <small>escolha um: Op., Ph. ou El., pelo dano que mais te acerta</small>' : ''}</h3>`;
+      const cab = `<h3 class="secao-rec">${s.nome}${s.dica && s.itens.length ? ` <small>${s.dica}</small>` : ''}</h3>`;
       if (s.emBreve) return `${cab}<p class="nota em-breve-rec">EM BREVE</p>`;
       if (!s.itens.length) return `${cab}<p class="nota">Sem recomendação para esta nave.</p>`;
       const cartoes = s.itens.map((k) => (s.categoria === 'arma' ? this.#cartaoArma(k) : this.#cartaoEquip(k)));
