@@ -8449,3 +8449,187 @@ body.dano::after {
     animation: none;
   }
 }
+
+/* ---------- Tela do celular ("Abra numa tela maior") ----------
+
+   inicio.js / tela-grande-regras.js. No celular o jogo não começa: no lugar da
+   abertura, a mesma arte e o mesmo nome do jogo, e embaixo a chapa com o recado, o
+   endereço do site e os botões para levar o link ao computador (enviar, onde o
+   navegador sabe compartilhar, e copiar). Feita para o celular em pé e deitado:
+   rola se não couber. */
+#tela-grande {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  overflow-y: auto;
+  background:
+    radial-gradient(ellipse at 62% 112%, #f59a45 0%, #a8402a 32%, #2a0f1c 72%),
+    #2a0f1c;
+  color: var(--texto);
+}
+
+.arte-tela-grande {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 62% 50%;
+  opacity: 0;
+  transition: opacity 0.9s ease-out;
+}
+
+.arte-tela-grande.pronta {
+  opacity: 1;
+}
+
+.veu-tela-grande {
+  position: fixed;
+  inset: 0;
+  background:
+    linear-gradient(0deg, rgba(5, 8, 10, 0.94) 0%, rgba(5, 8, 10, 0.7) 45%, rgba(5, 8, 10, 0.25) 75%),
+    linear-gradient(180deg, rgba(5, 8, 10, 0.55) 0%, transparent 30%);
+  pointer-events: none;
+}
+
+.conteudo-tela-grande {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 32px;
+  min-height: 100%;
+  padding: max(28px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+}
+
+/* O nome do jogo, o da abertura no fluxo da página e menor. */
+.marca-tela-grande {
+  position: static;
+  flex: 0 0 auto;
+}
+
+.marca-tela-grande em {
+  white-space: nowrap;
+  letter-spacing: clamp(0.12em, 1.2vw, 0.32em);
+}
+
+.marca-tela-grande span {
+  font-size: clamp(48px, 15vw, 96px);
+}
+
+.recado-tela-grande {
+  display: grid;
+  gap: 12px;
+  width: min(520px, 100%);
+  align-self: center;
+  padding: 22px 20px 18px;
+  border: 1px solid var(--neon-escuro);
+  border-top: 2px solid var(--neon);
+  background: rgba(8, 20, 19, 0.82);
+  backdrop-filter: blur(4px);
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+}
+
+.icone-tela-grande {
+  width: 56px;
+  height: 56px;
+  fill: none;
+  stroke: var(--neon);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 8px rgba(0, 239, 192, 0.5));
+}
+
+.icone-tela-grande .celular {
+  stroke: #ff8a70;
+  fill: rgba(8, 20, 19, 0.9);
+}
+
+.recado-tela-grande h2 {
+  margin: 0;
+  font: 800 26px/1.15 system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  color: var(--neon);
+}
+
+.recado-tela-grande p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.recado-tela-grande .link-caixa {
+  padding: 10px 12px;
+  border: 1px dashed var(--neon-escuro);
+  background: rgba(0, 239, 192, 0.06);
+  font: 600 15px ui-monospace, monospace;
+  color: var(--neon);
+  overflow-wrap: anywhere;
+}
+
+.botoes-tela-grande {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.botoes-tela-grande button {
+  flex: 1 1 140px;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid var(--neon);
+  background: transparent;
+  color: var(--neon);
+  font: 700 15px system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+/* O primeiro botão visível é o principal (Enviar onde há, senão Copiar). */
+.botoes-tela-grande button:not([hidden]):first-of-type,
+.botoes-tela-grande .enviar-tela-grande[hidden] + .copiar-tela-grande {
+  background: linear-gradient(180deg, #5effdc, var(--neon) 60%, #00c79f);
+  color: #032b22;
+  border-color: transparent;
+}
+
+.botoes-tela-grande button:focus-visible {
+  outline: 2px solid var(--texto);
+  outline-offset: 2px;
+}
+
+.aviso-tela-grande {
+  min-height: 1.5em;
+  font-size: 14px;
+  color: var(--neon);
+}
+
+.aviso-tela-grande:empty {
+  min-height: 0;
+}
+
+/* Celular deitado: o nome e a chapa lado a lado. */
+@media (orientation: landscape) and (max-height: 600px) {
+  .conteudo-tela-grande {
+    flex-direction: row;
+    align-items: center;
+    padding-left: max(24px, env(safe-area-inset-left));
+    padding-right: max(24px, env(safe-area-inset-right));
+  }
+
+  .marca-tela-grande span {
+    font-size: clamp(44px, 8vw, 80px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arte-tela-grande {
+    transition: none;
+  }
+
+  .marca-tela-grande {
+    animation: none;
+  }
+}

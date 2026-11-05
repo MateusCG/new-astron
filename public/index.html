@@ -34,6 +34,32 @@
       <button type="button" class="som-abertura botao-volume" title="Volume (M liga e desliga o som)" aria-label="Volume"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg></button>
     </section>
 
+    <!-- Tela do celular (inicio.js, regras em tela-grande-regras.js): no celular o jogo
+         não começa; no lugar da abertura, o recado para abrir numa tela maior e o link
+         para levar ao computador. -->
+    <section id="tela-grande" hidden aria-labelledby="titulo-tela-grande">
+      <img class="arte-tela-grande" alt="" draggable="false" />
+      <div class="veu-tela-grande" aria-hidden="true"></div>
+      <div class="conteudo-tela-grande">
+        <h1 class="marca-abertura marca-tela-grande"><small>NEW</small><span>ASTRON</span><em>Guerra de naves · 3 contra 3</em></h1>
+        <div class="recado-tela-grande">
+          <svg class="icone-tela-grande" viewBox="0 0 48 48" aria-hidden="true">
+            <rect x="4" y="8" width="30" height="21" rx="2" />
+            <path d="M14 36h10M19 29v7" />
+            <rect x="36" y="18" width="9" height="16" rx="1.5" class="celular" />
+          </svg>
+          <h2 id="titulo-tela-grande">Abra numa tela maior</h2>
+          <p>O New AstroN ainda não está pronto para celular. Para jogar, abra o site num computador ou notebook, com teclado e mouse ou com um controle.</p>
+          <p class="link-caixa"><span class="link-tela-grande"></span></p>
+          <div class="botoes-tela-grande">
+            <button type="button" class="enviar-tela-grande" hidden>Enviar o link</button>
+            <button type="button" class="copiar-tela-grande">Copiar o link</button>
+          </div>
+          <p class="aviso-tela-grande" aria-live="polite"></p>
+        </div>
+      </div>
+    </section>
+
     <section id="entrada" data-tela="jogar" hidden>
       <div id="fundo-nave" class="palco-nave" data-distancia="30" aria-hidden="true">
         <p class="carregando-nave" hidden><span class="marca"></span><span class="texto">Carregando a nave</span></p>
@@ -509,6 +535,7 @@
       </section>
     </div>
 
-    <script type="module" src="/js/main.js"></script>
+    <!-- inicio.js: no celular, a tela "Abra numa tela maior"; fora dele, o jogo (main.js). -->
+    <script type="module" src="/js/inicio.js"></script>
   </body>
 </html>
