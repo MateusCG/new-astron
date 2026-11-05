@@ -7999,3 +7999,112 @@ body.dano::after {
     animation: none;
   }
 }
+
+/* Confirmação de saída da partida (#sair-partida, sair-partida.js): o ESC sem janela
+   aberta pergunta antes de sair. Fundo escurecido por cima de tudo e, no centro, a
+   chapa da janela de volume; Confirmar é o botão primário (neon) e Cancelar, o de
+   contorno. O jogo não pausa: a nave segue voando por baixo, sem tiro. */
+#sair-partida {
+  position: fixed;
+  z-index: 31;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(6, 12, 11, 0.6);
+}
+
+#sair-partida[hidden] {
+  display: none;
+}
+
+#sair-partida .janela {
+  width: min(460px, 100%);
+  padding: 18px 20px 20px;
+  border: 2px solid var(--chapa-clara);
+  border-top-color: var(--neon);
+  border-radius: 14px 14px 8px 8px;
+  background: linear-gradient(180deg, var(--chapa-clara), var(--chapa) 30%, #0c1a19);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 0 0 1px var(--neon-escuro),
+    0 4px 20px rgba(0, 0, 0, 0.5);
+  text-align: center;
+  animation: surge 0.15s ease-out;
+}
+
+#sair-partida h2 {
+  margin: 0 0 8px;
+  font: 700 19px system-ui, sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--neon);
+  text-shadow: 0 0 10px var(--neon);
+}
+
+#sair-partida p {
+  margin: 0 0 18px;
+  font: 15px/1.4 system-ui, sans-serif;
+  color: var(--texto);
+}
+
+#sair-partida .botoes {
+  display: flex;
+  flex-wrap: wrap; /* no celular estreito, um embaixo do outro */
+  gap: 12px;
+  justify-content: center;
+}
+
+#sair-partida button {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font: 700 15px system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+#sair-partida .cancelar {
+  border: 1px solid var(--chapa-clara);
+  background: #0f1e1d;
+  color: var(--texto);
+}
+
+#sair-partida .confirmar {
+  border: 1px solid var(--neon);
+  background: var(--neon);
+  color: #032b22;
+}
+
+#sair-partida .confirmar kbd {
+  border-color: rgba(3, 43, 34, 0.4);
+  background: rgba(3, 43, 34, 0.15);
+  color: #032b22;
+}
+
+#sair-partida .cancelar:hover,
+#sair-partida .cancelar:focus-visible,
+#sair-partida .cancelar.foco-joy {
+  outline: none;
+  border-color: var(--neon);
+}
+
+#sair-partida .confirmar:hover,
+#sair-partida .confirmar:focus-visible,
+#sair-partida .confirmar.foco-joy {
+  outline: none;
+  box-shadow: 0 0 16px rgba(0, 239, 192, 0.55);
+  filter: brightness(1.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #sair-partida .janela {
+    animation: none;
+  }
+}

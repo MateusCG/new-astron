@@ -161,6 +161,7 @@ import { Destruicoes } from './destruicao-3d.js';
 import { destruicaoDe } from './destruicao.js';
 import { TelaCarregamento, Carregamento, aquecerGpu } from './carregamento.js';
 import { TelaAbertura } from './abertura.js';
+import { ConfirmarSaida } from './sair-partida.js';
 import { MELHORIAS_MINERADOR, MELHORIA_TORRETAS } from '/shared/evolucao.js';
 import { RECALL_S } from '/shared/recall.js';
 import { TORRETAS } from '/shared/terrain.js';
@@ -231,7 +232,8 @@ function lerCamAngulo() {
 // menu.js: o header com as abas (Jogar, Naves, Configurações; Ranking e Perfil
 // bloqueados até as contas de piloto), os modos de jogo, a Seleção de raça, classe e times e o
 // Decolar, que chama iniciar(). A escolha fica no navegador (menu-regras.js). ESC
-// volta um passo no menu; de dentro da partida, cai na aba Jogar.
+// volta um passo no menu; de dentro da partida, pergunta antes (sair-partida.js) e,
+// confirmado, cai na aba Jogar.
 
 // Som: um só por página (o AudioContext sobrevive à saída e à volta da partida).
 const sons = new Sons();
@@ -258,6 +260,12 @@ iniciarJoystick();
 pintarRotulos();
 
 let jogoAtual = null; // { sair } da partida em andamento; null no menu
+// ESC na partida sem janela aberta pergunta antes de sair (sair-partida.js).
+const confirmarSaida = new ConfirmarSaida({
+  el: document.querySelector('#sair-partida'),
+  aoConfirmar: () => jogoAtual && voltarParaEntrada(),
+  som: (nome) => sons.tocarInterface(SONS_INTERFACE[nome]),
+});
 let cargaAtual = null; // o Carregamento da tela de carregamento aberta (ESC cancela)
 let menu = null;
 
@@ -288,7 +296,8 @@ function montarMenu() {
   // Fase de captura na janela: este handler roda antes de qualquer outro keydown,
   // então decide sozinho o que o ESC faz. Com a janela de volume aberta (na partida
   // ou no menu), ESC só fecha ela. Com o painel da Loja ou da Evolução (#servico)
-  // aberto, só fecha o painel; senão sai da partida. Na tela de carregamento, cancela
+  // aberto, só fecha o painel; senão pergunta se sai da partida (#sair-partida), e o
+  // ESC com a pergunta aberta cancela. Na tela de resultado sai direto. Na tela de carregamento, cancela
   // e volta para a Seleção; no menu, volta um passo (menu.voltar).
   // No controle, o Start (menu) e o ○ dos menus (uiVoltar) são o mesmo ESC.
   addEventListener(
@@ -303,10 +312,14 @@ function montarMenu() {
   aoApertar('uiVoltar', () => apertouEsc());
 }
 
-/** O ESC (tecla ou controle): fecha a janela de cima, volta no menu ou sai da partida. */
+/** O ESC (tecla ou controle): fecha a janela de cima, volta no menu ou pergunta se sai da partida. */
 function apertouEsc(e) {
   if (painelVolume.aberto) {
     painelVolume.fechar();
+    return;
+  }
+  if (confirmarSaida.aberto) {
+    confirmarSaida.fechar(); // ESC de novo é o Cancelar
     return;
   }
   if (!menu) return; // ainda na tela de abertura
@@ -316,13 +329,15 @@ function apertouEsc(e) {
     return;
   }
   if (jogoAtual.fecharPainel()) return;
-  voltarParaEntrada();
+  if (jogoAtual.naTelaResultado()) voltarParaEntrada(); // a partida já acabou
+  else confirmarSaida.abrir();
 }
 
 /** Sai da partida e mostra o menu na aba Jogar, com o nome, a raça e a classe de antes. */
 function voltarParaEntrada() {
   // O menu volta mesmo se o desmonte falhar: preso numa tela vazia, o jogador não
   // teria como continuar sem recarregar a página.
+  confirmarSaida.fechar();
   try {
     jogoAtual?.sair();
   } catch (err) {
@@ -596,7 +611,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     // ou a janela de volume aberta não sai tiro. Com o STATUS, o INVENTÁRIO ou a
     // tabela da partida (TAB) aberta, sai (são de consulta, como o TAB do LoL).
     [inp.a, inp.a2] = armasNave.encaixes;
-    if (painel.aberto || painelVolume.aberto || resultado.aberto) inp.f1 = inp.f2 = false;
+    if (painel.aberto || painelVolume.aberto || resultado.aberto || confirmarSaida.aberto) inp.f1 = inp.f2 = false;
     seq++;
     rede.enviar({ t: 'in', s: seq, ...inp });
     ant = pose(pred);
@@ -664,6 +679,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     placar.atualizar(m.partida, m.bonus);
     tabela.atualizar(m.jogadores, m.partida);
     resultado.atualizar(m.partida, m.jogadores);
+    if (resultado.aberto) confirmarSaida.fechar(); // a partida acabou com a pergunta aberta
     barraTime.atualizar(m.jogadores, m.ents, m.vivo, m.me?.en);
     bonusAtivos = m.bonus ?? {};
     meusBonus = Object.keys(m.me?.bonusNave ?? {});
@@ -1520,7 +1536,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     return true;
   }
 
-  return { sair, fecharPainel, aquecer, comecar };
+  return { sair, fecharPainel, naTelaResultado: () => resultado.aberto, aquecer, comecar };
 }
 
 // Tela de abertura (abertura.js): a primeira coisa do site. Baixa tudo o que o menu
