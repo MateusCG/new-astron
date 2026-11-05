@@ -36,11 +36,9 @@
 // invulnerável, escudo, fraco, conserto, camuflagem; a aceleração da Arrancada acende o
 // turbo dos motores, em nave.js).
 //
-// Bônus dos objetivos na nave (`bonus`: 'ataque', 'suporte', 'sonda' da própria nave e
-// 'medusa' do time): um anel fino deitado em volta dela por bônus, cada um com raio,
-// cor e jeito próprios (o de ataque âmbar pulsando, o de suporte verde abrindo para
-// fora, o da sonda azul em três arcos girando, o da Medusa violeta largo e lento),
-// para dar para empilhar e ler de longe.
+// Bônus dos objetivos (ataque, suporte, sonda, Medusa) não têm desenho na nave
+// (pedido do Mateus, 05/nov/2026: o anel piscando em volta dela incomodava): ficam só
+// no texto com o tempo, no canto esquerdo do HUD (hud.bonusNave).
 //
 // Monstros da jungle (server/jungle.js): todos atiram com as armas de NPC do original
 // (`kind` 'n511080'...; o ataque, `atq`, vai nos eventos e nos `guiados`),
@@ -95,23 +93,11 @@ import { texturaEfeito } from './efeitos-armas.js';
 const COR_DRENO = new THREE.Color('#d070ff');
 const COR_GELO = new THREE.Color('#a8e8ff');
 const COR_EMP = new THREE.Color('#c8d2ff');
-// Fúria (bônus do objetivo C): âmbar dos objetivos, de onde o bônus vem. Um anel
-// fino deitado em volta da nave, pulsando devagar, sem partículas: brilho difuso
-// some no deserto alaranjado, e o anel lê bem na câmera de perseguição sem
-// competir com tiro, explosão nem com as auras de arma (que são nuvens).
-// Efeitos presos na nave (anéis, auras, recall) entram no grupo `efeitos` dela
+// Efeitos presos na nave (auras, recall) entram no grupo `efeitos` dela
 // (public/js/nave.js), que acompanha o tamanho da nave: os números abaixo são para a
 // primeira nave da linha, e a grande leva tudo maior. Monstro e o resto: no próprio objeto.
 const efeitosDa = (obj) => obj.userData.efeitos ?? obj;
 
-// Anéis dos bônus na nave: cor, raio (m) e jeito (pulsa, abre, gira em arcos, lento).
-const ANEIS_BONUS = {
-  ataque: { cor: new THREE.Color('#ffb627'), raio: 7.5, jeito: 'pulsa' },
-  suporte: { cor: new THREE.Color('#7dff9a'), raio: 8.2, jeito: 'abre' },
-  sonda: { cor: new THREE.Color('#7fd8ff'), raio: 6.4, jeito: 'arcos' },
-  medusa: { cor: new THREE.Color('#e7a6ff'), raio: 9.6, jeito: 'lento' },
-};
-const BONUS_OPACIDADE = 0.85;
 // Efeitos do original: o que fica preso na nave (ícones de estado, o Magma) na escala
 // das naves (o modelo das naves é o do original × isto); os golpes do monstro
 // (projétil, clarão, impacto, explosão) na escala dos monstros e do raio de acerto dos
@@ -263,37 +249,6 @@ function spriteAditivo(cor, tamanho) {
   );
   s.scale.setScalar(tamanho);
   return s;
-}
-
-// Geometria de cada anel de bônus, uma para todas as naves (nunca liberada: é pequena
-// e volta em toda partida).
-const GEO_BONUS = new Map();
-function geoBonus(def) {
-  if (!GEO_BONUS.has(def)) {
-    GEO_BONUS.set(
-      def,
-      def.jeito === 'arcos'
-        ? new THREE.TorusGeometry(def.raio, 0.2, 4, 24, Math.PI * 0.45)
-        : new THREE.TorusGeometry(def.raio, def.jeito === 'lento' ? 0.24 : 0.18, 4, 64),
-    );
-  }
-  return GEO_BONUS.get(def);
-}
-
-/** Anel de um bônus: toro fino deitado em volta da nave (três arcos na sonda), aditivo. */
-function anelBonus(def) {
-  const mat = new THREE.MeshBasicMaterial({ color: def.cor, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
-  const g = new THREE.Group();
-  if (def.jeito === 'arcos') {
-    for (let i = 0; i < 3; i++) {
-      const arco = new THREE.Mesh(geoBonus(def), mat);
-      arco.rotation.z = (i * Math.PI * 2) / 3;
-      g.add(arco);
-    }
-  } else g.add(new THREE.Mesh(geoBonus(def), mat));
-  g.rotation.x = Math.PI / 2;
-  g.userData.mat = mat;
-  return g;
 }
 
 export class Efeitos {
@@ -747,15 +702,12 @@ export class Efeitos {
   /**
    * Mostra na nave (grupo do Three.js) os efeitos ativos vindos do servidor:
    * dreno (aura violeta pulsando + partículas subindo) e lento (aura azul-gelo +
-   * cristais caindo), e os bônus dos objetivos (`bonus`: lista de 'ataque',
-   * 'suporte', 'sonda', 'medusa'; um anel cada). Chamar a cada quadro para cada
-   * nave visível.
+   * cristais caindo). Chamar a cada quadro para cada nave visível.
    */
-  estadoNave(obj, { dreno = false, lento = false, emp = false, bonus = [], fx = [] }, dt, tempo) {
+  estadoNave(obj, { dreno = false, lento = false, emp = false, fx = [] }, dt, tempo) {
     this.#fxArmas(obj, fx, dt, tempo);
     // O dreno do original (Magma) é o fogo do original, não a aura violeta.
     if (dreno && obj.userData.magmaOriginal) dreno = false;
-    this.#bonus(obj, bonus, tempo);
     let a = obj.userData.auras;
     if (!a) {
       if (!dreno && !lento && !emp) return;
@@ -794,36 +746,6 @@ export class Efeitos {
         a.accEmp -= FAISCA_EMP_S;
         this.#particula(Math.random() < 0.5 ? COR_EMP : COR_BRANCO, 1.8 + Math.random() * 2, (Math.random() * 2 - 1) * 6, 0.14, 6);
       }
-    }
-  }
-
-  /** Anéis dos bônus ativos na nave (criados na primeira vez, escondidos quando acabam). */
-  #bonus(obj, bonus, tempo) {
-    const ud = obj.userData;
-    if (!ud.bonus) {
-      if (!bonus?.length) return;
-      ud.bonus = {};
-    }
-    const ativos = new Set(bonus ?? []);
-    for (const [nome, def] of Object.entries(ANEIS_BONUS)) {
-      let anel = ud.bonus[nome];
-      if (!anel) {
-        if (!ativos.has(nome)) continue;
-        anel = ud.bonus[nome] = anelBonus(def);
-        efeitosDa(obj).add(anel);
-      }
-      anel.visible = ativos.has(nome);
-      if (!anel.visible) continue;
-      const m = anel.userData.mat;
-      if (def.jeito === 'pulsa') m.opacity = BONUS_OPACIDADE * (0.65 + 0.35 * Math.sin(tempo * 3));
-      else if (def.jeito === 'abre') {
-        const k = (tempo * 0.8) % 1;
-        anel.scale.setScalar(0.8 + 0.4 * k);
-        m.opacity = BONUS_OPACIDADE * (1 - k);
-      } else if (def.jeito === 'arcos') {
-        anel.rotation.z = tempo * 2.4;
-        m.opacity = BONUS_OPACIDADE;
-      } else m.opacity = BONUS_OPACIDADE * (0.55 + 0.2 * Math.sin(tempo * 1.2));
     }
   }
 

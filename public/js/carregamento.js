@@ -401,11 +401,11 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
       definirArmas(obj, [a.idx, b.idx]);
       definirArmas(lugar(criarNave(race, { aliado: true, classe, tier: 1 })), [b.idx, a.idx]);
     }
-    // Auras, recall, bônus, camuflagem e o emblema de subir de nível, em duas naves só para isso.
+    // Auras, recall, camuflagem e o emblema de subir de nível, em duas naves só para isso.
     const auras = lugar(criarNave(race, { aliado: true, classe, tier: 0 }));
     efeitos.estadoNave(
       auras,
-      { dreno: true, lento: true, emp: true, bonus: ['ataque', 'suporte', 'sonda', 'medusa'], fx: ['para', 'desg', 'energia', 'invul', 'escudo', 'fraco', 'recuo', 'regen', 'acel'] },
+      { dreno: true, lento: true, emp: true, fx: ['para', 'desg', 'energia', 'invul', 'escudo', 'fraco', 'recuo', 'regen', 'acel'] },
       0.2,
       0,
     );

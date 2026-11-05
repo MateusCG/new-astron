@@ -114,7 +114,7 @@ As armas de jogador são as do AstroN original (`shared/armas.js`), com o **visu
 | Acelerado | `#7fd8ff` |
 | Camuflado | a nave vira um **fantasma** `#9fb4c8` para você e os aliados; o outro time não a vê |
 
-**Bônus na nave** (vêm do `bn` de cada nave e do `bonus` do time; `public/js/efeitos.js`): anéis aditivos deitados em volta da nave, sem partículas, um por bônus (é anel, e não nuvem, para não parecer aura de arma). No HUD, ícones âmbar com o tempo, empilhados à esquerda acima do painel (o da sonda apaga enquanto ela está suspensa em combate); no placar, só o da Medusa.
+**Bônus na nave** (vêm do `bn` de cada nave e do `bonus` do time): **nada desenhado na nave** (pedido do Mateus, 05/nov/2026: o anel piscando em volta dela saiu). No HUD, ícones âmbar com o tempo, empilhados à esquerda acima do painel (o da sonda apaga enquanto ela está suspensa em combate); no placar, só o da Medusa.
 
 | Bônus | Cor | Raio | Jeito |
 |---|---|---|---|

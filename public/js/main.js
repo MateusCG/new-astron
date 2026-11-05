@@ -585,8 +585,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
   let extra = { ouro: 0, abates: 0, mortes: 0, nivel: 1, xp: 0, xpProx: 0 };
   let meuNome = ''; // nick que o servidor guardou (vem na sua entidade do snapshot)
   let ganhoOuro = 0; // ouro ganho no último snapshot (para a notícia de abate)
-  let bonusAtivos = {}; // bônus por time do último snapshot (o da Medusa: anel nas naves do time)
-  let meusBonus = []; // bônus de nave da sua nave (me.bonusNave), para o anel
+  let bonusAtivos = {}; // bônus por time do último snapshot (o da Medusa, no HUD)
   let ultimoObj = {}; // obj do último snapshot (minimapa)
   const minhaNave = criarNave(race, { aliado: true, classe, tier: 0 });
   scene.add(minhaNave);
@@ -710,7 +709,6 @@ function montarJogo(rede, boas, renderer, race, classe) {
     }
     barraTime.atualizar(m.jogadores, m.ents, m.vivo, m.me?.en);
     bonusAtivos = m.bonus ?? {};
-    meusBonus = Object.keys(m.me?.bonusNave ?? {});
     hud.bonusNave(m.me?.bonusNave, bonusAtivos[meuTime], m.me?.bonusSuspenso);
     ultimoObj = m.obj ?? {};
     definirMineracao(m.ents.filter((e) => e.tipo === 'minerador' && e.minerando).length);
@@ -1250,8 +1248,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
         inv: !!estadosArmas.invisivel && vivo,
         invul: estadosArmas.invulneravel > 0 && vivo,
       };
-      const bonusMeus = vivo ? [...meusBonus, ...(bonusAtivos[meuTime]?.medusa ? ['medusa'] : [])] : [];
-      efeitos.estadoNave(minhaNave, { ...meusEfeitos, fx: vivo ? eu?.fx : [], bonus: bonusMeus }, dt, tempo);
+      efeitos.estadoNave(minhaNave, { ...meusEfeitos, fx: vivo ? eu?.fx : [] }, dt, tempo);
       hud.efeitosProprios(meusEfeitos);
       sons.ouvinte(x, z, minhaNave.rotation.y);
       // Volta à base: a barra corre entre um snapshot e outro com RECALL_S.
@@ -1321,8 +1318,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
       } else if (e.tipo === 'minerador') animarMinerador(o.obj, e, tempo, e.id);
       else if (e.tipo === 'escolta') animarEscolta(o.obj, tempo, dt, e.id);
       else if (!bicho) atualizarMotor(o.obj, { boost: turboNaNave(e.boost, e.fx), pousado: e.pousado }, tempo, dt);
-      const bonus = e.tipo === 'jogador' ? [...(e.bn ?? []), ...(bonusAtivos[e.time]?.medusa ? ['medusa'] : [])] : [];
-      efeitos.estadoNave(o.obj, { dreno: !!e.dreno, lento: !!e.lento, emp: !!e.emp, fx: e.fx, bonus }, dt, tempo);
+      efeitos.estadoNave(o.obj, { dreno: !!e.dreno, lento: !!e.lento, emp: !!e.emp, fx: e.fx }, dt, tempo);
       efeitos.recall(o.obj, e.recall ?? null, aliado ? COR_TIME.meu : COR_TIME.outro, dt, tempo);
       // Radar desligado (Canhão Antirradar): sem rótulo de quem não é do seu time.
       if (aliado || !(estadosArmas.cego > 0)) {
