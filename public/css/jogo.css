@@ -4823,22 +4823,23 @@ small.original {
 .filtro-armas {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin: 0 0 6px;
+  gap: 6px;
+  margin: 2px 0 8px;
 }
 
 .filtro-armas button {
-  padding: 2px 8px;
+  padding: 5px 14px;
   border: 1px solid var(--chapa-clara);
-  border-radius: 10px;
+  border-radius: 16px;
   background: #0f1e1d;
   color: var(--texto);
-  font: 600 14.5px system-ui, sans-serif;
+  font: 600 16.5px system-ui, sans-serif;
   cursor: pointer;
 }
 
 .filtro-armas button i {
-  font: 13px ui-monospace, monospace;
+  margin-left: 2px;
+  font: 14.5px ui-monospace, monospace;
   font-style: normal;
   opacity: 0.6;
 }
