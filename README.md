@@ -47,4 +47,4 @@ O servidor Node é a autoridade: recebe só os comandos de cada jogador e simula
 
 ## Deploy
 
-É um processo só (HTTP + WebSocket), então serve em Railway, Render, Fly etc. com `npm start` e a variável `PORT` que a plataforma fornece. Hospedado no Railway. Rode **uma réplica só**: as filas online, as salas e as partidas ficam na memória do processo (duas réplicas seriam duas filas que não se enxergam), e cada deploy derruba quem está na fila ou jogando.
+É um processo só (HTTP + WebSocket), então serve em Railway, Render, Fly etc. com `npm start` e a variável `PORT` que a plataforma fornece. Hospedado no Railway. Cada partida roda numa worker thread (um núcleo dela), e o servidor só abre partida nova com folga de processador e memória; os núcleos e a memória vêm do contêiner (ou das variáveis `NUCLEOS` e `MEMORIA_MB`, se o `/healthz` mostrar um número errado em `nucleos`). Rode **uma réplica só**: as filas online, as salas e as partidas ficam na memória do processo (duas réplicas seriam duas filas que não se enxergam), e cada deploy derruba quem está na fila ou jogando.

@@ -403,7 +403,7 @@ test('filas: pela rede, 3 pilotos na pública entram juntos num mundo novo contr
     }
     const mundo = [...srv.mundos.keys()].find((w) => w.modo === 'publica');
     assert.ok(mundo && mundo !== principal, 'um mundo novo, fora do principal');
-    const js = [...mundo.players.values()];
+    const js = [...mundo.world.players.values()];
     assert.equal(js.filter((j) => !j.ia).length, 3);
     assert.equal(js.filter((j) => j.ia && j.time !== comecos[0].time).length, 3, '3 computadores no outro time');
     assert.deepEqual(js.filter((j) => !j.ia).map((j) => j.nome).sort(), ['Ana', 'Bia', 'Cau']);
@@ -418,7 +418,7 @@ test('filas: pela rede, 3 pilotos na pública entram juntos num mundo novo contr
     // Um sai no meio: um computador fica com a vaga; saem todos: o mundo some.
     jogos[0].ws.close();
     await new Promise((ok) => setTimeout(ok, 100));
-    assert.equal([...mundo.players.values()].filter((j) => j.time === comecos[0].time).length, 3);
+    assert.equal([...mundo.world.players.values()].filter((j) => j.time === comecos[0].time).length, 3);
     jogos[1].ws.close();
     jogos[2].ws.close();
     await new Promise((ok) => setTimeout(ok, 100));
