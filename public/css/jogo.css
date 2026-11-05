@@ -2999,15 +2999,19 @@ kbd {
   text-align: center;
 }
 
-/* A faixa de luz atrás do título, como o estandarte de vitória dos MOBAs. */
+/* A faixa de luz atrás do título, como o estandarte de vitória dos MOBAs. Fica
+   presa à linha do título na grade (grid-row 2), então acompanha o tamanho dele
+   em qualquer tela e nunca invade a frase de baixo. */
 .faixa-resultado::before {
   content: '';
   position: absolute;
   z-index: -1;
+  grid-row: 2 / 3;
+  grid-column: 1 / 2;
   left: 8%;
   right: 8%;
-  top: 22px;
-  height: 92px;
+  top: 0;
+  bottom: 0;
   background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--cor-res) 20%, transparent) 30%, color-mix(in srgb, var(--cor-res) 20%, transparent) 70%, transparent);
   border-top: 1px solid color-mix(in srgb, var(--cor-res) 45%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--cor-res) 45%, transparent);
@@ -3036,7 +3040,7 @@ kbd {
 }
 
 #resultado .frase {
-  margin: 0;
+  margin: 8px 0 0;
   font-size: 18px;
   opacity: 0.8;
 }
@@ -3314,11 +3318,6 @@ kbd {
 
   #resultado h2 {
     font-size: 56px;
-  }
-
-  .faixa-resultado::before {
-    top: 18px;
-    height: 70px;
   }
 
   .minerio b {
