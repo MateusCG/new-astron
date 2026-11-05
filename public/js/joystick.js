@@ -38,7 +38,7 @@ import {
 import { mapasAtuais, emitirAcao, definirDispositivo, dispositivoAtual, capturaAtual, concluirCaptura } from './atalhos.js';
 
 /** Janelas em que o controle navega, da que fica por cima para a de baixo. */
-const ESCOPOS = [['#volume'], ['#sair-partida'], ['#opcoes'], ['#resultado'], ['#servico', '#inventario', '#status'], ['#carregamento'], ['#entrada'], ['#abertura']];
+const ESCOPOS = [['#volume'], ['#sair-partida'], ['#comandos'], ['#opcoes'], ['#resultado'], ['#servico', '#inventario', '#status'], ['#carregamento'], ['#entrada'], ['#abertura']];
 
 /** Qualquer uma das janelas (a raiz do foco). */
 const RAIZES = ESCOPOS.flat().join(', ');

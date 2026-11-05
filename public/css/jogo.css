@@ -8564,6 +8564,345 @@ body.dano::after {
   }
 }
 
+/* O "Ver comandos" das Opções: largura toda, como o Sair da partida, na chapa dos
+   botões das janelas, com a nota "teclado, mouse e controle" apagada. */
+#opcoes .ver-comandos {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 6px;
+  background: #0f1e1d;
+  color: var(--texto);
+  font: 600 15px system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+#opcoes .ver-comandos .icone-som {
+  width: 18px;
+  height: 18px;
+  color: var(--neon);
+}
+
+#opcoes .ver-comandos small {
+  font: 13px system-ui, sans-serif;
+  opacity: 0.55;
+}
+
+#opcoes .ver-comandos kbd {
+  margin-left: auto;
+}
+
+#opcoes .ver-comandos:is(:hover, :focus-visible, .foco-joy) {
+  outline: none;
+  border-color: var(--neon);
+}
+
+/* ---------- Comandos da partida (#comandos, comandos.js) ----------
+
+   Por cima das Opções ("Ver comandos") ou J. Só para ver o mapa guardado. Outro
+   desenho que o da aba Configurações: a chapa larga (até 1500 px) com a borda de
+   cima em `--neon`; no alto o título, o aviso "só para ver" e o ✕; embaixo a legenda
+   das duas colunas (teclado e mouse, controle), a do aparelho em uso acesa; e os
+   grupos em cartões, em colunas, cada ação numa linha com o nome e as teclas em
+   relevo (o mouse com o ícone dele, a fixa tracejada) e os botões do controle em
+   pílula, o ✕ ○ □ △ nas cores do DualShock. */
+#comandos {
+  position: fixed;
+  z-index: 31;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(4, 9, 9, 0.6);
+}
+
+#comandos[hidden] {
+  display: none;
+}
+
+#comandos .janela {
+  display: flex;
+  flex-direction: column;
+  width: min(1500px, 100%);
+  max-height: calc(100dvh - 32px);
+  padding: 12px 18px 16px;
+  border: 2px solid var(--chapa-clara);
+  border-top-color: var(--neon);
+  border-radius: 14px 14px 8px 8px;
+  background: linear-gradient(180deg, var(--chapa-clara), var(--chapa) 12%, #0b1716);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 0 0 1px var(--neon-escuro),
+    0 10px 40px rgba(0, 0, 0, 0.6);
+  animation: surge 0.15s ease-out;
+}
+
+#comandos header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+#comandos h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font: 700 17px system-ui, sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--neon);
+  text-shadow: 0 0 10px var(--neon);
+}
+
+#comandos h2 .icone-som {
+  width: 22px;
+  height: 22px;
+}
+
+#comandos .so-ver {
+  margin: 0 0 0 auto;
+  font: 14px system-ui, sans-serif;
+  opacity: 0.7;
+  text-align: right;
+}
+
+#comandos .so-ver b {
+  font-weight: 600;
+  color: var(--neon);
+}
+
+#comandos .fechar {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 6px;
+  background: #0f1e1d;
+  color: var(--texto);
+  font-size: 17px;
+  cursor: pointer;
+}
+
+#comandos .fechar:is(:hover, :focus-visible, .foco-joy) {
+  outline: none;
+  border-color: var(--neon);
+}
+
+#comandos .legenda-comandos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin: 10px 0 12px;
+  padding: 8px 0;
+  border-block: 1px solid var(--neon-escuro);
+  font: 600 13.5px system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+#comandos .legenda-comandos > span:not(.controle-ligado) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.6;
+}
+
+#comandos .legenda-comandos .icone-som {
+  width: 18px;
+  height: 18px;
+}
+
+/* O aparelho usado por último (atalhos.js) acende a legenda e a coluna dele. */
+html:not([data-aparelho='controle']) #comandos .leg-teclado,
+html[data-aparelho='controle'] #comandos .leg-controle {
+  opacity: 1 !important;
+  color: var(--neon);
+}
+
+#comandos .controle-ligado {
+  margin-left: auto;
+  font: 13px system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  opacity: 0.55;
+}
+
+#comandos .lista-comandos {
+  min-height: 0;
+  overflow-y: auto;
+  columns: 440px;
+  column-gap: 14px;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--chapa-clara) transparent;
+}
+
+#comandos .grupo-comandos {
+  break-inside: avoid;
+  margin: 0 0 14px;
+  padding: 8px 10px 6px;
+  border: 1px solid var(--chapa-clara);
+  border-left: 3px solid var(--neon-escuro);
+  border-radius: 6px;
+  background: rgba(10, 22, 21, 0.75);
+}
+
+#comandos .grupo-comandos:is(:focus-visible, .foco-joy) {
+  outline: none;
+  border-color: var(--neon);
+}
+
+#comandos .grupo-comandos h3 {
+  margin: 0 0 4px;
+  font: 700 13.5px system-ui, sans-serif;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--neon);
+}
+
+#comandos ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Nome | teclado e mouse | controle: as colunas alinham de linha em linha. */
+#comandos li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px 92px;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 3px 0;
+  border-top: 1px solid rgba(44, 74, 70, 0.45);
+}
+
+#comandos li:first-child {
+  border-top: none;
+}
+
+#comandos .acao {
+  font: 15px system-ui, sans-serif;
+  line-height: 1.25;
+}
+
+#comandos :is(.col-teclado, .col-controle) {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+#comandos .sem {
+  opacity: 0.3;
+  font: 15px ui-monospace, monospace;
+}
+
+/* Tecla em relevo: a face clara em cima e a borda grossa embaixo. */
+#comandos .tecla {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 26px;
+  margin: 0;
+  padding: 1px 6px 2px;
+  border: 1px solid #3d605b;
+  border-bottom-width: 3px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #1f3734, #10201f);
+  color: var(--texto);
+  font: 600 14px/20px ui-monospace, monospace;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+#comandos .tecla.mouse {
+  border-color: #4f6f9a;
+  background: linear-gradient(180deg, #1d2a3b, #101823);
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+}
+
+#comandos .icone-mouse {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+#comandos .tecla.fixa {
+  border-style: dashed;
+  border-bottom-width: 1px;
+  opacity: 0.75;
+}
+
+/* Botão do controle: pílula escura; o ✕ ○ □ △ nas cores do DualShock. */
+#comandos .botao-joy {
+  min-width: 30px;
+  margin: 0;
+  padding: 1px 7px;
+  border: 1px solid #55606e;
+  border-radius: 11px;
+  background: #121519;
+  color: #e3e8ef;
+  font: 600 14px/20px system-ui, sans-serif;
+  text-align: center;
+  white-space: nowrap;
+}
+
+#comandos .botao-joy[data-entrada='b0'] {
+  color: #8fb6ff;
+  border-color: #4a6db0;
+}
+
+#comandos .botao-joy[data-entrada='b1'] {
+  color: #ff8f8f;
+  border-color: #a84a4a;
+}
+
+#comandos .botao-joy[data-entrada='b2'] {
+  color: #f59ad8;
+  border-color: #9c4f86;
+}
+
+#comandos .botao-joy[data-entrada='b3'] {
+  color: #7fe0b8;
+  border-color: #3e8f6d;
+}
+
+/* Abaixo de 760 px de largura, o aviso desce para baixo do título. */
+@media (max-width: 760px) {
+  #comandos header {
+    flex-wrap: wrap;
+  }
+  #comandos .so-ver {
+    order: 3;
+    width: 100%;
+    margin: 0;
+    text-align: left;
+  }
+  #comandos .fechar {
+    margin-left: auto;
+  }
+  #comandos .lista-comandos {
+    columns: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #comandos .janela {
+    animation: none;
+  }
+}
+
 /* ---------- Tela do celular ("Abra numa tela maior") ----------
 
    inicio.js / tela-grande-regras.js. No celular o jogo não começa: no lugar da

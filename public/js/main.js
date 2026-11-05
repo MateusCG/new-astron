@@ -135,8 +135,8 @@ import { Sons, SONS_INTERFACE, SONS_VOLTA, SONS_NUCLEO, VOLUME_TIRO_PROPRIO } fr
 import { PainelVolume } from './volume.js';
 import { Efeitos, COR_TIME } from './efeitos.js';
 import { Controles } from './controles.js';
-import { aoApertar, pintarRotulos, capturaAtual } from './atalhos.js';
-import { iniciarJoystick } from './joystick.js';
+import { aoApertar, pintarRotulos, capturaAtual, mapasAtuais } from './atalhos.js';
+import { iniciarJoystick, controlesLigados } from './joystick.js';
 import { Hud, BONUS_NAVE } from './hud.js';
 import { ObjetivosNaTela, LUGARES_OBJETIVO, NOME_OBJETIVO } from './objetivos.js';
 import { criarLimitador } from './quadros.js';
@@ -164,6 +164,7 @@ import { TelaCarregamento, Carregamento, aquecerGpu } from './carregamento.js';
 import { TelaAbertura } from './abertura.js';
 import { ConfirmarSaida } from './sair-partida.js';
 import { PainelOpcoes } from './opcoes.js';
+import { PainelComandos } from './comandos.js';
 import { MELHORIAS_MINERADOR, MELHORIA_TORRETAS } from '/shared/evolucao.js';
 import { RECALL_S } from '/shared/recall.js';
 import { TORRETAS } from '/shared/terrain.js';
@@ -274,8 +275,24 @@ const opcoes = new PainelOpcoes({
   sons,
   aoMudarSom: mostrarEstadoSom,
   aoSair: () => jogoAtual && confirmarSaida.abrir(),
+  aoComandos: () => alternarComandos(),
   som: (nome) => sons.tocarInterface(SONS_INTERFACE[nome]),
 });
+// "Ver comandos" das Opções ou J: o mapa guardado do teclado, do mouse e do controle,
+// só para ver, por cima das Opções (comandos.js).
+const comandos = new PainelComandos({
+  el: document.querySelector('#comandos'),
+  mapas: mapasAtuais,
+  controles: controlesLigados,
+  som: (nome) => sons.tocarInterface(SONS_INTERFACE[nome]),
+});
+aoApertar('comandos', () => alternarComandos());
+/** Abre e fecha os Comandos, só na partida rolando (como as Opções). */
+function alternarComandos() {
+  if (comandos.aberto) return comandos.fechar();
+  if (!jogoAtual || jogoAtual.naTelaResultado() || confirmarSaida.aberto) return;
+  comandos.abrir();
+}
 document.querySelector('#opcoes-hud')?.addEventListener('click', (e) => {
   alternarOpcoes();
   e.currentTarget.blur(); // o foco no botão não pode prender as teclas do jogo
@@ -339,6 +356,10 @@ function apertouEsc(e) {
     confirmarSaida.fechar(); // ESC de novo é o Cancelar
     return;
   }
+  if (comandos.aberto) {
+    comandos.fechar(); // as Opções de baixo continuam abertas
+    return;
+  }
   if (opcoes.aberto) {
     opcoes.fechar();
     return;
@@ -359,6 +380,7 @@ function voltarParaEntrada() {
   // O menu volta mesmo se o desmonte falhar: preso numa tela vazia, o jogador não
   // teria como continuar sem recarregar a página.
   confirmarSaida.fechar();
+  comandos.fechar();
   opcoes.fechar();
   try {
     jogoAtual?.sair();
@@ -635,7 +657,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     // a janela de volume ou a de Opções aberta não sai tiro. Com o STATUS, o INVENTÁRIO ou a
     // tabela da partida (TAB) aberta, sai (são de consulta, como o TAB do LoL).
     [inp.a, inp.a2] = armasNave.encaixes;
-    if (painel.aberto || painelVolume.aberto || opcoes.aberto || resultado.aberto || confirmarSaida.aberto) inp.f1 = inp.f2 = false;
+    if (painel.aberto || painelVolume.aberto || comandos.aberto || opcoes.aberto || resultado.aberto || confirmarSaida.aberto) inp.f1 = inp.f2 = false;
     seq++;
     rede.enviar({ t: 'in', s: seq, ...inp });
     ant = pose(pred);
@@ -705,6 +727,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     resultado.atualizar(m.partida, m.jogadores);
     if (resultado.aberto) {
       confirmarSaida.fechar(); // a partida acabou com a pergunta aberta
+      comandos.fechar();
       opcoes.fechar();
     }
     barraTime.atualizar(m.jogadores, m.ents, m.vivo, m.me?.en);

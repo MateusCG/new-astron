@@ -56,6 +56,7 @@ export const ACOES = Object.freeze([
   { id: 'tabela', grupo: 'Janelas', nome: 'Tabela da partida (segure)', ctx: 'voo', segurar: true },
   { id: 'morte', grupo: 'Janelas', nome: 'Resumo da última morte', ctx: 'voo' },
   { id: 'opcoes', grupo: 'Janelas', nome: 'Opções (janelas, volume e ping)', ctx: 'voo' },
+  { id: 'comandos', grupo: 'Janelas', nome: 'Comandos (teclas e botões, só para ver)', ctx: 'voo' },
   { id: 'loja', grupo: 'Janelas', nome: 'Reabre a Loja ou a Evolução, pousado', ctx: 'voo' },
   { id: 'pontoHp', grupo: 'Pontos', nome: '+10 pontos em HP (Durabilidade)', ctx: 'voo' },
   { id: 'pontoEn', grupo: 'Pontos', nome: '+10 pontos em EN (Energia)', ctx: 'voo' },
@@ -108,6 +109,7 @@ export const TECLADO_PADRAO = Object.freeze({
   tabela: ['Tab'],
   morte: ['KeyH'],
   opcoes: ['KeyO'],
+  comandos: ['KeyJ'],
   loja: ['Enter', 'NumpadEnter'],
   pontoHp: ['Digit1', 'Numpad1'],
   pontoEn: ['Digit2', 'Numpad2'],
@@ -124,6 +126,7 @@ export const TECLADO_PADRAO = Object.freeze({
  * e o esquerdo o X (L2 e L1), como as teclas Z e X no teclado. Os pontos (pontoHp a
  * pontoOp) ficam sem botão: os 17 já têm ação no voo (as Opções no PS), e no controle os pontos se põem
  * pela janela STATUS (direcional para cima); quem quiser atribui na aba Configurações.
+ * Os Comandos também ficam sem botão: no controle abrem pelas Opções (PS).
  */
 export const CONTROLE_PADRAO = Object.freeze({
   frente: ['a1-'],
@@ -386,6 +389,35 @@ export function rotuloAcao(mapas, disp, acao) {
   const e = mapas?.[disp]?.[acao]?.[0];
   if (disp === 'teclado') return e ? nomeTecla(e) : (a.fixaTeclado ?? '');
   return e ? nomeEntrada(e) : '';
+}
+
+// ---------- Janela de Comandos (só para ver, na partida) ----------
+
+/**
+ * O mapa em uso arrumado para a janela de Comandos da partida (comandos.js): os
+ * grupos de ACOES na ordem, cada ação com as teclas e os botões do mouse
+ * ({ texto, titulo, mouse?, fixa? }) e as entradas do controle ({ texto, titulo,
+ * entrada }). Só o que está atribuído: a ação sem nada nos dois aparelhos não
+ * aparece, e o grupo vazio também não. A tecla fixa (o Esc, as setas e o Enter dos
+ * menus) entra como `fixa`.
+ */
+export function linhasDosComandos(mapas) {
+  const grupos = [];
+  for (const g of GRUPOS_ACOES) {
+    const acoes = [];
+    for (const a of g.acoes) {
+      const teclado =
+        a.fixaTeclado ?
+          [{ texto: a.fixaTeclado, titulo: `Tecla ${a.fixaTeclado} (fixa)`, fixa: true }]
+        : (mapas?.teclado?.[a.id] ?? []).map((c) =>
+            ehMouse(c) ? { texto: nomeTecla(c), titulo: `Mouse: ${nomeTecla(c)}`, mouse: true } : { texto: nomeTecla(c), titulo: `Tecla ${nomeTecla(c)}` },
+          );
+      const controle = (mapas?.controle?.[a.id] ?? []).filter(entradaValida).map((e) => ({ texto: nomeEntrada(e), titulo: nomeEntrada(e, true), entrada: e }));
+      if (teclado.length || controle.length) acoes.push({ id: a.id, nome: a.nome, segurar: !!a.segurar, teclado, controle });
+    }
+    if (acoes.length) grupos.push({ nome: g.nome, acoes });
+  }
+  return grupos;
 }
 
 // ---------- Leitura do controle ----------

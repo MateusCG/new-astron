@@ -41,13 +41,14 @@ function montar() {
     '.alternar-mudo': new Elemento(),
   });
   const janelas = [new Elemento(), new Elemento(), new Elemento(), new Elemento()];
-  const botoes = { '.fechar': new Elemento(), '.sair-partida': new Elemento(), '.opcoes-som': som };
+  const botoes = { '.fechar': new Elemento(), '.sair-partida': new Elemento(), '.ver-comandos': new Elemento(), '.opcoes-som': som };
   const el = new Elemento(botoes, { '.opcoes-janelas button': janelas });
   const sons = { volumeMusica: 0.6, volumeEfeitos: 0.8, volumeLocutor: 0.8, mudo: false, desbloquear() {}, tocarInterface() {} };
   const tocados = [];
   let saiu = 0;
-  const painel = new PainelOpcoes({ el, sons, aoSair: () => saiu++, som: (n) => tocados.push(n) });
-  return { el, som, botoes, janelas, painel, tocados, saiu: () => saiu };
+  let comandos = 0;
+  const painel = new PainelOpcoes({ el, sons, aoSair: () => saiu++, aoComandos: () => comandos++, som: (n) => tocados.push(n) });
+  return { el, som, botoes, janelas, painel, tocados, saiu: () => saiu, comandos: () => comandos };
 }
 
 test('opções: começa fechada, abre com o som do painel e mostra os volumes de agora', () => {
@@ -85,6 +86,14 @@ test('opções: ✕ e clique fora fecham; Sair da partida fecha e pede a confirm
   botoes['.sair-partida'].dispatchEvent(new Event('click'));
   assert.equal(painel.aberto, false);
   assert.equal(saiu(), 1);
+});
+
+test('opções: Ver comandos abre os Comandos por cima e as Opções continuam abertas', () => {
+  const { botoes, painel, comandos } = montar();
+  painel.abrir();
+  botoes['.ver-comandos'].dispatchEvent(new Event('click'));
+  assert.equal(comandos(), 1);
+  assert.equal(painel.aberto, true);
 });
 
 test('opções: no index.html a engrenagem é o único botão do HUD e a caixa tem tudo o que saiu dele', () => {

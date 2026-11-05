@@ -2,7 +2,9 @@
 // uma janela no meio da tela com o que antes ficava solto na fileira do HUD, embaixo
 // do minimapa (pedido do Mateus, 05/nov/2026): os botões das janelas (Status,
 // Inventário, Tabela e Última morte, com as teclas de cada uma), as barras de volume
-// e o mudo (outro PainelVolume, sobre `.opcoes-som`), o ping e o Sair da partida.
+// e o mudo (outro PainelVolume, sobre `.opcoes-som`), o ping, o "Ver comandos" e o
+// Sair da partida. O "Ver comandos" abre a janela de Comandos (comandos.js) por cima
+// desta, que continua aberta embaixo.
 //
 // Os botões das janelas guardam os ids de antes (#status-hud, #inventario-hud,
 // #tabela-hud, #morte-hud): cada janela continua ouvindo o próprio botão, e aqui só
@@ -18,10 +20,10 @@ import { PainelVolume } from './volume.js';
 export class PainelOpcoes {
   /**
    * @param {{ el: HTMLElement, sons: import('./sons.js').Sons, aoMudarSom?: () => void,
-   *   aoSair: () => void, som?: (nome: string) => void }} opcoes
-   *   `aoSair` é o Sair da partida (abre a confirmação).
+   *   aoSair: () => void, aoComandos?: () => void, som?: (nome: string) => void }} opcoes
+   *   `aoSair` é o Sair da partida (abre a confirmação); `aoComandos`, o Ver comandos.
    */
-  constructor({ el, sons, aoMudarSom = () => {}, aoSair, som = () => {} }) {
+  constructor({ el, sons, aoMudarSom = () => {}, aoSair, aoComandos = () => {}, som = () => {} }) {
     this.el = el;
     this.sons = sons;
     this.som = som;
@@ -31,6 +33,8 @@ export class PainelOpcoes {
       this.fechar();
       aoSair();
     });
+    // As Opções ficam abertas embaixo dos Comandos (o ESC fecha um e depois o outro).
+    el.querySelector('.ver-comandos')?.addEventListener('click', () => aoComandos());
     for (const b of el.querySelectorAll('.opcoes-janelas button')) b.addEventListener('click', () => this.fechar());
     // Clique no fundo escurecido (fora da caixa) fecha.
     el.addEventListener('pointerdown', (e) => {

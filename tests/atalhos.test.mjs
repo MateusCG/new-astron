@@ -72,7 +72,7 @@ test('teclado de fábrica: as teclas de sempre, sem conflito, até duas por aç�
     assert.ok(ACAO[acao], acao);
     assert.ok(teclas.length <= ATALHOS_POR_ACAO, acao);
   }
-  const esperado = { frente: 'KeyW', re: 'KeyS', esq: 'KeyA', dir: 'KeyD', boost: 'ShiftLeft', pouso: 'KeyL', recall: 'KeyB', armaZ: 'KeyZ', armaX: 'KeyX', trocaZ: 'KeyQ', trocaX: 'KeyE', reparo: 'KeyR', energia: 'KeyF', camTroca: 'KeyV', camCima: 'KeyT', camBaixo: 'KeyG', status: 'KeyC', inventario: 'KeyI', tabela: 'Tab', morte: 'KeyH', loja: 'Enter', som: 'KeyM', pontoHp: 'Digit1', pontoEn: 'Digit2', pontoFis: 'Digit3', pontoEl: 'Digit4', pontoOp: 'Digit5' };
+  const esperado = { frente: 'KeyW', re: 'KeyS', esq: 'KeyA', dir: 'KeyD', boost: 'ShiftLeft', pouso: 'KeyL', recall: 'KeyB', armaZ: 'KeyZ', armaX: 'KeyX', trocaZ: 'KeyQ', trocaX: 'KeyE', reparo: 'KeyR', energia: 'KeyF', camTroca: 'KeyV', camCima: 'KeyT', camBaixo: 'KeyG', status: 'KeyC', inventario: 'KeyI', tabela: 'Tab', morte: 'KeyH', comandos: 'KeyJ', loja: 'Enter', som: 'KeyM', pontoHp: 'Digit1', pontoEn: 'Digit2', pontoFis: 'Digit3', pontoEl: 'Digit4', pontoOp: 'Digit5' };
   for (const [acao, tecla] of Object.entries(esperado)) assert.ok(m[acao].includes(tecla), `${acao}: ${tecla}`);
   assert.ok(m.armaZ.includes('Space'));
   // O Esc e a navegação dos menus são fixos: sem tecla no mapa.
@@ -86,8 +86,9 @@ test('controle de fábrica: DualShock 3 no mapeamento padrão, sem conflito no m
   assert.deepEqual([m.frente, m.re, m.esq, m.dir], [['a1-'], ['a1+'], ['a0-'], ['a0+']]);
   assert.deepEqual([m.armaZ, m.armaX, m.menu], [['b7'], ['b6'], ['b9']]);
   assert.deepEqual([m.uiConfirmar, m.uiVoltar], [['b0'], ['b1']]);
-  // Toda ação de voo e de janela tem um botão (o som não precisa, e os pontos vão pelo STATUS).
-  for (const a of ACOES.filter((x) => x.id !== 'som' && x.grupo !== 'Pontos')) assert.ok(m[a.id].length, a.id);
+  // Toda ação de voo e de janela tem um botão (o som não precisa, os pontos vão pelo
+  // STATUS e os Comandos pelas Opções).
+  for (const a of ACOES.filter((x) => !['som', 'comandos'].includes(x.id) && x.grupo !== 'Pontos')) assert.ok(m[a.id].length, a.id);
   // Cabe num DualShock 3: 17 botões (0–16) e 4 eixos.
   for (const e of Object.values(CONTROLE_PADRAO).flat()) {
     if (e[0] === 'b') assert.ok(Number(e.slice(1)) <= 16, e);

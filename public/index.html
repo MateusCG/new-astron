@@ -520,7 +520,27 @@
           </label>
           <button type="button" class="alternar-mudo botao-volume" title="Liga e desliga todo o som (M)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som">Som ligado</span><kbd data-acao-rotulo="som">M</kbd></button>
         </div>
+        <h3>Controles</h3>
+        <button type="button" class="ver-comandos" title="Todas as teclas, os botões do mouse e os do controle que estão guardados (J)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2" /><path d="M6 10h1.5M9.5 10H11M13 10h1.5M16.5 10H18M6 14h12" /></svg><span>Ver comandos</span><small>teclado, mouse e controle</small><kbd data-acao-rotulo="comandos">J</kbd></button>
         <button type="button" class="sair-partida">Sair da partida <kbd data-acao-rotulo="menu">Esc</kbd></button>
+      </section>
+    </div>
+
+    <!-- Comandos da partida (comandos.js): por cima das Opções ("Ver comandos") ou J.
+         Só para ver o mapa guardado; trocar é na aba Configurações do menu. -->
+    <div id="comandos" hidden>
+      <section class="janela" role="dialog" aria-modal="true" aria-labelledby="comandos-titulo">
+        <header>
+          <h2 id="comandos-titulo"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2" /><path d="M6 10h1.5M9.5 10H11M13 10h1.5M16.5 10H18M6 14h12" /></svg>Comandos</h2>
+          <p class="so-ver">Só para ver. Para trocar, saia da partida: <b>Menu › Configurações › Controles</b>.</p>
+          <button class="fechar" type="button" title="Fechar (J ou Esc)" aria-label="Fechar">✕</button>
+        </header>
+        <div class="legenda-comandos">
+          <span class="leg-teclado"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2" /><path d="M6 10h1.5M9.5 10H11M13 10h1.5M16.5 10H18M6 14h12" /></svg>Teclado e mouse</span>
+          <span class="leg-controle"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10a5 5 0 0 1 4.6 7l-1.1 3a2.3 2.3 0 0 1-3.9.6L14.5 15h-5l-2.1 2.6a2.3 2.3 0 0 1-3.9-.6l-1.1-3A5 5 0 0 1 7 7z" /><path d="M7.5 10v3M6 11.5h3" /><circle cx="16" cy="10.5" r=".6" /><circle cx="17.5" cy="12.5" r=".6" /></svg>Controle</span>
+          <span class="controle-ligado"></span>
+        </div>
+        <div class="lista-comandos"></div>
       </section>
     </div>
 
