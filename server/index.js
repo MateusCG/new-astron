@@ -155,7 +155,9 @@
 //                        vale também procurando, com o grupo já tendo 1 em cada time
 //                        (o `cedo` do estado; antes disso, 'cedo'): trava a nave e o
 //                        time, e todos do grupo prontos começam a partida só com eles
-//                        (1 contra 1, 2 contra 1...), sem computadores
+//                        (1 contra 1, 2 contra 1...), sem computadores. Na pública,
+//                        o mesmo com 2 pilotos no grupo: os dois começam juntos e um
+//                        computador completa o time deles
 //                       {t:'sairFila'}   sai (na sala, a desfaz: os outros voltam ao
 //                        começo da fila); fechar a conexão é o mesmo
 //                       (recusa: {t:'resultado', acao, ok:false, codigo} 'invalido',
@@ -695,7 +697,7 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
   const folga = () =>
     mundos.size - 1 < MAX_MUNDOS &&
     temFolga({ cargas: [...mundos.keys()].filter((m) => m !== principal).map((m) => m.carga), nucleos, memoriaMb, usadaMb: process.memoryUsage().rss / 2 ** 20 });
-  // Vagas das salas que começaram: token -> { mundo, nome, race, classe, time, expira }.
+  // Vagas das salas que começaram: token -> { mundo, nome, race, classe, time, iaMeu, iaInimigo, expira }.
   const reservas = new Map();
 
   const server = http.createServer((req, res) => {
@@ -740,7 +742,13 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
       // time que a sala sorteou, com a nave travada na seleção.
       const mundo = novoMundo({ modo: sala.modo, sala: sala.id });
       const expira = Date.now() + RESERVA_S * 1000;
-      for (const m of sala.membros) reservas.set(m.token, { mundo, nome: m.nome, race: m.race, classe: m.classe, time: m.time, expira });
+      // Na pública, o time dos humanos que começou com menos de 3 (Pronto com 2 na
+      // fila) completa com computador; o outro time é todo de computadores.
+      const bots = MODOS_FILA[sala.modo]?.bots;
+      for (const m of sala.membros) {
+        const iaMeu = bots ? MAX_POR_TIME - sala.membros.filter((x) => x.time === m.time).length : 0;
+        reservas.set(m.token, { mundo, nome: m.nome, race: m.race, classe: m.classe, time: m.time, iaMeu, iaInimigo: bots ? MAX_POR_TIME : 0, expira });
+      }
     },
   });
 
@@ -795,9 +803,9 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
           if (!r || !mundos.has(r.mundo)) return recusar('sala_invalida');
           reservas.delete(msg.token);
           alvo = r.mundo;
-          // Na pública, o outro time é dos computadores (os três entram com o primeiro humano).
-          const iaInimigo = MODOS_FILA[alvo.modo]?.bots ? MAX_POR_TIME : 0;
-          pedido = { nome: r.nome, race: r.race, classe: r.classe, pedido: { time: r.time, iaMeu: 0, iaInimigo } };
+          // Na pública, o outro time é dos computadores (os três entram com o primeiro
+          // humano) e, se a sala começou com 2, um computador completa o time deles.
+          pedido = { nome: r.nome, race: r.race, classe: r.classe, pedido: { time: r.time, iaMeu: r.iaMeu, iaInimigo: r.iaInimigo } };
         } else {
           // Raça sem naves (Mechan, "em breve") ou que não existe: recusa com código.
           const recusa = motivoRacaRecusada(msg.race);

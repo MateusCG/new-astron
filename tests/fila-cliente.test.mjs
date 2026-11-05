@@ -92,6 +92,10 @@ test('fila no cliente: as vagas da Seleção, procurando e na sala', () => {
   assert.deepEqual(vg.inimigo.map((x) => x.tipo), ['ia', 'ia', 'ia']);
   const comAviso = aplicarMsgFila(null, { t: 'fila', estado: 'procurando', modo: 'publica', n: 1, precisa: 3, aviso: 'sala_saiu' }, 0);
   assert.equal(aplicarMsgFila(comAviso, { t: 'fila', estado: 'procurando', modo: 'publica', n: 2, precisa: 3 }, 0).aviso, 'sala_saiu', 'o aviso fica enquanto procura');
+  // Na pública, com 2 no grupo, o Pronto acende e a linha diz que um computador completa o time.
+  const cedoPub = aplicarMsgFila(grupo, { ...{ t: 'fila', estado: 'procurando', modo: 'publica', n: 2, precisa: 3, espera: 0, voce: { time: 0 }, times: grupo.times }, cedo: 1 }, 0);
+  assert.deepEqual(botaoDaFila(cedoPub), { texto: 'Pronto', habilitado: true, acao: 'pronto' });
+  assert.match(linhaDaFila(cedoPub, 0, 60).texto, /2 de 3 pilotos · aperte Pronto para começar já · 0 de 2 prontos · um computador completa o time/);
   const procurando = vagasDaFila({ fase: 'procurando' }, 'publica');
   assert.deepEqual(procurando.meu.map((v) => v.tipo), ['voce', 'procurando', 'procurando']);
   assert.deepEqual(procurando.inimigo.map((v) => v.tipo), ['ia', 'ia', 'ia']);

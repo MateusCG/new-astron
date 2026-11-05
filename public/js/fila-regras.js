@@ -8,8 +8,10 @@
 // "Pronto" aceso até apertar, e depois "Aguardando…" de novo até todos apertarem; no
 // fim, "Decolando…". No 3 contra 3, com pelo menos um piloto em cada time no grupo
 // (`cedo` do servidor), o "Pronto" já acende procurando: todos prontos, a partida
-// começa com quem está (pedido do Mateus, para jogar só com um colega). Fora da fila (o contador zerou sem o seu Pronto, ou caiu a
-// conexão), "Procurar partida" põe de volta.
+// começa com quem está (pedido do Mateus, para jogar só com um colega). Na pública,
+// o mesmo com 2 pilotos no grupo, e um computador completa o time deles. Fora da fila
+// (o contador zerou sem o seu Pronto, ou caiu a conexão), "Procurar partida" põe de
+// volta.
 
 /** Estado da fila fora dela. `fase`: 'fora' | 'conectando' | 'procurando' | 'sala' | 'comecar'. */
 export function estadoFilaVazio() {
@@ -99,9 +101,11 @@ export function linhaDaFila(estado, agora, selecaoS) {
       let texto = faltam ? `Procurando partida · ${estado.n} de ${estado.precisa} pilotos` : `Pilotos encontrados · abrindo a sala`;
       if (faltam && estado.cedo) {
         const prontos = (estado.times ?? []).flat().filter((m) => m.pronto).length;
+        // Na pública a vaga que falta no time fica com um computador.
+        const ia = estado.modo === 'publica' ? ' · um computador completa o time' : '';
         texto = estado.voce?.pronto
-          ? `Nave travada · ${prontos} de ${estado.n} prontos · começa com todos prontos`
-          : `${estado.n} de ${estado.precisa} pilotos · aperte Pronto para começar já · ${prontos} de ${estado.n} prontos`;
+          ? `Nave travada · ${prontos} de ${estado.n} prontos · começa com todos prontos${ia}`
+          : `${estado.n} de ${estado.precisa} pilotos · aperte Pronto para começar já · ${prontos} de ${estado.n} prontos${ia}`;
       }
       return { texto, contador: formatarTempo((agora - estado.desde) / 1000), fracao: null, urgente: false };
     }

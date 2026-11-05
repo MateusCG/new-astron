@@ -412,12 +412,40 @@ test('filas: 2 contra 1 também começa, e completar 3 contra 3 vira a sala com 
   assert.equal(s.length, 0);
 });
 
-test('filas: na pública o Pronto só vale com a sala cheia', () => {
-  const { filas, cliente } = montar();
-  const [a, b] = ['A', 'B'].map(cliente);
+test('filas: na pública, com 2 pilotos no grupo o Pronto já vale e os dois começam juntos', () => {
+  const { filas, cliente, ultima, salas } = montar();
+  const [a, b, c] = ['A', 'B', 'C'].map(cliente);
+  entrar(filas, a, 'publica');
+  assert.equal(ultima(a).cedo, undefined, 'sozinho, ainda não');
+  assert.equal(filas.pronto(a), 'cedo');
+  entrar(filas, b, 'publica');
+  assert.deepEqual([ultima(a).cedo, ultima(b).cedo], [1, 1], 'dois no grupo: dá para começar');
+  assert.equal(filas.pronto(a, { race: 'bellico' }), null);
+  assert.equal(filas.escolher(a, { race: 'shrewdo' }), 'travada');
+  assert.equal(salas.length, 0, 'B ainda não apertou');
+  filas.pronto(b);
+  assert.equal(salas.length, 1, 'os dois prontos: começou');
+  const [sala] = salas;
+  assert.equal(sala.modo, 'publica');
+  assert.deepEqual(sala.membros.map((m) => m.nome), ['A', 'B']);
+  assert.equal(sala.membros[0].race, 'bellico');
+  assert.equal(sala.membros[0].time, sala.membros[1].time, 'os dois no mesmo time');
+  for (const x of [a, b]) assert.equal(ultima(x).estado, 'comecar');
+  // Quem procura depois cai num grupo novo.
+  entrar(filas, c, 'publica');
+  assert.deepEqual([ultima(c).n, ultima(c).cedo], [1, undefined]);
+});
+
+test('filas: na pública, o terceiro que chega antes do Pronto de todos fecha a sala de sempre', () => {
+  const { filas, cliente, ultima, salas } = montar();
+  const [a, b, c] = ['A', 'B', 'C'].map(cliente);
   entrar(filas, a, 'publica');
   entrar(filas, b, 'publica');
-  assert.equal(filas.pronto(a), 'cedo');
+  filas.pronto(a);
+  entrar(filas, c, 'publica');
+  assert.equal(ultima(a).estado, 'sala');
+  assert.equal(ultima(a).prontos, 1, 'quem já estava pronto continua pronto');
+  assert.equal(salas.length, 0);
 });
 
 test('filas: sem lugar para outro mundo os prontos esperam, e começam quando abre', () => {
@@ -510,6 +538,36 @@ test('filas: pela rede, 3 pilotos na pública entram juntos num mundo novo contr
     jogos[2].ws.close();
     await new Promise((ok) => setTimeout(ok, 100));
     assert.ok(!srv.mundos.has(mundo));
+  } finally {
+    await srv.fechar();
+  }
+});
+
+test('filas: pela rede, 2 pilotos prontos na pública jogam juntos, com um computador no time e 3 no outro', async () => {
+  const principal = new World({ preparacaoS: 0, jungle: false, torretas: false });
+  const srv = await iniciar({ porta: 0, world: principal });
+  try {
+    const menus = ['Ana', 'Bia'].map(() => conectar(srv.porta));
+    await Promise.all(menus.map((m) => m.aberto));
+    ['Ana', 'Bia'].forEach((nome, i) => menus[i].enviar({ t: 'entrarFila', modo: 'publica', nome, race: 'acron', classe: 'assault' }));
+    await Promise.all(menus.map((m) => m.esperar((x) => x.t === 'fila' && x.estado === 'procurando' && x.cedo)));
+    menus.forEach((m) => m.enviar({ t: 'pronto' }));
+    const comecos = await Promise.all(menus.map((m) => m.esperar((x) => x.t === 'fila' && x.estado === 'comecar')));
+    for (const m of menus) m.ws.close();
+
+    const jogos = comecos.map(() => conectar(srv.porta));
+    await Promise.all(jogos.map((j) => j.aberto));
+    jogos.forEach((j, i) => j.enviar({ t: 'entrar', sala: comecos[i].sala, token: comecos[i].token }));
+    const boas = await Promise.all(jogos.map((j) => j.esperar((x) => x.t === 'bemvindo' || x.t === 'erro')));
+    for (const b of boas) assert.equal(b.t, 'bemvindo');
+    const time = comecos[0].time;
+    assert.equal(comecos[1].time, time);
+    const mundo = [...srv.mundos.keys()].find((w) => w.modo === 'publica');
+    const js = [...mundo.world.players.values()];
+    assert.deepEqual(js.filter((j) => !j.ia).map((j) => j.nome).sort(), ['Ana', 'Bia']);
+    assert.equal(js.filter((j) => j.ia && j.time === time).length, 1, 'um computador completa o time dos dois');
+    assert.equal(js.filter((j) => j.ia && j.time !== time).length, 3, '3 computadores no outro time');
+    for (const j of jogos) j.ws.close();
   } finally {
     await srv.fechar();
   }

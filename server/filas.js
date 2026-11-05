@@ -26,13 +26,16 @@
 //      começa o contador de SELECAO_S. Cada um escolhe a nave (os do próprio time
 //      veem a escolha um do outro na hora; o time inimigo é às cegas, como no Blind
 //      Pick do LoL) e aperta Pronto, que trava a nave.
-//   2b. COMEÇAR MAIS CEDO (só no 3 contra 3; pedido do Mateus, para jogar só com um
-//      colega): com pelo menos `minimoPorTime` (1) piloto em cada time no grupo, o
+//   2b. COMEÇAR MAIS CEDO (pedido do Mateus, para jogar só com um colega): no 3
+//      contra 3, com pelo menos `minimoPorTime` (1) piloto em cada time no grupo, o
 //      Pronto já vale procurando. Todos do grupo prontos, a partida começa com quem
-//      está nele (1 contra 1, 2 contra 1...), sem computadores; quem chega depois cai
-//      no grupo e precisa apertar Pronto também (ou, completando 3 contra 3, vira a
-//      sala de sempre, com quem já estava pronto ainda pronto). Pronto na fila trava
-//      a nave e o time. Os próximos que procurarem caem num grupo novo.
+//      está nele (1 contra 1, 2 contra 1...), sem computadores. Na pública vale o
+//      mesmo com 2 pilotos no grupo (o único time de gente; 05/nov/2026): os dois
+//      prontos jogam juntos, e a vaga que falta no time deles fica com um computador
+//      (server/index.js). Quem chega depois cai no grupo e precisa apertar Pronto
+//      também (ou, completando o grupo, vira a sala de sempre, com quem já estava
+//      pronto ainda pronto). Pronto na fila trava a nave e o time. Os próximos que
+//      procurarem caem num grupo novo.
 //   3. COMEÇAR: todos prontos, a partida começa na hora: o servidor cria o mundo
 //      (aoComecar, server/index.js) e manda a cada um o token de uma vaga só dele, com
 //      o time e a nave travados. O cliente sai da fila e entra no mundo com o token.
@@ -57,12 +60,13 @@ import { MAX_POR_TIME, N_TIMES } from './partida.js';
 /**
  * Modos de fila: `humanos` = pilotos por sala (a partida só começa com todos
  * prontos); `bots` = o outro time é de computadores (na pública, os 3 humanos jogam
- * juntos no mesmo time); `minimoPorTime` = com tantos em cada time no grupo, todos
- * prontos já começam a partida sem esperar a sala encher (sem ele, só a sala cheia).
+ * juntos no mesmo time); `minimoPorTime` = com tantos em cada time de gente no grupo
+ * (na pública, só o dos humanos), todos prontos já começam a partida sem esperar a
+ * sala encher (sem ele, só a sala cheia).
  */
 export const MODOS_FILA = Object.freeze({
   online: Object.freeze({ humanos: MAX_POR_TIME * N_TIMES, bots: false, minimoPorTime: 1 }),
-  publica: Object.freeze({ humanos: MAX_POR_TIME, bots: true }),
+  publica: Object.freeze({ humanos: MAX_POR_TIME, bots: true, minimoPorTime: 2 }),
 });
 /** Tempo (s) para todos da sala escolherem a nave e apertarem Pronto. */
 export const SELECAO_S = 60;
@@ -353,8 +357,24 @@ export class Filas {
 
   /** O grupo de `e` já tem o mínimo em cada time para começar mais cedo? */
   #podeCedo(e) {
-    const { minimoPorTime } = MODOS_FILA[e.modo];
-    return !!minimoPorTime && this.#grupoDe(e).grupo.every((t) => t.length >= minimoPorTime);
+    return this.#temMinimo(e.modo, this.#grupoDe(e).grupo);
+  }
+
+  /** O `grupo` ([verde, vermelho]) tem o mínimo em cada time de gente (na pública, só o 0)? */
+  #temMinimo(modo, grupo) {
+    const { minimoPorTime, bots } = MODOS_FILA[modo];
+    return !!minimoPorTime && (bots ? grupo.slice(0, 1) : grupo).every((t) => t.length >= minimoPorTime);
+  }
+
+  /**
+   * Os grupos da fila do modo, na ordem das salas, cada um [verde, vermelho]: na
+   * pública os pedaços de `humanos` da fila (todos no 0); no 3 contra 3 os de #grupos.
+   */
+  #gruposDoModo(modo) {
+    const { humanos, bots } = MODOS_FILA[modo];
+    if (!bots) return this.#grupos(modo);
+    const fila = this.filas[modo];
+    return Array.from({ length: Math.ceil(fila.length / humanos) }, (_, g) => [fila.slice(g * humanos, (g + 1) * humanos), []]);
   }
 
   /**
@@ -362,17 +382,22 @@ export class Filas {
    * mais cedo). Devolve se começou alguma.
    */
   #comecarProntos(modo) {
-    const { minimoPorTime } = MODOS_FILA[modo];
+    const { minimoPorTime, bots } = MODOS_FILA[modo];
     if (!minimoPorTime) return false;
     const fila = this.filas[modo];
     let comecou = false;
     let achou = true;
     while (achou && this.podeAbrirSala()) {
       achou = false;
-      for (const grupo of this.#grupos(modo)) {
-        if (!grupo.every((t) => t.length >= minimoPorTime && t.every((e) => e.pronto))) continue;
+      for (const grupo of this.#gruposDoModo(modo)) {
+        if (!this.#temMinimo(modo, grupo) || !grupo.every((t) => t.every((e) => e.pronto))) continue;
         const membros = grupo.flat();
         for (const e of membros) fila.splice(fila.indexOf(e), 1);
+        if (bots) {
+          // Como na sala: os humanos juntos num time, do lado sorteado.
+          const time = this.rng() < 0.5 ? 0 : 1;
+          for (const e of membros) e.time = time;
+        }
         this.#comecar({ id: this.proximaSala++, modo, membros });
         comecou = achou = true;
         break; // os grupos de trás andaram: conta de novo

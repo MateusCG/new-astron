@@ -660,7 +660,8 @@ export class Menu {
       if (document.hidden) this.#avisarNoTitulo();
     }
     if (e.fase === 'procurando' && antes.fase === 'sala') this.#som(SONS_INTERFACE.erro, 0.5);
-    // Chegou piloto no outro time: já dá para começar mais cedo (o Pronto acende).
+    // O grupo chegou ao mínimo (um em cada time no 3 contra 3, dois na pública): já dá
+    // para começar mais cedo (o Pronto acende).
     if (e.fase === 'procurando' && e.cedo && !e.voce?.pronto && !(antes.fase === 'procurando' && antes.cedo)) {
       this.#som(SONS_INTERFACE.alerta, 0.7);
       if (document.hidden) this.#avisarNoTitulo();
