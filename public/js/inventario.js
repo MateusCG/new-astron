@@ -104,11 +104,16 @@ function nomeInst(inst) {
 export class PainelInventario {
   /**
    * @param {{ enviar: (m: object) => void, armasNave: import('./armas.js').ArmasNave,
-   *   noticia: (texto: string, tipo?: string) => void, signal: AbortSignal, aoAbrir?: () => void }} opcoes
-   *   `aoAbrir` fecha a outra janela lateral (o STATUS).
+   *   noticia: (texto: string, tipo?: string) => void, signal: AbortSignal, aoAbrir?: () => void,
+   *   som?: (nome: 'clique' | 'erro') => void }} opcoes
+   *   `aoAbrir` fecha a outra janela lateral (o STATUS). `som` toca o som da interface
+   *   (SONS_INTERFACE) quando a arma encaixa ou a troca é recusada: o equipamento passa
+   *   pelo servidor e o som sai da resposta dele (main.js), mas as armas Z/X e as casas
+   *   Q/E mudam só no cliente, e sem isto encaixavam caladas.
    */
-  constructor({ enviar, armasNave, noticia, signal, aoAbrir = () => {} }) {
+  constructor({ enviar, armasNave, noticia, signal, aoAbrir = () => {}, som = () => {} }) {
     this.enviar = enviar;
+    this.som = som;
     this.armasNave = armasNave;
     this.noticia = noticia;
     this.aoAbrir = aoAbrir;
@@ -457,7 +462,9 @@ export class PainelInventario {
       return;
     }
     if (d.acao === 'trocarCasa') {
-      if (this.armasNave.trocar(Number(d.enc))) this.#mexeuArmas();
+      const ok = this.armasNave.trocar(Number(d.enc));
+      if (ok) this.#mexeuArmas();
+      this.som(ok ? 'clique' : 'erro');
       return;
     }
     if (d.acao === 'guardar') {
@@ -486,6 +493,7 @@ export class PainelInventario {
     if (j.acao === 'arma' || j.acao === 'guardar') {
       const ok = j.acao === 'arma' ? this.armasNave.equipar(j.enc, j.inst) : this.armasNave.guardar(j.casa, j.inst);
       if (ok) this.#mexeuArmas();
+      this.som(ok ? 'clique' : 'erro'); // o mesmo som do equipamento, que vem da resposta do servidor
       return ok;
     }
     if (j.acao === 'equipar') {

@@ -507,6 +507,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     noticia: (texto, tipo) => hud.noticia(texto, tipo),
     signal: controles.parar.signal,
     aoAbrir: () => status.fechar(),
+    som: (nome) => sons.tocarInterface(SONS_INTERFACE[nome]),
   });
   const tabela = new TabelaPartida({ meuId, meuTime, signal: controles.parar.signal }); // TAB, só leitura
   // Fim da partida: VITÓRIA/DERROTA, o destaque e a tabela congelada; no fim da
