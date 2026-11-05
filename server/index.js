@@ -675,7 +675,8 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
     mundo.aoMensagens = (lista) => {
       for (const [id, texto] of lista) {
         const ws = sockets.get(id);
-        if (ws?.readyState === ws.OPEN) ws.send(texto);
+        // Sem socket (o jogador ainda não ligou ou já saiu), a mensagem cai fora.
+        if (ws && ws.readyState === ws.OPEN) ws.send(texto);
       }
     };
     mundo.aoFalhar = () => {
