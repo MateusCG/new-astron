@@ -3373,14 +3373,6 @@ kbd {
   }
 }
 
-#ping {
-  position: absolute;
-  top: 140px;
-  left: 14px;
-  font-size: 15px;
-  opacity: 0.6;
-}
-
 /* Modo de teste: painel pequeno à esquerda, embaixo do minimapa, em chapa com a
    borda tracejada em ouro (é ferramenta, não parte do jogo). */
 #painel-teste {
@@ -5311,9 +5303,6 @@ body.dano::after {
   #placar:has(.fase-final:not([hidden]), .preparacao:not([hidden])) ~ #feed {
     top: 98px;
   }
-  #ping {
-    top: 98px;
-  }
 }
 
 /* No cartão de evoluir arma, os tracinhos dividem a linha com as etiquetas. */
@@ -5323,13 +5312,12 @@ body.dano::after {
 
 /* ---------- Som (M liga e desliga) e janela de volume ---------- */
 
-/* Botões do HUD ao lado do ping: o de som (alto-falante em traço, ondas ligado e
-   "x" mudo, com o estado; abre a janela de volume), Status, Inventário, Tabela
-   (TAB) e Morte. */
+/* Engrenagem do HUD embaixo do minimapa: abre as Opções da partida (O). O volume,
+   o ping e os botões de Status, Inventário, Tabela e Morte moram lá dentro. */
 #atalhos-hud {
   position: absolute;
   top: 136px;
-  left: 64px;
+  left: 10px;
   display: flex;
   gap: 4px;
   pointer-events: auto;
@@ -5359,6 +5347,11 @@ body.dano::after {
 
 #atalhos-hud kbd {
   font-size: 13px;
+}
+
+#atalhos-hud .icone-som {
+  width: 20px;
+  height: 20px;
 }
 
 #atalhos-hud > button:hover,
@@ -5474,7 +5467,7 @@ body.dano::after {
 }
 
 /* Um canal: nome à esquerda, porcentagem mono à direita, barra embaixo e a nota. */
-:is(#volume, #config-som) .canal {
+:is(#volume, #config-som, #opcoes) .canal {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: baseline;
@@ -5483,25 +5476,25 @@ body.dano::after {
   border-top: 1px solid var(--chapa-clara);
 }
 
-:is(#volume, #config-som) .canal .nome {
+:is(#volume, #config-som, #opcoes) .canal .nome {
   font: 600 16px system-ui, sans-serif;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
-:is(#volume, #config-som) .canal .pct {
+:is(#volume, #config-som, #opcoes) .canal .pct {
   font: 700 20px ui-monospace, monospace;
   color: var(--neon);
 }
 
-:is(#volume, #config-som) .canal small {
+:is(#volume, #config-som, #opcoes) .canal small {
   grid-column: 1 / -1;
   font-size: 14.5px;
   opacity: 0.65;
 }
 
 /* Barra: trilho escuro, parte cheia em neon até --pct e o pino neon com brilho. */
-:is(#volume, #config-som) input[type='range'] {
+:is(#volume, #config-som, #opcoes) input[type='range'] {
   --pct: 50%;
   grid-column: 1 / -1;
   width: 100%;
@@ -5516,14 +5509,14 @@ body.dano::after {
   -webkit-appearance: none;
 }
 
-:is(#volume, #config-som) input[type='range']::-webkit-slider-runnable-track {
+:is(#volume, #config-som, #opcoes) input[type='range']::-webkit-slider-runnable-track {
   height: 8px;
   border: 1px solid var(--neon-escuro);
   border-radius: 4px;
   background: linear-gradient(90deg, var(--neon) var(--pct), #0c1a19 var(--pct));
 }
 
-:is(#volume, #config-som) input[type='range']::-webkit-slider-thumb {
+:is(#volume, #config-som, #opcoes) input[type='range']::-webkit-slider-thumb {
   width: 20px;
   height: 20px;
   margin-top: -7px;
@@ -5534,20 +5527,20 @@ body.dano::after {
   -webkit-appearance: none;
 }
 
-:is(#volume, #config-som) input[type='range']::-moz-range-track {
+:is(#volume, #config-som, #opcoes) input[type='range']::-moz-range-track {
   height: 8px;
   border: 1px solid var(--neon-escuro);
   border-radius: 4px;
   background: #0c1a19;
 }
 
-:is(#volume, #config-som) input[type='range']::-moz-range-progress {
+:is(#volume, #config-som, #opcoes) input[type='range']::-moz-range-progress {
   height: 8px;
   border-radius: 4px;
   background: var(--neon);
 }
 
-:is(#volume, #config-som) input[type='range']::-moz-range-thumb {
+:is(#volume, #config-som, #opcoes) input[type='range']::-moz-range-thumb {
   width: 16px;
   height: 16px;
   border: 2px solid var(--chapa);
@@ -5556,20 +5549,20 @@ body.dano::after {
   box-shadow: 0 0 8px var(--neon);
 }
 
-:is(#volume, #config-som) input[type='range']:focus-visible {
+:is(#volume, #config-som, #opcoes) input[type='range']:focus-visible {
   outline: none;
 }
 
-:is(#volume, #config-som) input[type='range']:focus-visible::-webkit-slider-thumb {
+:is(#volume, #config-som, #opcoes) input[type='range']:focus-visible::-webkit-slider-thumb {
   outline: 2px solid var(--texto);
 }
 
 /* Com o jogo mudo, as barras apagam: o volume está guardado, mas não toca nada. */
-:is(#volume, #config-som):has(.alternar-mudo.mudo) .canal {
+:is(#volume, #config-som, #opcoes):has(.alternar-mudo.mudo) .canal {
   opacity: 0.45;
 }
 
-:is(#volume, #config-som) .alternar-mudo {
+:is(#volume, #config-som, #opcoes) .alternar-mudo {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -5584,11 +5577,11 @@ body.dano::after {
   cursor: pointer;
 }
 
-:is(#volume, #config-som) .alternar-mudo kbd {
+:is(#volume, #config-som, #opcoes) .alternar-mudo kbd {
   margin-left: auto;
 }
 
-:is(#volume, #config-som) .alternar-mudo.mudo {
+:is(#volume, #config-som, #opcoes) .alternar-mudo.mudo {
   border-color: #ff8a70;
 }
 
@@ -5603,11 +5596,11 @@ body.dano::after {
 }
 
 @media (pointer: coarse) {
-  :is(#volume, #config-som) input[type='range'] {
+  :is(#volume, #config-som, #opcoes) input[type='range'] {
     height: 44px;
   }
 
-  :is(#volume, #config-som) .alternar-mudo,
+  :is(#volume, #config-som, #opcoes) .alternar-mudo,
   #volume .fechar {
     min-height: 44px;
   }
@@ -8271,6 +8264,189 @@ body.dano::after {
 
 @media (prefers-reduced-motion: reduce) {
   #sair-partida .janela {
+    animation: none;
+  }
+}
+
+/* ---------- Opções da partida (#opcoes, opcoes.js) ----------
+
+   A engrenagem do HUD ou O. Fundo escurecido por cima do jogo e, no centro, a chapa da
+   janela de volume: no alto o título com a engrenagem, o ping e o ✕; embaixo as
+   janelas (Status, Inventário, Tabela, Morte) em grade de dois, com a tecla de cada
+   uma, as barras de volume (as mesmas do #volume, sem as notas) e o Sair da partida.
+   O jogo não pausa: a nave segue voando por baixo, sem tiro. */
+#opcoes {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(6, 12, 11, 0.55);
+}
+
+#opcoes[hidden] {
+  display: none;
+}
+
+#opcoes .janela {
+  width: min(440px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  padding: 10px 16px 16px;
+  border: 2px solid var(--chapa-clara);
+  border-top-color: var(--neon);
+  border-radius: 14px 14px 8px 8px;
+  background: linear-gradient(180deg, var(--chapa-clara), var(--chapa) 30%, #0c1a19);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 0 0 1px var(--neon-escuro),
+    0 4px 20px rgba(0, 0, 0, 0.5);
+  animation: surge 0.15s ease-out;
+}
+
+#opcoes header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+#opcoes h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font: 700 17px system-ui, sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--neon);
+  text-shadow: 0 0 10px var(--neon);
+}
+
+#opcoes h2 .icone-som {
+  width: 20px;
+  height: 20px;
+}
+
+#opcoes .conexao {
+  margin-left: auto;
+  font: 14px system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+#opcoes .conexao b {
+  margin-left: 4px;
+  font: 700 15px ui-monospace, monospace;
+  color: var(--neon);
+}
+
+#opcoes .conexao b:empty::after {
+  content: '—';
+}
+
+#opcoes .fechar {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 6px;
+  background: #0f1e1d;
+  color: var(--texto);
+  font-size: 17px;
+  cursor: pointer;
+}
+
+#opcoes h3 {
+  margin: 12px 0 6px;
+  font: 600 13px system-ui, sans-serif;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+#opcoes .opcoes-janelas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+#opcoes .opcoes-janelas button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 6px;
+  background: #0f1e1d;
+  color: var(--texto);
+  font: 600 15px system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+#opcoes .opcoes-janelas .icone-som {
+  width: 18px;
+  height: 18px;
+  color: var(--neon);
+}
+
+#opcoes .opcoes-janelas kbd {
+  margin-left: auto;
+}
+
+/* A tabela fixada pelo botão: aceso, como antes no HUD. */
+#opcoes .opcoes-janelas button.ativo {
+  border-color: var(--neon-escuro);
+  box-shadow: inset 0 0 0 1px var(--neon-escuro);
+}
+
+#opcoes .opcoes-som .canal {
+  padding: 6px 0 4px;
+}
+
+/* Na partida as notas de cada barra só alongam a caixa. */
+#opcoes .opcoes-som .canal small {
+  display: none;
+}
+
+#opcoes .sair-partida {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 14px;
+  padding: 8px 12px;
+  border: 1px solid #ff8a70;
+  border-radius: 6px;
+  background: rgba(255, 138, 112, 0.08);
+  color: #ffb3a1;
+  font: 700 15px system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+#opcoes :is(.fechar, .opcoes-janelas button):is(:hover, :focus-visible, .foco-joy) {
+  outline: none;
+  border-color: var(--neon);
+}
+
+#opcoes .sair-partida:is(:hover, :focus-visible, .foco-joy) {
+  outline: none;
+  background: rgba(255, 138, 112, 0.18);
+}
+
+.toque #opcoes kbd {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #opcoes .janela {
     animation: none;
   }
 }

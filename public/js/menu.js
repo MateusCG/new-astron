@@ -202,7 +202,7 @@ export class Menu {
     });
 
     this.q('#botao-som').addEventListener('click', () => painelVolume.abrir());
-    this.volumeConfig = new PainelVolume({ sons, aoMudarSom, el: this.q('#config-som') });
+    this.volumeConfig = new PainelVolume({ sons, aoMudarSom, el: this.q('#config-som'), fundo: false });
 
     this.times = new EscolhaTimes(this.q('#escolha-times'), {
       miniatura,

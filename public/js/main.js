@@ -163,6 +163,7 @@ import { destruicaoDe } from './destruicao.js';
 import { TelaCarregamento, Carregamento, aquecerGpu } from './carregamento.js';
 import { TelaAbertura } from './abertura.js';
 import { ConfirmarSaida } from './sair-partida.js';
+import { PainelOpcoes } from './opcoes.js';
 import { MELHORIAS_MINERADOR, MELHORIA_TORRETAS } from '/shared/evolucao.js';
 import { RECALL_S } from '/shared/recall.js';
 import { TORRETAS } from '/shared/terrain.js';
@@ -267,6 +268,25 @@ const confirmarSaida = new ConfirmarSaida({
   aoConfirmar: () => jogoAtual && voltarParaEntrada(),
   som: (nome) => sons.tocarInterface(SONS_INTERFACE[nome]),
 });
+// A engrenagem do HUD ou O: as janelas, o volume, o ping e o Sair da partida (opcoes.js).
+const opcoes = new PainelOpcoes({
+  el: document.querySelector('#opcoes'),
+  sons,
+  aoMudarSom: mostrarEstadoSom,
+  aoSair: () => jogoAtual && confirmarSaida.abrir(),
+  som: (nome) => sons.tocarInterface(SONS_INTERFACE[nome]),
+});
+document.querySelector('#opcoes-hud')?.addEventListener('click', (e) => {
+  alternarOpcoes();
+  e.currentTarget.blur(); // o foco no botão não pode prender as teclas do jogo
+});
+aoApertar('opcoes', () => alternarOpcoes());
+/** Abre e fecha as Opções, só na partida rolando (na tela de resultado, não). */
+function alternarOpcoes() {
+  if (opcoes.aberto) return opcoes.fechar();
+  if (!jogoAtual || jogoAtual.naTelaResultado() || confirmarSaida.aberto) return;
+  opcoes.abrir();
+}
 let cargaAtual = null; // o Carregamento da tela de carregamento aberta (ESC cancela)
 let menu = null;
 
@@ -287,10 +307,6 @@ function montarMenu() {
         cargaAtual = null;
       }
     },
-  });
-  document.querySelector('#som-hud')?.addEventListener('click', (e) => {
-    painelVolume.alternar();
-    e.currentTarget.blur(); // o foco no botão não pode prender as teclas do jogo
   });
   mostrarEstadoSom();
 
@@ -323,6 +339,10 @@ function apertouEsc(e) {
     confirmarSaida.fechar(); // ESC de novo é o Cancelar
     return;
   }
+  if (opcoes.aberto) {
+    opcoes.fechar();
+    return;
+  }
   if (!menu) return; // ainda na tela de abertura
   if (!jogoAtual) {
     if (cargaAtual) cargaAtual.cancelar();
@@ -339,6 +359,7 @@ function voltarParaEntrada() {
   // O menu volta mesmo se o desmonte falhar: preso numa tela vazia, o jogador não
   // teria como continuar sem recarregar a página.
   confirmarSaida.fechar();
+  opcoes.fechar();
   try {
     jogoAtual?.sair();
   } catch (err) {
@@ -611,10 +632,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
     if (!vivo || !pred) return;
     const inp = controles.ler();
     // As armas dos dois encaixes vão em todo comando; com o painel da Loja/Evolução
-    // ou a janela de volume aberta não sai tiro. Com o STATUS, o INVENTÁRIO ou a
+    // a janela de volume ou a de Opções aberta não sai tiro. Com o STATUS, o INVENTÁRIO ou a
     // tabela da partida (TAB) aberta, sai (são de consulta, como o TAB do LoL).
     [inp.a, inp.a2] = armasNave.encaixes;
-    if (painel.aberto || painelVolume.aberto || resultado.aberto || confirmarSaida.aberto) inp.f1 = inp.f2 = false;
+    if (painel.aberto || painelVolume.aberto || opcoes.aberto || resultado.aberto || confirmarSaida.aberto) inp.f1 = inp.f2 = false;
     seq++;
     rede.enviar({ t: 'in', s: seq, ...inp });
     ant = pose(pred);
@@ -682,7 +703,10 @@ function montarJogo(rede, boas, renderer, race, classe) {
     placar.atualizar(m.partida, m.bonus);
     tabela.atualizar(m.jogadores, m.partida);
     resultado.atualizar(m.partida, m.jogadores);
-    if (resultado.aberto) confirmarSaida.fechar(); // a partida acabou com a pergunta aberta
+    if (resultado.aberto) {
+      confirmarSaida.fechar(); // a partida acabou com a pergunta aberta
+      opcoes.fechar();
+    }
     barraTime.atualizar(m.jogadores, m.ents, m.vivo, m.me?.en);
     bonusAtivos = m.bonus ?? {};
     meusBonus = Object.keys(m.me?.bonusNave ?? {});
