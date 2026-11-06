@@ -376,9 +376,12 @@
 //         dos jogadores (o modelo pendurado em cada asa). Jogador camuflado do outro
 //         time não vem na lista (salvo a INVISIVEL_VISTO_M da sua nave ou logo
 //         depois de atirar);
-//         tipo = 'jogador' | 'monstro' | 'minerador' | 'escolta' | 'nucleo' (o que
+//         tipo = 'jogador' | 'monstro' | 'minerador' | 'escolta' | 'suporte' | 'nucleo' (o que
 //         desenhar; o Núcleo de He-3 é uma entidade parada no poço de cima, neutra,
-//         com hp/maxHp, só enquanto vivo); monstro (server/jungle.js, só vivo) traz
+//         com hp/maxHp, só enquanto vivo; 'suporte' é a torre do buff de suporte acesa,
+//         neutra e parada, com hp/maxHp: o modelo é do cenário, o cliente só põe o
+//         rótulo); obj = o id do objetivo na torre de suporte (BS0/BS1) e no SN-4
+//         (BA0/BA1); monstro (server/jungle.js, só vivo) traz
 //         esp = 'sn3' | 'snzero' | 'xerxes' | 'great_xerxes' | 'bazit' | 'anti' |
 //         'sn4' | 'medusa' | 'sonda' (o modelo: public/modelos/monstros/<esp>.glb;
 //         nome = nome na tela, sem time); drone = inimigo do PvE; time em jogadores,
@@ -454,8 +457,9 @@
 //                                    'torreta', dono = id dela; míssil teleguiado:
 //                                    guiado true, alvo = id travado, vai também em
 //                                    `guiados`) ou de escolta (fonte 'escolta'): cor do time
-//         {e:'acerto', ..., torre}   tiro que bateu numa torre de suporte (alvo 0;
-//                                    dano 0 se não foi de jogador ou se ela ainda não acendeu)
+//         {e:'acerto', ..., torre}   tiro que bateu numa torre de suporte apagada, ou a carga
+//                                    que não fere (alvo 0, dano 0); acesa, a torre leva o
+//                                    'acerto' de sempre, com alvo = o id da entidade dela
 //         {e:'reflexo', id, x, y, z, dano, alvos:[{id, x, y, z}]}   o Núcleo de He-3
 //                                    devolveu o dano que levou (id = o Núcleo; dano =
 //                                    o pedaço de cada nave, antes do escudo dela;

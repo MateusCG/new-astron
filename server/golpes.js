@@ -289,8 +289,20 @@ export class Golpes {
       }
       if (g?.cresce && b.raio < g.cresce.raio) b.raio = Math.min(g.cresce.raio, b.raio + g.cresce.vel * DT);
       const segue = stepBullet(b);
-      if (w.objetivos.tiroNaTorre(b) || w.torretas.tiroNaTorreta(b)) {
-        // Bateu numa torre de suporte ou numa torreta (sólidas): acaba ali.
+      const naTorre = w.objetivos.tiroNaTorre(b);
+      if (naTorre) {
+        // Bateu na torre de suporte (sólida): acesa, é um alvo como os outros (o golpe
+        // direto, com o crítico e a área); apagada, ou com a carga que não fere, acaba ali.
+        const { torre, x, y, z } = naTorre;
+        if (torre.vivo && g?.inimigo !== false && this.ctx.podeAcertar(b, torre)) this.#acerto(b, g, x, y, z, torre, b.id);
+        else {
+          w.eventos.push({ e: 'acerto', bala: b.id, x, y, z, alvo: 0, torre: torre.obj, dano: 0 });
+          this.#fimDoTiro(b, g, novos);
+        }
+        return false;
+      }
+      if (w.torretas.tiroNaTorreta(b)) {
+        // Bateu numa torreta (sólida): acaba ali.
         this.#fimDoTiro(b, g, novos);
         return false;
       }
@@ -386,10 +398,7 @@ export class Golpes {
         this.#efeitosAliado(g, a, como);
       }
     }
-    if (g.area > 0 && g.inimigo && dano > 0) {
-      w.torretas.area({ id: autor, time: como.time }, x, y, z, g.area, dano, kind);
-      w.objetivos.area({ id: autor }, x, y, z, g.area, dano, kind); // a torre do buff de suporte também
-    }
+    if (g.area > 0 && g.inimigo && dano > 0) w.torretas.area({ id: autor, time: como.time }, x, y, z, g.area, dano, kind);
     this.#especiais(g, como, x, z, g.area);
   }
 
@@ -656,11 +665,8 @@ export class Golpes {
           this.#efeitosAliado(g, a, { ...como, kind: n.kind });
         }
       }
-      // Torretas inimigas e torres de suporte na casca levam o dano uma vez (a casca as pega ao chegar no raio máximo).
-      if (n.r >= g.nova.raio && g.inimigo && dano > 0) {
-        w.torretas.area({ id: n.owner, time: n.time }, n.x, n.y, n.z, n.r, dano, n.kind);
-        w.objetivos.area({ id: n.owner }, n.x, n.y, n.z, n.r, dano, n.kind);
-      }
+      // Torretas inimigas na casca levam o dano uma vez (a casca as pega ao chegar no raio máximo).
+      if (n.r >= g.nova.raio && g.inimigo && dano > 0) w.torretas.area({ id: n.owner, time: n.time }, n.x, n.y, n.z, n.r, dano, n.kind);
       this.#especiais(g, como, n.x, n.z, n.r);
       return n.r < g.nova.raio;
     });

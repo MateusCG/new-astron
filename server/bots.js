@@ -645,7 +645,7 @@ export class Bots {
       inimigos,
       mineradores: outros.filter(ve), // mineradores e escoltas do outro time à vista
       monstros: w.monstros.filter((m) => m.vivo && ve(m)),
-      nucleo: w.objetivos.entidades().find(ve) ?? null,
+      nucleo: w.objetivos.entidades().find((e) => e.tipo === 'nucleo' && ve(e)) ?? null,
     };
     this.conhece[time] = k;
     return k;

@@ -14,9 +14,11 @@
 // a construção sólida é a de shared/obstaculos.js): fica de pé desde o começo, mas
 // só "acende" e aceita dano aos TEMPOS.suporte.primeiroS (1:30); antes, o tiro bate e
 // some (dano 0), como numa parede. Tem SUPORTE.hp de vida e só tiro de JOGADOR a
-// machuca, de qualquer time (roubar o buff do outro lado vale), tanto o tiro direto
-// quanto a área (explosão, nova, onda: `area`, como nas torretas; a carga do Canhão de
-// Faíscas não fere, quem fere é a nova que ela abre ao bater). O último golpe dá
+// machuca, de qualquer time (roubar o buff do outro lado vale). Acesa, ela é uma
+// ENTIDADE do mundo (tipo 'suporte', como o Núcleo: entidades()), então leva dano como
+// qualquer nave ou monstro, pelo World#ferir: o tiro direto (com o crítico), a área, a
+// nova, a mina, o dreno (a carga do Canhão de Faíscas não fere, quem fere é a nova que
+// ela abre). O cilindro dela segura o tiro (tiroNaTorre). O último golpe dá
 // 'suporte' (server/bonus.js) a quem atirou, e SUPORTE.xp / SUPORTE.ouro. A torre cai
 // (sai da física nos dois lados: definirObstaculoAtivo, e o cliente faz o mesmo pelo
 // `obj`) e volta inteira TEMPOS.suporte.voltaS (4:00) depois, esperando o lugar
@@ -64,7 +66,7 @@
 // Partida nova (ou servidor vazio): tudo volta à 'espera', torres de pé.
 
 import { PLATAFORMAS_POUSO, BUFFS, NUCLEO, areaPouso } from '../shared/terrain.js';
-import { DT, HOVER, VEL_TOQUE, SHIP_RADIUS, AREA_ALTURA } from '../shared/sim.js';
+import { DT, HOVER, VEL_TOQUE, SHIP_RADIUS } from '../shared/sim.js';
 import { TORRE_SUPORTE, OBSTACULOS, definirObstaculoAtivo } from '../shared/obstaculos.js';
 import { ganharXp } from './progressao.js';
 import { BONUS_NAVE } from './bonus.js';
@@ -168,8 +170,8 @@ export class Objetivos {
 
   /** Tudo à espera, torres de pé (partida nova ou servidor vazio). */
   reiniciar() {
-    this.suportes = BUFFS.filter((b) => b.tipo === 'suporte').map((b) => ({ id: b.id, x: b.x, z: b.z, hp: SUPORTE.hp, caida: false, voltaTick: 0, time: null }));
-    for (const t of this.suportes) definirObstaculoAtivo(t.id, true);
+    this.suportes = BUFFS.filter((b) => b.tipo === 'suporte').map((b) => this.#novaTorre(b));
+    for (const t of this.suportes) definirObstaculoAtivo(t.obj, true);
     this.plataformas = PLATAFORMAS_POUSO.map((p) => ({ id: p.id, x: p.x, z: p.z, ativa: false, voltaTick: 0, prog: 0, quem: null, contestado: false, vistoAte: 0, time: null }));
     const f = forcaNucleo(0);
     this.nucleo = {
@@ -195,18 +197,47 @@ export class Objetivos {
     };
   }
 
+  /**
+   * A torre do buff de suporte `b` (BUFFS) como entidade: `obj` é o id do objetivo
+   * (BS0/BS1), `id` o da entidade no mundo; neutra (drone, como o Núcleo: monstro não a
+   * acerta) e só jogador fere (soJogador). `vivo` = acesa (#atualizarSuporte).
+   */
+  #novaTorre(b) {
+    return {
+      id: this.world.nextId++,
+      obj: b.id,
+      tipo: 'suporte',
+      nome: 'Torre de comunicação',
+      drone: true,
+      soJogador: true,
+      vivo: false,
+      x: b.x,
+      z: b.z,
+      caida: false,
+      voltaTick: 0,
+      time: undefined,
+      timeTomou: null,
+      respawnTick: Infinity, // quem decide a volta é #passoSuporte
+      st: {},
+      ship: { x: b.x, y: HOVER, z: b.z, yaw: 0, roll: 0, vx: 0, vz: 0, hp: SUPORTE.hp, maxHp: SUPORTE.hp, raio: TORRE_SUPORTE.raio, boost: false, pousado: false },
+    };
+  }
+
   /** O Núcleo de He-3 está vivo? (a sonda errante da jungle não aparece enquanto ele vive: server/jungle.js) */
   nucleoVivo() {
     return this.nucleo.vivo;
   }
 
-  /** Entidades dos objetivos que vão para o mundo (alvos de tiro e snapshot): o Núcleo, se vivo. */
+  /** Entidades dos objetivos que vão para o mundo (alvos de tiro e snapshot): as torres de suporte acesas e o Núcleo, se vivo. */
   entidades() {
-    return this.nucleo.vivo ? [this.nucleo] : [];
+    const lista = this.suportes.filter((t) => t.vivo);
+    if (this.nucleo.vivo) lista.push(this.nucleo);
+    return lista;
   }
 
   /** Avança um tick (só com a partida em andamento). */
   step() {
+    for (const t of this.suportes) this.#atualizarSuporte(t);
     if (!this.#andamento) return;
     for (const t of this.suportes) this.#passoSuporte(t);
     for (const p of this.plataformas) this.#passoPlataforma(p);
@@ -219,32 +250,42 @@ export class Objetivos {
     return !t.caida && this.world.tick >= this.#naPartida(this.tempos.suporte.primeiroS);
   }
 
+  /**
+   * A torre é alvo (entidade viva) só acesa e com a partida em andamento; e não sai do
+   * lugar (um golpe que empurra o alvo não a move).
+   */
+  #atualizarSuporte(t) {
+    t.vivo = this.#andamento && this.#suporteAceso(t);
+    Object.assign(t.ship, { x: t.x, y: HOVER, z: t.z, vx: 0, vz: 0, yaw: 0, roll: 0 });
+  }
+
   #passoSuporte(t) {
     if (!t.caida || this.world.tick < t.voltaTick || this.#naveEmCima(t, TORRE_SUPORTE.raio)) return;
     t.caida = false;
-    t.hp = SUPORTE.hp;
-    definirObstaculoAtivo(t.id, true);
-    this.world.eventos.push({ e: 'objetivo', id: t.id, acao: 'apareceu', time: null, quem: null });
+    t.ship.hp = SUPORTE.hp;
+    t.st = {};
+    definirObstaculoAtivo(t.obj, true);
+    this.#atualizarSuporte(t);
+    this.world.eventos.push({ e: 'objetivo', id: t.obj, acao: 'apareceu', time: null, quem: null });
   }
 
   /** Alguma nave no lugar de (o.x, o.z), raio `raio`? */
   #naveEmCima(o, raio) {
     const w = this.world;
     const r = raio + 1;
-    return w.vivosAgora().some((e) => e !== this.nucleo && Math.hypot(e.ship.x - o.x, e.ship.z - o.z) < r + (e.ship.raio ?? SHIP_RADIUS));
+    return w.vivosAgora().some((e) => e !== this.nucleo && e.tipo !== 'suporte' && Math.hypot(e.ship.x - o.x, e.ship.z - o.z) < r + (e.ship.raio ?? SHIP_RADIUS));
   }
 
   /**
    * O tiro `b` (já avançado neste tick por stepBullet) bateu numa torre de suporte de
-   * pé? Segmento contra o cilindro, para tiro rápido não atravessar. Tiro de jogador
-   * com a torre acesa tira vida; o último derruba. Devolve true se o tiro acabou na
-   * torre (quem chama tira o tiro do mundo).
+   * pé? Segmento contra o cilindro, para tiro rápido não atravessar. Devolve
+   * { torre, x, y, z } (o ponto do choque) ou null; quem chama (server/golpes.js) fere a
+   * torre acesa como fere qualquer alvo e tira o tiro do mundo.
    */
   tiroNaTorre(b) {
-    const w = this.world;
     for (const t of this.suportes) {
       if (t.caida) continue;
-      const o = this.planta.get(t.id);
+      const o = this.planta.get(t.obj);
       if (b.y > o.topo) continue;
       const ax = b.px ?? b.x;
       const az = b.pz ?? b.z;
@@ -253,54 +294,22 @@ export class Objetivos {
       const l2 = sx * sx + sz * sz;
       const k = l2 > 0 ? Math.min(1, Math.max(0, ((t.x - ax) * sx + (t.z - az) * sz) / l2)) : 0;
       if (Math.hypot(ax + sx * k - t.x, az + sz * k - t.z) > o.raio + 0.5) continue;
-      const atirador = b.drone ? null : w.players.get(b.owner);
-      const dano = atirador && this.#suporteAceso(t) && this.#andamento ? Math.round(w.danoDoTiro(b)) : 0;
-      w.eventos.push({ e: 'acerto', bala: b.id, x: ax + sx * k, y: b.y, z: az + sz * k, alvo: 0, torre: t.id, dano });
-      if (!dano) return true;
-      atirador.causouDanoTick = w.tick;
-      t.hp = Math.max(0, t.hp - dano);
-      if (t.hp === 0) this.#derrubar(t, atirador);
-      return true;
+      return { torre: t, x: ax + sx * k, y: b.y, z: az + sz * k };
     }
-    return false;
-  }
-
-  /**
-   * Dano em área (explosão, nova, onda) de `fonte` ({id}) centrado em (x, y, z): fere
-   * as torres de suporte de pé ao alcance, se a fonte for um jogador e a torre estiver
-   * acesa, como as torretas (Torretas#area). Devolve quantas pegou.
-   */
-  area(fonte, x, y, z, raio, dano, arma) {
-    const w = this.world;
-    const j = w.players.get(fonte.id);
-    if (!j || !this.#andamento) return 0;
-    let n = 0;
-    for (const t of this.suportes) {
-      if (t.caida || !this.#suporteAceso(t)) continue;
-      const o = this.planta.get(t.id);
-      if (Math.hypot(t.x - x, t.z - z) > raio + o.raio) continue;
-      if (y < o.chao - AREA_ALTURA || y > o.topo + AREA_ALTURA) continue;
-      const d = Math.round(dano);
-      if (d <= 0) continue;
-      n++;
-      w.eventos.push({ e: 'acerto', arma, alvo: 0, torre: t.id, dano: d, x: t.x, y: HOVER, z: t.z });
-      j.causouDanoTick = w.tick;
-      t.hp = Math.max(0, t.hp - d);
-      if (t.hp === 0) this.#derrubar(t, j);
-    }
-    return n;
+    return null;
   }
 
   #derrubar(t, j) {
     const w = this.world;
     t.caida = true;
-    t.time = j.time;
+    t.vivo = false;
+    t.timeTomou = j.time;
     t.voltaTick = w.tick + ticks(this.tempos.suporte.voltaS);
-    definirObstaculoAtivo(t.id, false);
+    definirObstaculoAtivo(t.obj, false);
     w.bonus.ativarNave(j.id, 'suporte', BONUS_NAVE.suporte.s, w.tick);
     j.ouro += SUPORTE.ouro;
     ganharXp(j, SUPORTE.xp, w.eventos);
-    w.eventos.push({ e: 'objetivo', id: t.id, acao: 'tomado', time: j.time, quem: j.nome, por: j.id, x: t.x, z: t.z });
+    w.eventos.push({ e: 'objetivo', id: t.obj, acao: 'tomado', time: j.time, quem: j.nome, por: j.id, x: t.x, z: t.z });
   }
 
   // ---------- Plataformas de pouso ----------
@@ -470,6 +479,12 @@ export class Objetivos {
    * ao time de quem deu o golpe final (sem jogador, ninguém ganha).
    */
   aoMorrer(alvo, matador) {
+    // A torre de suporte: o golpe final a derruba e dá o bônus (só jogador a fere).
+    if (alvo.tipo === 'suporte') {
+      if (matador) this.#derrubar(alvo, matador);
+      else alvo.ship.hp = SUPORTE.hp; // sem jogador não cai (não deveria acontecer: soJogador)
+      return;
+    }
     if (alvo !== this.nucleo) return;
     const w = this.world;
     const n = this.nucleo;
@@ -509,11 +524,11 @@ export class Objetivos {
     const relogio = andamento || w.partida.emPreparacao;
     const r = {};
     for (const t of this.suportes) {
-      const e = { time: t.time };
+      const e = { time: t.timeTomou };
       if (t.caida) Object.assign(e, { estado: 'recarga', volta: restaS(t.voltaTick, tick), vida: 0 });
       else if (!andamento || !this.#suporteAceso(t)) Object.assign(e, { estado: 'espera', volta: relogio ? restaS(this.#naPartida(this.tempos.suporte.primeiroS), tick) : 0, vida: 1 });
-      else Object.assign(e, { estado: 'ativo', vida: +(t.hp / SUPORTE.hp).toFixed(3) });
-      r[t.id] = e;
+      else Object.assign(e, { estado: 'ativo', vida: +(Math.max(0, t.ship.hp) / SUPORTE.hp).toFixed(3) });
+      r[t.obj] = e;
     }
     for (const p of this.plataformas) {
       const e = { time: p.time };

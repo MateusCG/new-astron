@@ -80,7 +80,7 @@ test('objetivos: os A/B/C antigos saíram e o obj traz BS0, BS1, P0, P1 e NUCLEO
 test('objetivos: torre de suporte só aceita dano de jogador depois de acender, e o último tiro dá o bônus', () => {
   const { w, a, b } = mundo();
   const t = BUFFS.find((x) => x.id === 'BS0'); // (-855, 909), do lado do time 0
-  const torre = w.objetivos.suportes.find((x) => x.id === 'BS0');
+  const torre = w.objetivos.suportes.find((x) => x.obj === 'BS0');
   assert.ok(obstaculoAtivo('BS0'), 'de pé desde o começo');
   // Antes de acender: bate e some, sem dano.
   colocar(a, t.x - 80, t.z - 60);
@@ -88,18 +88,18 @@ test('objetivos: torre de suporte só aceita dano de jogador depois de acender, 
   w.tirarEventos();
   const antes = tiro(w, b, t.x - 40, t.z, -Math.PI / 2);
   assert.equal(w.bullets.includes(antes), false, 'acabou na torre');
-  assert.equal(torre.hp, SUPORTE.hp);
+  assert.equal(torre.ship.hp, SUPORTE.hp);
   assert.ok(w.tirarEventos().some((e) => e.e === 'acerto' && e.torre === 'BS0' && e.dano === 0));
   passos(w, 2);
   assert.equal(obj(w, a, 'BS0').estado, 'ativo');
   // Monstro não fere; jogador de qualquer time (aqui o do outro lado) fere.
   tiro(w, null, t.x - 40, t.z, -Math.PI / 2);
-  assert.equal(torre.hp, SUPORTE.hp, 'monstro não fere');
+  assert.equal(torre.ship.hp, SUPORTE.hp, 'monstro não fere');
   tiro(w, b, t.x - 40, t.z, -Math.PI / 2);
-  assert.equal(torre.hp, SUPORTE.hp - WEAPONS.plasma.dano, 'jogador do outro time rouba');
-  assert.ok(Math.abs(obj(w, a, 'BS0').vida - torre.hp / SUPORTE.hp) < 1e-3);
+  assert.equal(torre.ship.hp, SUPORTE.hp - WEAPONS.plasma.dano, 'jogador do outro time rouba');
+  assert.ok(Math.abs(obj(w, a, 'BS0').vida - torre.ship.hp / SUPORTE.hp) < 1e-3);
   // Último tiro: cai, sai da física, dá 'suporte' e a recompensa.
-  torre.hp = 5;
+  torre.ship.hp = 5;
   const ouro = b.ouro;
   w.tirarEventos();
   tiro(w, b, t.x - 40, t.z, -Math.PI / 2);
@@ -120,7 +120,7 @@ test('objetivos: torre de suporte só aceita dano de jogador depois de acender, 
   colocar(a, t.x - 80, t.z - 60);
   w.step();
   assert.ok(obstaculoAtivo('BS0'));
-  assert.equal(torre.hp, SUPORTE.hp, 'inteira');
+  assert.equal(torre.ship.hp, SUPORTE.hp, 'inteira');
   assert.equal(obj(w, a, 'BS0').estado, 'ativo');
   assert.ok(w.tirarEventos().some((e) => e.e === 'objetivo' && e.id === 'BS0' && e.acao === 'apareceu'));
 });
@@ -128,7 +128,7 @@ test('objetivos: torre de suporte só aceita dano de jogador depois de acender, 
 test('objetivos: a nova do Canhão de Faíscas (a carga não fere) tira vida da torre de suporte acesa', () => {
   const { w, a, b } = mundo();
   const t = BUFFS.find((x) => x.id === 'BS0');
-  const torre = w.objetivos.suportes.find((x) => x.id === 'BS0');
+  const torre = w.objetivos.suportes.find((x) => x.obj === 'BS0');
   colocar(a, t.x - 300, t.z - 300);
   passos(w, 2.1);
   assert.equal(obj(w, a, 'BS0').estado, 'ativo');
@@ -140,12 +140,43 @@ test('objetivos: a nova do Canhão de Faíscas (a carga não fere) tira vida da 
   w.bullets.push(bala);
   w.tirarEventos();
   for (let i = 0; i < 4 * SEGUNDO; i++) w.step();
-  assert.ok(torre.hp < SUPORTE.hp, `a nova feriu a torre (hp ${torre.hp})`);
-  assert.ok(w.tirarEventos().some((e) => e.e === 'acerto' && e.torre === 'BS0' && e.dano > 0));
+  assert.ok(torre.ship.hp < SUPORTE.hp, `a nova feriu a torre (hp ${torre.ship.hp})`);
+  assert.ok(w.tirarEventos().some((e) => e.e === 'acerto' && e.alvo === torre.id && e.dano > 0));
   // Uma vez só por nova.
-  const depois = torre.hp;
+  const depois = torre.ship.hp;
   passos(w, 2);
-  assert.equal(torre.hp, depois);
+  assert.equal(torre.ship.hp, depois);
+});
+
+test('objetivos: acesa, a torre de suporte é um alvo como os outros (entidade no World#ferir), e apagada sai da lista', () => {
+  const { w, a, b } = mundo();
+  const torre = w.objetivos.suportes.find((x) => x.obj === 'BS0');
+  assert.equal(w.vivosAgora().includes(torre), false, 'antes de acender não é alvo');
+  colocar(a, torre.x - 300, torre.z - 300);
+  passos(w, 2.1);
+  assert.ok(w.vivosAgora().includes(torre), 'acesa: entidade viva');
+  const ent = w.entidades().find((e) => e.id === torre.id);
+  assert.equal(ent.tipo, 'suporte');
+  assert.equal(ent.obj, 'BS0');
+  assert.equal(ent.maxHp, SUPORTE.hp);
+  // O mesmo World#ferir das naves e dos monstros.
+  w.objetivos.ferir(torre, 100, b.id, { e: 'acerto', kind: 'plasma' }, { tipoDano: 'fisico' });
+  assert.equal(torre.ship.hp, SUPORTE.hp - 100);
+  // Monstro (sem jogador) não fere.
+  w.objetivos.ferir(torre, 100, 99999, { e: 'acerto' }, {});
+  assert.equal(torre.ship.hp, SUPORTE.hp - 100);
+  // O golpe final pelo World#ferir derruba e dá o bônus.
+  w.objetivos.ferir(torre, SUPORTE.hp, b.id, { e: 'acerto', kind: 'plasma' }, { tipoDano: 'fisico' });
+  assert.ok(torre.caida);
+  assert.equal(obstaculoAtivo('BS0'), false);
+  assert.ok(w.bonus.ativoNave(b.id, 'suporte', w.tick));
+  w.step();
+  assert.equal(w.vivosAgora().includes(torre), false, 'caída sai da lista');
+  // Não sai do lugar, mesmo empurrada.
+  const t2 = w.objetivos.suportes.find((x) => x.obj === 'BS1');
+  t2.ship.x += 50;
+  w.step();
+  assert.equal(t2.ship.x, t2.x);
 });
 
 test('objetivos: plataforma de pouso dá ouro ao time inteiro depois do pouso parado, e +50 a quem pousou', () => {
@@ -385,8 +416,8 @@ test('objetivos: a partida nova volta tudo à espera, com as torres de pé', () 
   const w = new World({ preparacaoS: 0, jungle: false, torretas: false, objetivos: RAPIDO, duracaoPartidaS: 5, intervaloFimS: 1 });
   const a = w.addPlayer('A', 'bellico');
   passos(w, 2.2);
-  w.objetivos.suportes[0].hp = 1;
-  const t = BUFFS.find((x) => x.id === w.objetivos.suportes[0].id);
+  w.objetivos.suportes[0].ship.hp = 1;
+  const t = BUFFS.find((x) => x.id === w.objetivos.suportes[0].obj);
   tiro(w, a, t.x - 40, t.z, -Math.PI / 2);
   assert.equal(obstaculoAtivo(t.id), false);
   assert.equal(w.objetivos.nucleo.vivo, true);

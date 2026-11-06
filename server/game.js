@@ -724,7 +724,7 @@ export class World {
       return;
     }
     const quem = this.players.get(autor);
-    // Alvo que só jogador fere (o Núcleo de He-3): tiro de monstro, torreta ou escolta bate e não tira nada.
+    // Alvo que só jogador fere (o Núcleo de He-3 e a torre de suporte): tiro de monstro, torreta ou escolta bate e não tira nada.
     if (alvo.soJogador && !quem) {
       if (ev) this.eventos.push({ ...ev, alvo: alvo.id, dano: 0 });
       return;
@@ -1245,12 +1245,13 @@ export class World {
 
   /**
    * Entidades visíveis para todos (mesma lista para cada jogador). `tipo` diz o
-   * que desenhar ('jogador', 'monstro', 'minerador', 'escolta' ou 'nucleo'; o
+   * que desenhar ('jogador', 'monstro', 'minerador', 'escolta', 'suporte' (a torre do
+   * buff de suporte acesa, desenhada pelo cenário: só o rótulo) ou 'nucleo'; o
    * monstro traz `esp`, a espécie de server/especies.js, e só vem vivo); `drone`
    * continua true para todo inimigo do PvE e o Núcleo. Jogadores,
    * mineradores e escoltas trazem `time`; os mineradores também `carga` (minério no contêiner)
    * e `minerando`, `descarga: 1` enquanto despejam na bacia da base e os da onda do Núcleo
-   * `nucleo: 1`. Jogador traz `nivel`, `classe` e
+   * `nucleo: 1`. A torre de suporte e o SN-4 trazem `obj` (o id do objetivo). Jogador traz `nivel`, `classe` e
    * `tier` (a nave a desenhar), com escudo equipado `esc` (fração 0 a 1 do escudo) e,
    * com bônus de nave, `bn` (['ataque', 'suporte', 'sonda'], os ativos).
    */
@@ -1303,13 +1304,17 @@ export class World {
         if (e.nucleo) ent.nucleo = 1; // da onda do Núcleo (maior, brilhando He-3)
       }
       if (e.tipo === 'monstro') ent.esp = e.esp;
+      // O objetivo que a entidade é (a barra de chefe no cliente lê a faixa dele): a torre
+      // de suporte (BS0/BS1) e o SN-4 do buff de ataque (BA0/BA1).
+      if (e.obj) ent.obj = e.obj;
+      else if (e.covil?.tipo === 'ataque') ent.obj = e.covil.id;
       lista.push(ent);
     };
     for (const j of this.players.values()) add(j);
     for (const m of this.jungle.lista) if (m.vivo) add(m);
     for (const m of this.mineradores.lista) add(m);
     for (const e of this.escoltas.lista) add(e);
-    for (const e of this.objetivos.entidades()) add(e); // o Núcleo de He-3 (tipo 'nucleo')
+    for (const e of this.objetivos.entidades()) add(e); // as torres de suporte acesas (tipo 'suporte') e o Núcleo de He-3 (tipo 'nucleo')
     return lista;
   }
 
