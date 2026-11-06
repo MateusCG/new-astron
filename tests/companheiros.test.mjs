@@ -284,10 +284,12 @@ test('teleporte: sem energia bastante recusa com o custo, sem mexer na nave; com
   assert.ok(Math.hypot(a.ship.x - c.ship.x, a.ship.z - c.ship.z) < 30, 'chegou junto dele');
 });
 
-test('minimapa: o companheiro de time é o mesmo triângulo da sua nave, na cor do time, e você por cima', () => {
+test('minimapa: toda nave de jogador é o triângulo da sua, turquesa no seu time e vermelho no outro, e você por cima', () => {
   const hud = readFileSync(new URL('../public/js/hud.js', import.meta.url), 'utf8');
-  assert.match(hud, /e\.tipo === 'jogador' && e\.time === this\.meuTime\) \{\s*this\.#setaNoMapa\(x, z, e\.yaw, COR_MEU_TIME\);/);
-  assert.match(hud, /this\.#setaNoMapa\(x, z, eu\.yaw, '#fff'\);/);
+  const linha = "this.#setaNoMapa(x, z, e.yaw, e.time === this.meuTime ? COR_MEU_TIME : COR_INIMIGA);";
+  assert.ok(hud.includes("if (e.tipo === 'jogador') {"));
+  assert.ok(hud.includes(linha));
+  assert.ok(hud.includes("this.#setaNoMapa(x, z, eu.yaw, '#fff');"));
   // Você é desenhado depois do laço dos outros (fica por cima).
-  assert.ok(hud.indexOf("this.#setaNoMapa(x, z, eu.yaw, '#fff')") > hud.indexOf('this.#setaNoMapa(x, z, e.yaw, COR_MEU_TIME)'));
+  assert.ok(hud.indexOf("this.#setaNoMapa(x, z, eu.yaw, '#fff')") > hud.indexOf(linha));
 });

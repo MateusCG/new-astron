@@ -283,10 +283,12 @@ export class Hud {
       }
       // O Núcleo e a torre de suporte já têm o ícone fixo; os monstros num ponto maior quanto mais perigosos.
       if (e.tipo === 'nucleo' || e.tipo === 'suporte') continue;
-      // Companheiro de time: o mesmo triângulo da sua nave, virado para onde ele voa, na
-      // cor do time (pedido do Mateus, 06/nov/2026: o quadrado se confundia com os mineradores).
-      if (e.tipo === 'jogador' && e.time === this.meuTime) {
-        this.#setaNoMapa(x, z, e.yaw, COR_MEU_TIME);
+      // Nave de jogador: o mesmo triângulo da sua, virado para onde ela voa, turquesa no
+      // seu time e vermelho no outro (pedido do Mateus, 06/nov/2026: o quadrado se
+      // confundia com os mineradores). O inimigo só vem no snapshot enquanto o seu time o
+      // enxerga (a névoa, server/visao.js): fora da visão, some do minimapa.
+      if (e.tipo === 'jogador') {
+        this.#setaNoMapa(x, z, e.yaw, e.time === this.meuTime ? COR_MEU_TIME : COR_INIMIGA);
         continue;
       }
       const t = e.tipo === 'monstro' ? (PONTO_MONSTRO[e.esp] ?? 3.5) : 3.5;
