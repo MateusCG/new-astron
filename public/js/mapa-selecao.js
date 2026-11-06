@@ -23,7 +23,7 @@ const RELEVO_PX_POR_M = 0.15;
 const R_OBJETIVO = 78; // raio do círculo de um objetivo no mapa (m)
 const TORRETA_M = 52; // meia largura do triângulo da torre sentinela (m)
 const SERVICO_M = 42; // meio lado do losango da Loja e da Evolução (m)
-const DICA_AFASTA_PX = 12; // a caixinha fica a esta distância da borda direita do mapa
+const DICA_AFASTA_PX = 12; // a caixinha fica a esta distância da borda esquerda do mapa
 
 let relevoUrl = null;
 
@@ -172,11 +172,11 @@ export class MapaSelecao {
       this.pop.innerHTML = `<b>${esc(dica.titulo)}</b><span>${esc(dica.texto)}</span>`;
       this.pop.hidden = false;
     }
-    // Do lado de fora do mapa, à direita (ele fica na coluna da esquerda), na altura do
-    // mouse: a caixinha não tapa o mapa. Sem sair da tela.
+    // Do lado de fora do mapa, à esquerda (ele fica na coluna da direita, embaixo da
+    // ficha), na altura do mouse: a caixinha não tapa o mapa. Sem sair da tela.
     const r = this.pop.getBoundingClientRect();
     const mapa = this.quadro.querySelector('svg').getBoundingClientRect();
-    const x = Math.min(mapa.right + DICA_AFASTA_PX, innerWidth - r.width - 8);
+    const x = Math.max(8, mapa.left - DICA_AFASTA_PX - r.width);
     const y = Math.max(8, Math.min(e.clientY - r.height / 2, innerHeight - r.height - 8));
     this.pop.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
   }

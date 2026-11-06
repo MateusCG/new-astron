@@ -7,10 +7,10 @@
 //   girando à direita (a prévia da vitrine.js em #fundo-nave): a em destaque do
 //   Hangar ou, sem ela, a primeira da raça e da classe da Seleção.
 // - SELEÇÃO: a seleção de campeão dos MOBAs (LoL, Dota 2, Smite 2, Deadlock) com 3
-//   raças × 3 classes numa grade com miniaturas (escolha num clique, setas também) e o
-//   mapa da partida embaixo dela (mapa-selecao.js, a sua base marcada), a
-//   nave grande no centro com a linha da Evolução, a ficha (barras na régua das
-//   primeiras naves e as duas armas de fábrica) e, embaixo, os times (escolha-times.js)
+//   raças × 3 classes numa grade com miniaturas (escolha num clique, setas também), a
+//   nave grande no centro com a linha da Evolução, a ficha (raça, classe e as barras
+//   na régua das primeiras naves, até o Regen.) com o mapa da partida embaixo dela,
+//   no resto da coluna (mapa-selecao.js, a sua base marcada), e, embaixo, os times (escolha-times.js)
 //   e o Decolar. Nos modos da fila online (Jogar New Astron e Partida Pública com
 //   Bots: fila.js, fila-regras.js, server/filas.js) abrir a Seleção já entra na fila:
 //   o Decolar fica "Aguardando…", os times viram a sala (companheiros, Pronto), e com a
@@ -598,9 +598,7 @@ export class Menu {
       <p class="descricao">${DESCRICAO_RACA[this.raca] ?? ''}</p>
       <p class="rotulo-ficha">Classe</p>
       <h2>${CLASSES[this.classe].nome} <small>${CLASSES[this.classe].especialidade}</small></h2>
-      ${barrasNave(n, this.escalaPrimeiras)}
-      <p class="rotulo-ficha">Armas de fábrica</p>
-      ${armasDeFabrica(this.raca)}`;
+      ${barrasNave(n, this.escalaPrimeiras)}`;
 
     // A sua vaga nos times leva a miniatura da nave escolhida.
     const chave = `${this.raca}/${this.classe}`;

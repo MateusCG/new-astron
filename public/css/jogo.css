@@ -639,7 +639,7 @@ input:focus {
   grid-template-areas:
     'topo topo topo'
     'grade centro ficha'
-    'mapa centro ficha'
+    'grade centro mapa'
     'base base base';
   column-gap: 24px;
   padding: 14px 28px 0;
@@ -790,7 +790,7 @@ input:focus {
   color: var(--cor);
 }
 
-/* O mapa da partida (mapa-selecao.js), no espaço embaixo da grade: só o Lago de
+/* O mapa da partida (mapa-selecao.js), no espaço embaixo da ficha: só o Lago de
    Hélio-3 visto de cima, do tamanho que sobrar na coluna sem deformar, e a caixinha
    da peça embaixo do mouse (.dica-mapa-pop). O verde e o vermelho das bases são as
    cores fixas dos times da fila do 3 contra 3. Com pouca altura o mapa some. */
@@ -798,19 +798,21 @@ input:focus {
   grid-area: mapa;
   container-type: size;
   min-height: 0;
-  margin: 10px 4px 8px 2px;
+  margin: 12px 0 8px;
 }
 
 .quadro-mapa {
   height: 100%;
   display: grid;
-  place-items: center;
+  place-items: start center;
 }
 
 .quadro-mapa svg {
   display: block;
-  height: 100%;
-  max-width: 100%;
+  /* O maior que cabe no espaço todo embaixo da ficha (largura da coluna ou altura
+     que sobra), sem deformar e com a borda colada no desenho. */
+  width: min(100cqw, 100cqh * 3000 / 2240);
+  height: auto;
   aspect-ratio: 3000 / 2240;
   border: 1px solid var(--chapa-clara);
   border-radius: 8px;
@@ -1074,7 +1076,6 @@ input:focus {
 
 .selecao-ficha {
   grid-area: ficha;
-  margin-bottom: 6px;
 }
 
 .ficha-nave .rotulo-ficha {

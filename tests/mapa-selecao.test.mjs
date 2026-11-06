@@ -82,9 +82,9 @@ test('o acampamento do time 1 é o do time 0 girado 180°: mesmos monstros', () 
   }
 });
 
-test('o index.html tem o lugar do mapa na Seleção, sem legenda', () => {
+test('o index.html tem o lugar do mapa na Seleção, embaixo da ficha e sem legenda', () => {
   const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
-  const selecao = html.slice(html.indexOf('id="tela-selecao"'), html.indexOf('class="selecao-centro"'));
+  const selecao = html.slice(html.indexOf('class="selecao-ficha'), html.indexOf('class="selecao-base"'));
   assert.match(selecao, /class="mapa-partida"/);
   assert.match(selecao, /class="quadro-mapa"/);
   assert.doesNotMatch(selecao, /legenda-mapa/);
