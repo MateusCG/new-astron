@@ -1297,6 +1297,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     const presentes = new Set();
     const rotulos = [];
     let sonda = null; // posição da sonda viva (o rótulo do objetivo vai junto)
+    const chefesComBarra = new Set(); // objetivos (MEDUSA, NUCLEO) com a barra de vida em cima deles na tela
     for (const e of poses) {
       if (e.id === meuId) {
         meuNome = e.nome ?? meuNome;
@@ -1359,10 +1360,13 @@ function montarJogo(rede, boas, renderer, race, classe) {
         if (e.tipo === 'monstro' && ROTULO_MONSTRO[e.esp]) pos = (o.posRotulo ??= new THREE.Vector3()).copy(pos).setY(pos.y + ROTULO_MONSTRO[e.esp]);
         // O Núcleo: o nome e a barra acima do alto da cúpula do escudo, não na frente dela.
         else if (e.tipo === 'nucleo') pos = (o.posRotulo ??= new THREE.Vector3()).copy(pos).setY(pos.y + ROTULO_NUCLEO);
-        rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos, nivel: e.nivel, piloto: e.tipo === 'jogador', neutro: bicho, chefe: e.tipo === 'nucleo' || e.esp === 'medusa', esc: e.esc, res: e.res, tamanho: o.obj.userData.efeitos?.scale.x });
+        const chefe = e.tipo === 'nucleo' || e.esp === 'medusa';
+        rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos, nivel: e.nivel, piloto: e.tipo === 'jogador', neutro: bicho, chefe, esc: e.esc, res: e.res, tamanho: o.obj.userData.efeitos?.scale.x });
+        if (chefe) chefesComBarra.add(e.tipo === 'nucleo' ? 'NUCLEO' : 'MEDUSA');
       }
     }
     objetivos.seguir('SONDA', sonda);
+    objetivos.barraNoChefe(chefesComBarra);
     // Torretas: queda, subida e a cabeça atrás do alvo (posição desenhada dele).
     torretas.quadro(dt, tempo, (id) => (id === meuId ? (vivo ? foco : null) : outras.get(id)?.obj.position ?? null));
     rotulos.push(...torretas.rotulos());

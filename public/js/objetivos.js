@@ -174,6 +174,15 @@ export class ObjetivosNaTela {
     return { txt: FAZER[tipo], classe: '', barra: r.vida ?? null };
   }
 
+  /**
+   * Os objetivos (MEDUSA, NUCLEO) que já têm a barra de vida grande em cima deles na
+   * tela (hud.js): a faixa do objetivo não repete a vida numa barrinha. Fora da visão
+   * do time, sem a barra do chefe, a barrinha da faixa volta (o `obj` é público).
+   */
+  barraNoChefe(ids) {
+    this.comBarraPropria = ids;
+  }
+
   /** Posiciona os rótulos sobre os objetivos (chamar a cada quadro). */
   desenhar(camera, largura, altura) {
     for (const rot of this.rotulos.values()) {
@@ -184,6 +193,7 @@ export class ObjetivosNaTela {
       el.hidden = fora;
       if (fora) continue;
       const d = this.descrever(this.estado.get(o.id), o.tipo);
+      if (this.comBarraPropria?.has(o.id)) d.barra = null;
       const chave = `${d.txt}|${d.classe}|${d.barra}`;
       if (rot.html !== chave) {
         rot.html = chave;
