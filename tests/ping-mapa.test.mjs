@@ -24,7 +24,11 @@ test('ping: o clique em qualquer card da barra do time chama aoLocalizar, e o mi
   const comp = readFileSync(new URL('../public/js/companheiros.js', import.meta.url), 'utf8');
   assert.match(comp, /if \(!li\) return;\s*e\.preventDefault\(\);[^\n]*\n\s*const id = Number\(li\.dataset\.id\);\s*aoLocalizar\(id\);/);
   const hud = readFileSync(new URL('../public/js/hud.js', import.meta.url), 'utf8');
-  assert.match(hud, /localizar\(id\) \{\s*this\.ping = \{ id, t0: performance\.now\(\) \};/);
+  assert.match(hud, /localizar\(id\) \{\s*this\.pingMapa = \{ id, t0: performance\.now\(\) \};/);
+  // this.ping é o texto do ping em ms (Hud#painel): o estado do círculo não pode usar
+  // o mesmo nome (já congelou a partida no primeiro quadro).
+  assert.equal((hud.match(/this\.ping = /g) ?? []).filter(Boolean).length, 1, 'só o elemento do ping');
+  assert.doesNotMatch(hud, /this\.ping\.(id|t0)/);
   assert.match(hud, /this\.#pingNoMapa\(eu, ents, meuId\);/);
   const main = readFileSync(new URL('../public/js/main.js', import.meta.url), 'utf8');
   assert.match(main, /aoLocalizar: \(id\) => hud\.localizar\(id\)/);

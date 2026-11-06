@@ -312,17 +312,18 @@ export class Hud {
    * os anéis de ping-mapa-regras.js em volta da nave dele, seguindo-a.
    */
   localizar(id) {
-    this.ping = { id, t0: performance.now() };
+    this.pingMapa = { id, t0: performance.now() }; // não é o this.ping (o texto do ping em ms)
   }
 
   #pingNoMapa(eu, ents, meuId) {
-    if (!this.ping) return;
-    const aneis = aneisDoPing((performance.now() - this.ping.t0) / 1000);
+    const ping = this.pingMapa;
+    if (!ping) return;
+    const aneis = aneisDoPing((performance.now() - ping.t0) / 1000);
     if (!aneis.length) {
-      this.ping = null;
+      this.pingMapa = null;
       return;
     }
-    const alvo = this.ping.id === meuId ? eu : ents.find((e) => e.id === this.ping.id && e.vivo);
+    const alvo = ping.id === meuId ? eu : ents.find((e) => e.id === ping.id && e.vivo);
     if (!alvo) return; // abatido (ou fora da lista): nada a mostrar
     const [x, z] = this.#paraMapa(alvo.x, alvo.z);
     const ctx = this.ctx;
