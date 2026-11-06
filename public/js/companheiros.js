@@ -22,6 +22,11 @@
 // {t:'resultado', acao:'teleportar'} (resultado()). ESC fecha a caixinha antes de
 // qualquer outra coisa (main.js, fecharPainel). Clique não atira (o tiro é só de
 // teclado) e os botões soltam o foco, para o Espaço não apertá-los.
+//
+// Onde ele está: o clique em qualquer card (o seu também) chama `aoLocalizar(id)`, e o
+// minimapa pisca um círculo em volta da nave daquele piloto (hud.js, ping-mapa-regras.js;
+// pedido do Mateus, 06/nov/2026). No card de Functional, o mesmo clique também abre a
+// caixinha do teleporte.
 
 import { miniatura } from './vitrine.js';
 import { custoTeleporte } from '/shared/sim.js';
@@ -54,9 +59,11 @@ const ICONE_NAVE = '<svg class="sem-mini" viewBox="0 0 24 24" aria-hidden="true"
 export class BarraTime {
   /**
    * @param {{ meuId: number, meuTime: number, enviar: (m: object) => void,
-   *   noticia: (texto: string, tipo?: string) => void, signal: AbortSignal }} opcoes
+   *   noticia: (texto: string, tipo?: string) => void, signal: AbortSignal,
+   *   aoLocalizar?: (id: number) => void }} opcoes aoLocalizar = o clique num card
+   *   (o minimapa pisca onde o piloto está)
    */
-  constructor({ meuId, meuTime, enviar, noticia, signal }) {
+  constructor({ meuId, meuTime, enviar, noticia, signal, aoLocalizar = () => {} }) {
     this.meuId = meuId;
     this.meuTime = meuTime;
     this.enviar = enviar;
@@ -70,14 +77,17 @@ export class BarraTime {
     this.euVivo = true;
     this.minhaEn = Infinity; // energia da sua nave (me.en); sem ela, o servidor decide
     this.el.hidden = false;
-    // Clique num card de Functional abre a caixinha; no mesmo card, fecha.
+    // Clique num card: o minimapa pisca onde o piloto está; no de Functional, também
+    // abre a caixinha (no mesmo card, fecha).
     this.lista.addEventListener(
       'pointerdown',
       (e) => {
         const li = e.target.closest('li[data-id]');
-        if (!li || !li.classList.contains('tele')) return;
+        if (!li) return;
         e.preventDefault(); // sem foco: o Espaço continua sendo tiro
         const id = Number(li.dataset.id);
+        aoLocalizar(id);
+        if (!li.classList.contains('tele')) return;
         if (this.alvo === id) this.fecharCaixa();
         else this.#abrirCaixa(id);
       },
@@ -184,7 +194,7 @@ export class BarraTime {
     c.li.classList.toggle('morto', !p.vivo);
     c.li.classList.toggle('tele', tele);
     c.li.classList.toggle('aberto', this.alvo === p.id);
-    const titulo = tele ? tr('{nome} · nave Functional: clique para teleportar até ele', { nome: p.nome }) : p.nome;
+    const titulo = tele ? tr('{nome} · nave Functional: clique para teleportar até ele', { nome: p.nome }) : tr('{nome} · clique para ver no minimapa', { nome: p.nome });
     if (v.titulo !== titulo) c.li.title = v.titulo = titulo;
     // Miniatura da nave (uma por modelo na página: vitrine.js guarda).
     const nave = p.race && p.classe ? `${p.race}/${p.classe}/${p.tier}` : '';

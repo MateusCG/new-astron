@@ -31,6 +31,7 @@ import { PONTO_MONSTRO } from './monstros.js';
 import { corResistencia } from './cor-resistencia.js';
 import { marcasDaVida } from './barra-vida-regras.js';
 import { HISTORICO_MAX, registrar, textoIdade } from './historico-regras.js';
+import { aneisDoPing } from './ping-mapa-regras.js';
 import { tr, localeNum, nomeArma, emIngles } from '../../shared/idioma.js';
 
 /** Uma casa decimal, no jeito do idioma (3,5 / 3.5). */
@@ -303,6 +304,38 @@ export class Hud {
       const [x, z] = this.#paraMapa(eu.x, eu.z);
       this.#setaNoMapa(x, z, eu.yaw, '#fff');
     }
+    this.#pingNoMapa(eu, ents, meuId);
+  }
+
+  /**
+   * Pisca no minimapa onde está o piloto `id` (o clique no card da barra do time):
+   * os anéis de ping-mapa-regras.js em volta da nave dele, seguindo-a.
+   */
+  localizar(id) {
+    this.ping = { id, t0: performance.now() };
+  }
+
+  #pingNoMapa(eu, ents, meuId) {
+    if (!this.ping) return;
+    const aneis = aneisDoPing((performance.now() - this.ping.t0) / 1000);
+    if (!aneis.length) {
+      this.ping = null;
+      return;
+    }
+    const alvo = this.ping.id === meuId ? eu : ents.find((e) => e.id === this.ping.id && e.vivo);
+    if (!alvo) return; // abatido (ou fora da lista): nada a mostrar
+    const [x, z] = this.#paraMapa(alvo.x, alvo.z);
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.strokeStyle = COR_MEU_TIME;
+    ctx.lineWidth = 1.6;
+    for (const { raio, alfa } of aneis) {
+      ctx.globalAlpha = alfa;
+      ctx.beginPath();
+      ctx.arc(x, z, raio, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   /** O triângulo de nave de jogador do minimapa em (x, z) px, apontando para `yaw`. */

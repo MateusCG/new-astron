@@ -7972,8 +7972,13 @@ body.dano::after {
   opacity: 0.8;
 }
 
-#companheiros li.tele {
+/* Todo card é clicável: o minimapa pisca onde o piloto está. */
+#companheiros li {
   cursor: pointer;
+}
+
+#companheiros li:hover {
+  border-color: var(--neon);
 }
 
 #companheiros li.tele .portal {

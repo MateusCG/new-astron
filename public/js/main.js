@@ -574,6 +574,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     enviar: (m) => rede.enviar(m),
     noticia: (texto, tipo) => hud.noticia(texto, tipo),
     signal: controles.parar.signal,
+    aoLocalizar: (id) => hud.localizar(id), // o minimapa pisca onde ele está
   });
   // Os sons de todas as armas já vieram (decodificados) na tela de carregamento.
   mostrarEstadoSom();
