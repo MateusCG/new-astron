@@ -55,7 +55,7 @@ export class Placar {
     this.meu.querySelector('b').textContent = partida.placar[this.meuTime];
     this.outro.querySelector('b').textContent = partida.placar[this.outroTime];
     // Modo de teste: a partida não tem relógio.
-    if (partida.semTempo) this.tempo.textContent = 'TESTE';
+    if (partida.semTempo) this.tempo.textContent = tr('TESTE');
     else if (partida.estado === 'preparacao') this.tempo.textContent = relogio(partida.inicioEm);
     else this.tempo.textContent = partida.estado === 'andamento' ? relogio(partida.restante) : partida.estado === 'fim' ? 'FIM' : '--:--';
     this.tempo.classList.toggle('acabando', !partida.semTempo && partida.estado === 'andamento' && partida.restante <= 60);

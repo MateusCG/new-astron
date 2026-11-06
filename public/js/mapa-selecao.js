@@ -84,14 +84,17 @@ function base(b, meuTime) {
   const campo = ESTRUTURAS_MAPA.campos.find((c) => c.time === b.time);
   const bacia = ESTRUTURAS_MAPA.bacias.find((c) => c.time === b.time);
   const sua = b.time === meuTime;
-  // O selo fica acima da base, puxado para dentro do mapa.
-  const seloX = b.x + (b.x < 0 ? 40 : -40);
+  // O selo fica acima da base, preso na borda de fora dela e crescendo para dentro do
+  // mapa (o "YOUR BASE" do inglês é mais comprido que o "SUA BASE" e saía pela borda).
+  const esquerda = b.x < 0;
+  const seloX = b.x + (esquerda ? -b.raio : b.raio);
+  const ancora = esquerda ? 'start' : 'end';
   return `<g class="base${sua ? ' sua' : ''}" style="--cor-time:${corTime(b.time)}">
     <circle cx="${b.x}" cy="${b.z}" r="${b.raio}" class="base-area item" data-item="base:${b.time}"/>
     <circle cx="${b.x}" cy="${b.z}" r="${b.raio * 0.42}" class="base-anel"/>
     <line x1="${campo.x}" y1="${campo.z - campo.meiaZ}" x2="${campo.x}" y2="${campo.z + campo.meiaZ}" class="base-campo item" data-item="campo:${b.time}"/>
     <circle cx="${bacia.x}" cy="${bacia.z}" r="${bacia.raio * 1.8}" fill="${COR_MINERIO}" class="bacia item" data-item="bacia:${b.time}"/>
-    <text x="${seloX}" y="${b.z - b.raio - 46}" class="base-selo">${sua ? tr('SUA BASE') : tr('INIMIGO')}</text>
+    <text x="${seloX}" y="${b.z - b.raio - 46}" class="base-selo" style="text-anchor:${ancora}">${sua ? tr('SUA BASE') : tr('INIMIGO')}</text>
   </g>`;
 }
 

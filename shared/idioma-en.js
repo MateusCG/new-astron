@@ -1031,4 +1031,7 @@ export const EN = {
   '{matador} · {n} abates seguidos': '{matador} · {n} kills in a row',
   '{matador} · {n} abates sem morrer': '{matador} · {n} kills without dying',
   'Nível {n}': 'Level {n}',
+  'Já está no nível máximo': 'Already at max level',
+  'Pedido de teste recusado': 'Test request refused',
+  'TESTE': 'TEST',
 };

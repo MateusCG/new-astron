@@ -5156,6 +5156,11 @@ small.original {
   opacity: 0.7;
 }
 
+/* No inglês (idioma-dom.js põe o lang da página). */
+html[lang='en'] .carta-servico .preco::after {
+  content: ' gold';
+}
+
 .carta-servico .selo {
   margin-left: auto;
   font: 700 13.5px system-ui, sans-serif;

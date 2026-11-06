@@ -54,6 +54,8 @@ const MENSAGEM = {
 
 const num = (v, casas = 0) => (+v).toLocaleString(localeNum(), { minimumFractionDigits: 0, maximumFractionDigits: casas });
 const pct = (f) => `${num(f * 100, 1)}%`;
+/** A primeira letra maiúscula (no inglês, o tipo vem antes: "physical power" → "Physical power"). */
+const maiuscula = (t) => (t ? t[0].toUpperCase() + t.slice(1) : t);
 /** "1 ponto" / "5 pontos". */
 const pontos = (n) => (n === 1 ? tr('1 ponto') : tr('{n} pontos', { n }));
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -348,8 +350,8 @@ export class PainelStatus {
       st.penetra?.[a] > 0 ? tr('Penetração {tipo}: ignora {v}', { tipo: sig, v: pct(st.penetra[a]) }) : '',
       st.critico > 0 ? tr('Chance de crítico das armas +{v}', { v: pct(st.critico) }) : '',
     ].filter(Boolean);
-    return `<strong class="${classeTipo(a)}">${tr('Poder {tipo}', { tipo: sig })} · ${pontos(n)}</strong>
-      ${linhas.map((l) => `<p>${l}</p>`).join('')}
+    return `<strong class="${classeTipo(a)}">${maiuscula(tr('Poder {tipo}', { tipo: sig }))} · ${pontos(n)}</strong>
+      ${linhas.filter(Boolean).map((l) => `<p>${maiuscula(l)}</p>`).join('')}
       ${mais ? `<p class="mais-um">${tr('Com +1 ponto: poder {tipo} +{v}', { tipo: sig, v: pct(mais.poder[a]) })}</p>` : `<p class="mais-um">${tr('No máximo')}</p>`}`;
   }
 }

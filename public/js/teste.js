@@ -40,7 +40,7 @@ export class PainelTeste {
   /** Resposta do servidor a um pedido de teste. */
   resultado(m) {
     if (m.ok) this.noticia(TEXTO_OK[m.item] ?? tr('Feito (teste)'), 'bom');
-    else this.noticia(m.codigo === 'limite' ? 'Já está no nível máximo' : 'Pedido de teste recusado', 'ruim');
+    else this.noticia(m.codigo === 'limite' ? tr('Já está no nível máximo') : tr('Pedido de teste recusado'), 'ruim');
   }
 
   fechar() {
