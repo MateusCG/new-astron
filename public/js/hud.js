@@ -29,6 +29,7 @@ import { ITENS, ORDEM_ITENS } from '/shared/loja.js';
 import { relogio, LUGARES_OBJETIVO, ICONE_OBJETIVO, NOME_OBJETIVO, POUSO_PLATAFORMA_S } from './objetivos.js';
 import { PONTO_MONSTRO } from './monstros.js';
 import { corResistencia } from './cor-resistencia.js';
+import { marcasDaVida } from './barra-vida-regras.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -614,7 +615,9 @@ export class Hud {
    * (do seu time) pinta de turquesa; inimigo (outro time ou monstro) de vermelho. Na
    * etiqueta do piloto o time fica na borda e no "NV", e o nick leva a cor das
    * resistências dele (`res`, [Ph., Op., El.]; corResistencia), como no original.
-   * Entrada: { id, nome, aliado, hp, maxHp, pos, nivel, piloto, proprio, esc, res, neutro }.
+   * Entrada: { id, nome, aliado, hp, maxHp, pos, nivel, piloto, proprio, esc, res, neutro, chefe }.
+   * A barra das naves de jogador e a dos chefes (`chefe`: a Medusa e o Núcleo, numa
+   * barra larga) levam uma divisória a cada mil de vida, como no LoL (barra-vida-regras.js).
    * `neutro` (monstros da jungle e o Núcleo): o nome em branco, nunca numa cor de
    * resistência (o verde Ph., o rosa Op. e o azul El. das etiquetas dos pilotos).
    * `esc` (fração 0 a 1 do escudo, das naves de jogador com escudo) põe uma barra
@@ -638,7 +641,7 @@ export class Hud {
       return tag;
     };
     // `tamanho`: a nave grande (até o dobro da primeira) leva os rótulos mais para fora.
-    for (const { id, nome, aliado, hp, maxHp, pos: p, nivel, piloto, proprio, esc, res, neutro, tamanho = 1 } of lista) {
+    for (const { id, nome, aliado, hp, maxHp, pos: p, nivel, piloto, proprio, esc, res, neutro, chefe, tamanho = 1 } of lista) {
       const dist = camera.position.distanceTo(p);
       if (dist > 450) continue;
       const opacidade = dist > 300 ? String(1 - (dist - 300) / 150) : '1';
@@ -647,7 +650,7 @@ export class Hud {
       if (!proprio) {
         const cima = pos(`c${id}`, p, 6 * tamanho, '-100%', () => {
           const tag = document.createElement('div');
-          tag.className = 'rotulo' + cor + (neutro ? ' neutro' : '');
+          tag.className = 'rotulo' + cor + (neutro ? ' neutro' : '') + (piloto ? ' vida-piloto' : '') + (chefe ? ' chefe' : '');
           tag.innerHTML = piloto
             ? '<span class="barra-esc" hidden><i></i></span><span class="barra"><i></i></span>'
             : '<span class="nome"></span><span class="barra"><i></i></span>';
@@ -659,7 +662,18 @@ export class Hud {
         });
         if (cima) {
           cima.style.opacity = opacidade;
-          cima.querySelector('.barra i').style.width = `${Math.max(0, hp / maxHp) * 100}%`;
+          const barra = cima.querySelector('.barra');
+          barra.firstChild.style.width = `${Math.max(0, hp / maxHp) * 100}%`;
+          // Divisória a cada mil de vida (só nas naves de jogador e nos chefes): muda
+          // com a vida máxima (nível, armadura, nave nova, Núcleo mais forte).
+          if ((piloto || chefe) && barra.dataset.max !== String(maxHp)) {
+            barra.dataset.max = String(maxHp);
+            const m = marcasDaVida(maxHp);
+            barra.classList.toggle('marcas', !!m);
+            barra.classList.toggle('marcas-grossas', !!m?.grossa);
+            barra.style.setProperty('--passo', m ? `${m.passo}%` : '');
+            barra.style.setProperty('--grossa', m?.grossa ? `${m.grossa}%` : '');
+          }
           const barraEsc = cima.querySelector('.barra-esc');
           if (barraEsc) {
             barraEsc.hidden = esc === undefined || esc === null;

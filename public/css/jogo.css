@@ -3837,9 +3837,57 @@ kbd {
 }
 
 .rotulo .barra {
+  position: relative;
   width: 40px;
   height: 4px;
   background: rgba(0, 0, 0, 0.6);
+}
+
+/* Barra de vida em cima das naves de jogador e dos chefes (a Medusa e o Núcleo), como
+   no LoL (pedido do Mateus, 06/nov/2026): maior que a dos outros, com moldura escura e
+   uma divisória a cada mil de vida (--passo, de barra-vida-regras.js via hud.js); nos
+   chefes, a cada dez mil uma mais grossa (--grossa). A do escudo acompanha a largura. */
+.rotulo.vida-piloto .barra,
+.rotulo.vida-piloto .barra-esc {
+  width: 64px;
+}
+
+.rotulo.vida-piloto .barra {
+  height: 7px;
+}
+
+.rotulo.vida-piloto .barra-esc {
+  height: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.85);
+}
+
+.rotulo.chefe .barra {
+  width: 200px;
+  height: 10px;
+}
+
+.rotulo.vida-piloto .barra,
+.rotulo.chefe .barra {
+  box-sizing: content-box;
+  border: 1px solid rgba(0, 0, 0, 0.85);
+  background: rgba(10, 14, 16, 0.78);
+}
+
+.rotulo .barra.marcas::after,
+.rotulo .barra.marcas-grossas::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.rotulo .barra.marcas::after {
+  background: repeating-linear-gradient(90deg, transparent 0 calc(var(--passo) - 1px), rgba(0, 0, 0, 0.85) calc(var(--passo) - 1px) var(--passo));
+}
+
+.rotulo .barra.marcas-grossas::before {
+  z-index: 1;
+  background: repeating-linear-gradient(90deg, transparent 0 calc(var(--grossa) - 2px), rgba(0, 0, 0, 0.95) calc(var(--grossa) - 2px) var(--grossa));
 }
 
 .rotulo .barra i {

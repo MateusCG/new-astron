@@ -1355,7 +1355,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
         // Monstro grande: o rótulo sobe até o alto dele (a Medusa é desenhada mais alta).
         let pos = o.obj.position;
         if (e.tipo === 'monstro' && ROTULO_MONSTRO[e.esp]) pos = (o.posRotulo ??= new THREE.Vector3()).copy(pos).setY(pos.y + ROTULO_MONSTRO[e.esp]);
-        rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos, nivel: e.nivel, piloto: e.tipo === 'jogador', neutro: bicho, esc: e.esc, res: e.res, tamanho: o.obj.userData.efeitos?.scale.x });
+        rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos, nivel: e.nivel, piloto: e.tipo === 'jogador', neutro: bicho, chefe: e.tipo === 'nucleo' || e.esp === 'medusa', esc: e.esc, res: e.res, tamanho: o.obj.userData.efeitos?.scale.x });
       }
     }
     objetivos.seguir('SONDA', sonda);
