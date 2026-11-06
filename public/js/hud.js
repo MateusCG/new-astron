@@ -29,7 +29,7 @@ import { ITENS, ORDEM_ITENS } from '/shared/loja.js';
 import { relogio, LUGARES_OBJETIVO, ICONE_OBJETIVO, NOME_OBJETIVO, POUSO_PLATAFORMA_S } from './objetivos.js';
 import { PONTO_MONSTRO } from './monstros.js';
 import { corResistencia } from './cor-resistencia.js';
-import { marcasDaVida } from './barra-vida-regras.js';
+import { marcasDaVida, MARCA_HP, MARCA_CHEFE_HP } from './barra-vida-regras.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -617,7 +617,8 @@ export class Hud {
    * resistências dele (`res`, [Ph., Op., El.]; corResistencia), como no original.
    * Entrada: { id, nome, aliado, hp, maxHp, pos, nivel, piloto, proprio, esc, res, neutro, chefe }.
    * A barra das naves de jogador e a dos chefes (`chefe`: a Medusa e o Núcleo, numa
-   * barra larga) levam uma divisória a cada mil de vida, como no LoL (barra-vida-regras.js).
+   * barra larga) levam divisórias como no LoL: a cada mil de vida nas naves, a cada dez mil
+   * nos chefes (barra-vida-regras.js).
    * `neutro` (monstros da jungle e o Núcleo): o nome em branco, nunca numa cor de
    * resistência (o verde Ph., o rosa Op. e o azul El. das etiquetas dos pilotos).
    * `esc` (fração 0 a 1 do escudo, das naves de jogador com escudo) põe uma barra
@@ -664,15 +665,13 @@ export class Hud {
           cima.style.opacity = opacidade;
           const barra = cima.querySelector('.barra');
           barra.firstChild.style.width = `${Math.max(0, hp / maxHp) * 100}%`;
-          // Divisória a cada mil de vida (só nas naves de jogador e nos chefes): muda
+          // Divisórias (só nas naves de jogador e nos chefes): mudam
           // com a vida máxima (nível, armadura, nave nova, Núcleo mais forte).
           if ((piloto || chefe) && barra.dataset.max !== String(maxHp)) {
             barra.dataset.max = String(maxHp);
-            const m = marcasDaVida(maxHp);
+            const m = marcasDaVida(maxHp, chefe ? MARCA_CHEFE_HP : MARCA_HP);
             barra.classList.toggle('marcas', !!m);
-            barra.classList.toggle('marcas-grossas', !!m?.grossa);
             barra.style.setProperty('--passo', m ? `${m.passo}%` : '');
-            barra.style.setProperty('--grossa', m?.grossa ? `${m.grossa}%` : '');
           }
           const barraEsc = cima.querySelector('.barra-esc');
           if (barraEsc) {

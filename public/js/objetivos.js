@@ -40,7 +40,9 @@ export const LUGARES_OBJETIVO = [
   // A sonda anda em volta da mineradora (pela coluna central); parada, o rótulo fica em cima dela.
   { id: 'SONDA', tipo: 'sonda', x: 0, z: 0, alt: 112 },
   { id: 'MEDUSA', tipo: 'medusa', x: MEDUSA.x, z: MEDUSA.z, alt: 64 },
-  { id: 'NUCLEO', tipo: 'nucleo', x: NUCLEO.x, z: NUCLEO.z, alt: 44 },
+  // O Núcleo: acima do nome e da barra de vida dele, que ficam no alto da cúpula (main.js,
+  // ROTULO_NUCLEO), com a mesma folga da Medusa.
+  { id: 'NUCLEO', tipo: 'nucleo', x: NUCLEO.x, z: NUCLEO.z, alt: 82 },
 ];
 
 /** Nome curto de cada tipo de objetivo (rótulo, notícias e HUD). */

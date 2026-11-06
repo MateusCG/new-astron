@@ -131,6 +131,8 @@ import {
   bocaDaArma,
 } from './nave.js';
 import { ESCUDO } from './nucleo-regras.js';
+/** Altura (m) do rótulo do Núcleo acima dele: o alto da cúpula do escudo. */
+const ROTULO_NUCLEO = ESCUDO.centroY + ESCUDO.raio;
 import { Sons, SONS_INTERFACE, SONS_VOLTA, SONS_NUCLEO, VOLUME_TIRO_PROPRIO } from './sons.js';
 import { PainelVolume } from './volume.js';
 import { Efeitos, COR_TIME } from './efeitos.js';
@@ -1355,6 +1357,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
         // Monstro grande: o rótulo sobe até o alto dele (a Medusa é desenhada mais alta).
         let pos = o.obj.position;
         if (e.tipo === 'monstro' && ROTULO_MONSTRO[e.esp]) pos = (o.posRotulo ??= new THREE.Vector3()).copy(pos).setY(pos.y + ROTULO_MONSTRO[e.esp]);
+        // O Núcleo: o nome e a barra acima do alto da cúpula do escudo, não na frente dela.
+        else if (e.tipo === 'nucleo') pos = (o.posRotulo ??= new THREE.Vector3()).copy(pos).setY(pos.y + ROTULO_NUCLEO);
         rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos, nivel: e.nivel, piloto: e.tipo === 'jogador', neutro: bicho, chefe: e.tipo === 'nucleo' || e.esp === 'medusa', esc: e.esc, res: e.res, tamanho: o.obj.userData.efeitos?.scale.x });
       }
     }
