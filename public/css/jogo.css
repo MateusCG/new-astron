@@ -3380,7 +3380,7 @@ kbd {
 }
 
 #resultado-tabela {
-  --col-tabela: 48px minmax(0, 1fr) 40px 66px auto;
+  --col-tabela: 60px minmax(0, 1fr) 40px 66px auto;
   width: 100%;
   animation: surge 0.4s 0.3s ease-out both;
 }
@@ -3533,7 +3533,7 @@ kbd {
   }
 
   #resultado-tabela {
-    --col-tabela: 44px minmax(0, 1fr) 34px 62px;
+    --col-tabela: 58px minmax(0, 1fr) 34px 62px;
   }
 
   .contagem .sair {
@@ -5848,7 +5848,7 @@ body.dano::after {
    embaixo do outro em tela estreita), uma linha por piloto: miniatura com o nível,
    nick, farm, A/M/As e os seis itens. Linhas no tom do time, a sua com borda neon. */
 #tabela {
-  --col-tabela: 48px minmax(0, 1fr) 40px 66px auto;
+  --col-tabela: 60px minmax(0, 1fr) 40px 66px auto;
   position: fixed;
   z-index: 25;
   inset: 0;
@@ -5997,8 +5997,8 @@ body.dano::after {
   grid-template-columns: var(--col-tabela);
   align-items: center;
   gap: 8px;
-  min-height: 48px;
-  padding: 4px 8px 4px 8px;
+  min-height: 62px; /* um pouco mais alta (pedido do Mateus, 06/nov/2026): retrato e itens maiores */
+  padding: 7px 10px 7px 8px;
   border: 1px solid var(--chapa-clara);
   border-left-width: 3px;
   border-radius: 6px;
@@ -6024,8 +6024,8 @@ body.dano::after {
   position: relative;
   display: grid;
   place-items: center;
-  width: 50px;
-  height: 36px;
+  width: 58px;
+  height: 46px;
   border-radius: 4px;
   background: radial-gradient(ellipse at 50% 65%, rgba(0, 239, 192, 0.14), rgba(0, 0, 0, 0.4) 70%);
 }
@@ -6126,13 +6126,13 @@ body.dano::after {
 }
 
 :is(#tabela, #resultado-tabela) .itens .icone-item {
-  --alt: 20px;
+  --alt: 23px;
 }
 
 :is(#tabela, #resultado-tabela) li.vaga {
   display: block;
   min-height: 0;
-  padding: 10px;
+  padding: 18px 10px;
   border-style: dashed;
   border-left-width: 1px;
   background: transparent;
@@ -6156,7 +6156,7 @@ body.dano::after {
 /* Celular: sem o nick ao lado (fica embaixo do retrato apertado) e itens menores. */
 @media (max-width: 560px) {
   #tabela {
-    --col-tabela: 44px minmax(0, 1fr) 34px 62px;
+    --col-tabela: 58px minmax(0, 1fr) 34px 62px;
     padding-top: 70px;
   }
 
