@@ -1034,4 +1034,5 @@ export const EN = {
   'Já está no nível máximo': 'Already at max level',
   'Pedido de teste recusado': 'Test request refused',
   'TESTE': 'TEST',
+  'Cancelar Pronto': 'Cancel Ready',
 };

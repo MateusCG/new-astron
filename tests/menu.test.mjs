@@ -26,8 +26,10 @@ import {
   textoDestaque,
   mesmaNave,
   naveDaVitrine,
+  NAVES_VITRINE,
+  sortearVitrine,
 } from '../public/js/menu-regras.js';
-import { RACAS_JOGAVEIS, ORDEM_CLASSES } from '../shared/naves.js';
+import { RACAS_JOGAVEIS, ORDEM_CLASSES, naveDe } from '../shared/naves.js';
 
 test('abas na ordem do header, com Ranking e Perfil bloqueadas até as contas de piloto', () => {
   assert.deepEqual(
@@ -168,11 +170,37 @@ test('nave em destaque do Hangar: guarda e lê raça, classe e tier; o inválido
   }
 });
 
-test('a aba Jogar mostra o destaque; sem ele, a primeira nave da Seleção', () => {
+test('a aba Jogar mostra o destaque; sem ele, a nave sorteada', () => {
   const d = { raca: 'shrewdo', classe: 'mobile', tier: 4 };
-  assert.deepEqual(naveDaVitrine(d, 'bellico', 'functional'), d);
-  assert.deepEqual(naveDaVitrine(null, 'bellico', 'functional'), { raca: 'bellico', classe: 'functional', tier: 0 });
+  const s = { raca: 'bellico', classe: 'functional', tier: 4 };
+  assert.deepEqual(naveDaVitrine(d, s), d);
+  assert.deepEqual(naveDaVitrine(null, s), s);
   assert.ok(mesmaNave(d, { ...d }));
   assert.ok(!mesmaNave(d, { ...d, tier: 3 }));
   assert.ok(!mesmaNave(null, d));
+});
+
+test('vitrine da aba Jogar: as nove naves pedidas, sorteadas sem repetir a anterior', () => {
+  const nomes = NAVES_VITRINE.map((n) => naveDe(n.raca, n.classe, n.tier).nome).sort();
+  assert.deepEqual(nomes, ['Alchemium Wing', 'Cheetahar', 'Chimera', 'Cyclone Wing', 'Garuda', 'Hellion Wing', 'Phoenix', 'Sephiros', 'Ulysses']);
+  for (let i = 0; i < 9; i++) {
+    const rng = () => i / 9;
+    const n = sortearVitrine(rng, null);
+    assert.ok(NAVES_VITRINE.some((v) => mesmaNave(v, n)));
+  }
+  // Nunca a mesma da vez anterior, em todo o intervalo do rng.
+  for (const ant of NAVES_VITRINE) {
+    for (const r of [0, 0.3, 0.5, 0.99, 0.999999]) {
+      const n = sortearVitrine(() => r, textoDestaque(ant));
+      assert.ok(!mesmaNave(n, ant));
+      assert.ok(NAVES_VITRINE.some((v) => mesmaNave(v, n)));
+    }
+  }
+  // Todas saem.
+  const vistas = new Set();
+  for (let k = 0; k < 9; k++) vistas.add(textoDestaque(sortearVitrine(() => k / 9 + 0.01, null)));
+  assert.equal(vistas.size, 9);
+  // Guardado ruim ou rng estranho não quebra.
+  assert.ok(sortearVitrine(() => NaN, 'lixo'));
+  assert.ok(sortearVitrine(() => 1, null));
 });

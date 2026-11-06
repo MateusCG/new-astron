@@ -623,3 +623,39 @@ test('filas: a Partida Privada com Bots é um mundo só do piloto', async () => 
     await srv.fechar();
   }
 });
+
+test('filas: o Pronto se desfaz na sala; a nave destrava e a partida espera o Pronto de novo', () => {
+  const { filas, cliente, ultima, salas } = montar();
+  const cs = ['A', 'B', 'C'].map(cliente);
+  for (const c of cs) entrar(filas, c, 'publica');
+  filas.pronto(cs[0]);
+  assert.equal(filas.escolher(cs[0], { race: 'shrewdo' }), 'travada');
+  assert.equal(filas.cancelarPronto(cs[0]), null);
+  assert.equal(ultima(cs[1]).prontos, 0, 'os outros veem na hora');
+  assert.equal(ultima(cs[0]).voce.pronto, 0);
+  assert.equal(filas.escolher(cs[0], { race: 'shrewdo', classe: 'functional' }), null, 'a nave destrava');
+  assert.equal(filas.cancelarPronto(cs[0]), null, 'sem Pronto, nada muda');
+  filas.pronto(cs[1]);
+  filas.pronto(cs[2]);
+  assert.equal(salas.length, 0, 'falta o Pronto de A');
+  filas.pronto(cs[0]);
+  assert.equal(salas.length, 1, 'todos prontos: começou');
+  const a = salas[0].membros.find((m) => m.nome === 'A');
+  assert.deepEqual([a.race, a.classe], ['shrewdo', 'functional'], 'com a nave trocada');
+  assert.equal(filas.cancelarPronto(cs[0]), 'fora', 'a partida já começou');
+});
+
+test('filas: o Pronto de começar mais cedo também se desfaz procurando', () => {
+  const { filas, cliente, ultima, salas } = montar();
+  const cs = ['A', 'B'].map(cliente);
+  for (const c of cs) entrar(filas, c, 'online');
+  filas.pronto(cs[0]);
+  assert.equal(ultima(cs[0]).voce.pronto, 1);
+  assert.equal(filas.cancelarPronto(cs[0]), null);
+  assert.equal(ultima(cs[0]).voce.pronto, 0);
+  assert.equal(ultima(cs[0]).estado, 'procurando');
+  filas.pronto(cs[1]);
+  assert.equal(salas.length, 0, 'A desfez: não começa');
+  filas.pronto(cs[0]);
+  assert.equal(salas.length, 1, 'os dois prontos: começa');
+});

@@ -94,6 +94,7 @@ export const CHAVES = Object.freeze({
   classe: 'astron.classe',
   nome: 'astron.nome',
   destaque: 'astron.destaque',
+  vitrine: 'astron.vitrine',
 });
 
 export const modoPorId = (id) => MODOS.find((m) => m.id === id) ?? null;
@@ -153,9 +154,33 @@ export function mesmaNave(a, b) {
   return !!a && !!b && a.raca === b.raca && a.classe === b.classe && a.tier === b.tier;
 }
 
-/** A nave da aba Jogar: o destaque do Hangar ou, sem ele, a primeira da Seleção. */
-export function naveDaVitrine(destaque, raca, classe) {
-  return destaque ?? { raca, classe, tier: 0 };
+/**
+ * As naves que a aba Jogar sorteia quando o piloto não pôs nenhuma em destaque no
+ * Hangar (pedido do Mateus, 06/nov/2026): a última de cada linha (tier 4), Garuda,
+ * Sephiros, Ulysses, Cheetahar, Phoenix, Chimera, Cyclone Wing, Alchemium Wing e
+ * Hellion Wing. Uma por abertura do site (ou recarga), nunca a mesma da vez anterior.
+ */
+export const NAVES_VITRINE = Object.freeze(
+  RACAS_JOGAVEIS.flatMap((raca) => ORDEM_CLASSES.map((classe) => Object.freeze({ raca, classe, tier: TIER_MAX }))),
+);
+
+/**
+ * Sorteia a nave da aba Jogar entre `NAVES_VITRINE` com `rng()` (0..1), sem repetir a
+ * `anterior` (o texto 'raça/classe/tier' guardado no navegador, CHAVES.vitrine).
+ */
+export function sortearVitrine(rng, anterior) {
+  const ultima = lerDestaque(anterior);
+  const opcoes = NAVES_VITRINE.filter((n) => !mesmaNave(n, ultima));
+  const i = Math.min(opcoes.length - 1, Math.max(0, Math.floor(Number(rng()) * opcoes.length) || 0));
+  return { ...opcoes[i] };
+}
+
+/**
+ * A nave da aba Jogar: o destaque do Hangar, que o piloto escolheu e fica sempre, ou,
+ * sem ele, a sorteada nesta abertura (sortearVitrine).
+ */
+export function naveDaVitrine(destaque, sorteada) {
+  return destaque ?? sorteada;
 }
 
 /**

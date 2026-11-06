@@ -5,7 +5,8 @@
 //
 // - JOGAR: os modos numa coluna, como o "Select Play Mode" do Deadlock, com a nave
 //   girando à direita (a prévia da vitrine.js em #fundo-nave): a em destaque do
-//   Hangar ou, sem ela, a primeira da raça e da classe da Seleção.
+//   Hangar ou, sem ela, uma das NAVES_VITRINE (a última de cada linha), sorteada a
+//   cada abertura do site e diferente da anterior (CHAVES.vitrine).
 // - SELEÇÃO: a seleção de campeão dos MOBAs (LoL, Dota 2, Smite 2, Deadlock) com 3
 //   raças × 3 classes numa grade com miniaturas (escolha num clique, setas também), a
 //   nave grande no centro com a linha da Evolução, a ficha (raça, classe e as barras
@@ -25,7 +26,7 @@
 // - NAVES: o hangar, só leitura: filtros de raça e classe, a nave no visor (arrastar
 //   gira), a ficha com o tamanho real e as barras na régua das 45 naves, e a linha das
 //   5 naves com o nível e o preço na Evolução. "Mostrar na tela Jogar" põe a nave
-//   aberta (qualquer tier) em destaque na aba Jogar, no lugar da primeira da Seleção;
+//   aberta (qualquer tier) em destaque na aba Jogar, sempre, no lugar da sorteada;
 //   clicar de novo tira (fica no navegador, CHAVES.destaque).
 // - CONFIGURAÇÕES: as barras de volume (outro PainelVolume, sobre #config-som) e os
 //   atalhos do teclado e do controle (joystick), cada ação com as suas casas: clicar
@@ -78,6 +79,7 @@ import {
   textoDestaque,
   mesmaNave,
   naveDaVitrine,
+  sortearVitrine,
   proximoModo,
   moverNaGrade,
   escalaStatus,
@@ -195,7 +197,11 @@ export class Menu {
     this.modo = g.modo;
     this.raca = g.raca;
     this.classe = g.classe;
-    this.destaque = g.destaque; // a nave da aba Jogar escolhida no Hangar (null: a da Seleção)
+    this.destaque = g.destaque; // a nave da aba Jogar escolhida no Hangar (null: a sorteada)
+    // Sem destaque, a aba Jogar mostra uma das NAVES_VITRINE, sorteada a cada abertura
+    // do site e diferente da última (guardada no navegador).
+    this.sorteada = sortearVitrine(Math.random, ler(CHAVES.vitrine));
+    gravar(CHAVES.vitrine, textoDestaque(this.sorteada));
     this.tela = g.aba;
     this.catalogo = { raca: g.raca, classe: g.classe, tier: 0 };
     this.secao = 'som';
@@ -357,7 +363,7 @@ export class Menu {
       return;
     }
     const { raca, classe, tier } =
-      this.tela === 'naves' ? this.catalogo : this.tela === 'jogar' ? naveDaVitrine(this.destaque, this.raca, this.classe) : { raca: this.raca, classe: this.classe, tier: 0 };
+      this.tela === 'naves' ? this.catalogo : this.tela === 'jogar' ? naveDaVitrine(this.destaque, this.sorteada) : { raca: this.raca, classe: this.classe, tier: 0 };
     mostrarPrevia(this.q(palco), raca, classe, tier);
   }
 
@@ -457,13 +463,13 @@ export class Menu {
   /** A legenda da nave da aba Jogar e o nome da raça no fundo. */
   /**
    * A legenda da nave da aba Jogar e o nome da raça no fundo: a nave em destaque do
-   * Hangar ("EM DESTAQUE") ou, sem ela, a primeira da Seleção ("SUA NAVE").
+   * Hangar ou, sem ela, a sorteada nesta abertura (as duas com "EM DESTAQUE").
    */
   #atualizarLegenda() {
-    const { raca, classe, tier } = naveDaVitrine(this.destaque, this.raca, this.classe);
+    const { raca, classe, tier } = naveDaVitrine(this.destaque, this.sorteada);
     const n = naveDe(raca, classe, tier);
     const leg = this.q('#tela-jogar .legenda-nave');
-    leg.querySelector('small').textContent = this.destaque ? tr('Em destaque') : tr('Sua nave');
+    leg.querySelector('small').textContent = tr('Em destaque');
     leg.querySelector('.nome-nave').textContent = n.nome;
     leg.querySelector('.raca-classe').innerHTML = `<b style="color:${corCss(RACES[raca].cor)}">${RACES[raca].nome}</b> · ${CLASSES[classe].nome}`;
     this.q('#fundo-nave').dataset.raca = RACES[raca].nome;
@@ -471,11 +477,11 @@ export class Menu {
 
   /**
    * O céu do menu na cor da raça da nave que a tela aberta mostra: na aba Jogar, a em
-   * destaque (ou a da Seleção); na Seleção, a escolhida; no Hangar, a aberta; nas
+   * destaque (ou a sorteada); na Seleção, a escolhida; no Hangar, a aberta; nas
    * Configurações, a da aba Jogar.
    */
   #pintarFundo() {
-    const raca = this.tela === 'naves' ? this.catalogo.raca : this.tela === 'selecao' ? this.raca : naveDaVitrine(this.destaque, this.raca, this.classe).raca;
+    const raca = this.tela === 'naves' ? this.catalogo.raca : this.tela === 'selecao' ? this.raca : naveDaVitrine(this.destaque, this.sorteada).raca;
     this.el.style.setProperty('--cor-raca', corCss(RACES[raca].cor));
   }
 
@@ -623,6 +629,9 @@ export class Menu {
       } else if (acao === 'pronto') {
         this.#som(SONS_INTERFACE.compra, 0.7);
         this.fila.pronto(this.#escolha());
+      } else if (acao === 'cancelar') {
+        this.#som(SONS_INTERFACE.clique, 0.6);
+        this.fila.cancelarPronto();
       }
       return;
     }
@@ -731,7 +740,7 @@ export class Menu {
         botao.disabled = false;
         botao.textContent = tr('Decolar');
       }
-      botao.classList.remove('aguardando', 'pronto-acao');
+      botao.classList.remove('aguardando', 'pronto-acao', 'cancelar-pronto');
       linha.hidden = true;
       aviso.textContent = '';
       tela.classList.remove('travada');
@@ -740,7 +749,10 @@ export class Menu {
     const b = botaoDaFila(this.estadoFila);
     botao.textContent = b.texto;
     botao.disabled = !b.habilitado;
-    botao.classList.toggle('aguardando', !b.habilitado && ['procurando', 'sala', 'conectando'].includes(this.estadoFila.fase));
+    // Pronto apertado: o botão segue com o fio de "esperando os outros", mas clicável
+    // para desfazer o Pronto.
+    botao.classList.toggle('aguardando', (!b.habilitado || b.acao === 'cancelar') && ['procurando', 'sala', 'conectando'].includes(this.estadoFila.fase));
+    botao.classList.toggle('cancelar-pronto', b.acao === 'cancelar');
     botao.classList.toggle('pronto-acao', b.acao === 'pronto');
     tela.classList.toggle('travada', this.#naveTravada());
     aviso.textContent = textoAviso(this.estadoFila.aviso) ?? '';

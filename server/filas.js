@@ -230,6 +230,30 @@ export class Filas {
   }
 
   /**
+   * {t:'cancelarPronto'}: desfaz o Pronto (pedido do Mateus, 06/nov/2026: apertou e
+   * quer trocar a nave). A nave e, procurando, o time destravam; a partida não começa
+   * enquanto ele não apertar de novo. Com todos prontos a partida já começou, então
+   * não há o que desfazer ('fora'). Sem Pronto, nada muda.
+   */
+  cancelarPronto(cliente) {
+    const sala = this.salaDe.get(cliente);
+    if (!sala) {
+      const e = this.#naFila(cliente);
+      if (!e) return 'fora';
+      if (!e.pronto) return null;
+      e.pronto = false;
+      this.#avisarFila(e.modo);
+      this.avisarContagem();
+      return null;
+    }
+    const m = sala.membros.find((x) => x.cliente === cliente);
+    if (!m.pronto) return null;
+    m.pronto = false;
+    this.#avisarSala(sala);
+    return null;
+  }
+
+  /**
    * {t:'sairFila'} (ou a conexão caiu, `avisar` false): sai da fila; numa sala, a
    * desfaz e os outros voltam para o começo da fila.
    */

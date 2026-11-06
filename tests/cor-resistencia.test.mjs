@@ -42,3 +42,20 @@ test('resistência de agora (a coluna Resist. do STATUS e do INVENTÁRIO): o `re
   assert.deepEqual(resistDoMe({ status }), status.resist);
   assert.deepEqual(resistDoMe(null), { fisico: 0, laser: 0, eletrico: 0 });
 });
+
+test('monstros da jungle e o Núcleo: nome branco, sem cor de resistência', async () => {
+  const { readFileSync } = await import('node:fs');
+  const css = readFileSync(new URL('../public/css/jogo.css', import.meta.url), 'utf8');
+  const m = css.match(/\.rotulo\.neutro \.nome\s*\{\s*color:\s*#([0-9a-f]{6})/i);
+  assert.ok(m, 'a regra do nome neutro existe');
+  const rgb = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16));
+  assert.ok(Math.max(...rgb) - Math.min(...rgb) <= 12, 'branco ou cinza: sem matiz');
+  assert.ok(Math.min(...rgb) >= 0xc0, 'claro, lê de longe');
+  // Vem depois da cor do inimigo, então ganha dela.
+  assert.ok(css.indexOf('.rotulo.neutro .nome') > css.indexOf('.rotulo.inimigo .nome'));
+  const hud = readFileSync(new URL('../public/js/hud.js', import.meta.url), 'utf8');
+  assert.match(hud, /neutro \? ' neutro'/);
+  const main = readFileSync(new URL('../public/js/main.js', import.meta.url), 'utf8');
+  assert.match(main, /bicho = e\.tipo === 'monstro' \|\| e\.tipo === 'nucleo'/);
+  assert.match(main, /neutro: bicho/);
+});
