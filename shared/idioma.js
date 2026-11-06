@@ -5,8 +5,12 @@
 // uma vez no console (tests/idioma.test.mjs cobra toda chave literal do código).
 //
 // O idioma é um só para a página inteira: no navegador sai de `astron.idioma` no
-// localStorage ou, na primeira vez, da língua do navegador (português → 'pt', o resto
-// → 'en'); trocar guarda e recarrega a página (`trocarIdioma`), então as constantes
+// localStorage (a escolha do piloto no seletor PT | EN, que sempre vale) ou, sem ela,
+// do país onde o piloto está (pedido do Mateus, 06/nov/2026): no Brasil, português; em
+// qualquer outro país, inglês. O país sai do fuso horário do aparelho
+// (`Intl...timeZone`, que o navegador dá sem pedir permissão nem rede: os fusos do
+// Brasil em FUSOS_BRASIL); sem fuso, a língua do navegador decide. Trocar guarda e
+// recarrega a página (`trocarIdioma`), então as constantes
 // montadas na carga dos módulos já nascem no idioma certo. No Node (servidor e
 // testes) é sempre 'pt'. Não mexe em nada da simulação: `shared/` continua
 // determinístico.
@@ -24,10 +28,62 @@ export const IDIOMAS = [
 /** Onde o navegador guarda o idioma escolhido. */
 export const CHAVE_IDIOMA = 'astron.idioma';
 
-/** O idioma da primeira visita, pela língua do navegador: só português fica em português. */
+/** O idioma pela língua do navegador (a reserva sem fuso): só português fica em português. */
 export function idiomaDoNavegador(linguas = []) {
   const primeira = String(linguas[0] ?? '').toLowerCase();
   return primeira.startsWith('pt') ? 'pt' : 'en';
+}
+
+/**
+ * Os fusos horários do Brasil no banco de fusos (IANA, o que o `Intl` devolve): os do
+ * zone.tab do país e os nomes antigos que ainda apontam para eles.
+ */
+export const FUSOS_BRASIL = Object.freeze([
+  'America/Noronha',
+  'America/Belem',
+  'America/Fortaleza',
+  'America/Recife',
+  'America/Araguaina',
+  'America/Maceio',
+  'America/Bahia',
+  'America/Sao_Paulo',
+  'America/Campo_Grande',
+  'America/Cuiaba',
+  'America/Santarem',
+  'America/Porto_Velho',
+  'America/Boa_Vista',
+  'America/Manaus',
+  'America/Eirunepe',
+  'America/Rio_Branco',
+  'America/Porto_Acre',
+  'Brazil/Acre',
+  'Brazil/DeNoronha',
+  'Brazil/East',
+  'Brazil/West',
+]);
+
+/** O fuso é do Brasil? */
+export function fusoDoBrasil(fuso) {
+  return FUSOS_BRASIL.includes(String(fuso ?? ''));
+}
+
+/**
+ * O idioma da primeira visita pela localização: no Brasil (o fuso do aparelho é um do
+ * Brasil) português, em qualquer outro país inglês. Sem fuso conhecido, a língua do
+ * navegador (`linguas`) decide.
+ */
+export function idiomaPelaLocalizacao({ fuso = '', linguas = [] } = {}) {
+  if (fuso) return fusoDoBrasil(fuso) ? 'pt' : 'en';
+  return idiomaDoNavegador(linguas);
+}
+
+/** O fuso horário do aparelho ('' se o navegador não diz). */
+function fusoDoAparelho() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone ?? '';
+  } catch {
+    return '';
+  }
 }
 
 /** Saneia um idioma guardado (null se não é um dos conhecidos). */
@@ -41,9 +97,9 @@ function idiomaInicial() {
   try {
     guardado = idiomaValido(localStorage.getItem(CHAVE_IDIOMA));
   } catch {
-    // Navegador sem armazenamento: vale a língua do navegador.
+    // Navegador sem armazenamento: vale a localização.
   }
-  return guardado ?? idiomaDoNavegador(navigator.languages?.length ? navigator.languages : [navigator.language]);
+  return guardado ?? idiomaPelaLocalizacao({ fuso: fusoDoAparelho(), linguas: navigator.languages?.length ? navigator.languages : [navigator.language] });
 }
 
 let atual = idiomaInicial();

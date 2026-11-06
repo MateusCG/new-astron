@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { EN } from '../shared/idioma-en.js';
-import { tr, definirIdioma, idiomaDoNavegador, idiomaValido, nomeExibido, traduzirNomesDaMensagem, nomeArma, nomeEquip } from '../shared/idioma.js';
+import { tr, definirIdioma, idiomaDoNavegador, idiomaPelaLocalizacao, fusoDoBrasil, FUSOS_BRASIL, idiomaValido, nomeExibido, traduzirNomesDaMensagem, nomeArma, nomeEquip } from '../shared/idioma.js';
 import { CAPITULOS_PT } from '../public/js/como-jogar-regras.js';
 import { capitulosEn } from '../public/js/como-jogar-en.js';
 import { FATOS, relogio } from '../public/js/como-jogar-regras.js';
@@ -81,7 +81,23 @@ test('idioma: tr troca as variáveis e, no inglês, devolve a tradução', () =>
   }
 });
 
-test('idioma: a primeira visita segue a língua do navegador; o guardado é saneado', () => {
+test('idioma: a primeira visita segue o país (fuso do aparelho): Brasil em português, o resto em inglês', () => {
+  for (const fuso of ['America/Sao_Paulo', 'America/Manaus', 'America/Fortaleza', 'America/Noronha', 'America/Rio_Branco', 'Brazil/East']) {
+    assert.equal(idiomaPelaLocalizacao({ fuso, linguas: ['en-US'] }), 'pt', fuso); // no Brasil, mesmo com o navegador em inglês
+  }
+  for (const fuso of ['Europe/Lisbon', 'America/New_York', 'America/Argentina/Buenos_Aires', 'Africa/Luanda', 'Asia/Tokyo', 'UTC']) {
+    assert.equal(idiomaPelaLocalizacao({ fuso, linguas: ['pt-BR'] }), 'en', fuso); // fora do Brasil, mesmo com o navegador em português
+  }
+  // Sem fuso, a língua do navegador.
+  assert.equal(idiomaPelaLocalizacao({ fuso: '', linguas: ['pt-BR'] }), 'pt');
+  assert.equal(idiomaPelaLocalizacao({ fuso: '', linguas: ['de-DE'] }), 'en');
+  assert.equal(fusoDoBrasil('America/Sao_Paulo'), true);
+  assert.equal(fusoDoBrasil(undefined), false);
+  // Todo fuso da lista existe para o Intl deste Node.
+  for (const f of FUSOS_BRASIL) assert.doesNotThrow(() => new Intl.DateTimeFormat('pt-BR', { timeZone: f }), f);
+});
+
+test('idioma: a reserva sem fuso segue a língua do navegador; o guardado é saneado', () => {
   assert.equal(idiomaDoNavegador(['pt-BR', 'en']), 'pt');
   assert.equal(idiomaDoNavegador(['pt-PT']), 'pt');
   assert.equal(idiomaDoNavegador(['en-US']), 'en');
