@@ -116,7 +116,7 @@ import { golpeDaArma, golpePrevisivel, versaoArma, visualDoOriginal } from '/sha
 import { disparoOriginal, turboNaNave } from './disparo-regras.js';
 import { naveDe } from '/shared/naves.js';
 import { areaPouso, heightAt } from '/shared/terrain.js';
-import { alturaSolida } from '/shared/obstaculos.js';
+import { alturaSolida, TORRE_SUPORTE } from '/shared/obstaculos.js';
 import { criarCena, liberarCena } from './cena.js';
 import { Nevoa } from './nevoa.js';
 import {
@@ -133,6 +133,10 @@ import {
 import { ESCUDO } from './nucleo-regras.js';
 /** Altura (m) do rótulo do Núcleo acima dele: o alto da cúpula do escudo. */
 const ROTULO_NUCLEO = ESCUDO.centroY + ESCUDO.raio;
+/** Altura do rótulo de chefe da torre de suporte acima do chão de voo: na ponta da antena. */
+const ROTULO_SUPORTE = TORRE_SUPORTE.altura;
+/** Monstros com a barra de chefe (a barra larga do rótulo): os dos objetivos. */
+const CHEFES_JUNGLE = new Set(['medusa', 'sn4', 'sonda']);
 import { Sons, SONS_INTERFACE, SONS_VOLTA, SONS_NUCLEO, VOLUME_TIRO_PROPRIO } from './sons.js';
 import { PainelVolume } from './volume.js';
 import { Efeitos, COR_TIME } from './efeitos.js';
@@ -496,6 +500,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
   const nevoa = new Nevoa({ renderer, scene, meuTime }); // névoa de guerra (visão do time)
   const controles = new Controles(document.body);
   const hud = new Hud({ meuTime });
+  // N (configurável): os últimos 10 registros da partida embaixo do placar (hud.js).
+  aoApertar('historico', () => hud.alternarHistorico(), { signal: controles.parar.signal });
+  controles.parar.signal.addEventListener('abort', () => hud.alternarHistorico(false), { once: true });
   const debuffs = new ListaDebuffs(document.getElementById('debuffs'));
   const placar = new Placar({ meuTime });
   // Modo de teste (mundo só seu): painel com ouro e XP à vontade.
@@ -1082,9 +1089,12 @@ function montarJogo(rede, boas, renderer, race, classe) {
       } else if (e.e === 'preparacao') {
         ultimaMorte.limpar(); // partida nova: a morte da anterior não conta mais
         locutor.limpar();
+        hud.limparHistorico(); // nem os registros dela
         hud.noticia(tr('Preparação: a partida começa em {t} · explore o mapa e se prepare', { t: relogio(e.s) }), 'bom');
       } else if (e.e === 'partida') {
         hud.noticia(tr('A partida começou: mineradores e jungle em campo · o time que minerar mais vence'), 'bom');
+      } else if (e.e === 'morte' && e.tipo === 'suporte') {
+        // A torre de suporte caiu: a destruição e a notícia vêm do `obj` e do 'objetivo' tomado.
       } else if (e.e === 'morte') {
         const tipo = e.tipo ?? outras.get(e.id)?.tipo;
         // Fora da visão (névoa) a morte de jogador vem sem lugar: só a notícia.
@@ -1300,7 +1310,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     const presentes = new Set();
     const rotulos = [];
     let sonda = null; // posição da sonda viva (o rótulo do objetivo vai junto)
-    const chefesComBarra = new Set(); // objetivos (MEDUSA, NUCLEO) com a barra de vida em cima deles na tela
+    const chefesComBarra = new Set(); // objetivos (MEDUSA, NUCLEO, SONDA, BA0/BA1, BS0/BS1) com a barra de vida em cima deles na tela
     for (const e of poses) {
       if (e.id === meuId) {
         meuNome = e.nome ?? meuNome;
@@ -1314,8 +1324,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
         const obj =
           e.tipo === 'monstro'
             ? criarMonstro(e.esp)
-            : e.tipo === 'nucleo'
-              ? criarMarcadorNucleo()
+            : e.tipo === 'nucleo' || e.tipo === 'suporte'
+              ? criarMarcadorNucleo() // o modelo é do cenário (cena.js): aqui só o lugar do rótulo
               : e.tipo === 'minerador'
                 ? criarMinerador({ aliado, nucleo: !!e.nucleo })
                 : e.tipo === 'escolta'
@@ -1327,6 +1337,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
           idNucleo = e.id;
           o.raio = ESCUDO.raio;
         }
+        // A torre de suporte acesa: o impacto sai na parede do cilindro.
+        if (e.tipo === 'suporte') o.raio = TORRE_SUPORTE.raio;
         scene.add(o.obj);
         outras.set(e.id, o);
       }
@@ -1340,7 +1352,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
       o.obj.visible = e.vivo && !(o.destruidoAte > agora);
       o.pos = o.obj.position;
       if (!e.vivo) continue;
-      const bicho = e.tipo === 'monstro' || e.tipo === 'nucleo';
+      const bicho = e.tipo === 'monstro' || e.tipo === 'nucleo' || e.tipo === 'suporte';
       o.obj.position.set(e.x, e.y + (e.pousado || bicho ? 0 : Math.sin(tempo * 2 + e.id) * 0.25), e.z);
       o.obj.rotation.y = e.yaw;
       o.obj.userData.corpo.rotation.z = e.roll;
@@ -1363,8 +1375,12 @@ function montarJogo(rede, boas, renderer, race, classe) {
         if (e.tipo === 'monstro' && ROTULO_MONSTRO[e.esp]) pos = (o.posRotulo ??= new THREE.Vector3()).copy(pos).setY(pos.y + ROTULO_MONSTRO[e.esp]);
         // O Núcleo: o nome e a barra acima do alto da cúpula do escudo, não na frente dela.
         else if (e.tipo === 'nucleo') pos = (o.posRotulo ??= new THREE.Vector3()).copy(pos).setY(pos.y + ROTULO_NUCLEO);
-        const chefe = e.tipo === 'nucleo' || e.esp === 'medusa';
-        const idObjetivo = e.tipo === 'nucleo' ? 'NUCLEO' : 'MEDUSA';
+        else if (e.tipo === 'suporte') pos = (o.posRotulo ??= new THREE.Vector3()).copy(pos).setY(ROTULO_SUPORTE);
+        // Chefes (a barra larga): a Medusa, o Núcleo, o SN-4 do buff de ataque, a torre
+        // do buff de suporte e a sonda errante (pedido do Mateus, 06/nov/2026); `obj` = o
+        // id do objetivo (o SN-4 e a torre: há um de cada lado).
+        const chefe = e.tipo === 'nucleo' || e.tipo === 'suporte' || CHEFES_JUNGLE.has(e.esp);
+        const idObjetivo = e.obj ?? (e.tipo === 'nucleo' ? 'NUCLEO' : e.esp === 'sonda' ? 'SONDA' : 'MEDUSA');
         // O chefe leva o texto da faixa do objetivo como nome (no Núcleo, com o nível),
         // e a faixa some: um nome só em cima dele.
         const nome = (chefe && objetivos.textoDoChefe(idObjetivo)) || e.nome;

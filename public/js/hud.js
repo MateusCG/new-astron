@@ -30,6 +30,7 @@ import { relogio, LUGARES_OBJETIVO, ICONE_OBJETIVO, NOME_OBJETIVO, POUSO_PLATAFO
 import { PONTO_MONSTRO } from './monstros.js';
 import { corResistencia } from './cor-resistencia.js';
 import { marcasDaVida } from './barra-vida-regras.js';
+import { HISTORICO_MAX, registrar, textoIdade } from './historico-regras.js';
 import { tr, localeNum, nomeArma, emIngles } from '../../shared/idioma.js';
 
 /** Uma casa decimal, no jeito do idioma (3,5 / 3.5). */
@@ -279,8 +280,8 @@ export class Hud {
         ctx.fill();
         continue;
       }
-      // O Núcleo já tem o ícone fixo; os monstros num ponto maior quanto mais perigosos.
-      if (e.tipo === 'nucleo') continue;
+      // O Núcleo e a torre de suporte já têm o ícone fixo; os monstros num ponto maior quanto mais perigosos.
+      if (e.tipo === 'nucleo' || e.tipo === 'suporte') continue;
       const t = e.tipo === 'monstro' ? (PONTO_MONSTRO[e.esp] ?? 3.5) : 3.5;
       if (e.tipo === 'monstro') {
         ctx.beginPath();
@@ -606,12 +607,58 @@ export class Hud {
   }
 
   noticia(texto, tipo = '') {
+    this.historico = registrar(this.historico ?? [], { texto, tipo, t: performance.now() });
+    if (this.historicoAberto) return this.#desenharHistorico();
     const li = document.createElement('li');
     li.textContent = texto;
     li.className = tipo;
     this.feed.prepend(li);
     setTimeout(() => li.remove(), 6000);
     while (this.feed.children.length > 5) this.feed.lastChild.remove();
+  }
+
+  /**
+   * Abre e fecha o histórico da partida (ação `historico`, N de fábrica): no lugar das
+   * notícias que passam, os últimos HISTORICO_MAX registros, fixos, com a idade de cada
+   * um (historico-regras.js); fechado, as notícias voltam a passar.
+   */
+  alternarHistorico(abrir = !this.historicoAberto) {
+    this.historicoAberto = abrir;
+    this.feed.classList.toggle('historico', abrir);
+    clearInterval(this.relogioHistorico);
+    this.feed.replaceChildren();
+    if (!abrir) return;
+    this.#desenharHistorico();
+    this.relogioHistorico = setInterval(() => this.#desenharHistorico(), 1000); // a idade anda
+  }
+
+  /** Partida nova: o histórico começa vazio. */
+  limparHistorico() {
+    this.historico = [];
+    if (this.historicoAberto) this.#desenharHistorico();
+  }
+
+  #desenharHistorico() {
+    const agora = performance.now();
+    const lista = this.historico ?? [];
+    const titulo = document.createElement('li');
+    titulo.className = 'titulo-historico';
+    titulo.innerHTML = `${tr('Histórico · últimos {n}', { n: HISTORICO_MAX })} ${kbdAcao('historico')}`;
+    const linhas = lista.map(({ texto, tipo, t }) => {
+      const li = document.createElement('li');
+      li.className = tipo;
+      const idade = document.createElement('small');
+      idade.textContent = textoIdade(t, agora);
+      li.append(texto, ' ', idade);
+      return li;
+    });
+    if (!linhas.length) {
+      const vazio = document.createElement('li');
+      vazio.className = 'vazio';
+      vazio.textContent = tr('Nada aconteceu ainda');
+      linhas.push(vazio);
+    }
+    this.feed.replaceChildren(titulo, ...linhas);
   }
 
   /**
@@ -623,7 +670,7 @@ export class Hud {
    * resistências dele (`res`, [Ph., Op., El.]; corResistencia), como no original.
    * Entrada: { id, nome, aliado, hp, maxHp, pos, nivel, piloto, proprio, esc, res, neutro, chefe, torre }.
    * As torretas (`torre`) levam a mesma barra das naves de jogador.
-   * A barra das naves de jogador e a dos chefes (`chefe`: a Medusa e o Núcleo, numa
+   * A barra das naves de jogador e a dos chefes (`chefe`: a Medusa, o Núcleo, o SN-4, a torre de suporte e a sonda, numa
    * barra larga) levam uma divisória a cada mil de vida, como no LoL, e os chefes uma mais
    * grossa a cada dez mil (barra-vida-regras.js).
    * `neutro` (monstros da jungle e o Núcleo): o nome em branco, nunca numa cor de

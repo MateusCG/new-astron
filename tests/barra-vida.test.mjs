@@ -31,7 +31,9 @@ test('barra de vida: o hud põe as divisórias nas naves de jogador e nos chefes
   const torretas = readFileSync(new URL('../public/js/torretas.js', import.meta.url), 'utf8');
   assert.match(torretas, /torre: true/);
   const main = readFileSync(new URL('../public/js/main.js', import.meta.url), 'utf8');
-  assert.match(main, /const chefe = e\.tipo === 'nucleo' \|\| e\.esp === 'medusa';/);
+  // Chefes: a Medusa, o Núcleo, o SN-4, a torre de suporte e a sonda errante.
+  assert.match(main, /const chefe = e\.tipo === 'nucleo' \|\| e\.tipo === 'suporte' \|\| CHEFES_JUNGLE\.has\(e\.esp\);/);
+  assert.match(main, /const CHEFES_JUNGLE = new Set\(\['medusa', 'sn4', 'sonda'\]\);/);
   const css = readFileSync(new URL('../public/css/jogo.css', import.meta.url), 'utf8');
   for (const sel of ['.rotulo.vida-piloto .barra', '.rotulo.chefe .barra', '.rotulo .barra.marcas::after', '.rotulo .barra.marcas-grossas::before']) assert.ok(css.includes(sel), sel);
 });

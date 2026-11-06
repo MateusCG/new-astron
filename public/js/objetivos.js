@@ -174,7 +174,7 @@ export class ObjetivosNaTela {
   }
 
   /**
-   * Os objetivos (MEDUSA, NUCLEO) que já têm o rótulo deles na tela, com a barra de vida
+   * Os objetivos (MEDUSA, NUCLEO, SONDA, o SN-4 e a torre de suporte) que já têm o rótulo deles na tela, com a barra de vida
    * grande (hud.js): a faixa do objetivo some para o nome e a vida não aparecerem duas
    * vezes, e o texto dela vira o nome do rótulo do chefe (textoDoChefe). Fora da visão
    * do time, sem o rótulo do chefe, a faixa volta com a barrinha (o `obj` é público).
@@ -183,10 +183,17 @@ export class ObjetivosNaTela {
     this.comBarraPropria = ids;
   }
 
-  /** O texto da faixa do objetivo `id` ("Medusa Anciã", "Núcleo de He-3 · nível 2"), ou null. */
+  /**
+   * O nome do chefe `id` em cima da barra larga ("Medusa Anciã", "Núcleo de He-3 · nível 2",
+   * "SN-4", "Torre de comunicação", "Sonda errante"), ou null: o texto da faixa e, no SN-4,
+   * na torre de suporte e na sonda, só o nome, como na Medusa (o bônus fica na faixa,
+   * fora da visão).
+   */
   textoDoChefe(id) {
     const rot = this.rotulos.get(id);
-    return (rot && this.descrever(this.estado.get(id), rot.o.tipo).txt) || null;
+    if (!rot) return null;
+    if (rot.o.tipo === 'ataque' || rot.o.tipo === 'suporte' || rot.o.tipo === 'sonda') return NOME_OBJETIVO[rot.o.tipo];
+    return this.descrever(this.estado.get(id), rot.o.tipo).txt || null;
   }
 
   /** Posiciona os rótulos sobre os objetivos (chamar a cada quadro). */
