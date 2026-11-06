@@ -3862,6 +3862,17 @@ kbd {
     0 0 12px rgba(255, 120, 40, 0.75);
 }
 
+/* O tiro travado em alguém que saiu do alcance dele: "ERROU" (MISS) em cima do alvo. */
+.flutuante .errou {
+  color: #dfe8ea;
+  font: 800 19px/1.15 system-ui, sans-serif;
+  letter-spacing: 0.14em;
+  text-shadow:
+    0 0 2px #000,
+    0 1px 3px #000,
+    0 0 12px rgba(160, 200, 210, 0.7);
+}
+
 .rotulo {
   position: absolute;
   top: 0;

@@ -74,6 +74,7 @@ const PRIVADOS = new Set(['ganho', 'debuff', 'miss', 'resumoMorte']);
 const ENVOLVIDOS = {
   tiro: ['dono', 'alvo'], // alvo: a trava do míssil da torre sentinela
   acerto: ['alvo', 'por'], // por: quem deu o golpe crítico
+  errou: ['alvo', 'por'], // o alvo saiu do alcance do tiro travado nele (server/golpes.js)
   explosao: ['dono'],
   nova: ['dono'],
   efeito: ['id'],

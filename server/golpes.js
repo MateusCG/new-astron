@@ -46,7 +46,7 @@
 // escolhem alvo do mesmo lado, e a mina ou o campo de arma que cairia do outro lado
 // fica embaixo da nave de quem soltou.
 
-import { DT, HOVER, createBullet, stepBullet, bulletHits, forward, virarCurva, rumoDaCurva } from '../shared/sim.js';
+import { DT, HOVER, SHIP_RADIUS, createBullet, stepBullet, bulletHits, forward, virarCurva, rumoDaCurva } from '../shared/sim.js';
 import {
   WEAPONS,
   ARMAS,
@@ -208,6 +208,7 @@ export class Golpes {
   /** Completa o tiro com quem atirou, a mira (trava o alvo ou aponta para ele) e o golpe. */
   #prepararTiro(b, f, g, yaw) {
     Object.assign(b, { owner: f.id, kind: f.kind, nivel: f.nivel, drone: f.drone, time: f.time, mult: f.mult, g, nasceu: this.tick });
+    b.origem = { x: b.x, z: b.z }; // de onde o alcance conta (o tiro travado que passa dele erra: #saiuDoAlcance)
     if (!g.inimigo) b.dano = 0; // carga e suporte não ferem (nem torre)
     if (g.mira) {
       const alvo = escolherAlvo(g.mira, this.#candidatos(b, g), b.x, b.z, yaw, this.tick + b.id);
@@ -282,6 +283,7 @@ export class Golpes {
     const novos = [];
     w.bullets = w.bullets.filter((b) => {
       const g = b.g ?? golpeDaArma(b.kind, b.nivel ?? 1, b.prof ?? 0);
+      if (this.#saiuDoAlcance(b, g, vivos)) return false; // errou: o alvo fugiu do alcance
       if (g?.guia && this.tick - (b.nasceu ?? 0) >= ticks(g.guia.comeca)) {
         let alvo = b.alvo ? vivos.find((a) => a.id === b.alvo) : null;
         if (!alvo) alvo = alvoDoMissil(b, this.#candidatosDe(b, g, vivos), g.guia);
@@ -330,6 +332,26 @@ export class Golpes {
       return true;
     });
     w.bullets.push(...novos);
+  }
+
+  /**
+   * Errou por alcance (pedido do Mateus, 06/nov/2026): o tiro travado num alvo (`b.alvo`:
+   * o míssil da torre sentinela, os teleguiados das armas e dos monstros, o tiro das
+   * minas que atiram) só alcança até o alcance máximo do golpe, contado de onde ele saiu
+   * (`b.origem`). O alvo que sai dele (a borda da nave além do alcance) escapa: o tiro
+   * se perde ali, sem dano nem área, e o evento 'errou' faz subir "ERROU" em cima do
+   * alvo (o 'MISS' em inglês). Devolve true se o tiro acabou.
+   */
+  #saiuDoAlcance(b, g, vivos) {
+    const alcance = g?.alcance ?? g?.guia?.alcance;
+    if (b.alvo === undefined || b.alvo === null || !b.origem || !(alcance > 0)) return false;
+    const alvo = vivos.find((a) => a.id === b.alvo);
+    if (!alvo) return false;
+    const s = alvo.ship;
+    if (Math.hypot(s.x - b.origem.x, s.z - b.origem.z) - (s.raio ?? SHIP_RADIUS) <= alcance) return false;
+    const r2 = (n) => +n.toFixed(2);
+    this.world.eventos.push({ e: 'errou', bala: b.id, alvo: alvo.id, por: b.owner, kind: b.kind, x: r2(s.x), y: r2(s.y), z: r2(s.z) });
+    return true;
   }
 
   /** Inimigo perto da carga (metade da área do que ela solta, no mínimo o raio dela)? */

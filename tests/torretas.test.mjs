@@ -412,6 +412,9 @@ test('torretas: o míssil bate na rocha quando o alvo se esconde atrás dela', (
   colocar(b, -600, 560);
   const m = primeiroMissil(w);
   assert.ok(m);
+  // O esconderijo fica além dos 560 m da torre, onde o míssil já erraria (#saiuDoAlcance):
+  // aqui o alcance cresce para o teste ser só da rocha.
+  m.g = { ...m.g, alcance: 5000 };
   colocar(b, -697.5, 800); // atrás da rocha do quadrante (Q0S)
   const hp = b.ship.hp;
   w.tirarEventos();
@@ -528,4 +531,32 @@ test('torretas: o míssil é 100% penetrante (nenhuma resistência segura) e bat
   assert.equal(acerto.escudo, 50, 'o escudo segurou primeiro');
   assert.equal(b.ship.escudo, 0);
   assert.ok(Math.abs(hp - b.ship.hp - (dano - 50)) <= b.ship.regenHpVoo, 'o resto no HP');
+});
+
+test('torretas: o alvo que sai do alcance da torre faz o míssil errar (sem dano, evento errou)', () => {
+  const { w, b } = mundo();
+  const t = torreta(w, 'T0-4');
+  colocar(b, t.x - 40, t.z - 10);
+  w.tirarEventos();
+  // Espera o primeiro míssil da T0-4 sair e, no mesmo tick, foge para longe de todas.
+  let saiu = false;
+  for (let i = 0; i < 3 * SEGUNDO && !saiu; i++) {
+    w.step();
+    saiu = tirosDeTorreta(w.tirarEventos()).some((e) => e.dono === 'T0-4' && e.alvo === b.id);
+  }
+  assert.ok(saiu, 'a torre atirou');
+  assert.ok(w.bullets.some((x) => x.owner === 'T0-4' && x.alvo === b.id), 'o míssil está no ar, travado nele');
+  colocar(b, 300, -900); // a mais de 560 m das quatro do time 0
+  const hp = b.ship.hp;
+  let ev = [];
+  for (let i = 0; i < 2 * SEGUNDO; i++) {
+    w.step();
+    ev = ev.concat(w.tirarEventos());
+  }
+  const errou = ev.filter((e) => e.e === 'errou' && e.alvo === b.id);
+  assert.ok(errou.length >= 1, 'o míssil errou');
+  assert.ok(errou.every((e) => typeof e.por === 'string' && e.por.startsWith('T0-')), 'das torres do time 0');
+  assert.equal(b.ship.hp, hp, 'sem dano');
+  assert.equal(w.bullets.some((x) => x.owner === 'T0-4' && x.alvo === b.id), false, 'o míssil sumiu');
+  assert.equal(ev.some((e) => e.e === 'acerto' && e.alvo === b.id), false, 'nenhum acerto');
 });

@@ -1032,6 +1032,12 @@ function montarJogo(rede, boas, renderer, race, classe) {
         if (e.crit && e.por === meuId && !critFinal.has(e.alvo)) {
           hud.flutuante(e.x, e.y + 1, e.z, [{ txt: tr('CRÍTICO'), classe: 'crit' }]);
         }
+      } else if (e.e === 'errou') {
+        // Um tiro travado em alguém se perdeu porque o alvo saiu do alcance dele (a torre
+        // sentinela, os teleguiados): sem dano, o tiro some e "ERROU" sobe do alvo, para
+        // o alvo e para quem atirou, como o "CRÍTICO".
+        efeitos.removerTiro(e.bala);
+        if (e.alvo === meuId || e.por === meuId) hud.flutuante(e.x, e.y + 1, e.z, [{ txt: tr('ERROU'), classe: 'errou' }]);
       } else if (e.e === 'miss') {
         // O debuff elétrico que ia pegar na sua nave falhou (a resistência El.): o "MISS".
         if (e.para === meuId && vivo) efeitos.miss(minhaNave);

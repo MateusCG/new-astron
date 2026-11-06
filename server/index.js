@@ -482,6 +482,11 @@
 //                                    parte que o escudo do equipamento segurou; crit =
 //                                    golpe crítico, dano dobrado; com crit vem também
 //                                    por = id de quem bateu, que sempre recebe o evento)
+//         {e:'errou', bala, alvo, por, kind, x, y, z}   o tiro travado em `alvo` (o míssil
+//                                    da torre sentinela, os teleguiados) se perdeu: o alvo
+//                                    saiu do alcance do golpe, contado de onde o tiro saiu
+//                                    (sem dano; o cliente apaga o tiro e mostra "ERROU"
+//                                    em cima do alvo, em x, y, z)
 //         {e:'miss', para, id, kind}   PRIVADO: o debuff da arma elétrica de bloqueio
 //                                    ou suporte não pegou no jogador `para` (a chance do
 //                                    original pelo poder El. de quem atirou e a

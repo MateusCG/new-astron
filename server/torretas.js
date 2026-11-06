@@ -282,6 +282,7 @@ export class Torretas {
       prof: 0,
       g,
       alvo: alvo.id, // a trava: o míssil curva atrás dele (server/golpes.js)
+      origem: { x: t.x, z: t.z }, // o alcance conta da torre: o alvo que sai dele faz o míssil errar
       nasceu: w.tick,
       x,
       y: t.y,

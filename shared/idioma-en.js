@@ -281,6 +281,7 @@ export const EN = {
   'Comandos (teclas e botões, só para ver)': 'Commands (keys and buttons, view only)',
   'Histórico da partida (últimos 10 registros)': 'Match log (last 10 entries)',
   '{nome} · clique para ver no minimapa': '{nome} · click to show on the minimap',
+  'ERROU': 'MISS',
   'Histórico · últimos {n}': 'Log · last {n}',
   'Nada aconteceu ainda': 'Nothing has happened yet',
   'agora': 'now',
