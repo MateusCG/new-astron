@@ -165,6 +165,7 @@ import { TelaAbertura } from './abertura.js';
 import { ConfirmarSaida } from './sair-partida.js';
 import { PainelOpcoes } from './opcoes.js';
 import { PainelComandos } from './comandos.js';
+import { TelaCheia } from './tela-cheia.js';
 import { MELHORIAS_MINERADOR, MELHORIA_TORRETAS } from '/shared/evolucao.js';
 import { RECALL_S } from '/shared/recall.js';
 import { TORRETAS } from '/shared/terrain.js';
@@ -306,6 +307,7 @@ function alternarOpcoes() {
 }
 let cargaAtual = null; // o Carregamento da tela de carregamento aberta (ESC cancela)
 let menu = null;
+const telaCheia = new TelaCheia(); // a partida abre em tela cheia, como o F11
 
 function montarMenu() {
   menu = new Menu({
@@ -315,6 +317,9 @@ function montarMenu() {
     aoMudarSom: mostrarEstadoSom,
     mensagemErro: (err) => MENSAGENS_ERRO[err?.message] ?? `Erro ao iniciar o jogo (${err?.message ?? err}). Mande um print desta tela.`,
     aoDecolar: async ({ nome, race, classe, teste, ia, privada, sala, token }) => {
+      // Ainda no clique do Decolar (o gesto que o navegador exige); nas filas, sem
+      // clique, sai na primeira tecla ou clique do jogador.
+      telaCheia.pedir();
       // Partida Privada: um mundo só seu; fila online: a vaga da sala, pelo token.
       const extra = sala !== undefined ? { sala, token } : privada ? { privada: true } : null;
       try {
@@ -322,6 +327,7 @@ function montarMenu() {
       } finally {
         telaCarregamento?.esconder();
         cargaAtual = null;
+        if (!jogoAtual) telaCheia.desarmar(); // não entrou (erro ou ESC no carregamento)
       }
     },
   });
@@ -382,6 +388,7 @@ function voltarParaEntrada() {
   confirmarSaida.fechar();
   comandos.fechar();
   opcoes.fechar();
+  telaCheia.desarmar();
   try {
     jogoAtual?.sair();
   } catch (err) {
