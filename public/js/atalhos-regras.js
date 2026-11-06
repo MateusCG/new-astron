@@ -20,6 +20,8 @@
 // pode estar em uma ação do mesmo contexto (atribuir tira da outra), mas o mesmo
 // botão pode ser o Turbo no voo e o Confirmar no menu.
 
+import { tr, emIngles } from '../../shared/idioma.js';
+
 /** Quantas teclas (e quantas entradas do controle) cada ação aceita. */
 export const ATALHOS_POR_ACAO = 2;
 /** Onde o mapa fica no navegador. */
@@ -35,53 +37,53 @@ export const LIMIAR_APERTO = 0.5;
  * navegador já faz); a ação fica sem tecla no mapa.
  */
 export const ACOES = Object.freeze([
-  { id: 'frente', grupo: 'Voo', nome: 'Acelera', ctx: 'voo', segurar: true },
-  { id: 're', grupo: 'Voo', nome: 'Ré', ctx: 'voo', segurar: true },
-  { id: 'esq', grupo: 'Voo', nome: 'Gira para a esquerda', ctx: 'voo', segurar: true },
-  { id: 'dir', grupo: 'Voo', nome: 'Gira para a direita', ctx: 'voo', segurar: true },
-  { id: 'boost', grupo: 'Voo', nome: 'Turbo (segure)', ctx: 'voo', segurar: true },
-  { id: 'pouso', grupo: 'Voo', nome: 'Pousa e decola', ctx: 'voo' },
-  { id: 'recall', grupo: 'Voo', nome: 'Volta à base', ctx: 'voo' },
-  { id: 'armaZ', grupo: 'Armas', nome: 'Atira com a arma do Z', ctx: 'voo', segurar: true },
-  { id: 'armaX', grupo: 'Armas', nome: 'Atira com a arma do X', ctx: 'voo', segurar: true },
-  { id: 'trocaZ', grupo: 'Armas', nome: 'Troca a arma do Z (casa Q)', ctx: 'voo' },
-  { id: 'trocaX', grupo: 'Armas', nome: 'Troca a arma do X (casa E)', ctx: 'voo' },
-  { id: 'reparo', grupo: 'Itens', nome: 'Kit de reparo', ctx: 'voo' },
-  { id: 'energia', grupo: 'Itens', nome: 'Célula de energia', ctx: 'voo' },
-  { id: 'camTroca', grupo: 'Câmera', nome: 'Troca a câmera', ctx: 'voo' },
-  { id: 'camCima', grupo: 'Câmera', nome: 'Câmera mais de cima', ctx: 'voo', segurar: true },
-  { id: 'camBaixo', grupo: 'Câmera', nome: 'Câmera mais de baixo', ctx: 'voo', segurar: true },
-  { id: 'status', grupo: 'Janelas', nome: 'Status e pontos', ctx: 'voo' },
-  { id: 'inventario', grupo: 'Janelas', nome: 'Inventário', ctx: 'voo' },
-  { id: 'tabela', grupo: 'Janelas', nome: 'Tabela da partida (segure)', ctx: 'voo', segurar: true },
-  { id: 'morte', grupo: 'Janelas', nome: 'Resumo da última morte', ctx: 'voo' },
-  { id: 'opcoes', grupo: 'Janelas', nome: 'Opções (janelas, volume e ping)', ctx: 'voo' },
-  { id: 'comandos', grupo: 'Janelas', nome: 'Comandos (teclas e botões, só para ver)', ctx: 'voo' },
-  { id: 'loja', grupo: 'Janelas', nome: 'Reabre a Loja ou a Evolução, pousado', ctx: 'voo' },
-  { id: 'pontoHp', grupo: 'Pontos', nome: '+10 pontos em HP (Durabilidade)', ctx: 'voo' },
-  { id: 'pontoEn', grupo: 'Pontos', nome: '+10 pontos em EN (Energia)', ctx: 'voo' },
-  { id: 'pontoFis', grupo: 'Pontos', nome: '+10 pontos em Ph. (Físico)', ctx: 'voo' },
-  { id: 'pontoEl', grupo: 'Pontos', nome: '+10 pontos em El. (Elétrico)', ctx: 'voo' },
-  { id: 'pontoOp', grupo: 'Pontos', nome: '+10 pontos em Op. (Operacional)', ctx: 'voo' },
-  { id: 'som', grupo: 'Sistema', nome: 'Liga e desliga o som', ctx: 'sempre' },
-  { id: 'menu', grupo: 'Sistema', nome: 'Fecha a janela ou sai da partida', ctx: 'sempre', fixaTeclado: 'Esc' },
-  { id: 'uiCima', grupo: 'Menus', nome: 'Navega para cima', ctx: 'menu', fixaTeclado: '↑', segurar: true },
-  { id: 'uiBaixo', grupo: 'Menus', nome: 'Navega para baixo', ctx: 'menu', fixaTeclado: '↓', segurar: true },
-  { id: 'uiEsq', grupo: 'Menus', nome: 'Navega para a esquerda', ctx: 'menu', fixaTeclado: '←', segurar: true },
-  { id: 'uiDir', grupo: 'Menus', nome: 'Navega para a direita', ctx: 'menu', fixaTeclado: '→', segurar: true },
-  { id: 'uiConfirmar', grupo: 'Menus', nome: 'Confirma (clica)', ctx: 'menu', fixaTeclado: 'Enter' },
-  { id: 'uiVoltar', grupo: 'Menus', nome: 'Volta (fecha a janela)', ctx: 'menu', fixaTeclado: 'Esc' },
+  { id: 'frente', grupo: 'Voo', nome: tr('Acelera'), ctx: 'voo', segurar: true },
+  { id: 're', grupo: 'Voo', nome: tr('Ré'), ctx: 'voo', segurar: true },
+  { id: 'esq', grupo: 'Voo', nome: tr('Gira para a esquerda'), ctx: 'voo', segurar: true },
+  { id: 'dir', grupo: 'Voo', nome: tr('Gira para a direita'), ctx: 'voo', segurar: true },
+  { id: 'boost', grupo: 'Voo', nome: tr('Turbo (segure)'), ctx: 'voo', segurar: true },
+  { id: 'pouso', grupo: 'Voo', nome: tr('Pousa e decola'), ctx: 'voo' },
+  { id: 'recall', grupo: 'Voo', nome: tr('Volta à base'), ctx: 'voo' },
+  { id: 'armaZ', grupo: 'Armas', nome: tr('Atira com a arma do Z'), ctx: 'voo', segurar: true },
+  { id: 'armaX', grupo: 'Armas', nome: tr('Atira com a arma do X'), ctx: 'voo', segurar: true },
+  { id: 'trocaZ', grupo: 'Armas', nome: tr('Troca a arma do Z (casa Q)'), ctx: 'voo' },
+  { id: 'trocaX', grupo: 'Armas', nome: tr('Troca a arma do X (casa E)'), ctx: 'voo' },
+  { id: 'reparo', grupo: 'Itens', nome: tr('Kit de reparo'), ctx: 'voo' },
+  { id: 'energia', grupo: 'Itens', nome: tr('Célula de energia'), ctx: 'voo' },
+  { id: 'camTroca', grupo: 'Câmera', nome: tr('Troca a câmera'), ctx: 'voo' },
+  { id: 'camCima', grupo: 'Câmera', nome: tr('Câmera mais de cima'), ctx: 'voo', segurar: true },
+  { id: 'camBaixo', grupo: 'Câmera', nome: tr('Câmera mais de baixo'), ctx: 'voo', segurar: true },
+  { id: 'status', grupo: 'Janelas', nome: tr('Status e pontos'), ctx: 'voo' },
+  { id: 'inventario', grupo: 'Janelas', nome: tr('Inventário'), ctx: 'voo' },
+  { id: 'tabela', grupo: 'Janelas', nome: tr('Tabela da partida (segure)'), ctx: 'voo', segurar: true },
+  { id: 'morte', grupo: 'Janelas', nome: tr('Resumo da última morte'), ctx: 'voo' },
+  { id: 'opcoes', grupo: 'Janelas', nome: tr('Opções (janelas, volume e ping)'), ctx: 'voo' },
+  { id: 'comandos', grupo: 'Janelas', nome: tr('Comandos (teclas e botões, só para ver)'), ctx: 'voo' },
+  { id: 'loja', grupo: 'Janelas', nome: tr('Reabre a Loja ou a Evolução, pousado'), ctx: 'voo' },
+  { id: 'pontoHp', grupo: 'Pontos', nome: tr('+10 pontos em HP (Durabilidade)'), ctx: 'voo' },
+  { id: 'pontoEn', grupo: 'Pontos', nome: tr('+10 pontos em EN (Energia)'), ctx: 'voo' },
+  { id: 'pontoFis', grupo: 'Pontos', nome: tr('+10 pontos em Ph. (Físico)'), ctx: 'voo' },
+  { id: 'pontoEl', grupo: 'Pontos', nome: tr('+10 pontos em El. (Elétrico)'), ctx: 'voo' },
+  { id: 'pontoOp', grupo: 'Pontos', nome: tr('+10 pontos em Op. (Operacional)'), ctx: 'voo' },
+  { id: 'som', grupo: 'Sistema', nome: tr('Liga e desliga o som'), ctx: 'sempre' },
+  { id: 'menu', grupo: 'Sistema', nome: tr('Fecha a janela ou sai da partida'), ctx: 'sempre', fixaTeclado: 'Esc' },
+  { id: 'uiCima', grupo: 'Menus', nome: tr('Navega para cima'), ctx: 'menu', fixaTeclado: '↑', segurar: true },
+  { id: 'uiBaixo', grupo: 'Menus', nome: tr('Navega para baixo'), ctx: 'menu', fixaTeclado: '↓', segurar: true },
+  { id: 'uiEsq', grupo: 'Menus', nome: tr('Navega para a esquerda'), ctx: 'menu', fixaTeclado: '←', segurar: true },
+  { id: 'uiDir', grupo: 'Menus', nome: tr('Navega para a direita'), ctx: 'menu', fixaTeclado: '→', segurar: true },
+  { id: 'uiConfirmar', grupo: 'Menus', nome: tr('Confirma (clica)'), ctx: 'menu', fixaTeclado: 'Enter' },
+  { id: 'uiVoltar', grupo: 'Menus', nome: tr('Volta (fecha a janela)'), ctx: 'menu', fixaTeclado: 'Esc' },
 ]);
 
 /** A ação pelo id (ou undefined). */
 export const ACAO = Object.freeze(Object.fromEntries(ACOES.map((a) => [a.id, a])));
 
-/** As ações agrupadas, na ordem: [{ nome, acoes }]. */
+/** As ações agrupadas, na ordem: [{ id, nome, acoes }] (`id` é o grupo em português; `nome` no idioma em uso). */
 export const GRUPOS_ACOES = Object.freeze(
   ACOES.reduce((gs, a) => {
     const g = gs.at(-1);
-    if (g?.nome === a.grupo) g.acoes.push(a);
-    else gs.push({ nome: a.grupo, acoes: [a] });
+    if (g?.id === a.grupo) g.acoes.push(a);
+    else gs.push({ id: a.grupo, nome: tr(a.grupo), acoes: [a] });
     return gs;
   }, []),
 );
@@ -281,15 +283,15 @@ export function acaoDe(mapa, entrada, ctxs = ['voo', 'menu', 'sempre']) {
 // ---------- Nomes na tela ----------
 
 const NOMES_TECLA = {
-  Space: 'Espaço',
+  Space: tr('Espaço'),
   Enter: 'Enter',
-  NumpadEnter: 'Enter num.',
+  NumpadEnter: tr('Enter num.'),
   Tab: 'TAB',
   Backspace: '⌫',
   ShiftLeft: 'Shift',
-  ShiftRight: 'Shift dir.',
+  ShiftRight: tr('Shift dir.'),
   ControlLeft: 'Ctrl',
-  ControlRight: 'Ctrl dir.',
+  ControlRight: tr('Ctrl dir.'),
   AltLeft: 'Alt',
   AltRight: 'AltGr',
   CapsLock: 'Caps',
@@ -323,12 +325,29 @@ const NOMES_TECLA = {
   NumpadDecimal: 'Num ,',
 };
 
-/** Nomes dos botões do mouse, pelo `MouseEvent.button`. */
-const NOMES_MOUSE = ['Clique esq.', 'Clique meio', 'Clique dir.', 'Mouse 4', 'Mouse 5'];
+/**
+ * No inglês, as teclas de símbolo com o nome do teclado americano (o `code` é a
+ * posição da tecla; os nomes de cima são os do ABNT2).
+ */
+const TECLAS_US = {
+  Backquote: '`',
+  BracketLeft: '[',
+  BracketRight: ']',
+  Backslash: '\\',
+  IntlBackslash: '\\',
+  Semicolon: ';',
+  Quote: "'",
+  Slash: '/',
+  NumpadDecimal: 'Num .',
+};
 
-/** Nome curto de uma tecla (o `code`) para a tela: 'KeyW' → 'W', 'Space' → 'Espaço', 'Mouse0' → 'Clique esq.'. */
+/** Nomes dos botões do mouse, pelo `MouseEvent.button`. */
+const NOMES_MOUSE = [tr('Clique esq.'), tr('Clique meio'), tr('Clique dir.'), 'Mouse 4', 'Mouse 5'];
+
+/** Nome curto de uma tecla (o `code`) para a tela: 'KeyW' → 'W', 'Space' → tr('Espaço'), 'Mouse0' → tr('Clique esq.'). */
 export function nomeTecla(code) {
   if (!code) return '';
+  if (emIngles() && TECLAS_US[code]) return TECLAS_US[code];
   if (NOMES_TECLA[code]) return NOMES_TECLA[code];
   if (ehMouse(code)) return NOMES_MOUSE[Number(code.slice(5))] ?? code;
   let m = /^Key([A-Z])$/.exec(code);
@@ -342,44 +361,44 @@ export function nomeTecla(code) {
 
 /** Botões do mapeamento padrão com o nome do DualShock 3 [curto, longo]. */
 const NOMES_BOTAO = [
-  ['✕', '✕ (Cruz)'],
-  ['○', '○ (Círculo)'],
-  ['□', '□ (Quadrado)'],
-  ['△', '△ (Triângulo)'],
+  ['✕', tr('✕ (Cruz)')],
+  ['○', tr('○ (Círculo)')],
+  ['□', tr('□ (Quadrado)')],
+  ['△', tr('△ (Triângulo)')],
   ['L1', 'L1'],
   ['R1', 'R1'],
   ['L2', 'L2'],
   ['R2', 'R2'],
   ['Select', 'Select'],
   ['Start', 'Start'],
-  ['L3', 'L3 (aperta o analógico esq.)'],
-  ['R3', 'R3 (aperta o analógico dir.)'],
-  ['D↑', 'Direcional ↑'],
-  ['D↓', 'Direcional ↓'],
-  ['D←', 'Direcional ←'],
-  ['D→', 'Direcional →'],
+  ['L3', tr('L3 (aperta o analógico esq.)')],
+  ['R3', tr('R3 (aperta o analógico dir.)')],
+  ['D↑', tr('Direcional ↑')],
+  ['D↓', tr('Direcional ↓')],
+  ['D←', tr('Direcional ←')],
+  ['D→', tr('Direcional →')],
   ['PS', 'PS'],
 ];
 const NOMES_EIXO = {
-  'a0-': ['LS←', 'Analógico esq. ←'],
-  'a0+': ['LS→', 'Analógico esq. →'],
-  'a1-': ['LS↑', 'Analógico esq. ↑'],
-  'a1+': ['LS↓', 'Analógico esq. ↓'],
-  'a2-': ['RS←', 'Analógico dir. ←'],
-  'a2+': ['RS→', 'Analógico dir. →'],
-  'a3-': ['RS↑', 'Analógico dir. ↑'],
-  'a3+': ['RS↓', 'Analógico dir. ↓'],
+  'a0-': ['LS←', tr('Analógico esq. ←')],
+  'a0+': ['LS→', tr('Analógico esq. →')],
+  'a1-': ['LS↑', tr('Analógico esq. ↑')],
+  'a1+': ['LS↓', tr('Analógico esq. ↓')],
+  'a2-': ['RS←', tr('Analógico dir. ←')],
+  'a2+': ['RS→', tr('Analógico dir. →')],
+  'a3-': ['RS↑', tr('Analógico dir. ↑')],
+  'a3+': ['RS↓', tr('Analógico dir. ↓')],
 };
 
-/** Nome de uma entrada do controle: curto ('R2', 'LS↑') ou longo ('Analógico esq. ↑'). */
+/** Nome de uma entrada do controle: curto ('R2', 'LS↑') ou longo (tr('Analógico esq. ↑')). */
 export function nomeEntrada(e, longo = false) {
   if (!entradaValida(e)) return '';
   if (e[0] === 'b') {
     const n = Number(e.slice(1));
-    return NOMES_BOTAO[n]?.[longo ? 1 : 0] ?? (longo ? `Botão ${n}` : `B${n}`);
+    return NOMES_BOTAO[n]?.[longo ? 1 : 0] ?? (longo ? tr('Botão {n}', { n }) : `B${n}`);
   }
   if (NOMES_EIXO[e]) return NOMES_EIXO[e][longo ? 1 : 0];
-  return `${longo ? 'Eixo ' : 'E'}${e.slice(1, -1)}${e.at(-1)}`;
+  return longo ? tr('Eixo {n}', { n: `${e.slice(1, -1)}${e.at(-1)}` }) : `E${e.slice(1, -1)}${e.at(-1)}`;
 }
 
 /** Rótulo da ação no dispositivo (a primeira entrada, ou a tecla fixa), '' sem nada. */
@@ -408,14 +427,14 @@ export function linhasDosComandos(mapas) {
     for (const a of g.acoes) {
       const teclado =
         a.fixaTeclado ?
-          [{ texto: a.fixaTeclado, titulo: `Tecla ${a.fixaTeclado} (fixa)`, fixa: true }]
+          [{ texto: a.fixaTeclado, titulo: tr('Tecla {tecla} (fixa)', { tecla: a.fixaTeclado }), fixa: true }]
         : (mapas?.teclado?.[a.id] ?? []).map((c) =>
-            ehMouse(c) ? { texto: nomeTecla(c), titulo: `Mouse: ${nomeTecla(c)}`, mouse: true } : { texto: nomeTecla(c), titulo: `Tecla ${nomeTecla(c)}` },
+            ehMouse(c) ? { texto: nomeTecla(c), titulo: tr('Mouse: {tecla}', { tecla: nomeTecla(c) }), mouse: true } : { texto: nomeTecla(c), titulo: tr('Tecla {tecla}', { tecla: nomeTecla(c) }) },
           );
       const controle = (mapas?.controle?.[a.id] ?? []).filter(entradaValida).map((e) => ({ texto: nomeEntrada(e), titulo: nomeEntrada(e, true), entrada: e }));
       if (teclado.length || controle.length) acoes.push({ id: a.id, nome: a.nome, segurar: !!a.segurar, teclado, controle });
     }
-    if (acoes.length) grupos.push({ nome: g.nome, acoes });
+    if (acoes.length) grupos.push({ id: g.id, nome: g.nome, acoes });
   }
   return grupos;
 }

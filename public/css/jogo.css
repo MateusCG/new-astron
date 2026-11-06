@@ -9894,3 +9894,69 @@ html[data-aparelho='controle'] #comandos .leg-controle {
     transition: none;
   }
 }
+
+/* ----- Seletor de idioma (idioma-dom.js): PT | EN na abertura, no topo do menu, nas
+   Configurações e na tela do celular. O de agora aceso; o clique recarrega. ----- */
+
+.seletor-idioma {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 999px;
+  background: rgba(8, 20, 19, 0.72);
+}
+
+.seletor-idioma button {
+  min-width: 38px;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--texto);
+  font: 700 12px var(--mono);
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.seletor-idioma button:hover,
+.seletor-idioma button:focus-visible {
+  outline: none;
+  opacity: 1;
+  color: var(--neon);
+}
+
+.seletor-idioma button.sel {
+  background: var(--neon);
+  color: #04110f;
+  opacity: 1;
+}
+
+.seletor-idioma.grande button {
+  min-width: 120px;
+  height: 40px;
+  font-size: 15px;
+}
+
+.idioma-abertura {
+  position: absolute;
+  right: calc(clamp(16px, 2.4vw, 40px) + 60px);
+  bottom: calc(clamp(16px, 4vh, 40px) + 7px);
+}
+
+.idioma-tela-grande {
+  margin-top: 16px;
+}
+
+.menu-conta .idioma-menu {
+  margin-left: 8px;
+}
+
+@media (max-width: 700px) {
+  .idioma-abertura {
+    top: 23px;
+    bottom: auto;
+  }
+}

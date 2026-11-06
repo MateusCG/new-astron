@@ -37,22 +37,25 @@ import { equipadosDoInv } from '/shared/loja.js';
 import { CLASSES, naveDe } from '/shared/naves.js';
 import { classeTipo, celulaArma, celulaResist } from './equipamento.js';
 import { resistDoMe } from './cor-resistencia.js';
+import { tr, localeNum } from '../../shared/idioma.js';
 
 /** Quantos pontos cada botão do atributo põe ("+1" e "+10"). */
 const QTDS = [1, 10];
 
 /** Nome por extenso de cada atributo na janela (o original usa Ph., El. e Op.). */
-export const NOME_ATRIBUTO = { durabilidade: 'Durabilidade', energia: 'Energia', fisico: 'Físico', eletrico: 'Elétrico', laser: 'Operacional' };
+export const NOME_ATRIBUTO = { durabilidade: tr('Durabilidade'), energia: tr('Energia'), fisico: tr('Físico'), eletrico: tr('Elétrico'), laser: tr('Operacional') };
 
 /** Mensagem de cada código de recusa do pedido {t:'pontos'}. */
 const MENSAGEM = {
-  sem_pontos: 'Sem pontos livres: suba de nível para ganhar mais',
-  maximo: `Esse atributo já está no máximo (${PONTO_MAX})`,
-  invalido: 'Pedido inválido',
+  sem_pontos: tr('Sem pontos livres: suba de nível para ganhar mais'),
+  maximo: tr('Esse atributo já está no máximo ({n})', { n: PONTO_MAX }),
+  invalido: tr('Pedido inválido'),
 };
 
-const num = (v, casas = 0) => (+v).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: casas });
+const num = (v, casas = 0) => (+v).toLocaleString(localeNum(), { minimumFractionDigits: 0, maximumFractionDigits: casas });
 const pct = (f) => `${num(f * 100, 1)}%`;
+/** "1 ponto" / "5 pontos". */
+const pontos = (n) => (n === 1 ? tr('1 ponto') : tr('{n} pontos', { n }));
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 /** Dados do piloto que a janela usa, a partir do snapshot (tudo tolerante a campo ausente). */
@@ -178,7 +181,7 @@ export class PainelStatus {
   /** Resposta do servidor a um pedido {t:'pontos'}. */
   resultado(m) {
     const nome = NOME_ATRIBUTO[m.item] ?? '';
-    this.msg.textContent = m.ok ? `Pontos em ${nome}` : (MENSAGEM[m.codigo] ?? 'Não deu certo');
+    this.msg.textContent = m.ok ? tr('Pontos em {nome}', { nome }) : (MENSAGEM[m.codigo] ?? tr('Não deu certo'));
     this.msg.className = 'msg ' + (m.ok ? 'bom' : 'ruim');
   }
 
@@ -195,28 +198,28 @@ export class PainelStatus {
       const simples = a === 'energia' || a === 'durabilidade'; // sem a tabela dos tipos de dano
       const tipo = simples ? '' : classeTipo(a);
       const meio = simples
-        ? `<span class="nome-at">${a === 'durabilidade' ? 'Durabilidade (HP)' : 'Energia'}</span><span class="efeito-at"></span>`
-        : `<table class="mini-tipos"><tr><th class="nome-at">${NOME_ATRIBUTO[a]}</th><th>Arma <kbd>Z</kbd></th><th>Arma <kbd>X</kbd></th><th>Resist.</th></tr><tr class="valores"></tr></table>`;
+        ? `<span class="nome-at">${a === 'durabilidade' ? tr('Durabilidade (HP)') : tr('Energia')}</span><span class="efeito-at"></span>`
+        : `<table class="mini-tipos"><tr><th class="nome-at">${NOME_ATRIBUTO[a]}</th><th>${tr('Arma')} <kbd>Z</kbd></th><th>${tr('Arma')} <kbd>X</kbd></th><th>${tr('Resist.')}</th></tr><tr class="valores"></tr></table>`;
       return `<div class="atributo ${tipo}" data-atributo="${a}">
         <b class="qtd"></b>
         <div class="meio">${meio}<span class="linha-pontos"><i class="barra-pontos"><i></i></i><small></small></span></div>
-        <span class="botoes-at">${QTDS.map((q) => `<button type="button" class="mais" data-mais="${a}" data-qtd="${q}" title="+${q} ponto${q > 1 ? 's' : ''} em ${NOME_ATRIBUTO[a]}">+${q}</button>`).join('')}</span>
+        <span class="botoes-at">${QTDS.map((q) => `<button type="button" class="mais" data-mais="${a}" data-qtd="${q}" title="${q > 1 ? tr('+{n} pontos em {nome}', { n: q, nome: NOME_ATRIBUTO[a] }) : tr('+{n} ponto em {nome}', { n: q, nome: NOME_ATRIBUTO[a] })}">+${q}</button>`).join('')}</span>
       </div>`;
     };
     this.corpo.innerHTML = `
       <dl class="ficha">
-        <dt>Piloto</dt><dd class="v-piloto"></dd>
-        <dt>Nave</dt><dd class="v-nave"></dd>
+        <dt>${tr('Piloto')}</dt><dd class="v-piloto"></dd>
+        <dt>${tr('Nave')}</dt><dd class="v-nave"></dd>
       </dl>
       <div class="linhas-st">
-        ${linha('ouro', 'Ouro', false)}
-        ${linha('xp', 'Experiência')}
-        ${linha('esc', 'Escudo')}
-        ${linha('hp', 'Durabilidade (HP)')}
-        ${linha('en', 'Energia')}
+        ${linha('ouro', tr('Ouro'), false)}
+        ${linha('xp', tr('Experiência'))}
+        ${linha('esc', tr('Escudo'))}
+        ${linha('hp', tr('Durabilidade (HP)'))}
+        ${linha('en', tr('Energia'))}
       </div>
       <div class="pontos-st">
-        <div class="livres"><b class="v-livres"></b><span>Pontos livres</span><small>${PONTOS_POR_NIVEL} por nível · máx. ${PONTO_MAX} em cada · sem devolver</small></div>
+        <div class="livres"><b class="v-livres"></b><span>${tr('Pontos livres')}</span><small>${tr('{n} por nível · máx. {max} em cada · sem devolver', { n: PONTOS_POR_NIVEL, max: PONTO_MAX })}</small></div>
         ${ORDEM_ATRIBUTOS.map(atributo).join('')}
       </div>
       <p class="extras-st"></p>`;
@@ -248,15 +251,15 @@ export class PainelStatus {
     const s = this.estado;
     const c = this.campos;
     const raca = RACES[s.race]?.nome ?? '';
-    this.#texto(c.piloto, `${esc(s.nome || 'Piloto')} <em>NV ${s.nivel}</em>`, 'piloto');
+    this.#texto(c.piloto, `${esc(s.nome || tr('Piloto'))} <em>${tr('NV {n}', { n: s.nivel })}</em>`, 'piloto');
     this.#texto(c.nave, [raca, CLASSES[s.classe]?.nome, naveDe(s.race, s.classe, s.tier)?.nome].filter(Boolean).join(' · '), 'nave');
     const barra = (k, atual, max, txt) => {
       this.#texto(c.linhas[k].v, txt, `l${k}`);
       if (c.linhas[k].b) c.linhas[k].b.style.width = `${max > 0 ? Math.max(0, Math.min(1, atual / max)) * 100 : 0}%`;
     };
     barra('ouro', 0, 0, num(s.ouro));
-    barra('xp', s.xp, s.xpProx, s.xpProx > 0 ? `${num(s.xp)} / ${num(s.xpProx)}` : 'máx.');
-    barra('esc', s.escudo, s.maxEscudo, s.maxEscudo > 0 ? `${num(Math.round(s.escudo))} / ${num(Math.round(s.maxEscudo))}` : 'sem escudo');
+    barra('xp', s.xp, s.xpProx, s.xpProx > 0 ? `${num(s.xp)} / ${num(s.xpProx)}` : tr('máx.'));
+    barra('esc', s.escudo, s.maxEscudo, s.maxEscudo > 0 ? `${num(Math.round(s.escudo))} / ${num(Math.round(s.maxEscudo))}` : tr('sem escudo'));
     barra('hp', s.hp, s.maxHp, `${num(Math.ceil(s.hp))} / ${num(s.maxHp)}`);
     barra('en', s.en, s.maxEn, `${num(Math.floor(s.en))} / ${num(s.maxEn)}`);
     this.el.querySelector('.linha-st.esc').classList.toggle('apagada', !(s.maxEscudo > 0));
@@ -284,11 +287,11 @@ export class PainelStatus {
     // O que mais o equipamento dá (só o que não é zero).
     const st = s.status;
     const extras = [
-      st.critico > 0 ? `Crítico das armas +${pct(st.critico)}` : '',
-      st.velMult && st.velMult !== 1 ? `Velocidade ${st.velMult > 1 ? '+' : ''}${pct(st.velMult - 1)}` : '',
-      st.acelMult && st.acelMult !== 1 ? `Aceleração ${st.acelMult > 1 ? '+' : ''}${pct(st.acelMult - 1)}` : '',
-      st.regenEscudo > 0 ? `Escudo +${num(st.regenEscudo, 1)}/s` : '',
-      st.regenHpExtra > 0 ? `Conserto +${num(st.regenHpExtra, 2)} HP/s` : '',
+      st.critico > 0 ? tr('Crítico das armas +{v}', { v: pct(st.critico) }) : '',
+      st.velMult && st.velMult !== 1 ? tr('Velocidade {v}', { v: `${st.velMult > 1 ? '+' : ''}${pct(st.velMult - 1)}` }) : '',
+      st.acelMult && st.acelMult !== 1 ? tr('Aceleração {v}', { v: `${st.acelMult > 1 ? '+' : ''}${pct(st.acelMult - 1)}` }) : '',
+      st.regenEscudo > 0 ? tr('Escudo +{v}/s', { v: num(st.regenEscudo, 1) }) : '',
+      st.regenHpExtra > 0 ? tr('Conserto +{v} HP/s', { v: num(st.regenHpExtra, 2) }) : '',
     ].filter(Boolean);
     this.#texto(c.extras, extras.join(' · '), 'extras');
     c.extras.hidden = !extras.length;
@@ -322,31 +325,31 @@ export class PainelStatus {
     const mais = n < PONTO_MAX ? efeitoDosPontos(s.race, s.classe, { ...s.pontos, [a]: n + 1 }, s.energiaBase, s.hpBase) : null;
     const st = s.status;
     if (a === 'durabilidade') {
-      return `<strong>Durabilidade · ${n} ponto${n === 1 ? '' : 's'}</strong>
-        <p>HP máximo +${num(agora.hp, 1)}</p>
-        <p>Recuperação +${num(agora.regenHp, 2)} HP/s</p>
-        ${mais ? `<p class="mais-um">Com +1 ponto: HP +${num(mais.hp, 1)}, recuperação +${num(mais.regenHp, 2)} HP/s</p>` : '<p class="mais-um">No máximo</p>'}`;
+      return `<strong>${tr('Durabilidade')} · ${pontos(n)}</strong>
+        <p>${tr('HP máximo +{v}', { v: num(agora.hp, 1) })}</p>
+        <p>${tr('Recuperação +{v} HP/s', { v: num(agora.regenHp, 2) })}</p>
+        ${mais ? `<p class="mais-um">${tr('Com +1 ponto: HP +{v}, recuperação +{r} HP/s', { v: num(mais.hp, 1), r: num(mais.regenHp, 2) })}</p>` : `<p class="mais-um">${tr('No máximo')}</p>`}`;
     }
     if (a === 'energia') {
-      return `<strong>Energia · ${n} ponto${n === 1 ? '' : 's'}</strong>
-        <p>Energia máxima +${num(agora.energia, 1)}</p>
-        <p>Recuperação +${num(agora.regenEn, 1)}/s</p>
-        ${mais ? `<p class="mais-um">Com +1 ponto: energia +${num(mais.energia, 1)}, recuperação +${num(mais.regenEn, 1)}/s</p>` : '<p class="mais-um">No máximo</p>'}`;
+      return `<strong>${tr('Energia')} · ${pontos(n)}</strong>
+        <p>${tr('Energia máxima +{v}', { v: num(agora.energia, 1) })}</p>
+        <p>${tr('Recuperação +{v}/s', { v: num(agora.regenEn, 1) })}</p>
+        ${mais ? `<p class="mais-um">${tr('Com +1 ponto: energia +{v}, recuperação +{r}/s', { v: num(mais.energia, 1), r: num(mais.regenEn, 1) })}</p>` : `<p class="mais-um">${tr('No máximo')}</p>`}`;
     }
     const sig = NOME_ATRIBUTO[a].toLowerCase();
     const linhas = [
-      `Poder ${sig} dos pontos: +${pct(agora.poder[a])}`,
-      `Poder ${sig} total: +${pct(st.poder?.[a] ?? 0)}`,
+      tr('Poder {tipo} dos pontos: +{v}', { tipo: sig, v: pct(agora.poder[a]) }),
+      tr('Poder {tipo} total: +{v}', { tipo: sig, v: pct(st.poder?.[a] ?? 0) }),
       // A de agora (com a Tenda, o Disjuntor ou o Amortecedor ligados, ou uma quebra) e, se
       // for diferente, a do equipamento, que é a base sobre a qual a Tenda multiplica.
-      `Resistência ao ${sig}: ${pct(s.res?.[a] ?? st.resist?.[a] ?? 0)}`,
-      Math.abs((s.res?.[a] ?? 0) - (st.resist?.[a] ?? 0)) >= 5e-4 ? `Resistência do equipamento: ${pct(st.resist?.[a] ?? 0)}` : '',
-      `Recarga das armas de dano ${sig}: ${pct(st.recarga?.[a] ?? 0)} mais rápida`,
-      st.penetra?.[a] > 0 ? `Penetração ${sig}: ignora ${pct(st.penetra[a])}` : '',
-      st.critico > 0 ? `Chance de crítico das armas +${pct(st.critico)}` : '',
+      tr('Resistência ao {tipo}: {v}', { tipo: sig, v: pct(s.res?.[a] ?? st.resist?.[a] ?? 0) }),
+      Math.abs((s.res?.[a] ?? 0) - (st.resist?.[a] ?? 0)) >= 5e-4 ? tr('Resistência do equipamento: {v}', { v: pct(st.resist?.[a] ?? 0) }) : '',
+      tr('Recarga das armas de dano {tipo}: {v} mais rápida', { tipo: sig, v: pct(st.recarga?.[a] ?? 0) }),
+      st.penetra?.[a] > 0 ? tr('Penetração {tipo}: ignora {v}', { tipo: sig, v: pct(st.penetra[a]) }) : '',
+      st.critico > 0 ? tr('Chance de crítico das armas +{v}', { v: pct(st.critico) }) : '',
     ].filter(Boolean);
-    return `<strong class="${classeTipo(a)}">Poder ${sig} · ${n} ponto${n === 1 ? '' : 's'}</strong>
+    return `<strong class="${classeTipo(a)}">${tr('Poder {tipo}', { tipo: sig })} · ${pontos(n)}</strong>
       ${linhas.map((l) => `<p>${l}</p>`).join('')}
-      ${mais ? `<p class="mais-um">Com +1 ponto: poder ${sig} +${pct(mais.poder[a])}</p>` : '<p class="mais-um">No máximo</p>'}`;
+      ${mais ? `<p class="mais-um">${tr('Com +1 ponto: poder {tipo} +{v}', { tipo: sig, v: pct(mais.poder[a]) })}</p>` : `<p class="mais-um">${tr('No máximo')}</p>`}`;
   }
 }

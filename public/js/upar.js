@@ -7,6 +7,7 @@
 
 import { aoApertar } from './atalhos.js';
 import { OPCOES_UPAR, UPAR_QTD, estadoUpar, mostraUpar, pedidoUpar } from './upar-regras.js';
+import { tr } from '../../shared/idioma.js';
 
 /** Duas setas para cima, como a do LoL. */
 const SETAS = '<svg viewBox="0 0 24 16" aria-hidden="true"><path d="M4 9.5L12 3l8 6.5" /><path d="M4 15L12 8.5l8 6.5" /></svg>';
@@ -21,10 +22,10 @@ export class UparPontos {
     this.estado = estadoUpar(null);
     this.vivo = true;
     this.el.innerHTML =
-      `<span class="livres" title="Pontos livres: cada aba põe ${UPAR_QTD}"><b>0</b>pts</span>` +
+      `<span class="livres" title="${tr('Pontos livres: cada aba põe {n}', { n: UPAR_QTD })}"><b>0</b>pts</span>` +
       OPCOES_UPAR.map(
         (o) =>
-          `<button type="button" class="aba-upar ${o.cor}" data-atributo="${o.atributo}" title="+${UPAR_QTD} em ${o.nome}">` +
+          `<button type="button" class="aba-upar ${o.cor}" data-atributo="${o.atributo}" title="${tr('+{n} em {nome}', { n: UPAR_QTD, nome: o.nome })}">` +
           `<span class="setas">${SETAS}</span><b class="sigla">${o.sigla}</b></button>`,
       ).join('');
     this.qtdLivres = this.el.querySelector('.livres b');

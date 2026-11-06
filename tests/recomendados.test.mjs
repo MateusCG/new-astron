@@ -98,6 +98,6 @@ test('recomendados: a dica de cada seção de equipamento', () => {
 test('recomendados: é a primeira aba da Loja e a que abre', () => {
   const src = readFileSync(new URL('../public/js/servicos.js', import.meta.url), 'utf8');
   const loja = src.slice(src.indexOf('loja: ['), src.indexOf('evolucao: ['));
-  assert.match(loja, /^loja: \[\s*\['recomendados', 'Recomendados'\],\s*\['armas'/);
+  assert.match(loja, /^loja: \[\s*\['recomendados', tr\('Recomendados'\)\],\s*\['armas'/);
   assert.match(src, /this\.aba = \{ loja: 'recomendados'/);
 });

@@ -6,6 +6,7 @@
 // que couber e o snapshot traz os pontos novos. Puro e testado (tests/upar.test.mjs).
 
 import { ORDEM_ATRIBUTOS, PONTO_MAX, normalizarPontos, pontosLivres } from '../../shared/status.js';
+import { tr } from '../../shared/idioma.js';
 
 /** Quantos pontos cada aba põe por clique (ou tecla). */
 export const UPAR_QTD = 10;
@@ -16,11 +17,11 @@ export const UPAR_QTD = 10;
  * últimos, como no STATUS).
  */
 export const OPCOES_UPAR = Object.freeze([
-  { atributo: 'durabilidade', sigla: 'Hp.', acao: 'pontoHp', cor: 'hp', nome: 'Durabilidade (HP máximo e regeneração de HP)' },
-  { atributo: 'energia', sigla: 'En.', acao: 'pontoEn', cor: 'en', nome: 'Energia (máxima e regeneração)' },
-  { atributo: 'fisico', sigla: 'Ph.', acao: 'pontoFis', cor: 'fisico', nome: 'Físico (dano das armas físicas)' },
-  { atributo: 'eletrico', sigla: 'El.', acao: 'pontoEl', cor: 'eletrico', nome: 'Elétrico (dano das armas elétricas)' },
-  { atributo: 'laser', sigla: 'Op.', acao: 'pontoOp', cor: 'laser', nome: 'Operacional (dano das armas de laser)' },
+  { atributo: 'durabilidade', sigla: 'Hp.', acao: 'pontoHp', cor: 'hp', nome: tr('Durabilidade (HP máximo e regeneração de HP)') },
+  { atributo: 'energia', sigla: 'En.', acao: 'pontoEn', cor: 'en', nome: tr('Energia (máxima e regeneração)') },
+  { atributo: 'fisico', sigla: 'Ph.', acao: 'pontoFis', cor: 'fisico', nome: tr('Físico (dano das armas físicas)') },
+  { atributo: 'eletrico', sigla: 'El.', acao: 'pontoEl', cor: 'eletrico', nome: tr('Elétrico (dano das armas elétricas)') },
+  { atributo: 'laser', sigla: 'Op.', acao: 'pontoOp', cor: 'laser', nome: tr('Operacional (dano das armas de laser)') },
 ]);
 
 /**

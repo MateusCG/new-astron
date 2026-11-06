@@ -42,6 +42,7 @@ import { EQUIPAMENTOS_ORIGINAL } from './equipamentos-original.js';
 import { FATOR_ESCALA_HP, FATOR_ENERGIA, MS_POR_S, ORDEM_CLASSES } from './naves.js';
 import { FATOR_OURO, FATOR_OURO_EVOLUIR, PRECO_EVOLUIR_MIN, RESIST_MAX, RESIST_POR_PONTO, TIPOS_DANO } from './armas.js';
 import { NIVEL_ITEM_MAX } from './versoes.js';
+import { tr, localeNum } from './idioma.js';
 
 export { NIVEL_ITEM_MAX, RESIST_MAX };
 
@@ -54,7 +55,7 @@ export const FATOR_PCT = 0.01; // % do original → fração
 export const ARREDONDA_OURO = 10; // preços de 10 em 10
 
 /** Nome de cada categoria, na ordem da Loja e do Inventário. */
-export const CATEGORIAS_EQUIP = { escudo: 'Escudo', armadura: 'Armadura', potenciador: 'Potenciador' };
+export const CATEGORIAS_EQUIP = { escudo: tr('Escudo'), armadura: tr('Armadura'), potenciador: tr('Potenciador') };
 export const ORDEM_CATEGORIAS_EQUIP = Object.keys(CATEGORIAS_EQUIP);
 
 /**
@@ -241,38 +242,40 @@ export function efeitosDoEquip(chave, nivel = 1) {
 
 /** Texto curto de um efeito de equipamento para a Loja, o Inventário e o STATUS. */
 export function textoEfeitoEquip(ef) {
-  const s = (x) => (+x.toFixed(1)).toLocaleString('pt-BR');
-  const p = (x) => `${(+(x * 100).toFixed(1)).toLocaleString('pt-BR')}%`;
-  const t = ef.tipoDano ? ` ${SIGLA_TIPO[ef.tipoDano]}` : '';
+  const s = (x) => (+x.toFixed(1)).toLocaleString(localeNum());
+  const p = (x) => `${(+(x * 100).toFixed(1)).toLocaleString(localeNum())}%`;
+  // Com o tipo de dano ("Poder Ph. +5%") ou sem ("Poder +5%"): duas chaves.
+  const t = ef.tipoDano ? SIGLA_TIPO[ef.tipoDano] : null;
+  const comTipo = (comT, semT, vars) => (t ? tr(comT, { t, ...vars }) : tr(semT, vars));
   switch (ef.tipo) {
     case 'hp':
-      return `Durabilidade +${s(ef.valor)}`;
+      return tr('Durabilidade +{v}', { v: s(ef.valor) });
     case 'escudo':
-      return `Escudo +${s(ef.valor)}`;
+      return tr('Escudo +{v}', { v: s(ef.valor) });
     case 'regenEscudo':
-      return `Escudo +${s(ef.valor)}/s`;
+      return tr('Escudo +{v}/s', { v: s(ef.valor) });
     case 'energia':
-      return `Energia +${s(ef.valor)}`;
+      return tr('Energia +{v}', { v: s(ef.valor) });
     case 'regenEn':
-      return `Energia +${s(ef.valor)}/s`;
+      return tr('Energia +{v}/s', { v: s(ef.valor) });
     case 'regenHp':
-      return `Conserto +${s(ef.valor)} HP/s`;
+      return tr('Conserto +{v} HP/s', { v: s(ef.valor) });
     case 'poder':
-      return `Poder${t} +${p(ef.valor)}`;
+      return comTipo('Poder {t} +{v}', 'Poder +{v}', { v: p(ef.valor) });
     case 'recarga':
-      return `Recarga${t} ${p(ef.valor)} mais rápida`;
+      return comTipo('Recarga {t} {v} mais rápida', 'Recarga {v} mais rápida', { v: p(ef.valor) });
     case 'resist':
-      return `Resistência${t} +${p(ef.valor)}`;
+      return comTipo('Resistência {t} +{v}', 'Resistência +{v}', { v: p(ef.valor) });
     case 'resistPct':
-      return `Resistência${t} +${p(ef.valor)} sobre a da armadura e do escudo`;
+      return comTipo('Resistência {t} +{v} sobre a da armadura e do escudo', 'Resistência +{v} sobre a da armadura e do escudo', { v: p(ef.valor) });
     case 'penetra':
-      return `Penetração${t}: ignora ${p(ef.valor)} da resistência`;
+      return comTipo('Penetração {t}: ignora {v} da resistência', 'Penetração: ignora {v} da resistência', { v: p(ef.valor) });
     case 'critico':
-      return `Chance de crítico da arma +${p(ef.valor)} (dano dobrado)`;
+      return tr('Chance de crítico da arma +{v} (dano dobrado)', { v: p(ef.valor) });
     case 'velocidade':
-      return `Velocidade +${p(ef.valor)}`;
+      return tr('Velocidade +{v}', { v: p(ef.valor) });
     case 'aceleracao':
-      return `Aceleração +${p(ef.valor)}`;
+      return tr('Aceleração +{v}', { v: p(ef.valor) });
     default:
       return ef.tipo;
   }

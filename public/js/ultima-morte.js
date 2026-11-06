@@ -11,13 +11,14 @@
 
 import { aoApertar } from './atalhos.js';
 import { SIGLA_TIPO } from '../../shared/equipamentos.js';
+import { tr } from '../../shared/idioma.js';
 
 /** A ordem e o nome de cada tipo no resumo (o `outro` é o golpe sem tipo). */
 const TIPOS = ['fisico', 'laser', 'eletrico'];
-const NOME_TIPO = { ...SIGLA_TIPO, outro: 'Outros' };
+const NOME_TIPO = { ...SIGLA_TIPO, outro: tr('Outros') };
 
 /** O selo ao lado do nome da fonte, pelo tipo da entidade. */
-const SELO = { monstro: 'Monstro', escolta: 'Escolta', torreta: 'Torre', nucleo: 'Objetivo', minerador: 'Minerador', campo: 'Base' };
+const SELO = { monstro: tr('Monstro'), escolta: tr('Escolta'), torreta: tr('Torre'), nucleo: tr('Objetivo'), minerador: tr('Minerador'), campo: tr('Base') };
 
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
@@ -26,8 +27,8 @@ const esc = (t) => String(t).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
  * piloto, Monstro, Torre...) e a classe da cor (inimigo, aliado, objetivo, apagado).
  */
 function fonteNaTela(f, meuTime, meuId) {
-  if (!f) return { nome: 'Desconhecido', selo: '', classe: 'apagado' };
-  const nome = f.id !== null && f.id === meuId ? 'Você' : f.nome;
+  if (!f) return { nome: tr('Desconhecido'), selo: '', classe: 'apagado' };
+  const nome = f.id !== null && f.id === meuId ? tr('Você') : f.nome;
   const selo = f.tipo === 'jogador' ? `NV ${f.nivel ?? 1}` : (SELO[f.tipo] ?? '');
   let classe = 'inimigo';
   if (f.tipo === 'desconhecido') classe = 'apagado';
@@ -123,7 +124,7 @@ export class PainelUltimaMorte {
     if (!this.el) return;
     const corpo = this.el.querySelector('.corpo');
     if (!this.resumo) {
-      corpo.innerHTML = '<p class="vazio">Nenhuma morte nesta partida</p>';
+      corpo.innerHTML = `<p class="vazio">${tr('Nenhuma morte nesta partida')}</p>`;
       return;
     }
     const r = linhasDoResumo(this.resumo, this.meuTime, this.meuId);
@@ -137,15 +138,15 @@ export class PainelUltimaMorte {
             </li>`,
           )
           .join('')
-      : '<li class="vazio">Nenhum dano registrado</li>';
+      : `<li class="vazio">${tr('Nenhum dano registrado')}</li>`;
     const tipos = r.tipos.map((t) => `<li class="t-${t.tipo}${t.v > 0 ? '' : ' zero'}"><span>${esc(t.sigla)}:</span><b class="num">${t.v}</b></li>`).join('');
     corpo.innerHTML = `
-      <p class="morto-por"><span class="rot">Morto por</span><span class="quem ${r.por.classe}">${esc(r.por.nome)}</span>${selo(r.por)}</p>
-      <h3>Fontes de dano</h3>
+      <p class="morto-por"><span class="rot">${tr('Morto por')}</span><span class="quem ${r.por.classe}">${esc(r.por.nome)}</span>${selo(r.por)}</p>
+      <h3>${tr('Fontes de dano')}</h3>
       <ul class="fontes">${fontes}</ul>
-      <h3>Danos recebidos<b class="num">${r.total}</b></h3>
+      <h3>${tr('Danos recebidos')}<b class="num">${r.total}</b></h3>
       <ul class="tipos">${tipos}</ul>
-      <p class="janela">Últimos ${r.janela} s antes da morte</p>`;
+      <p class="janela">${tr('Últimos {s} s antes da morte', { s: r.janela })}</p>`;
     if (this.aberto) this.#mostrar(true);
   }
 }

@@ -75,6 +75,7 @@ import {
   pctCarregamento,
   textoCarregamento,
 } from './carregamento-regras.js';
+import { tr } from '../../shared/idioma.js';
 
 /** Arquivos baixando ao mesmo tempo na tela de carregamento (o navegador abre ~6 por servidor). */
 const SIMULTANEOS = 6;
@@ -205,7 +206,7 @@ export class TelaCarregamento {
         l.li.classList.toggle('falhou', l.falhas > 0);
         const conta = l.texto || (l.total ? `${l.feitos}/${l.total}` : '');
         l.li.querySelector('.conta').textContent = conta;
-        l.li.title = l.falhas ? `${l.titulo} · ${l.falhas} não carrega${l.falhas > 1 ? 'ram' : 'u'} (o jogo tenta de novo quando precisar)` : l.titulo;
+        l.li.title = l.falhas ? `${l.titulo} · ${tr(l.falhas > 1 ? '{n} não carregaram (o jogo tenta de novo quando precisar)' : '{n} não carregou (o jogo tenta de novo quando precisar)', { n: l.falhas })}` : l.titulo;
         l.li.querySelector('.fio i').style.width = `${l.total ? (Math.min(l.feitos, l.total) / l.total) * 100 : 0}%`;
       }
       this.el.classList.toggle('pronta', pct >= 100);
@@ -280,7 +281,7 @@ export class Carregamento {
     t?.linha('sons', { total: sons.length + SONS_LOCUTOR.length });
     t?.linha('miniaturas', { total: linha.length });
     t?.linha('icones', { total: icones.length });
-    t?.linha('servidor', { total: 1, texto: 'Conectando…' });
+    t?.linha('servidor', { total: 1, texto: tr('Conectando…') });
     t?.linha('gpu', { total: PASSOS_GPU });
     const tarefas = [
       // O mapa primeiro: a cena só se monta com ele (o resto pode chegar depois).
@@ -319,7 +320,7 @@ export class Carregamento {
 
   /** O servidor aceitou a entrada (bemvindo). */
   conectado(boas) {
-    this.tela?.linha('servidor', { feitos: 1, texto: boas?.teste ? 'Mundo de teste' : 'Conectado' });
+    this.tela?.linha('servidor', { feitos: 1, texto: boas?.teste ? tr('Mundo de teste') : tr('Conectado') });
   }
 
   /** Quanto levou, para o console e os testes de navegador. */

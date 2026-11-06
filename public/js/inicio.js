@@ -2,8 +2,14 @@
 // "Abra numa tela maior" no lugar da abertura e para aqui, sem baixar o jogo; fora
 // dele, carrega o jogo (main.js, que monta a abertura).
 
+import { tr } from '../../shared/idioma.js';
+import { traduzirDom, montarSeletoresIdioma } from './idioma-dom.js';
 import { ehCelular, linkDoJogo } from './tela-grande-regras.js';
 import { ARTE_ABERTURA } from './abertura-regras.js';
+
+// O HTML no idioma escolhido antes de qualquer tela aparecer.
+traduzirDom();
+montarSeletoresIdioma();
 
 const celular = ehCelular({
   ua: navigator.userAgent,
@@ -36,9 +42,9 @@ function mostrarTelaGrande() {
   copiar.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(link);
-      avisar('Link copiado. Cole no navegador do computador.');
+      avisar(tr('Link copiado. Cole no navegador do computador.'));
     } catch {
-      avisar(`Não deu para copiar. O endereço é ${link}`);
+      avisar(tr('Não deu para copiar. O endereço é {link}', { link }));
     }
   });
 
@@ -47,7 +53,7 @@ function mostrarTelaGrande() {
   if (typeof navigator.share === 'function') {
     enviar.hidden = false;
     enviar.addEventListener('click', () => {
-      navigator.share({ title: 'New AstroN', text: 'Jogar New AstroN no computador', url: link }).catch(() => {});
+      navigator.share({ title: 'New AstroN', text: tr('Jogar New AstroN no computador'), url: link }).catch(() => {});
     });
   }
 }

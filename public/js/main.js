@@ -169,6 +169,7 @@ import { TelaCheia } from './tela-cheia.js';
 import { MELHORIAS_MINERADOR, MELHORIA_TORRETAS } from '/shared/evolucao.js';
 import { RECALL_S } from '/shared/recall.js';
 import { TORRETAS } from '/shared/terrain.js';
+import { tr, nomeArma } from '/shared/idioma.js';
 
 const INTERP_MS = 120;
 // Quanto a cena sobe em tela baixa (redimensionar): SUBIR_CENA_PX − FRAC × altura.
@@ -177,29 +178,31 @@ const SUBIR_CENA_FRAC = 0.21;
 // Diferença entre a predição e o servidor acima disso é salto (recall, renascimento),
 // não erro de predição: vai direto, sem suavizar, e a câmera acompanha na hora.
 const SALTO_M = 30;
+/** O " · +N ouro" do fim das notícias de abate (vazio sem ouro). */
+const maisOuro = (n) => (n > 0 ? tr(' · +{n} ouro', { n }) : '');
 // Por que a volta à base foi cancelada ou recusada (motivo do evento 'recall').
 const MOTIVO_RECALL = {
   cancelado: {
-    dano: 'você levou dano',
-    tiro: 'você apertou o gatilho',
-    boost: 'você deu boost',
-    velocidade: 'a nave passou de quase parada',
-    teleporte: 'você se teleportou',
+    dano: tr('você levou dano'),
+    tiro: tr('você apertou o gatilho'),
+    boost: tr('você deu boost'),
+    velocidade: tr('a nave passou de quase parada'),
+    teleporte: tr('você se teleportou'),
   },
   recusado: {
-    na_base: 'Você já está na base',
-    tiro: 'Solte o gatilho para voltar à base',
-    boost: 'Solte o boost para voltar à base',
-    velocidade: 'Freie antes: a volta à base pede a nave quase parada',
+    na_base: tr('Você já está na base'),
+    tiro: tr('Solte o gatilho para voltar à base'),
+    boost: tr('Solte o boost para voltar à base'),
+    velocidade: tr('Freie antes: a volta à base pede a nave quase parada'),
   },
 };
 // O que cada objetivo dá a quem o toma, para a notícia (números de server/bonus.js e server/objetivos.js).
 const GANHO_OBJETIVO = {
-  ataque: ['derrotou o SN-4', 'bônus de ataque (+20% de dano)'],
-  suporte: ['derrubou a torre de comunicação', 'bônus de suporte (vida e energia)'],
-  sonda: ['destruiu a sonda errante', 'bônus de velocidade (+25%)'],
-  medusa: ['derrotou a Medusa Anciã', 'o time ganha +15% de dano e de velocidade'],
-  nucleo: ['tomou o Núcleo de He-3', 'onda de mineradores do Núcleo'],
+  ataque: [tr('derrotou o SN-4'), tr('bônus de ataque (+20% de dano)')],
+  suporte: [tr('derrubou a torre de comunicação'), tr('bônus de suporte (vida e energia)')],
+  sonda: [tr('destruiu a sonda errante'), tr('bônus de velocidade (+25%)')],
+  medusa: [tr('derrotou a Medusa Anciã'), tr('o time ganha +15% de dano e de velocidade')],
+  nucleo: [tr('tomou o Núcleo de He-3'), tr('onda de mineradores do Núcleo')],
 };
 // Mais que isto para dentro da planta, a câmera estaria dentro da casca do modelo de
 // rocha (que fica até 4 m para fora da planta): a câmera confere uma volta deste raio.
@@ -253,7 +256,7 @@ function alternarSom() {
   mostrarEstadoSom();
 }
 function mostrarEstadoSom() {
-  for (const el of document.querySelectorAll('.estado-som')) el.textContent = sons.mudo ? 'Som desligado' : 'Som ligado';
+  for (const el of document.querySelectorAll('.estado-som')) el.textContent = sons.mudo ? tr('Som desligado') : tr('Som ligado');
   for (const el of document.querySelectorAll('.estado-som, .botao-volume')) el.classList.toggle('mudo', sons.mudo);
 }
 const painelVolume = new PainelVolume({ sons, aoMudarSom: mostrarEstadoSom });
@@ -315,7 +318,7 @@ function montarMenu() {
     sons,
     painelVolume,
     aoMudarSom: mostrarEstadoSom,
-    mensagemErro: (err) => MENSAGENS_ERRO[err?.message] ?? `Erro ao iniciar o jogo (${err?.message ?? err}). Mande um print desta tela.`,
+    mensagemErro: (err) => MENSAGENS_ERRO[err?.message] ?? tr('Erro ao iniciar o jogo ({erro}). Mande um print desta tela.', { erro: err?.message ?? err }),
     aoDecolar: async ({ nome, race, classe, teste, ia, privada, sala, token }) => {
       // Ainda no clique do Decolar (o gesto que o navegador exige); nas filas, sem
       // clique, sai na primeira tecla ou clique do jogador.
@@ -402,16 +405,16 @@ function voltarParaEntrada() {
 // escondia a causa (WebGL desligado no navegador parecia problema de servidor).
 const MENSAGENS_ERRO = {
   sem_webgl:
-    'Seu navegador está sem gráficos 3D (WebGL). Ative a "aceleração de hardware" nas configurações do navegador, reinicie-o e tente de novo.',
-  sem_conexao: 'Não deu para conectar ao servidor do jogo. Confira sua internet e tente de novo.',
-  tempo_esgotado: 'O servidor demorou demais para responder. Tente de novo em instantes.',
-  conexao_fechada: 'O servidor fechou a conexão antes de você entrar. Tente de novo.',
-  partida_cheia: 'A partida está cheia (3 contra 3). Tente de novo em instantes.',
-  teste_cheio: 'Muitos pilotos no modo de teste agora. Tente de novo em instantes ou entre na partida normal.',
-  privada_cheia: 'Muitas partidas privadas rodando agora. Tente de novo em instantes ou entre numa fila online.',
-  sala_invalida: 'A vaga da sua sala não vale mais (a sala acabou ou o tempo para entrar passou). Procure outra partida.',
-  raca_bloqueada: 'Essa raça ainda não está liberada. Escolha Acron, Bellico ou Shrewdo.',
-  raca_invalida: 'Raça desconhecida. Escolha Acron, Bellico ou Shrewdo.',
+    tr('Seu navegador está sem gráficos 3D (WebGL). Ative a "aceleração de hardware" nas configurações do navegador, reinicie-o e tente de novo.'),
+  sem_conexao: tr('Não deu para conectar ao servidor do jogo. Confira sua internet e tente de novo.'),
+  tempo_esgotado: tr('O servidor demorou demais para responder. Tente de novo em instantes.'),
+  conexao_fechada: tr('O servidor fechou a conexão antes de você entrar. Tente de novo.'),
+  partida_cheia: tr('A partida está cheia (3 contra 3). Tente de novo em instantes.'),
+  teste_cheio: tr('Muitos pilotos no modo de teste agora. Tente de novo em instantes ou entre na partida normal.'),
+  privada_cheia: tr('Muitas partidas privadas rodando agora. Tente de novo em instantes ou entre numa fila online.'),
+  sala_invalida: tr('A vaga da sua sala não vale mais (a sala acabou ou o tempo para entrar passou). Procure outra partida.'),
+  raca_bloqueada: tr('Essa raça ainda não está liberada. Escolha Acron, Bellico ou Shrewdo.'),
+  raca_invalida: tr('Raça desconhecida. Escolha Acron, Bellico ou Shrewdo.'),
 };
 
 let rendererUnico = null;
@@ -499,7 +502,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     : null;
   const armasNave = new ArmasNave({
     race,
-    aoTrocar: (encaixe, i, kind) => hud.noticia(`Arma do ${encaixe ? 'X' : 'Z'}: ${WEAPONS[kind].nome}`, 'bom'),
+    aoTrocar: (encaixe, i, kind) => hud.noticia(tr('Arma do {tecla}: {arma}', { tecla: encaixe ? 'X' : 'Z', arma: nomeArma(WEAPONS[kind]) }), 'bom'),
     aoRecusar: (texto) => hud.noticia(texto, 'ruim'),
     signal: controles.parar.signal, // desliga junto com os controles ao sair
   });
@@ -622,7 +625,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
   // Outras naves.
   const snaps = [];
   const outras = new Map(); // id -> { obj, drone, nome, race }
-  const nomes = new Map(TORRETAS.map((t) => [t.id, 'Torreta'])); // "destruído por Torreta"
+  const nomes = new Map(TORRETAS.map((t) => [t.id, tr('Torreta')])); // "destruído por Torreta"
   // Subiu de nível ou evoluiu a nave (`forte`): a luz da raça subindo da nave de quem foi
   // (efeitos.subirNivel) e o som LEVEL_UP, um som de interface (sem posição, no nível dele em nivel-sons.js),
   // de quem for a nave; o seu sempre toca. Na sua, o `texto` sobe da nave junto ("NÍVEL 5").
@@ -671,7 +674,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     const apertouPouso = inp.p && !pred.pAnt;
     if (apertouPouso && !pred.pousado && !pousoPermitido(pred)) {
       hud.noticia(
-        areaPouso(pred.x, pred.z) ? 'Esta plataforma é do outro time' : 'Só dá para pousar na sua base e nas plataformas de pouso',
+        areaPouso(pred.x, pred.z) ? tr('Esta plataforma é do outro time') : tr('Só dá para pousar na sua base e nas plataformas de pouso'),
         'ruim',
       );
     }
@@ -829,13 +832,13 @@ function montarJogo(rede, boas, renderer, race, classe) {
     }
     if (!meu) return;
     if (e.estado === 'chegou') saltoForcado = true; // mesmo curto (já estava perto da base), sem suavizar
-    if (e.estado === 'inicio') hud.noticia(`Voltando à base em ${e.s} s · sem tiro, sem boost, quase parado`, 'bom');
-    else if (e.estado === 'chegou' && !e.partida) hud.noticia('De volta à base', 'bom'); // no começo da partida, a notícia é a do 'partida'
+    if (e.estado === 'inicio') hud.noticia(tr('Voltando à base em {s} s · sem tiro, sem boost, quase parado', { s: e.s }), 'bom');
+    else if (e.estado === 'chegou' && !e.partida) hud.noticia(tr('De volta à base'), 'bom'); // no começo da partida, a notícia é a do 'partida'
     else if (e.estado === 'cancelado') {
       recallLocal = null;
       const porque = MOTIVO_RECALL.cancelado[e.motivo];
-      hud.noticia(porque ? `Volta à base cancelada: ${porque}` : 'Volta à base cancelada', porque ? 'ruim' : '');
-    } else if (e.estado === 'recusado') hud.noticia(MOTIVO_RECALL.recusado[e.motivo] ?? 'Não dá para voltar à base agora', 'ruim');
+      hud.noticia(porque ? tr('Volta à base cancelada: {porque}', { porque }) : tr('Volta à base cancelada'), porque ? 'ruim' : '');
+    } else if (e.estado === 'recusado') hud.noticia(MOTIVO_RECALL.recusado[e.motivo] ?? tr('Não dá para voltar à base agora'), 'ruim');
   }
 
   /**
@@ -852,11 +855,11 @@ function montarJogo(rede, boas, renderer, race, classe) {
     const meu = e.id === meuId;
     if (de && !meu) efeitos.somVolta('partida', de.x, de.z);
     efeitos.somVolta('chegada', e.x, e.z, { propria: meu });
-    const alvo = e.alvo === meuId ? 'você' : (nomes.get(e.alvo) ?? 'o companheiro');
+    const alvo = e.alvo === meuId ? tr('você') : (nomes.get(e.alvo) ?? tr('o companheiro'));
     if (e.id === meuId) {
       saltoForcado = true;
-      hud.noticia(`Teleportado até ${alvo}`, 'bom');
-    } else if (e.time === meuTime) hud.noticia(`${nomes.get(e.id) ?? '?'} se teleportou até ${alvo}`, 'bom');
+      hud.noticia(tr('Teleportado até {alvo}', { alvo }), 'bom');
+    } else if (e.time === meuTime) hud.noticia(tr('{quem} se teleportou até {alvo}', { quem: nomes.get(e.id) ?? '?', alvo }), 'bom');
   }
 
   /** Notícia de um evento 'objetivo' (apareceu, tomado, coletou, cancelou). */
@@ -866,18 +869,18 @@ function montarJogo(rede, boas, renderer, race, classe) {
     const nome = NOME_OBJETIVO[tipo];
     const meu = e.time === meuTime;
     if (e.acao === 'apareceu') {
-      if (tipo === 'plataforma') hud.noticia(`${nome} aberta: pouse 6 s para o time ganhar ouro`);
-      else if (tipo === 'nucleo' && e.nivel > 1) hud.noticia(`${nome} voltou mais forte · nível ${e.nivel}`);
-      else hud.noticia(`${nome} apareceu`);
+      if (tipo === 'plataforma') hud.noticia(tr('{nome} aberta: pouse 6 s para o time ganhar ouro', { nome }));
+      else if (tipo === 'nucleo' && e.nivel > 1) hud.noticia(tr('{nome} voltou mais forte · nível {n}', { nome, n: e.nivel }));
+      else hud.noticia(tr('{nome} apareceu', { nome }));
     } else if (e.acao === 'tomado') {
-      const [como, ganho] = GANHO_OBJETIVO[tipo] ?? ['tomou', ''];
-      const quem = e.por === meuId ? 'Você' : (e.quem ?? (meu ? 'Seu time' : 'O inimigo'));
-      hud.noticia(`${quem} ${como} · ${meu ? 'seu time' : 'inimigo'}${ganho ? `: ${ganho}` : ''}`, meu ? 'bom' : 'ruim');
+      const [como, ganho] = GANHO_OBJETIVO[tipo] ?? [tr('tomou'), ''];
+      const quem = e.por === meuId ? tr('Você') : (e.quem ?? (meu ? tr('Seu time') : tr('O inimigo')));
+      hud.noticia(`${quem} ${como} · ${meu ? tr('seu time') : tr('inimigo')}${ganho ? `: ${ganho}` : ''}`, meu ? 'bom' : 'ruim');
     } else if (e.acao === 'coletou') {
-      if (meu) hud.noticia(`${nome}: +${e.ouro} de ouro para cada um do time${e.quem ? ` (${e.quem} +${e.ouroPouso})` : ''}`, 'bom');
-      else hud.noticia(`O inimigo coletou a ${nome.toLowerCase()}`, 'ruim');
+      if (meu) hud.noticia(tr('{nome}: +{ouro} de ouro para cada um do time', { nome, ouro: e.ouro }) + (e.quem ? ` (${e.quem} +${e.ouroPouso})` : ''), 'bom');
+      else hud.noticia(tr('O inimigo coletou a {nome}', { nome: nome.toLowerCase() }), 'ruim');
     } else if (e.acao === 'cancelou' && meu) {
-      hud.noticia(`Pouso na ${nome.toLowerCase()} cancelado: ${e.motivo === 'dano' ? 'levou dano' : 'saiu da plataforma'}`, 'ruim');
+      hud.noticia(tr('Pouso na {nome} cancelado: {porque}', { nome: nome.toLowerCase(), porque: e.motivo === 'dano' ? tr('levou dano') : tr('saiu da plataforma') }), 'ruim');
     }
   }
 
@@ -1017,7 +1020,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
         if (e.alvo === meuId && e.dano > 0) hud.levarDano();
         // Seu golpe crítico: "CRÍTICO" sobe do alvo.
         if (e.crit && e.por === meuId && !critFinal.has(e.alvo)) {
-          hud.flutuante(e.x, e.y + 1, e.z, [{ txt: 'CRÍTICO', classe: 'crit' }]);
+          hud.flutuante(e.x, e.y + 1, e.z, [{ txt: tr('CRÍTICO'), classe: 'crit' }]);
         }
       } else if (e.e === 'miss') {
         // O debuff elétrico que ia pegar na sua nave falhou (a resistência El.): o "MISS".
@@ -1032,8 +1035,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
         // Monstro que você abateu (ou que um aliado abateu perto de você, a XP do wing): o
         // ouro e o XP que o servidor deu sobem do lugar da morte.
         const linhas = [];
-        if (e.crit) linhas.push({ txt: 'CRÍTICO', classe: 'crit' });
-        if (e.ouro > 0) linhas.push({ txt: `+${e.ouro} ouro`, classe: 'ouro' });
+        if (e.crit) linhas.push({ txt: tr('CRÍTICO'), classe: 'crit' });
+        if (e.ouro > 0) linhas.push({ txt: tr('+{n} ouro', { n: e.ouro }), classe: 'ouro' });
         if (e.xp > 0) linhas.push({ txt: `+${e.xp} XP`, classe: 'xp' });
         hud.flutuante(e.x, e.y + 7 + (ROTULO_MONSTRO[e.esp] ?? 0), e.z, linhas);
       } else if (e.e === 'rebatido') {
@@ -1049,9 +1052,9 @@ function montarJogo(rede, boas, renderer, race, classe) {
       } else if (e.e === 'morte' && e.tipo === 'minerador') {
         if (e.x !== undefined) destruir(e, 'minerador');
         const por = nomes.get(e.por) ?? '?';
-        if (e.time === meuTime) hud.noticia(`${por} destruiu um minerador do seu time`, 'ruim');
-        else if (e.por === meuId) hud.noticia(`Você destruiu um minerador inimigo${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
-        else hud.noticia(`${por} destruiu um minerador inimigo`, 'bom');
+        if (e.time === meuTime) hud.noticia(tr('{quem} destruiu um minerador do seu time', { quem: por }), 'ruim');
+        else if (e.por === meuId) hud.noticia(tr('Você destruiu um minerador inimigo') + maisOuro(ganhoOuro), 'bom');
+        else hud.noticia(tr('{quem} destruiu um minerador inimigo', { quem: por }), 'bom');
       } else if (e.e === 'recall') {
         eventoRecall(e);
       } else if (e.e === 'teleporte') {
@@ -1059,84 +1062,84 @@ function montarJogo(rede, boas, renderer, race, classe) {
       } else if (e.e === 'morte' && e.tipo === 'escolta') {
         if (e.x !== undefined) destruir(e, 'escolta');
         const por = nomes.get(e.por) ?? '?';
-        if (e.time === meuTime) hud.noticia(`${por} destruiu a escolta do seu time`, 'ruim');
-        else if (e.por === meuId) hud.noticia(`Você destruiu a escolta inimiga${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
-        else hud.noticia(`${por} destruiu a escolta inimiga`, 'bom');
+        if (e.time === meuTime) hud.noticia(tr('{quem} destruiu a escolta do seu time', { quem: por }), 'ruim');
+        else if (e.por === meuId) hud.noticia(tr('Você destruiu a escolta inimiga') + maisOuro(ganhoOuro), 'bom');
+        else hud.noticia(tr('{quem} destruiu a escolta inimiga', { quem: por }), 'bom');
       } else if (e.e === 'torreta') {
         const minha = e.time === meuTime;
-        const quem = e.por === meuId ? 'Você' : e.nome ?? '?';
+        const quem = e.por === meuId ? tr('Você') : e.nome ?? '?';
         if (e.estado === 'reconstruida') {
-          if (minha) hud.noticia(`${quem} reconstruiu uma torreta do seu time`, 'bom');
-        } else if (minha) hud.noticia(`${quem} destruiu uma torreta do seu time`, 'ruim');
-        else hud.noticia(`${quem} destruiu uma torreta inimiga${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
+          if (minha) hud.noticia(tr('{quem} reconstruiu uma torreta do seu time', { quem }), 'bom');
+        } else if (minha) hud.noticia(tr('{quem} destruiu uma torreta do seu time', { quem }), 'ruim');
+        else hud.noticia(tr('{quem} destruiu uma torreta inimiga', { quem }) + maisOuro(ganhoOuro), 'bom');
       } else if (e.e === 'entrega') {
         placar.entrega(e.time);
       } else if (e.e === 'faseFinal') {
         placar.faseFinal();
-        hud.noticia(`Fase final: minério entregue vale ×${e.mult} até o fim`, 'bom');
+        hud.noticia(tr('Fase final: minério entregue vale ×{n} até o fim', { n: e.mult }), 'bom');
       } else if (e.e === 'preparacao') {
         ultimaMorte.limpar(); // partida nova: a morte da anterior não conta mais
         locutor.limpar();
-        hud.noticia(`Preparação: a partida começa em ${relogio(e.s)} · explore o mapa e se prepare`, 'bom');
+        hud.noticia(tr('Preparação: a partida começa em {t} · explore o mapa e se prepare', { t: relogio(e.s) }), 'bom');
       } else if (e.e === 'partida') {
-        hud.noticia('A partida começou: mineradores e jungle em campo · o time que minerar mais vence', 'bom');
+        hud.noticia(tr('A partida começou: mineradores e jungle em campo · o time que minerar mais vence'), 'bom');
       } else if (e.e === 'morte') {
         const tipo = e.tipo ?? outras.get(e.id)?.tipo;
         // Fora da visão (névoa) a morte de jogador vem sem lugar: só a notícia.
         if (e.x !== undefined) destruir(e, tipo);
         const quem = nomes.get(e.id) ?? '?';
-        const matador = e.por === meuId ? 'Você' : (nomes.get(e.por) ?? '?');
+        const matador = e.por === meuId ? tr('Você') : (nomes.get(e.por) ?? '?');
         if (e.motivo === 'campo') {
           // Encostou no campo de força de uma base que não é a dele: o campo pisca forte ali.
           if (e.x !== undefined) for (let i = 0; i < 3; i++) atingirCampo(1 - e.time, e.x, e.y + (i - 1) * 4, e.z);
-          if (e.id === meuId) hud.noticia('Você encostou no campo de força da base inimiga e foi destruído', 'ruim');
-          else hud.noticia(`${quem} foi destruído pelo campo de força da ${e.time === meuTime ? 'base inimiga' : 'sua base'}`, e.time === meuTime ? 'ruim' : 'bom');
-        } else if (e.id === meuId) hud.noticia(`Você foi destruído por ${nomes.get(e.por) ?? '?'}`, 'ruim');
+          if (e.id === meuId) hud.noticia(tr('Você encostou no campo de força da base inimiga e foi destruído'), 'ruim');
+          else hud.noticia(e.time === meuTime ? tr('{quem} foi destruído pelo campo de força da base inimiga', { quem }) : tr('{quem} foi destruído pelo campo de força da sua base', { quem }), e.time === meuTime ? 'ruim' : 'bom');
+        } else if (e.id === meuId) hud.noticia(tr('Você foi destruído por {quem}', { quem: nomes.get(e.por) ?? '?' }), 'ruim');
         else if (e.por === meuId && outras.get(e.id)?.drone) {
           const chefe = ['sn4', 'medusa', 'sonda'].includes(e.esp) || tipo === 'nucleo';
-          hud.noticia(`Você destruiu ${chefe ? 'o' : 'um'} ${quem}${ganhoOuro > 0 ? ` · +${ganhoOuro} ouro` : ''}`, 'bom');
-        } else if (e.por === meuId) hud.noticia(`Você abateu ${quem}${e.ouro > 0 ? ` · +${e.ouro} ouro` : ''}`, 'bom');
-        else if (!outras.get(e.id)?.drone) hud.noticia(`${matador} abateu ${quem}`, e.time === meuTime ? 'ruim' : '');
+          hud.noticia((chefe ? tr('Você destruiu o {quem}', { quem }) : tr('Você destruiu um {quem}', { quem })) + maisOuro(ganhoOuro), 'bom');
+        } else if (e.por === meuId) hud.noticia(tr('Você abateu {quem}', { quem }) + maisOuro(e.ouro), 'bom');
+        else if (!outras.get(e.id)?.drone) hud.noticia(tr('{matador} abateu {quem}', { matador, quem }), e.time === meuTime ? 'ruim' : '');
         // Combate entre jogadores: sequência encerrada, assistência e sequência nova.
         if (e.encerrou > 0) {
-          const de = e.id === meuId ? 'a sua sequência' : `a sequência de ${quem}`;
-          hud.noticia(`${matador} encerrou ${de} (${e.seq} abates, +${e.encerrou} ouro)`, e.por === meuId ? 'bom' : '');
+          const msg = e.id === meuId ? tr('{matador} encerrou a sua sequência ({n} abates, +{ouro} ouro)', { matador, n: e.seq, ouro: e.encerrou }) : tr('{matador} encerrou a sequência de {quem} ({n} abates, +{ouro} ouro)', { matador, quem, n: e.seq, ouro: e.encerrou });
+          hud.noticia(msg, e.por === meuId ? 'bom' : '');
         }
-        if (e.assist?.includes(meuId)) hud.noticia(`Assistência no abate de ${quem} · +${e.ouroAssist} ouro`, 'bom');
-        if (e.seqPor >= 2) hud.noticia(`${matador} está em sequência de ${e.seqPor} abates`, e.por === meuId ? 'bom' : '');
+        if (e.assist?.includes(meuId)) hud.noticia(tr('Assistência no abate de {quem} · +{ouro} ouro', { quem, ouro: e.ouroAssist }), 'bom');
+        if (e.seqPor >= 2) hud.noticia(tr('{matador} está em sequência de {n} abates', { matador, n: e.seqPor }), e.por === meuId ? 'bom' : '');
         // O locutor: First Blood, multi-abate, sequência, Shut Down e Ace (todos ouvem).
         locutor.anunciar(anunciosDaMorte(e, { meuId, meuTime, nome: (id) => nomes.get(id) ?? '?' }));
       } else if (e.e === 'nivel') {
         // Subiu de nível: a luz da raça na nave de quem subiu (você ou outro).
-        subidaDeNave(e.id, false, `NÍVEL ${e.nivel}`);
-        if (e.id === meuId) hud.noticia(`Nível ${e.nivel}! HP máximo maior`, 'bom');
+        subidaDeNave(e.id, false, tr('NÍVEL {n}', { n: e.nivel }));
+        if (e.id === meuId) hud.noticia(tr('Nível {n}! HP máximo maior', { n: e.nivel }), 'bom');
       } else if (e.e === 'nave') {
         // Nave nova na Evolução: a mesma luz, mais forte, que segue o piloto e acompanha o
         // modelo novo (troca pelo snapshot), e a notícia.
-        subidaDeNave(e.id, true, 'NAVE NOVA');
-        if (e.id === meuId) hud.noticia(`Nave nova: ${e.nave}`, 'bom');
-        else hud.noticia(`${e.nome} trocou de nave: ${e.nave}`, e.time === meuTime ? 'bom' : 'ruim');
+        subidaDeNave(e.id, true, tr('NAVE NOVA'));
+        if (e.id === meuId) hud.noticia(tr('Nave nova: {nave}', { nave: e.nave }), 'bom');
+        else hud.noticia(tr('{quem} trocou de nave: {nave}', { quem: e.nome, nave: e.nave }), e.time === meuTime ? 'bom' : 'ruim');
       } else if (e.e === 'objetivo') {
         noticiaObjetivo(e);
         // A Medusa apareceu no poço: ela sobe da água (o movimento do original).
         if (e.id === 'MEDUSA' && e.acao === 'apareceu') medusaSobeAte = tempo + MEDUSA_SOBE_JANELA_S;
       } else if (e.e === 'bonusNave' && e.id === meuId) {
         const b = BONUS_NAVE[e.nome];
-        hud.noticia(`Bônus de ${b?.nome.toLowerCase() ?? e.nome}: ${b?.efeito ?? ''} por ${Math.round(e.s)} s`, 'bom');
+        hud.noticia(tr('Bônus de {nome}: {efeito} por {s} s', { nome: b?.nome.toLowerCase() ?? e.nome, efeito: b?.efeito ?? '', s: Math.round(e.s) }), 'bom');
       } else if (e.e === 'ondaNucleo') {
         const n = e.ids?.length ?? 3;
-        if (e.time === meuTime) hud.noticia(`Onda do Núcleo: ${n} mineradores de He-3 saíram da sua base (50 de minério cada)`, 'bom');
-        else hud.noticia(`Onda do Núcleo inimiga: ${n} mineradores de He-3 a caminho da doca deles`, 'ruim');
+        if (e.time === meuTime) hud.noticia(tr('Onda do Núcleo: {n} mineradores de He-3 saíram da sua base (50 de minério cada)', { n }), 'bom');
+        else hud.noticia(tr('Onda do Núcleo inimiga: {n} mineradores de He-3 a caminho da doca deles', { n }), 'ruim');
       } else if (e.e === 'melhoria' && e.time === meuTime && e.melhoria === MELHORIA_TORRETAS.id) {
-        hud.noticia(`${e.id === meuId ? 'Você' : e.nome} evoluiu as torretas do time: nível ${e.nivel}`, 'bom');
+        hud.noticia(tr('{quem} evoluiu as torretas do time: nível {n}', { quem: e.id === meuId ? tr('Você') : e.nome, n: e.nivel }), 'bom');
       } else if (e.e === 'melhoria' && e.time === meuTime) {
         // Melhoria dos mineradores: vale para o time todo, então o time todo fica sabendo.
         const nome = MELHORIAS_MINERADOR[e.melhoria]?.nome ?? e.melhoria;
-        hud.noticia(`${e.id === meuId ? 'Você' : e.nome} melhorou os mineradores: ${nome} nível ${e.nivel}`, 'bom');
+        hud.noticia(tr('{quem} melhorou os mineradores: {nome} nível {n}', { quem: e.id === meuId ? tr('Você') : e.nome, nome, n: e.nivel }), 'bom');
       } else if (e.e === 'entrou' && e.id !== meuId) {
-        hud.noticia(`${e.nome} entrou ${e.time === meuTime ? 'no seu time' : 'no time inimigo'}`);
+        hud.noticia(e.time === meuTime ? tr('{quem} entrou no seu time', { quem: e.nome }) : tr('{quem} entrou no time inimigo', { quem: e.nome }));
       } else if (e.e === 'saiu') {
-        hud.noticia(`${e.nome} saiu`);
+        hud.noticia(tr('{quem} saiu', { quem: e.nome }));
       }
     }
   }
@@ -1164,7 +1167,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
       else sons.tocarInterface(m.ok ? SONS_INTERFACE.compra : SONS_INTERFACE.erro);
     }
   };
-  rede.aoFechar = () => hud.mostrarAviso('Conexão perdida. Aperte Esc ou recarregue a página.');
+  rede.aoFechar = () => hud.mostrarAviso(tr('Conexão perdida. Aperte Esc ou recarregue a página.'));
 
   const lerp = (a, b, k) => a + (b - a) * k;
   /**
@@ -1465,7 +1468,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     }
     if (!vivo && renasceAte) {
       const falta = Math.max(0, (renasceAte - performance.now()) / 1000);
-      hud.mostrarAviso(`Nave destruída · renascendo na base em ${Math.ceil(falta - 1e-3)}s`);
+      hud.mostrarAviso(tr('Nave destruída · renascendo na base em {s}s', { s: Math.ceil(falta - 1e-3) }));
     }
     hud.rotulosNaves(rotulos, camera, innerWidth, innerHeight);
     hud.desenharFlutuantes(camera, innerWidth, innerHeight);

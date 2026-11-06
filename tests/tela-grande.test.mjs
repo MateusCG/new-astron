@@ -49,7 +49,8 @@ test('tela grande: o site começa por inicio.js, que só carrega o jogo fora do 
   }
   const inicio = ler('js/inicio.js');
   assert.match(inicio, /if \(celular\) mostrarTelaGrande\(\);\s*else await import\('\.\/main\.js'\);/);
-  // Nada pesado antes da decisão: só as regras puras.
+  // Nada pesado antes da decisão: só as regras puras e o idioma (o HTML traduzido antes
+  // de qualquer tela aparecer).
   const imports = [...inicio.matchAll(/^import .* from '(.+)';$/gm)].map((m) => m[1]);
-  assert.deepEqual(imports.sort(), ['./abertura-regras.js', './tela-grande-regras.js']);
+  assert.deepEqual(imports.sort(), ['../../shared/idioma.js', './abertura-regras.js', './idioma-dom.js', './tela-grande-regras.js']);
 });

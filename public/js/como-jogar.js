@@ -13,6 +13,7 @@ import { kbdAcao, pintarRotulos, aoMudarAtalhos } from './atalhos.js';
 import { MapaSelecao } from './mapa-selecao.js';
 import { modoPorId } from './menu-regras.js';
 import { CAPITULOS, CHAVE_LIDOS, capituloPorId, lerLidos, textoLidos, progresso, capituloInicial, vizinho, formatar } from './como-jogar-regras.js';
+import { tr } from '../../shared/idioma.js';
 
 /** Desenhos dos ícones dos cartões (traço, viewBox 24). */
 const ICONES = {
@@ -80,7 +81,7 @@ export class ComoJogar {
     // O mapa do capítulo do mapa: montado uma vez (a caixinha da dica fica na tela).
     this.mapaEl = document.createElement('section');
     this.mapaEl.className = 'mapa-partida mapa-aprender';
-    this.mapaEl.setAttribute('aria-label', 'Mapa da partida');
+    this.mapaEl.setAttribute('aria-label', tr('Mapa da partida'));
     this.mapaEl.innerHTML = '<div class="quadro-mapa"></div>';
     el.append(this.mapaEl);
     this.mapa = new MapaSelecao(this.mapaEl);
@@ -174,7 +175,7 @@ export class ComoJogar {
     }
     const p = this.progresso;
     const prog = this.el.querySelector('.progresso-trilha');
-    prog.querySelector('.conta').textContent = p.completo ? 'Trilha completa' : `${p.lidos} de ${p.total} capítulos`;
+    prog.querySelector('.conta').textContent = p.completo ? tr('Trilha completa') : tr('{lidos} de {total} capítulos', { lidos: p.lidos, total: p.total });
     prog.querySelector('.barra b').style.width = `${Math.round(p.fracao * 100)}%`;
     prog.classList.toggle('completo', p.completo);
 
@@ -186,20 +187,20 @@ export class ComoJogar {
     const modo = modoPorId(c.praticar?.modo);
     this.painel.innerHTML = `
       <header class="cabeca-capitulo">
-        <p class="sobre-capitulo">Capítulo ${i + 1} de ${CAPITULOS.length} · ${c.min} min de leitura</p>
+        <p class="sobre-capitulo">${tr('Capítulo {i} de {n} · {min} min de leitura', { i: i + 1, n: CAPITULOS.length, min: c.min })}</p>
         <h2 id="titulo-capitulo">${c.titulo}</h2>
       </header>
-      <section class="resumo-capitulo" aria-label="Em resumo"><b class="selo-resumo">Em resumo</b><p>${fmt(c.resumo)}</p></section>
+      <section class="resumo-capitulo" aria-label="${tr('Em resumo')}"><b class="selo-resumo">${tr('Em resumo')}</b><p>${fmt(c.resumo)}</p></section>
       ${c.blocos.map((b) => this.#bloco(b)).join('')}
       <footer class="pe-capitulo">
         ${
           modo
-            ? `<div class="praticar"><span><b>Praticar agora</b><small>${fmt(c.praticar.texto)}</small></span><button type="button" data-praticar="${modo.id}">${modo.titulo} ›</button></div>`
+            ? `<div class="praticar"><span><b>${tr('Praticar agora')}</b><small>${fmt(c.praticar.texto)}</small></span><button type="button" data-praticar="${modo.id}">${modo.titulo} ›</button></div>`
             : ''
         }
-        <nav class="navegar-capitulo" aria-label="Capítulos">
+        <nav class="navegar-capitulo" aria-label="${tr('Capítulos')}">
           ${ant ? `<button type="button" class="anterior" data-ir="${ant}">‹ ${capituloPorId(ant).titulo}</button>` : '<span></span>'}
-          ${prox ? `<button type="button" class="proximo" data-ir="${prox}">Próximo: ${capituloPorId(prox).titulo} ›</button>` : ''}
+          ${prox ? `<button type="button" class="proximo" data-ir="${prox}">${tr('Próximo: {titulo}', { titulo: capituloPorId(prox).titulo })} ›</button>` : ''}
         </nav>
       </footer>`;
     const lugar = this.painel.querySelector('.lugar-mapa');
@@ -216,7 +217,7 @@ export class ComoJogar {
       case 'p':
         return `<section class="bloco-p">${titulo}<p>${fmt(b.texto)}</p></section>`;
       case 'dica':
-        return `<aside class="dica-piloto"><b>Dica de piloto</b><p>${fmt(b.texto)}</p></aside>`;
+        return `<aside class="dica-piloto"><b>${tr('Dica de piloto')}</b><p>${fmt(b.texto)}</p></aside>`;
       case 'mapa':
         return `<div class="lugar-mapa"></div>`;
       case 'cartoes':

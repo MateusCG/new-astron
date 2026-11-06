@@ -51,40 +51,41 @@ import { miniatura } from './vitrine.js';
 import { naveDe } from '/shared/naves.js';
 import { resistDoMe } from './cor-resistencia.js';
 import { jogadaDoArrasto, ARRASTO_MIN_PX, SEGURAR_TOQUE_MS } from './inventario-regras.js';
+import { tr, localeNum, nomeEquip } from '../../shared/idioma.js';
 
 /** Encaixes na ordem da janela (duas colunas, como no original). */
 const ENCAIXES_INV = [
-  { slot: 'z', nome: 'Arma Z', arma: 0 },
-  { slot: 'x', nome: 'Arma X', arma: 1 },
-  { slot: 'escudo', nome: 'Escudo' },
-  { slot: 'armadura', nome: 'Armadura' },
-  { slot: 'pot1', nome: 'Potenciador 1' },
-  { slot: 'pot2', nome: 'Potenciador 2' },
+  { slot: 'z', nome: tr('Arma Z'), arma: 0 },
+  { slot: 'x', nome: tr('Arma X'), arma: 1 },
+  { slot: 'escudo', nome: tr('Escudo') },
+  { slot: 'armadura', nome: tr('Armadura') },
+  { slot: 'pot1', nome: tr('Potenciador 1') },
+  { slot: 'pot2', nome: tr('Potenciador 2') },
 ];
 const NOME_SLOT = Object.fromEntries(ENCAIXES_INV.map((e) => [e.slot, e.nome]));
 
 /** Mensagens dos pedidos do inventário (o resto vem do painel da Loja). */
 const MENSAGEM = {
   ...MENSAGEM_ERRO,
-  nao_pousado: 'Para vender e evoluir, pouse e pare na sua base (anel ou plataformas)',
-  cheio: 'Compartimento cheio: venda algo antes de tirar da nave',
-  equipado: 'Esse item está na nave: tire antes de vender',
-  sem_item: 'Esse item não está mais com você',
-  limite: 'Já está na V8, a última versão',
-  ouro_insuficiente: 'Ouro insuficiente para evoluir',
+  nao_pousado: tr('Para vender e evoluir, pouse e pare na sua base (anel ou plataformas)'),
+  cheio: tr('Compartimento cheio: venda algo antes de tirar da nave'),
+  equipado: tr('Esse item está na nave: tire antes de vender'),
+  sem_item: tr('Esse item não está mais com você'),
+  limite: tr('Já está na V8, a última versão'),
+  ouro_insuficiente: tr('Ouro insuficiente para evoluir'),
 };
 /** 'invalido' muda de sentido conforme o pedido. */
 const INVALIDO = {
-  equipar: 'Esse item não vai nesse encaixe',
-  vender: 'Esse item não se vende',
-  evoluirItem: 'Esse item não evolui',
+  equipar: tr('Esse item não vai nesse encaixe'),
+  vender: tr('Esse item não se vende'),
+  evoluirItem: tr('Esse item não evolui'),
 };
 
 /** Arrasto perto da borda da área que rola (px): ela rola até ROLAR_PX por quadro. */
 const BORDA_ROLAR_PX = 48;
 const ROLAR_PX = 14;
 
-const numero = (v) => Math.round(v).toLocaleString('pt-BR');
+const numero = (v) => Math.round(v).toLocaleString(localeNum());
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 /** Id da instância no encaixe de equipamento (ou null). */
@@ -98,7 +99,7 @@ function noSlot(equipado, slot) {
 function nomeInst(inst) {
   if (!inst) return '';
   if (inst.tipo === 'arma') return `${nomeArma(inst.chave)} V${inst.nivel}`;
-  return `${EQUIPAMENTOS[inst.chave]?.nomePt ?? inst.chave} V${inst.nivel}`;
+  return `${EQUIPAMENTOS[inst.chave] ? nomeEquip(EQUIPAMENTOS[inst.chave]).trim() : inst.chave} V${inst.nivel}`;
 }
 
 export class PainelInventario {
@@ -277,10 +278,10 @@ export class PainelInventario {
     const ok = !!m.ok;
     let texto;
     if (ok) {
-      texto = m.acao === 'equipar' ? 'Feito' : (this.pedidos.get(m.item) ?? 'Feito');
+      texto = m.acao === 'equipar' ? tr('Feito') : (this.pedidos.get(m.item) ?? tr('Feito'));
       if (m.acao === 'vender') this.noticia(texto, 'bom');
     } else if (m.codigo === 'invalido') texto = INVALIDO[m.acao] ?? MENSAGEM.invalido;
-    else texto = MENSAGEM[m.codigo] ?? 'Não deu certo';
+    else texto = MENSAGEM[m.codigo] ?? tr('Não deu certo');
     this.pedidos.delete(m.item);
     this.msg.textContent = texto;
     this.msg.className = 'msg ' + (ok ? 'bom' : 'ruim');
@@ -319,7 +320,7 @@ export class PainelInventario {
   /** Por que a troca com o encaixe enc não dá agora ('' = dá). */
   #porqueNaoTroca(enc) {
     const espera = this.armasNave.esperaTroca(enc);
-    return espera > 0 ? `Arma ${ENCAIXES[enc].tecla} carregando: ${espera.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} s` : '';
+    return espera > 0 ? tr('Arma {tecla} carregando: {s} s', { tecla: ENCAIXES[enc].tecla, s: espera.toLocaleString(localeNum(), { maximumFractionDigits: 1 }) }) : '';
   }
 
   /** Abre (ou fecha, se já aberta no mesmo) a caixinha junto do botão clicado. */
@@ -352,16 +353,16 @@ export class PainelInventario {
 
   /** Por que não dá para vender a instância agora ('' = dá). */
   #porqueNaoVende(inst) {
-    if (!this.naBase) return 'Só pousado e parado na sua base';
+    if (!this.naBase) return tr('Só pousado e parado na sua base');
     return '';
   }
 
   /** Por que não dá para evoluir a instância agora ('' = dá), e o preço. */
   #evolucao(inst) {
     const preco = precoEvoluirInst(inst);
-    if (preco === null) return { preco, porque: `Já está na V${NIVEL_ITEM_MAX}, a última versão` };
-    if (!this.naBase) return { preco, porque: 'Só pousado e parado na sua base' };
-    if (this.estado.ouro < preco) return { preco, porque: `Ouro insuficiente: faltam ${numero(preco - this.estado.ouro)}` };
+    if (preco === null) return { preco, porque: tr('Já está na V{n}, a última versão', { n: NIVEL_ITEM_MAX }) };
+    if (!this.naBase) return { preco, porque: tr('Só pousado e parado na sua base') };
+    if (this.estado.ouro < preco) return { preco, porque: tr('Ouro insuficiente: faltam {n}', { n: numero(preco - this.estado.ouro) }) };
     return { preco, porque: '' };
   }
 
@@ -387,8 +388,8 @@ export class PainelInventario {
     if (casa !== undefined && !inst) {
       // Casa vazia: guardar uma das armas soltas do compartimento.
       const { tecla, letraTroca } = ENCAIXES[casa];
-      for (const x of this.#armasSoltas()) ops.push(opcao(`Guardar ${esc(nomeInst(x))}`, 'guardar', { casa, inst: x.id }, '', 'principal'));
-      const html = `<p class="titulo-caixa"><span>Troca rápida · ${letraTroca} troca com o ${tecla}</span><strong>Guardar no ${letraTroca}</strong></p>${ops.join('')}`;
+      for (const x of this.#armasSoltas()) ops.push(opcao(tr('Guardar {nome}', { nome: esc(nomeInst(x)) }), 'guardar', { casa, inst: x.id }, '', 'principal'));
+      const html = `<p class="titulo-caixa"><span>${tr('Troca rápida · {casa} troca com o {tecla}', { casa: letraTroca, tecla })}</span><strong>${tr('Guardar no {casa}', { casa: letraTroca })}</strong></p>${ops.join('')}`;
       if (this.caixaEl.dataset.html !== html) {
         this.caixaEl.innerHTML = html;
         this.caixaEl.dataset.html = html;
@@ -399,52 +400,52 @@ export class PainelInventario {
     if (casa !== undefined) {
       const { tecla, letraTroca } = ENCAIXES[casa];
       const noEncaixe = this.#instDaArma(casa);
-      const com = noEncaixe ? ` <i>sai ${esc(nomeInst(noEncaixe))}</i>` : '';
-      ops.push(opcao(`Trocar com o ${tecla} <kbd>${letraTroca}</kbd>${com}`, 'trocarCasa', { enc: casa }, this.#porqueNaoTroca(casa), 'principal'));
+      const com = noEncaixe ? ` <i>${tr('sai {nome}', { nome: esc(nomeInst(noEncaixe)) })}</i>` : '';
+      ops.push(opcao(`${tr('Trocar com o {tecla}', { tecla })} <kbd>${letraTroca}</kbd>${com}`, 'trocarCasa', { enc: casa }, this.#porqueNaoTroca(casa), 'principal'));
       ops.push(opcao(`Tirar do ${letraTroca}`, 'guardar', { casa, inst: '' }));
     } else if (c.slot) {
       const enc = ENCAIXES_INV.find((x) => x.slot === c.slot);
       if (enc.arma !== undefined) {
         const { letraTroca } = ENCAIXES[enc.arma];
         const guardada = this.#instDaCasa(enc.arma);
-        const porque = guardada ? this.#porqueNaoTroca(enc.arma) : `Nada guardado no ${letraTroca}: guarde uma arma do compartimento`;
-        const com = guardada ? ` <i>com ${esc(nomeInst(guardada))}</i>` : '';
-        ops.push(opcao(`Trocar <kbd>${letraTroca}</kbd>${com}`, 'trocarCasa', { enc: enc.arma }, porque));
-        ops.push(opcao('Tirar', 'tirar', {}, 'A nave sempre leva duas armas: equipe outra no lugar'));
+        const porque = guardada ? this.#porqueNaoTroca(enc.arma) : tr('Nada guardado no {casa}: guarde uma arma do compartimento', { casa: letraTroca });
+        const com = guardada ? ` <i>${tr('com {nome}', { nome: esc(nomeInst(guardada)) })}</i>` : '';
+        ops.push(opcao(`${tr('Trocar')} <kbd>${letraTroca}</kbd>${com}`, 'trocarCasa', { enc: enc.arma }, porque));
+        ops.push(opcao(tr('Tirar'), 'tirar', {}, tr('A nave sempre leva duas armas: equipe outra no lugar')));
       } else {
         const cheio = this.#compartimento().length >= s.compMax;
-        ops.push(opcao('Tirar', 'tirar', { slot: c.slot }, cheio ? `Compartimento cheio (${s.compMax}/${s.compMax})` : ''));
+        ops.push(opcao(tr('Tirar'), 'tirar', { slot: c.slot }, cheio ? tr('Compartimento cheio ({n}/{n})', { n: s.compMax }) : ''));
       }
     } else if (inst.tipo === 'arma') {
       for (const enc of [0, 1]) {
         const ocupado = this.#instDaArma(enc);
-        const troca = ocupado ? ` <i>troca com ${esc(nomeInst(ocupado))}</i>` : '';
-        ops.push(opcao(`Equipar no <kbd>${ENCAIXES[enc].tecla}</kbd>${troca}`, 'arma', { enc, inst: id }, this.#porqueNaoTroca(enc), 'principal'));
+        const troca = ocupado ? ` <i>${tr('troca com {nome}', { nome: esc(nomeInst(ocupado)) })}</i>` : '';
+        ops.push(opcao(`${tr('Equipar no')} <kbd>${ENCAIXES[enc].tecla}</kbd>${troca}`, 'arma', { enc, inst: id }, this.#porqueNaoTroca(enc), 'principal'));
       }
       for (const k of [0, 1]) {
         const { tecla, letraTroca } = ENCAIXES[k];
         const ocupado = this.#instDaCasa(k);
-        const troca = ocupado ? ` <i>no lugar de ${esc(nomeInst(ocupado))}</i>` : ` <i>troca com o ${tecla}</i>`;
-        ops.push(opcao(`Guardar no <kbd>${letraTroca}</kbd>${troca}`, 'guardar', { casa: k, inst: id }));
+        const troca = ocupado ? ` <i>${tr('no lugar de {nome}', { nome: esc(nomeInst(ocupado)) })}</i>` : ` <i>${tr('troca com o {tecla}', { tecla })}</i>`;
+        ops.push(opcao(`${tr('Guardar no')} <kbd>${letraTroca}</kbd>${troca}`, 'guardar', { casa: k, inst: id }));
       }
     } else {
       const cat = EQUIPAMENTOS[inst.chave]?.categoria;
       const slots = Object.keys(CATEGORIA_DO_SLOT).filter((k) => CATEGORIA_DO_SLOT[k] === cat);
       for (const slot of slots) {
         const ocupado = instDoInv(s.inv, noSlot(s.equipado, slot));
-        const rotulo = slots.length > 1 ? `Equipar no ${slot === 'pot1' ? '1' : '2'}` : 'Equipar';
-        const troca = ocupado ? ` <i>troca com ${esc(nomeInst(ocupado))}</i>` : '';
+        const rotulo = slots.length > 1 ? tr('Equipar no {n}', { n: slot === 'pot1' ? '1' : '2' }) : tr('Equipar');
+        const troca = ocupado ? ` <i>${tr('troca com {nome}', { nome: esc(nomeInst(ocupado)) })}</i>` : '';
         ops.push(opcao(rotulo + troca, 'equipar', { slot, inst: id }, '', 'principal'));
       }
     }
     if (!c.slot) {
       const valor = precoVenda(inst);
-      ops.push(opcao(`Vender${valor !== null ? ` <b class="ouro">+${numero(valor)}</b>` : ''}`, 'vender', { inst: id, valor: valor ?? 0 }, this.#porqueNaoVende(inst)));
+      ops.push(opcao(`${tr('Vender')}${valor !== null ? ` <b class="ouro">+${numero(valor)}</b>` : ''}`, 'vender', { inst: id, valor: valor ?? 0 }, this.#porqueNaoVende(inst)));
     }
     const ev = this.#evolucao(inst);
-    const rotEv = ev.preco === null ? 'Evoluir' : `Evoluir V${inst.nivel} → V${inst.nivel + 1} <b class="preco">${numero(ev.preco)}</b>`;
+    const rotEv = ev.preco === null ? tr('Evoluir') : `${tr('Evoluir V{a} → V{b}', { a: inst.nivel, b: inst.nivel + 1 })} <b class="preco">${numero(ev.preco)}</b>`;
     ops.push(opcao(rotEv, 'evoluir', { inst: id }, ev.porque));
-    const onde = c.slot ? NOME_SLOT[c.slot] : casa !== undefined ? `Troca rápida · ${ENCAIXES[casa].letraTroca} troca com o ${ENCAIXES[casa].tecla}` : 'No compartimento';
+    const onde = c.slot ? NOME_SLOT[c.slot] : casa !== undefined ? tr('Troca rápida · {casa} troca com o {tecla}', { casa: ENCAIXES[casa].letraTroca, tecla: ENCAIXES[casa].tecla }) : tr('No compartimento');
     const html = `<p class="titulo-caixa"><span>${onde}</span><strong>${esc(nomeInst(inst))}</strong></p>${ops.join('')}`;
     if (this.caixaEl.dataset.html !== html) {
       this.caixaEl.innerHTML = html;
@@ -474,11 +475,11 @@ export class PainelInventario {
     if (d.acao === 'equipar') this.#jogar({ acao: 'equipar', slot: d.slot, inst: Number(d.inst) });
     else if (d.acao === 'tirar' && d.slot) this.#jogar({ acao: 'equipar', slot: d.slot, inst: null });
     else if (d.acao === 'vender' && inst) {
-      this.pedidos.set(inst.id, `Vendido: ${nomeInst(inst)} · +${numero(Number(d.valor))} ouro`);
+      this.pedidos.set(inst.id, tr('Vendido: {nome} · +{n} ouro', { nome: nomeInst(inst), n: numero(Number(d.valor)) }));
       this.enviar({ t: 'vender', inst: inst.id });
     } else if (d.acao === 'evoluir' && inst) {
       // Evoluir mantém a caixinha aberta (dá para subir várias versões seguidas).
-      this.pedidos.set(inst.id, `${nomeInst({ ...inst, nivel: inst.nivel + 1 })}: evoluído`);
+      this.pedidos.set(inst.id, tr('{nome}: evoluído', { nome: nomeInst({ ...inst, nivel: inst.nivel + 1 }) }));
       this.enviar({ t: 'evoluirItem', inst: inst.id });
       return;
     }
@@ -694,30 +695,30 @@ export class PainelInventario {
       if (enc.arma !== undefined) {
         const i = encaixes[enc.arma];
         const nv = inst?.nivel ?? nivEnc[enc.arma];
-        return `<button type="button" class="slot arma${marcado}" data-slot="${enc.slot}" title="Clique para trocar ou evoluir">
+        return `<button type="button" class="slot arma${marcado}" data-slot="${enc.slot}" title="${tr('Clique para trocar ou evoluir')}">
           <span class="rot">${enc.nome}</span><span class="ic">${ARMAS[i] ? iconeArma(ARMAS[i], nv) : ''}</span><span class="nm">${ARMAS[i] ? nomeArma(ARMAS[i]) : ''}</span>
         </button>`;
       }
       const k = inst?.chave ?? null;
-      return `<button type="button" class="slot${k ? '' : ' vazio'}${marcado}" data-slot="${enc.slot}" title="${k ? 'Clique para tirar ou evoluir' : 'Vazio: equipe pelo compartimento'}">
-        <span class="rot">${enc.nome}</span><span class="ic">${iconeEquip(k, inst?.nivel)}</span><span class="nm">${k ? EQUIPAMENTOS[k].nomePt : 'Vazio'}</span>
+      return `<button type="button" class="slot${k ? '' : ' vazio'}${marcado}" data-slot="${enc.slot}" title="${k ? tr('Clique para tirar ou evoluir') : tr('Vazio: equipe pelo compartimento')}">
+        <span class="rot">${enc.nome}</span><span class="ic">${iconeEquip(k, inst?.nivel)}</span><span class="nm">${k ? nomeEquip(EQUIPAMENTOS[k]).trim() : tr('Vazio')}</span>
       </button>`;
     }).join('');
 
     this.avisoBase.className = 'aviso-base' + (this.naBase ? ' livre' : '');
     this.avisoBase.textContent = this.naBase
-      ? 'Na base: equipar, vender e evoluir liberados'
-      : 'Equipar vale em qualquer lugar · vender e evoluir, só pousado e parado na sua base';
+      ? tr('Na base: equipar, vender e evoluir liberados')
+      : tr('Equipar vale em qualquer lugar · vender e evoluir, só pousado e parado na sua base');
 
     // Troca rápida: as duas primeiras casas do compartimento (Q troca com o Z, E com o X).
     const casaMarcada = this.caixa?.casa;
     this.casasEl.innerHTML = ENCAIXES.map(({ tecla, letraTroca }, k) => {
       const x = this.#instDaCasa(k);
       const marcado = casaMarcada === k ? ' com-caixa' : '';
-      const nm = x ? nomeArma(x.chave) : 'Vazio';
-      const dica = x ? `${letraTroca} troca com a arma do ${tecla} · clique para mais` : `Guarde aqui a arma que o ${letraTroca} põe no ${tecla}`;
+      const nm = x ? nomeArma(x.chave) : tr('Vazio');
+      const dica = x ? tr('{casa} troca com a arma do {tecla} · clique para mais', { casa: letraTroca, tecla }) : tr('Guarde aqui a arma que o {casa} põe no {tecla}', { casa: letraTroca, tecla });
       return `<button type="button" class="slot casa${x ? '' : ' vazio'}${marcado}" data-casa="${k}" title="${esc(dica)}">
-        <span class="rot"><kbd>${letraTroca}</kbd> troca com o ${tecla}</span><span class="ic">${x ? iconeArma(x.chave, x.nivel) : '<span class="icone-item vazio"></span>'}</span><span class="nm">${esc(nm)}</span>
+        <span class="rot"><kbd>${letraTroca}</kbd> ${tr('troca com o {tecla}', { tecla })}</span><span class="ic">${x ? iconeArma(x.chave, x.nivel) : '<span class="icone-item vazio"></span>'}</span><span class="nm">${esc(nm)}</span>
       </button>`;
     }).join('');
 
@@ -728,13 +729,13 @@ export class PainelInventario {
     const caixaInst = this.caixa?.inst;
     const cartas = comp.map((x) => {
       const ic = x.tipo === 'arma' ? iconeArma(x.chave, x.nivel) : iconeEquip(x.chave, x.nivel);
-      const nm = x.tipo === 'arma' ? nomeArma(x.chave) : (EQUIPAMENTOS[x.chave]?.nomePt ?? x.chave);
+      const nm = x.tipo === 'arma' ? nomeArma(x.chave) : EQUIPAMENTOS[x.chave] ? nomeEquip(EQUIPAMENTOS[x.chave]).trim() : x.chave;
       const marcado = caixaInst === x.id ? ' com-caixa' : '';
       return `<button type="button" class="item-inv${marcado}" data-inst="${x.id}"><span class="ic">${ic}</span><span class="nm">${esc(nm)}</span></button>`;
     });
     this.conta.textContent = `${todos.length}/${s.compMax}`;
     this.conta.classList.toggle('cheio', todos.length >= s.compMax);
-    this.grade.innerHTML = cartas.length ? cartas.join('') : '<p class="nota-inv">Vazio: o que você comprar na Loja e não estiver na nave aparece aqui</p>';
+    this.grade.innerHTML = cartas.length ? cartas.join('') : `<p class="nota-inv">${tr('Vazio: o que você comprar na Loja e não estiver na nave aparece aqui')}</p>`;
     if (this.caixa) {
       // Os botões foram refeitos: a caixinha continua (o item marcado vem do HTML).
       this.#desenharCaixa();
@@ -767,7 +768,7 @@ export class PainelInventario {
       return;
     }
     let html = '';
-    const acao = 'Clique para ver o que dá para fazer';
+    const acao = tr('Clique para ver o que dá para fazer');
     if (alvo.dataset.slot) {
       const inst = this.#instDoSlot(alvo.dataset.slot);
       if (inst?.tipo === 'arma') html = detalheArma(armaDaInst(inst), inst.nivel, acao);

@@ -2,6 +2,8 @@
 // public/js/resultado.js), puras e testadas (tests/tabela.test.mjs): as linhas de cada
 // time na ordem da tabela, o KDA e o destaque da partida.
 
+import { tr, localeNum } from '../../shared/idioma.js';
+
 /** Abates de jogador inimigo / mortes na partida / assistências, como no LoL ("2/7/5"). */
 export function kda(p) {
   return `${p.abatesJog ?? 0}/${p.mortesPartida ?? 0}/${p.assist ?? 0}`;
@@ -57,6 +59,6 @@ export function melhorDaPartida(jogadores) {
 /** A razão do KDA para mostrar ("3,5"; "Perfeito" sem morte e com abate ou assistência). */
 export function textoRazaoKda(p) {
   const r = razaoKda(p);
-  if (!(p.mortesPartida > 0) && r > 0) return 'Perfeito';
-  return r.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  if (!(p.mortesPartida > 0) && r > 0) return tr('Perfeito');
+  return r.toLocaleString(localeNum(), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }

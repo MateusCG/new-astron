@@ -13,6 +13,8 @@
 // (o contador zerou sem o seu Pronto, ou caiu a conexão), "Procurar partida" põe de
 // volta.
 
+import { tr } from '../../shared/idioma.js';
+
 /** Estado da fila fora dela. `fase`: 'fora' | 'conectando' | 'procurando' | 'sala' | 'comecar'. */
 export function estadoFilaVazio() {
   return { fase: 'fora', modo: null, aviso: null };
@@ -76,15 +78,15 @@ export function formatarTempo(s, paraCima = false) {
 export function botaoDaFila(estado) {
   switch (estado?.fase) {
     case 'conectando':
-      return { texto: 'Conectando…', habilitado: false, acao: null };
+      return { texto: tr('Conectando…'), habilitado: false, acao: null };
     case 'procurando':
-      return estado.cedo && !estado.voce?.pronto ? { texto: 'Pronto', habilitado: true, acao: 'pronto' } : { texto: 'Aguardando…', habilitado: false, acao: null };
+      return estado.cedo && !estado.voce?.pronto ? { texto: tr('Pronto'), habilitado: true, acao: 'pronto' } : { texto: tr('Aguardando…'), habilitado: false, acao: null };
     case 'sala':
-      return estado.voce?.pronto ? { texto: 'Aguardando…', habilitado: false, acao: null } : { texto: 'Pronto', habilitado: true, acao: 'pronto' };
+      return estado.voce?.pronto ? { texto: tr('Aguardando…'), habilitado: false, acao: null } : { texto: tr('Pronto'), habilitado: true, acao: 'pronto' };
     case 'comecar':
-      return { texto: 'Decolando…', habilitado: false, acao: null };
+      return { texto: tr('Decolando…'), habilitado: false, acao: null };
     default:
-      return { texto: 'Procurar partida', habilitado: true, acao: 'entrar' };
+      return { texto: tr('Procurar partida'), habilitado: true, acao: 'entrar' };
   }
 }
 
@@ -95,29 +97,29 @@ export function botaoDaFila(estado) {
 export function linhaDaFila(estado, agora, selecaoS) {
   switch (estado?.fase) {
     case 'conectando':
-      return { texto: 'Conectando ao servidor', contador: null, fracao: null, urgente: false };
+      return { texto: tr('Conectando ao servidor'), contador: null, fracao: null, urgente: false };
     case 'procurando': {
       const faltam = Math.max(0, estado.precisa - estado.n);
-      let texto = faltam ? `Procurando partida · ${estado.n} de ${estado.precisa} pilotos` : `Pilotos encontrados · abrindo a sala`;
+      let texto = faltam ? tr('Procurando partida · {n} de {precisa} pilotos', { n: estado.n, precisa: estado.precisa }) : tr('Pilotos encontrados · abrindo a sala');
       if (faltam && estado.cedo) {
         const prontos = (estado.times ?? []).flat().filter((m) => m.pronto).length;
         // Na pública a vaga que falta no time fica com um computador.
-        const ia = estado.modo === 'publica' ? ' · um computador completa o time' : '';
+        const ia = estado.modo === 'publica' ? tr(' · um computador completa o time') : '';
         texto = estado.voce?.pronto
-          ? `Nave travada · ${prontos} de ${estado.n} prontos · começa com todos prontos${ia}`
-          : `${estado.n} de ${estado.precisa} pilotos · aperte Pronto para começar já · ${prontos} de ${estado.n} prontos${ia}`;
+          ? tr('Nave travada · {prontos} de {n} prontos · começa com todos prontos', { prontos, n: estado.n }) + ia
+          : tr('{n} de {precisa} pilotos · aperte Pronto para começar já · {prontos} de {n} prontos', { n: estado.n, precisa: estado.precisa, prontos }) + ia;
       }
       return { texto, contador: formatarTempo((agora - estado.desde) / 1000), fracao: null, urgente: false };
     }
     case 'sala': {
       const resta = Math.max(0, (estado.ate - agora) / 1000);
       const texto = estado.voce?.pronto
-        ? `Nave travada · ${estado.prontos} de ${estado.total} prontos`
-        : `Escolha a nave e aperte Pronto · ${estado.prontos} de ${estado.total} prontos`;
+        ? tr('Nave travada · {prontos} de {total} prontos', { prontos: estado.prontos, total: estado.total })
+        : tr('Escolha a nave e aperte Pronto · {prontos} de {total} prontos', { prontos: estado.prontos, total: estado.total });
       return { texto, contador: formatarTempo(resta, true), fracao: selecaoS > 0 ? Math.min(1, resta / selecaoS) : 0, urgente: resta <= 10 };
     }
     case 'comecar':
-      return { texto: 'Todos prontos · entrando na partida', contador: null, fracao: null, urgente: false };
+      return { texto: tr('Todos prontos · entrando na partida'), contador: null, fracao: null, urgente: false };
     default:
       return { texto: '', contador: null, fracao: null, urgente: false };
   }
@@ -125,10 +127,10 @@ export function linhaDaFila(estado, agora, selecaoS) {
 
 /** A frase de cada aviso do servidor (e da conexão). */
 export const AVISOS_FILA = Object.freeze({
-  sem_pronto: 'O tempo da seleção acabou sem o seu Pronto e você saiu da fila. Aperte "Procurar partida" para voltar.',
-  sala_tempo: 'Um piloto não apertou Pronto a tempo. Você voltou para o começo da fila.',
-  sala_saiu: 'Um piloto saiu da sala. Você voltou para o começo da fila.',
-  sem_conexao: 'Sem conexão com o servidor das filas. Tentando de novo…',
+  sem_pronto: tr('O tempo da seleção acabou sem o seu Pronto e você saiu da fila. Aperte "Procurar partida" para voltar.'),
+  sala_tempo: tr('Um piloto não apertou Pronto a tempo. Você voltou para o começo da fila.'),
+  sala_saiu: tr('Um piloto saiu da sala. Você voltou para o começo da fila.'),
+  sem_conexao: tr('Sem conexão com o servidor das filas. Tentando de novo…'),
 });
 
 /** O aviso em texto (null sem aviso). */
@@ -142,9 +144,9 @@ export function textoAviso(aviso) {
  */
 export function textoContagemModo(c) {
   if (!c) return null;
-  const partes = [`${c.fila} na fila`];
-  if (c.escolhendo) partes.push(`${c.escolhendo} escolhendo`);
-  if (c.jogando) partes.push(`${c.jogando} jogando`);
+  const partes = [tr('{n} na fila', { n: c.fila })];
+  if (c.escolhendo) partes.push(tr('{n} escolhendo', { n: c.escolhendo }));
+  if (c.jogando) partes.push(tr('{n} jogando', { n: c.jogando }));
   return partes.join(' · ');
 }
 
@@ -158,7 +160,7 @@ export const VAGAS_POR_TIME = 3;
  * time contra os computadores.
  */
 export function titulosDosLados(modo) {
-  return modo === 'online' ? { meu: 'Time verde', inimigo: 'Time vermelho' } : { meu: 'Seu time', inimigo: 'Inimigo' };
+  return modo === 'online' ? { meu: tr('Time verde'), inimigo: tr('Time vermelho') } : { meu: tr('Seu time'), inimigo: tr('Inimigo') };
 }
 
 /**

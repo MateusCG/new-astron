@@ -35,24 +35,25 @@ import {
   ASTEROIDES,
   trajetoSonda,
 } from '../../shared/terrain.js';
+import { tr } from '../../shared/idioma.js';
 
 /** Metros do mundo que o mapa cobre (o retângulo inteiro, como o minimapa). */
 export const MUNDO_MAPA = Object.freeze({ x0: -MAP_HALF_X, z0: -MAP_HALF_Z, largura: 2 * MAP_HALF_X, altura: 2 * MAP_HALF_Z });
 
 /** Cor e nome fixos de cada time no menu (as faixas da fila do 3 contra 3). */
 export const TIMES_MAPA = Object.freeze([
-  Object.freeze({ time: 0, nome: 'Time verde', cor: '#3ee07c' }),
-  Object.freeze({ time: 1, nome: 'Time vermelho', cor: '#ff4a2a' }),
+  Object.freeze({ time: 0, nome: tr('Time verde'), cor: '#3ee07c' }),
+  Object.freeze({ time: 1, nome: tr('Time vermelho'), cor: '#ff4a2a' }),
 ]);
 
 /** Nome de cada objetivo no mapa (o mesmo do rótulo da partida, NOME_OBJETIVO). */
 export const NOME_OBJETIVO_MAPA = Object.freeze({
-  ataque: 'SN-4 · bônus de ataque',
-  suporte: 'Torre de comunicação · bônus de suporte',
-  plataforma: 'Plataforma de ouro',
-  sonda: 'Sonda errante · bônus de velocidade',
-  medusa: 'Medusa Anciã · bônus do time',
-  nucleo: 'Núcleo de He-3 · onda de mineradores',
+  ataque: tr('SN-4 · bônus de ataque'),
+  suporte: tr('Torre de comunicação · bônus de suporte'),
+  plataforma: tr('Plataforma de ouro'),
+  sonda: tr('Sonda errante · bônus de velocidade'),
+  medusa: tr('Medusa Anciã · bônus do time'),
+  nucleo: tr('Núcleo de He-3 · onda de mineradores'),
 });
 
 /**
@@ -102,8 +103,8 @@ export function timeDoPiloto(fila, estado) {
 const MONSTROS_ACAMPAMENTO = {
   JB0N: '4 SN-3',
   JB0S: '4 SN-Zero VI',
-  JC0N: '1 Grande Xerxes e 2 Xerxes',
-  JC0S: '1 Anti e 2 Bazit',
+  JC0N: tr('1 Grande Xerxes e 2 Xerxes'),
+  JC0S: tr('1 Anti e 2 Bazit'),
 };
 
 /** O id do acampamento no referencial do time 0 (o do time 1 é o mesmo girado 180°: N e S trocam). */
@@ -114,12 +115,12 @@ export function acampamentoDoTime0(id) {
 
 /** O que cada objetivo é e o que dá (a caixinha do mouse em cima). */
 const TEXTO_OBJETIVO = {
-  ataque: 'Chefe do buff de ataque. Quem dá o golpe final ganha +20% de dano por um tempo.',
-  suporte: 'Destrua a torre para o bônus de suporte: +2% de HP e +4 de energia por segundo.',
-  plataforma: 'Fique 6 s pousado nela para render ouro para o time.',
-  sonda: 'Anda em volta da mineradora. Abatida, dá +25% de velocidade (some em combate).',
-  medusa: 'Sobe da água no poço de baixo. Abatida, dá +15% de dano e de velocidade ao time todo.',
-  nucleo: 'Aparece aos 8:00. Não ataca: tem escudo que se regenera e devolve 14% do dano. Tomado, solta 3 mineradores com 50 de minério cada.',
+  ataque: tr('Chefe do buff de ataque. Quem dá o golpe final ganha +20% de dano por um tempo.'),
+  suporte: tr('Destrua a torre para o bônus de suporte: +2% de HP e +4 de energia por segundo.'),
+  plataforma: tr('Fique 6 s pousado nela para render ouro para o time.'),
+  sonda: tr('Anda em volta da mineradora. Abatida, dá +25% de velocidade (some em combate).'),
+  medusa: tr('Sobe da água no poço de baixo. Abatida, dá +15% de dano e de velocidade ao time todo.'),
+  nucleo: tr('Aparece aos 8:00. Não ataca: tem escudo que se regenera e devolve 14% do dano. Tomado, solta 3 mineradores com 50 de minério cada.'),
 };
 
 /**
@@ -134,45 +135,45 @@ const TEXTO_OBJETIVO = {
 export function dicaDoItem(chave, meuTime = 0) {
   const [tipo, a, b] = String(chave ?? '').split(':');
   const time = (t) => TIMES_MAPA[Number(t)];
-  const doTime = (t) => (Number(t) === meuTime ? 'do seu time' : 'do inimigo');
+  const doTime = (t) => (Number(t) === meuTime ? tr('do seu time') : tr('do inimigo'));
   switch (tipo) {
     case 'base': {
       const t = time(a);
       if (!t) return null;
       return Number(a) === meuTime
-        ? { titulo: `Sua base · ${t.nome}`, texto: 'Onde você nasce e renasce. Pousado no anel, a nave enche vida e energia; a Loja e a Evolução ficam aqui.', cor: t.cor }
-        : { titulo: `Base inimiga · ${t.nome}`, texto: 'O campo de força da entrada destrói qualquer nave sua que encostar nele.', cor: t.cor };
+        ? { titulo: tr('Sua base · {time}', { time: t.nome }), texto: tr('Onde você nasce e renasce. Pousado no anel, a nave enche vida e energia; a Loja e a Evolução ficam aqui.'), cor: t.cor }
+        : { titulo: tr('Base inimiga · {time}', { time: t.nome }), texto: tr('O campo de força da entrada destrói qualquer nave sua que encostar nele.'), cor: t.cor };
     }
     case 'campo':
       if (!time(a)) return null;
-      return { titulo: `Campo de força ${doTime(a)}`, texto: 'Só o time dono e os mineradores passam. Nave do outro time que encosta é destruída, e nenhum tiro atravessa.', cor: time(a).cor };
+      return { titulo: tr('Campo de força {deQuem}', { deQuem: doTime(a) }), texto: tr('Só o time dono e os mineradores passam. Nave do outro time que encosta é destruída, e nenhum tiro atravessa.'), cor: time(a).cor };
     case 'bacia':
       if (!time(a)) return null;
-      return { titulo: `Bacia de minério ${doTime(a)}`, texto: 'Os mineradores despejam aqui o He-3 do time. No fim dos 20 minutos, vence quem tiver mais minério.', cor: time(a).cor };
+      return { titulo: tr('Bacia de minério {deQuem}', { deQuem: doTime(a) }), texto: tr('Os mineradores despejam aqui o He-3 do time. No fim dos 20 minutos, vence quem tiver mais minério.'), cor: time(a).cor };
     case 'servico':
       if (!time(b)) return null;
       return a === 'loja'
-        ? { titulo: `Loja ${doTime(b)}`, texto: 'Pouse e pare nela: armas, escudos, armaduras, potenciadores e itens.', cor: '#ff6fd8' }
-        : { titulo: `Evolução ${doTime(b)}`, texto: 'Pouse e pare nela: a próxima nave da linha e as melhorias dos mineradores e das torres.', cor: '#a58bff' };
+        ? { titulo: tr('Loja {deQuem}', { deQuem: doTime(b) }), texto: tr('Pouse e pare nela: armas, escudos, armaduras, potenciadores e itens.'), cor: '#ff6fd8' }
+        : { titulo: tr('Evolução {deQuem}', { deQuem: doTime(b) }), texto: tr('Pouse e pare nela: a próxima nave da linha e as melhorias dos mineradores e das torres.'), cor: '#a58bff' };
     case 'torreta': {
       const t = TORRETAS.find((x) => x.id === a);
       if (!t) return null;
-      return { titulo: `Torre sentinela ${doTime(t.time)}`, texto: '7000 de HP e alcance de 560 m. O míssil atravessa qualquer resistência e fica mais forte a cada tiro seguido no mesmo alvo.', cor: time(t.time).cor };
+      return { titulo: tr('Torre sentinela {deQuem}', { deQuem: doTime(t.time) }), texto: tr('7000 de HP e alcance de 560 m. O míssil atravessa qualquer resistência e fica mais forte a cada tiro seguido no mesmo alvo.'), cor: time(t.time).cor };
     }
     case 'mineradora':
-      return { titulo: 'Mineradora de He-3', texto: 'Sólida: bloqueia passagem, tiro e visão. Cada time tem um hangar com a sua doca, onde só os mineradores dele entram.', cor: '#9fe8ff' };
+      return { titulo: tr('Mineradora de He-3'), texto: tr('Sólida: bloqueia passagem, tiro e visão. Cada time tem um hangar com a sua doca, onde só os mineradores dele entram.'), cor: '#9fe8ff' };
     case 'lane':
-      return { titulo: 'Lane', texto: 'A rota dos mineradores, da base até o hangar do time na mineradora. Proteja os seus e cace os do inimigo.', cor: '#cfe9e4' };
+      return { titulo: 'Lane', texto: tr('A rota dos mineradores, da base até o hangar do time na mineradora. Proteja os seus e cace os do inimigo.'), cor: '#cfe9e4' };
     case 'sonda':
-      return { titulo: 'Trajeto da sonda errante', texto: TEXTO_OBJETIVO.sonda, cor: '#ffb627' };
+      return { titulo: tr('Trajeto da sonda errante'), texto: TEXTO_OBJETIVO.sonda, cor: '#ffb627' };
     case 'acampamento': {
       const id0 = acampamentoDoTime0(a ?? '');
       const quem = MONSTROS_ACAMPAMENTO[id0];
       if (!quem) return null;
-      return { titulo: 'Acampamento de monstros', texto: `${quem}. Passivos até alguém atacar um deles; dão ouro e XP e ficam mais numerosos ao longo da partida.`, cor: '#ff4a2a' };
+      return { titulo: tr('Acampamento de monstros'), texto: tr('{quem}. Passivos até alguém atacar um deles; dão ouro e XP e ficam mais numerosos ao longo da partida.', { quem }), cor: '#ff4a2a' };
     }
     case 'nuvem':
-      return { titulo: 'Nuvem de gás', texto: 'Dá para atravessar e esconde quem está dentro: boa para emboscar e para fugir.', cor: '#e8d6ba' };
+      return { titulo: tr('Nuvem de gás'), texto: tr('Dá para atravessar e esconde quem está dentro: boa para emboscar e para fugir.'), cor: '#e8d6ba' };
     case 'objetivo': {
       const o = OBJETIVOS_MAPA.find((x) => x.id === a);
       if (!o) return null;

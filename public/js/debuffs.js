@@ -10,38 +10,40 @@
 // (o campo que fere a cada meio segundo não enche a lista). Ícones em public/texturas/debuffs/ (os do
 // original, 32 × 32).
 
+import { tr, localeNum } from '../../shared/idioma.js';
+
 export const PASTA_ICONES_DEBUFF = '/texturas/debuffs/';
 const LINHAS_MAX = 6;
 const LINHA_MIN_S = 4; // s na tela, mesmo para efeito de duração curta ou sem duração
 const SAI_S = 0.6; // s do esmaecer
 
-const n1 = (x) => (x ?? 0).toFixed(1).replace('.', ',');
+const n1 = (x) => (x ?? 0).toLocaleString(localeNum(), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /**
  * Por efeito (o `ef` do evento): o ícone do original, o nome e o texto. `{v}` e
  * `{dur}` viram o valor e a duração com uma casa (como o %0.1f do original).
  */
 export const DEBUFFS = {
-  magma: { icone: '1164001_s', nome: 'Dano de magma', texto: 'HP diminui {v} em {dur} s' },
-  resist: { icone: 'allresist_s', nome: 'Resistências reduzidas', texto: 'Todas as resistências caem {v} por {dur} s' },
-  descarga: { icone: 'discharge_s', nome: 'Descarga de energia', texto: 'Energia descarregada em {v}%' },
-  semTiro: { icone: 'cross008_s', nome: 'Ataque paralisado', texto: 'Paralisado por {dur} s' },
-  lento: { icone: 'cross007_s', nome: 'Lentidão', texto: 'Velocidade reduzida em {v}% por {dur} s' },
-  imovel: { icone: 'cross007_s', nome: 'Movimento paralisado', texto: 'Movimento paralisado por {dur} s' },
-  paralisa: { icone: 'cross002_s', nome: 'Travamento', texto: 'Movimento e ataque paralisados por {dur} s' },
-  trava: { icone: 'cross007_s', nome: 'Aceleração paralisada', texto: 'Aceleração e frenagem desligadas por {dur} s' },
-  cadencia: { icone: 'cross008_s', nome: 'Cadência atrapalhada', texto: 'Cadência de tiro cai {v}% por {dur} s' },
-  fraco: { icone: 'cross008_s', nome: 'Ataque enfraquecido', texto: 'Dano de ataque cai {v}% por {dur} s' },
-  vulnFisico: { icone: 'cross005_s', nome: 'Resistência física reduzida', texto: 'Vulnerável a ataque físico por {dur} s' },
-  vulnLaser: { icone: 'cross004_s', nome: 'Resistência laser reduzida', texto: 'Vulnerável a ataque laser por {dur} s' },
-  revela: { icone: 'cross009_s', nome: 'Camuflagem paralisada', texto: 'Camuflagem desligada por {dur} s' },
-  cego: { icone: 'raderoff_s', nome: 'Radar paralisado', texto: 'Radar desligado por {dur} s' },
-  desgoverno: { icone: 'cross010_s', nome: 'Controle embaralhado', texto: 'A nave anda ao contrário por {dur} s' },
-  drenoDuplo: { icone: 'discharge_s', nome: 'Descarga dupla', texto: 'Energia e escudo caem {v} por segundo por {dur} s' },
-  drenoEn: { icone: 'discharge_s', nome: 'Energia drenada', texto: 'Energia cai {v} por segundo por {dur} s' },
-  semRegen: { icone: 'discharge_s', nome: 'Energia paralisada', texto: 'Recuperação de energia desligada por {dur} s' },
-  enCara: { icone: 'cross013_s', nome: 'Consumo de energia', texto: 'Gasto de energia sobe {v}% por {dur} s' },
-  recuo: { icone: 'cross011_s', nome: 'Dano devolvido', texto: 'Devolve {v}% do dano a quem ataca por {dur} s' },
+  magma: { icone: '1164001_s', nome: tr('Dano de magma'), texto: tr('HP diminui {v} em {dur} s') },
+  resist: { icone: 'allresist_s', nome: tr('Resistências reduzidas'), texto: tr('Todas as resistências caem {v} por {dur} s') },
+  descarga: { icone: 'discharge_s', nome: tr('Descarga de energia'), texto: tr('Energia descarregada em {v}%') },
+  semTiro: { icone: 'cross008_s', nome: tr('Ataque paralisado'), texto: tr('Paralisado por {dur} s') },
+  lento: { icone: 'cross007_s', nome: tr('Lentidão'), texto: tr('Velocidade reduzida em {v}% por {dur} s') },
+  imovel: { icone: 'cross007_s', nome: tr('Movimento paralisado'), texto: tr('Movimento paralisado por {dur} s') },
+  paralisa: { icone: 'cross002_s', nome: tr('Travamento'), texto: tr('Movimento e ataque paralisados por {dur} s') },
+  trava: { icone: 'cross007_s', nome: tr('Aceleração paralisada'), texto: tr('Aceleração e frenagem desligadas por {dur} s') },
+  cadencia: { icone: 'cross008_s', nome: tr('Cadência atrapalhada'), texto: tr('Cadência de tiro cai {v}% por {dur} s') },
+  fraco: { icone: 'cross008_s', nome: tr('Ataque enfraquecido'), texto: tr('Dano de ataque cai {v}% por {dur} s') },
+  vulnFisico: { icone: 'cross005_s', nome: tr('Resistência física reduzida'), texto: tr('Vulnerável a ataque físico por {dur} s') },
+  vulnLaser: { icone: 'cross004_s', nome: tr('Resistência laser reduzida'), texto: tr('Vulnerável a ataque laser por {dur} s') },
+  revela: { icone: 'cross009_s', nome: tr('Camuflagem paralisada'), texto: tr('Camuflagem desligada por {dur} s') },
+  cego: { icone: 'raderoff_s', nome: tr('Radar paralisado'), texto: tr('Radar desligado por {dur} s') },
+  desgoverno: { icone: 'cross010_s', nome: tr('Controle embaralhado'), texto: tr('A nave anda ao contrário por {dur} s') },
+  drenoDuplo: { icone: 'discharge_s', nome: tr('Descarga dupla'), texto: tr('Energia e escudo caem {v} por segundo por {dur} s') },
+  drenoEn: { icone: 'discharge_s', nome: tr('Energia drenada'), texto: tr('Energia cai {v} por segundo por {dur} s') },
+  semRegen: { icone: 'discharge_s', nome: tr('Energia paralisada'), texto: tr('Recuperação de energia desligada por {dur} s') },
+  enCara: { icone: 'cross013_s', nome: tr('Consumo de energia'), texto: tr('Gasto de energia sobe {v}% por {dur} s') },
+  recuo: { icone: 'cross011_s', nome: tr('Dano devolvido'), texto: tr('Devolve {v}% do dano a quem ataca por {dur} s') },
 };
 
 /** O texto de um evento de debuff ({ ef, v, dur }), ou null para efeito sem mensagem. */

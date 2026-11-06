@@ -25,21 +25,22 @@
 
 import { miniatura } from './vitrine.js';
 import { custoTeleporte } from '/shared/sim.js';
+import { tr } from '../../shared/idioma.js';
 
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 /** Por que o teleporte foi recusado (codigo do {t:'resultado', acao:'teleportar'}). */
 const MOTIVO_TELEPORTE = {
-  sem_partida: 'O teleporte só vale com a partida em andamento',
-  morto: 'Você está abatido: espere renascer',
-  alvo_morto: 'O companheiro foi abatido',
-  nao_functional: 'Só dá para teleportar até uma nave Functional',
-  invalido: 'Não dá para teleportar até esse piloto',
-  sem_energia: 'Energia insuficiente para o teleporte',
+  sem_partida: tr('O teleporte só vale com a partida em andamento'),
+  morto: tr('Você está abatido: espere renascer'),
+  alvo_morto: tr('O companheiro foi abatido'),
+  nao_functional: tr('Só dá para teleportar até uma nave Functional'),
+  invalido: tr('Não dá para teleportar até esse piloto'),
+  sem_energia: tr('Energia insuficiente para o teleporte'),
 };
 
 /** Texto da falta de energia, com o custo (a diferença de nível encarece o salto). */
-const faltaEnergia = (custo) => `Energia insuficiente: o teleporte custa ${custo} (a diferença de nível com o companheiro encarece)`;
+const faltaEnergia = (custo) => tr('Energia insuficiente: o teleporte custa {custo} (a diferença de nível com o companheiro encarece)', { custo });
 
 // Símbolo do portal (anéis abertos com a seta para dentro), em traço.
 const ICONE_PORTAL =
@@ -155,8 +156,8 @@ export class BarraTime {
       li.dataset.id = p.id;
       li.innerHTML = `<span class="mini">${ICONE_NAVE}</span>
         <span class="info">
-          <span class="linha"><b class="nome"></b><span class="selo-ia" hidden>IA</span><span class="abates" title="Abates de jogadores inimigos">${ICONE_ABATE}<b>0</b></span></span>
-          <span class="vida" title="Vida"><i></i></span>
+          <span class="linha"><b class="nome"></b><span class="selo-ia" hidden>${tr('IA')}</span><span class="abates" title="${tr('Abates de jogadores inimigos')}">${ICONE_ABATE}<b>0</b></span></span>
+          <span class="vida" title="${tr('Vida')}"><i></i></span>
         </span>${ICONE_PORTAL}`;
       c = {
         li,
@@ -183,7 +184,7 @@ export class BarraTime {
     c.li.classList.toggle('morto', !p.vivo);
     c.li.classList.toggle('tele', tele);
     c.li.classList.toggle('aberto', this.alvo === p.id);
-    const titulo = tele ? `${p.nome} · nave Functional: clique para teleportar até ele` : p.nome;
+    const titulo = tele ? tr('{nome} · nave Functional: clique para teleportar até ele', { nome: p.nome }) : p.nome;
     if (v.titulo !== titulo) c.li.title = v.titulo = titulo;
     // Miniatura da nave (uma por modelo na página: vitrine.js guarda).
     const nave = p.race && p.classe ? `${p.race}/${p.classe}/${p.tier}` : '';
@@ -247,7 +248,7 @@ export class BarraTime {
   resultado(m) {
     if (m.ok) return;
     const texto = m.codigo === 'sem_energia' && Number.isFinite(m.custo) ? faltaEnergia(m.custo) : MOTIVO_TELEPORTE[m.codigo];
-    this.noticia(texto ?? 'Não deu para teleportar agora', 'ruim');
+    this.noticia(texto ?? tr('Não deu para teleportar agora'), 'ruim');
   }
 
   /** Sai da partida: some com a barra e esvazia. */

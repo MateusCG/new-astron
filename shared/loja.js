@@ -50,6 +50,7 @@ import {
   precoEvoluirArma,
 } from './armas.js';
 import { EQUIPAMENTOS, ORDEM_EQUIP, CATEGORIA_DO_SLOT, ORDEM_TIPOS_DANO, equipamentosAVenda, precoEquip, precoEvoluirEquip } from './equipamentos.js';
+import { tr } from './idioma.js';
 
 export { precoEvoluirArma, equipamentosAVenda, precoEquip, precoEvoluirEquip };
 
@@ -85,8 +86,8 @@ export const ITEM_CARGA_MAX = 3; // de cada item, no compartimento da nave
 
 /** Itens consumíveis: tecla de uso, preço, recarga entre usos e carga máxima. */
 export const ITENS = {
-  reparo: { id: 'reparo', nome: 'Kit de reparo', tecla: 'R', preco: 60, recargaS: REPARO_RECARGA_S, max: ITEM_CARGA_MAX, cura: REPARO_CURA },
-  energia: { id: 'energia', nome: 'Célula de energia', tecla: 'F', preco: 40, recargaS: ENERGIA_RECARGA_S, max: ITEM_CARGA_MAX },
+  reparo: { id: 'reparo', nome: tr('Kit de reparo'), tecla: 'R', preco: 60, recargaS: REPARO_RECARGA_S, max: ITEM_CARGA_MAX, cura: REPARO_CURA },
+  energia: { id: 'energia', nome: tr('Célula de energia'), tecla: 'F', preco: 40, recargaS: ENERGIA_RECARGA_S, max: ITEM_CARGA_MAX },
 };
 /** Ordem dos itens no painel e na Loja. */
 export const ORDEM_ITENS = ['reparo', 'energia'];

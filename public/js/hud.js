@@ -29,6 +29,10 @@ import { ITENS, ORDEM_ITENS } from '/shared/loja.js';
 import { relogio, LUGARES_OBJETIVO, ICONE_OBJETIVO, NOME_OBJETIVO, POUSO_PLATAFORMA_S } from './objetivos.js';
 import { PONTO_MONSTRO } from './monstros.js';
 import { corResistencia } from './cor-resistencia.js';
+import { tr, localeNum, nomeArma, emIngles } from '../../shared/idioma.js';
+
+/** Uma casa decimal, no jeito do idioma (3,5 / 3.5). */
+const dec1 = (x) => x.toLocaleString(localeNum(), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 const $ = (s) => document.querySelector(s);
 
@@ -44,32 +48,34 @@ const COR_INIMIGA = '#ff4a2a'; // monstros e tudo do outro time
 const COR_OBJETIVO = '#ffb627';
 const COR_MINERIO = '#9fe8ff';
 const COR_SERVICO = { evolucao: '#a58bff', loja: '#ff6fd8' };
-const NOME_SERVICO = { evolucao: 'Evolução', loja: 'Loja' };
+const NOME_SERVICO = { evolucao: tr('Evolução'), loja: tr('Loja') };
 const FLUTUANTE_S = 1.5; // vida do texto que sobe do monstro abatido
 const FLUTUANTE_SOBE_PX = 70; // quanto ele sobe na tela nesse tempo
 const FLUTUANTES_MAX = 24;
 const COR_APAGADA = '#8a7f6a'; // letra de objetivo em recarga
 /** Letra de cada objetivo no minimapa. */
-const LETRA_OBJETIVO = { ataque: 'A', suporte: 'S', plataforma: '$', sonda: 'V', medusa: 'M', nucleo: 'N' };
+const LETRA_OBJETIVO = emIngles()
+  ? { ataque: 'A', suporte: 'S', plataforma: '$', sonda: 'P', medusa: 'M', nucleo: 'C' }
+  : { ataque: 'A', suporte: 'S', plataforma: '$', sonda: 'V', medusa: 'M', nucleo: 'N' };
 /** Bônus de nave (me.bonusNave) e de time (bonus[time]): nome e o que faz, para o HUD. */
 export const BONUS_NAVE = {
-  ataque: { nome: 'Ataque', efeito: '+20% de dano', icone: ICONE_OBJETIVO.ataque },
-  suporte: { nome: 'Suporte', efeito: '+2% de HP e +4 de energia por s', icone: ICONE_OBJETIVO.suporte },
-  sonda: { nome: 'Sonda', efeito: '+25% de velocidade (some em combate)', icone: ICONE_OBJETIVO.sonda },
-  medusa: { nome: 'Medusa', efeito: '+15% de dano e de velocidade (time)', icone: ICONE_OBJETIVO.medusa },
+  ataque: { nome: tr('Ataque'), efeito: tr('+20% de dano'), icone: ICONE_OBJETIVO.ataque },
+  suporte: { nome: tr('Suporte'), efeito: tr('+2% de HP e +4 de energia por s'), icone: ICONE_OBJETIVO.suporte },
+  sonda: { nome: tr('Sonda'), efeito: tr('+25% de velocidade (some em combate)'), icone: ICONE_OBJETIVO.sonda },
+  medusa: { nome: 'Medusa', efeito: tr('+15% de dano e de velocidade (time)'), icone: ICONE_OBJETIVO.medusa },
 };
 
 /** Aviso de cada efeito de arma na própria nave: [texto, tipo da notícia]. */
 const AVISOS_EFEITO = {
-  dreno: ['Dreno: você está perdendo vida', 'ruim'],
-  lento: ['Sua nave está lenta', 'ruim'],
-  emp: ['Sem energia: sem tiro e sem boost por instantes', 'ruim'],
-  semTiro: ['Paralisia: sem tiro por instantes', 'ruim'],
-  desg: ['Desgoverno: a curva está invertida', 'ruim'],
-  semRegen: ['A energia parou de recuperar', 'ruim'],
-  cego: ['Radar desligado: inimigos fora do mapa', 'ruim'],
-  inv: ['Camuflada: o inimigo não te vê de longe', 'bom'],
-  invul: ['Invulnerável', 'bom'],
+  dreno: [tr('Dreno: você está perdendo vida'), 'ruim'],
+  lento: [tr('Sua nave está lenta'), 'ruim'],
+  emp: [tr('Sem energia: sem tiro e sem boost por instantes'), 'ruim'],
+  semTiro: [tr('Paralisia: sem tiro por instantes'), 'ruim'],
+  desg: [tr('Desgoverno: a curva está invertida'), 'ruim'],
+  semRegen: [tr('A energia parou de recuperar'), 'ruim'],
+  cego: [tr('Radar desligado: inimigos fora do mapa'), 'ruim'],
+  inv: [tr('Camuflada: o inimigo não te vê de longe'), 'bom'],
+  invul: [tr('Invulnerável'), 'bom'],
 };
 
 export class Hud {
@@ -402,10 +408,10 @@ export class Hud {
     // Nível e XP: a barra enche até o próximo nível; no máximo fica cheia.
     const nv = extra.nivel ?? 1;
     const prox = extra.xpProx ?? 0;
-    this.nivel.textContent = `NV ${nv}`;
+    this.nivel.textContent = tr('NV {n}', { n: nv });
     this.xp.style.width = prox > 0 ? `${Math.min(1, (extra.xp ?? 0) / prox) * 100}%` : '100%';
-    this.xpTxt.textContent = prox > 0 ? `${extra.xp ?? 0} / ${prox}` : 'máx.';
-    this.ouro.textContent = extra.ouro.toLocaleString('pt-BR');
+    this.xpTxt.textContent = prox > 0 ? `${extra.xp ?? 0} / ${prox}` : tr('máx.');
+    this.ouro.textContent = extra.ouro.toLocaleString(localeNum());
     this.abates.textContent = extra.abates;
     this.vel.textContent = Math.round(Math.hypot(me.vx, me.vz) * 3.6) + ' km/h';
     this.ping.textContent = ping ? `${ping} ms` : '';
@@ -424,14 +430,14 @@ export class Hud {
         slot.nivel = nivel;
         // O painel mostra só o ícone (com a versão no canto); o nome fica no tooltip.
         slot.icone.innerHTML = iconeArma(kind, nivel);
-        slot.icone.title = nivel > 1 ? `${w.nome} ${nivel}` : w.nome;
+        slot.icone.title = nivel > 1 ? `${nomeArma(w)} ${nivel}` : nomeArma(w);
       }
       const cd = (enc === 0 ? me.cd1 : me.cd2) ?? 0;
       const troca = (enc === 0 ? me.troca1 : me.troca2) ?? 0;
       const fracao = troca > 0 ? troca / TROCA_ARMA_S : v.cd > 0 ? cd / v.cd : 0;
       slot.el.classList.toggle('segurando', (enc === 0 ? me.seg1 : me.seg2) === idx);
       slot.recarga.style.width = `${(1 - Math.min(1, fracao)) * 100}%`;
-      const txt = troca > 0 ? `${(Math.ceil(troca * 10) / 10).toLocaleString('pt-BR', { minimumFractionDigits: 1 })} s` : '';
+      const txt = troca > 0 ? `${(Math.ceil(troca * 10) / 10).toLocaleString(localeNum(), { minimumFractionDigits: 1 })} s` : '';
       if (txt !== slot.txtEspera) slot.espera.textContent = slot.txtEspera = txt;
       slot.el.classList.toggle('trocando', troca > 0);
       slot.el.classList.toggle('carregando', cd > 0 || troca > 0);
@@ -462,14 +468,14 @@ export class Hud {
         ? NOME_SERVICO[area.servico]
         : area.plataforma
           ? NOME_OBJETIVO.plataforma
-          : 'Área de pouso';
+          : tr('Área de pouso');
     let html = '';
     const L = kbdAcao('pouso');
-    if (pousada && area?.servico) html = painelAberto ? `${nome} · ${L} decola` : `${nome} · ${kbdAcao('loja')} ou toque abre · ${L} decola`;
-    else if (pousada && area?.plataforma) html = `${nome} · sem tiro enquanto pousada · ${L} decola`;
-    else if (pousada) html = `Pousada · consertando · ${L} decola`;
-    else if (area?.plataforma) html = `${nome} · Pouse 6 s: ouro para o time · ${L} pousa`;
-    else if (area) html = `${nome} · ${L} pousa`;
+    if (pousada && area?.servico) html = painelAberto ? tr('{nome} · {L} decola', { nome, L }) : tr('{nome} · {abre} ou toque abre · {L} decola', { nome, abre: kbdAcao('loja'), L });
+    else if (pousada && area?.plataforma) html = tr('{nome} · sem tiro enquanto pousada · {L} decola', { nome, L });
+    else if (pousada) html = tr('Pousada · consertando · {L} decola', { L });
+    else if (area?.plataforma) html = tr('{nome} · Pouse 6 s: ouro para o time · {L} pousa', { nome, L });
+    else if (area) html = tr('{nome} · {L} pousa', { nome, L });
     if (this.avisoPouso.dataset.html !== html) {
       this.avisoPouso.innerHTML = html;
       this.avisoPouso.dataset.html = html;
@@ -488,20 +494,20 @@ export class Hud {
     let frac = 0;
     let classe = '';
     if (r?.estado === 'recarga' || r?.estado === 'espera') {
-      html = `Plataforma ${r.estado === 'espera' ? 'abre' : 'volta'} em ${relogio(r.volta)}`;
+      html = r.estado === 'espera' ? tr('Plataforma abre em {t}', { t: relogio(r.volta) }) : tr('Plataforma volta em {t}', { t: relogio(r.volta) });
       classe = 'recarga';
     } else if (r?.contestado) {
-      html = 'Contestado · tem inimigo pousado na plataforma';
+      html = tr('Contestado · tem inimigo pousado na plataforma');
       frac = (r.prog ?? 0) / POUSO_PLATAFORMA_S;
       classe = 'contestado';
     } else if (r?.quem != null) {
       const meu = r.quem === this.meuTime;
       const falta = Math.max(0, POUSO_PLATAFORMA_S - (r.prog ?? 0));
-      html = meu ? `Ouro para o time em ${falta.toFixed(1).replace('.', ',')} s` : 'O inimigo está coletando';
+      html = meu ? tr('Ouro para o time em {s} s', { s: dec1(falta) }) : tr('O inimigo está coletando');
       frac = (r.prog ?? 0) / POUSO_PLATAFORMA_S;
       classe = meu ? 'meu' : 'deles';
     } else if (r) {
-      html = 'Plataforma de ouro · fique pousado';
+      html = tr('Plataforma de ouro · fique pousado');
     }
     const el = this.progObj;
     el.hidden = !html;
@@ -526,7 +532,7 @@ export class Hud {
       .map(([nome, s]) => {
         const b = BONUS_NAVE[nome];
         const off = suspensos?.includes(nome);
-        return `<li class="${nome}${off ? ' suspenso' : ''}" title="${b.nome}: ${b.efeito}${off ? ' · suspenso em combate' : ''}"><svg viewBox="0 0 24 24" aria-hidden="true">${b.icone}</svg><span>${b.nome}</span><b>${Math.ceil(s)}s</b></li>`;
+        return `<li class="${nome}${off ? ' suspenso' : ''}" title="${b.nome}: ${b.efeito}${off ? tr(' · suspenso em combate') : ''}"><svg viewBox="0 0 24 24" aria-hidden="true">${b.icone}</svg><span>${b.nome}</span><b>${Math.ceil(s)}s</b></li>`;
       })
       .join('');
     if (this.listaBonus.dataset.html !== html) {
@@ -546,7 +552,7 @@ export class Hud {
     el.hidden = !ligado;
     this.btnRecall?.classList.toggle('canalizando', ligado);
     if (!ligado) return;
-    const txt = `Voltando à base · <b>${Math.max(0, resta).toFixed(1).replace('.', ',')} s</b>`;
+    const txt = tr('Voltando à base · {s}', { s: `<b>${dec1(Math.max(0, resta))} s</b>` });
     if (el.dataset.txt !== txt) {
       el.querySelector('.txt').innerHTML = txt;
       el.dataset.txt = txt;
@@ -572,9 +578,9 @@ export class Hud {
       if (kind !== linha.kind) {
         linha.kind = kind;
         linha.ic.innerHTML = WEAPONS[kind] ? iconeArma(kind, nivel) : '';
-        linha.nm.textContent = WEAPONS[kind]?.nome ?? '';
+        linha.nm.textContent = nomeArma(WEAPONS[kind]);
       }
-      const txt = `${(Math.ceil(troca * 10) / 10).toLocaleString('pt-BR', { minimumFractionDigits: 1 })} s`;
+      const txt = `${(Math.ceil(troca * 10) / 10).toLocaleString(localeNum(), { minimumFractionDigits: 1 })} s`;
       if (txt !== linha.txt) linha.seg.textContent = linha.txt = txt;
       linha.barra.style.width = `${(1 - Math.min(1, troca / TROCA_ARMA_S)) * 100}%`;
     }
@@ -664,7 +670,7 @@ export class Hud {
             if (!barraEsc.hidden) barraEsc.firstChild.style.width = `${Math.max(0, Math.min(1, esc)) * 100}%`;
           }
           const nv = cima.querySelector('.nv');
-          if (nv && nivel) nv.textContent = `NV ${nivel}`;
+          if (nv && nivel) nv.textContent = tr('NV {n}', { n: nivel });
         }
       }
       // Embaixo da nave de jogador: a etiqueta com o nick e o nível.
@@ -679,7 +685,7 @@ export class Hud {
         if (baixo) {
           baixo.style.opacity = opacidade;
           const nv = baixo.querySelector('.nv');
-          const txt = `NV ${nivel ?? 1}`;
+          const txt = tr('NV {n}', { n: nivel ?? 1 });
           if (nv.textContent !== txt) nv.textContent = txt;
           const cor = corResistencia(res);
           if (baixo.dataset.cor !== cor) {

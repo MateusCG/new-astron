@@ -21,6 +21,7 @@
 import * as THREE from 'three';
 import { BUFFS, PLATAFORMAS_POUSO, NUCLEO, MEDUSA, heightAt } from '/shared/terrain.js';
 import { definirObstaculoAtivo, TORRE_SUPORTE } from '/shared/obstaculos.js';
+import { tr } from '../../shared/idioma.js';
 
 /** Segundos pousado na plataforma para o time ganhar o ouro (server/objetivos.js). */
 export const POUSO_PLATAFORMA_S = 6;
@@ -46,19 +47,19 @@ export const LUGARES_OBJETIVO = [
 /** Nome curto de cada tipo de objetivo (rótulo, notícias e HUD). */
 export const NOME_OBJETIVO = {
   ataque: 'SN-4',
-  suporte: 'Torre de comunicação',
-  plataforma: 'Plataforma de ouro',
-  sonda: 'Sonda errante',
-  medusa: 'Medusa Anciã',
-  nucleo: 'Núcleo de He-3',
+  suporte: tr('Torre de comunicação'),
+  plataforma: tr('Plataforma de ouro'),
+  sonda: tr('Sonda errante'),
+  medusa: tr('Medusa Anciã'),
+  nucleo: tr('Núcleo de He-3'),
 };
 
 /** O que fazer com o objetivo aceso (sem ninguém tomando). */
 const FAZER = {
-  ataque: 'SN-4 · bônus de ataque',
-  suporte: 'Destrua a torre · bônus de suporte',
-  sonda: 'Sonda errante · bônus de velocidade',
-  medusa: 'Medusa Anciã · bônus do time',
+  ataque: tr('SN-4 · bônus de ataque'),
+  suporte: tr('Destrua a torre · bônus de suporte'),
+  sonda: tr('Sonda errante · bônus de velocidade'),
+  medusa: tr('Medusa Anciã · bônus do time'),
 };
 
 /** Ícones de traço (SVG 24×24) de cada tipo, para o rótulo, o HUD e o placar. */
@@ -142,7 +143,7 @@ export class ObjetivosNaTela {
 
   /** "seu time" / "inimigo" e a classe de cor de um time. */
   #time(t) {
-    return t === this.meuTime ? ['seu time', 'meu'] : ['inimigo', 'deles'];
+    return t === this.meuTime ? [tr('seu time'), 'meu'] : [tr('inimigo'), 'deles'];
   }
 
   /** Texto, classe e barra (0 a 1, ou null) do rótulo de um objetivo. */
@@ -151,24 +152,24 @@ export class ObjetivosNaTela {
     const nome = NOME_OBJETIVO[tipo];
     const quem = r.time == null ? '' : ` · ${this.#time(r.time)[0]}`;
     const corQuem = r.time == null ? '' : this.#time(r.time)[1];
-    const nivel = tipo === 'nucleo' && r.nivel > 1 ? ` · nível ${r.nivel}` : '';
-    if (r.estado === 'recarga') return { txt: `Volta em ${relogio(r.volta)}${nivel}${quem}`, classe: `recarga ${corQuem}`, barra: null };
-    if (r.estado === 'tomado') return { txt: `${nome} · tomado${quem}`, classe: `recarga ${corQuem}`, barra: null };
+    const nivel = tipo === 'nucleo' && r.nivel > 1 ? tr(' · nível {n}', { n: r.nivel }) : '';
+    if (r.estado === 'recarga') return { txt: tr('Volta em {t}', { t: relogio(r.volta) }) + nivel + quem, classe: `recarga ${corQuem}`, barra: null };
+    if (r.estado === 'tomado') return { txt: tr('{nome} · tomado', { nome }) + quem, classe: `recarga ${corQuem}`, barra: null };
     if (r.estado === 'espera') {
-      if (r.bloqueada) return { txt: `${nome} · espera a Medusa e o Núcleo`, classe: 'recarga', barra: null };
-      return { txt: r.volta != null ? `${nome} · em ${relogio(r.volta)}` : `${nome} · em breve`, classe: 'recarga', barra: null };
+      if (r.bloqueada) return { txt: tr('{nome} · espera a Medusa e o Núcleo', { nome }), classe: 'recarga', barra: null };
+      return { txt: r.volta != null ? tr('{nome} · em {t}', { nome, t: relogio(r.volta) }) : tr('{nome} · em breve', { nome }), classe: 'recarga', barra: null };
     }
     if (tipo === 'plataforma') {
-      if (r.contestado) return { txt: 'Contestado · os dois times pousados', classe: 'contestado', barra: (r.prog ?? 0) / POUSO_PLATAFORMA_S };
+      if (r.contestado) return { txt: tr('Contestado · os dois times pousados'), classe: 'contestado', barra: (r.prog ?? 0) / POUSO_PLATAFORMA_S };
       if (r.quem != null) {
         const [t, classe] = this.#time(r.quem);
         const falta = Math.max(0, POUSO_PLATAFORMA_S - (r.prog ?? 0));
-        return { txt: `${t[0].toUpperCase() + t.slice(1)} pousado · ${falta.toFixed(0)} s`, classe, barra: (r.prog ?? 0) / POUSO_PLATAFORMA_S };
+        return { txt: tr('{time} pousado · {s} s', { time: t[0].toUpperCase() + t.slice(1), s: falta.toFixed(0) }), classe, barra: (r.prog ?? 0) / POUSO_PLATAFORMA_S };
       }
       // Livre: o holograma "OURO" e o "Pouse e ganhe ouro · L" do cenário dizem o que fazer.
       return { txt: '', classe: '', barra: null };
     }
-    if (tipo === 'nucleo') return { txt: `${NOME_OBJETIVO.nucleo}${nivel} · onda de mineradores`, classe: 'escudo', barra: r.vida ?? null };
+    if (tipo === 'nucleo') return { txt: NOME_OBJETIVO.nucleo + nivel + tr(' · onda de mineradores'), classe: 'escudo', barra: r.vida ?? null };
     return { txt: FAZER[tipo], classe: '', barra: r.vida ?? null };
   }
 

@@ -7,6 +7,8 @@
 // navegador (insumosDoMenu em insumos.js). Falha de rede num arquivo conta como feito
 // (o menu tenta de novo quando precisar): a abertura nunca prende o piloto.
 
+import { tr } from '../../shared/idioma.js';
+
 /** A arte de fundo (a imagem estática das naves; LISTA.md da pasta diz de onde veio). */
 export const ARTE_ABERTURA = '/imagens/abertura.jpg';
 
@@ -17,10 +19,10 @@ export const ARTE_ABERTURA = '/imagens/abertura.jpg';
  * naves e da propulsão, e os sons e os ícones são pequenos.
  */
 export const GRUPOS_ABERTURA = Object.freeze([
-  { id: 'naves', nome: 'Naves', curto: 'Naves', peso: 55 },
-  { id: 'hangar', nome: 'Hangar', curto: 'Miniaturas do hangar', peso: 25 },
-  { id: 'audio', nome: 'Áudio', curto: 'Sons', peso: 12 },
-  { id: 'interface', nome: 'Interface', curto: 'Ícones e placa de vídeo', peso: 8 },
+  { id: 'naves', nome: tr('Naves'), curto: tr('Naves'), peso: 55 },
+  { id: 'hangar', nome: 'Hangar', curto: tr('Miniaturas do hangar'), peso: 25 },
+  { id: 'audio', nome: tr('Áudio'), curto: tr('Sons'), peso: 12 },
+  { id: 'interface', nome: 'Interface', curto: tr('Ícones e placa de vídeo'), peso: 8 },
 ]);
 
 /** Fração da barra (0 a 1) pelos grupos: { id: { feitos, total } }. Grupo sem total ainda conta zero. */
@@ -54,9 +56,9 @@ export function aberturaPronta(estado) {
 /** Linha de cima da barra: o primeiro grupo que falta, ou "pronto". */
 export function textoAbertura(estado) {
   const g = GRUPOS_ABERTURA.find((x) => !grupoPronto(estado[x.id]));
-  if (!g) return 'Hangar pronto';
+  if (!g) return tr('Hangar pronto');
   const e = estado[g.id];
-  return e?.total ? `Carregando · ${g.curto} ${e.feitos}/${e.total}` : `Carregando · ${g.curto}…`;
+  return e?.total ? tr('Carregando · {g} {feitos}/{total}', { g: g.curto, feitos: e.feitos, total: e.total }) : tr('Carregando · {g}…', { g: g.curto });
 }
 
 /**
@@ -64,16 +66,16 @@ export function textoAbertura(estado) {
  * com a tecla entre <kbd>: o que o piloto mais precisa saber antes da primeira partida.
  */
 export const DICAS_ABERTURA = Object.freeze([
-  'Vence quem tiver mais minério de He-3 na bacia da base no fim dos 20 minutos.',
-  'Pouse com <kbd>L</kbd> na plataforma da Loja ou da Evolução da sua base para abrir o painel.',
-  'Segure <kbd>TAB</kbd> para ver a tabela da partida sem parar de voar.',
-  '<kbd>Q</kbd> e <kbd>E</kbd> trocam a arma do <kbd>Z</kbd> e do <kbd>X</kbd> pela guardada no inventário.',
-  'Nave inimiga que encosta no campo de força da sua base é destruída na hora.',
-  'O Núcleo de He-3 não ataca, mas devolve parte do dano: chame o time antes de bater.',
-  'Abata os mineradores do outro time antes que eles despejem a carga.',
-  'A cada nível você ganha 10 pontos: abra o STATUS com <kbd>C</kbd> e ponha em HP, energia ou no poder das armas.',
-  'Nuvens de gás escondem quem está dentro: boas para emboscar e para fugir.',
-  'Morreu? Aperte <kbd>H</kbd> para ver quem te derrubou e com que tipo de dano.',
+  tr('Vence quem tiver mais minério de He-3 na bacia da base no fim dos 20 minutos.'),
+  tr('Pouse com <kbd>L</kbd> na plataforma da Loja ou da Evolução da sua base para abrir o painel.'),
+  tr('Segure <kbd>TAB</kbd> para ver a tabela da partida sem parar de voar.'),
+  tr('<kbd>Q</kbd> e <kbd>E</kbd> trocam a arma do <kbd>Z</kbd> e do <kbd>X</kbd> pela guardada no inventário.'),
+  tr('Nave inimiga que encosta no campo de força da sua base é destruída na hora.'),
+  tr('O Núcleo de He-3 não ataca, mas devolve parte do dano: chame o time antes de bater.'),
+  tr('Abata os mineradores do outro time antes que eles despejem a carga.'),
+  tr('A cada nível você ganha 10 pontos: abra o STATUS com <kbd>C</kbd> e ponha em HP, energia ou no poder das armas.'),
+  tr('Nuvens de gás escondem quem está dentro: boas para emboscar e para fugir.'),
+  tr('Morreu? Aperte <kbd>H</kbd> para ver quem te derrubou e com que tipo de dano.'),
 ]);
 
 /** Segundos de cada dica no canto. */

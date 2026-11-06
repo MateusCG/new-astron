@@ -73,6 +73,7 @@ import { criarNuvens } from './nuvens.js';
 import { instanciaMapa, partesDoModelo, pintar, neon, materialDoMapa, modeloMapaPronto, texturasPbr } from './mapa-modelos.js';
 import { criarEfeitosNucleo } from './nucleo-efeitos.js';
 import { rotulo } from './atalhos.js';
+import { tr } from '../../shared/idioma.js';
 
 export const CORES = {
   ceuTopo: new THREE.Color('#1c2840'),
@@ -470,7 +471,7 @@ function texturaHolograma(servico, cor) {
   ctx.font = 'bold 96px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const nome = { evolucao: 'EVOLUÇÃO', loja: 'LOJA', ouro: 'OURO' }[servico];
+  const nome = { evolucao: tr('EVOLUÇÃO'), loja: tr('LOJA'), ouro: tr('OURO') }[servico];
   ctx.shadowBlur = 0;
   ctx.lineWidth = 14;
   ctx.strokeStyle = 'rgba(8, 10, 18, 0.75)';
@@ -493,7 +494,7 @@ function texturaHolograma(servico, cor) {
  * cresce com o nome. O canvas tem 96 de altura e cresce na largura com o texto (512 no
  * mínimo): a Sprite usa `c.width / c.height` para não esticar.
  */
-function texturaPouseAqui(cor, texto = 'Pouse aqui ·', tecla = 'L') {
+function texturaPouseAqui(cor, texto = tr('Pouse aqui ·'), tecla = 'L') {
   const c = document.createElement('canvas');
   const fonte = 'bold 54px system-ui, sans-serif';
   const medir = c.getContext('2d');
@@ -846,7 +847,7 @@ function montarBase(g, b, meuTime) {
       marca.add(moeda);
       traco(marca, mat, 0, 0, 0, 0.9, 6.5);
     }
-    const nome = rotuloChao(s.servico === 'evolucao' ? 'EVOLUÇÃO' : 'LOJA', corServico, 17);
+    const nome = rotuloChao(s.servico === 'evolucao' ? tr('EVOLUÇÃO') : tr('LOJA'), corServico, 17);
     nome.position.set(0, 0.04, 12.5);
     marca.add(nome);
     g.add(marca);
@@ -1078,7 +1079,7 @@ function montarPlataformas(g) {
     const fase = p.time === 0 ? 0.9 : 2.3;
     const grupo = new THREE.Group();
     grupo.visible = false;
-    const holo = hologramaServico('ouro', CORES.ouro, 'Pouse e ganhe ouro ·');
+    const holo = hologramaServico('ouro', CORES.ouro, tr('Pouse e ganhe ouro ·'));
     holo.grupo.position.set(p.x, y + HOLO_OURO_ALTURA, p.z);
     const cortina = cortinaServico(CORES.ouro, fase, CORTINA_OURO);
     cortina.position.set(p.x, y, p.z);

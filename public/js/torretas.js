@@ -27,6 +27,7 @@ import { TORRETAS } from '/shared/terrain.js';
 import { OBSTACULOS, definirObstaculoAtivo } from '/shared/obstaculos.js';
 import { HOVER } from '/shared/sim.js';
 import { instanciaMapa, pintar, neon } from './mapa-modelos.js';
+import { tr } from '../../shared/idioma.js';
 
 const COR_TIME = { meu: new THREE.Color('#00efc0'), outro: new THREE.Color('#ff3b2a') };
 const QUEDA_S = 0.9; // s do tombo até sobrarem os destroços
@@ -169,7 +170,7 @@ export class TorretasNaTela {
     for (const [id, it] of this.lista) {
       const r = this.estado.get(id);
       if (!it.viva || !r) continue;
-      lista.push({ id, nome: 'Torreta', aliado: it.t.time === this.meuTime, hp: r.vida, maxHp: r.max, pos: it.pos, nivel: r.nivel });
+      lista.push({ id, nome: tr('Torreta'), aliado: it.t.time === this.meuTime, hp: r.vida, maxHp: r.max, pos: it.pos, nivel: r.nivel });
     }
     return lista;
   }

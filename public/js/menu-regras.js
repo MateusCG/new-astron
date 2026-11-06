@@ -22,15 +22,16 @@
 // /shared/naves.js dos outros módulos, e no Node (o teste) acha o arquivo.
 
 import { NAVES, RACAS_JOGAVEIS, ORDEM_CLASSES, TIER_MAX, classeValida, racaJogavel } from '../../shared/naves.js';
+import { tr } from '../../shared/idioma.js';
 
 /** Abas do header, na ordem. Bloqueada: visível, apagada, sem clique, selo EM BREVE. */
 export const ABAS = Object.freeze([
-  { id: 'jogar', nome: 'Jogar' },
-  { id: 'aprender', nome: 'Como Jogar' },
-  { id: 'naves', nome: 'Naves' },
-  { id: 'config', nome: 'Configurações' },
-  { id: 'ranking', nome: 'Ranking', bloqueada: true, dica: 'Chega com as contas de piloto' },
-  { id: 'perfil', nome: 'Perfil', bloqueada: true, dica: 'Chega com as contas de piloto' },
+  { id: 'jogar', nome: tr('Jogar') },
+  { id: 'aprender', nome: tr('Como Jogar') },
+  { id: 'naves', nome: tr('Naves') },
+  { id: 'config', nome: tr('Configurações') },
+  { id: 'ranking', nome: 'Ranking', bloqueada: true, dica: tr('Chega com as contas de piloto') },
+  { id: 'perfil', nome: tr('Perfil'), bloqueada: true, dica: tr('Chega com as contas de piloto') },
 ]);
 
 /**
@@ -44,38 +45,38 @@ export const ABAS = Object.freeze([
 export const MODOS = Object.freeze([
   {
     id: 'online',
-    titulo: 'Jogar New Astron',
-    estado: '— na fila',
-    texto: 'Partida padrão 3 contra 3 contra outros pilotos online.',
+    titulo: tr('Jogar New Astron'),
+    estado: tr('— na fila'),
+    texto: tr('Partida padrão 3 contra 3 contra outros pilotos online.'),
     disponivel: true,
-    selo: 'Jogar New Astron',
+    selo: tr('Jogar New Astron'),
     fila: 'online',
   },
   {
     id: 'sandbox',
-    titulo: 'Modo Sandbox',
-    estado: 'Mundo só seu',
-    texto: 'Teste naves, armas e builds à vontade: sem relógio, com ouro e XP na mão.',
+    titulo: tr('Modo Sandbox'),
+    estado: tr('Mundo só seu'),
+    texto: tr('Teste naves, armas e builds à vontade: sem relógio, com ouro e XP na mão.'),
     disponivel: true,
-    selo: 'Modo Sandbox',
+    selo: tr('Modo Sandbox'),
     entrar: { teste: true },
   },
   {
     id: 'publica',
-    titulo: 'Partida Pública com Bots',
-    estado: '— na fila',
-    texto: 'Entre na fila com outros pilotos e enfrentem os computadores juntos.',
+    titulo: tr('Partida Pública com Bots'),
+    estado: tr('— na fila'),
+    texto: tr('Entre na fila com outros pilotos e enfrentem os computadores juntos.'),
     disponivel: true,
-    selo: 'Partida Pública com Bots',
+    selo: tr('Partida Pública com Bots'),
     fila: 'publica',
   },
   {
     id: 'privada',
-    titulo: 'Partida Privada com Bots',
-    estado: '3 contra 3 · 20 min',
-    texto: 'Uma partida só sua contra os computadores, sem ninguém de fora.',
+    titulo: tr('Partida Privada com Bots'),
+    estado: tr('3 contra 3 · 20 min'),
+    texto: tr('Uma partida só sua contra os computadores, sem ninguém de fora.'),
     disponivel: true,
-    selo: 'Partida Privada com Bots',
+    selo: tr('Partida Privada com Bots'),
     entrar: { teste: false, privada: true },
   },
 ]);

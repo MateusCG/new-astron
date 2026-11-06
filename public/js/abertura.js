@@ -15,6 +15,7 @@
 // Os sons só baixam aqui: o navegador não deixa decodificar áudio antes do primeiro
 // clique, e o JOGAR é esse clique (main.js desbloqueia o som no primeiro toque).
 
+import { tr } from '../../shared/idioma.js';
 import { insumosDoMenu } from './insumos.js';
 import { modeloDaNave } from './nave.js';
 import { carregarPropulsao } from './propulsao.js';
@@ -184,7 +185,7 @@ export class TelaAbertura {
         li.classList.toggle('pronto', grupoPronto(e));
         li.classList.toggle('falhou', e.falhas > 0);
         li.querySelector('.conta').textContent = e.total ? `${e.feitos}/${e.total}` : '';
-        li.title = e.falhas ? `${e.falhas} não carregaram: o menu tenta de novo quando precisar` : '';
+        li.title = e.falhas ? tr('{n} não carregaram: o menu tenta de novo quando precisar', { n: e.falhas }) : '';
       }
       const pronta = aberturaPronta(this.estado);
       if (pronta && this.botao.disabled) {

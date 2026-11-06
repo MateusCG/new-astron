@@ -9,13 +9,15 @@
 // sozinha (main.js). Falha de rede num arquivo conta como feito (o jogo tenta de novo
 // sob demanda): a tela nunca prende o piloto.
 
+import { tr } from '../../shared/idioma.js';
+
 /** A arte de fundo: o lago de Hélio-3 visto do alto (LISTA.md da pasta diz de onde veio). */
 export const ARTE_CARREGAMENTO = '/imagens/carregamento.jpg';
 
 /** O mapa da partida (um só por enquanto), como o nome do mapa na tela de carregamento dos MOBAs. */
 export const MAPA_DA_PARTIDA = Object.freeze({
-  nome: 'Lago de Hélio-3',
-  linha: '3 contra 3 · 20 minutos · vence quem tiver mais minério',
+  nome: tr('Lago de Hélio-3'),
+  linha: tr('3 contra 3 · 20 minutos · vence quem tiver mais minério'),
 });
 
 /**
@@ -25,16 +27,16 @@ export const MAPA_DA_PARTIDA = Object.freeze({
  * ~1,4 MB, monstros ~1,2 MB, mapa ~0,9 MB) e pelo tempo da placa de vídeo.
  */
 export const GRUPOS_CARREGAMENTO = Object.freeze([
-  { id: 'mapa', nome: 'Cenário', curto: 'Cenário', titulo: 'O lago de Hélio-3: rochas, mineradora, bases e água', peso: 5 },
-  { id: 'monstros', nome: 'Monstros', curto: 'Monstros', titulo: 'Os monstros da jungle', peso: 6 },
-  { id: 'naves', nome: 'Naves', curto: 'Naves', titulo: 'As naves de todas as raças e classes, com a propulsão', peso: 28 },
-  { id: 'armas', nome: 'Armas', curto: 'Armas', titulo: 'Os modelos das armas na asa, de todas', peso: 15 },
-  { id: 'efeitos', nome: 'Efeitos', curto: 'Efeitos', titulo: 'Os efeitos das armas, de V1 a V8', peso: 7 },
-  { id: 'sons', nome: 'Sons', curto: 'Sons', titulo: 'Os sons das armas, da interface e do locutor', peso: 20 },
-  { id: 'miniaturas', nome: 'Miniaturas', curto: 'Miniaturas', titulo: 'As miniaturas da linha de naves na Evolução', peso: 3 },
-  { id: 'icones', nome: 'Ícones', curto: 'Ícones', titulo: 'Os ícones da Loja e do inventário', peso: 1 },
-  { id: 'servidor', nome: 'Servidor', curto: 'Conectando ao servidor', titulo: 'A conexão com a partida', peso: 3 },
-  { id: 'gpu', nome: 'Placa de vídeo', curto: 'Preparando a placa de vídeo', titulo: 'Shaders, texturas e modelos na placa de vídeo', peso: 13 },
+  { id: 'mapa', nome: tr('Cenário'), curto: tr('Cenário'), titulo: tr('O lago de Hélio-3: rochas, mineradora, bases e água'), peso: 5 },
+  { id: 'monstros', nome: tr('Monstros'), curto: tr('Monstros'), titulo: tr('Os monstros da jungle'), peso: 6 },
+  { id: 'naves', nome: tr('Naves'), curto: tr('Naves'), titulo: tr('As naves de todas as raças e classes, com a propulsão'), peso: 28 },
+  { id: 'armas', nome: tr('Armas'), curto: tr('Armas'), titulo: tr('Os modelos das armas na asa, de todas'), peso: 15 },
+  { id: 'efeitos', nome: tr('Efeitos'), curto: tr('Efeitos'), titulo: tr('Os efeitos das armas, de V1 a V8'), peso: 7 },
+  { id: 'sons', nome: tr('Sons'), curto: tr('Sons'), titulo: tr('Os sons das armas, da interface e do locutor'), peso: 20 },
+  { id: 'miniaturas', nome: tr('Miniaturas'), curto: tr('Miniaturas'), titulo: tr('As miniaturas da linha de naves na Evolução'), peso: 3 },
+  { id: 'icones', nome: tr('Ícones'), curto: tr('Ícones'), titulo: tr('Os ícones da Loja e do inventário'), peso: 1 },
+  { id: 'servidor', nome: tr('Servidor'), curto: tr('Conectando ao servidor'), titulo: tr('A conexão com a partida'), peso: 3 },
+  { id: 'gpu', nome: tr('Placa de vídeo'), curto: tr('Preparando a placa de vídeo'), titulo: tr('Shaders, texturas e modelos na placa de vídeo'), peso: 13 },
 ]);
 
 /** Grupo pronto: todos os itens feitos (com ou sem falha). */
@@ -67,8 +69,8 @@ export function pctCarregamento(estado) {
 /** A linha embaixo da barra: o primeiro grupo que falta, ou "decolando". */
 export function textoCarregamento(estado) {
   const g = GRUPOS_CARREGAMENTO.find((x) => estado[x.id]?.ativa !== false && !grupoCarregado(estado[x.id]));
-  if (!g) return 'Pronto · decolando';
+  if (!g) return tr('Pronto · decolando');
   const e = estado[g.id];
   if (g.id === 'servidor' || g.id === 'gpu') return `${g.curto}…`;
-  return e?.total ? `Carregando · ${g.curto} ${e.feitos}/${e.total}` : `Carregando · ${g.curto}…`;
+  return e?.total ? tr('Carregando · {g} {feitos}/{total}', { g: g.curto, feitos: e.feitos, total: e.total }) : tr('Carregando · {g}…', { g: g.curto });
 }

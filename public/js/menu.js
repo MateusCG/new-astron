@@ -84,36 +84,37 @@ import {
   navesJogaveis,
   primeirasNaves,
 } from './menu-regras.js';
+import { tr, localeNum, nomeArma } from '../../shared/idioma.js';
 
 /** Uma frase por raça (do documento de design do Mateus). */
 const DESCRICAO_RACA = {
-  acron: 'Povo aquático, mestre das ondas de energia.',
-  bellico: 'Guerreiros do deserto, kamikazes no ataque.',
-  shrewdo: 'Corporações do terreno, com campo furtivo.',
-  mechan: 'Biônicos do mundo tóxico, com droides de restauração.',
+  acron: tr('Povo aquático, mestre das ondas de energia.'),
+  bellico: tr('Guerreiros do deserto, kamikazes no ataque.'),
+  shrewdo: tr('Corporações do terreno, com campo furtivo.'),
+  mechan: tr('Biônicos do mundo tóxico, com droides de restauração.'),
 };
 
 /** O contador da sala da fila (o mesmo SELECAO_S de server/filas.js; só para a barra). */
 const SELECAO_S = 60;
 /** De quanto em quanto tempo (ms) o contador e a espera da fila andam na tela. */
 const RELOGIO_FILA_MS = 250;
-const TITULO_ACHOU = '▶ Partida encontrada · New AstroN';
+const TITULO_ACHOU = tr('▶ Partida encontrada · New AstroN');
 
 /** Dicas do rodapé por tela. */
 const DICAS = {
-  jogar: '<kbd>↑</kbd><kbd>↓</kbd> escolhe o modo · <kbd>Enter</kbd> entra',
-  aprender: '<kbd>↑</kbd><kbd>↓</kbd> escolhe o capítulo · <kbd>←</kbd><kbd>→</kbd> anterior e próximo · <kbd>Esc</kbd> volta',
-  selecao: '<kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> escolhe a nave · <kbd>Esc</kbd> volta',
-  naves: 'Arraste a nave para girar · <kbd>Esc</kbd> volta',
-  config: '<kbd>Esc</kbd> volta',
+  jogar: tr('<kbd>↑</kbd><kbd>↓</kbd> escolhe o modo · <kbd>Enter</kbd> entra'),
+  aprender: tr('<kbd>↑</kbd><kbd>↓</kbd> escolhe o capítulo · <kbd>←</kbd><kbd>→</kbd> anterior e próximo · <kbd>Esc</kbd> volta'),
+  selecao: tr('<kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> escolhe a nave · <kbd>Esc</kbd> volta'),
+  naves: tr('Arraste a nave para girar · <kbd>Esc</kbd> volta'),
+  config: tr('<kbd>Esc</kbd> volta'),
 };
 /** As mesmas dicas com o controle (o rótulo segue o mapa: data-acao-rotulo). */
 const DICAS_CONTROLE = {
-  jogar: `${kbdAcao('uiCima')}${kbdAcao('uiBaixo')} escolhe o modo · ${kbdAcao('uiConfirmar')} entra`,
-  aprender: `${kbdAcao('uiCima')}${kbdAcao('uiBaixo')} navega · ${kbdAcao('uiConfirmar')} abre · ${kbdAcao('uiVoltar')} volta`,
-  selecao: `${kbdAcao('uiEsq')}${kbdAcao('uiDir')}${kbdAcao('uiCima')}${kbdAcao('uiBaixo')} navega · ${kbdAcao('uiConfirmar')} escolhe · ${kbdAcao('uiVoltar')} volta`,
-  naves: `${kbdAcao('uiConfirmar')} escolhe · ${kbdAcao('uiVoltar')} volta`,
-  config: `${kbdAcao('uiConfirmar')} troca a casa · ${kbdAcao('uiVoltar')} volta`,
+  jogar: tr('{cima}{baixo} escolhe o modo · {ok} entra', { cima: kbdAcao('uiCima'), baixo: kbdAcao('uiBaixo'), ok: kbdAcao('uiConfirmar') }),
+  aprender: tr('{cima}{baixo} navega · {ok} abre · {volta} volta', { cima: kbdAcao('uiCima'), baixo: kbdAcao('uiBaixo'), ok: kbdAcao('uiConfirmar'), volta: kbdAcao('uiVoltar') }),
+  selecao: tr('{setas} navega · {ok} escolhe · {volta} volta', { setas: `${kbdAcao('uiEsq')}${kbdAcao('uiDir')}${kbdAcao('uiCima')}${kbdAcao('uiBaixo')}`, ok: kbdAcao('uiConfirmar'), volta: kbdAcao('uiVoltar') }),
+  naves: tr('{ok} escolhe · {volta} volta', { ok: kbdAcao('uiConfirmar'), volta: kbdAcao('uiVoltar') }),
+  config: tr('{ok} troca a casa · {volta} volta', { ok: kbdAcao('uiConfirmar'), volta: kbdAcao('uiVoltar') }),
 };
 
 const ARRASTO_RAD_POR_PX = 0.012;
@@ -132,17 +133,18 @@ const gravar = (k, v) => {
 };
 const corCss = (cor) => '#' + new THREE.Color(cor).getHexString();
 const escapar = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-const num = (v, casas = 0) => v.toLocaleString('pt-BR', { maximumFractionDigits: casas });
+const num = (v, casas = 0) => v.toLocaleString(localeNum(), { maximumFractionDigits: casas });
+const EM_BREVE = tr('EM BREVE');
 
 /** Barras de status de uma nave na escala `max` (menu-regras.js, escalaStatus). */
 function barrasNave(n, max) {
   const linhas = [
     ['HP', n.hp, max.hp, num(n.hp), 'hp'],
-    ['Energia', n.energia, max.energia, num(n.energia), 'en'],
-    ['Veloc.', n.velocidade, max.velocidade, `${Math.round(n.velocidade)} m/s`, 'vel'],
+    [tr('Energia'), n.energia, max.energia, num(n.energia), 'en'],
+    [tr('Veloc.'), n.velocidade, max.velocidade, `${Math.round(n.velocidade)} m/s`, 'vel'],
   ];
   // A regeneração de vida em voo é o traço das Bellico; nas outras raças fica zerada.
-  if (n.regenHpVoo > 0) linhas.push(['Regen.', n.regenHpVoo, max.regenHpVoo, `${num(n.regenHpVoo, 1)}/s`, 'regen']);
+  if (n.regenHpVoo > 0) linhas.push([tr('Regen.'), n.regenHpVoo, max.regenHpVoo, `${num(n.regenHpVoo, 1)}/s`, 'regen']);
   return `<div class="barras-nave">${linhas
     .map(
       ([nome, v, m, txt, k]) =>
@@ -157,7 +159,7 @@ function armasDeFabrica(race) {
     .map((i) => {
       const w = WEAPONS[ARMAS[i]];
       const tipo = SIGLA_TIPO[w.tipoDano] ?? '';
-      return `<li>${htmlIcone(w.icone, 1)}<span class="nome-arma"><b>${escapar(w.nome)}</b><small>${CATEGORIAS[w.categoria] ?? ''}${tipo ? ` · ${tipo}` : ''}</small></span></li>`;
+      return `<li>${htmlIcone(w.icone, 1)}<span class="nome-arma"><b>${escapar(nomeArma(w))}</b><small>${CATEGORIAS[w.categoria] ?? ''}${tipo ? ` · ${tipo}` : ''}</small></span></li>`;
     })
     .join('')}</ul>`;
 }
@@ -384,7 +386,7 @@ export class Menu {
     nav.innerHTML = ABAS.map(
       (a) =>
         `<button type="button" role="tab" data-aba="${a.id}"${a.bloqueada ? ` class="bloqueada" aria-disabled="true" title="${a.dica}"` : ''}>${a.nome}${
-          a.bloqueada ? '<span class="selo-breve">EM BREVE</span>' : ''
+          a.bloqueada ? `<span class="selo-breve">${EM_BREVE}</span>` : ''
         }</button>`,
     ).join('');
     const abrir = (id) => {
@@ -425,7 +427,7 @@ export class Menu {
       const bloqueado = !m.disponivel;
       return `<button type="button" role="listitem" class="modo${bloqueado ? ' bloqueado' : ''}" data-modo="${m.id}"${bloqueado ? ' aria-disabled="true"' : ''}>
         <strong>${m.titulo}</strong>
-        <span class="estado-modo"><span class="texto-estado">${m.estado}</span>${bloqueado ? '<span class="selo-breve">EM BREVE</span>' : ''}</span>
+        <span class="estado-modo"><span class="texto-estado">${m.estado}</span>${bloqueado ? `<span class="selo-breve">${EM_BREVE}</span>` : ''}</span>
         <span class="texto-modo">${m.texto}</span>
       </button>`;
     }).join('');
@@ -461,7 +463,7 @@ export class Menu {
     const { raca, classe, tier } = naveDaVitrine(this.destaque, this.raca, this.classe);
     const n = naveDe(raca, classe, tier);
     const leg = this.q('#tela-jogar .legenda-nave');
-    leg.querySelector('small').textContent = this.destaque ? 'Em destaque' : 'Sua nave';
+    leg.querySelector('small').textContent = this.destaque ? tr('Em destaque') : tr('Sua nave');
     leg.querySelector('.nome-nave').textContent = n.nome;
     leg.querySelector('.raca-classe').innerHTML = `<b style="color:${corCss(RACES[raca].cor)}">${RACES[raca].nome}</b> · ${CLASSES[classe].nome}`;
     this.q('#fundo-nave').dataset.raca = RACES[raca].nome;
@@ -500,8 +502,8 @@ export class Menu {
     const e = mesmaNave(this.destaque, this.catalogo);
     b.classList.toggle('ativo', e);
     b.setAttribute('aria-pressed', String(e));
-    b.querySelector('span').textContent = e ? 'Em destaque na tela Jogar' : 'Mostrar na tela Jogar';
-    b.title = e ? 'Clique para voltar a mostrar a nave da Seleção' : 'Esta nave passa a aparecer na aba Jogar';
+    b.querySelector('span').textContent = e ? tr('Em destaque na tela Jogar') : tr('Mostrar na tela Jogar');
+    b.title = e ? tr('Clique para voltar a mostrar a nave da Seleção') : tr('Esta nave passa a aparecer na aba Jogar');
   }
 
   // ---------- Seleção ----------
@@ -512,7 +514,7 @@ export class Menu {
       const raca = RACES[r];
       const cor = corCss(raca.cor);
       if (RACAS_BLOQUEADAS.includes(r)) {
-        return `<div class="linha-raca bloqueada" style="--cor:${cor}"><p class="nome-raca"><b>${raca.nome}</b><small>${raca.bioma}</small><span class="selo-breve">EM BREVE</span></p></div>`;
+        return `<div class="linha-raca bloqueada" style="--cor:${cor}"><p class="nome-raca"><b>${raca.nome}</b><small>${raca.bioma}</small><span class="selo-breve">${EM_BREVE}</span></p></div>`;
       }
       const cartas = ORDEM_CLASSES.map(
         (c) => `<button type="button" role="gridcell" class="carta-nave" data-raca="${r}" data-classe="${c}" aria-label="${raca.nome} ${CLASSES[c].nome}: ${naveDe(r, c, 0).nome}">
@@ -584,8 +586,8 @@ export class Menu {
     const evol = tela.querySelector('.linha-evolucao');
     evol.innerHTML = linha
       .map(
-        (nave, i) => `<li class="${i === 0 ? 'atual' : ''}" title="${nave.nome}${i ? `: na Evolução no nível ${nave.nivel}` : ': sua primeira nave'}">
-          <img alt="" draggable="false"><span>${escapar(nave.nome)}</span><small>${i ? `NV ${nave.nivel}` : 'Inicial'}</small></li>`,
+        (nave, i) => `<li class="${i === 0 ? 'atual' : ''}" title="${nave.nome}${i ? tr(': na Evolução no nível {n}', { n: nave.nivel }) : tr(': sua primeira nave')}">
+          <img alt="" draggable="false"><span>${escapar(nave.nome)}</span><small>${i ? tr('NV {n}', { n: nave.nivel }) : tr('Inicial')}</small></li>`,
       )
       .join('');
     evol.querySelectorAll('img').forEach((img, i) => pintarMiniatura(img, this.raca, this.classe, i));
@@ -593,10 +595,10 @@ export class Menu {
     const ficha = tela.querySelector('.selecao-ficha');
     this.escalaPrimeiras ??= escalaStatus(primeirasNaves());
     ficha.innerHTML = `
-      <p class="rotulo-ficha">Raça</p>
+      <p class="rotulo-ficha">${tr('Raça')}</p>
       <h2 class="nome-raca-ficha">${RACES[this.raca].nome} <small>${RACES[this.raca].bioma}</small></h2>
       <p class="descricao">${DESCRICAO_RACA[this.raca] ?? ''}</p>
-      <p class="rotulo-ficha">Classe</p>
+      <p class="rotulo-ficha">${tr('Classe')}</p>
       <h2>${CLASSES[this.classe].nome} <small>${CLASSES[this.classe].especialidade}</small></h2>
       ${barrasNave(n, this.escalaPrimeiras)}`;
 
@@ -628,7 +630,7 @@ export class Menu {
     const botao = this.q('.decolar');
     const erro = this.q('#erro-entrada');
     botao.disabled = true;
-    botao.textContent = 'Conectando…';
+    botao.textContent = tr('Conectando…');
     erro.textContent = '';
     gravar(CHAVES.nome, this.nome.value);
     // O foco num campo de texto prenderia as teclas da nave (controles.js ignora).
@@ -643,7 +645,7 @@ export class Menu {
     } catch (err) {
       this.decolando = false;
       botao.disabled = false;
-      botao.textContent = 'Decolar';
+      botao.textContent = tr('Decolar');
       this.mostrar('selecao');
       if (err?.message === 'cancelado') return;
       console.error('Falha ao entrar no jogo:', err);
@@ -727,7 +729,7 @@ export class Menu {
     if (!this.#filaAtiva()) {
       if (!this.decolando) {
         botao.disabled = false;
-        botao.textContent = 'Decolar';
+        botao.textContent = tr('Decolar');
       }
       botao.classList.remove('aguardando', 'pronto-acao');
       linha.hidden = true;
@@ -791,8 +793,8 @@ export class Menu {
     tela.querySelector('.filtro-racas').innerHTML = Object.entries(RACES)
       .map(([r, raca]) => {
         const bloqueada = RACAS_BLOQUEADAS.includes(r);
-        return `<button type="button" data-raca="${r}" style="--cor:${corCss(raca.cor)}"${bloqueada ? ' disabled title="Ainda não liberada"' : ''}>${raca.nome}${
-          bloqueada ? '<span class="selo-breve">EM BREVE</span>' : ''
+        return `<button type="button" data-raca="${r}" style="--cor:${corCss(raca.cor)}"${bloqueada ? ` disabled title="${tr('Ainda não liberada')}"` : ''}>${raca.nome}${
+          bloqueada ? `<span class="selo-breve">${EM_BREVE}</span>` : ''
         }</button>`;
       })
       .join('');
@@ -857,7 +859,7 @@ export class Menu {
       lista.innerHTML = linha
         .map(
           (n, i) => `<li><button type="button" data-tier="${i}"><img alt="" draggable="false"><strong>${escapar(n.nome)}</strong>
-            <small>${i ? `NV ${n.nivel} · <b class="preco">${num(n.preco)} de ouro</b>` : 'Nave inicial'}</small></button></li>`,
+            <small>${i ? tr('NV {n} · {preco} de ouro', { n: n.nivel, preco: `<b class="preco">${num(n.preco)}` }) + '</b>' : tr('Nave inicial')}</small></button></li>`,
         )
         .join('');
       lista.querySelectorAll('img').forEach((img, i) => pintarMiniatura(img, raca, classe, i));
@@ -868,17 +870,17 @@ export class Menu {
     this.escalaTodas ??= escalaStatus(navesJogaveis());
     const ficha = tela.querySelector('.naves-ficha');
     ficha.innerHTML = `
-      <p class="rotulo-ficha">${RACES[raca].nome} · ${CLASSES[classe].nome} · nave ${tier + 1} de ${linha.length}</p>
+      <p class="rotulo-ficha">${RACES[raca].nome} · ${CLASSES[classe].nome} · ${tr('nave {i} de {n}', { i: tier + 1, n: linha.length })}</p>
       <h2 class="nome-nave-ficha">${escapar(n.nome)}</h2>
       <button type="button" class="botao-destaque" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.9z" /></svg><span></span></button>
       <dl class="dados-nave">
-        <div><dt>Na Evolução</dt><dd>${tier ? `nível ${n.nivel} · <b class="preco">${num(n.preco)} de ouro</b>` : 'Nave inicial'}</dd></div>
-        <div><dt>Tamanho</dt><dd class="tamanho">…</dd></div>
-        <div><dt>Especialidade</dt><dd>${CLASSES[classe].especialidade}</dd></div>
+        <div><dt>${tr('Na Evolução')}</dt><dd>${tier ? tr('nível {n} · {preco} de ouro', { n: n.nivel, preco: `<b class="preco">${num(n.preco)}` }) + '</b>' : tr('Nave inicial')}</dd></div>
+        <div><dt>${tr('Tamanho')}</dt><dd class="tamanho">…</dd></div>
+        <div><dt>${tr('Especialidade')}</dt><dd>${CLASSES[classe].especialidade}</dd></div>
       </dl>
-      <p class="rotulo-ficha">Status <small>(régua das 45 naves)</small></p>
+      <p class="rotulo-ficha">Status <small>${tr('(régua das 45 naves)')}</small></p>
       ${barrasNave(n, this.escalaTodas)}
-      <p class="rotulo-ficha">Armas de fábrica</p>
+      <p class="rotulo-ficha">${tr('Armas de fábrica')}</p>
       ${armasDeFabrica(raca)}`;
     this.#mostrarBotaoDestaque();
     // Tamanho real: a caixa do modelo já na escala do jogo (nave.js), em metros.
@@ -933,13 +935,13 @@ export class Menu {
           this.#desenharAtalhos();
           if (r.entrada) {
             const nome = disp === 'teclado' ? nomeTecla(r.entrada) : nomeEntrada(r.entrada, true);
-            aviso.textContent = r.tirouDe ? `${nome} saiu de "${ACAO[r.tirouDe].nome}" e agora é "${ACAO[acao].nome}".` : `${nome}: ${ACAO[acao].nome}.`;
+            aviso.textContent = r.tirouDe ? tr('{tecla} saiu de "{de}" e agora é "{acao}".', { tecla: nome, de: ACAO[r.tirouDe].nome, acao: ACAO[acao].nome }) : `${nome}: ${ACAO[acao].nome}.`;
             // O foco volta à casa (o controle segue dali).
             lista.querySelector(`.casa-atalho[data-acao="${acao}"][data-i="${Math.min(i, mapasAtuais()[disp][acao].length - 1)}"]`)?.focus();
-          } else if (r.limpou) aviso.textContent = `"${ACAO[acao].nome}" ficou sem essa casa.`;
+          } else if (r.limpou) aviso.textContent = tr('"{acao}" ficou sem essa casa.', { acao: ACAO[acao].nome });
         });
         casa.classList.add('esperando');
-        casa.textContent = disp === 'teclado' ? 'Tecla ou clique…' : 'Aperte o botão…';
+        casa.textContent = disp === 'teclado' ? tr('Tecla ou clique…') : tr('Aperte o botão…');
         // O controle não tem Esc: a espera acaba sozinha.
         if (disp === 'controle') this.tempoCaptura = setTimeout(() => cancelarCaptura(), 8000);
       });
@@ -950,13 +952,13 @@ export class Menu {
         cancelarCaptura();
         if (casa.classList.contains('vazia')) return;
         limparAtalho(disp, casa.dataset.acao, Number(casa.dataset.i));
-        aviso.textContent = `"${ACAO[casa.dataset.acao].nome}" ficou sem essa casa.`;
+        aviso.textContent = tr('"{acao}" ficou sem essa casa.', { acao: ACAO[casa.dataset.acao].nome });
       });
       painel.querySelector('.restaurar-atalhos').addEventListener('click', () => {
         cancelarCaptura();
         restaurarPadrao(disp);
         this.#som(SONS_INTERFACE.clique);
-        aviso.textContent = disp === 'teclado' ? 'Teclado de fábrica de volta.' : 'Controle de fábrica de volta.';
+        aviso.textContent = disp === 'teclado' ? tr('Teclado de fábrica de volta.') : tr('Controle de fábrica de volta.');
       });
     }
     aoMudarAtalhos(() => {
@@ -973,14 +975,14 @@ export class Menu {
     for (const lista of this.el.querySelectorAll('.lista-atalhos')) {
       const disp = lista.dataset.disp;
       // O teclado não lista a navegação dos menus (as setas, o Enter e o Esc de sempre).
-      const grupos = GRUPOS_ACOES.filter((g) => disp === 'controle' || g.nome !== 'Menus');
+      const grupos = GRUPOS_ACOES.filter((g) => disp === 'controle' || g.id !== 'Menus');
       lista.innerHTML = grupos
         .map(
           (g) => `<section class="grupo-atalhos"><h3>${g.nome}</h3>${g.acoes
             .map((a) => {
               const casas = [];
               if (disp === 'teclado' && a.fixaTeclado) {
-                casas.push(`<button type="button" class="casa-atalho fixa" disabled title="Esta tecla não muda">${escapar(a.fixaTeclado)}</button>`);
+                casas.push(`<button type="button" class="casa-atalho fixa" disabled title="${tr('Esta tecla não muda')}">${escapar(a.fixaTeclado)}</button>`);
               } else {
                 const atuais = mapas[disp][a.id] ?? [];
                 for (let i = 0; i < ATALHOS_POR_ACAO; i++) {
@@ -988,9 +990,9 @@ export class Menu {
                   // Uma casa vazia por vez: a segunda só aparece com a primeira cheia.
                   if (!e && i > atuais.length) break;
                   const nome = e ? (disp === 'teclado' ? nomeTecla(e) : nomeEntrada(e)) : '+';
-                  const titulo = e ? (disp === 'teclado' ? `Tecla ${nomeTecla(e)}` : nomeEntrada(e, true)) : 'Acrescentar';
+                  const titulo = e ? (disp === 'teclado' ? tr('Tecla {tecla}', { tecla: nomeTecla(e) }) : nomeEntrada(e, true)) : tr('Acrescentar');
                   casas.push(
-                    `<button type="button" class="casa-atalho${e ? '' : ' vazia'}" data-acao="${a.id}" data-i="${i}" title="${escapar(titulo)}: clique para trocar">${escapar(nome)}</button>`,
+                    `<button type="button" class="casa-atalho${e ? '' : ' vazia'}" data-acao="${a.id}" data-i="${i}" title="${escapar(tr('{titulo}: clique para trocar', { titulo }))}">${escapar(nome)}</button>`,
                   );
                 }
               }
@@ -1009,12 +1011,12 @@ export class Menu {
     const pads = controlesLigados();
     if (!pads.length) {
       el.className = 'estado-controle desligado';
-      el.textContent = 'Nenhum controle encontrado. Ligue o controle (USB ou Bluetooth) e aperte qualquer botão: o navegador só mostra o controle depois do primeiro botão.';
+      el.textContent = tr('Nenhum controle encontrado. Ligue o controle (USB ou Bluetooth) e aperte qualquer botão: o navegador só mostra o controle depois do primeiro botão.');
       return;
     }
     el.className = 'estado-controle ligado';
     el.textContent = pads
-      .map((p) => `Controle ligado: ${p.id.replace(/\s*\(.*?Vendor.*?\)\s*/i, ' ').trim()} · ${p.botoes} botões${p.mapping === 'standard' ? '' : ' · sem o mapeamento padrão: confira as casas abaixo apertando os botões'}`)
+      .map((p) => tr('Controle ligado: {nome} · {n} botões', { nome: p.id.replace(/\s*\(.*?Vendor.*?\)\s*/i, ' ').trim(), n: p.botoes }) + (p.mapping === 'standard' ? '' : tr(' · sem o mapeamento padrão: confira as casas abaixo apertando os botões')))
       .join(' · ');
   }
 }
