@@ -133,8 +133,6 @@ import {
 import { ESCUDO } from './nucleo-regras.js';
 /** Altura (m) do rótulo do Núcleo acima dele: o alto da cúpula do escudo. */
 const ROTULO_NUCLEO = ESCUDO.centroY + ESCUDO.raio;
-/** Altura do rótulo de chefe da torre de suporte acima do chão de voo: no topo do corpo, na base da antena (na ponta, a torre alta o põe embaixo da barra do time). */
-const ROTULO_SUPORTE = TORRE_SUPORTE.altura * 0.7;
 /** Monstros com a barra de chefe (a barra larga do rótulo): os dos objetivos. */
 const CHEFES_JUNGLE = new Set(['medusa', 'sn4', 'sonda']);
 import { Sons, SONS_INTERFACE, SONS_VOLTA, SONS_NUCLEO, VOLUME_TIRO_PROPRIO } from './sons.js';
@@ -144,7 +142,7 @@ import { Controles } from './controles.js';
 import { aoApertar, pintarRotulos, capturaAtual, mapasAtuais } from './atalhos.js';
 import { iniciarJoystick, controlesLigados } from './joystick.js';
 import { Hud, BONUS_NAVE } from './hud.js';
-import { ObjetivosNaTela, LUGARES_OBJETIVO, NOME_OBJETIVO } from './objetivos.js';
+import { ObjetivosNaTela, LUGARES_OBJETIVO, NOME_OBJETIVO, ALT_ROTULO_SUPORTE } from './objetivos.js';
 import { criarLimitador } from './quadros.js';
 import { criarMonstro, animarMonstro, surgirMonstro, criarMarcadorNucleo, ROTULO_MONSTRO } from './monstros.js';
 import { TorretasNaTela } from './torretas.js';
@@ -1382,7 +1380,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
         if (e.tipo === 'monstro' && ROTULO_MONSTRO[e.esp]) pos = (o.posRotulo ??= new THREE.Vector3()).copy(pos).setY(pos.y + ROTULO_MONSTRO[e.esp]);
         // O Núcleo: o nome e a barra acima do alto da cúpula do escudo, não na frente dela.
         else if (e.tipo === 'nucleo') pos = (o.posRotulo ??= new THREE.Vector3()).copy(pos).setY(pos.y + ROTULO_NUCLEO);
-        else if (e.tipo === 'suporte') pos = (o.posRotulo ??= new THREE.Vector3()).copy(pos).setY(ROTULO_SUPORTE);
+        // A torre de suporte: acima da antena, na altura da faixa do objetivo (pedido do Mateus).
+        else if (e.tipo === 'suporte') pos = (o.posRotulo ??= new THREE.Vector3()).copy(pos).setY(heightAt(e.x, e.z) + ALT_ROTULO_SUPORTE);
         // Chefes (a barra larga): a Medusa, o Núcleo, o SN-4 do buff de ataque, a torre
         // do buff de suporte e a sonda errante (pedido do Mateus, 06/nov/2026); `obj` = o
         // id do objetivo (o SN-4 e a torre: há um de cada lado).

@@ -54,3 +54,10 @@ test('rótulos: a Medusa e o Núcleo só com o nome (e o nível do Núcleo), sem
   assert.ok(!obj.includes('bônus do time'));
   assert.ok(!obj.includes('onda de mineradores'));
 });
+
+test('barra de vida: a barra de chefe da torre de suporte fica acima da antena, na altura da faixa do objetivo', () => {
+  const main = readFileSync(new URL('../public/js/main.js', import.meta.url), 'utf8');
+  assert.match(main, /e\.tipo === 'suporte'\) pos = [^\n]*setY\(heightAt\(e\.x, e\.z\) \+ ALT_ROTULO_SUPORTE\)/);
+  const obj = readFileSync(new URL('../public/js/objetivos.js', import.meta.url), 'utf8');
+  assert.match(obj, /export const ALT_ROTULO_SUPORTE = TORRE_SUPORTE\.altura \+ 36;/);
+});
