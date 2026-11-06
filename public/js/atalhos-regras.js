@@ -59,6 +59,7 @@ export const ACOES = Object.freeze([
   { id: 'morte', grupo: 'Janelas', nome: tr('Resumo da última morte'), ctx: 'voo' },
   { id: 'opcoes', grupo: 'Janelas', nome: tr('Opções (janelas, volume e ping)'), ctx: 'voo' },
   { id: 'comandos', grupo: 'Janelas', nome: tr('Comandos (teclas e botões, só para ver)'), ctx: 'voo' },
+  { id: 'historico', grupo: 'Janelas', nome: tr('Histórico da partida (últimos 10 registros)'), ctx: 'voo' },
   { id: 'loja', grupo: 'Janelas', nome: tr('Reabre a Loja ou a Evolução, pousado'), ctx: 'voo' },
   { id: 'pontoHp', grupo: 'Pontos', nome: tr('+10 pontos em HP (Durabilidade)'), ctx: 'voo' },
   { id: 'pontoEn', grupo: 'Pontos', nome: tr('+10 pontos em EN (Energia)'), ctx: 'voo' },
@@ -112,6 +113,7 @@ export const TECLADO_PADRAO = Object.freeze({
   morte: ['KeyH'],
   opcoes: ['KeyO'],
   comandos: ['KeyJ'],
+  historico: ['KeyN'],
   loja: ['Enter', 'NumpadEnter'],
   pontoHp: ['Digit1', 'Numpad1'],
   pontoEn: ['Digit2', 'Numpad2'],
@@ -128,7 +130,8 @@ export const TECLADO_PADRAO = Object.freeze({
  * e o esquerdo o X (L2 e L1), como as teclas Z e X no teclado. Os pontos (pontoHp a
  * pontoOp) ficam sem botão: os 17 já têm ação no voo (as Opções no PS), e no controle os pontos se põem
  * pela janela STATUS (direcional para cima); quem quiser atribui na aba Configurações.
- * Os Comandos também ficam sem botão: no controle abrem pelas Opções (PS).
+ * Os Comandos também ficam sem botão: no controle abrem pelas Opções (PS). O Histórico
+ * também (os 17 botões já têm ação no voo): quem quiser atribui na aba Configurações.
  */
 export const CONTROLE_PADRAO = Object.freeze({
   frente: ['a1-'],
