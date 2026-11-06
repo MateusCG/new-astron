@@ -21,7 +21,7 @@
 // - COMO JOGAR: a trilha do piloto iniciante, como a aba Learn do Dota 2
 //   (como-jogar.js): capítulos curtos com o progresso, o "em resumo", as teclas do mapa
 //   em uso e o "Praticar agora", que escolhe o modo e abre a Seleção. Com nada lido, a
-//   aba leva o selo NOVO e a aba Jogar mostra o convite "Primeira vez?".
+//   aba Jogar mostra o convite "Primeira vez?".
 // - NAVES: o hangar, só leitura: filtros de raça e classe, a nave no visor (arrastar
 //   gira), a ficha com o tamanho real e as barras na régua das 45 naves, e a linha das
 //   5 naves com o nível e o preço na Evolução. "Mostrar na tela Jogar" põe a nave
@@ -410,13 +410,11 @@ export class Menu {
   }
 
   /**
-   * Piloto que ainda não leu nada da trilha: o selo NOVO na aba Como Jogar e o convite
-   * "Primeira vez?" na aba Jogar. Leu um capítulo, os dois somem.
+   * Piloto que ainda não leu nada da trilha: o convite "Primeira vez?" na aba Jogar.
+   * Leu um capítulo, ele some.
    */
   #mostrarNovidade() {
-    const novo = this.comoJogar.progresso.lidos === 0;
-    this.q('.abas-menu [data-aba="aprender"]')?.classList.toggle('novo', novo);
-    this.q('.convite-aprender').hidden = !novo;
+    this.q('.convite-aprender').hidden = this.comoJogar.progresso.lidos > 0;
   }
 
   // ---------- Jogar ----------

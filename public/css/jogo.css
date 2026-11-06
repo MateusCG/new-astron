@@ -9271,22 +9271,7 @@ html[data-aparelho='controle'] #comandos .leg-controle {
    e a barra do progresso; à direita o capítulo numa chapa que rola por dentro, com o
    "em resumo" em destaque, cartões com ícone na cor do assunto, as teclas do mapa em
    uso, os passos numerados, a linha do tempo da partida e o "Praticar agora" embaixo.
-   Na aba do header, o selo NOVO enquanto nada foi lido. */
-
-.abas-menu button.novo::before {
-  content: 'NOVO';
-  position: absolute;
-  top: 9px;
-  right: 2px;
-  padding: 1px 4px;
-  border-radius: 3px;
-  background: var(--ouro);
-  color: #1a1405;
-  font: 800 9.5px/1.2 system-ui, sans-serif;
-  letter-spacing: 0.08em;
-  text-shadow: none;
-  box-shadow: 0 0 10px rgba(255, 209, 102, 0.6);
-}
+   Na aba Jogar, o convite "Primeira vez?" enquanto nada foi lido. */
 
 .convite-aprender {
   display: flex;
