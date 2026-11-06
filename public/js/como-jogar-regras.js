@@ -270,7 +270,7 @@ export const CAPITULOS = Object.freeze([
     titulo: 'Ouro, XP e nível',
     curto: 'Como ficar mais forte',
     min: 1,
-    resumo: `Todos começam com **${F.ouroInicial} de ouro** e ganham **${F.ouroPorSegundo} por segundo**. O resto vem de monstros, mineradores, pilotos e objetivos. A XP sobe o nível (até o ${F.nivelMax}), e **cada nível dá ${F.pontosPorNivel} pontos** para pôr na nave.`,
+    resumo: `Todos começam com **${F.ouroInicial} de ouro** e ganham **${F.ouroPorSegundo} por segundo**. O resto vem de monstros, mineradores, pilotos e objetivos. A XP sobe o nível (até o ${F.nivelMax}): **cada nível enche a vida, o escudo e a energia** e dá ${F.pontosPorNivel} pontos para pôr na nave.`,
     blocos: [
       {
         tipo: 'cartoes',
@@ -293,6 +293,11 @@ export const CAPITULOS = Object.freeze([
       {
         tipo: 'p',
         texto: 'Com ponto livre, aparecem abas em cima das barras de vida e energia: cada clique (ou tecla) põe 10 pontos. **Ponha os pontos no tipo de dano das suas armas.**',
+      },
+      {
+        tipo: 'p',
+        titulo: 'Subir de nível cura',
+        texto: 'Cada nível novo enche na hora a vida, o escudo e a energia da nave. Está quase subindo? Um último abate no meio da briga recupera a nave inteira e pode virar a luta.',
       },
       {
         tipo: 'dica',

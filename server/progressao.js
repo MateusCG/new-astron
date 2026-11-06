@@ -31,8 +31,9 @@
 // quando começa a seguinte (World, #passoPartida).
 //
 // Subir de nível dá um ganho pequeno e automático: +HP_POR_NIVEL (3%) do HP máximo
-// da NAVE por nível acima do 1 (nível 10 = +27%). O HP sobe junto com o máximo
-// (não cura o resto). Cada nível também dá PONTOS_POR_NIVEL pontos para o piloto
+// da NAVE por nível acima do 1 (nível 10 = +27%). E, com a nave viva, **enche a vida,
+// o escudo e a energia** (pedido do Mateus, 06/nov/2026: subir no meio da briga vira o
+// jogo, como a recompensa de nível dos MOBAs; CURA_AO_SUBIR). Cada nível também dá PONTOS_POR_NIVEL pontos para o piloto
 // distribuir (shared/status.js; o pedido {t:'pontos'} em server/servicos.js). A cada
 // 5 níveis (5, 10, 15, 20) a Evolução paga libera a próxima nave da linha
 // (shared/naves.js, server/servicos.js), que lê `j.nivel`.
@@ -79,6 +80,8 @@ import { ESPECIES } from './especies.js';
 
 export const NIVEL_MAX = 25;
 export const HP_POR_NIVEL = 0.03; // fração do HP da nave por nível acima do 1
+/** Subir de nível com a nave viva enche vida, escudo e energia (pedido do Mateus). */
+export const CURA_AO_SUBIR = true;
 /** Ouro que cada jogador ganha por segundo de partida em andamento (ouro passivo). */
 export const OURO_POR_SEGUNDO = 1;
 /** Ouro com que cada piloto começa a partida (e entra nela, se chegar no meio). */
@@ -241,7 +244,8 @@ export function hpMaxDoJogador(j, status = statusDoJogador(j)) {
 
 /**
  * Dá `xp` ao jogador, subindo de nível quantas vezes der. Cada subida vira um
- * evento {e:'nivel', id, nivel} em `eventos`. Devolve quantos níveis subiu.
+ * evento {e:'nivel', id, nivel} em `eventos` e, com a nave viva, enche vida, escudo e
+ * energia (CURA_AO_SUBIR; morta, continua morta). Devolve quantos níveis subiu.
  */
 export function ganharXp(j, xp, eventos) {
   let subiu = 0;
@@ -255,8 +259,12 @@ export function ganharXp(j, xp, eventos) {
     subiu++;
     const s = j.ship;
     const novo = hpMaxDoJogador(j, j.status ?? statusDoJogador(j)); // com a nave e o equipamento
-    if (s.hp > 0) s.hp += novo - s.maxHp;
     s.maxHp = novo;
+    if (CURA_AO_SUBIR && s.hp > 0) {
+      s.hp = s.maxHp;
+      if (s.maxEn > 0) s.en = s.maxEn;
+      if (s.maxEscudo > 0) s.escudo = s.maxEscudo;
+    }
     eventos?.push({ e: 'nivel', id: j.id, nivel: j.nivel });
   }
   if (j.nivel >= NIVEL_MAX) j.xp = 0;

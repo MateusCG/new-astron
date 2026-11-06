@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World } from '../server/game.js';
-import { xpParaNivel, XP_NIVEL_1, XP_POR_NIVEL, ganharXp, hpMaxDoNivel, RECOMPENSA, NIVEL_MAX, HP_POR_NIVEL, XP_OBJETIVO, OURO_POR_SEGUNDO, OURO_INICIAL, WING_FRACAO_XP, WING_RAIO } from '../server/progressao.js';
+import { CURA_AO_SUBIR, xpParaNivel, XP_NIVEL_1, XP_POR_NIVEL, ganharXp, hpMaxDoNivel, RECOMPENSA, NIVEL_MAX, HP_POR_NIVEL, XP_OBJETIVO, OURO_POR_SEGUNDO, OURO_INICIAL, WING_FRACAO_XP, WING_RAIO } from '../server/progressao.js';
 import { ESPECIES } from '../server/especies.js';
 import { ZONA_SEGURA } from '../server/game.js';
 import { createShip } from '../shared/sim.js';
@@ -47,20 +47,59 @@ test('progressão: curva de XP sobe a cada nível e fecha no máximo', () => {
 test('progressão: ganhar XP sobe de nível, avisa e dá +3% de HP máximo por nível', () => {
   const j = { id: 7, nivel: 1, xp: 0, ship: createShip('bellico', 0, 0, 0) };
   const ev = [];
-  j.ship.hp = 200; // ferido: subir de nível não cura o resto
+  j.ship.hp = 200;
   assert.equal(ganharXp(j, 30, ev), 0);
   assert.equal(j.nivel, 1);
+  assert.equal(j.ship.hp, 200, 'XP sem subir de nível não cura');
   assert.equal(ganharXp(j, xpParaNivel(1) - 30 + xpParaNivel(2) + 5, ev), 2, 'sobe dois de uma vez');
   assert.equal(j.nivel, 3);
   assert.equal(j.xp, 5, 'sobra fica no nível novo');
   assert.deepEqual(ev, [{ e: 'nivel', id: 7, nivel: 2 }, { e: 'nivel', id: 7, nivel: 3 }]);
   const max = Math.round(naveDe('bellico', 'assault', 0).hp * (1 + 2 * HP_POR_NIVEL));
   assert.equal(j.ship.maxHp, max);
-  assert.equal(j.ship.hp, 200 + (max - naveDe('bellico', 'assault', 0).hp), 'HP sobe junto com o máximo');
+  assert.equal(j.ship.hp, max, 'subir de nível enche a vida');
   ganharXp(j, 1e6, ev);
   assert.equal(j.nivel, NIVEL_MAX);
   assert.equal(j.xp, 0);
   assert.equal(j.ship.maxHp, hpMaxDoNivel(naveDe('bellico', 'assault', 0).hp, NIVEL_MAX));
+});
+
+test('progressão: subir de nível enche vida, escudo e energia da nave viva; a morta continua morta', () => {
+  assert.equal(CURA_AO_SUBIR, true);
+  const j = { id: 3, nivel: 1, xp: 0, ship: createShip('acron', 0, 0, 0) };
+  const s = j.ship;
+  s.maxEscudo = 80;
+  s.hp = 10;
+  s.en = 1;
+  s.escudo = 5;
+  ganharXp(j, xpParaNivel(1) - 1, []);
+  assert.deepEqual([s.hp, s.en, s.escudo], [10, 1, 5], 'sem subir, nada muda');
+  ganharXp(j, 1, []);
+  assert.equal(j.nivel, 2);
+  assert.equal(s.hp, s.maxHp);
+  assert.equal(s.en, s.maxEn);
+  assert.equal(s.escudo, s.maxEscudo);
+
+  const morto = { id: 4, nivel: 1, xp: 0, ship: createShip('acron', 0, 0, 0) };
+  morto.ship.hp = 0;
+  morto.ship.en = 0;
+  ganharXp(morto, xpParaNivel(1), []);
+  assert.equal(morto.nivel, 2);
+  assert.equal(morto.ship.hp, 0, 'subir de nível não ressuscita');
+  assert.equal(morto.ship.en, 0);
+});
+
+test('progressão: no World, o golpe que sobe o nível deixa a nave cheia no snapshot', () => {
+  const w = new World({ jungle: false, objetivos: false, torretas: false, preparacaoS: 0, ouroPorSegundo: 0 });
+  const j = w.addPlayer('Cheio', 'bellico', 'assault');
+  j.ship.hp = 20;
+  j.ship.en = 0;
+  ganharXp(j, xpParaNivel(1), w.eventos);
+  w.step();
+  const me = w.snapshotPara(j, w.entidades(), w.tirarEventos()).me;
+  assert.equal(j.nivel, 2);
+  assert.equal(me.hp, me.maxHp);
+  assert.ok(me.en >= me.maxEn - 1e-6, `energia ${me.en} de ${me.maxEn}`);
 });
 
 test('progressão: abater um SN-3 dá XP e ouro, e o snapshot leva nível e XP', () => {
