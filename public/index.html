@@ -84,8 +84,22 @@
           <div class="coluna-modos">
             <h1 id="titulo-jogar" class="titulo-tela">Escolha o modo de jogo</h1>
             <div class="modos" role="list"></div>
+            <button type="button" class="convite-aprender" hidden><span><b>Primeira vez no New Astron?</b><small>Aprenda a jogar em poucos minutos</small></span><em>Como Jogar ›</em></button>
           </div>
           <p class="legenda-nave" aria-live="polite"><small>Sua nave</small><strong class="nome-nave"></strong><span class="raca-classe"></span></p>
+        </section>
+
+        <!-- COMO JOGAR: a trilha do piloto, como a aba Learn do Dota 2 (como-jogar.js,
+             conteúdo em como-jogar-regras.js): capítulos com o progresso à esquerda e o
+             capítulo aberto à direita. -->
+        <section id="tela-aprender" class="tela-menu" hidden aria-labelledby="titulo-aprender">
+          <nav class="trilha" aria-label="Capítulos">
+            <h1 id="titulo-aprender" class="titulo-tela">Como Jogar</h1>
+            <p class="sub-trilha">Trilha do piloto</p>
+            <div class="progresso-trilha" aria-live="polite"><span class="conta"></span><span class="barra"><b></b></span></div>
+            <ol class="trilha-capitulos"></ol>
+          </nav>
+          <article class="capitulo" aria-labelledby="titulo-capitulo" tabindex="-1"></article>
         </section>
 
         <!-- SELEÇÃO: a seleção de campeão dos MOBAs com 3 raças × 3 classes. -->

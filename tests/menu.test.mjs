@@ -32,7 +32,7 @@ import { RACAS_JOGAVEIS, ORDEM_CLASSES } from '../shared/naves.js';
 test('abas na ordem do header, com Ranking e Perfil bloqueadas até as contas de piloto', () => {
   assert.deepEqual(
     ABAS.map((a) => a.id),
-    ['jogar', 'naves', 'config', 'ranking', 'perfil'],
+    ['jogar', 'aprender', 'naves', 'config', 'ranking', 'perfil'],
   );
   assert.deepEqual(
     ABAS.filter((a) => a.bloqueada).map((a) => a.id),
@@ -75,6 +75,7 @@ test('ESC volta um passo: Seleção e as outras abas para Jogar; em Jogar fica',
   assert.equal(telaAnterior('selecao'), 'jogar');
   assert.equal(telaAnterior('naves'), 'jogar');
   assert.equal(telaAnterior('config'), 'jogar');
+  assert.equal(telaAnterior('aprender'), 'jogar');
   assert.equal(telaAnterior('jogar'), null);
   assert.equal(telaAnterior('qualquer'), null);
 });

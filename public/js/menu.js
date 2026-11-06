@@ -18,6 +18,10 @@
 //   partida começa sozinha. No Jogar New Astron, com pelo menos um piloto em cada
 //   time, o "Pronto" já acende na fila: todos prontos, começa com quem está (1 contra
 //   1 com um colega). Sair da Seleção (ESC, aba) sai da fila.
+// - COMO JOGAR: a trilha do piloto iniciante, como a aba Learn do Dota 2
+//   (como-jogar.js): capítulos curtos com o progresso, o "em resumo", as teclas do mapa
+//   em uso e o "Praticar agora", que escolhe o modo e abre a Seleção. Com nada lido, a
+//   aba leva o selo NOVO e a aba Jogar mostra o convite "Primeira vez?".
 // - NAVES: o hangar, só leitura: filtros de raça e classe, a nave no visor (arrastar
 //   gira), a ficha com o tamanho real e as barras na régua das 45 naves, e a linha das
 //   5 naves com o nível e o preço na Evolução. "Mostrar na tela Jogar" põe a nave
@@ -44,6 +48,7 @@ import { modeloDaNave } from './nave.js';
 import { SONS_INTERFACE } from './sons.js';
 import { EscolhaTimes } from './escolha-times.js';
 import { MapaSelecao } from './mapa-selecao.js';
+import { ComoJogar } from './como-jogar.js';
 import { timeDoPiloto } from './mapa-selecao-regras.js';
 import { ConexaoFila } from './fila.js';
 import { estadoFilaVazio, botaoDaFila, linhaDaFila, textoAviso, textoContagemModo } from './fila-regras.js';
@@ -97,6 +102,7 @@ const TITULO_ACHOU = '▶ Partida encontrada · New AstroN';
 /** Dicas do rodapé por tela. */
 const DICAS = {
   jogar: '<kbd>↑</kbd><kbd>↓</kbd> escolhe o modo · <kbd>Enter</kbd> entra',
+  aprender: '<kbd>↑</kbd><kbd>↓</kbd> escolhe o capítulo · <kbd>←</kbd><kbd>→</kbd> anterior e próximo · <kbd>Esc</kbd> volta',
   selecao: '<kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> escolhe a nave · <kbd>Esc</kbd> volta',
   naves: 'Arraste a nave para girar · <kbd>Esc</kbd> volta',
   config: '<kbd>Esc</kbd> volta',
@@ -104,6 +110,7 @@ const DICAS = {
 /** As mesmas dicas com o controle (o rótulo segue o mapa: data-acao-rotulo). */
 const DICAS_CONTROLE = {
   jogar: `${kbdAcao('uiCima')}${kbdAcao('uiBaixo')} escolhe o modo · ${kbdAcao('uiConfirmar')} entra`,
+  aprender: `${kbdAcao('uiCima')}${kbdAcao('uiBaixo')} navega · ${kbdAcao('uiConfirmar')} abre · ${kbdAcao('uiVoltar')} volta`,
   selecao: `${kbdAcao('uiEsq')}${kbdAcao('uiDir')}${kbdAcao('uiCima')}${kbdAcao('uiBaixo')} navega · ${kbdAcao('uiConfirmar')} escolhe · ${kbdAcao('uiVoltar')} volta`,
   naves: `${kbdAcao('uiConfirmar')} escolhe · ${kbdAcao('uiVoltar')} volta`,
   config: `${kbdAcao('uiConfirmar')} troca a casa · ${kbdAcao('uiVoltar')} volta`,
@@ -232,6 +239,17 @@ export class Menu {
     this.relogioFila = setInterval(() => this.#tiqueFila(), RELOGIO_FILA_MS);
 
     this.#montarAbas();
+    this.comoJogar = new ComoJogar(this.q('#tela-aprender'), {
+      aoPraticar: (modo) => this.#escolherModo(modo),
+      aoSom: () => this.#som(SONS_INTERFACE.clique),
+      aoProgresso: () => this.#mostrarNovidade(),
+    });
+    this.q('.convite-aprender').addEventListener('click', () => {
+      this.#som(SONS_INTERFACE.clique);
+      this.mostrar('aprender');
+      this.#focarTela();
+    });
+    this.#mostrarNovidade();
     this.#montarModos();
     this.#montarSelecao();
     this.#montarNaves();
@@ -276,6 +294,7 @@ export class Menu {
     if (tela === 'config') this.volumeConfig.atualizar();
     if (tela === 'selecao') this.#atualizarSelecao();
     if (tela === 'naves') this.#atualizarNaves();
+    if (tela === 'aprender') this.comoJogar.mostrar();
     const fila = tela === 'selecao' ? filaDoModo(this.modo) : null;
     this.times.mostrarFila(fila, this.estadoFila);
     if (tela === 'selecao') this.mapa.mostrar(timeDoPiloto(fila, this.estadoFila));
@@ -321,7 +340,9 @@ export class Menu {
         ? this.q(`.modo[data-modo="${this.modo}"]`)
         : this.tela === 'selecao'
           ? this.q(`.carta-nave[data-raca="${this.raca}"][data-classe="${this.classe}"]`)
-          : this.q('.abas-menu .sel');
+          : this.tela === 'aprender'
+            ? this.comoJogar.focoInicial
+            : this.q('.abas-menu .sel');
     alvo?.focus({ preventScroll: true });
   }
 
@@ -386,6 +407,16 @@ export class Menu {
       abrir(id);
       nav.querySelector(`[data-aba="${id}"]`).focus();
     });
+  }
+
+  /**
+   * Piloto que ainda não leu nada da trilha: o selo NOVO na aba Como Jogar e o convite
+   * "Primeira vez?" na aba Jogar. Leu um capítulo, os dois somem.
+   */
+  #mostrarNovidade() {
+    const novo = this.comoJogar.progresso.lidos === 0;
+    this.q('.abas-menu [data-aba="aprender"]')?.classList.toggle('novo', novo);
+    this.q('.convite-aprender').hidden = !novo;
   }
 
   // ---------- Jogar ----------

@@ -3,6 +3,9 @@
 // barras de status das naves. O desenho fica em menu.js; aqui só o que dá para testar
 // (tests/menu.test.mjs).
 //
+// "Como Jogar" (aprender) é a trilha do piloto iniciante, como a aba Learn do Dota 2
+// (como-jogar.js, conteúdo em como-jogar-regras.js).
+//
 // Fluxo: menu (header com as abas) → JOGAR → escolha do modo → SELEÇÃO (raça, classe
 // e times) → Decolar → tela de carregamento → partida. ESC volta um passo; o ESC de
 // dentro da partida cai na aba Jogar.
@@ -23,6 +26,7 @@ import { NAVES, RACAS_JOGAVEIS, ORDEM_CLASSES, TIER_MAX, classeValida, racaJogav
 /** Abas do header, na ordem. Bloqueada: visível, apagada, sem clique, selo EM BREVE. */
 export const ABAS = Object.freeze([
   { id: 'jogar', nome: 'Jogar' },
+  { id: 'aprender', nome: 'Como Jogar' },
   { id: 'naves', nome: 'Naves' },
   { id: 'config', nome: 'Configurações' },
   { id: 'ranking', nome: 'Ranking', bloqueada: true, dica: 'Chega com as contas de piloto' },
@@ -118,7 +122,7 @@ export function filaDoModo(id) {
 
 /**
  * Para onde o ESC volta a partir da tela `tela` ('selecao' ou o id de uma aba):
- * Seleção → Jogar; Naves e Configurações → Jogar; Jogar fica (null: nada a fazer).
+ * Seleção → Jogar; Como Jogar, Naves e Configurações → Jogar; Jogar fica (null: nada a fazer).
  */
 export function telaAnterior(tela) {
   if (tela === 'selecao') return 'jogar';
