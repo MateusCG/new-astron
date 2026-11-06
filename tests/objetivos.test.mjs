@@ -13,6 +13,7 @@ import { DT, HOVER, WEAPONS, createShip, createBullet, stepShip, INPUT_VAZIO } f
 import { OBJETIVOS, BUFFS, PLATAFORMAS_POUSO, NUCLEO, areaPouso } from '../shared/terrain.js';
 import { obstaculoAtivo, alturaSolida } from '../shared/obstaculos.js';
 import { xpParaNivel } from '../server/progressao.js';
+import { golpeDaArma } from '../shared/armas.js';
 
 const SEGUNDO = Math.round(1 / DT);
 const RAPIDO = {
@@ -122,6 +123,29 @@ test('objetivos: torre de suporte só aceita dano de jogador depois de acender, 
   assert.equal(torre.hp, SUPORTE.hp, 'inteira');
   assert.equal(obj(w, a, 'BS0').estado, 'ativo');
   assert.ok(w.tirarEventos().some((e) => e.e === 'objetivo' && e.id === 'BS0' && e.acao === 'apareceu'));
+});
+
+test('objetivos: a nova do Canhão de Faíscas (a carga não fere) tira vida da torre de suporte acesa', () => {
+  const { w, a, b } = mundo();
+  const t = BUFFS.find((x) => x.id === 'BS0');
+  const torre = w.objetivos.suportes.find((x) => x.id === 'BS0');
+  colocar(a, t.x - 300, t.z - 300);
+  passos(w, 2.1);
+  assert.equal(obj(w, a, 'BS0').estado, 'ativo');
+  // B atira o Canhão de Faíscas de 120 m, de frente para a torre.
+  const nave = createShip('acron', t.x - 120, t.z, -Math.PI / 2);
+  const bala = createBullet(nave, 'o112028', w.nextId++, b.id);
+  const g = golpeDaArma('o112028', 1, 0);
+  Object.assign(bala, { time: b.time, drone: false, mult: 1, g, kind: 'o112028', nivel: 1, owner: b.id, dano: 0 });
+  w.bullets.push(bala);
+  w.tirarEventos();
+  for (let i = 0; i < 4 * SEGUNDO; i++) w.step();
+  assert.ok(torre.hp < SUPORTE.hp, `a nova feriu a torre (hp ${torre.hp})`);
+  assert.ok(w.tirarEventos().some((e) => e.e === 'acerto' && e.torre === 'BS0' && e.dano > 0));
+  // Uma vez só por nova.
+  const depois = torre.hp;
+  passos(w, 2);
+  assert.equal(torre.hp, depois);
 });
 
 test('objetivos: plataforma de pouso dá ouro ao time inteiro depois do pouso parado, e +50 a quem pousou', () => {

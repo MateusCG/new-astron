@@ -386,7 +386,10 @@ export class Golpes {
         this.#efeitosAliado(g, a, como);
       }
     }
-    if (g.area > 0 && g.inimigo && dano > 0) w.torretas.area({ id: autor, time: como.time }, x, y, z, g.area, dano, kind);
+    if (g.area > 0 && g.inimigo && dano > 0) {
+      w.torretas.area({ id: autor, time: como.time }, x, y, z, g.area, dano, kind);
+      w.objetivos.area({ id: autor }, x, y, z, g.area, dano, kind); // a torre do buff de suporte também
+    }
     this.#especiais(g, como, x, z, g.area);
   }
 
@@ -653,8 +656,11 @@ export class Golpes {
           this.#efeitosAliado(g, a, { ...como, kind: n.kind });
         }
       }
-      // Torretas inimigas na casca levam o dano uma vez (a casca as pega ao chegar no raio máximo).
-      if (n.r >= g.nova.raio && g.inimigo && dano > 0) w.torretas.area({ id: n.owner, time: n.time }, n.x, n.y, n.z, n.r, dano, n.kind);
+      // Torretas inimigas e torres de suporte na casca levam o dano uma vez (a casca as pega ao chegar no raio máximo).
+      if (n.r >= g.nova.raio && g.inimigo && dano > 0) {
+        w.torretas.area({ id: n.owner, time: n.time }, n.x, n.y, n.z, n.r, dano, n.kind);
+        w.objetivos.area({ id: n.owner }, n.x, n.y, n.z, n.r, dano, n.kind);
+      }
       this.#especiais(g, como, n.x, n.z, n.r);
       return n.r < g.nova.raio;
     });

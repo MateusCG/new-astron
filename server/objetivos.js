@@ -14,7 +14,9 @@
 // a construção sólida é a de shared/obstaculos.js): fica de pé desde o começo, mas
 // só "acende" e aceita dano aos TEMPOS.suporte.primeiroS (1:30); antes, o tiro bate e
 // some (dano 0), como numa parede. Tem SUPORTE.hp de vida e só tiro de JOGADOR a
-// machuca, de qualquer time (roubar o buff do outro lado vale). O último tiro dá
+// machuca, de qualquer time (roubar o buff do outro lado vale), tanto o tiro direto
+// quanto a área (explosão, nova, onda: `area`, como nas torretas; a carga do Canhão de
+// Faíscas não fere, quem fere é a nova que ela abre ao bater). O último golpe dá
 // 'suporte' (server/bonus.js) a quem atirou, e SUPORTE.xp / SUPORTE.ouro. A torre cai
 // (sai da física nos dois lados: definirObstaculoAtivo, e o cliente faz o mesmo pelo
 // `obj`) e volta inteira TEMPOS.suporte.voltaS (4:00) depois, esperando o lugar
@@ -62,7 +64,7 @@
 // Partida nova (ou servidor vazio): tudo volta à 'espera', torres de pé.
 
 import { PLATAFORMAS_POUSO, BUFFS, NUCLEO, areaPouso } from '../shared/terrain.js';
-import { DT, HOVER, VEL_TOQUE, SHIP_RADIUS } from '../shared/sim.js';
+import { DT, HOVER, VEL_TOQUE, SHIP_RADIUS, AREA_ALTURA } from '../shared/sim.js';
 import { TORRE_SUPORTE, OBSTACULOS, definirObstaculoAtivo } from '../shared/obstaculos.js';
 import { ganharXp } from './progressao.js';
 import { BONUS_NAVE } from './bonus.js';
@@ -261,6 +263,32 @@ export class Objetivos {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Dano em área (explosão, nova, onda) de `fonte` ({id}) centrado em (x, y, z): fere
+   * as torres de suporte de pé ao alcance, se a fonte for um jogador e a torre estiver
+   * acesa, como as torretas (Torretas#area). Devolve quantas pegou.
+   */
+  area(fonte, x, y, z, raio, dano, arma) {
+    const w = this.world;
+    const j = w.players.get(fonte.id);
+    if (!j || !this.#andamento) return 0;
+    let n = 0;
+    for (const t of this.suportes) {
+      if (t.caida || !this.#suporteAceso(t)) continue;
+      const o = this.planta.get(t.id);
+      if (Math.hypot(t.x - x, t.z - z) > raio + o.raio) continue;
+      if (y < o.chao - AREA_ALTURA || y > o.topo + AREA_ALTURA) continue;
+      const d = Math.round(dano);
+      if (d <= 0) continue;
+      n++;
+      w.eventos.push({ e: 'acerto', arma, alvo: 0, torre: t.id, dano: d, x: t.x, y: HOVER, z: t.z });
+      j.causouDanoTick = w.tick;
+      t.hp = Math.max(0, t.hp - d);
+      if (t.hp === 0) this.#derrubar(t, j);
+    }
+    return n;
   }
 
   #derrubar(t, j) {
