@@ -17,14 +17,15 @@
 import { kda, melhorDaPartida, textoRazaoKda } from './tabela-regras.js';
 import { ConteudoTabela, miniaturaDoPiloto } from './tabela.js';
 import { SONS_INTERFACE } from './sons.js';
+import { tr } from '../../shared/idioma.js';
 
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-const TITULO = { vitoria: 'Vitória', derrota: 'Derrota', empate: 'Empate' };
+const TITULO = { vitoria: tr('Vitória'), derrota: tr('Derrota'), empate: tr('Empate') };
 const FRASE = {
-  vitoria: 'Seu time minerou mais He-3',
-  derrota: 'O time inimigo minerou mais He-3',
-  empate: 'Os dois times mineraram igual',
+  vitoria: tr('Seu time minerou mais He-3'),
+  derrota: tr('O time inimigo minerou mais He-3'),
+  empate: tr('Os dois times mineraram igual'),
 };
 
 export class TelaResultado {
@@ -104,9 +105,9 @@ export class TelaResultado {
     if (!p) return;
     const aliado = p.time === this.meuTime;
     el.classList.toggle('inimigo', !aliado);
-    const nome = p.ia ? String(p.nome).replace(/ \(IA\)$/, '') : String(p.nome);
-    el.querySelector('.nome-mvp').innerHTML = `${esc(nome)}${p.ia ? ' <span class="selo">IA</span>' : ''}`;
-    el.querySelector('.time-mvp').textContent = p.id === this.meuId ? 'Você · seu time' : aliado ? 'Seu time' : 'Time inimigo';
+    const nome = p.ia ? String(p.nome).replace(/ \((IA|AI)\)$/, '') : String(p.nome);
+    el.querySelector('.nome-mvp').innerHTML = `${esc(nome)}${p.ia ? ` <span class="selo">${tr('IA')}</span>` : ''}`;
+    el.querySelector('.time-mvp').textContent = p.id === this.meuId ? tr('Você · seu time') : aliado ? tr('Seu time') : tr('Time inimigo');
     el.querySelector('.kda-mvp').textContent = kda(p);
     el.querySelector('.razao-mvp').textContent = textoRazaoKda(p);
     el.querySelector('.farm-mvp').textContent = p.farm ?? 0;

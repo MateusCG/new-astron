@@ -16,6 +16,8 @@
 // multi-abate e a sequência. Anúncio novo entra em ANUNCIOS, com a voz em
 // public/sons/locutor/ e o nível dela em nivel-sons.js (ALVO_POR_SOM).
 
+import { tr } from '../../shared/idioma.js';
+
 /** Cada anúncio: o texto da faixa (em inglês, como a voz) e o arquivo da voz. */
 export const ANUNCIOS = Object.freeze({
   firstBlood: { texto: 'First Blood', som: 'first_blood' },
@@ -75,17 +77,17 @@ export function anunciosDaMorte(e, { meuId, meuTime, nome }) {
   // Sem fogo amigo: quem abate um jogador é do outro time.
   const timeMatador = e.time === undefined ? null : 1 - e.time;
   const cor = e.por === meuId ? 'voce' : timeMatador === meuTime ? 'aliado' : 'inimigo';
-  const matador = e.por === meuId ? 'Você' : nome(e.por);
-  const vitima = e.id === meuId ? 'você' : nome(e.id);
-  const abateu = `${matador} abateu ${vitima}`;
+  const matador = e.por === meuId ? tr('Você') : nome(e.por);
+  const vitima = e.id === meuId ? tr('você') : nome(e.id);
+  const abateu = tr('{matador} abateu {quem}', { matador, quem: vitima });
   const lista = [];
   const por = (chave, sub) => lista.push({ chave, ...ANUNCIOS[chave], som: somDoAnuncio(chave), sub, cor });
 
   if (e.primeiro) por('firstBlood', abateu);
   const multi = primeiroDe(MULTI, e.multi ?? 0);
-  if (multi) por(multi, `${matador} · ${e.multi} abates seguidos`);
+  if (multi) por(multi, tr('{matador} · {n} abates seguidos', { matador, n: e.multi }));
   const seq = primeiroDe(SEQUENCIA, e.seqPor ?? 0);
-  if (seq) por(seq, `${matador} · ${e.seqPor} abates sem morrer`);
+  if (seq) por(seq, tr('{matador} · {n} abates sem morrer', { matador, n: e.seqPor }));
   return lista;
 }
 

@@ -49,6 +49,7 @@ import {
   tirosDoGolpe,
   nivelArmaValido,
 } from './armas.js';
+import { tr } from './idioma.js';
 
 export const DT = 1 / 30;
 export const HOVER = 10;
@@ -76,10 +77,10 @@ export const CAMPO_RECUO = 0.5;
  * entrada apagada ("EM BREVE"): ainda não tem naves (RACAS_BLOQUEADAS).
  */
 export const RACES = {
-  acron: { nome: 'Acron', cor: 0x3fa9ff, bioma: 'Aquático' },
-  bellico: { nome: 'Bellico', cor: 0xff5a3c, bioma: 'Deserto' },
-  shrewdo: { nome: 'Shrewdo', cor: 0x34e08a, bioma: 'Terreno' },
-  mechan: { nome: 'Mechan', cor: 0xb15cff, bioma: 'Tóxico', bloqueada: true },
+  acron: { nome: 'Acron', cor: 0x3fa9ff, bioma: tr('Aquático') },
+  bellico: { nome: 'Bellico', cor: 0xff5a3c, bioma: tr('Deserto') },
+  shrewdo: { nome: 'Shrewdo', cor: 0x34e08a, bioma: tr('Terreno') },
+  mechan: { nome: 'Mechan', cor: 0xb15cff, bioma: tr('Tóxico'), bloqueada: true },
 };
 export const BOOST_MULT = 1.6;
 export const BOOST_GASTO = 47; // energia por segundo

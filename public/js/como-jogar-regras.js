@@ -21,6 +21,9 @@
 // FATOS, que o teste confere com as constantes do servidor e de shared/: mudou a regra,
 // o teste aponta o capítulo que ficou para trás.
 
+import { emIngles } from '../../shared/idioma.js';
+import { capitulosEn } from './como-jogar-en.js';
+
 /** Os números que o texto usa, conferidos com as constantes do jogo pelo teste. */
 export const FATOS = Object.freeze({
   porTime: 3, // MAX_POR_TIME
@@ -83,7 +86,7 @@ const minFinal = relogio(F.duracaoS - F.faseFinalS);
  * as dicas ao passar o mouse), `dica` (a caixa "Dica de piloto") e `glossario`
  * (`itens` com `termo` e `texto`). `titulo` opcional em todos.
  */
-export const CAPITULOS = Object.freeze([
+export const CAPITULOS_PT = Object.freeze([
   {
     id: 'objetivo',
     titulo: 'Como se ganha',
@@ -480,6 +483,9 @@ export const CAPITULOS = Object.freeze([
     praticar: { modo: 'privada', texto: 'Hora de pôr tudo em prática.' },
   },
 ]);
+
+/** Os capítulos no idioma da página (shared/idioma.js; o inglês em como-jogar-en.js). */
+export const CAPITULOS = emIngles() ? Object.freeze(capitulosEn(F, relogio, minFinal)) : CAPITULOS_PT;
 
 /** Chave do navegador com os capítulos lidos. */
 export const CHAVE_LIDOS = 'astron.comoJogar';

@@ -61,7 +61,7 @@
 //
 // Listeners no `signal` dos controles: sair da partida e entrar de novo não duplica.
 
-import { ARMAS, WEAPONS, IDX_ARMA } from '/shared/sim.js';
+import { ARMAS, WEAPONS, IDX_ARMA, RACES } from '/shared/sim.js';
 import { ITENS, ORDEM_ITENS, COMPARTIMENTO_MAX, ARMA_COPIAS_MAX, armasAVenda, noCompartimento, armasDoInv, copiasDaArma, gruposPorTipo } from '/shared/loja.js';
 import { EQUIPAMENTOS, SIGLA_TIPO, equipamentosAVenda, versaoEquip, textoEfeitoEquip } from '/shared/equipamentos.js';
 import { linhaDe, CLASSES } from '/shared/naves.js';
@@ -82,41 +82,42 @@ import { iconeEquip, textoClasses, classeTipo } from './equipamento.js';
 import { htmlIcone } from './icones-itens.js';
 import { ICONE_CONSUMIVEL } from './insumos.js';
 import { aoApertar, kbdAcao } from './atalhos.js';
+import { tr, localeNum, nomeEquip } from '../../shared/idioma.js';
 
 /** Mensagem curta para cada código de erro estável do servidor. */
 export const MENSAGEM_ERRO = {
-  nao_pousado: 'Pouse e pare na plataforma da sua base',
-  ouro_insuficiente: 'Ouro insuficiente',
-  nivel_insuficiente: 'Nível insuficiente',
-  ja_possui: 'Você já tem essa arma',
-  limite: 'Chegou ao limite',
-  invalido: 'Pedido inválido',
-  sem_item: 'Sem esse item: compre na Loja',
-  recarga: 'Item ainda recarregando',
-  cheio: 'Já está cheio',
-  equipado: 'Esse item está na nave: tire antes',
-  sem_pontos: 'Sem pontos livres: suba de nível',
-  maximo: 'Já está no máximo',
+  nao_pousado: tr('Pouse e pare na plataforma da sua base'),
+  ouro_insuficiente: tr('Ouro insuficiente'),
+  nivel_insuficiente: tr('Nível insuficiente'),
+  ja_possui: tr('Você já tem essa arma'),
+  limite: tr('Chegou ao limite'),
+  invalido: tr('Pedido inválido'),
+  sem_item: tr('Sem esse item: compre na Loja'),
+  recarga: tr('Item ainda recarregando'),
+  cheio: tr('Já está cheio'),
+  equipado: tr('Esse item está na nave: tire antes'),
+  sem_pontos: tr('Sem pontos livres: suba de nível'),
+  maximo: tr('Já está no máximo'),
 };
 
-const NOME_SERVICO = { loja: 'Loja', evolucao: 'Evolução' };
+const NOME_SERVICO = { loja: tr('Loja'), evolucao: tr('Evolução') };
 const ABAS = {
   loja: [
-    ['recomendados', 'Recomendados'],
-    ['armas', 'Armas'],
-    ['escudo', 'Escudos'],
-    ['armadura', 'Armaduras'],
-    ['potenciador', 'Potenciadores'],
-    ['itens', 'Itens'],
+    ['recomendados', tr('Recomendados')],
+    ['armas', tr('Armas')],
+    ['escudo', tr('Escudos')],
+    ['armadura', tr('Armaduras')],
+    ['potenciador', tr('Potenciadores')],
+    ['itens', tr('Itens')],
   ],
   evolucao: [
-    ['nave', 'Nave'],
-    ['mineradores', 'Mineradores do time'],
-    ['torretas', 'Torretas'],
+    ['nave', tr('Nave')],
+    ['mineradores', tr('Mineradores do time')],
+    ['torretas', tr('Torretas')],
   ],
 };
 
-const numero = (v) => Math.round(v).toLocaleString('pt-BR');
+const numero = (v) => Math.round(v).toLocaleString(localeNum());
 const pct = (f) => `${Math.round(f * 100)}%`;
 const svg = (classe, desenho) => `<svg class="icone-servico ${classe}" viewBox="0 0 24 24" aria-hidden="true">${desenho}</svg>`;
 
@@ -297,35 +298,35 @@ export class PainelServicos {
     if (m.acao === 'usar') {
       const item = ITENS[m.item];
       if (!item) return;
-      texto = ok ? (m.item === 'reparo' ? `${item.nome}: +${pct(item.cura)} de HP` : `${item.nome}: energia cheia`) : `${item.nome}: ${MENSAGEM_ERRO[m.codigo] ?? 'não deu'}`;
+      texto = ok ? (m.item === 'reparo' ? tr('{item}: +{v} de HP', { item: item.nome, v: pct(item.cura) }) : tr('{item}: energia cheia', { item: item.nome })) : `${item.nome}: ${MENSAGEM_ERRO[m.codigo] ?? tr('não deu')}`;
       this.noticia(texto, ok ? 'bom' : 'ruim');
       return;
     }
     if (ok) texto = this.#textoSucesso(m);
     else if (m.acao === 'comprar' && m.codigo === 'cheio' && !ITENS[m.item]) {
-      texto = `Compartimento cheio (${this.estado.compMax}): venda ou equipe algo no Inventário (I)`;
+      texto = tr('Compartimento cheio ({n}): venda ou equipe algo no Inventário (I)', { n: this.estado.compMax });
     } else if (m.acao === 'comprar' && m.codigo === 'ja_possui' && WEAPONS[m.item]) {
-      texto = `Você já tem ${ARMA_COPIAS_MAX} cópias de ${WEAPONS[m.item].nome}, o máximo`;
-    } else texto = MENSAGEM_ERRO[m.codigo] ?? 'Não deu certo';
+      texto = tr('Você já tem {n} cópias de {arma}, o máximo', { n: ARMA_COPIAS_MAX, arma: nomeArma(m.item) });
+    } else texto = MENSAGEM_ERRO[m.codigo] ?? tr('Não deu certo');
     this.msg.textContent = texto;
     this.msg.className = 'msg ' + (ok ? 'bom' : 'ruim');
-    const nome = WEAPONS[m.item]?.nome ?? EQUIPAMENTOS[m.item]?.nomePt;
-    if (ok && m.acao === 'comprar' && nome) this.noticia(`${nome} no compartimento: I abre o inventário`, 'bom');
+    const nome = WEAPONS[m.item] ? nomeArma(m.item) : EQUIPAMENTOS[m.item] ? nomeEquip(EQUIPAMENTOS[m.item]) : null;
+    if (ok && m.acao === 'comprar' && nome) this.noticia(tr('{nome} no compartimento: I abre o inventário', { nome }), 'bom');
   }
 
   #textoSucesso(m) {
     if (m.acao === 'comprar') {
-      const nome = WEAPONS[m.item]?.nome ?? EQUIPAMENTOS[m.item]?.nomePt ?? ITENS[m.item]?.nome ?? m.item;
-      return ITENS[m.item] ? `Comprado: ${nome}` : `Comprado: ${nome} · no compartimento do Inventário (I)`;
+      const nome = WEAPONS[m.item] ? nomeArma(m.item) : EQUIPAMENTOS[m.item] ? nomeEquip(EQUIPAMENTOS[m.item]) : (ITENS[m.item]?.nome ?? m.item);
+      return ITENS[m.item] ? tr('Comprado: {nome}', { nome }) : tr('Comprado: {nome} · no compartimento do Inventário (I)', { nome });
     }
     if (m.acao === 'evoluir') {
       // O snapshot com a nave nova pode ainda não ter chegado: é a próxima da linha.
       const nova = linhaDe(this.estado.race, this.estado.classe)[this.estado.tier + 1];
-      return nova ? `Nave nova: ${nova.nome}` : 'Nave nova';
+      return nova ? tr('Nave nova: {nave}', { nave: nova.nome }) : tr('Nave nova');
     }
-    if (m.acao === 'reconstruir') return 'Torreta reconstruída';
-    if (m.item === MELHORIA_TORRETAS.id) return 'Torretas do time: nível novo';
-    return `Mineradores do time: ${MELHORIAS_MINERADOR[m.item]?.nome ?? m.item}`;
+    if (m.acao === 'reconstruir') return tr('Torreta reconstruída');
+    if (m.item === MELHORIA_TORRETAS.id) return tr('Torretas do time: nível novo');
+    return tr('Mineradores do time: {nome}', { nome: MELHORIAS_MINERADOR[m.item]?.nome ?? m.item });
   }
 
   /** Redesenha o painel; sem `forcar`, só se algo mudou (ouro, posse, aba...). */
@@ -383,7 +384,7 @@ export class PainelServicos {
 
   /** Estado de compra pelo preço: livre ou sem ouro. */
   #pelaCarteira(preco) {
-    return this.estado.ouro >= preco ? ['livre', 'COMPRAR'] : ['sem-ouro', 'SEM OURO'];
+    return this.estado.ouro >= preco ? ['livre', tr('COMPRAR')] : ['sem-ouro', tr('SEM OURO')];
   }
 
   /** O compartimento do inventário está cheio (arma e equipamento não cabem)? */
@@ -393,7 +394,7 @@ export class PainelServicos {
 
   /** Estado de compra de arma ou equipamento: o compartimento cheio apaga o cartão. */
   #paraOCompartimento(preco) {
-    return this.#cheio() ? ['max', 'COMPARTIMENTO CHEIO'] : this.#pelaCarteira(preco);
+    return this.#cheio() ? ['max', tr('COMPARTIMENTO CHEIO')] : this.#pelaCarteira(preco);
   }
 
   /**
@@ -405,7 +406,7 @@ export class PainelServicos {
     const grupos = gruposPorTipo(ids);
     if (!grupos.some((g) => g.id === this.filtroTipo[aba])) this.filtroTipo[aba] = 'todos';
     const sel = this.filtroTipo[aba];
-    const nome = (g) => (g === 'todos' ? 'Todos' : g === 'geral' ? 'Gerais' : SIGLA_TIPO[g]);
+    const nome = (g) => (g === 'todos' ? tr('Todos') : g === 'geral' ? tr('Gerais') : SIGLA_TIPO[g]);
     const html = `<div class="filtro-armas">${grupos
       .map((g) => `<button type="button" data-filtro-tipo="${g.id}" class="${g.id === sel ? 'sel' : ''}">${nome(g.id)} <i>${g.itens.length}</i></button>`)
       .join('')}</div>`;
@@ -429,12 +430,12 @@ export class PainelServicos {
     const { race, classe } = this.estado;
     const secoes = recomendadosDe(race, classe).map((s) => {
       const cab = `<h3 class="secao-rec">${s.nome}${s.dica && s.itens.length ? ` <small>${s.dica}</small>` : ''}</h3>`;
-      if (s.emBreve) return `${cab}<p class="nota em-breve-rec">EM BREVE</p>`;
-      if (!s.itens.length) return `${cab}<p class="nota">Sem recomendação para esta nave.</p>`;
+      if (s.emBreve) return `${cab}<p class="nota em-breve-rec">${tr('EM BREVE')}</p>`;
+      if (!s.itens.length) return `${cab}<p class="nota">${tr('Sem recomendação para esta nave.')}</p>`;
       const cartoes = s.itens.map((k) => (s.categoria === 'arma' ? this.#cartaoArma(k) : this.#cartaoEquip(k)));
       return `${cab}<div class="grade">${cartoes.join('')}</div>`;
     });
-    const nota = `<p class="nota">O que vale comprar para a ${CLASSES[classe]?.nome ?? ''} ${race ? race[0].toUpperCase() + race.slice(1) : ''}. O comprado vai para o compartimento do Inventário (<kbd>I</kbd>) na V1, como nas outras abas.</p>`;
+    const nota = `<p class="nota">${tr('O que vale comprar para a {classe} {raca}. O comprado vai para o compartimento do Inventário (<kbd>I</kbd>) na V1, como nas outras abas.', { classe: CLASSES[classe]?.nome ?? '', raca: RACES[race]?.nome ?? '' })}</p>`;
     return `${nota}${secoes.join('')}`;
   }
 
@@ -447,17 +448,17 @@ export class PainelServicos {
     const preco = WEAPONS[kind].preco;
     const n = copiasDaArma(inv, kind);
     const cheia = n >= ARMA_COPIAS_MAX;
-    const [estado, selo] = cheia ? ['comprado', `MÁXIMO ×${ARMA_COPIAS_MAX}`] : this.#paraOCompartimento(preco);
+    const [estado, selo] = cheia ? ['comprado', tr('MÁXIMO ×{n}', { n: ARMA_COPIAS_MAX })] : this.#paraOCompartimento(preco);
     const naNave = inv.some((x) => x.tipo === 'arma' && x.chave === kind && encInst.includes(x.id));
     const fabrica = inv.some((x) => x.chave === kind && x.fabrica);
     const marcas = [
-      naNave ? '<i class="selo-nave">NA NAVE</i>' : '',
-      n > 0 ? `<i class="selo-nave guardado">NO INVENTÁRIO ×${n}</i>` : '',
-      fabrica ? '<i class="so-classe">DE FÁBRICA</i>' : '',
+      naNave ? `<i class="selo-nave">${tr('NA NAVE')}</i>` : '',
+      n > 0 ? `<i class="selo-nave guardado">${tr('NO INVENTÁRIO ×{n}', { n })}</i>` : '',
+      fabrica ? `<i class="so-classe">${tr('DE FÁBRICA')}</i>` : '',
     ].join('');
     return this.#cartao({
       icone: iconeArma(kind),
-      nome: nomeArma(kind, true),
+      nome: nomeArma(kind),
       efeito: linhasDescricao(kind),
       preco: cheia ? null : preco,
       selo,
@@ -472,11 +473,11 @@ export class PainelServicos {
   #armas() {
     const { race, classe } = this.estado;
     const venda = ordenarPorCategoria(armasAVenda(race, classe));
-    if (!venda.length) return '<p class="nota">Sem armas à venda para esta nave.</p>';
+    if (!venda.length) return `<p class="nota">${tr('Sem armas à venda para esta nave.')}</p>`;
     // Filtro por tipo de dano, como nos equipamentos (os cartões seguem na ordem das categorias).
     const { html, filtrada: doTipo } = this.#filtroTipo('armas', venda.map((i) => ARMAS[i]));
     const cartoes = venda.filter((i) => doTipo.includes(ARMAS[i])).map((i) => this.#cartaoArma(ARMAS[i]));
-    const nota = `<p class="nota">Armas da ${CLASSES[classe]?.nome ?? ''} ${race ? race[0].toUpperCase() + race.slice(1) : ''}, até ${ARMA_COPIAS_MAX} cópias de cada (a de fábrica conta como a primeira), cada uma na sua versão: com duas, a mesma arma vai no Z e no X. A comprada vai para o compartimento do Inventário (<kbd>I</kbd>), de onde se equipa no Z ou no X (ou com Q e E), se evolui e se vende (as de fábrica também, pela metade do que se pagou nelas: na V1, de graça, não rendem ouro).</p>`;
+    const nota = `<p class="nota">${tr('Armas da {classe} {raca}, até {n} cópias de cada (a de fábrica conta como a primeira), cada uma na sua versão: com duas, a mesma arma vai no Z e no X. A comprada vai para o compartimento do Inventário (<kbd>I</kbd>), de onde se equipa no Z ou no X (ou com Q e E), se evolui e se vende (as de fábrica também, pela metade do que se pagou nelas: na V1, de graça, não rendem ouro).', { classe: CLASSES[classe]?.nome ?? '', raca: RACES[race]?.nome ?? '', n: ARMA_COPIAS_MAX })}</p>`;
     return `${nota}${html}<div class="grade">${cartoes.join('')}</div>`;
   }
 
@@ -494,16 +495,15 @@ export class PainelServicos {
     const n = inv.filter((x) => x.tipo === 'equip' && x.chave === k).length;
     const efeitos = versaoEquip(k, 1).efeitos.map(textoEfeitoEquip);
     const classes = e.classes.length < 3 ? `<i class="so-classe">${textoClasses(e.classes)}</i>` : '';
-    const original = `<small class="original">${e.nome.trim()}</small>`;
     const [estado, selo] = this.#paraOCompartimento(e.preco);
     const marcas = [
-      naNave ? '<i class="selo-nave">NA NAVE</i>' : '',
-      n > 0 ? `<i class="selo-nave guardado">NO INVENTÁRIO ×${n}</i>` : '',
+      naNave ? `<i class="selo-nave">${tr('NA NAVE')}</i>` : '',
+      n > 0 ? `<i class="selo-nave guardado">${tr('NO INVENTÁRIO ×{n}', { n })}</i>` : '',
       classes,
     ].join('');
     return this.#cartao({
       icone: iconeEquip(k),
-      nome: `${e.nomePt} ${original}`,
+      nome: nomeEquip(e).trim(),
       efeito: efeitos,
       preco: e.preco,
       selo,
@@ -527,12 +527,12 @@ export class PainelServicos {
     const { html: filtro, filtrada: lista } = venda.length ? this.#filtroTipo(categoria, venda) : { html: '', filtrada: [] };
     const cartoes = lista.map((k) => this.#cartaoEquip(k));
     const textos = {
-      escudo: 'O escudo tem energia própria, que recupera sozinha: o dano tira primeiro dele e, acabando, do HP. Também segura um pouco de um tipo de dano.',
-      armadura: 'A armadura soma HP máximo e resistência aos três tipos de dano (a geral igual nos três; a Op., Ph. ou El. forte em um).',
-      potenciador: 'Dois na nave (podem ser iguais, cada um na sua versão): poder, recarga, resistência, penetração, crítico, energia, escudo, HP, velocidade.',
+      escudo: tr('O escudo tem energia própria, que recupera sozinha: o dano tira primeiro dele e, acabando, do HP. Também segura um pouco de um tipo de dano.'),
+      armadura: tr('A armadura soma HP máximo e resistência aos três tipos de dano (a geral igual nos três; a Op., Ph. ou El. forte em um).'),
+      potenciador: tr('Dois na nave (podem ser iguais, cada um na sua versão): poder, recarga, resistência, penetração, crítico, energia, escudo, HP, velocidade.'),
     };
-    const nota = `<p class="nota">${textos[categoria]} O comprado vai para o compartimento do Inventário (<kbd>I</kbd>) na V1: lá se equipa (em qualquer lugar), se evolui até a V8 e se vende (na base).</p>`;
-    if (!cartoes.length) return `${nota}${filtro}<p class="nota">Nada à venda aqui para esta classe.</p>`;
+    const nota = `<p class="nota">${textos[categoria]} ${tr('O comprado vai para o compartimento do Inventário (<kbd>I</kbd>) na V1: lá se equipa (em qualquer lugar), se evolui até a V8 e se vende (na base).')}</p>`;
+    if (!cartoes.length) return `${nota}${filtro}<p class="nota">${tr('Nada à venda aqui para esta classe.')}</p>`;
     return `${nota}${filtro}<div class="grade">${cartoes.join('')}</div>`;
   }
 
@@ -540,9 +540,9 @@ export class PainelServicos {
     return ORDEM_ITENS.map((id) => {
       const it = ITENS[id];
       const tem = this.estado.itens[id] ?? 0;
-      const efeito = [id === 'reparo' ? `Cura ${pct(it.cura)} do HP na hora` : 'Enche a energia na hora', `Recarga ${it.recargaS} s`];
+      const efeito = [id === 'reparo' ? tr('Cura {v} do HP na hora', { v: pct(it.cura) }) : tr('Enche a energia na hora'), tr('Recarga {s} s', { s: it.recargaS })];
       let [estado, selo] = this.#pelaCarteira(it.preco);
-      if (tem >= it.max) [estado, selo] = ['max', `CHEIO ${tem}/${it.max}`];
+      if (tem >= it.max) [estado, selo] = ['max', tr('CHEIO {n}/{max}', { n: tem, max: it.max })];
       else selo += ` · ${tem}/${it.max}`;
       return this.#cartao({
         icone: iconeItem(id),
@@ -565,23 +565,23 @@ export class PainelServicos {
   #nave() {
     const { race, classe, tier, nivel, ouro } = this.estado;
     const linha = linhaDe(race, classe);
-    if (!linha.length) return '<p class="nota">Nave sem linha de evolução.</p>';
+    if (!linha.length) return `<p class="nota">${tr('Nave sem linha de evolução.')}</p>`;
     const atual = linha[tier] ?? linha[0];
     const cartoes = linha.map((n) => {
       let estado;
       let selo;
-      if (n.tier < tier) [estado, selo] = ['passou', 'JÁ PASSOU'];
-      else if (n.tier === tier) [estado, selo] = ['equipado', 'ATUAL'];
-      else if (n.tier > tier + 1) [estado, selo] = ['bloqueado', `PEDE NV ${n.nivel}`];
-      else if (nivel < n.nivel) [estado, selo] = ['bloqueado', `PEDE NV ${n.nivel}`];
-      else [estado, selo] = ouro >= n.preco ? ['livre', 'COMPRAR'] : ['sem-ouro', 'SEM OURO'];
+      if (n.tier < tier) [estado, selo] = ['passou', tr('JÁ PASSOU')];
+      else if (n.tier === tier) [estado, selo] = ['equipado', tr('ATUAL')];
+      else if (n.tier > tier + 1) [estado, selo] = ['bloqueado', tr('PEDE NV {n}', { n: n.nivel })];
+      else if (nivel < n.nivel) [estado, selo] = ['bloqueado', tr('PEDE NV {n}', { n: n.nivel })];
+      else [estado, selo] = ouro >= n.preco ? ['livre', tr('COMPRAR')] : ['sem-ouro', tr('SEM OURO')];
       const chave = `${race}/${classe}/${n.tier}`;
       const src = this.minis.get(chave);
       const img = `<span class="mini-nave" data-mini="${chave}">${src ? `<img src="${src}" alt="" />` : ''}</span>`;
       const extra = `${img}<dl class="cmp-nave">${this.#comparar(n, atual)}</dl>`;
       return this.#cartao({
         icone: '',
-        nome: `${n.nome} <em class="nv">NV ${n.nivel}</em>`,
+        nome: `${n.nome} <em class="nv">${tr('NV {n}', { n: n.nivel })}</em>`,
         efeito: '',
         preco: n.tier > tier && n.preco > 0 ? n.preco : null,
         selo,
@@ -590,7 +590,7 @@ export class PainelServicos {
         extra,
       });
     });
-    const nota = `<p class="nota">Linha ${CLASSES[classe]?.nome ?? ''}: uma nave nova a cada 5 níveis, comprada com o ouro da partida. Vale para os renascimentos; na partida seguinte, volta à ${linha[0].nome}. Armadura, escudo, potenciadores, pontos e o bônus de nível somam por cima.</p>`;
+    const nota = `<p class="nota">${tr('Linha {classe}: uma nave nova a cada 5 níveis, comprada com o ouro da partida. Vale para os renascimentos; na partida seguinte, volta à {primeira}. Armadura, escudo, potenciadores, pontos e o bônus de nível somam por cima.', { classe: CLASSES[classe]?.nome ?? '', primeira: linha[0].nome })}</p>`;
     // Miniaturas que faltam: carregam só os modelos desta linha e entram sem redesenhar tudo.
     queueMicrotask(() => this.#preencherMiniaturas());
     return `${nota}<div class="grade linha-naves">${cartoes.join('')}</div>`;
@@ -600,15 +600,15 @@ export class PainelServicos {
   #comparar(n, atual) {
     const linhas = [
       ['HP', n.hp, atual.hp, (v) => numero(v)],
-      ['Energia', n.energia, atual.energia, (v) => numero(v)],
-      ['Veloc.', n.velocidade, atual.velocidade, (v) => `${Math.round(v)} m/s`],
+      [tr('Energia'), n.energia, atual.energia, (v) => numero(v)],
+      [tr('Veloc.'), n.velocidade, atual.velocidade, (v) => `${Math.round(v)} m/s`],
     ];
     // Regeneração de vida em voo: só as Bellico têm (o traço da raça no original).
-    if (n.regenHpVoo > 0) linhas.push(['Regen.', n.regenHpVoo, atual.regenHpVoo, (v) => `${v.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}/s`]);
+    if (n.regenHpVoo > 0) linhas.push(['Regen.', n.regenHpVoo, atual.regenHpVoo, (v) => `${v.toLocaleString(localeNum(), { maximumFractionDigits: 1 })}/s`]);
     return linhas
       .map(([nome, v, a, fmt]) => {
         const d = Math.round((v - a) * 10) / 10;
-        const txt = Math.abs(d) >= 10 ? Math.round(d) : d.toLocaleString('pt-BR');
+        const txt = Math.abs(d) >= 10 ? Math.round(d) : d.toLocaleString(localeNum());
         const delta = n === atual || d === 0 ? '' : `<i class="${d > 0 ? 'mais' : 'menos'}">${d > 0 ? '+' : ''}${txt}</i>`;
         return `<dt>${nome}</dt><dd>${fmt(v)}${delta}</dd>`;
       })
@@ -638,11 +638,11 @@ export class PainelServicos {
     const precoNivel = precoNivelTorretas(nivel);
     const pips = `<span class="pips">${Array.from({ length: TORRETA_NIVEL_MAX - 1 }, (_, i) => `<i class="${i < nivel - 1 ? 'on' : ''}"></i>`).join('')}</span>`;
     const [estadoNivel, seloNivel] =
-      precoNivel == null ? ['max', 'MÁX.'] : this.estado.ouro >= precoNivel ? ['livre', `NÍVEL ${nivel + 1}`] : ['sem-ouro', 'SEM OURO'];
+      precoNivel == null ? ['max', tr('MÁX.')] : this.estado.ouro >= precoNivel ? ['livre', tr('NÍVEL {n}', { n: nivel + 1 })] : ['sem-ouro', tr('SEM OURO')];
     const cartaNivel = this.#cartao({
       icone: iconeEvolucao('torreta'),
-      nome: `${MELHORIA_TORRETAS.nome} · NV ${nivel}`,
-      efeito: `${MELHORIA_TORRETAS.efeito} por nível, nas quatro`,
+      nome: `${MELHORIA_TORRETAS.nome} · ${tr('NV {n}', { n: nivel })}`,
+      efeito: tr('{efeito} por nível, nas quatro', { efeito: MELHORIA_TORRETAS.efeito }),
       preco: precoNivel,
       selo: seloNivel,
       estado: estadoNivel,
@@ -655,20 +655,20 @@ export class PainelServicos {
       let extra;
       let preco = null;
       if (r.viva) {
-        [estado, selo] = ['comprado', `DE PÉ · ${Math.round(r.vida * 100)}%`];
+        [estado, selo] = ['comprado', tr('DE PÉ · {v}%', { v: Math.round(r.vida * 100) })];
         extra = `<span class="vida-torreta"><i style="width:${r.vida * 100}%"></i></span>`;
       } else if (r.obra) {
-        [estado, selo] = ['bloqueado', 'SUBINDO · LIBERE O LUGAR'];
+        [estado, selo] = ['bloqueado', tr('SUBINDO · LIBERE O LUGAR')];
         extra = '<span class="vida-torreta caida"><i></i></span>';
       } else {
         preco = PRECO_RECONSTRUIR;
-        [estado, selo] = this.estado.ouro >= preco ? ['livre', 'RECONSTRUIR'] : ['sem-ouro', 'SEM OURO'];
+        [estado, selo] = this.estado.ouro >= preco ? ['livre', tr('RECONSTRUIR')] : ['sem-ouro', tr('SEM OURO')];
         extra = '<span class="vida-torreta caida"><i></i></span>';
       }
       return this.#cartao({
         icone: iconeEvolucao(r.viva ? 'torreta' : 'reconstruir'),
-        nome: `Torreta ${i + 1}${r.viva ? '' : ' · destruída'}`,
-        efeito: TORRETAS.find((x) => x.id === r.id)?.nome ?? r.id,
+        nome: r.viva ? tr('Torreta {n}', { n: i + 1 }) : tr('Torreta {n} · destruída', { n: i + 1 }),
+        efeito: tr(TORRETAS.find((x) => x.id === r.id)?.nome ?? r.id),
         preco,
         selo,
         estado,
@@ -676,7 +676,7 @@ export class PainelServicos {
         extra,
       });
     });
-    const nota = 'Vale para o time inteiro: qualquer piloto paga. Destruída, a torreta só volta se alguém reconstruir (inteira, no nível do time).';
+    const nota = tr('Vale para o time inteiro: qualquer piloto paga. Destruída, a torreta só volta se alguém reconstruir (inteira, no nível do time).');
     return `<p class="nota">${nota}</p><div class="grade">${cartaNivel}${cartas.join('')}</div>`;
   }
 
@@ -689,13 +689,13 @@ export class PainelServicos {
       const pips = `<span class="pips">${Array.from({ length: max }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
       let estado;
       let selo;
-      if (n >= max) [estado, selo] = ['max', 'MÁX.'];
-      else [estado, selo] = this.estado.ouro >= m.precos[n] ? ['livre', `NÍVEL ${n + 1}`] : ['sem-ouro', 'SEM OURO'];
+      if (n >= max) [estado, selo] = ['max', tr('MÁX.')];
+      else [estado, selo] = this.estado.ouro >= m.precos[n] ? ['livre', tr('NÍVEL {n}', { n: n + 1 })] : ['sem-ouro', tr('SEM OURO')];
       return this.#cartao({
         icone: iconeEvolucao(id),
         nome: m.nome,
         // Na quantidade, quantos o time tem agora (a base é 10; a melhoria soma).
-        efeito: id === 'quantidade' ? `${m.efeito} por nível (o time tem ${mineradoresDoTime(n)})` : `${m.efeito} por nível`,
+        efeito: id === 'quantidade' ? tr('{efeito} por nível (o time tem {n})', { efeito: m.efeito, n: mineradoresDoTime(n) }) : tr('{efeito} por nível', { efeito: m.efeito }),
         preco: n >= max ? null : m.precos[n],
         selo,
         estado,
@@ -703,6 +703,6 @@ export class PainelServicos {
         extra: pips,
       });
     }).join('');
-    return `<p class="nota">Vale para o time inteiro: qualquer piloto paga o próximo nível.</p><div class="grade">${cartoes}</div>`;
+    return `<p class="nota">${tr('Vale para o time inteiro: qualquer piloto paga o próximo nível.')}</p><div class="grade">${cartoes}</div>`;
   }
 }

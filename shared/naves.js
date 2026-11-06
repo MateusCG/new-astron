@@ -57,11 +57,13 @@
 //
 // Tudo aqui é dado puro e determinístico (servidor e cliente leem o mesmo arquivo).
 
+import { tr } from './idioma.js';
+
 /** Classes de nave, com a especialidade do original. */
 export const CLASSES = {
-  assault: { id: 'assault', nome: 'Assault', especialidade: 'Mais HP' },
-  mobile: { id: 'mobile', nome: 'Mobile', especialidade: 'Mais velocidade' },
-  functional: { id: 'functional', nome: 'Functional', especialidade: 'Mais energia' },
+  assault: { id: 'assault', nome: 'Assault', especialidade: tr('Mais HP') },
+  mobile: { id: 'mobile', nome: 'Mobile', especialidade: tr('Mais velocidade') },
+  functional: { id: 'functional', nome: 'Functional', especialidade: tr('Mais energia') },
 };
 export const ORDEM_CLASSES = ['assault', 'mobile', 'functional'];
 /** Classe de quem pede uma que não existe. */

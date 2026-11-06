@@ -22,6 +22,8 @@
 //   (PRECO_RECONSTRUIR, preço fixo; volta inteira, com o nível atual do time).
 //   Como nos mineradores, qualquer piloto do time paga e vale para o time.
 
+import { tr } from './idioma.js';
+
 /** Mineradores de cada time ao mesmo tempo, sem melhoria (server/mineradores.js lê daqui). */
 export const MINERADORES_POR_TIME = 10;
 export const MIN_EXTRA_POR_NIVEL = 2; // mineradores a mais ao mesmo tempo, por nível
@@ -34,10 +36,10 @@ export const MIN_VEL_POR_NIVEL = 0.1; // +10% de velocidade do minerador
  * ganho por nível. id é o `melhoria` de {t:'melhorar', melhoria}.
  */
 export const MELHORIAS_MINERADOR = {
-  quantidade: { id: 'quantidade', nome: 'Mais mineradores', precos: [200, 350], efeito: `+${MIN_EXTRA_POR_NIVEL} mineradores ao mesmo tempo` },
-  durabilidade: { id: 'durabilidade', nome: 'Casco de carga', precos: [120, 200, 300], efeito: `+${MIN_HP_POR_NIVEL * 100}% de HP` },
-  defesa: { id: 'defesa', nome: 'Blindagem de carga', precos: [120, 200, 300], efeito: `-${MIN_DEFESA_POR_NIVEL * 100}% de dano recebido` },
-  velocidade: { id: 'velocidade', nome: 'Motor de carga', precos: [120, 200, 300], efeito: `+${MIN_VEL_POR_NIVEL * 100}% de velocidade` },
+  quantidade: { id: 'quantidade', nome: tr('Mais mineradores'), precos: [200, 350], efeito: tr('+{n} mineradores ao mesmo tempo', { n: MIN_EXTRA_POR_NIVEL }) },
+  durabilidade: { id: 'durabilidade', nome: tr('Casco de carga'), precos: [120, 200, 300], efeito: tr('+{n}% de HP', { n: MIN_HP_POR_NIVEL * 100 }) },
+  defesa: { id: 'defesa', nome: tr('Blindagem de carga'), precos: [120, 200, 300], efeito: tr('-{n}% de dano recebido', { n: MIN_DEFESA_POR_NIVEL * 100 }) },
+  velocidade: { id: 'velocidade', nome: tr('Motor de carga'), precos: [120, 200, 300], efeito: tr('+{n}% de velocidade', { n: MIN_VEL_POR_NIVEL * 100 }) },
 };
 export const ORDEM_MELHORIAS = ['quantidade', 'durabilidade', 'defesa', 'velocidade'];
 
@@ -79,9 +81,9 @@ export const TORRETA_DANO_POR_NIVEL = 0.25; // +25% do dano do tiro por nível a
  */
 export const MELHORIA_TORRETAS = {
   id: 'torretas',
-  nome: 'Torretas do corredor',
+  nome: tr('Torretas do corredor'),
   precos: [250, 400],
-  efeito: `+${TORRETA_HP_POR_NIVEL * 100}% de HP e +${TORRETA_DANO_POR_NIVEL * 100}% de dano`,
+  efeito: tr('+{hp}% de HP e +{dano}% de dano', { hp: TORRETA_HP_POR_NIVEL * 100, dano: TORRETA_DANO_POR_NIVEL * 100 }),
 };
 export const TORRETA_NIVEL_MAX = MELHORIA_TORRETAS.precos.length + 1;
 /** Preço para reconstruir UMA torreta destruída ({t:'reconstruir', torreta}). */

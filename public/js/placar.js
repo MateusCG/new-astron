@@ -12,6 +12,7 @@
 // "PREPARAÇÃO".
 
 import { ICONE_OBJETIVO } from './objetivos.js';
+import { tr } from '../../shared/idioma.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -21,7 +22,7 @@ const $ = (s) => document.querySelector(s);
  * suporte, sonda) ficam no HUD de quem os tem (hud.bonusNave).
  */
 const ICONE_BONUS = {
-  medusa: { nome: 'Medusa Anciã: naves do time com +15% de dano e +15% de velocidade', svg: ICONE_OBJETIVO.medusa },
+  medusa: { nome: tr('Medusa Anciã: naves do time com +15% de dano e +15% de velocidade'), svg: ICONE_OBJETIVO.medusa },
 };
 
 /** "mm:ss" de um número de segundos. */
@@ -54,7 +55,7 @@ export class Placar {
     this.meu.querySelector('b').textContent = partida.placar[this.meuTime];
     this.outro.querySelector('b').textContent = partida.placar[this.outroTime];
     // Modo de teste: a partida não tem relógio.
-    if (partida.semTempo) this.tempo.textContent = 'TESTE';
+    if (partida.semTempo) this.tempo.textContent = tr('TESTE');
     else if (partida.estado === 'preparacao') this.tempo.textContent = relogio(partida.inicioEm);
     else this.tempo.textContent = partida.estado === 'andamento' ? relogio(partida.restante) : partida.estado === 'fim' ? 'FIM' : '--:--';
     this.tempo.classList.toggle('acabando', !partida.semTempo && partida.estado === 'andamento' && partida.restante <= 60);

@@ -15,14 +15,16 @@
 // dois lados; os computadores montam a build por aqui (server/bots.js: as armas que
 // sabem usar, e o escudo e a armadura pelo dano que mais os acerta).
 
-const PELO_DANO = 'escolha um: Op., Ph. ou El., pelo dano que mais te acerta';
+import { tr } from './idioma.js';
+
+const PELO_DANO = tr('escolha um: Op., Ph. ou El., pelo dano que mais te acerta');
 
 /** Ordem das seções da aba, com o nome, a categoria do item e a dica ao lado do título. */
 export const SECOES_RECOMENDADOS = [
-  { id: 'armas', nome: 'Armas', categoria: 'arma' },
-  { id: 'escudo', nome: 'Escudos', categoria: 'escudo', dica: PELO_DANO },
-  { id: 'armadura', nome: 'Armaduras', categoria: 'armadura', dica: PELO_DANO },
-  { id: 'potenciador', nome: 'Potenciadores', categoria: 'potenciador', dica: 'escolha um: Op., Ph. ou El., para potencializar seus status' },
+  { id: 'armas', nome: tr('Armas'), categoria: 'arma' },
+  { id: 'escudo', nome: tr('Escudos'), categoria: 'escudo', dica: PELO_DANO },
+  { id: 'armadura', nome: tr('Armaduras'), categoria: 'armadura', dica: PELO_DANO },
+  { id: 'potenciador', nome: tr('Potenciadores'), categoria: 'potenciador', dica: tr('escolha um: Op., Ph. ou El., para potencializar seus status') },
 ];
 
 // Equipamento: Op., Ph. e El. de cada linha (a ordem da lista do Mateus).

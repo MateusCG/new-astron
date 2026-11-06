@@ -13,6 +13,7 @@
 import { paredeAt } from '/shared/terrain.js';
 import { ICONE_OBJETIVO } from './objetivos.js';
 import { MUNDO_MAPA, TIMES_MAPA, OBJETIVOS_MAPA, TRAJETO_SONDA_MAPA, ESTRUTURAS_MAPA, dicaDoItem } from './mapa-selecao-regras.js';
+import { tr } from '../../shared/idioma.js';
 
 const COR_MINERIO = '#9fe8ff';
 const COR_MONSTRO = '#ff4a2a';
@@ -83,14 +84,17 @@ function base(b, meuTime) {
   const campo = ESTRUTURAS_MAPA.campos.find((c) => c.time === b.time);
   const bacia = ESTRUTURAS_MAPA.bacias.find((c) => c.time === b.time);
   const sua = b.time === meuTime;
-  // O selo fica acima da base, puxado para dentro do mapa.
-  const seloX = b.x + (b.x < 0 ? 40 : -40);
+  // O selo fica acima da base, preso na borda de fora dela e crescendo para dentro do
+  // mapa (o "YOUR BASE" do inglês é mais comprido que o "SUA BASE" e saía pela borda).
+  const esquerda = b.x < 0;
+  const seloX = b.x + (esquerda ? -b.raio : b.raio);
+  const ancora = esquerda ? 'start' : 'end';
   return `<g class="base${sua ? ' sua' : ''}" style="--cor-time:${corTime(b.time)}">
     <circle cx="${b.x}" cy="${b.z}" r="${b.raio}" class="base-area item" data-item="base:${b.time}"/>
     <circle cx="${b.x}" cy="${b.z}" r="${b.raio * 0.42}" class="base-anel"/>
     <line x1="${campo.x}" y1="${campo.z - campo.meiaZ}" x2="${campo.x}" y2="${campo.z + campo.meiaZ}" class="base-campo item" data-item="campo:${b.time}"/>
     <circle cx="${bacia.x}" cy="${bacia.z}" r="${bacia.raio * 1.8}" fill="${COR_MINERIO}" class="bacia item" data-item="bacia:${b.time}"/>
-    <text x="${seloX}" y="${b.z - b.raio - 46}" class="base-selo">${sua ? 'SUA BASE' : 'INIMIGO'}</text>
+    <text x="${seloX}" y="${b.z - b.raio - 46}" class="base-selo" style="text-anchor:${ancora}">${sua ? tr('SUA BASE') : tr('INIMIGO')}</text>
   </g>`;
 }
 
@@ -99,7 +103,7 @@ export function svgDoMapa(meuTime = 0) {
   const { x0, z0, largura, altura } = MUNDO_MAPA;
   const { lane, mineradora: mn, hangares, acampamentos, nuvens, bases, torretas, servicos } = ESTRUTURAS_MAPA;
   const sonda = TRAJETO_SONDA_MAPA.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.z}`).join(' ') + ' Z';
-  return `<svg viewBox="${x0} ${z0} ${largura} ${altura}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mapa da partida: Lago de Hélio-3, com a sua base à ${meuTime === 0 ? 'esquerda' : 'direita'}">
+  return `<svg viewBox="${x0} ${z0} ${largura} ${altura}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${meuTime === 0 ? tr('Mapa da partida: Lago de Hélio-3, com a sua base à esquerda') : tr('Mapa da partida: Lago de Hélio-3, com a sua base à direita')}">
     <defs>
       <filter id="mapa-nuvem" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="34"/></filter>
     </defs>

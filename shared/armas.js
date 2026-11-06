@@ -47,6 +47,7 @@
 import { ARMAS_ORIGINAL, ARMAS_NPC_ORIGINAL, EFEITOS_VISUAIS } from './armas-original.js';
 import { FATOR_ESCALA_HP, FATOR_ENERGIA, FATOR_RECARGA, FATOR_VELOCIDADE } from './naves.js';
 import { NIVEL_ITEM_MAX } from './versoes.js';
+import { tr, localeNum } from './idioma.js';
 
 export { EFEITOS_VISUAIS };
 
@@ -111,25 +112,25 @@ export const CONVERTE_ENERGIA_POR_HP = 1 / 3; // Conversor de Impacto: energia g
 
 /** Nome de cada categoria (a forma da arma no original), na ordem do menu e da Loja. */
 export const CATEGORIAS = {
-  beam: 'Feixe',
-  gun: 'Metralhadora',
-  canhao: 'Canhão',
-  missil: 'Míssil',
-  raio: 'Raio',
-  onda: 'Onda',
-  lamina: 'Lâmina',
-  lancador: 'Lançador',
-  mina: 'Mina',
-  nova: 'Nova',
-  suporte: 'Suporte',
-  dispositivo: 'Dispositivo',
+  beam: tr('Feixe'),
+  gun: tr('Metralhadora'),
+  canhao: tr('Canhão'),
+  missil: tr('Míssil'),
+  raio: tr('Raio'),
+  onda: tr('Onda'),
+  lamina: tr('Lâmina'),
+  lancador: tr('Lançador'),
+  mina: tr('Mina'),
+  nova: tr('Nova'),
+  suporte: tr('Suporte'),
+  dispositivo: tr('Dispositivo'),
   npc: 'NPC',
 };
 export const ORDEM_CATEGORIAS = Object.keys(CATEGORIAS);
 
 /** Papel da arma no original: ataque, bloqueio (debuff), reforço (autobuff) e suporte. */
-export const PAPEIS = { ataque: 'Ataque', bloqueio: 'Bloqueio', reforco: 'Reforço', suporte: 'Suporte' };
-export const TIPOS_DANO = { laser: 'Laser', fisico: 'Físico', eletrico: 'Elétrico' };
+export const PAPEIS = { ataque: tr('Ataque'), bloqueio: tr('Bloqueio'), reforco: tr('Reforço'), suporte: tr('Suporte') };
+export const TIPOS_DANO = { laser: 'Laser', fisico: tr('Físico'), eletrico: tr('Elétrico') };
 
 /**
  * Armas iniciais de cada raça (as duas mais baratas que todas as classes usam: um
@@ -316,85 +317,88 @@ export function chanceDebuffEletrico(kind, fator, resistEl) {
 }
 
 export function textoEfeito(ef) {
-  const s = (x) => `${(+x.toFixed(1)).toLocaleString('pt-BR')}`;
+  const s = (x) => `${(+x.toFixed(1)).toLocaleString(localeNum())}`;
   const p = (x) => `${Math.round(x * 100)}%`;
-  const d = ef.dur ? ` por ${s(ef.dur)} s` : '';
+  const d = ef.dur ? tr(' por {s} s', { s: s(ef.dur) }) : '';
+  const tipo = () => TIPOS_DANO[ef.tipoDano].toLowerCase();
+  const gasta = () => (ef.hpPorS ? tr(', gasta {v} HP/s', { v: s(ef.hpPorS) }) : '');
   switch (ef.tipo) {
     case 'dreno':
-      return `Dreno: ${s(ef.dps)} HP/s${d}`;
+      return tr('Dreno: {v} HP/s', { v: s(ef.dps) }) + d;
     case 'drenoDuplo':
-      return `Dreno: ${s(ef.dps)} HP/s e ${s(ef.enPs)} energia/s${d}`;
+      return tr('Dreno: {v} HP/s e {en} energia/s', { v: s(ef.dps), en: s(ef.enPs) }) + d;
     case 'drenoEn':
-      return `Tira ${s(ef.enPs)} de energia/s${d}`;
+      return tr('Tira {v} de energia/s', { v: s(ef.enPs) }) + d;
     case 'lento':
-      return ef.mult === 0 ? `Paralisa o movimento${d}` : `Lento: −${p(1 - ef.mult)} de velocidade${d}`;
+      return (ef.mult === 0 ? tr('Paralisa o movimento') : tr('Lento: −{v} de velocidade', { v: p(1 - ef.mult) })) + d;
     case 'trava':
-      return `Trava aceleração e freio${d}`;
+      return tr('Trava aceleração e freio') + d;
     case 'paralisa':
-      return `Paralisa movimento e tiro${d}`;
+      return tr('Paralisa movimento e tiro') + d;
     case 'semTiro':
-      return `Paralisa o tiro${d}`;
+      return tr('Paralisa o tiro') + d;
     case 'descarga':
-      return `Descarrega ${p(ef.frac)} da energia`;
+      return tr('Descarrega {v} da energia', { v: p(ef.frac) });
     case 'roubaEn':
-      return `Rouba ${s(ef.qtd)} de energia`;
+      return tr('Rouba {v} de energia', { v: s(ef.qtd) });
     case 'semRegen':
-      return `Corta a regeneração de energia${d}`;
+      return tr('Corta a regeneração de energia') + d;
     case 'enCara':
-      return `Tiro do alvo gasta +${p(ef.mult - 1)} de energia${d}`;
+      return tr('Tiro do alvo gasta +{v} de energia', { v: p(ef.mult - 1) }) + d;
     case 'cadencia':
-      return `Recarga do alvo +${p(ef.mult - 1)}${d}`;
+      return tr('Recarga do alvo +{v}', { v: p(ef.mult - 1) }) + d;
     case 'fraco':
-      return `Dano do alvo −${p(1 - ef.mult)}${d}`;
+      return tr('Dano do alvo −{v}', { v: p(1 - ef.mult) }) + d;
     case 'vulneravel': {
-      const qual = ef.tipoDano ? `a resistência ${TIPOS_DANO[ef.tipoDano].toLowerCase()}` : 'todas as resistências';
-      return ef.menos >= 1 ? `Zera ${qual} do alvo${d}` : `Tira ${p(ef.menos)} de ${qual} do alvo${d}`;
+      const todas = !ef.tipoDano;
+      if (ef.menos >= 1) return (todas ? tr('Zera todas as resistências do alvo') : tr('Zera a resistência {tipo} do alvo', { tipo: tipo() })) + d;
+      return (todas ? tr('Tira {v} de todas as resistências do alvo', { v: p(ef.menos) }) : tr('Tira {v} da resistência {tipo} do alvo', { v: p(ef.menos), tipo: tipo() })) + d;
     }
     case 'quebraEscudo':
-      return `Descarrega ${p(ef.frac / ESCUDO_EQUIV_HP)} do escudo na hora (sem escudo, ${p(ef.frac)} do HP máximo)`;
+      return tr('Descarrega {v} do escudo na hora (sem escudo, {hp} do HP máximo)', { v: p(ef.frac / ESCUDO_EQUIV_HP), hp: p(ef.frac) });
     case 'cego':
-      return `Desliga o radar do alvo${d}`;
+      return tr('Desliga o radar do alvo') + d;
     case 'desgoverno':
-      return `Inverte o controle do alvo${d}`;
+      return tr('Inverte o controle do alvo') + d;
     case 'recuo':
-      return `Alvo leva de volta ${p(ef.frac)} do dano que causar${d}`;
+      return tr('Alvo leva de volta {v} do dano que causar', { v: p(ef.frac) }) + d;
     case 'revela':
-      return `Revela invisíveis${d}`;
+      return tr('Revela invisíveis') + d;
     case 'invisivel':
-      return ef.segurar ? 'Invisível enquanto segura' : `Invisível${d}`;
+      return ef.segurar ? tr('Invisível enquanto segura') : tr('Invisível') + d;
     case 'acelera':
-      return `Velocidade +${p(ef.mult - 1)} enquanto segura${ef.hpPorS ? `, gasta ${s(ef.hpPorS)} HP/s` : ''}`;
+      return tr('Velocidade +{v} enquanto segura', { v: p(ef.mult - 1) }) + gasta();
     case 'energiaPorHp':
-      return `+${s(ef.enPs)} energia/s, gasta ${s(ef.hpPorS)} HP/s, enquanto segura`;
+      return tr('+{en} energia/s, gasta {v} HP/s, enquanto segura', { en: s(ef.enPs), v: s(ef.hpPorS) });
     case 'invulneravel':
-      return `Invulnerável${d}`;
+      return tr('Invulnerável') + d;
     case 'escudo':
-      return `Escudo de ${p(ef.frac)} do HP máximo${d}`;
+      return tr('Escudo de {v} do HP máximo', { v: p(ef.frac) }) + d;
     case 'resiste':
-      if (ef.modo === 'pct') return `Resistência ${TIPOS_DANO[ef.tipoDano].toLowerCase()} +${p(ef.frac)} da que a nave já tem${d}`;
-      return `Resistência ${TIPOS_DANO[ef.tipoDano].toLowerCase()} +${Math.round(ef.frac * 100)} pontos (${p(ef.frac)})${d}`;
+      if (ef.modo === 'pct') return tr('Resistência {tipo} +{v} da que a nave já tem', { tipo: tipo(), v: p(ef.frac) }) + d;
+      return tr('Resistência {tipo} +{n} pontos ({v})', { tipo: tipo(), n: Math.round(ef.frac * 100), v: p(ef.frac) }) + d;
     case 'converte':
-      return `${p(ef.frac)} do dano recebido vira cura${d}`;
+      return tr('{v} do dano recebido vira cura', { v: p(ef.frac) }) + d;
     case 'regen':
-      return `Recuperação do escudo +${p(ef.mult)}${ef.segurar ? ' enquanto segura' : d}${ef.parado ? ' (parada)' : ''}${ef.hpPorS ? `, gasta ${s(ef.hpPorS)} HP/s` : ''}`;
+      return tr('Recuperação do escudo +{v}', { v: p(ef.mult) }) + (ef.segurar ? tr(' enquanto segura') : d) + (ef.parado ? tr(' (parada)') : '') + gasta();
     case 'teleporte':
-      return `Teleporte de até ${Math.round(ef.dist)} m à frente`;
+      return tr('Teleporte de até {v} m à frente', { v: Math.round(ef.dist) });
     case 'zeraPropria':
-      return 'Gasta toda a energia';
+      return tr('Gasta toda a energia');
     case 'cura':
-      return `Cura ${s(ef.hp)} HP dos aliados`;
+      return tr('Cura {v} HP dos aliados', { v: s(ef.hp) });
     case 'curaTempo':
-      return `Cura ${s(ef.hps * ef.dur)} HP do aliado em ${s(ef.dur)} s`;
+      return tr('Cura {v} HP do aliado em {s} s', { v: s(ef.hps * ef.dur), s: s(ef.dur) });
     case 'curaFrac':
-      return `Cura ${p(ef.frac)} do HP dos aliados`;
+      return tr('Cura {v} do HP dos aliados', { v: p(ef.frac) });
     case 'doaEnergia':
-      return `Dá ${p(ef.frac)} da energia aos aliados`;
+      return tr('Dá {v} da energia aos aliados', { v: p(ef.frac) });
     case 'limpa':
-      return 'Tira paralisia e lentidão dos aliados';
+      return tr('Tira paralisia e lentidão dos aliados');
     case 'desarma':
-      return `Destrói ${p(ef.frac)} das minas inimigas por perto`;
+      return tr('Destrói {v} das minas inimigas por perto', { v: p(ef.frac) });
     case 'rebate':
-      return 'Rebate os tiros inimigos por perto';
+      return tr('Rebate os tiros inimigos por perto');
     default:
       return ef.tipo;
   }

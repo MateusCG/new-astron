@@ -7,12 +7,14 @@
 // de verdade. O painel serve para testar a Evolução da nave e a Loja sem jogar uma
 // partida inteira.
 
+import { tr } from '../../shared/idioma.js';
+
 const TEXTO_OK = {
-  ouro: '+1000 ouro (teste)',
-  xp: '+100 XP (teste)',
-  nivel: 'Subiu um nível (teste)',
-  nivelMax: 'Nível máximo (teste)',
-  nucleo: 'Núcleo de He-3 resetado: nível 1, escudo cheio (teste)',
+  ouro: tr('+1000 ouro (teste)'),
+  xp: tr('+100 XP (teste)'),
+  nivel: tr('Subiu um nível (teste)'),
+  nivelMax: tr('Nível máximo (teste)'),
+  nucleo: tr('Núcleo de He-3 resetado: nível 1, escudo cheio (teste)'),
 };
 
 export class PainelTeste {
@@ -37,8 +39,8 @@ export class PainelTeste {
 
   /** Resposta do servidor a um pedido de teste. */
   resultado(m) {
-    if (m.ok) this.noticia(TEXTO_OK[m.item] ?? 'Feito (teste)', 'bom');
-    else this.noticia(m.codigo === 'limite' ? 'Já está no nível máximo' : 'Pedido de teste recusado', 'ruim');
+    if (m.ok) this.noticia(TEXTO_OK[m.item] ?? tr('Feito (teste)'), 'bom');
+    else this.noticia(m.codigo === 'limite' ? tr('Já está no nível máximo') : tr('Pedido de teste recusado'), 'ruim');
   }
 
   fechar() {

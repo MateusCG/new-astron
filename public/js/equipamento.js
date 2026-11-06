@@ -20,12 +20,13 @@ import { versaoArma, resumoVersao, CATEGORIAS } from '/shared/armas.js';
 import { CLASSES, ORDEM_CLASSES } from '/shared/naves.js';
 import { iconeArma, nomeArma, numerosArma, linhasDescricao, textoDano } from './armas.js';
 import { htmlIcone } from './icones-itens.js';
+import { tr, localeNum, nomeEquip as nomeEquipNoIdioma } from '../../shared/idioma.js';
 
 /** Ordem das linhas da tabela de tipos, como no original: Ph., El., Op. */
 export const LINHAS_TIPO = ['fisico', 'eletrico', 'laser'];
 
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-const pct = (f) => `${(+(f * 100).toFixed(1)).toLocaleString('pt-BR')}%`;
+const pct = (f) => `${(+(f * 100).toFixed(1)).toLocaleString(localeNum())}%`;
 
 /** Classe CSS do tipo de dano (cor do ícone e do texto): tipo-fisico, tipo-laser, tipo-eletrico ou tipo-geral. */
 export function classeTipo(tipoDano) {
@@ -41,15 +42,15 @@ export function iconeEquip(chave, nivel = 1) {
   return htmlIcone(EQUIPAMENTOS[chave]?.icone ?? null, nivel, 'icone-equip');
 }
 
-/** Nome do item em português com a versão ("Escudo Neutron Op. V3"). */
+/** Nome do item no idioma da página com a versão ("Escudo Neutron Op. V3"). */
 export function nomeEquip(chave, nivel = 1) {
   const e = EQUIPAMENTOS[chave];
-  return e ? `${e.nomePt} V${nivelEquipValido(nivel)}` : '';
+  return e ? `${nomeEquipNoIdioma(e).trim()} V${nivelEquipValido(nivel)}` : '';
 }
 
 /** "Todas as classes" ou os nomes das classes que podem usar. */
 export function textoClasses(classes) {
-  if (!classes?.length || ORDEM_CLASSES.every((c) => classes.includes(c))) return 'Todas as classes';
+  if (!classes?.length || ORDEM_CLASSES.every((c) => classes.includes(c))) return tr('Todas as classes');
   return classes.map((c) => CLASSES[c]?.nome ?? c).join(', ');
 }
 
@@ -67,9 +68,9 @@ export function detalheEquip(chave, nivel = 1, acao = '', aviso = false) {
   const e = EQUIPAMENTOS[chave];
   if (!e) return '';
   return `<div class="detalhe-cab">${iconeEquip(chave, nivel)}<strong>[${esc(nomeEquip(chave, nivel))}]</strong></div>
-    <p class="tipo-item">${CATEGORIAS_EQUIP[e.categoria]}${e.tipoDano ? ` · ${SIGLA_TIPO[e.tipoDano]}` : ''} <small class="original">${esc(e.nome.trim())}</small></p>
+    <p class="tipo-item">${CATEGORIAS_EQUIP[e.categoria]}${e.tipoDano ? ` · ${SIGLA_TIPO[e.tipoDano]}` : ''}</p>
     <ul class="efeitos-item">${linhasEfeitos(chave, nivel)}</ul>
-    <p class="exige">Classe: <b>${textoClasses(e.classes)}</b></p>
+    <p class="exige">${tr('Classe')}: <b>${textoClasses(e.classes)}</b></p>
     ${acao ? `<p class="acao-item${aviso ? ' aviso' : ''}">${acao}</p>` : ''}`;
 }
 
@@ -81,14 +82,14 @@ export function detalheArma(idx, nivel = 1, acao = '') {
   const v = versaoArma(idx, nivel);
   // Uma informação por linha, como no cartão do original: o dano (na cor do tipo), o
   // crítico, o alcance máximo, a recarga e a energia, e depois o que a arma faz.
-  const numeros = numerosArma(kind, nivel).map(([rotulo, valor]) =>
-    rotulo === 'Dano' ? `<li class="${classeTipo(w.tipoDano)}">Dano ${TIPOS_DANO[w.tipoDano].toLowerCase()} ${valor}</li>` : `<li>${rotulo} ${esc(valor)}</li>`,
+  const numeros = numerosArma(kind, nivel).map(([rotulo, valor], i) =>
+    i === 0 ? `<li class="${classeTipo(w.tipoDano)}">${tr('Dano {tipo} {valor}', { tipo: TIPOS_DANO[w.tipoDano].toLowerCase(), valor })}</li>` : `<li>${rotulo} ${esc(valor)}</li>`,
   );
   const faz = linhasDescricao(kind, nivel).map((t) => `<li class="faz">${esc(t)}</li>`);
   return `<div class="detalhe-cab">${iconeArma(kind, nivel)}<strong>[${nomeArma(kind)} V${v.nivel}]</strong></div>
-    <p class="tipo-item">Arma · ${CATEGORIAS[w.categoria] ?? ''} <small class="original">${esc(w.nomeEn ?? '')}</small></p>
+    <p class="tipo-item">${tr('Arma')} · ${CATEGORIAS[w.categoria] ?? ''}</p>
     <ul class="efeitos-item">${numeros.join('')}${faz.join('')}</ul>
-    <p class="exige">Classe: <b>${textoClasses(w.classes)}</b></p>
+    <p class="exige">${tr('Classe')}: <b>${textoClasses(w.classes)}</b></p>
     ${acao ? `<p class="acao-item">${acao}</p>` : ''}`;
 }
 
@@ -104,9 +105,9 @@ export function celulaArma(idx, nivel, tipo, poder) {
   if (!w || w.npc || w.tipoDano !== tipo) return '<td class="vazia"></td>';
   const p = poder?.[tipo] ?? 0;
   const r = resumoVersao(versaoArma(idx, nivel));
-  if (!(r.dano > 0)) return `<td title="${esc(`${w.nome} V${nivel}: sem dano`)}">—</td>`;
-  const total = (+(r.dano * (1 + p)).toFixed(1)).toLocaleString('pt-BR');
-  return `<td title="${esc(`${w.nome} V${nivel}: dano ${textoDano(idx, nivel)} = ${(+r.dano.toFixed(1)).toLocaleString('pt-BR')} × (1 + poder ${SIGLA_TIPO[tipo]} ${pct(p)}) = ${total} por disparo`)}">${total}</td>`;
+  if (!(r.dano > 0)) return `<td title="${esc(tr('{arma} V{n}: sem dano', { arma: nomeArma(ARMAS[idx]), n: nivel }))}">—</td>`;
+  const total = (+(r.dano * (1 + p)).toFixed(1)).toLocaleString(localeNum());
+  return `<td title="${esc(tr('{arma} V{n}: dano {dano} = {base} × (1 + poder {tipo} {p}) = {total} por disparo', { arma: nomeArma(ARMAS[idx]), n: nivel, dano: textoDano(idx, nivel), base: (+r.dano.toFixed(1)).toLocaleString(localeNum()), tipo: SIGLA_TIPO[tipo], p: pct(p), total }))}">${total}</td>`;
 }
 
 /**
@@ -120,8 +121,8 @@ export function celulaResist(tipo, status, res) {
   const agora = res?.[tipo] ?? equip;
   const dif = Math.round((agora - equip) * 1000) / 1000;
   if (!dif) return `<td class="resist">${pct(agora)}</td>`;
-  const origem = dif > 0 ? `armas de dispositivo +${pct(dif)}` : `quebra −${pct(-dif)}`;
-  return `<td class="resist" title="${esc(`Resistência ${SIGLA_TIPO[tipo]} agora ${pct(agora)}: equipamento ${pct(equip)}, ${origem}`)}">${pct(agora)}</td>`;
+  const origem = dif > 0 ? tr('armas de dispositivo +{v}', { v: pct(dif) }) : tr('quebra −{v}', { v: pct(-dif) });
+  return `<td class="resist" title="${esc(tr('Resistência {tipo} agora {v}: equipamento {eq}, {origem}', { tipo: SIGLA_TIPO[tipo], v: pct(agora), eq: pct(equip), origem }))}">${pct(agora)}</td>`;
 }
 
 /**
@@ -135,5 +136,5 @@ export function tabelaTipos({ encaixes = [], nivEnc = [1, 1], status, res = null
   const linhas = LINHAS_TIPO.map(
     (t) => `<tr class="${classeTipo(t)}"><th>${SIGLA_TIPO[t]}</th>${[0, 1].map((enc) => celulaArma(encaixes[enc], nivEnc?.[enc] ?? 1, t, status?.poder)).join('')}${celulaResist(t, status, res)}</tr>`,
   ).join('');
-  return `<table class="tabela-tipos"><thead><tr><th></th><th>Arma <kbd>Z</kbd></th><th>Arma <kbd>X</kbd></th><th>Resist.</th></tr></thead><tbody>${linhas}</tbody></table>`;
+  return `<table class="tabela-tipos"><thead><tr><th></th><th>${tr('Arma')} <kbd>Z</kbd></th><th>${tr('Arma')} <kbd>X</kbd></th><th>${tr('Resist.')}</th></tr></thead><tbody>${linhas}</tbody></table>`;
 }

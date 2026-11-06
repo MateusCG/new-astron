@@ -55,6 +55,7 @@
 
 import { FATOR_ENERGIA, FATOR_ESCALA_HP, MS_POR_S } from './naves.js';
 import { RESIST_MAX, equipamento, nivelEquipValido, podeUsar, ORDEM_TIPOS_DANO } from './equipamentos.js';
+import { tr } from './idioma.js';
 
 export const PONTOS_POR_NIVEL = 10; // pontos ganhos a cada nível (no nível 1 já há 10)
 export const PONTO_MAX = 99; // máximo em cada atributo
@@ -68,11 +69,11 @@ export const CRITICO_MAX = 1;
 
 /** Os cinco atributos, na ordem da janela: nome curto (o da interface) e por extenso. */
 export const ATRIBUTOS = Object.freeze({
-  durabilidade: { id: 'durabilidade', nome: 'HP', descricao: 'Durabilidade: HP máximo e regeneração de HP' },
-  energia: { id: 'energia', nome: 'Energia', descricao: 'Energia máxima e regeneração de energia' },
-  fisico: { id: 'fisico', nome: 'Ph.', descricao: 'Poder físico: dano das armas físicas' },
-  eletrico: { id: 'eletrico', nome: 'El.', descricao: 'Poder elétrico: dano das armas elétricas' },
-  laser: { id: 'laser', nome: 'Op.', descricao: 'Poder operacional: dano das armas de laser' },
+  durabilidade: { id: 'durabilidade', nome: 'HP', descricao: tr('Durabilidade: HP máximo e regeneração de HP') },
+  energia: { id: 'energia', nome: tr('Energia'), descricao: tr('Energia máxima e regeneração de energia') },
+  fisico: { id: 'fisico', nome: 'Ph.', descricao: tr('Poder físico: dano das armas físicas') },
+  eletrico: { id: 'eletrico', nome: 'El.', descricao: tr('Poder elétrico: dano das armas elétricas') },
+  laser: { id: 'laser', nome: 'Op.', descricao: tr('Poder operacional: dano das armas de laser') },
 });
 export const ORDEM_ATRIBUTOS = Object.keys(ATRIBUTOS);
 

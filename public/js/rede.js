@@ -6,6 +6,8 @@
 // {t:'erro', codigo}, como partida_cheia ou raca_bloqueada). Antes, uma conexão que fechava
 // sem erro deixava o botão em "Conectando…" para sempre.
 
+import { traduzirNomesDaMensagem } from '../../shared/idioma.js';
+
 const TEMPO_ENTRADA_MS = 10000;
 
 /** O endereço do WebSocket do servidor: o da página, ou ?servidor=ws://... (o jogo e as filas). */
@@ -52,7 +54,7 @@ export class Rede {
       this.ws.onerror = () => desistir('sem_conexao');
       this.ws.onclose = () => (decidido ? this.aoFechar() : desistir('conexao_fechada'));
       this.ws.onmessage = (e) => {
-        const m = JSON.parse(e.data);
+        const m = traduzirNomesDaMensagem(JSON.parse(e.data));
         if (m.t === 'bemvindo') {
           decidido = true;
           clearTimeout(relogio);

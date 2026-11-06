@@ -26,10 +26,11 @@ import { iconeArma, nomeArma } from './armas.js';
 import { iconeEquip, nomeEquip } from './equipamento.js';
 import { linhasDaTabela, kda } from './tabela-regras.js';
 import { aoApertar, aoSoltar } from './atalhos.js';
+import { tr } from '../../shared/idioma.js';
 
 // Vagas por time: o mesmo MAX_POR_TIME de server/partida.js (quem manda é o servidor).
 const MAX_POR_TIME = 3;
-const NOMES_CASAS = ['Arma Z', 'Arma X', 'Escudo', 'Armadura', 'Potenciador 1', 'Potenciador 2'];
+const NOMES_CASAS = [tr('Arma Z'), tr('Arma X'), tr('Escudo'), tr('Armadura'), tr('Potenciador 1'), tr('Potenciador 2')];
 
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
@@ -40,7 +41,7 @@ const ICONES = {
   nucleo: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l8.2 4.75v9.5L12 21.5l-8.2-4.75v-9.5z" /><circle cx="12" cy="12" r="3.2" /></svg>',
   abates: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4l11 11M13.5 16.5l3-3M15 15l5 5M20 4L9 15M10.5 16.5l-3-3M9 15l-5 5" /></svg>',
 };
-const TITULOS = { torres: 'Torres sentinela destruídas', medusa: 'Medusas tomadas', nucleo: 'Núcleos de He-3 tomados' };
+const TITULOS = { torres: tr('Torres sentinela destruídas'), medusa: tr('Medusas tomadas'), nucleo: tr('Núcleos de He-3 tomados') };
 // Sem miniatura (sem WebGL ou ainda desenhando): o losango do time.
 const SEM_MINI = '<svg class="sem-mini" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 21 12 12 21 3 12Z" /></svg>';
 
@@ -160,26 +161,26 @@ export class ConteudoTabela {
 
   #linhas(lista) {
     const linhas = lista.map((p) => this.#linha(p));
-    for (let k = lista.length; k < MAX_POR_TIME; k++) linhas.push('<li class="vaga">Vaga livre</li>');
+    for (let k = lista.length; k < MAX_POR_TIME; k++) linhas.push(`<li class="vaga">${tr('Vaga livre')}</li>`);
     return linhas.join('');
   }
 
   #linha(p) {
-    const selo = p.ia ? '<span class="selo">IA</span>' : ''; // você: a linha com a borda acesa
+    const selo = p.ia ? `<span class="selo">${tr('IA')}</span>` : ''; // você: a linha com a borda acesa
     const mvp = p.id === this.mvp;
-    const seloMvp = mvp ? '<span class="selo-mvp" title="Destaque da partida">MVP</span>' : '';
+    const seloMvp = mvp ? `<span class="selo-mvp" title="${tr('Destaque da partida')}">MVP</span>` : '';
     const itens = p.itens.map((it, k) => this.#item(it, k)).join('');
     return `<li class="${p.voce ? 'voce' : ''}${p.vivo === false ? ' morto' : ''}${mvp ? ' mvp' : ''}">
-      <span class="retrato">${this.#mini(p)}<b class="nv" title="Nível">${p.nivel ?? 1}</b></span>
+      <span class="retrato">${this.#mini(p)}<b class="nv" title="${tr('Nível')}">${p.nivel ?? 1}</b></span>
       <span class="nome"><span>${esc(p.nome)}</span>${selo}${seloMvp}</span>
-      <span class="farm" title="Farm: monstros, mineradores e escoltas abatidos">${p.farm ?? 0}</span>
-      <span class="kda" title="Abates / mortes / assistências">${kda(p)}</span>
+      <span class="farm" title="${tr('Farm: monstros, mineradores e escoltas abatidos')}">${p.farm ?? 0}</span>
+      <span class="kda" title="${tr('Abates / mortes / assistências')}">${kda(p)}</span>
       <span class="itens">${itens}</span>
     </li>`;
   }
 
   #item(it, k) {
-    if (!it) return `<span class="casa" title="${NOMES_CASAS[k]}: vazio">${iconeEquip(null)}</span>`; // a moldura vazia
+    if (!it) return `<span class="casa" title="${tr('{casa}: vazio', { casa: NOMES_CASAS[k] })}">${iconeEquip(null)}</span>`; // a moldura vazia
     const [chave, nivel] = it;
     const icone = k < 2 ? iconeArma(chave, nivel) : iconeEquip(chave, nivel);
     const nome = k < 2 ? `${nomeArma(chave)} V${nivel}` : nomeEquip(chave, nivel);

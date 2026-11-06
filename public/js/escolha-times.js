@@ -23,6 +23,7 @@
 import { vagasDaFila, titulosDosLados } from './fila-regras.js';
 import { RACES } from '../../shared/sim.js';
 import { CLASSES } from '../../shared/naves.js';
+import { tr } from '../../shared/idioma.js';
 
 // Vagas por time: o mesmo MAX_POR_TIME de server/partida.js (quem manda é o servidor).
 const MAX_POR_TIME = 3;
@@ -50,7 +51,8 @@ const limitar = (v, max) => {
 
 const escapar = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-const plural = (n) => (n === 1 ? '1 computador' : `${n} computadores`);
+const plural = (n) => (n === 1 ? tr('1 computador') : tr('{n} computadores', { n }));
+const PRONTO = () => tr('✓ Pronto');
 
 export class EscolhaTimes {
   /**
@@ -139,32 +141,32 @@ export class EscolhaTimes {
       const html = vagas[lado].map((v) => {
         if (v.tipo === 'voce') {
           const { nome, img } = this.voce;
-          return `<span class="vaga voce${v.pronto ? ' pronto' : ''}" title="Esta vaga é sua">${img ? `<img src="${img}" alt="" draggable="false">` : ''}<b>${escapar(nome || 'Piloto')}</b><small>${v.pronto ? '✓ Pronto' : 'Você'}</small></span>`;
+          return `<span class="vaga voce${v.pronto ? ' pronto' : ''}" title="${tr('Esta vaga é sua')}">${img ? `<img src="${img}" alt="" draggable="false">` : ''}<b>${escapar(nome || tr('Piloto'))}</b><small>${v.pronto ? PRONTO() : tr('Você')}</small></span>`;
         }
         if (v.tipo === 'piloto') {
           const img = v.race ? this.#img(v.race, v.classe) : null;
           const nave = v.race ? `${RACES[v.race]?.nome ?? ''} ${CLASSES[v.classe]?.nome ?? ''}` : '';
-          return `<span class="vaga piloto${v.pronto ? ' pronto' : ''}" title="${escapar(`${v.nome} · ${nave}`)}">${img ? `<img src="${img}" alt="" draggable="false">` : ''}<b>${escapar(v.nome)}</b><small>${v.pronto ? '✓ Pronto' : naSala ? 'Escolhendo' : 'Na fila'}</small></span>`;
+          return `<span class="vaga piloto${v.pronto ? ' pronto' : ''}" title="${escapar(`${v.nome} · ${nave}`)}">${img ? `<img src="${img}" alt="" draggable="false">` : ''}<b>${escapar(v.nome)}</b><small>${v.pronto ? PRONTO() : naSala ? tr('Escolhendo') : tr('Na fila')}</small></span>`;
         }
         if (v.tipo === 'oculto') {
-          return `<span class="vaga oculto${v.pronto ? ' pronto' : ''}" title="${escapar(v.nome)}: a nave do inimigo só aparece na partida"><b>${escapar(v.nome)}</b><small>${v.pronto ? '✓ Pronto' : naSala ? 'Escolhendo' : 'Na fila'}</small></span>`;
+          return `<span class="vaga oculto${v.pronto ? ' pronto' : ''}" title="${escapar(tr('{nome}: a nave do inimigo só aparece na partida', { nome: v.nome }))}"><b>${escapar(v.nome)}</b><small>${v.pronto ? PRONTO() : naSala ? tr('Escolhendo') : tr('Na fila')}</small></span>`;
         }
-        if (v.tipo === 'ia') return '<span class="vaga ia" title="Computador">IA</span>';
+        if (v.tipo === 'ia') return `<span class="vaga ia" title="${tr('Computador')}">${tr('IA')}</span>`;
         if (v.tipo === 'trocar') {
-          return `<button type="button" class="vaga trocar" title="Passar para o ${lado === 'meu' ? 'time verde' : 'time vermelho'}">Trocar para cá</button>`;
+          return `<button type="button" class="vaga trocar" title="${lado === 'meu' ? tr('Passar para o time verde') : tr('Passar para o time vermelho')}">${tr('Trocar para cá')}</button>`;
         }
-        if (!naSala && !procurando) return '<span class="vaga livre" title="Fora da fila">livre</span>';
-        return `<span class="vaga procurando" title="${naSala ? 'Vaga' : 'Procurando piloto'}">${naSala ? '—' : 'Procurando'}</span>`;
+        if (!naSala && !procurando) return `<span class="vaga livre" title="${tr('Fora da fila')}">${tr('livre')}</span>`;
+        return `<span class="vaga procurando" title="${naSala ? tr('Vaga') : tr('Procurando piloto')}">${naSala ? '—' : tr('Procurando')}</span>`;
       });
       caixa.querySelector('.vagas').innerHTML = html.join('');
       const gente = vagas[lado].filter((v) => !['procurando', 'ia', 'trocar'].includes(v.tipo)).length;
       const seu = vagas[lado].some((v) => v.tipo === 'voce');
       let resumo;
-      if (lado === 'inimigo' && modo === 'publica') resumo = '3 computadores';
-      else if (naSala) resumo = `${vagas[lado].filter((v) => v.pronto).length} de ${gente} prontos`;
-      else if (!procurando) resumo = 'Fora da fila';
-      else if (modo === 'online') resumo = seu ? `Seu time · ${gente} de 3` : gente >= 3 ? '3 de 3 · completo' : estado?.voce?.pronto ? `${gente} de 3` : `${gente} de 3 · clique para trocar`;
-      else resumo = lado === 'meu' ? 'Procurando companheiros' : 'Procurando adversários';
+      if (lado === 'inimigo' && modo === 'publica') resumo = tr('{n} computadores', { n: 3 });
+      else if (naSala) resumo = tr('{n} de {total} prontos', { n: vagas[lado].filter((v) => v.pronto).length, total: gente });
+      else if (!procurando) resumo = tr('Fora da fila');
+      else if (modo === 'online') resumo = seu ? tr('Seu time · {n} de 3', { n: gente }) : gente >= 3 ? tr('3 de 3 · completo') : estado?.voce?.pronto ? tr('{n} de 3', { n: gente }) : tr('{n} de 3 · clique para trocar', { n: gente });
+      else resumo = lado === 'meu' ? tr('Procurando companheiros') : tr('Procurando adversários');
       caixa.querySelector('.resumo').textContent = resumo;
       caixa.classList.toggle('seu', modo === 'online' && seu);
     }
@@ -175,21 +177,21 @@ export class EscolhaTimes {
     for (const lado of ['meu', 'inimigo']) {
       const caixa = this.el.querySelector(`[data-lado="${lado}"]`);
       const n = this.qtd[lado];
-      const nomeTime = lado === 'meu' ? 'no seu time' : 'no time inimigo';
+      const nomeTime = lado === 'meu' ? tr('no seu time') : tr('no time inimigo');
       // A sua vaga é fixa; as outras são dos computadores, da esquerda para a direita.
       const vagas = [];
       if (lado === 'meu') {
         const { nome, img } = this.voce;
         vagas.push(
-          `<span class="vaga voce" title="Esta vaga é sua">${img ? `<img src="${img}" alt="" draggable="false">` : ''}<b>${escapar(nome || 'Piloto')}</b><small>Você</small></span>`,
+          `<span class="vaga voce" title="${tr('Esta vaga é sua')}">${img ? `<img src="${img}" alt="" draggable="false">` : ''}<b>${escapar(nome || tr('Piloto'))}</b><small>${tr('Você')}</small></span>`,
         );
       }
       for (let k = 1; k <= MAXIMO[lado]; k++) {
         const acesa = k <= n;
         vagas.push(
           `<button type="button" class="vaga${acesa ? ' ia' : ''}" data-vaga="${k}" aria-pressed="${acesa}" title="${
-            acesa && k === n ? `Tirar o ${k}º computador` : `${plural(k)} ${nomeTime}`
-          }">${acesa ? 'IA' : 'livre'}</button>`,
+            acesa && k === n ? tr('Tirar o {k}º computador', { k }) : `${plural(k)} ${nomeTime}`
+          }">${acesa ? tr('IA') : tr('livre')}</button>`,
         );
       }
       caixa.querySelector('.vagas').innerHTML = vagas.join('');
@@ -197,7 +199,7 @@ export class EscolhaTimes {
       caixa.querySelector('[data-delta="-1"]').disabled = n <= 0;
       caixa.querySelector('[data-delta="1"]').disabled = n >= MAXIMO[lado];
       caixa.querySelector('.resumo').textContent =
-        lado === 'meu' ? (n ? `Você + ${plural(n)}` : 'Só você') : n ? plural(n) : 'Nenhum computador';
+        lado === 'meu' ? (n ? tr('Você + {qtd}', { qtd: plural(n) }) : tr('Só você')) : n ? plural(n) : tr('Nenhum computador');
     }
   }
 }

@@ -17,6 +17,7 @@
 // para o foco descer por eles e a lista rolar junto.
 
 import { linhasDosComandos } from './atalhos-regras.js';
+import { tr } from '../../shared/idioma.js';
 
 const escapar = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
@@ -34,7 +35,7 @@ function botao(b) {
   return `<kbd class="botao-joy" data-entrada="${escapar(b.entrada)}" title="${escapar(b.titulo)}">${escapar(b.texto)}</kbd>`;
 }
 
-const NADA = '<span class="sem" aria-label="Sem atalho">—</span>';
+const NADA = `<span class="sem" aria-label="${tr('Sem atalho')}">—</span>`;
 
 /** O HTML dos cartões de grupo (exportado para os testes). */
 export function htmlDosComandos(mapas) {
@@ -81,7 +82,7 @@ export class PainelComandos {
     const linha = this.el.querySelector('.controle-ligado');
     // O id do Chrome termina em "(STANDARD GAMEPAD Vendor: ... Product: ...)": sai.
     const nome = pads[0]?.id.replace(/\s*\([^()]*(?:Vendor|STANDARD GAMEPAD)[^()]*\)\s*$/i, '').trim();
-    if (linha) linha.textContent = pads.length ? `Controle ligado: ${nome || 'controle'}` : 'Nenhum controle ligado';
+    if (linha) linha.textContent = pads.length ? tr('Controle ligado: {nome}', { nome: nome || tr('controle') }) : tr('Nenhum controle ligado');
   }
 
   abrir() {

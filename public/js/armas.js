@@ -34,6 +34,7 @@ import { versaoArma, resumoVersao, alcanceMaximo, visualEfeito, ORDEM_CATEGORIAS
 import { TROCA_RAPIDA, limparTrocaRapida, guardarNaTrocaRapida, equiparArmaRapida } from '/shared/loja.js';
 import { htmlIcone } from './icones-itens.js';
 import { aoApertar, kbdAcao } from './atalhos.js';
+import { tr, localeNum, nomeArma as nomeNoIdioma } from '../../shared/idioma.js';
 
 /**
  * Tecla de tiro, tecla da troca rápida e botões de cada encaixe (0 = Z, 1 = X): o
@@ -44,7 +45,7 @@ export const ENCAIXES = [
   { tecla: 'X', acaoTroca: 'trocaX', letraTroca: TROCA_RAPIDA[1], botoes: ['#btn-arma-x', '#arma-x'] },
 ];
 
-const numero = (v, casas = 0) => v.toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas });
+const numero = (v, casas = 0) => v.toLocaleString(localeNum(), { minimumFractionDigits: casas, maximumFractionDigits: casas });
 /** Número com uma casa só quando precisa ("2", "2,4"). */
 const um = (v) => numero(v, Number.isInteger(+(+v).toFixed(1)) ? 0 : 1);
 
@@ -134,11 +135,14 @@ export function classeArma(kind) {
   return WEAPONS[kind]?.categoria ?? 'beam';
 }
 
-/** Nome da arma, com o do original em inglês como referência (texto pequeno no HTML). */
-export function nomeArma(kind, comOriginal = false) {
+/**
+ * Nome da arma no idioma da página (pedido do Mateus, 06/nov/2026: um título só, em
+ * português ou no inglês do original; antes o português levava o do original embaixo).
+ */
+export function nomeArma(kind) {
   const w = WEAPONS[kind];
   if (!w) return kind;
-  return comOriginal && w.nomeEn ? `${w.nome} <small class="original">${w.nomeEn}</small>` : w.nome;
+  return nomeNoIdioma(w);
 }
 
 /**
@@ -167,18 +171,18 @@ function formaDoGolpe(v) {
   const partes = [];
   if (g.forma === 'projetil') {
     const n = g.tiros.length;
-    if (n > 1) partes.push(g.tiros.some((t) => t.ang) ? `leque de ${n}` : `${n} paralelos`);
-    if (g.rajada > 1) partes.push(`rajada de ${g.rajada}`);
-    if (g.guia) partes.push('teleguiado');
-    if (g.atravessa) partes.push('atravessa');
-    if (g.cresce) partes.push(`onda de ${Math.round(g.cresce.raio)} m`);
-    if (g.divide) partes.push(g.divide.forma === 'nova' ? 'abre numa nova' : g.divide.forma === 'mina' || g.divide.forma === 'campo' ? 'vira armadilha' : 'se divide');
-    if (g.area > 0) partes.push(`área ${Math.round(g.area)} m`);
-    if (g.aliado && !g.inimigo) partes.push('acerta aliado');
-  } else if (g.forma === 'nova') partes.push(`nova de ${Math.round(g.nova.raio)} m`);
-  else if (g.forma === 'mina') partes.push(g.dispara ? 'mina que atira' : `mina de ${Math.round(g.area)} m`);
-  else if (g.forma === 'campo') partes.push(`campo de ${Math.round(g.area)} m`);
-  if (v.segurar) partes.push('segure a tecla');
+    if (n > 1) partes.push(g.tiros.some((t) => t.ang) ? tr('leque de {n}', { n }) : tr('{n} paralelos', { n }));
+    if (g.rajada > 1) partes.push(tr('rajada de {n}', { n: g.rajada }));
+    if (g.guia) partes.push(tr('teleguiado'));
+    if (g.atravessa) partes.push(tr('atravessa'));
+    if (g.cresce) partes.push(tr('onda de {n} m', { n: Math.round(g.cresce.raio) }));
+    if (g.divide) partes.push(g.divide.forma === 'nova' ? tr('abre numa nova') : g.divide.forma === 'mina' || g.divide.forma === 'campo' ? tr('vira armadilha') : tr('se divide'));
+    if (g.area > 0) partes.push(tr('área {n} m', { n: Math.round(g.area) }));
+    if (g.aliado && !g.inimigo) partes.push(tr('acerta aliado'));
+  } else if (g.forma === 'nova') partes.push(tr('nova de {n} m', { n: Math.round(g.nova.raio) }));
+  else if (g.forma === 'mina') partes.push(g.dispara ? tr('mina que atira') : tr('mina de {n} m', { n: Math.round(g.area) }));
+  else if (g.forma === 'campo') partes.push(tr('campo de {n} m', { n: Math.round(g.area) }));
+  if (v.segurar) partes.push(tr('segure a tecla'));
   return partes;
 }
 
@@ -213,13 +217,13 @@ export function numerosArma(kind, nivel = 1) {
   if (!v) return [];
   const r = resumoVersao(v);
   const alcance = alcanceMaximo(v);
-  const fino = (x) => x.toLocaleString('pt-BR', { maximumFractionDigits: x < 1 ? 2 : 1 });
+  const fino = (x) => x.toLocaleString(localeNum(), { maximumFractionDigits: x < 1 ? 2 : 1 });
   return [
-    ['Dano', textoDano(kind, nivel)],
-    v.critico > 0 ? ['Crítico', `${um(v.critico * 100)}%`] : null,
-    alcance !== null ? ['Alcance máximo', `${numero(alcance, 0)} m`] : null,
-    r.segurar ? null : ['Recarga', `${fino(r.cd)} s`],
-    ['Energia', `${fino(r.energia)}${r.segurar ? '/s, segurando a tecla' : ''}`],
+    [tr('Dano'), textoDano(kind, nivel)],
+    v.critico > 0 ? [tr('Crítico'), `${um(v.critico * 100)}%`] : null,
+    alcance !== null ? [tr('Alcance máximo'), `${numero(alcance, 0)} m`] : null,
+    r.segurar ? null : [tr('Recarga'), `${fino(r.cd)} s`],
+    [tr('Energia'), `${fino(r.energia)}${r.segurar ? tr('/s, segurando a tecla') : ''}`],
   ].filter(Boolean);
 }
 
@@ -241,16 +245,16 @@ export function proximoNivelArma(kind, nivel) {
   const ra = resumoVersao(a);
   const rb = resumoVersao(b);
   const partes = [];
-  if (rb.dano > 0) partes.push(`Dano ${textoDano(kind, nivel)} → ${textoDano(kind, nivel + 1)}`);
-  if (ra.energia !== rb.energia) partes.push(`energia ${um(ra.energia)} → ${um(rb.energia)}`);
-  if (ra.cd !== rb.cd) partes.push(`recarga ${um(ra.cd)} → ${um(rb.cd)} s`);
+  if (rb.dano > 0) partes.push(tr('Dano {a} → {b}', { a: textoDano(kind, nivel), b: textoDano(kind, nivel + 1) }));
+  if (ra.energia !== rb.energia) partes.push(tr('energia {a} → {b}', { a: um(ra.energia), b: um(rb.energia) }));
+  if (ra.cd !== rb.cd) partes.push(tr('recarga {a} → {b} s', { a: um(ra.cd), b: um(rb.cd) }));
   if (rb.efeitos[0] && rb.efeitos[0] !== ra.efeitos[0]) partes.push(rb.efeitos[0]);
   return partes.join(' · ');
 }
 
 /** Tracinhos do nível da arma (1 a NIVEL_ARMA_MAX), acesos até o nível. */
 export function pipsNivel(nivel) {
-  return `<span class="pips" title="Nível ${nivel} de ${NIVEL_ARMA_MAX}">${Array.from({ length: NIVEL_ARMA_MAX }, (_, i) => `<i class="${i < nivel ? 'on' : ''}"></i>`).join('')}</span>`;
+  return `<span class="pips" title="${tr('Nível {n} de {max}', { n: nivel, max: NIVEL_ARMA_MAX })}">${Array.from({ length: NIVEL_ARMA_MAX }, (_, i) => `<i class="${i < nivel ? 'on' : ''}"></i>`).join('')}</span>`;
 }
 
 /** Armas (índices) na ordem das categorias do original e, dentro de cada uma, a do catálogo. */
@@ -349,7 +353,7 @@ export class ArmasNave {
     const id = this.casas[encaixe];
     if (id === null) {
       const { tecla, letraTroca } = ENCAIXES[encaixe];
-      this.aoRecusar?.(`Nada guardado no ${letraTroca}: no INVENTÁRIO (I), guarde uma arma para trocar com o ${tecla}`);
+      this.aoRecusar?.(tr('Nada guardado no {casa}: no INVENTÁRIO (I), guarde uma arma para trocar com o {tecla}', { casa: letraTroca, tecla }));
       return false;
     }
     return this.equipar(encaixe, id);
@@ -386,7 +390,7 @@ export class ArmasNave {
       const espera = this.esperaTroca(enc);
       if (espera > 0) {
         // O stepShip ignoraria a troca: avisa e não muda nada.
-        this.aoRecusar?.(`Arma do ${ENCAIXES[enc].tecla} em troca: ${um(espera)} s`);
+        this.aoRecusar?.(tr('Arma do {tecla} em troca: {s} s', { tecla: ENCAIXES[enc].tecla, s: um(espera) }));
         return false;
       }
     }
@@ -439,8 +443,8 @@ export class ArmasNave {
       ind.casa.classList.toggle('vazia', !x);
       ind.casa.innerHTML = `${kbdAcao(ENCAIXES[enc].acaoTroca)}${x ? iconeArma(ARMAS[x[1]], x[2]) : '<span class="icone-item vazio"></span>'}`;
       ind.el.title = x
-        ? `${letraTroca} (ou clique) troca a arma do ${tecla} por ${WEAPONS[ARMAS[x[1]]].nome}`
-        : `Nada guardado no ${letraTroca}: guarde uma arma no INVENTÁRIO (I) para trocar com o ${tecla}`;
+        ? tr('{casa} (ou clique) troca a arma do {tecla} por {arma}', { casa: letraTroca, tecla, arma: nomeArma(ARMAS[x[1]]) })
+        : tr('Nada guardado no {casa}: guarde uma arma no INVENTÁRIO (I) para trocar com o {tecla}', { casa: letraTroca, tecla });
     });
   }
 }
