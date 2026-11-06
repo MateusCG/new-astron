@@ -2392,8 +2392,9 @@ kbd.sem-atalho,
   }
 }
 
-/* Header em telas de até 1500 px: abas mais juntas e o som só com o ícone. */
-@media (max-width: 1500px) and (min-width: 761px) {
+/* Header em telas de até 1720 px: abas mais juntas e o som só com o ícone (o seletor
+   PT/EN do idioma também mora no header). */
+@media (max-width: 1720px) and (min-width: 761px) {
   .menu-topo {
     gap: 16px;
     padding: 0 20px;
@@ -9963,5 +9964,33 @@ html[data-aparelho='controle'] #comandos .leg-controle {
   .idioma-abertura {
     top: 23px;
     bottom: auto;
+  }
+}
+
+/* Header apertado (até 1400 px): o nome do piloto e o seletor de idioma mais estreitos,
+   para as abas não encostarem no canto da conta. */
+@media (max-width: 1400px) and (min-width: 761px) {
+  .menu-conta {
+    gap: 8px;
+  }
+
+  .menu-conta .chip-piloto input {
+    width: 88px;
+  }
+
+  .menu-conta .idioma-menu {
+    margin-left: 0;
+  }
+
+  .menu-conta .idioma-menu button {
+    min-width: 30px;
+    padding: 0 7px;
+  }
+}
+
+/* Menos que isso, o seletor sai do header (fica na abertura e em Configurações → Idioma). */
+@media (max-width: 1100px) and (min-width: 761px) {
+  .menu-conta .idioma-menu {
+    display: none;
   }
 }
