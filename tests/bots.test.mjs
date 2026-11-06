@@ -8,7 +8,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World } from '../server/game.js';
-import { NOMES, SUFIXO_IA, IA } from '../server/bots.js';
+import { NOMES, SUFIXO_IA, IA, armasDaBuild, equipDaBuild, SLOTS_BUILD } from '../server/bots.js';
+import { recomendadosDe } from '../shared/recomendados.js';
+import { EQUIPAMENTOS } from '../shared/equipamentos.js';
 import WebSocket from 'ws';
 import { iniciar } from '../server/index.js';
 import { MAX_POR_TIME, IA_MEU_MAX, IA_INIMIGO_MAX, computadoresDaEntrada } from '../server/partida.js';
@@ -16,7 +18,7 @@ import { TORRETA } from '../server/torretas.js';
 import { BASES, DOCAS, ACAMPAMENTOS, BUFFS, PLATAFORMAS_POUSO, NUCLEO, MEDUSA, ASTEROIDES, CAMPOS_BASE, emAsteroides, dentroDoCampo } from '../shared/terrain.js';
 import { enxerga } from '../shared/visao.js';
 import { definirObstaculoAtivo } from '../shared/obstaculos.js';
-import { INPUT_VAZIO, createShip, SHIP_RADIUS } from '../shared/sim.js';
+import { INPUT_VAZIO, createShip, SHIP_RADIUS, ARMAS, WEAPONS, versaoArma, IDX_ARMA } from '../shared/sim.js';
 
 /** Sorteio repetível, para a partida simulada dar sempre o mesmo resultado. */
 function rngFixo(semente = 7) {
@@ -262,7 +264,9 @@ test('computador: com nível e ouro, pousa na Evolução e compra a próxima nav
   const eventos = rodar(w, h, 40);
   assert.ok(eventos.some((e) => e.e === 'nave' && e.id === bot.id), 'comprou a nave');
   assert.equal(bot.tier, 1);
-  assert.ok(bot.inv.some((x) => x.fabrica && x.nivel > 1), 'evoluiu as armas de fábrica (evoluirItem)');
+  const [z, x] = armasDaBuild(bot.ship.race, bot.classe);
+  assert.deepEqual(bot.ship.encaixes.map((a) => ARMAS[a]), [z, x], 'comprou as armas da aba Recomendados e as pôs no Z e no X (pelo comando)');
+  assert.ok(bot.inv.some((y) => !y.fabrica && y.tipo === 'arma' && y.nivel > 1), 'e evoluiu (evoluirItem)');
   assert.ok(bot.ship.nivEnc.some((n) => n > 1), 'e a versão foi para a nave');
   const escudo = bot.inv.find((x) => x.id === bot.equipado.escudo);
   assert.equal(escudo?.tipo, 'equip', 'comprou um escudo e o pôs na nave (equipar)');
@@ -311,11 +315,130 @@ test('computador: distribui os pontos ao subir de nível e monta escudo, armadur
   assert.equal(p.durabilidade + p.energia + p.fisico + p.eletrico + p.laser, 40, 'gastou os 10 por nível');
   assert.equal(p.energia, 12, '30% na Energia');
   assert.equal(p.durabilidade, 8, '20% na Durabilidade');
-  assert.ok(p.laser + p.fisico === 20, 'o resto no poder das armas dele');
+  const tipoZ = WEAPONS[armasDaBuild(bot.ship.race, bot.classe)[0]].tipoDano;
+  assert.ok(p[tipoZ] >= 10, `o resto no poder das armas da build (${tipoZ})`);
   const naNave = [bot.equipado.escudo, bot.equipado.armadura, ...bot.equipado.pot];
   assert.ok(naNave.every((id) => bot.inv.some((x) => x.id === id && x.tipo === 'equip')), 'escudo, armadura e dois potenciadores do inventário na nave');
   assert.ok(bot.inv.filter((x) => x.tipo === 'equip').every((x) => naNave.includes(x.id)), 'nada comprado ficou parado no compartimento');
   assert.ok(bot.ship.maxEscudo > 0);
+});
+
+test('computador: a build segue a aba Recomendados (armas que ele sabe usar, escudo, armadura e o Reforço do tipo de cada arma)', () => {
+  for (const race of ['acron', 'bellico', 'shrewdo']) {
+    for (const classe of ['assault', 'mobile', 'functional']) {
+      const rec = Object.fromEntries(recomendadosDe(race, classe).map((s) => [s.id, s.itens]));
+      const armas = armasDaBuild(race, classe);
+      assert.equal(new Set(armas).size, 2, `${race} ${classe}: duas armas diferentes`);
+      for (const k of armas) {
+        assert.ok(rec.armas.includes(k), `${race} ${classe}: ${k} é da aba`);
+        assert.equal(versaoArma(IDX_ARMA[k], 1).golpe.forma, 'projetil', `${k}: de projétil (o computador só atira projétil)`);
+      }
+      // As duas primeiras da aba que ele sabe usar, na ordem dela.
+      const ordem = rec.armas.filter((k) => armas.includes(k));
+      assert.deepEqual(ordem, armas, `${race} ${classe}: na ordem da aba`);
+      for (const tipo of ['fisico', 'laser', 'eletrico']) {
+        for (const secao of ['escudo', 'armadura', 'potenciador']) {
+          const k = equipDaBuild(race, classe, secao, tipo);
+          assert.ok(rec[secao].includes(k), `${race} ${classe}: ${secao} ${k} é da aba`);
+          assert.equal(EQUIPAMENTOS[k].tipoDano, tipo, `${race} ${classe}: ${secao} do tipo ${tipo}`);
+        }
+      }
+    }
+  }
+});
+
+test('computador: compra a build da aba Recomendados e põe tudo na nave', () => {
+  const { w, h } = mundoComHumano({ jungle: false });
+  w.adicionarBot(h.time);
+  const bot = [...w.players.values()].find((j) => j.ia);
+  bot.nivel = 4;
+  bot.ouro = 4000;
+  rodar(w, h, 40);
+  const b = w.bots.build(bot);
+  const race = bot.ship.race;
+  const tipo = (enc) => WEAPONS[b[enc ? 'x' : 'z']].tipoDano;
+  assert.deepEqual([b.z, b.x], armasDaBuild(race, bot.classe));
+  assert.equal(b.pot1, equipDaBuild(race, bot.classe, 'potenciador', tipo(0)), 'Reforço do tipo da arma do Z');
+  assert.equal(b.pot2, equipDaBuild(race, bot.classe, 'potenciador', tipo(1)), 'Reforço do tipo da arma do X');
+  const chave = (id) => bot.inv.find((y) => y.id === id)?.chave;
+  assert.deepEqual(bot.ship.encaixes.map((a) => ARMAS[a]), [b.z, b.x], 'as armas da build no Z e no X');
+  assert.equal(chave(bot.equipado.escudo), b.escudo);
+  assert.equal(chave(bot.equipado.armadura), b.armadura);
+  assert.deepEqual(bot.equipado.pot.map(chave).sort(), [b.pot1, b.pot2].sort());
+  assert.equal(new Set(bot.equipado.pot).size, 2, 'duas instâncias nos dois potenciadores');
+  const naNave = new Set([...bot.ship.encInst, bot.equipado.escudo, bot.equipado.armadura, ...bot.equipado.pot]);
+  assert.ok(bot.inv.every((y) => y.fabrica || naNave.has(y.id)), 'nada comprado ficou parado no compartimento');
+  assert.ok(bot.inv.filter((y) => naNave.has(y.id)).every((y) => y.nivel > 1), 'evoluiu as peças da build na mesma visita');
+});
+
+test('computador: na preparação já compra as armas da build na base', () => {
+  const { w, h } = mundoComHumano({ jungle: false, preparacaoS: 120 });
+  w.adicionarBot(h.time);
+  const bot = [...w.players.values()].find((j) => j.ia);
+  rodar(w, h, 40);
+  assert.ok(w.partida.emPreparacao, 'ainda na preparação');
+  assert.deepEqual(bot.ship.encaixes.map((a) => ARMAS[a]), armasDaBuild(bot.ship.race, bot.classe), 'as armas da aba no Z e no X');
+  const b = BASES[bot.time];
+  assert.ok(Math.hypot(bot.ship.x - b.x, bot.ship.z - b.z) < b.raio, 'e ficou na base');
+});
+
+test('computador: reage ao dano que leva: troca o escudo e a armadura pelo tipo que mais o acerta e vende os velhos', () => {
+  const { w, h } = mundoComHumano({ jungle: false });
+  w.adicionarBot(h.time);
+  const bot = [...w.players.values()].find((j) => j.ia);
+  bot.nivel = 4;
+  bot.ouro = 4000;
+  rodar(w, h, 40);
+  const antes = w.bots.build(bot);
+  const tipoAntes = EQUIPAMENTOS[antes.escudo].tipoDano;
+  const novo = ['fisico', 'laser', 'eletrico'].find((t) => t !== tipoAntes);
+  const velhos = [bot.equipado.escudo, bot.equipado.armadura];
+  // Pouco dano do outro tipo não troca (folga).
+  w.bots.levouDano(bot, novo, 100);
+  assert.equal(w.bots.build(bot).escudo, antes.escudo, 'pouco dano: fica com o que tem');
+  // Muito dano, mas logo depois da escolha: espera IA.trocarResistS.
+  bot.ia.resistTick = w.tick;
+  w.bots.levouDano(bot, novo, 20000);
+  assert.equal(w.bots.build(bot).escudo, antes.escudo, 'escolheu agora há pouco: não troca ainda');
+  bot.ia.resistTick = w.tick - IA.trocarResistS * 30;
+  const depois = w.bots.build(bot);
+  assert.equal(EQUIPAMENTOS[depois.escudo].tipoDano, novo, 'escudo do tipo que mais o acerta');
+  assert.equal(EQUIPAMENTOS[depois.armadura].tipoDano, novo, 'armadura do tipo que mais o acerta');
+  assert.equal(depois.z, antes.z, 'as armas não mudam');
+  // Volta à base, compra, põe na nave e vende os velhos.
+  bot.ouro = 2000;
+  rodar(w, h, 40);
+  const chave = (id) => bot.inv.find((y) => y.id === id)?.chave;
+  assert.equal(chave(bot.equipado.escudo), depois.escudo, 'o escudo novo na nave');
+  assert.equal(chave(bot.equipado.armadura), depois.armadura, 'a armadura nova na nave');
+  assert.ok(velhos.every((id) => !bot.inv.some((y) => y.id === id)), 'vendeu o escudo e a armadura velhos');
+});
+
+test('computador: o dano que entra nele (antes da resistência) vai para a conta da build; o da torre, que passa por cima da resistência, não', () => {
+  const { w, h } = mundoComHumano({ jungle: false });
+  const bot = w.adicionarBot(1 - h.time);
+  rodar(w, h, 0.1);
+  bot.protegidoAte = 0;
+  Object.assign(bot.ship, { x: 0, z: 400 });
+  const levou = [];
+  const original = w.bots.levouDano.bind(w.bots);
+  w.bots.levouDano = (j, tipo, v) => {
+    levou.push([j.id, tipo, v]);
+    original(j, tipo, v);
+  };
+  // O humano (acron) atira com a de fábrica do Z (laser) de perto.
+  Object.assign(h.ship, { x: 0, z: 440, yaw: 0, vx: 0, vz: 0 });
+  h.protegidoAte = 0;
+  for (let i = 0; i < 60 && !levou.length; i++) {
+    h.ship.yaw = Math.atan2(-(bot.ship.x - h.ship.x), -(bot.ship.z - h.ship.z));
+    h.fila.push({ seq: h.ack + h.fila.length + 1, inp: { ...INPUT_VAZIO, f1: true } });
+    w.step();
+    w.tirarEventos();
+  }
+  assert.ok(levou.length, 'o World avisou o golpe');
+  assert.equal(levou[0][0], bot.id);
+  assert.equal(levou[0][1], WEAPONS[ARMAS[h.ship.encaixes[0]]].tipoDano);
+  assert.ok(bot.ia.dano[levou[0][1]] > 0, 'e a conta subiu');
 });
 
 test('computador: entra no nível 1 com a primeira nave e só compra a próxima com o nível dela (o ouro, o servidor cobra: naves.test.mjs)', () => {
@@ -585,6 +708,10 @@ test('computador: partida acelerada de 3 contra 3 computadores termina sem erro,
   assert.ok(objetivos.length >= 4, `objetivos tomados: ${objetivos.join(', ')}`);
   assert.ok(new Set(objetivos).size >= 3, 'de tipos diferentes');
   assert.ok(bots.every((j) => j.nivel >= 3), 'todos subiram de nível');
+  for (const j of bots) {
+    assert.deepEqual(j.ship.encaixes.map((a) => ARMAS[a]), armasDaBuild(j.ship.race, j.classe), `${j.nome}: com as armas da aba Recomendados`);
+  }
+  assert.ok(bots.some((j) => j.ia.dano && j.ia.dano.fisico + j.ia.dano.laser + j.ia.dano.eletrico > 0), 'a conta do dano levado andou');
   assert.ok(porPasso < 2, `a IA dos seis custa ${porPasso.toFixed(3)} ms por passo`);
 });
 

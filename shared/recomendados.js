@@ -12,7 +12,8 @@
 // As chaves são as do catálogo (WEAPONS em shared/armas.js, EQUIPAMENTOS em
 // shared/equipamentos.js); tests/recomendados.test.mjs confere que cada uma existe e
 // está à venda para a raça e a classe dela. Sem imports, puro, mesmo arquivo nos
-// dois lados (os computadores podem usar um dia).
+// dois lados; os computadores montam a build por aqui (server/bots.js: as armas que
+// sabem usar, e o escudo e a armadura pelo dano que mais os acerta).
 
 const PELO_DANO = 'escolha um: Op., Ph. ou El., pelo dano que mais te acerta';
 

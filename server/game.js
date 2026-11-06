@@ -738,6 +738,7 @@ export class World {
       dano *= CRITICO_MULT;
       crit = true;
     }
+    const bruto = dano; // antes da resistência (o computador escolhe a resistência por ele)
     // Resistência do piloto atingido ao tipo do golpe, como no original (#resistTotal:
     // equipamento, armas de dispositivo e quebra, com o teto de 99%), menos a
     // penetração de quem bateu. O golpe penetrante (o míssil das torretas) passa por
@@ -770,6 +771,9 @@ export class World {
     }
     // Todo dano que entrou numa nave de jogador (escudo + HP) vai para o resumo da morte.
     if (alvo.tipo === 'jogador' && total > 0) anotarDano(alvo, this.tick, this.#fonte(autor), tipo, total);
+    // O computador reage ao dano que leva (server/bots.js: o tipo do escudo e da armadura
+    // da build). O golpe penetrante passa por cima da resistência: não conta.
+    if (alvo.ia && total > 0 && !opcoes.penetrante) this.bots.levouDano(alvo, tipo, bruto);
     // Dano de jogador inimigo (no escudo também): anota para a assistência.
     const atacante = alvo.tipo === 'jogador' && total > 0 ? quem : undefined;
     if (atacante && atacante.time !== alvo.time) alvo.danoPor.set(atacante.id, this.tick);

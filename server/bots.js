@@ -73,14 +73,30 @@
 // licença (sai pelo caminho mais curto para fora dele). Provocou a Medusa sem o time
 // junto, foge.
 //
-// Compras e pontos (como antes): ouro sobrando, pousa na Evolução para a próxima nave
-// da linha e na Loja para as versões das duas armas de fábrica, o equipamento (um
-// escudo, uma armadura geral e dois potenciadores: o Reforço do tipo de dano das armas
-// dele e o de Durabilidade), as versões dele e kits, pelos mesmos pedidos do cliente
-// ({t:'comprar'}, {t:'equipar'}, {t:'evoluirItem'}). Guarda ouro para a nave quando já
-// tem o nível dela; fora a nave, só vai comprar com ouro que valha a viagem
-// (IA.compraMin, mais IA.compraPorNivel por nível). A cada nível, distribui os pontos livres ({t:'pontos'}) entre o
-// poder do tipo de dano das armas, a Energia (IA.fracaoEnergia) e a Durabilidade (IA.fracaoDurabilidade).
+// Build (pedido do Mateus, 06/nov/2026): o computador monta a nave pela aba
+// Recomendados da Loja (shared/recomendados.js), como um piloto que segue o guia:
+// - Armas: as duas primeiras da lista da raça e classe que ele sabe usar (as de
+//   projétil que ferem o inimigo: o #lutar só atira projétil; dispositivo, nova, mina
+//   e suporte ficam de fora), uma no Z e outra no X, pelo comando (a, a2), como o
+//   cliente; enquanto não comprou, a de fábrica do encaixe.
+// - Escudo e armadura: os da aba no tipo do dano que MAIS O ACERTA (a dica da aba).
+//   O World avisa cada golpe que entra nele (levouDano, antes da resistência, para a
+//   troca não desfazer a escolha) e a conta perde metade do peso a cada
+//   IA.danoMeiaVidaS; antes de levar dano, olha as armas dos pilotos do outro time
+//   (públicas, na tabela do TAB: IA.pesoArmaInimiga cada). Troca de tipo só com folga
+//   (IA.trocarResistFator e IA.trocarResistMin) e não antes de IA.trocarResistS da
+//   última escolha: compra o novo, põe na nave e vende o velho.
+// - Potenciadores: o Reforço da aba do tipo de cada arma (duas armas do mesmo tipo,
+//   dois iguais).
+// Ouro sobrando, pousa na Evolução para a próxima nave da linha (guarda ouro para ela
+// quando já tem o nível) e na Loja: compra o que falta da build, evolui as peças (uma
+// versão de cada por rodada, até IA.rodadasCompra rodadas por visita), compra kits e vende o que sobrou no compartimento (menos as
+// armas de fábrica), pelos mesmos pedidos do cliente ({t:'comprar'}, {t:'equipar'},
+// {t:'evoluirItem'}, {t:'vender'}). Fora a nave, só vai comprar com ouro que valha a
+// viagem (IA.compraMin, mais IA.compraPorNivel por nível); na preparação, quando só
+// as naves voam e compram, já monta a build na base. A cada nível, distribui os
+// pontos livres ({t:'pontos'}) entre o poder do tipo de dano das armas da build, a
+// Energia (IA.fracaoEnergia) e a Durabilidade (IA.fracaoDurabilidade).
 //
 // Para não parecer máquina: demora um pouco para reagir a um alvo novo (IA.reacaoS),
 // erra a mira um pouco (menos com o nível) e cada um tem a sua agressividade
@@ -107,7 +123,7 @@
 // tick diferente); o que o time vê é contado uma vez por tick por time; o A* custa
 // de 0,1 a 5 ms e só roda ao trocar de destino.
 
-import { DT, sanitizeInput, versaoArma, velocidadeBase, forward, ARMAS, WEAPONS, SHIP_RADIUS } from '../shared/sim.js';
+import { DT, sanitizeInput, versaoArma, velocidadeBase, forward, ARMAS, IDX_ARMA, WEAPONS, SHIP_RADIUS, armasIniciais } from '../shared/sim.js';
 import {
   BASES,
   MINERADORA,
@@ -131,8 +147,9 @@ import {
 } from '../shared/terrain.js';
 import { enxerga, bloqueiaVisao, olho, olhosDaBase, algumOlhoVe, VISAO_RAIO, VISAO_MINERADOR, VISAO_TORRETA } from '../shared/visao.js';
 import { naveDe } from '../shared/naves.js';
-import { ITENS, precoEvoluirInst, naNave } from '../shared/loja.js';
-import { EQUIPAMENTOS, equipamentosAVenda } from '../shared/equipamentos.js';
+import { ITENS, precoEvoluirInst, itemDaLoja, noCompartimento, COMPARTIMENTO_MAX } from '../shared/loja.js';
+import { EQUIPAMENTOS } from '../shared/equipamentos.js';
+import { recomendadosDe } from '../shared/recomendados.js';
 import { pontosLivres, PONTO_MAX, ORDEM_ATRIBUTOS } from '../shared/status.js';
 import { NIVEL_MAX } from './progressao.js';
 import { MapaNavegacao, CELULA } from './navegacao.js';
@@ -242,9 +259,16 @@ export const IA = {
   compraMin: 110, // ouro de compras para valer a viagem à base (no nível 1)
   compraPorNivel: 30, // ...e mais isto por nível
   kitsDesejados: 2,
+  rodadasCompra: 8, // pousado na Loja, até tantas rodadas de compra e evolução por visita
   fracaoEnergia: 0.3, // dos pontos do piloto, esta fração vai na Energia; o resto no poder das armas
   fracaoDurabilidade: 0.2, // e esta na Durabilidade (HP)
-  potenciadorVida: 'e340001', // Potenciador de Durabilidade: o segundo potenciador de todo computador
+
+  // Reação ao dano (o tipo do escudo e da armadura da build).
+  danoMeiaVidaS: 90, // s: o dano levado perde metade do peso neste tempo
+  pesoArmaInimiga: 150, // cada arma na nave de um piloto do outro time conta como este dano do tipo dela
+  trocarResistFator: 1.5, // troca de tipo só se o peso do novo passa este fator do atual...
+  trocarResistMin: 600, // ...e esta diferença
+  trocarResistS: 120, // s entre duas escolhas de tipo
 };
 
 /** Nomes próprios brasileiros para o nick ("JOAO (IA)"). */
@@ -415,6 +439,47 @@ function foraDoCampo(time, p) {
   if (!c || !dentroDoCampo(c.time, p.x, folga)) return p;
   return { ...p, x: c.x - c.dentro * (folga + 5) };
 }
+/** Os tipos de dano que a resistência do escudo e da armadura cobre. */
+const TIPOS_RESIST = ['fisico', 'laser', 'eletrico'];
+/** Os encaixes da build, na ordem de compra: as armas (Z, X), o escudo, a armadura e os dois potenciadores. */
+export const SLOTS_BUILD = ['z', 'x', 'escudo', 'armadura', 'pot1', 'pot2'];
+
+/**
+ * O computador sabe usar a arma? Só as de projétil que ferem o inimigo (ataque e
+ * bloqueio): o #lutar só atira projétil.
+ */
+function armaUsavel(chave) {
+  const w = WEAPONS[chave];
+  if (!w || (w.papel !== 'ataque' && w.papel !== 'bloqueio')) return false;
+  const g = versaoArma(IDX_ARMA[chave], 1)?.golpe;
+  return g?.forma === 'projetil' && g.vel > 0;
+}
+
+/**
+ * As armas da build [Z, X] da raça e classe (chaves; null = a de fábrica do
+ * encaixe): as duas primeiras da aba Recomendados que o computador sabe usar.
+ */
+export function armasDaBuild(race, classe) {
+  const armas = (recomendadosDe(race, classe).find((s) => s.id === 'armas')?.itens ?? []).filter(armaUsavel);
+  return [armas[0] ?? null, armas[1] ?? null];
+}
+
+/** O tipo de dano da arma da build no encaixe `enc` (a de fábrica, sem arma da build). */
+function tipoDaArmaDaBuild(race, classe, enc) {
+  const k = armasDaBuild(race, classe)[enc] ?? ARMAS[armasIniciais(race)[enc]];
+  return WEAPONS[k]?.tipoDano ?? null;
+}
+
+/**
+ * O item da seção `secao` da aba Recomendados ('escudo', 'armadura' ou
+ * 'potenciador') do tipo de dano `tipo` (cada seção de equipamento tem um Op., um
+ * Ph. e um El.); sem o tipo, o primeiro da seção.
+ */
+export function equipDaBuild(race, classe, secao, tipo) {
+  const itens = recomendadosDe(race, classe).find((s) => s.id === secao)?.itens ?? [];
+  return itens.find((k) => EQUIPAMENTOS[k]?.tipoDano === tipo) ?? itens[0] ?? null;
+}
+
 /** Alcance das armas da nave: { min, max } (250 m sem arma de projétil). */
 function alcances(s) {
   const z = armaDoEncaixe(s, 0)?.alcance;
@@ -449,6 +514,10 @@ export class Bots {
       fase: Math.floor(rng() * IA.pensarTicks), // cada um pensa num tick diferente
       agressivo: rng(), // 0 = cauteloso, 1 = afoito
       papel: null,
+      armas: [-1, -1], // instâncias das armas da build no Z e no X (o comando a, a2; -1 = a de fábrica)
+      dano: null, // dano levado por tipo, antes da resistência, com o peso caindo (levouDano)
+      resist: null, // tipo de resistência da build (escudo e armadura)
+      resistTick: 0, // quando o tipo foi escolhido
       modo: 'parado',
       tarefa: '', // o que está fazendo (para os testes e para depurar)
       alvo: null, // entidade em que está atirando
@@ -502,6 +571,16 @@ export class Bots {
       j.fila.push({ seq: j.ack + j.fila.length + 1, inp: sanitizeInput(cmd) });
     }
     if (algum) this.#acompanharNucleo();
+  }
+
+  /**
+   * O computador `j` levou `valor` de dano do tipo `tipo` (World#ferir, antes da
+   * resistência): entra na conta do dano que mais o acerta, que decide o tipo do
+   * escudo e da armadura da build.
+   */
+  levouDano(j, tipo, valor) {
+    if (!j.ia || !TIPOS_RESIST.includes(tipo) || !(valor > 0)) return;
+    this.#danoLevado(j)[tipo] += valor;
   }
 
   // ---------- O que é público e o que o time vê ----------
@@ -764,10 +843,18 @@ export class Bots {
     const ia = j.ia;
     const s = j.ship;
     const vida = s.hp / s.maxHp;
-    if (!w.partida.emAndamento) return this.#mudar(j, 'parado', {}, 'fim');
+    this.#armarBuild(j);
+    this.#distribuirPontos(j);
+    if (!w.partida.emAndamento) {
+      // Na preparação só as naves voam e compram: monta a build na base.
+      if (w.partida.emPreparacao) {
+        if (s.pousado) return this.#pousado(j, vida);
+        if (this.#valeComprar(j)) return this.#irComprar(j);
+      }
+      return this.#mudar(j, 'parado', {}, w.partida.emPreparacao ? 'preparacao' : 'fim');
+    }
     ia.papel = this.#papel(j);
     this.#usarItens(j, vida);
-    this.#distribuirPontos(j);
 
     if (ia.ordem) return this.#irPara(j, ia.ordem, 'ordem');
     if (j.recall) return this.#mudar(j, 'recall', {}, 'recall'); // canalizando: mãos fora do gatilho
@@ -1305,10 +1392,127 @@ export class Bots {
 
   // ---------- Loja e Evolução ----------
 
+  /** O dano levado por tipo, com o peso já caído até agora (meia-vida IA.danoMeiaVidaS). */
+  #danoLevado(j) {
+    const tick = this.world.tick;
+    const d = (j.ia.dano ??= { fisico: 0, laser: 0, eletrico: 0, tick });
+    if (d.tick !== tick) {
+      const f = 0.5 ** (((tick - d.tick) * DT) / IA.danoMeiaVidaS);
+      for (const t of TIPOS_RESIST) d[t] *= f;
+      d.tick = tick;
+    }
+    return d;
+  }
+
+  /**
+   * O peso de cada tipo de dano contra o computador: o que ele levou (#danoLevado) e
+   * IA.pesoArmaInimiga por arma nos encaixes dos pilotos do outro time (públicas: a
+   * tabela do TAB mostra os itens de todos).
+   */
+  #pesoDoDano(j) {
+    const d = this.#danoLevado(j);
+    const peso = { fisico: d.fisico, laser: d.laser, eletrico: d.eletrico };
+    for (const o of this.world.players.values()) {
+      if (o.time === j.time) continue;
+      for (const a of o.ship.encaixes ?? []) {
+        const t = WEAPONS[ARMAS[a]]?.tipoDano;
+        if (t in peso) peso[t] += IA.pesoArmaInimiga;
+      }
+    }
+    return peso;
+  }
+
+  /**
+   * O tipo de resistência da build (escudo e armadura): o do dano que mais pesa
+   * contra ele. Escolhido, só troca com folga (IA.trocarResistFator e
+   * IA.trocarResistMin) e IA.trocarResistS depois da última escolha. Sem escolha
+   * ainda, o tipo do escudo que já está na nave conta como a escolha (para não trocar
+   * no primeiro golpe o que comprou às cegas); sem escudo e sem peso nenhum, não
+   * escolhe (fica no físico até ter).
+   */
+  #tipoResist(j) {
+    const ia = j.ia;
+    const tick = this.world.tick;
+    const peso = this.#pesoDoDano(j);
+    const maior = TIPOS_RESIST.reduce((m, t) => (peso[t] > peso[m] ? t : m), TIPOS_RESIST[0]);
+    if (!ia.resist) {
+      const escudo = j.inv.find((y) => y.id === j.equipado.escudo);
+      const tem = escudo ? EQUIPAMENTOS[escudo.chave]?.tipoDano : null;
+      if (!tem && !(peso[maior] > 0)) return maior;
+      ia.resist = tem || maior;
+      ia.resistTick = tick;
+    }
+    const atual = ia.resist;
+    if (
+      maior !== atual &&
+      peso[maior] >= IA.trocarResistFator * peso[atual] &&
+      peso[maior] - peso[atual] >= IA.trocarResistMin &&
+      tick - ia.resistTick >= ticks(IA.trocarResistS)
+    ) {
+      ia.resist = maior;
+      ia.resistTick = tick;
+    }
+    return ia.resist;
+  }
+
+  /**
+   * A build que o computador quer agora, por encaixe (SLOTS_BUILD): chaves do
+   * catálogo, todas da aba Recomendados (ver o topo do arquivo); arma null = a de
+   * fábrica do encaixe.
+   */
+  build(j) {
+    const race = j.ship.race;
+    const classe = j.classe;
+    const [z, x] = armasDaBuild(race, classe);
+    const resist = this.#tipoResist(j);
+    return {
+      z,
+      x,
+      escudo: equipDaBuild(race, classe, 'escudo', resist),
+      armadura: equipDaBuild(race, classe, 'armadura', resist),
+      pot1: equipDaBuild(race, classe, 'potenciador', tipoDaArmaDaBuild(race, classe, 0)),
+      pot2: equipDaBuild(race, classe, 'potenciador', tipoDaArmaDaBuild(race, classe, 1)),
+    };
+  }
+
+  /**
+   * A instância (id) do inventário para cada encaixe da build: a que já está nele, se
+   * é a peça certa; senão a de maior versão com a chave que outro encaixe não pegou;
+   * null = não tem (comprar). Encaixe sem peça na build fica de fora.
+   */
+  #instDaBuild(j, build) {
+    const eq = j.equipado;
+    const enc = j.ship.encInst ?? [];
+    const atual = { z: enc[0], x: enc[1], escudo: eq.escudo, armadura: eq.armadura, pot1: eq.pot[0], pot2: eq.pot[1] };
+    const usados = new Set();
+    const out = {};
+    for (const slot of SLOTS_BUILD) {
+      const x = j.inv.find((y) => y.id === atual[slot]);
+      if (build[slot] && x?.chave === build[slot]) {
+        out[slot] = x.id;
+        usados.add(x.id);
+      }
+    }
+    for (const slot of SLOTS_BUILD) {
+      if (!build[slot] || out[slot] !== undefined) continue;
+      const x = j.inv.filter((y) => y.chave === build[slot] && !usados.has(y.id)).sort((a, b) => b.nivel - a.nivel)[0];
+      out[slot] = x?.id ?? null;
+      if (x) usados.add(x.id);
+    }
+    return out;
+  }
+
+  /** As armas da build que ele já tem vão para o comando (ia.armas: Z e X; -1 = a de fábrica). */
+  #armarBuild(j) {
+    const inst = this.#instDaBuild(j, this.build(j));
+    j.ia.armas = [inst.z ?? -1, inst.x ?? -1];
+  }
+
   /**
    * O que comprar agora, na ordem: a próxima nave (se já tem o nível; guarda ouro
-   * para ela), as versões das armas de fábrica, o equipamento (compra e versões) e
-   * kits de reparo. Cada desejo: { servico, pedido, preco }.
+   * para ela), as peças da build que faltam (na ordem de SLOTS_BUILD, com lugar no
+   * compartimento), uma versão de cada peça da build e kits de reparo. Cada desejo:
+   * { servico, pedido, preco }.
    */
   #desejos(j) {
     const out = [];
@@ -1320,21 +1524,25 @@ export class Bots {
       out.push({ servico: 'evolucao', pedido: { t: 'evoluir', opcao: 'nave' }, preco: proxima.preco });
       ouro -= proxima.preco;
     }
-    // Versões das armas de fábrica (por instância, pousado na base: a Loja serve).
-    for (const x of j.inv) {
-      if (!x.fabrica) continue;
-      const preco = precoEvoluirInst(x);
+    const build = this.build(j);
+    const inst = this.#instDaBuild(j, build);
+    // O que falta da build: compra (vai para o compartimento; o comando põe a arma no
+    // encaixe e #equiparBuild o equipamento).
+    let vagas = COMPARTIMENTO_MAX - noCompartimento(j.inv, j.equipado, j.ship.encInst).length;
+    for (const slot of SLOTS_BUILD) {
+      if (!build[slot] || inst[slot] !== null) continue;
+      const preco = itemDaLoja(build[slot])?.preco;
+      if (!(preco >= 0) || vagas <= 0 || ouro < preco) continue;
+      out.push({ servico: 'loja', pedido: { t: 'comprar', item: build[slot] }, preco });
+      ouro -= preco;
+      vagas--;
+    }
+    // Uma versão de cada peça da build que ele tem (pousado na base: a Loja serve).
+    for (const slot of SLOTS_BUILD) {
+      const x = j.inv.find((y) => y.id === inst[slot]);
+      const preco = x ? precoEvoluirInst(x) : null;
       if (preco === null || ouro < preco) continue;
       out.push({ servico: 'loja', pedido: { t: 'evoluirItem', inst: x.id }, preco });
-      ouro -= preco;
-    }
-    // Equipamento: compra o que falta (vai para o compartimento; #equiparDesejado
-    // põe na nave) e depois evolui a instância que tem.
-    for (const chave of this.#equipDesejado(j)) {
-      const x = j.inv.find((y) => y.chave === chave);
-      const preco = x ? precoEvoluirInst(x) : EQUIPAMENTOS[chave].preco;
-      if (preco === null || ouro < preco) continue;
-      out.push({ servico: 'loja', pedido: x ? { t: 'evoluirItem', inst: x.id } : { t: 'comprar', item: chave }, preco });
       ouro -= preco;
     }
     for (let k = j.itens.reparo; k < IA.kitsDesejados && ouro >= ITENS.reparo.preco; k++) {
@@ -1344,31 +1552,14 @@ export class Bots {
     return out;
   }
 
-  /** Tipo de dano que mais aparece nas armas dos encaixes do computador. */
+  /** Tipo de dano das armas da build (o do Z se as duas são de tipos diferentes): é o poder que os pontos sobem. */
   #tipoDasArmas(j) {
     const conta = {};
-    for (const a of j.ship.encaixes ?? []) {
-      const t = WEAPONS[ARMAS[a]]?.tipoDano;
+    for (const enc of [0, 1]) {
+      const t = tipoDaArmaDaBuild(j.ship.race, j.classe, enc);
       if (t) conta[t] = (conta[t] ?? 0) + 1;
     }
     return Object.keys(conta).sort((a, b) => conta[b] - conta[a])[0] ?? 'laser';
-  }
-
-  /**
-   * O equipamento que o computador quer, na ordem de compra: o escudo de mais
-   * escudo, a armadura geral (sem tipo) de mais HP, o Reforço do tipo das armas dele
-   * e o Potenciador de Durabilidade. Só da classe dele.
-   */
-  #equipDesejado(j) {
-    const melhor = (lista, valor) => lista.reduce((m, k) => (m === null || valor(k) > valor(m) ? k : m), null);
-    const escudo = melhor(equipamentosAVenda(j.classe, 'escudo'), (k) => EQUIPAMENTOS[k].versoes[0].maxEscudo);
-    const geral = equipamentosAVenda(j.classe, 'armadura').filter((k) => EQUIPAMENTOS[k].tipoDano === null);
-    const armadura = melhor(geral, (k) => EQUIPAMENTOS[k].versoes[0].hp);
-    const tipo = this.#tipoDasArmas(j);
-    const reforco = equipamentosAVenda(j.classe, 'potenciador').find(
-      (k) => EQUIPAMENTOS[k].tipoDano === tipo && EQUIPAMENTOS[k].versoes[0].efeitos.some((e) => e.tipo === 'poder') && EQUIPAMENTOS[k].versoes[0].efeitos.length > 1,
-    );
-    return [escudo, armadura, reforco, IA.potenciadorVida].filter((k) => k && EQUIPAMENTOS[k]);
   }
 
   /**
@@ -1411,28 +1602,51 @@ export class Bots {
     this.#irParaBase(j, PLATAFORMA[d.servico][j.time], 'comprar');
   }
 
-  /** Pousado e parado na plataforma: faz os pedidos dela (os mesmos do cliente). */
+  /**
+   * Pousado e parado na plataforma: faz os pedidos dela (os mesmos do cliente), põe a
+   * build na nave e, na Loja, vende o que sobrou.
+   */
   #comprar(j, servico) {
-    for (const d of this.#desejos(j)) {
-      if (d.servico !== servico) continue;
-      this.world.servicos.pedido(j, d.pedido);
+    // Como um piloto na Loja: compra o que falta e evolui, rodada após rodada (uma
+    // versão por peça em cada), até o ouro não dar para mais nada.
+    for (let rodada = 0; rodada < IA.rodadasCompra; rodada++) {
+      let algum = false;
+      for (const d of this.#desejos(j)) {
+        if (d.servico !== servico) continue;
+        if (this.world.servicos.pedido(j, d.pedido).ok) algum = true;
+      }
+      this.#equiparBuild(j);
+      if (!algum || servico !== 'loja') break;
     }
-    this.#equiparDesejado(j);
+    this.#armarBuild(j);
+    if (servico === 'loja') this.#venderSobras(j);
   }
 
   /**
-   * Põe na nave o equipamento desejado que está no compartimento, cada um no
-   * encaixe vazio da categoria (potenciador: o primeiro vazio), pelo pedido do
-   * cliente ({t:'equipar'}).
+   * Põe na nave o equipamento da build que ele tem, cada peça no encaixe dela, pelo
+   * pedido do cliente ({t:'equipar'}; a peça trocada vai para o compartimento).
    */
-  #equiparDesejado(j) {
-    for (const chave of this.#equipDesejado(j)) {
-      const x = j.inv.find((y) => y.chave === chave);
-      if (!x || naNave(x, j.equipado, j.ship.encInst)) continue;
-      const cat = EQUIPAMENTOS[chave].categoria;
+  #equiparBuild(j) {
+    const inst = this.#instDaBuild(j, this.build(j));
+    for (const slot of ['escudo', 'armadura', 'pot1', 'pot2']) {
+      const id = inst[slot];
+      if (id === null || id === undefined) continue;
       const eq = j.equipado;
-      const slot = cat === 'potenciador' ? ['pot1', 'pot2'][eq.pot.indexOf(null)] : eq[cat] === null ? cat : undefined;
-      if (slot) this.world.servicos.pedido(j, { t: 'equipar', slot, inst: x.id });
+      const atual = slot === 'pot1' ? eq.pot[0] : slot === 'pot2' ? eq.pot[1] : eq[slot];
+      if (atual !== id) this.world.servicos.pedido(j, { t: 'equipar', slot, inst: id });
+    }
+  }
+
+  /**
+   * Vende o que está no compartimento e não é da build (a peça trocada pela reação
+   * ao dano), menos as armas de fábrica (são o que o encaixe usa sem arma da build).
+   * Só pousado na própria base ({t:'vender'}).
+   */
+  #venderSobras(j) {
+    const usados = new Set(Object.values(this.#instDaBuild(j, this.build(j))));
+    for (const x of noCompartimento(j.inv, j.equipado, j.ship.encInst)) {
+      if (x.fabrica || usados.has(x.id)) continue;
+      this.world.servicos.pedido(j, { t: 'vender', inst: x.id });
     }
   }
 
@@ -1458,6 +1672,8 @@ export class Bots {
     else if (ia.modo === 'pousar' && ia.destino) cmd = this.#pousar(j, ia.destino);
     else if (ia.modo === 'recall') cmd = this.#recall(j);
     else cmd = { ...PARADO };
+    // As armas da build nos encaixes (o cliente manda as dele assim, a cada passo).
+    [cmd.a, cmd.a2] = ia.armas;
     this.#longeDoCampo(j, cmd);
     // Pulsos (pouso e recall valem na borda do botão): um tick apertado, depois solto.
     cmd.p = ia.pulsoP;
