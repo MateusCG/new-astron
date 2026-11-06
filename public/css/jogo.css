@@ -2,6 +2,10 @@
    detalhes em neon turquesa e texto claro sobre fundo escuro. */
 
 :root {
+  /* Fonte de largura fixa dos números e selos. O Chrome no Windows não conhece o
+     ui-monospace e cairia na Courier New (serifada): a lista acha a Cascadia ou a
+     Consolas antes do genérico. */
+  --mono: ui-monospace, 'Cascadia Mono', Consolas, 'SF Mono', Menlo, 'DejaVu Sans Mono', monospace;
   --neon: #00efc0;
   --neon-escuro: #0a5f50;
   --chapa: #18302e;
@@ -143,7 +147,7 @@ input:focus {
   padding: 1px 6px;
   border: 1px solid var(--chapa-clara);
   border-radius: 3px;
-  font: 700 13px ui-monospace, monospace;
+  font: 700 13px var(--mono);
   letter-spacing: 0.1em;
   color: var(--texto);
 }
@@ -570,7 +574,7 @@ input:focus {
   display: flex;
   align-items: center;
   gap: 10px;
-  font: 600 14px ui-monospace, monospace;
+  font: 600 14px var(--mono);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--neon);
@@ -673,7 +677,7 @@ input:focus {
   padding: 4px 12px;
   border: 1px solid var(--neon);
   border-radius: 4px;
-  font: 700 13.5px ui-monospace, monospace;
+  font: 700 13.5px var(--mono);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--neon);
@@ -1049,7 +1053,7 @@ input:focus {
 }
 
 .linha-evolucao small {
-  font: 12.5px ui-monospace, monospace;
+  font: 12.5px var(--mono);
   opacity: 0.75;
 }
 
@@ -1148,7 +1152,7 @@ input:focus {
 }
 
 .barras-nave .stat i {
-  font: 14px ui-monospace, monospace;
+  font: 14px var(--mono);
   text-align: right;
 }
 
@@ -1221,7 +1225,7 @@ input:focus {
 
 .dados-nave dd {
   margin: 0;
-  font: 15px ui-monospace, monospace;
+  font: 15px var(--mono);
   text-align: right;
 }
 
@@ -1321,7 +1325,7 @@ input:focus {
   background: transparent;
   color: var(--texto);
   opacity: 0.55;
-  font: 700 13px ui-monospace, monospace;
+  font: 700 13px var(--mono);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   cursor: pointer;
@@ -1411,7 +1415,7 @@ input:focus {
 
 #escolha-times .qtd {
   min-width: 18px;
-  font: 700 18px ui-monospace, monospace;
+  font: 700 18px var(--mono);
   text-align: center;
 }
 
@@ -1423,7 +1427,7 @@ input:focus {
 }
 
 #escolha-times .versus b {
-  font: 800 26px ui-monospace, monospace;
+  font: 800 26px var(--mono);
   color: var(--neon);
 }
 
@@ -1542,7 +1546,7 @@ input:focus {
   row-gap: 5px;
   min-width: 270px;
   margin: 0;
-  font: 600 12px/1.35 ui-monospace, monospace;
+  font: 600 12px/1.35 var(--mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -1554,7 +1558,7 @@ input:focus {
 
 .estado-fila .contador {
   color: var(--neon);
-  font: 800 22px ui-monospace, monospace;
+  font: 800 22px var(--mono);
   letter-spacing: 0.04em;
 }
 
@@ -2218,7 +2222,7 @@ input:focus {
   border-radius: 4px;
   background: #0b1716;
   color: var(--texto);
-  font: 15px/20px ui-monospace, monospace;
+  font: 15px/20px var(--mono);
   text-align: center;
   cursor: pointer;
 }
@@ -2641,7 +2645,7 @@ kbd {
   border: 1px solid var(--chapa-clara);
   border-radius: 3px;
   background: #0b1716;
-  font: 15px/20px ui-monospace, monospace;
+  font: 15px/20px var(--mono);
   text-align: center;
 }
 
@@ -3020,7 +3024,7 @@ kbd {
 }
 
 #placar .time b {
-  font: 700 28px/1.1 ui-monospace, monospace;
+  font: 700 28px/1.1 var(--mono);
 }
 
 #placar .meu {
@@ -3051,7 +3055,7 @@ kbd {
 
 #placar .relogio {
   padding-top: 9px;
-  font: 700 24px ui-monospace, monospace;
+  font: 700 24px var(--mono);
   color: var(--texto);
 }
 
@@ -3068,7 +3072,7 @@ kbd {
   margin: 2px 0 0;
   padding: 0;
   list-style: none;
-  font: 14px/18px ui-monospace, monospace;
+  font: 14px/18px var(--mono);
   color: var(--objetivo);
 }
 
@@ -3096,7 +3100,7 @@ kbd {
   margin-top: -2px;
   padding: 1px 0;
   border-top: 1px solid rgba(255, 182, 39, 0.35);
-  font: 700 15px/20px ui-monospace, monospace;
+  font: 700 15px/20px var(--mono);
   letter-spacing: 0.12em;
   text-align: center;
   color: var(--objetivo);
@@ -3243,7 +3247,7 @@ kbd {
 }
 
 .minerio b {
-  font: 800 40px/1 ui-monospace, monospace;
+  font: 800 40px/1 var(--mono);
 }
 
 .minerio-meu b {
@@ -3303,7 +3307,7 @@ kbd {
   border-radius: 10px;
   background: #081413;
   color: var(--xp);
-  font: 700 12.5px/18px ui-monospace, monospace;
+  font: 700 12.5px/18px var(--mono);
   text-align: center;
 }
 
@@ -3340,7 +3344,7 @@ kbd {
   border: 1px solid var(--neon-escuro);
   border-radius: 4px;
   color: var(--neon);
-  font: 700 12px ui-monospace, monospace;
+  font: 700 12px var(--mono);
   vertical-align: 5px;
 }
 
@@ -3371,7 +3375,7 @@ kbd {
 }
 
 .numeros-mvp dd {
-  font: 800 24px ui-monospace, monospace;
+  font: 800 24px var(--mono);
   text-align: center;
 }
 
@@ -3399,7 +3403,7 @@ kbd {
   border-radius: 4px;
   background: var(--ouro);
   color: #2a1d00;
-  font: 800 11px/16px ui-monospace, monospace;
+  font: 800 11px/16px var(--mono);
   letter-spacing: 0.08em;
 }
 
@@ -3417,7 +3421,7 @@ kbd {
 
 .contagem .segundos {
   color: var(--cor-res);
-  font: 800 20px ui-monospace, monospace;
+  font: 800 20px var(--mono);
 }
 
 .contagem .barra {
@@ -3768,7 +3772,7 @@ kbd {
   display: grid;
   justify-items: center;
   gap: 0;
-  font: 700 20px/1.15 ui-monospace, monospace;
+  font: 700 20px/1.15 var(--mono);
   white-space: nowrap;
   transform-origin: 50% 100%;
   text-shadow:
@@ -3982,7 +3986,7 @@ kbd {
 }
 
 #upar .livres b {
-  font: 700 14px/1 ui-monospace, monospace;
+  font: 700 14px/1 var(--mono);
 }
 
 .aba-upar {
@@ -4146,7 +4150,7 @@ kbd {
   border-radius: 3px;
   background: var(--objetivo);
   color: #2a1a00;
-  font: 700 15px ui-monospace, monospace;
+  font: 700 15px var(--mono);
 }
 
 .rot-obj .barra {
@@ -4250,7 +4254,7 @@ kbd {
 }
 
 #bonus-nave li b {
-  font: 700 14px ui-monospace, monospace;
+  font: 700 14px var(--mono);
   color: var(--texto);
 }
 
@@ -4370,7 +4374,7 @@ kbd {
 
 #carregando .seg {
   min-width: 3.4em;
-  font: 700 16px ui-monospace, monospace;
+  font: 700 16px var(--mono);
   text-align: right;
 }
 
@@ -4393,7 +4397,7 @@ kbd {
 }
 
 #prog-recall .txt b {
-  font: 700 17px ui-monospace, monospace;
+  font: 700 17px var(--mono);
 }
 
 #prog-recall .barra {
@@ -4412,7 +4416,7 @@ kbd {
 
 .rotulo .nv {
   color: var(--xp);
-  font: 13px ui-monospace, monospace;
+  font: 13px var(--mono);
 }
 
 /* Etiqueta do piloto embaixo da nave de jogador (a sua inclusive), numa plaquinha de
@@ -4462,7 +4466,7 @@ kbd {
   position: absolute;
   right: 6px;
   top: 0;
-  font: 16px/24px ui-monospace, monospace;
+  font: 16px/24px var(--mono);
 }
 
 @keyframes pisca {
@@ -4498,7 +4502,7 @@ dt {
 dd {
   margin: 0;
   text-align: right;
-  font-family: ui-monospace, monospace;
+  font-family: var(--mono);
 }
 
 #ouro {
@@ -4533,7 +4537,7 @@ dd {
 }
 
 .arma-encaixe .tecla {
-  font: 700 15px ui-monospace, monospace;
+  font: 700 15px var(--mono);
   color: var(--neon);
 }
 
@@ -4584,7 +4588,7 @@ dd {
 /* Recarga de troca de arma: ícone apagado e a contagem em segundos ao lado. */
 .arma-encaixe .espera {
   display: none;
-  font: 700 15px ui-monospace, monospace;
+  font: 700 15px var(--mono);
   color: var(--texto);
 }
 
@@ -4607,7 +4611,7 @@ dd {
 }
 
 .arma-encaixe .casa-troca kbd {
-  font: 700 13px ui-monospace, monospace;
+  font: 700 13px var(--mono);
   color: var(--neon);
 }
 
@@ -4751,7 +4755,7 @@ small.original {
 }
 
 .item-nave .tecla {
-  font: 700 15px ui-monospace, monospace;
+  font: 700 15px var(--mono);
   color: var(--neon);
 }
 
@@ -4762,7 +4766,7 @@ small.original {
 }
 
 .item-nave .qtd {
-  font: 700 16px ui-monospace, monospace;
+  font: 700 16px var(--mono);
 }
 
 .item-nave .qtd::before {
@@ -4892,7 +4896,7 @@ small.original {
 }
 
 #servico .comp-loja b {
-  font: 700 17px ui-monospace, monospace;
+  font: 700 17px var(--mono);
   color: var(--neon);
 }
 
@@ -4909,7 +4913,7 @@ small.original {
 }
 
 #servico .ouro b {
-  font: 700 24px ui-monospace, monospace;
+  font: 700 24px var(--mono);
   color: var(--ouro);
   text-shadow: 0 0 10px rgba(255, 209, 102, 0.45);
   vertical-align: middle;
@@ -5017,7 +5021,7 @@ small.original {
 
 .filtro-armas button i {
   margin-left: 2px;
-  font: 14.5px ui-monospace, monospace;
+  font: 14.5px var(--mono);
   font-style: normal;
   opacity: 0.6;
 }
@@ -5046,7 +5050,7 @@ small.original {
 
 .stats-arma dd {
   margin: 0;
-  font-family: ui-monospace, monospace;
+  font-family: var(--mono);
   white-space: nowrap;
 }
 
@@ -5141,7 +5145,7 @@ small.original {
 }
 
 .carta-servico .preco {
-  font: 700 16px ui-monospace, monospace;
+  font: 700 16px var(--mono);
   color: var(--ouro);
 }
 
@@ -5199,7 +5203,7 @@ small.original {
 
 /* Nível da arma no cartão de evoluir: "NV 3" ao lado do nome. */
 .carta-servico .nv {
-  font: 700 14px ui-monospace, monospace;
+  font: 700 14px var(--mono);
   font-style: normal;
   color: var(--cor-servico);
   white-space: nowrap;
@@ -5277,7 +5281,7 @@ small.original {
 
 .carta-servico .cmp-nave dd {
   margin: 0;
-  font: 14.5px ui-monospace, monospace;
+  font: 14.5px var(--mono);
   text-align: right;
   white-space: nowrap;
 }
@@ -5699,7 +5703,7 @@ body.dano::after {
 }
 
 :is(#volume, #config-som, #opcoes) .canal .pct {
-  font: 700 20px ui-monospace, monospace;
+  font: 700 20px var(--mono);
   color: var(--neon);
 }
 
@@ -5917,7 +5921,7 @@ body.dano::after {
 }
 
 :is(#tabela, #resultado-tabela) .obj b {
-  font: 700 17px ui-monospace, monospace;
+  font: 700 17px var(--mono);
 }
 
 :is(#tabela, #resultado-tabela) .placar-abates {
@@ -5929,7 +5933,7 @@ body.dano::after {
 
 :is(#tabela, #resultado-tabela) .placar-abates b {
   min-width: 2ch;
-  font: 700 28px ui-monospace, monospace;
+  font: 700 28px var(--mono);
 }
 
 :is(#tabela, #resultado-tabela) .abates-meu {
@@ -6068,7 +6072,7 @@ body.dano::after {
   border-radius: 9px;
   background: #081413;
   color: var(--xp);
-  font: 700 11.5px/16px ui-monospace, monospace;
+  font: 700 11.5px/16px var(--mono);
   text-align: center;
 }
 
@@ -6100,7 +6104,7 @@ body.dano::after {
   border: 1px solid var(--neon-escuro);
   border-radius: 4px;
   color: var(--neon);
-  font: 700 11.5px ui-monospace, monospace;
+  font: 700 11.5px var(--mono);
   letter-spacing: 0.06em;
 }
 
@@ -6111,7 +6115,7 @@ body.dano::after {
 
 :is(#tabela, #resultado-tabela) .farm,
 :is(#tabela, #resultado-tabela) .kda {
-  font: 600 15px ui-monospace, monospace;
+  font: 600 15px var(--mono);
   text-align: center;
   white-space: nowrap;
 }
@@ -6382,7 +6386,7 @@ body.dano::after {
 }
 
 .janela-lateral .ouro-janela b {
-  font: 700 20px ui-monospace, monospace;
+  font: 700 20px var(--mono);
   color: var(--ouro);
   text-shadow: 0 0 10px rgba(255, 209, 102, 0.45);
 }
@@ -6490,7 +6494,7 @@ body.dano::after {
 }
 
 .detalhe .exige b {
-  font-family: ui-monospace, monospace;
+  font-family: var(--mono);
   font-weight: 600;
 }
 
@@ -6547,7 +6551,7 @@ body.dano::after {
   padding: 1px 4px;
   border-radius: 3px;
   background: color-mix(in srgb, var(--cor-tipo) 14%, #081110);
-  font: 600 16px ui-monospace, monospace;
+  font: 600 16px var(--mono);
   color: var(--texto);
   text-align: center;
 }
@@ -6577,7 +6581,7 @@ body.dano::after {
 }
 
 #status .ficha em {
-  font: 700 15px ui-monospace, monospace;
+  font: 700 15px var(--mono);
   font-style: normal;
   color: var(--xp);
 }
@@ -6603,7 +6607,7 @@ body.dano::after {
 }
 
 .linha-st b {
-  font: 600 17px ui-monospace, monospace;
+  font: 600 17px var(--mono);
 }
 
 .linha-st.ouro b {
@@ -6659,7 +6663,7 @@ body.dano::after {
 }
 
 .pontos-st .livres b {
-  font: 700 24px ui-monospace, monospace;
+  font: 700 24px var(--mono);
   color: var(--texto);
   opacity: 0.6;
 }
@@ -6710,7 +6714,7 @@ body.dano::after {
 }
 
 .atributo .qtd {
-  font: 700 20px ui-monospace, monospace;
+  font: 700 20px var(--mono);
   color: var(--cor-tipo);
   text-align: center;
 }
@@ -6728,7 +6732,7 @@ body.dano::after {
 }
 
 .atributo .efeito-at {
-  font: 15.5px ui-monospace, monospace;
+  font: 15.5px var(--mono);
 }
 
 .atributo .mini-tipos td {
@@ -6764,7 +6768,7 @@ body.dano::after {
 }
 
 .linha-pontos small {
-  font: 13.5px ui-monospace, monospace;
+  font: 13.5px var(--mono);
   opacity: 0.6;
 }
 
@@ -6784,7 +6788,7 @@ body.dano::after {
   border-radius: 6px;
   background: #0b1716;
   color: var(--neon);
-  font: 700 17px/1 ui-monospace, monospace;
+  font: 700 17px/1 var(--mono);
   cursor: pointer;
 }
 
@@ -6908,7 +6912,7 @@ body.dano::after {
 
 .slot.casa .rot kbd {
   margin-right: 3px;
-  font: 700 13px ui-monospace, monospace;
+  font: 700 13px var(--mono);
 }
 
 .slot.vazio .nm {
@@ -6945,7 +6949,7 @@ body.dano::after {
 }
 
 #inventario h3 .conta-inv {
-  font: 14px ui-monospace, monospace;
+  font: 14px var(--mono);
   opacity: 0.6;
 }
 
@@ -7138,7 +7142,7 @@ body.dano::after {
 
 .opcao-caixa b {
   margin-left: auto;
-  font: 700 16px ui-monospace, monospace;
+  font: 700 16px var(--mono);
   color: var(--ouro);
 }
 
@@ -7296,7 +7300,7 @@ body.dano::after {
 }
 
 .mapa-carregamento small {
-  font: 700 12px ui-monospace, monospace;
+  font: 700 12px var(--mono);
   letter-spacing: 0.32em;
   text-transform: uppercase;
   color: var(--neon);
@@ -7350,7 +7354,7 @@ body.dano::after {
 }
 
 .nave-carregamento small {
-  font: 700 11px ui-monospace, monospace;
+  font: 700 11px var(--mono);
   letter-spacing: 0.28em;
   text-transform: uppercase;
   opacity: 0.65;
@@ -7407,7 +7411,7 @@ body.dano::after {
 }
 
 .pct-carregamento {
-  font: 700 24px ui-monospace, monospace;
+  font: 700 24px var(--mono);
   color: var(--texto);
   text-shadow: 0 0 12px rgba(0, 239, 192, 0.4);
 }
@@ -7432,7 +7436,7 @@ body.dano::after {
 
 .agora-carregamento {
   margin: 0;
-  font: 600 13px ui-monospace, monospace;
+  font: 600 13px var(--mono);
   color: var(--texto);
   opacity: 0.75;
 }
@@ -7499,7 +7503,7 @@ body.dano::after {
 
 .grupos-carregamento .conta {
   grid-area: conta;
-  font: 600 11px ui-monospace, monospace;
+  font: 600 11px var(--mono);
   opacity: 0.6;
 }
 
@@ -7542,7 +7546,7 @@ body.dano::after {
   border: 1px solid var(--chapa-clara);
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.35);
-  font: 600 12px ui-monospace, monospace;
+  font: 600 12px var(--mono);
   color: var(--neon);
 }
 
@@ -7571,7 +7575,7 @@ body.dano::after {
   border-radius: 3px;
   background: var(--neon);
   color: #032b22;
-  font: 800 12px ui-monospace, monospace;
+  font: 800 12px var(--mono);
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -7591,7 +7595,7 @@ body.dano::after {
   border: 1px solid var(--chapa-clara);
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.35);
-  font: 600 13px ui-monospace, monospace;
+  font: 600 13px var(--mono);
   color: var(--neon);
 }
 
@@ -7794,7 +7798,7 @@ body.dano::after {
   border: 1px solid var(--neon-escuro);
   border-radius: 3px;
   color: var(--neon);
-  font: 700 11px/14px ui-monospace, monospace;
+  font: 700 11px/14px var(--mono);
 }
 
 #companheiros .abates {
@@ -7803,7 +7807,7 @@ body.dano::after {
   align-items: center;
   gap: 2px;
   margin-left: auto;
-  font: 700 14px ui-monospace, monospace;
+  font: 700 14px var(--mono);
 }
 
 #companheiros .abates svg {
@@ -8127,7 +8131,7 @@ body.dano::after {
   padding: 7px 0 0 0.25em;
   border-top: 2px solid var(--neon);
   box-shadow: 0 -6px 12px -8px var(--neon);
-  font: 600 clamp(12px, 1vw, 16px) ui-monospace, monospace;
+  font: 600 clamp(12px, 1vw, 16px) var(--mono);
   font-style: normal;
   letter-spacing: 0.32em;
   text-transform: uppercase;
@@ -8170,7 +8174,7 @@ body.dano::after {
 }
 
 .pct-abertura {
-  font: 700 18px ui-monospace, monospace;
+  font: 700 18px var(--mono);
   color: var(--texto);
 }
 
@@ -8237,7 +8241,7 @@ body.dano::after {
 }
 
 .grupos-abertura .conta {
-  font: 600 12px ui-monospace, monospace;
+  font: 600 12px var(--mono);
   letter-spacing: 0;
   opacity: 0.6;
 }
@@ -8281,7 +8285,7 @@ body.dano::after {
   background: transparent;
   color: inherit;
   box-shadow: none;
-  font: 700 13px ui-monospace, monospace;
+  font: 700 13px var(--mono);
   letter-spacing: 0.06em;
   opacity: 0.75;
 }
@@ -8325,7 +8329,7 @@ body.dano::after {
   border-radius: 3px;
   background: var(--neon);
   color: #032b22;
-  font: 800 12px ui-monospace, monospace;
+  font: 800 12px var(--mono);
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -8345,7 +8349,7 @@ body.dano::after {
   border: 1px solid var(--chapa-clara);
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.35);
-  font: 600 13px ui-monospace, monospace;
+  font: 600 13px var(--mono);
   color: var(--neon);
 }
 
@@ -8630,7 +8634,7 @@ body.dano::after {
 
 #opcoes .conexao b {
   margin-left: 4px;
-  font: 700 15px ui-monospace, monospace;
+  font: 700 15px var(--mono);
   color: var(--neon);
 }
 
@@ -8980,7 +8984,7 @@ html[data-aparelho='controle'] #comandos .leg-controle {
 
 #comandos .sem {
   opacity: 0.3;
-  font: 15px ui-monospace, monospace;
+  font: 15px var(--mono);
 }
 
 /* Tecla em relevo: a face clara em cima e a borda grossa embaixo. */
@@ -8996,7 +9000,7 @@ html[data-aparelho='controle'] #comandos .leg-controle {
   border-radius: 5px;
   background: linear-gradient(180deg, #1f3734, #10201f);
   color: var(--texto);
-  font: 600 14px/20px ui-monospace, monospace;
+  font: 600 14px/20px var(--mono);
   justify-content: center;
   white-space: nowrap;
 }
@@ -9194,7 +9198,7 @@ html[data-aparelho='controle'] #comandos .leg-controle {
   padding: 10px 12px;
   border: 1px dashed var(--neon-escuro);
   background: rgba(0, 239, 192, 0.06);
-  font: 600 15px ui-monospace, monospace;
+  font: 600 15px var(--mono);
   color: var(--neon);
   overflow-wrap: anywhere;
 }
@@ -9344,7 +9348,7 @@ html[data-aparelho='controle'] #comandos .leg-controle {
   display: grid;
   gap: 6px;
   margin-bottom: 14px;
-  font: 600 12.5px ui-monospace, monospace;
+  font: 600 12.5px var(--mono);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--neon);
@@ -9409,7 +9413,7 @@ html[data-aparelho='controle'] #comandos .leg-controle {
   height: 28px;
   border: 1.5px solid var(--chapa-clara);
   border-radius: 50%;
-  font: 700 13px ui-monospace, monospace;
+  font: 700 13px var(--mono);
   opacity: 0.8;
 }
 
@@ -9478,7 +9482,7 @@ html[data-aparelho='controle'] #comandos .leg-controle {
 
 .sobre-capitulo {
   margin: 0;
-  font: 600 12px ui-monospace, monospace;
+  font: 600 12px var(--mono);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--neon);
@@ -9651,7 +9655,7 @@ html[data-aparelho='controle'] #comandos .leg-controle {
   border-radius: 50%;
   background: var(--neon-escuro);
   color: var(--neon);
-  font: 800 14px ui-monospace, monospace;
+  font: 800 14px var(--mono);
   box-shadow: 0 0 0 1px var(--neon);
 }
 
@@ -9684,7 +9688,7 @@ html[data-aparelho='controle'] #comandos .leg-controle {
 
 .tempo-aprender time {
   position: relative;
-  font: 700 15px ui-monospace, monospace;
+  font: 700 15px var(--mono);
   text-align: right;
   color: var(--neon);
 }

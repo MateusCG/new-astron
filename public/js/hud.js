@@ -325,14 +325,14 @@ export class Hud {
       ctx.beginPath();
       ctx.arc(cx, cz, 6, 0, Math.PI * 2);
       ctx.fill();
-      ctx.font = 'bold 10px ui-monospace, monospace';
+      ctx.font = 'bold 10px ui-monospace, Consolas, Menlo, monospace';
       ctx.fillStyle = aceso ? COR_OBJETIVO : COR_APAGADA;
       ctx.fillText(LETRA_OBJETIVO[o.tipo], cx, cz + 0.5);
       if (!r) continue;
       if (!aceso) {
         if (r.estado === 'recarga' && r.time != null) arco(1, corTime(r.time));
         if (r.volta != null && r.estado !== 'tomado') {
-          ctx.font = '8px ui-monospace, monospace';
+          ctx.font = '8px ui-monospace, Consolas, Menlo, monospace';
           ctx.fillStyle = COR_APAGADA;
           ctx.fillText(String(Math.ceil(r.volta)), cx, cz + 13);
         }
