@@ -163,13 +163,16 @@ export class TorretasNaTela {
     }
   }
 
-  /** Rótulos das torretas de pé, no formato de hud.rotulosNaves. */
+  /**
+   * Rótulos das torretas de pé, no formato de hud.rotulosNaves; `torre` dá a barra de
+   * vida no padrão das naves de jogador (o tamanho e a divisória a cada mil).
+   */
   rotulos() {
     const lista = [];
     for (const [id, it] of this.lista) {
       const r = this.estado.get(id);
       if (!it.viva || !r) continue;
-      lista.push({ id, nome: 'Torreta', aliado: it.t.time === this.meuTime, hp: r.vida, maxHp: r.max, pos: it.pos, nivel: r.nivel });
+      lista.push({ id, nome: 'Torreta', aliado: it.t.time === this.meuTime, hp: r.vida, maxHp: r.max, pos: it.pos, nivel: r.nivel, torre: true });
     }
     return lista;
   }

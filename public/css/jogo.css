@@ -3843,7 +3843,8 @@ kbd {
   background: rgba(0, 0, 0, 0.6);
 }
 
-/* Barra de vida em cima das naves de jogador e dos chefes (a Medusa e o Núcleo), como
+/* Barra de vida em cima das naves de jogador, das torretas (a mesma: .vida-piloto) e dos
+   chefes (a Medusa e o Núcleo), como
    no LoL (pedido do Mateus, 06/nov/2026): maior que a dos outros, com moldura escura e
    uma divisória a cada mil de vida (--passo, de barra-vida-regras.js via hud.js); nos
    chefes, a cada dez mil uma mais grossa (--grossa). A do escudo acompanha a largura. */
