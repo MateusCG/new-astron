@@ -133,8 +133,8 @@ import {
 import { ESCUDO } from './nucleo-regras.js';
 /** Altura (m) do rótulo do Núcleo acima dele: o alto da cúpula do escudo. */
 const ROTULO_NUCLEO = ESCUDO.centroY + ESCUDO.raio;
-/** Altura do rótulo de chefe da torre de suporte acima do chão de voo: na ponta da antena. */
-const ROTULO_SUPORTE = TORRE_SUPORTE.altura;
+/** Altura do rótulo de chefe da torre de suporte acima do chão de voo: no topo do corpo, na base da antena (na ponta, a torre alta o põe embaixo da barra do time). */
+const ROTULO_SUPORTE = TORRE_SUPORTE.altura * 0.7;
 /** Monstros com a barra de chefe (a barra larga do rótulo): os dos objetivos. */
 const CHEFES_JUNGLE = new Set(['medusa', 'sn4', 'sonda']);
 import { Sons, SONS_INTERFACE, SONS_VOLTA, SONS_NUCLEO, VOLUME_TIRO_PROPRIO } from './sons.js';
