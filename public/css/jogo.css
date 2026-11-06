@@ -3856,6 +3856,17 @@ kbd {
   background: var(--hp);
 }
 
+/* Monstros da jungle e o Núcleo: nome branco (pedido do Mateus, 06/nov/2026). O
+   salmão do inimigo lembrava o rosa do Op. das etiquetas por resistência
+   (cor-resistencia.js), e o monstro não tem resistência: nenhuma cor de tipo aqui.
+   A barra de vida continua vermelha. */
+.rotulo.neutro .nome {
+  color: #f2f4f5;
+  /* Contorno escuro um pouco mais forte: o branco sobre o céu claro e enevoado do lago
+     perde contraste só com a sombra fina de todos os rótulos. */
+  text-shadow: 0 1px 2px #000, 0 0 4px rgba(0, 0, 0, 0.85);
+}
+
 /* Jogadores e mineradores: nome na cor do time de quem olha; a barra de vida dos
    aliados é azul e a dos inimigos, vermelha (pedido do Mateus: lê de longe quem é quem). */
 .rotulo.aliado .nome {

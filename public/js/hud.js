@@ -614,7 +614,9 @@ export class Hud {
    * (do seu time) pinta de turquesa; inimigo (outro time ou monstro) de vermelho. Na
    * etiqueta do piloto o time fica na borda e no "NV", e o nick leva a cor das
    * resistências dele (`res`, [Ph., Op., El.]; corResistencia), como no original.
-   * Entrada: { id, nome, aliado, hp, maxHp, pos, nivel, piloto, proprio, esc, res }.
+   * Entrada: { id, nome, aliado, hp, maxHp, pos, nivel, piloto, proprio, esc, res, neutro }.
+   * `neutro` (monstros da jungle e o Núcleo): o nome em branco, nunca numa cor de
+   * resistência (o verde Ph., o rosa Op. e o azul El. das etiquetas dos pilotos).
    * `esc` (fração 0 a 1 do escudo, das naves de jogador com escudo) põe uma barra
    * fina do escudo em cima da de vida.
    */
@@ -636,7 +638,7 @@ export class Hud {
       return tag;
     };
     // `tamanho`: a nave grande (até o dobro da primeira) leva os rótulos mais para fora.
-    for (const { id, nome, aliado, hp, maxHp, pos: p, nivel, piloto, proprio, esc, res, tamanho = 1 } of lista) {
+    for (const { id, nome, aliado, hp, maxHp, pos: p, nivel, piloto, proprio, esc, res, neutro, tamanho = 1 } of lista) {
       const dist = camera.position.distanceTo(p);
       if (dist > 450) continue;
       const opacidade = dist > 300 ? String(1 - (dist - 300) / 150) : '1';
@@ -645,7 +647,7 @@ export class Hud {
       if (!proprio) {
         const cima = pos(`c${id}`, p, 6 * tamanho, '-100%', () => {
           const tag = document.createElement('div');
-          tag.className = 'rotulo' + cor;
+          tag.className = 'rotulo' + cor + (neutro ? ' neutro' : '');
           tag.innerHTML = piloto
             ? '<span class="barra-esc" hidden><i></i></span><span class="barra"><i></i></span>'
             : '<span class="nome"></span><span class="barra"><i></i></span>';
