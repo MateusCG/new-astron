@@ -6,6 +6,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { World, TELEPORTE_ALIADO_DIST } from '../server/game.js';
 import { createShip, HOVER, TELEPORTE_FOLGA, custoTeleporte } from '../shared/sim.js';
 import { heightAt } from '../shared/terrain.js';
@@ -281,4 +282,12 @@ test('teleporte: sem energia bastante recusa com o custo, sem mexer na nave; com
   assert.equal(teleportar(w, a, c.id).ok, true);
   assert.ok(Math.abs(a.ship.en) < 1e-9, 'gastou tudo');
   assert.ok(Math.hypot(a.ship.x - c.ship.x, a.ship.z - c.ship.z) < 30, 'chegou junto dele');
+});
+
+test('minimapa: o companheiro de time é o mesmo triângulo da sua nave, na cor do time, e você por cima', () => {
+  const hud = readFileSync(new URL('../public/js/hud.js', import.meta.url), 'utf8');
+  assert.match(hud, /e\.tipo === 'jogador' && e\.time === this\.meuTime\) \{\s*this\.#setaNoMapa\(x, z, e\.yaw, COR_MEU_TIME\);/);
+  assert.match(hud, /this\.#setaNoMapa\(x, z, eu\.yaw, '#fff'\);/);
+  // Você é desenhado depois do laço dos outros (fica por cima).
+  assert.ok(hud.indexOf("this.#setaNoMapa(x, z, eu.yaw, '#fff')") > hud.indexOf('this.#setaNoMapa(x, z, e.yaw, COR_MEU_TIME)'));
 });

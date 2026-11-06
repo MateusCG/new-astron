@@ -242,7 +242,8 @@ export class Hud {
 
   /**
    * Desenha o minimapa com o mapa fixo, o estado dos objetivos (`obj` do
-   * snapshot) e das torretas (`torretas`), os outros (pontos) e você (seta).
+   * snapshot) e das torretas (`torretas`), os outros (pontos), os companheiros de
+   * time e você (o mesmo triângulo: turquesa e branco).
    * `nevoa` (canvas da grade de visão de nevoa.js, opcional) escurece o que o seu
    * time não vê, esticada sobre o retângulo do mapa.
    */
@@ -282,6 +283,12 @@ export class Hud {
       }
       // O Núcleo e a torre de suporte já têm o ícone fixo; os monstros num ponto maior quanto mais perigosos.
       if (e.tipo === 'nucleo' || e.tipo === 'suporte') continue;
+      // Companheiro de time: o mesmo triângulo da sua nave, virado para onde ele voa, na
+      // cor do time (pedido do Mateus, 06/nov/2026: o quadrado se confundia com os mineradores).
+      if (e.tipo === 'jogador' && e.time === this.meuTime) {
+        this.#setaNoMapa(x, z, e.yaw, COR_MEU_TIME);
+        continue;
+      }
       const t = e.tipo === 'monstro' ? (PONTO_MONSTRO[e.esp] ?? 3.5) : 3.5;
       if (e.tipo === 'monstro') {
         ctx.beginPath();
@@ -289,20 +296,27 @@ export class Hud {
         ctx.fill();
       } else ctx.fillRect(x - t / 2, z - t / 2, t, t);
     }
+    // Você por último, por cima dos companheiros: o triângulo branco.
     if (eu) {
       const [x, z] = this.#paraMapa(eu.x, eu.z);
-      ctx.save();
-      ctx.translate(x, z);
-      ctx.rotate(-eu.yaw);
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.moveTo(0, -5);
-      ctx.lineTo(3.5, 4);
-      ctx.lineTo(-3.5, 4);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
+      this.#setaNoMapa(x, z, eu.yaw, '#fff');
     }
+  }
+
+  /** O triângulo de nave de jogador do minimapa em (x, z) px, apontando para `yaw`. */
+  #setaNoMapa(x, z, yaw, cor) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.translate(x, z);
+    ctx.rotate(-(yaw ?? 0));
+    ctx.fillStyle = cor;
+    ctx.beginPath();
+    ctx.moveTo(0, -5);
+    ctx.lineTo(3.5, 4);
+    ctx.lineTo(-3.5, 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
   }
 
   /**
