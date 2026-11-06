@@ -58,7 +58,7 @@ const FAZER = {
   ataque: 'SN-4 · bônus de ataque',
   suporte: 'Destrua a torre · bônus de suporte',
   sonda: 'Sonda errante · bônus de velocidade',
-  medusa: 'Medusa Anciã · bônus do time',
+  medusa: 'Medusa Anciã', // só o nome (pedido do Mateus, 06/nov/2026)
 };
 
 /** Ícones de traço (SVG 24×24) de cada tipo, para o rótulo, o HUD e o placar. */
@@ -168,7 +168,7 @@ export class ObjetivosNaTela {
       // Livre: o holograma "OURO" e o "Pouse e ganhe ouro · L" do cenário dizem o que fazer.
       return { txt: '', classe: '', barra: null };
     }
-    if (tipo === 'nucleo') return { txt: `${NOME_OBJETIVO.nucleo}${nivel} · onda de mineradores`, classe: 'escudo', barra: r.vida ?? null };
+    if (tipo === 'nucleo') return { txt: `${NOME_OBJETIVO.nucleo}${nivel}`, classe: 'escudo', barra: r.vida ?? null };
     return { txt: FAZER[tipo], classe: '', barra: r.vida ?? null };
   }
 
@@ -182,7 +182,7 @@ export class ObjetivosNaTela {
     this.comBarraPropria = ids;
   }
 
-  /** O texto da faixa do objetivo `id` ("Medusa Anciã · bônus do time"), ou null. */
+  /** O texto da faixa do objetivo `id` ("Medusa Anciã", "Núcleo de He-3 · nível 2"), ou null. */
   textoDoChefe(id) {
     const rot = this.rotulos.get(id);
     return (rot && this.descrever(this.estado.get(id), rot.o.tipo).txt) || null;

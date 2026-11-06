@@ -46,3 +46,9 @@ test('barra de vida: com o chefe na tela, a faixa do objetivo some e o texto del
   // A do Núcleo acima da cúpula.
   assert.match(main, /ROTULO_NUCLEO = ESCUDO\.centroY \+ ESCUDO\.raio/);
 });
+
+test('rótulos: a Medusa e o Núcleo só com o nome (e o nível do Núcleo), sem o bônus', () => {
+  const obj = readFileSync(new URL('../public/js/objetivos.js', import.meta.url), 'utf8');
+  assert.ok(!obj.includes('bônus do time'));
+  assert.ok(!obj.includes('onda de mineradores'));
+});
