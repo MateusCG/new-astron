@@ -1361,8 +1361,12 @@ function montarJogo(rede, boas, renderer, race, classe) {
         // O Núcleo: o nome e a barra acima do alto da cúpula do escudo, não na frente dela.
         else if (e.tipo === 'nucleo') pos = (o.posRotulo ??= new THREE.Vector3()).copy(pos).setY(pos.y + ROTULO_NUCLEO);
         const chefe = e.tipo === 'nucleo' || e.esp === 'medusa';
-        rotulos.push({ id: e.id, nome: e.nome, aliado, hp: e.hp, maxHp: e.maxHp, pos, nivel: e.nivel, piloto: e.tipo === 'jogador', neutro: bicho, chefe, esc: e.esc, res: e.res, tamanho: o.obj.userData.efeitos?.scale.x });
-        if (chefe) chefesComBarra.add(e.tipo === 'nucleo' ? 'NUCLEO' : 'MEDUSA');
+        const idObjetivo = e.tipo === 'nucleo' ? 'NUCLEO' : 'MEDUSA';
+        // O chefe leva o texto da faixa do objetivo como nome (o bônus, o nível do
+        // Núcleo), e a faixa some: um nome só em cima dele.
+        const nome = (chefe && objetivos.textoDoChefe(idObjetivo)) || e.nome;
+        rotulos.push({ id: e.id, nome, aliado, hp: e.hp, maxHp: e.maxHp, pos, nivel: e.nivel, piloto: e.tipo === 'jogador', neutro: bicho, chefe, esc: e.esc, res: e.res, tamanho: o.obj.userData.efeitos?.scale.x });
+        if (chefe) chefesComBarra.add(idObjetivo);
       }
     }
     objetivos.seguir('SONDA', sonda);

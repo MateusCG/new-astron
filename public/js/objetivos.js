@@ -40,9 +40,7 @@ export const LUGARES_OBJETIVO = [
   // A sonda anda em volta da mineradora (pela coluna central); parada, o rótulo fica em cima dela.
   { id: 'SONDA', tipo: 'sonda', x: 0, z: 0, alt: 112 },
   { id: 'MEDUSA', tipo: 'medusa', x: MEDUSA.x, z: MEDUSA.z, alt: 64 },
-  // O Núcleo: acima do nome e da barra de vida dele, que ficam no alto da cúpula (main.js,
-  // ROTULO_NUCLEO), com a mesma folga da Medusa.
-  { id: 'NUCLEO', tipo: 'nucleo', x: NUCLEO.x, z: NUCLEO.z, alt: 82 },
+  { id: 'NUCLEO', tipo: 'nucleo', x: NUCLEO.x, z: NUCLEO.z, alt: 44 },
 ];
 
 /** Nome curto de cada tipo de objetivo (rótulo, notícias e HUD). */
@@ -175,12 +173,19 @@ export class ObjetivosNaTela {
   }
 
   /**
-   * Os objetivos (MEDUSA, NUCLEO) que já têm a barra de vida grande em cima deles na
-   * tela (hud.js): a faixa do objetivo não repete a vida numa barrinha. Fora da visão
-   * do time, sem a barra do chefe, a barrinha da faixa volta (o `obj` é público).
+   * Os objetivos (MEDUSA, NUCLEO) que já têm o rótulo deles na tela, com a barra de vida
+   * grande (hud.js): a faixa do objetivo some para o nome e a vida não aparecerem duas
+   * vezes, e o texto dela vira o nome do rótulo do chefe (textoDoChefe). Fora da visão
+   * do time, sem o rótulo do chefe, a faixa volta com a barrinha (o `obj` é público).
    */
   barraNoChefe(ids) {
     this.comBarraPropria = ids;
+  }
+
+  /** O texto da faixa do objetivo `id` ("Medusa Anciã · bônus do time"), ou null. */
+  textoDoChefe(id) {
+    const rot = this.rotulos.get(id);
+    return (rot && this.descrever(this.estado.get(id), rot.o.tipo).txt) || null;
   }
 
   /** Posiciona os rótulos sobre os objetivos (chamar a cada quadro). */
@@ -192,8 +197,12 @@ export class ObjetivosNaTela {
       const fora = this.v.z > 1 || Math.abs(this.v.x) > 0.95 || Math.abs(this.v.y) > 1 || dist > DIST_ROTULO;
       el.hidden = fora;
       if (fora) continue;
+      // O chefe na tela já mostra o nome e a vida no rótulo dele.
+      if (this.comBarraPropria?.has(o.id)) {
+        el.hidden = true;
+        continue;
+      }
       const d = this.descrever(this.estado.get(o.id), o.tipo);
-      if (this.comBarraPropria?.has(o.id)) d.barra = null;
       const chave = `${d.txt}|${d.classe}|${d.barra}`;
       if (rot.html !== chave) {
         rot.html = chave;

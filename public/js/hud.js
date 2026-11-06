@@ -615,7 +615,8 @@ export class Hud {
    * (do seu time) pinta de turquesa; inimigo (outro time ou monstro) de vermelho. Na
    * etiqueta do piloto o time fica na borda e no "NV", e o nick leva a cor das
    * resistências dele (`res`, [Ph., Op., El.]; corResistencia), como no original.
-   * Entrada: { id, nome, aliado, hp, maxHp, pos, nivel, piloto, proprio, esc, res, neutro, chefe }.
+   * Entrada: { id, nome, aliado, hp, maxHp, pos, nivel, piloto, proprio, esc, res, neutro, chefe, torre }.
+   * As torretas (`torre`) levam a mesma barra das naves de jogador.
    * A barra das naves de jogador e a dos chefes (`chefe`: a Medusa e o Núcleo, numa
    * barra larga) levam uma divisória a cada mil de vida, como no LoL, e os chefes uma mais
    * grossa a cada dez mil (barra-vida-regras.js).
@@ -642,7 +643,7 @@ export class Hud {
       return tag;
     };
     // `tamanho`: a nave grande (até o dobro da primeira) leva os rótulos mais para fora.
-    for (const { id, nome, aliado, hp, maxHp, pos: p, nivel, piloto, proprio, esc, res, neutro, chefe, tamanho = 1 } of lista) {
+    for (const { id, nome, aliado, hp, maxHp, pos: p, nivel, piloto, proprio, esc, res, neutro, chefe, torre, tamanho = 1 } of lista) {
       const dist = camera.position.distanceTo(p);
       if (dist > 450) continue;
       const opacidade = dist > 300 ? String(1 - (dist - 300) / 150) : '1';
@@ -651,7 +652,7 @@ export class Hud {
       if (!proprio) {
         const cima = pos(`c${id}`, p, 6 * tamanho, '-100%', () => {
           const tag = document.createElement('div');
-          tag.className = 'rotulo' + cor + (neutro ? ' neutro' : '') + (piloto ? ' vida-piloto' : '') + (chefe ? ' chefe' : '');
+          tag.className = 'rotulo' + cor + (neutro ? ' neutro' : '') + (piloto || torre ? ' vida-piloto' : '') + (chefe ? ' chefe' : '');
           tag.innerHTML = piloto
             ? '<span class="barra-esc" hidden><i></i></span><span class="barra"><i></i></span>'
             : '<span class="nome"></span><span class="barra"><i></i></span>';
@@ -667,7 +668,7 @@ export class Hud {
           barra.firstChild.style.width = `${Math.max(0, hp / maxHp) * 100}%`;
           // Divisórias (só nas naves de jogador e nos chefes): mudam
           // com a vida máxima (nível, armadura, nave nova, Núcleo mais forte).
-          if ((piloto || chefe) && barra.dataset.max !== String(maxHp)) {
+          if ((piloto || torre || chefe) && barra.dataset.max !== String(maxHp)) {
             barra.dataset.max = String(maxHp);
             const m = marcasDaVida(maxHp);
             barra.classList.toggle('marcas', !!m);
@@ -682,6 +683,9 @@ export class Hud {
           }
           const nv = cima.querySelector('.nv');
           if (nv && nivel) nv.textContent = `NV ${nivel}`;
+          // O nome pode mudar com o rótulo vivo (o do chefe segue o estado do objetivo).
+          const txt = !piloto && cima.querySelector('.nome')?.firstChild;
+          if (txt && txt.nodeType === 3 && txt.nodeValue !== nome) txt.nodeValue = nome;
         }
       }
       // Embaixo da nave de jogador: a etiqueta com o nick e o nível.

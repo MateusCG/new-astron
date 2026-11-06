@@ -26,19 +26,23 @@ test('barra de vida: nos chefes, uma divisória grossa a cada dez mil', () => {
 test('barra de vida: o hud põe as divisórias nas naves de jogador e nos chefes', () => {
   const hud = readFileSync(new URL('../public/js/hud.js', import.meta.url), 'utf8');
   assert.match(hud, /marcasDaVida\(maxHp\)/);
-  assert.match(hud, /\(piloto \|\| chefe\)/);
+  assert.match(hud, /\(piloto \|\| torre \|\| chefe\)/);
+  assert.match(hud, /piloto \|\| torre \? ' vida-piloto'/, 'a torreta com a barra das naves');
+  const torretas = readFileSync(new URL('../public/js/torretas.js', import.meta.url), 'utf8');
+  assert.match(torretas, /torre: true/);
   const main = readFileSync(new URL('../public/js/main.js', import.meta.url), 'utf8');
   assert.match(main, /const chefe = e\.tipo === 'nucleo' \|\| e\.esp === 'medusa';/);
   const css = readFileSync(new URL('../public/css/jogo.css', import.meta.url), 'utf8');
   for (const sel of ['.rotulo.vida-piloto .barra', '.rotulo.chefe .barra', '.rotulo .barra.marcas::after', '.rotulo .barra.marcas-grossas::before']) assert.ok(css.includes(sel), sel);
 });
 
-test('barra de vida: com a barra do chefe na tela, a faixa do objetivo não repete a vida', () => {
+test('barra de vida: com o chefe na tela, a faixa do objetivo some e o texto dela vira o nome dele', () => {
   const main = readFileSync(new URL('../public/js/main.js', import.meta.url), 'utf8');
-  assert.match(main, /chefesComBarra\.add\(e\.tipo === 'nucleo' \? 'NUCLEO' : 'MEDUSA'\)/);
+  assert.match(main, /chefesComBarra\.add\(idObjetivo\)/);
   assert.match(main, /objetivos\.barraNoChefe\(chefesComBarra\)/);
+  assert.match(main, /objetivos\.textoDoChefe\(idObjetivo\)\) \|\| e\.nome/, 'o nome do chefe é o texto da faixa');
   const obj = readFileSync(new URL('../public/js/objetivos.js', import.meta.url), 'utf8');
-  assert.match(obj, /if \(this\.comBarraPropria\?\.has\(o\.id\)\) d\.barra = null;/);
+  assert.match(obj, /if \(this\.comBarraPropria\?\.has\(o\.id\)\) \{\s*el\.hidden = true;/, 'a faixa some com o chefe na tela');
   // A do Núcleo acima da cúpula.
   assert.match(main, /ROTULO_NUCLEO = ESCUDO\.centroY \+ ESCUDO\.raio/);
 });
