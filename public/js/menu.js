@@ -627,6 +627,9 @@ export class Menu {
       } else if (acao === 'pronto') {
         this.#som(SONS_INTERFACE.compra, 0.7);
         this.fila.pronto(this.#escolha());
+      } else if (acao === 'cancelar') {
+        this.#som(SONS_INTERFACE.clique, 0.6);
+        this.fila.cancelarPronto();
       }
       return;
     }
@@ -735,7 +738,7 @@ export class Menu {
         botao.disabled = false;
         botao.textContent = 'Decolar';
       }
-      botao.classList.remove('aguardando', 'pronto-acao');
+      botao.classList.remove('aguardando', 'pronto-acao', 'cancelar-pronto');
       linha.hidden = true;
       aviso.textContent = '';
       tela.classList.remove('travada');
@@ -744,7 +747,10 @@ export class Menu {
     const b = botaoDaFila(this.estadoFila);
     botao.textContent = b.texto;
     botao.disabled = !b.habilitado;
-    botao.classList.toggle('aguardando', !b.habilitado && ['procurando', 'sala', 'conectando'].includes(this.estadoFila.fase));
+    // Pronto apertado: o botão segue com o fio de "esperando os outros", mas clicável
+    // para desfazer o Pronto.
+    botao.classList.toggle('aguardando', (!b.habilitado || b.acao === 'cancelar') && ['procurando', 'sala', 'conectando'].includes(this.estadoFila.fase));
+    botao.classList.toggle('cancelar-pronto', b.acao === 'cancelar');
     botao.classList.toggle('pronto-acao', b.acao === 'pronto');
     tela.classList.toggle('travada', this.#naveTravada());
     aviso.textContent = textoAviso(this.estadoFila.aviso) ?? '';

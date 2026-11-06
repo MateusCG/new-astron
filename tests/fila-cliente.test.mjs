@@ -47,7 +47,7 @@ test('fila no cliente: procurando, o botão fica "Aguardando…" apagado com a e
   assert.equal(l.fracao, null);
 });
 
-test('fila no cliente: na sala o botão vira Pronto, com o contador e a barra; depois do Pronto, Aguardando…', () => {
+test('fila no cliente: na sala o botão vira Pronto, com o contador e a barra; depois do Pronto, Cancelar Pronto', () => {
   const e = aplicarMsgFila(estadoFilaVazio(), sala(), 0);
   assert.equal(e.nova, true);
   assert.deepEqual(botaoDaFila(e), { texto: 'Pronto', habilitado: true, acao: 'pronto' });
@@ -59,7 +59,9 @@ test('fila no cliente: na sala o botão vira Pronto, com o contador e a barra; d
   assert.equal(linhaDaFila(e, 70000, 60).contador, '0:00');
   const pronto = aplicarMsgFila(e, sala({ prontos: 2, voce: { time: 1, pronto: 1 } }), 1000);
   assert.equal(pronto.nova, false, 'a mesma sala');
-  assert.deepEqual(botaoDaFila(pronto), { texto: 'Aguardando…', habilitado: false, acao: null });
+  assert.deepEqual(botaoDaFila(pronto), { texto: 'Cancelar Pronto', habilitado: true, acao: 'cancelar' });
+  const desfeito = aplicarMsgFila(pronto, sala({ prontos: 1, voce: { time: 1, pronto: 0 } }), 2000);
+  assert.deepEqual(botaoDaFila(desfeito), { texto: 'Pronto', habilitado: true, acao: 'pronto' }, 'desfeito, o Pronto volta');
   assert.match(linhaDaFila(pronto, 1000, 60).texto, /Nave travada · 2 de 6 prontos/);
 });
 
@@ -123,7 +125,7 @@ test('fila no cliente: no 3 contra 3, com um em cada time o Pronto acende procur
   assert.deepEqual(botaoDaFila(cedo), { texto: 'Pronto', habilitado: true, acao: 'pronto' });
   assert.match(linhaDaFila(cedo, 0, 60).texto, /2 de 6 pilotos · aperte Pronto para começar já · 0 de 2 prontos/);
   const pronto = aplicarMsgFila(cedo, msg({ cedo: 1, voce: { time: 0, pronto: 1 }, times: [[{ nome: 'Eu', pronto: 1, voce: 1 }], [{ nome: 'B', pronto: 0 }]] }), 0);
-  assert.deepEqual(botaoDaFila(pronto), { texto: 'Aguardando…', habilitado: false, acao: null });
+  assert.deepEqual(botaoDaFila(pronto), { texto: 'Cancelar Pronto', habilitado: true, acao: 'cancelar' }, 'pronto, dá para desfazer');
   assert.match(linhaDaFila(pronto, 0, 60).texto, /Nave travada · 1 de 2 prontos/);
   assert.deepEqual(vagasDaFila(pronto, 'online').inimigo.map((x) => x.tipo), ['oculto', 'procurando', 'procurando'], 'pronto, não troca mais de time');
 });

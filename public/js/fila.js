@@ -91,6 +91,11 @@ export class ConexaoFila {
     this.#enviar({ t: 'pronto', ...escolha });
   }
 
+  /** Desfaz o Pronto (a nave destrava para trocar). */
+  cancelarPronto() {
+    if ((this.estado.fase === 'sala' || this.estado.fase === 'procurando') && this.estado.voce?.pronto) this.#enviar({ t: 'cancelarPronto' });
+  }
+
   /** No 3 contra 3, procurando: passa para o outro time (o servidor confere a vaga). */
   trocarTime() {
     if (this.estado.fase === 'procurando' && !this.estado.voce?.pronto) this.#enviar({ t: 'trocarTime' });

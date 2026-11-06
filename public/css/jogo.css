@@ -1516,6 +1516,18 @@ input:focus {
   animation: fila-varre 1.6s linear infinite;
 }
 
+/* "Cancelar Pronto": o mesmo "Aguardando" em chapa, mas clicável para desfazer o Pronto. */
+.decolar.aguardando.cancelar-pronto {
+  cursor: pointer;
+}
+
+.decolar.aguardando.cancelar-pronto:hover,
+.decolar.aguardando.cancelar-pronto:focus-visible {
+  background: linear-gradient(180deg, #3a1d22, #24121a);
+  color: #ff8a8a;
+  filter: drop-shadow(0 0 12px rgba(255, 90, 90, 0.35));
+}
+
 /* "Pronto": o botão aceso pulsando até o piloto apertar. */
 .decolar.pronto-acao {
   animation: fila-pronto 1.2s ease-in-out infinite;

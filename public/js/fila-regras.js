@@ -5,7 +5,8 @@
 // Jogar. O desenho fica em menu.js e escolha-times.js; a conexão em fila.js.
 //
 // O botão (pedido do Mateus): procurando, "Aguardando…" apagado; com a sala formada,
-// "Pronto" aceso até apertar, e depois "Aguardando…" de novo até todos apertarem; no
+// "Pronto" aceso até apertar, e depois "Cancelar Pronto" (com o fio de "aguardando")
+// até todos apertarem, que desfaz o Pronto para trocar a nave; no
 // fim, "Decolando…". No 3 contra 3, com pelo menos um piloto em cada time no grupo
 // (`cedo` do servidor), o "Pronto" já acende procurando: todos prontos, a partida
 // começa com quem está (pedido do Mateus, para jogar só com um colega). Na pública,
@@ -69,18 +70,22 @@ export function formatarTempo(s, paraCima = false) {
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
 }
 
+const CANCELAR_PRONTO = Object.freeze({ texto: 'Cancelar Pronto', habilitado: true, acao: 'cancelar' });
+
 /**
  * O botão Decolar num modo de fila: { texto, habilitado, acao } (acao 'entrar' |
- * 'pronto' | null).
+ * 'pronto' | 'cancelar' | null). Depois do Pronto o botão continua clicável para
+ * desfazê-lo ("Cancelar Pronto"), como no LoL: o piloto pode trocar a nave.
  */
 export function botaoDaFila(estado) {
   switch (estado?.fase) {
     case 'conectando':
       return { texto: 'Conectando…', habilitado: false, acao: null };
     case 'procurando':
-      return estado.cedo && !estado.voce?.pronto ? { texto: 'Pronto', habilitado: true, acao: 'pronto' } : { texto: 'Aguardando…', habilitado: false, acao: null };
+      if (estado.voce?.pronto) return CANCELAR_PRONTO;
+      return estado.cedo ? { texto: 'Pronto', habilitado: true, acao: 'pronto' } : { texto: 'Aguardando…', habilitado: false, acao: null };
     case 'sala':
-      return estado.voce?.pronto ? { texto: 'Aguardando…', habilitado: false, acao: null } : { texto: 'Pronto', habilitado: true, acao: 'pronto' };
+      return estado.voce?.pronto ? CANCELAR_PRONTO : { texto: 'Pronto', habilitado: true, acao: 'pronto' };
     case 'comecar':
       return { texto: 'Decolando…', habilitado: false, acao: null };
     default:

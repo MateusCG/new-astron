@@ -158,6 +158,9 @@
 //                        (1 contra 1, 2 contra 1...), sem computadores. Na pública,
 //                        o mesmo com 2 pilotos no grupo: os dois começam juntos e um
 //                        computador completa o time deles
+//                       {t:'cancelarPronto'}   desfaz o Pronto (na sala ou procurando):
+//                        a nave e o time destravam; sem Pronto, nada muda; 'fora'
+//                        fora da fila (a partida já começou)
 //                       {t:'sairFila'}   sai (na sala, a desfaz: os outros voltam ao
 //                        começo da fila); fechar a conexão é o mesmo
 //                       (recusa: {t:'resultado', acao, ok:false, codigo} 'invalido',
@@ -618,7 +621,7 @@ const RESERVA_S = 120;
 // as reservas vencidas.
 const PASSO_FILAS_MS = 250;
 // Mensagens da fila (antes do {t:'entrar'}): server/filas.js.
-const PEDIDOS_FILA = new Set(['filas', 'entrarFila', 'escolha', 'trocarTime', 'pronto', 'sairFila']);
+const PEDIDOS_FILA = new Set(['filas', 'entrarFila', 'escolha', 'trocarTime', 'pronto', 'cancelarPronto', 'sairFila']);
 
 async function servirArquivo(req, res) {
   const url = new URL(req.url, 'http://x');
@@ -786,6 +789,7 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
         } else if (msg.t === 'escolha') codigo = filas.escolher(ws, msg);
         else if (msg.t === 'trocarTime') codigo = filas.trocarTime(ws);
         else if (msg.t === 'pronto') codigo = filas.pronto(ws, msg);
+        else if (msg.t === 'cancelarPronto') codigo = filas.cancelarPronto(ws);
         else if (msg.t === 'sairFila') filas.sair(ws);
         if (codigo) ws.send(JSON.stringify({ t: 'resultado', acao: msg.t, ok: false, codigo }));
       } else if (msg?.t === 'entrar' && !jogador && !entrando) {
