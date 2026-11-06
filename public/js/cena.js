@@ -72,6 +72,7 @@ import { criarAgua, TEMPO_AGUA } from './agua.js';
 import { criarNuvens } from './nuvens.js';
 import { instanciaMapa, partesDoModelo, pintar, neon, materialDoMapa, modeloMapaPronto, texturasPbr } from './mapa-modelos.js';
 import { criarEfeitosNucleo } from './nucleo-efeitos.js';
+import { rotulo } from './atalhos.js';
 
 export const CORES = {
   ceuTopo: new THREE.Color('#1c2840'),
@@ -486,42 +487,67 @@ function texturaHolograma(servico, cor) {
 }
 
 /**
- * Textura da linha "Pouse aqui · L" (ou outro `texto` antes do L) que aparece embaixo
- * do holograma com a sua nave perto. O canvas tem 96 de altura e cresce na largura
- * com o texto (512 no mínimo): a Sprite usa `c.width / c.height` para não esticar.
+ * Textura da linha "Pouse aqui · L" (ou outro `texto` antes da tecla) que aparece embaixo
+ * do holograma com a sua nave perto. A tecla é a do pouso no mapa em uso (`rotulo`,
+ * de atalhos.js: "Espaço" se o piloto trocou, o botão no controle), numa caixinha que
+ * cresce com o nome. O canvas tem 96 de altura e cresce na largura com o texto (512 no
+ * mínimo): a Sprite usa `c.width / c.height` para não esticar.
  */
-function texturaPouseAqui(cor, texto = 'Pouse aqui ·') {
+function texturaPouseAqui(cor, texto = 'Pouse aqui ·', tecla = 'L') {
   const c = document.createElement('canvas');
   const fonte = 'bold 54px system-ui, sans-serif';
   const medir = c.getContext('2d');
   medir.font = fonte;
   const larg = medir.measureText(texto).width;
-  c.width = Math.max(512, Math.ceil(larg + 76 + 48));
+  const kLarg = tecla ? Math.max(60, Math.ceil(medir.measureText(tecla).width + 28)) : 0;
+  const total = larg + (tecla ? 16 + kLarg : 0);
+  c.width = Math.max(512, Math.ceil(total + 48));
   c.height = 96;
   const ctx = c.getContext('2d');
   const clara = `#${cor.clone().lerp(new THREE.Color('#ffffff'), 0.6).getHexString()}`;
   ctx.font = fonte;
   ctx.textBaseline = 'middle';
-  const x0 = (c.width - (larg + 76)) / 2;
+  const x0 = (c.width - total) / 2;
   ctx.lineWidth = 10;
   ctx.lineJoin = 'round';
   ctx.strokeStyle = 'rgba(8, 10, 18, 0.75)';
   ctx.strokeText(texto, x0, 50);
   ctx.fillStyle = clara;
   ctx.fillText(texto, x0, 50);
-  // A tecla L numa caixinha, como o <kbd> do HUD.
+  if (!tecla) return texturaDoCanvas(c);
+  // A tecla numa caixinha, como o <kbd> do HUD.
   const kx = x0 + larg + 16;
   ctx.fillStyle = 'rgba(8, 10, 18, 0.75)';
-  ctx.fillRect(kx, 16, 60, 66);
+  ctx.fillRect(kx, 16, kLarg, 66);
   ctx.strokeStyle = clara;
   ctx.lineWidth = 5;
-  ctx.strokeRect(kx, 16, 60, 66);
+  ctx.strokeRect(kx, 16, kLarg, 66);
   ctx.fillStyle = clara;
   ctx.textAlign = 'center';
-  ctx.fillText('L', kx + 30, 51);
+  ctx.fillText(tecla, kx + kLarg / 2, 51);
+  return texturaDoCanvas(c);
+}
+
+function texturaDoCanvas(c) {
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
+}
+
+/**
+ * Põe na placa "Pouse aqui" a tecla do pouso em uso, se mudou (trocou o atalho na aba
+ * Configurações ou passou do teclado para o controle): refaz a textura e a largura.
+ */
+function atualizarTeclaPouse(h) {
+  const tecla = rotulo('pouso');
+  if (tecla === h.tecla) return;
+  h.tecla = tecla;
+  const mat = h.pouse.material;
+  mat.map?.dispose();
+  mat.map = texturaPouseAqui(h.cor, h.textoPouse, tecla);
+  mat.needsUpdate = true;
+  const l = HOLO_SERVICO.largura;
+  h.pouse.scale.set((l * mat.map.image.width) / 512, (l * 96) / 512, 1);
 }
 
 /** Cortina de luz aditiva subindo do aro da plataforma (`cfg`: CORTINA_SERVICO ou CORTINA_BASE): riscos verticais, anéis subindo e o pé aceso. */
@@ -643,20 +669,20 @@ function brilhoAguaServico(cor, cfg = BRILHO_AGUA_SERVICO) {
 
 /**
  * Holograma no ar da plataforma de serviço: o ícone e o nome numa Sprite (sempre de
- * frente para a câmera) e, embaixo, o "Pouse aqui · L", que só aparece com a sua nave
- * perto. Os dois sem neblina, para o holograma ler de longe.
+ * frente para a câmera) e, embaixo, o "Pouse aqui · L" (a tecla do pouso em uso), que
+ * só aparece com a sua nave perto. Os dois sem neblina, para o holograma ler de longe.
  */
 function hologramaServico(servico, cor, textoPouse) {
   const g = new THREE.Group();
   const l = HOLO_SERVICO.largura;
   const holo = new THREE.Sprite(new THREE.SpriteMaterial({ map: texturaHolograma(servico, cor), transparent: true, depthWrite: false, fog: false }));
   holo.scale.set(l, l, 1);
-  const texPouse = texturaPouseAqui(cor, textoPouse);
-  const pouse = new THREE.Sprite(new THREE.SpriteMaterial({ map: texPouse, transparent: true, depthWrite: false, fog: false, opacity: 0 }));
-  pouse.scale.set((l * texPouse.image.width) / 512, (l * 96) / 512, 1);
+  const pouse = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false, fog: false, opacity: 0 }));
   pouse.position.y = -l * 0.62;
   g.add(holo, pouse);
-  return { grupo: g, holo, pouse };
+  const h = { grupo: g, holo, pouse, cor, textoPouse, tecla: undefined };
+  atualizarTeclaPouse(h);
+  return h;
 }
 
 /**
@@ -689,6 +715,7 @@ function atualizarServico(sv, dt, foco) {
   const pisca = Math.sin(t * 17 + sv.fase) * Math.sin(t * 3.1) > 0.92 ? 0.3 : 0;
   h.holo.material.opacity = (0.85 + 0.15 * sv.forca - pisca) * ligado;
   h.pouse.material.opacity = sv.forca * ligado;
+  if (sv.forca > 0.01) atualizarTeclaPouse(h);
 }
 
 /** Membrana do portal: redemoinho aditivo na cor do time (troca o portal_time do glb). */
