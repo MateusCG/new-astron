@@ -87,9 +87,9 @@ test('recomendados: raça ou classe desconhecida dá seções vazias, sem quebra
   for (const s of recomendadosDe(null, null)) assert.deepEqual(s.itens, []);
 });
 
-test('recomendados: a dica de cada seção de equipamento', () => {
+test('recomendados: a dica de cada seção', () => {
   const dica = Object.fromEntries(SECOES_RECOMENDADOS.map((s) => [s.id, s.dica]));
-  assert.equal(dica.armas, undefined);
+  assert.equal(dica.armas, 'Escolha sua arma pelo tipo de dano que mais deseja causar: Op., Ph. ou El.');
   assert.equal(dica.escudo, 'escolha um: Op., Ph. ou El., pelo dano que mais te acerta');
   assert.equal(dica.armadura, 'escolha um: Op., Ph. ou El., pelo dano que mais te acerta');
   assert.equal(dica.potenciador, 'escolha um: Op., Ph. ou El., para potencializar seus status');

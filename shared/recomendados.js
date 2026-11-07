@@ -6,7 +6,8 @@
 // Nas seções de equipamento a recomendação é UM dos três tipos (Op., Ph. ou El.),
 // então as três versões aparecem, com a dica de como escolher (`dica`): o escudo e
 // a armadura pelo dano que mais acerta o piloto, o potenciador para potencializar
-// os status dele.
+// os status dele. A de armas (pedido do Mateus, 07/nov/2026) lembra que a arma se
+// escolhe pelo tipo de dano que o piloto quer causar.
 // Raça sem armas escolhidas (null na lista) mostra "EM BREVE" na seção.
 //
 // As chaves são as do catálogo (WEAPONS em shared/armas.js, EQUIPAMENTOS em
@@ -21,7 +22,7 @@ const PELO_DANO = tr('escolha um: Op., Ph. ou El., pelo dano que mais te acerta'
 
 /** Ordem das seções da aba, com o nome, a categoria do item e a dica ao lado do título. */
 export const SECOES_RECOMENDADOS = [
-  { id: 'armas', nome: tr('Armas'), categoria: 'arma' },
+  { id: 'armas', nome: tr('Armas'), categoria: 'arma', dica: tr('Escolha sua arma pelo tipo de dano que mais deseja causar: Op., Ph. ou El.') },
   { id: 'escudo', nome: tr('Escudos'), categoria: 'escudo', dica: PELO_DANO },
   { id: 'armadura', nome: tr('Armaduras'), categoria: 'armadura', dica: PELO_DANO },
   { id: 'potenciador', nome: tr('Potenciadores'), categoria: 'potenciador', dica: tr('escolha um: Op., Ph. ou El., para potencializar seus status') },

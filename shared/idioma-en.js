@@ -594,6 +594,7 @@ export const EN = {
   '-{n}% de dano recebido': '-{n}% damage taken',
   '+{n}% de velocidade': '+{n}% speed',
   '+{hp}% de HP e +{dano}% de dano': '+{hp}% HP and +{dano}% damage',
+  'Escolha sua arma pelo tipo de dano que mais deseja causar: Op., Ph. ou El.': 'Choose your weapon by the type of damage you most want to deal: Op., Ph. or El.',
   'escolha um: Op., Ph. ou El., pelo dano que mais te acerta': 'pick one: Op., Ph. or El., by the damage that hits you the most',
   'Escudos': 'Shields',
   'Armaduras': 'Armors',
