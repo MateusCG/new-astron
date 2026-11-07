@@ -556,3 +556,7 @@ Copiadas pelo mesmo `tools/efeitos3d_do_original.py` com as explosões do origin
 | `1163003_08.png` | 64×64 px, 2.3 KB | #1cff21 | 2163004 (o Reforço de Escudo na nave, efeito 15 do `CUnit::LoadResource`) |
 | `1163003_09.png` | 64×64 px, 1.7 KB | #47ff4c | 2163004 (o Reforço de Escudo na nave, efeito 15 do `CUnit::LoadResource`) |
 | `1163003_10.png` | 64×64 px, 1.5 KB | #34ff38 | 2163004 (o Reforço de Escudo na nave, efeito 15 do `CUnit::LoadResource`) |
+| `target01.png` | 32×32 px, 0.1 KB | #00ff03 | target01 (os triângulos da mira travada do Z, sólidos; `CTargetCursor`, `public/js/mira-alvo.js`) |
+| `target001.png` | 32×32 px, 0.3 KB | #00ff00 | target01 (o ponto que pisca no meio da mira do Z) |
+| `target02.png` | 32×32 px, 0.1 KB | #00bc29 | target02 (os triângulos da mira travada do X, sólidos) |
+| `target002.png` | 32×32 px, 0.4 KB | #00bc29 | target02 (o anel que pisca no meio da mira do X) |

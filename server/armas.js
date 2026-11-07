@@ -10,9 +10,12 @@
 //   mais perto num cone de ±guia.cone rad à frente do míssil até guia.alcance m.
 //   A altura acompanha a do alvo, para não passar por cima. Fora do cone, segue
 //   reto: dá para escapar virando forte.
-// - Mira: no disparo, o alvo pelo modo do original: 'alvo_a_frente' (o de menor
-//   desvio do nariz num cone de MIRA_CONE), 'mais_perto_no_raio' e
-//   'aleatorio_no_raio' (sem sorte: o índice sai do tick e do id do tiro).
+// - Mira: o tiro da nave trava pela mira do original (shared/mira.js: a esfera à
+//   frente do nariz, a mesma que o cliente desenha; server/golpes.js, #alvoDaNave). O
+//   tiro que nasce de outro (subprojétil, mina que atira) mira daqui, de onde ele
+//   está: 'alvo_a_frente' (o de menor desvio do rumo num cone de MIRA_CONE),
+//   'mais_perto_no_raio' e 'aleatorio_no_raio' (sem sorte: o índice sai do tick e do
+//   id do tiro).
 // - Área: distância no plano, com até AREA_ALTURA m de diferença de altura, e
 //   somando o raio do alvo (monstro grande pega de mais longe). O campo de força das
 //   bases (CAMPOS_BASE em shared/terrain.js) corta a área: centro e alvo em lados

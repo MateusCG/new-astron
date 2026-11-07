@@ -147,6 +147,9 @@ export const EFEITOS_ORIGINAIS = Object.freeze([
   '1322063', '1322064', '1421030',
   // Estados na nave: o fogo do Magma e os ícones.
   '1164001', 'cross003', 'cross002', 'cross007', 'cross008', 'cross010', 'cross011', 'cross013',
+  // A mira travada das armas de alvo (CTargetCursor: TARGET01 no Z, TARGET02 no X;
+  // public/js/mira-alvo.js).
+  'target01', 'target02',
 ]);
 
 /**

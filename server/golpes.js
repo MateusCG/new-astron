@@ -63,6 +63,8 @@ import {
 } from '../shared/armas.js';
 import { alvoDoMissil, guiarMissil, escolherAlvo, tiroFilho, alturaNoChao, naArea, yawPara, semCampoNoMeio } from './armas.js';
 import { cruzaCampoBase } from '../shared/terrain.js';
+import { alvoDaMira } from '../shared/mira.js';
+import { TORRETA as PLANTA_TORRETA } from '../shared/obstaculos.js';
 
 export const INVISIVEL_VISTO_M = 25; // m: invisível a esta distância de um inimigo aparece para ele
 export const INVISIVEL_TIRO_S = 0.5; // s: atirar mostra o invisível por este tempo
@@ -145,7 +147,7 @@ export class Golpes {
       const s = ent.ship;
       if (g.forma === 'projetil') {
         const b = createBullet(s, d.kind, this.#id(), ent.id, d.off, d.ang, f.nivel, g);
-        this.#prepararTiro(b, f, g, s.yaw + (d.ang ?? 0));
+        this.#prepararTiro(b, f, g, s.yaw + (d.ang ?? 0), ent);
         b.enc = d.enc; // de qual encaixe saiu (o cliente desenha da boca daquela arma)
         this.#lancar(b, g);
       } else if (g.forma === 'nova') {
@@ -205,13 +207,18 @@ export class Golpes {
     }
   }
 
-  /** Completa o tiro com quem atirou, a mira (trava o alvo ou aponta para ele) e o golpe. */
-  #prepararTiro(b, f, g, yaw) {
+  /**
+   * Completa o tiro com quem atirou, a mira (trava o alvo ou aponta para ele) e o golpe.
+   * `nave`: a entidade que atirou da nave (o disparo do Z e do X); a mira dela é a do
+   * original (shared/mira.js), a mesma que o cliente desenha. Sem ela (subprojétil,
+   * mina que atira), a mira sai do próprio tiro (escolherAlvo).
+   */
+  #prepararTiro(b, f, g, yaw, nave = null) {
     Object.assign(b, { owner: f.id, kind: f.kind, nivel: f.nivel, drone: f.drone, time: f.time, mult: f.mult, g, nasceu: this.tick });
     b.origem = { x: b.x, z: b.z }; // de onde o alcance conta (o tiro travado que passa dele erra: #saiuDoAlcance)
     if (!g.inimigo) b.dano = 0; // carga e suporte não ferem (nem torre)
     if (g.mira) {
-      const alvo = escolherAlvo(g.mira, this.#candidatos(b, g), b.x, b.z, yaw, this.tick + b.id);
+      const alvo = nave ? this.#alvoDaNave(nave, b, g) : escolherAlvo(g.mira, this.#candidatos(b, g), b.x, b.z, yaw, this.tick + b.id);
       if (alvo && g.guia) b.alvo = alvo.id;
       else if (alvo) {
         // Mira sem curva: o tiro sai apontado para o alvo.
@@ -224,6 +231,40 @@ export class Golpes {
         }
       }
     }
+  }
+
+  /**
+   * O alvo da mira do tiro `b` que a `nave` disparou (shared/mira.js: a esfera à frente
+   * do nariz, o mais perto da linha dele), entre o que a mira da tela pode mostrar: o
+   * que o tiro acerta e o time da nave enxerga (a névoa), sem campo de força de base no
+   * meio e sem camuflado; no golpe que fere, também as torres sentinela do outro time
+   * de pé. null sem ninguém.
+   */
+  #alvoDaNave(nave, b, g) {
+    const s = nave.ship;
+    const visao = this.world.visao;
+    const ve = (a) => a.time === nave.time || !visao || visao.vePonto(nave.time, a.ship.x, a.ship.z);
+    const lista = this.#candidatos(b, g).filter((a) => ve(a) && (a.time === nave.time || !this.invisivel(a)));
+    if (g.inimigo && !nave.drone && nave.time !== undefined) {
+      for (const t of this.world.torretas?.lista ?? []) {
+        if (t.viva && t.time !== nave.time && !cruzaCampoBase(s.x, s.z, t.x, t.z)) lista.push(this.#torretaComoAlvo(t));
+      }
+    }
+    const cands = lista.map((a) => ({ id: a.id, x: a.ship.x, y: a.ship.y, z: a.ship.z, raio: a.ship.raio ?? SHIP_RADIUS, a }));
+    return alvoDaMira(g.mira, cands, s.x, s.z, s.yaw, { y: s.y, semente: this.tick + b.id })?.a ?? null;
+  }
+
+  /** A torre sentinela `t` (server/torretas.js) com a forma de alvo do tiro travado (`ship`). */
+  #torretaComoAlvo(t) {
+    return { id: t.id, tipo: 'torreta', time: t.time, vivo: t.viva, ship: { x: t.x, y: t.y, z: t.z, raio: PLANTA_TORRETA.raio } };
+  }
+
+  /** O alvo travado de id `id`: entre os `vivos` ou uma torre sentinela de pé (a mira da nave trava nelas). */
+  #alvoTravado(id, vivos) {
+    const a = vivos.find((v) => v.id === id);
+    if (a || typeof id !== 'string') return a ?? null;
+    const t = this.world.torretas?.torreta(id);
+    return t?.viva ? this.#torretaComoAlvo(t) : null;
   }
 
   /** O tiro entra no mundo (ou na lista `novos`, que entra no fim do passo) e vira o evento 'tiro'. */
@@ -285,7 +326,7 @@ export class Golpes {
       const g = b.g ?? golpeDaArma(b.kind, b.nivel ?? 1, b.prof ?? 0);
       if (this.#saiuDoAlcance(b, g, vivos)) return false; // errou: o alvo fugiu do alcance
       if (g?.guia && this.tick - (b.nasceu ?? 0) >= ticks(g.guia.comeca)) {
-        let alvo = b.alvo ? vivos.find((a) => a.id === b.alvo) : null;
+        let alvo = b.alvo ? this.#alvoTravado(b.alvo, vivos) : null;
         if (!alvo) alvo = alvoDoMissil(b, this.#candidatosDe(b, g, vivos), g.guia);
         guiarMissil(b, alvo, g.guia);
       }
@@ -345,7 +386,7 @@ export class Golpes {
   #saiuDoAlcance(b, g, vivos) {
     const alcance = g?.alcance ?? g?.guia?.alcance;
     if (b.alvo === undefined || b.alvo === null || !b.origem || !(alcance > 0)) return false;
-    const alvo = vivos.find((a) => a.id === b.alvo);
+    const alvo = this.#alvoTravado(b.alvo, vivos);
     if (!alvo) return false;
     const s = alvo.ship;
     if (Math.hypot(s.x - b.origem.x, s.z - b.origem.z) - (s.raio ?? SHIP_RADIUS) <= alcance) return false;

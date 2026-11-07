@@ -111,10 +111,10 @@
 // WebGL fica, porque é reaproveitado na próxima entrada.
 
 import * as THREE from 'three';
-import { DT, RACES, WEAPONS, VEL_TOQUE, createBullet, stepShip, bulletHits, forward, pousoPermitido } from '/shared/sim.js';
+import { DT, HOVER, RACES, WEAPONS, VEL_TOQUE, createBullet, stepShip, bulletHits, forward, pousoPermitido } from '/shared/sim.js';
 import { golpeDaArma, golpePrevisivel, versaoArma, visualDoOriginal } from '/shared/armas.js';
 import { disparoOriginal, turboNaNave } from './disparo-regras.js';
-import { naveDe } from '/shared/naves.js';
+import { naveDe, FATOR_TAMANHO_NAVE } from '/shared/naves.js';
 import { areaPouso, heightAt } from '/shared/terrain.js';
 import { alturaSolida, TORRE_SUPORTE } from '/shared/obstaculos.js';
 import { criarCena, liberarCena } from './cena.js';
@@ -144,7 +144,9 @@ import { iniciarJoystick, controlesLigados } from './joystick.js';
 import { Hud, BONUS_NAVE } from './hud.js';
 import { ObjetivosNaTela, LUGARES_OBJETIVO, NOME_OBJETIVO, ALT_ROTULO_SUPORTE } from './objetivos.js';
 import { criarLimitador } from './quadros.js';
-import { criarMonstro, animarMonstro, surgirMonstro, criarMarcadorNucleo, ROTULO_MONSTRO } from './monstros.js';
+import { criarMonstro, animarMonstro, surgirMonstro, criarMarcadorNucleo, ROTULO_MONSTRO, CENTRO_MONSTRO } from './monstros.js';
+import { MiraAlvo } from './mira-alvo.js';
+import { alvosDaMira, RitmoDaMira } from './mira-alvo-regras.js';
 import { TorretasNaTela } from './torretas.js';
 import { Rede } from './rede.js';
 import { ArmasNave } from './armas.js';
@@ -495,6 +497,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
   efeitos.sons = sons; // a volta à base toca o som junto com a animação
   // Nave, torre e monstro destruídos como no original: caem e explodem (destruicao-3d.js).
   const destruicoes = new Destruicoes({ scene, camera, som: (nome, x, z) => somNoMundo(nome, x, z) });
+  // A mira travada das armas de alvo: os triângulos verdes do original (mira-alvo.js).
+  const miraAlvo = new MiraAlvo({ scene, camera, escala: FATOR_TAMANHO_NAVE });
   const nevoa = new Nevoa({ renderer, scene, meuTime }); // névoa de guerra (visão do time)
   const controles = new Controles(document.body);
   const hud = new Hud({ meuTime });
@@ -1202,6 +1206,35 @@ function montarJogo(rede, boas, renderer, race, classe) {
     return a + d * k;
   };
 
+  /**
+   * O alvo da mira travada de cada encaixe [Z, X] (mira-alvo-regras.js: a regra do
+   * servidor, sobre o que está desenhado), com o lugar desenhado dele: a nave ou o
+   * monstro na tela (o centro do corpo, no monstro que sobe) ou a torre sentinela.
+   */
+  const posMira = [new THREE.Vector3(), new THREE.Vector3()];
+  const ritmoMira = new RitmoDaMira();
+  function alvosNaTela(poses) {
+    const eu = { id: meuId, time: meuTime, x: foco.x, y: foco.y, z: foco.z, yaw: minhaNave.rotation.y };
+    const torres = torretas.estados();
+    const existe = (a) => (a.torreta ? !!torres.find((t) => t.id === a.id)?.viva : !!outras.get(a.id)?.obj.visible);
+    const chave = `${pred.encaixes}|${pred.nivEnc}`;
+    const alvos = ritmoMira.alvos(tempo, chave, existe, () =>
+      alvosDaMira({ eu, encaixes: pred.encaixes, nivEnc: pred.nivEnc, ents: poses, torretas: torres }),
+    );
+    return alvos.map((a, enc) => {
+      if (!a || !existe(a)) return null;
+      const pos = posMira[enc];
+      if (a.torreta) pos.set(a.x, a.y, a.z);
+      else {
+        const o = outras.get(a.id);
+        pos.copy(o.obj.position);
+        const esp = o.obj.userData.esp;
+        if (o.tipo === 'monstro' && CENTRO_MONSTRO[esp]) pos.y += CENTRO_MONSTRO[esp] - HOVER;
+      }
+      return { id: a.id, raio: a.raio, pos };
+    });
+  }
+
   /** Pose interpolada das outras naves no instante de desenho (passado). */
   function posesOutras() {
     const t = performance.now() - INTERP_MS;
@@ -1399,6 +1432,11 @@ function montarJogo(rede, boas, renderer, race, classe) {
     // Torretas: queda, subida e a cabeça atrás do alvo (posição desenhada dele).
     torretas.quadro(dt, tempo, (id) => (id === meuId ? (vivo ? foco : null) : outras.get(id)?.obj.position ?? null));
     rotulos.push(...torretas.rotulos());
+    if (vivo && pred && !resultado.aberto) miraAlvo.atualizar(dt, alvosNaTela(poses));
+    else {
+      miraAlvo.atualizar(dt, null);
+      ritmoMira.limpar();
+    }
     // A sua nave também leva a etiqueta com o nick e o nível embaixo.
     if (vivo && meuNome) rotulos.push({ id: meuId, nome: meuNome, aliado: true, pos: minhaNave.position, nivel: extra.nivel, piloto: true, proprio: true, res: extra.res, tamanho: minhaNave.userData.efeitos.scale.x });
     for (const [id, o] of outras) {
@@ -1595,6 +1633,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     objetivos.limpar();
     torretas.limpar();
     renderer.domElement.remove();
+    miraAlvo.limpar();
     efeitos.liberar();
     nevoa.liberar();
     liberarCena(scene);

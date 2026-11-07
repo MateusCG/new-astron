@@ -33,7 +33,9 @@
 //   onda de choque. Tiro de aliado, de monstro, de minerador ou de escolta bate
 //   nela e some (é sólida). A escolta não mira torreta (ver server/escoltas.js):
 //   destruir as defesas é trabalho dos pilotos. Efeitos de arma (dreno, lentidão,
-//   EMP) não pegam em estrutura, e o míssil não a persegue (só curva atrás de nave).
+//   EMP) não pegam em estrutura. O teleguiado sem trava não a persegue (só curva atrás
+//   de nave), mas a mira da nave trava nela como no original (shared/mira.js: os
+//   triângulos verdes aparecem na torre) e o tiro travado vai nela.
 // - Destruída: sai da física nos dois lados (definirObstaculoAtivo, como a torre
 //   do buff de suporte), quem deu o último tiro ganha o XP de RECOMPENSA.torreta (os aliados
 //   perto também, a XP do wing: World.xpDoWing) e o ouro

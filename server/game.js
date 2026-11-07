@@ -1253,7 +1253,8 @@ export class World {
    * e `minerando`, `descarga: 1` enquanto despejam na bacia da base e os da onda do Núcleo
    * `nucleo: 1`. A torre de suporte e o SN-4 trazem `obj` (o id do objetivo). Jogador traz `nivel`, `classe` e
    * `tier` (a nave a desenhar), com escudo equipado `esc` (fração 0 a 1 do escudo) e,
-   * com bônus de nave, `bn` (['ataque', 'suporte', 'sonda'], os ativos).
+   * com bônus de nave, `bn` (['ataque', 'suporte', 'sonda'], os ativos). Quem tem raio
+   * de acerto traz `r` (m), para a mira travada do cliente (shared/mira.js).
    */
   entidades() {
     const lista = [];
@@ -1278,6 +1279,8 @@ export class World {
         lento: e.ship.lento > 0,
         emp: e.ship.emp > 0,
       };
+      // Raio de acerto: a mira travada do cliente escolhe o alvo com ele, como o servidor (shared/mira.js).
+      if (e.ship.raio !== undefined) ent.r = +e.ship.raio.toFixed(1);
       const fx = this.golpes.visiveis(e);
       if (fx.length) ent.fx = fx;
       if (e.time !== undefined) ent.time = e.time;

@@ -49,3 +49,5 @@ Escala no jogo: os golpes dos monstros (projétil, clarão, impacto, explosão) 
 | `1322063.json` | Armadilha Paralisante (Medusa): a esfera ciano | 1 | 30 (1.25 s) | — | 26 KB |
 | `1322064.json` | Canhão de Pedra e Disparo de Controle (Medusa): partículas verdes, duas variantes | 2 | 41 (1.71 s) | — | 9 KB |
 | `1421030.json` | impacto do Canhão de Pedra (Medusa): respingo verde | 5 | 11 (0.46 s) | — | 10 KB |
+| `target01.json` | mira travada do Z (`CTargetCursor`, TARGET01): três triângulos verde-vivos que fecham de 424 a 29,5 unidades do original em 10 quadros e o ponto piscando; virada para a câmera, por cima de tudo, × 0,5 (`public/js/mira-alvo.js`) | 4 | 12 (0.50 s) | — | 7 KB |
+| `target02.json` | mira travada do X (TARGET02): o mesmo em verde-escuro, girada 60° (seis triângulos com o Z no mesmo alvo) e com o anel piscando | 4 | 12 (0.50 s) | — | 7 KB |

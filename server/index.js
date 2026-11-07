@@ -349,7 +349,11 @@
 //         minimapa e dos rótulos
 //   ents: [{id, nome, tipo, drone, vivo, race, x, y, z, yaw, roll, hp, maxHp, boost, pousado,
 //           dreno, lento, emp, fx?, time?, carga?, minerando?, descarga?, nivel?, classe?, tier?,
-//           arm?, esc?, res?, recall?, bn?, nucleo?, esp?}]
+//           arm?, esc?, res?, recall?, bn?, nucleo?, esp?, r?}]
+//         r = raio de acerto (m): a mira travada do cliente escolhe o alvo com ele,
+//         pela mesma regra do servidor (shared/mira.js; a esfera à frente do nariz);
+//         o tiro da nave com mira trava nesse alvo, e também nas torres sentinela do
+//         outro time (b.alvo = id da torre, 'T1-2');
 //         bn = bônus de nave ativos do jogador ('ataque' | 'suporte' | 'sonda');
 //         nucleo = 1 no minerador da onda do Núcleo (maior, mais lento, carga 50);
 //         descarga = 1 no minerador parado em cima de uma vaga da bacia da base
