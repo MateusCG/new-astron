@@ -57,7 +57,7 @@ test('recomendados: os itens da lista do Mateus', () => {
   assert.deepEqual(armas('bellico', 'functional'), ['Feixe Perfurante Circular', 'Feixe Clone Duplo', 'Canhão em Fila', 'Vulcan Tempestade Teleguiada', 'Reparador de Escudo']);
   assert.deepEqual(armas('shrewdo', 'assault'), ['Metralha Trovão', 'Feixe Triplo', 'Canhão Tempestade em Leque', 'Invulnerabilidade', 'Camuflagem']);
   assert.deepEqual(armas('shrewdo', 'mobile'), ['Feixe Triplo', 'Feixe de Magma', 'Raio Rastreador', 'Canhão Desgoverno', 'Acelerador']);
-  assert.deepEqual(armas('shrewdo', 'functional'), ['Rifle de Magma', 'Feixe Triplo', 'Feixe de Magma', 'Canhão Paralisante', 'Acelerador']);
+  assert.deepEqual(armas('shrewdo', 'functional'), ['Rifle de Magma', 'Feixe Triplo', 'Feixe de Magma', 'Feixe Elétrico Duplo', 'Acelerador']);
 
   const equip = (classe, i) => nomes(recomendadosDe('acron', classe)[i].itens);
   assert.deepEqual(equip('assault', 1), ['Escudo Máximo Op.', 'Escudo Máximo Ph.', 'Escudo Máximo El.']);

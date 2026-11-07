@@ -65,8 +65,8 @@ export const ARMAS_RECOMENDADAS = {
     assault: ['o311009', 'o311008', 'o312001', 'o312017', 'o312014'],
     // Feixe Triplo, Feixe de Magma, Raio Rastreador, Canhão Desgoverno, Acelerador
     mobile: ['o311008', 'o311007', 'o312030', 'o312024', 'o312016'],
-    // Rifle de Magma, Feixe Triplo, Feixe de Magma, Canhão Paralisante, Acelerador
-    functional: ['o311032', 'o311008', 'o311007', 'o312003', 'o312016'],
+    // Rifle de Magma, Feixe Triplo, Feixe de Magma, Feixe Elétrico Duplo, Acelerador
+    functional: ['o311032', 'o311008', 'o311007', 'o312038', 'o312016'],
   },
 };
 
