@@ -579,7 +579,8 @@
 //                                    'partida')
 
 import http from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { WebSocketServer } from 'ws';
@@ -636,6 +637,30 @@ const PASSO_FILAS_MS = 250;
 // Mensagens da fila (antes do {t:'entrar'}): server/filas.js.
 const PEDIDOS_FILA = new Set(['filas', 'entrarFila', 'escolha', 'trocarTime', 'pronto', 'cancelarPronto', 'sairFila']);
 
+/**
+ * O intervalo de um cabeçalho Range (`bytes=a-b`, `bytes=a-`, `bytes=-n`) num arquivo de
+ * `tamanho` bytes: {inicio, fim} (fim incluso), null sem Range (ou com vários intervalos,
+ * que vão inteiros) e false se o intervalo não cabe no arquivo (416).
+ */
+export function intervaloPedido(range, tamanho) {
+  const m = /^bytes=(\d*)-(\d*)$/.exec(String(range ?? '').trim());
+  if (!m || (m[1] === '' && m[2] === '')) return null;
+  let inicio;
+  let fim;
+  if (m[1] === '') {
+    inicio = Math.max(0, tamanho - Number(m[2]));
+    fim = tamanho - 1;
+  } else {
+    inicio = Number(m[1]);
+    fim = m[2] === '' ? tamanho - 1 : Math.min(Number(m[2]), tamanho - 1);
+  }
+  if (!(inicio <= fim) || inicio >= tamanho) return false;
+  return { inicio, fim };
+}
+
+// Pedidos com Range (o <audio> da música da partida, public/js/musica.js, pede assim para
+// tocar em fluxo e voltar ao começo ao repetir) saem em pedaços lidos do disco, com 206;
+// sem Range, o arquivo inteiro, como sempre.
 async function servirArquivo(req, res) {
   const url = new URL(req.url, 'http://x');
   let rota = decodeURIComponent(url.pathname);
@@ -645,12 +670,32 @@ async function servirArquivo(req, res) {
     const arquivo = path.join(pasta, rota.slice(prefixo.length));
     // Nada de "../": o arquivo tem que ficar dentro da pasta mapeada.
     if (!arquivo.startsWith(pasta + path.sep)) break;
+    const tipo = TIPOS[path.extname(arquivo)] ?? 'application/octet-stream';
     try {
+      const info = req.headers.range ? await stat(arquivo) : null;
+      if (info && !info.isFile()) break;
+      const tamanho = info?.size ?? 0;
+      const pedaco = req.headers.range ? intervaloPedido(req.headers.range, tamanho) : null;
+      if (pedaco === false) {
+        res.writeHead(416, { 'content-range': `bytes */${tamanho}` });
+        res.end();
+        return;
+      }
+      if (pedaco) {
+        res.writeHead(206, {
+          'content-type': tipo,
+          'cache-control': 'no-cache',
+          'accept-ranges': 'bytes',
+          'content-range': `bytes ${pedaco.inicio}-${pedaco.fim}/${tamanho}`,
+          'content-length': pedaco.fim - pedaco.inicio + 1,
+        });
+        createReadStream(arquivo, { start: pedaco.inicio, end: pedaco.fim })
+          .on('error', () => res.destroy())
+          .pipe(res);
+        return;
+      }
       const dados = await readFile(arquivo);
-      res.writeHead(200, {
-        'content-type': TIPOS[path.extname(arquivo)] ?? 'application/octet-stream',
-        'cache-control': 'no-cache',
-      });
+      res.writeHead(200, { 'content-type': tipo, 'cache-control': 'no-cache', 'accept-ranges': 'bytes' });
       res.end(dados);
       return;
     } catch {

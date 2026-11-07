@@ -50,8 +50,8 @@
 //   volta dele (ex. 0.05 = ±5%), para a mesma metralhadora não soar como máquina de
 //   repetir. Isto é cliente e só visual/sonoro: Math.random aqui não afeta a simulação.
 // - Três canais de volume, cada um com o seu ganho: efeitos (tudo o que `tocar` e
-//   `tocarInterface` tocam), música (`saidaMusica`, onde a trilha vai se ligar quando
-//   existir) e o locutor (`tocarLocutor`: a voz do First Blood, Double Kill etc., de
+//   `tocarInterface` tocam), música (`saidaMusica`, onde a trilha da partida se liga:
+//   musica.js) e o locutor (`tocarLocutor`: a voz do First Blood, Double Kill etc., de
 //   locutor.js; pedido do Mateus, com barra própria). Os três passam pelo mestre, que só
 //   cuida do mudo: o M desliga tudo sem mexer nos ajustes. Volumes e mudo ficam no localStorage (dentro de try/catch:
 //   navegação privada ou armazenamento bloqueado não podem impedir o jogo de abrir).

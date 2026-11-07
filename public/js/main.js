@@ -136,6 +136,7 @@ const ROTULO_NUCLEO = ESCUDO.centroY + ESCUDO.raio;
 /** Monstros com a barra de chefe (a barra larga do rótulo): os dos objetivos. */
 const CHEFES_JUNGLE = new Set(['medusa', 'sn4', 'sonda']);
 import { Sons, SONS_INTERFACE, SONS_VOLTA, SONS_NUCLEO, VOLUME_TIRO_PROPRIO } from './sons.js';
+import { MusicaPartida } from './musica.js';
 import { PainelVolume } from './volume.js';
 import { Efeitos, COR_TIME } from './efeitos.js';
 import { Controles } from './controles.js';
@@ -254,6 +255,8 @@ const desbloquearSom = () => sons.desbloquear();
 addEventListener('pointerdown', desbloquearSom, { once: true });
 addEventListener('keydown', desbloquearSom, { once: true });
 sons.carregar(Object.values(SONS_INTERFACE).concat(Object.values(SONS_VOLTA), Object.values(SONS_NUCLEO), ['h_explo', 'n2_explo', 'cure']));
+// A trilha da partida (musica.js): começa com a nave na mão do piloto e para ao sair.
+const musica = new MusicaPartida({ sons });
 
 /** Liga ou desliga o som (M ou o botão da tela inicial) e mostra o estado. */
 function alternarSom() {
@@ -452,6 +455,7 @@ async function iniciar(nome, race, classe, teste = false, ia = null, extra = nul
   telaCarregamento ??= new TelaCarregamento();
   telaCarregamento.mostrar(race, classe);
   const carga = new Carregamento({ race, classe, sons, tela: telaCarregamento });
+  musica.preparar(); // a faixa vem em fluxo: começa a buscar já, sem segurar a barra
   cargaAtual = carga;
   const rede = new Rede();
   let jogo = null;
@@ -464,6 +468,7 @@ async function iniciar(nome, race, classe, teste = false, ia = null, extra = nul
     jogo = montarJogo(rede, boas, renderer, race, classe);
     await carga.esperar(jogo.aquecer(carga));
     jogo.comecar();
+    musica.tocar(); // fim do carregamento: o piloto já controla a nave
     const r = carga.resumo();
     console.info(
       `Carregamento: pronto em ${(r.ms / 1000).toFixed(1)} s (arquivos ${((r.msArquivos ?? 0) / 1000).toFixed(1)} s, placa ${((r.msGpu ?? 0) / 1000).toFixed(1)} s):`,
@@ -1618,6 +1623,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     if (!ativo) return;
     ativo = false;
     cancelAnimationFrame(idQuadro);
+    musica.parar();
     rede.fechar();
     controles.destruir();
     tabela.fechar();

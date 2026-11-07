@@ -10,8 +10,8 @@
 // hora, enquanto arrasta; ao soltar, toca o clique da interface no volume novo dos
 // efeitos, para o jogador ouvir onde deixou (a do locutor toca uma frase dele, se já
 // carregou). Mexer numa barra com o jogo mudo (M)
-// liga o som: quem sobe o volume quer ouvir. A música ainda não existe no jogo, mas
-// a barra já vale: a trilha vai tocar por `sons.saidaMusica`, no volume escolhido.
+// liga o som: quem sobe o volume quer ouvir. A trilha da partida (musica.js)
+// toca por `sons.saidaMusica`, no volume da barra da música.
 
 import { SONS_INTERFACE } from './sons.js';
 import { somDoAnuncio } from './locutor-regras.js';
