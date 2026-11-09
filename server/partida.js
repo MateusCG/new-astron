@@ -9,7 +9,7 @@
 // ninguém. Se todo mundo sair, a partida volta a 'esperando' (o próximo começa do
 // zero).
 //
-// Preparação (pedido do Mateus): toda partida abre com PREPARACAO_S (3 minutos) de
+// Preparação (pedido do Mateus): toda partida abre com PREPARACAO_S (2 minutos) de
 // contagem regressiva antes dos 20 minutos. É para explorar o mapa, comprar e se
 // posicionar: nenhum minerador sai, a jungle não nasce, os objetivos esperam, as
 // torretas ficam quietas e o ouro passivo não corre. Os 20 minutos (e o relógio dos
@@ -48,7 +48,7 @@ export const MAX_POR_TIME = 3;
 export const N_TIMES = 2;
 export const FASE_FINAL_S = 180; // últimos 3 minutos: minério vale mais
 export const MULT_FASE_FINAL = 2; // minério entregue na fase final vale o dobro
-export const PREPARACAO_S = 180; // contagem antes dos 20 minutos: explorar e se preparar
+export const PREPARACAO_S = 120; // contagem antes dos 20 minutos: explorar e se preparar
 
 // Computadores escolhidos na tela inicial (entrada {t:'entrar', iaMeu, iaInimigo}):
 // no seu time cabem até 2 (você ocupa uma das 3 vagas), no outro até 3.

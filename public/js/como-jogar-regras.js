@@ -28,7 +28,7 @@ import { capitulosEn } from './como-jogar-en.js';
 export const FATOS = Object.freeze({
   porTime: 3, // MAX_POR_TIME
   duracaoS: 1200, // DURACAO_PARTIDA_S
-  preparacaoS: 180, // PREPARACAO_S
+  preparacaoS: 120, // PREPARACAO_S
   faseFinalS: 180, // FASE_FINAL_S
   multFaseFinal: 2, // MULT_FASE_FINAL
   mineradoresPorTime: 10, // MINERADORES_POR_TIME

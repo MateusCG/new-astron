@@ -7,7 +7,7 @@
 // o bônus de time que ele tem agora (o da Medusa Anciã: ícone âmbar, a cor dos
 // objetivos, que é de onde os bônus vêm) com a contagem regressiva. Na fase final (últimos 3
 // minutos, `partida.fase === 'final'`) aparece a faixa "MINÉRIO ×2" embaixo de tudo.
-// Na preparação (os 3 minutos antes dos 20, `partida.estado === 'preparacao'`), o
+// Na preparação (os 2 minutos antes dos 20, `partida.estado === 'preparacao'`), o
 // relógio conta o que falta para a partida começar (`inicioEm`) e a faixa diz
 // "PREPARAÇÃO".
 

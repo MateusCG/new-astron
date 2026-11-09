@@ -316,8 +316,8 @@ test('partida: 20 minutos, fase final dos 17:00 aos 20:00 e o relógio decorrido
   assert.equal(teste.decorrido(600 * SEGUNDO), 600);
 });
 
-test('preparação: 3 minutos antes dos 20, e o relógio dos 20 só começa depois dela', () => {
-  assert.equal(PREPARACAO_S, 180);
+test('preparação: 2 minutos antes dos 20, e o relógio dos 20 só começa depois dela', () => {
+  assert.equal(PREPARACAO_S, 120);
   const p = new Partida();
   assert.equal(p.passo(0, 1), 'preparacao');
   assert.equal(p.estado, 'preparacao');
