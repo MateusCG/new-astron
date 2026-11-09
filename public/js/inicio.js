@@ -1,11 +1,12 @@
 // A primeira coisa que roda no site: no celular (tela-grande-regras.js) mostra a tela
 // "Abra numa tela maior" no lugar da abertura e para aqui, sem baixar o jogo; fora
-// dele, carrega o jogo (main.js, que monta a abertura).
+// dele, carrega o jogo (main.js, que monta a abertura) e, já antes dele, põe no canto
+// da abertura a versão do build no ar (server/versao.js).
 
 import { tr } from '../../shared/idioma.js';
 import { traduzirDom, montarSeletoresIdioma } from './idioma-dom.js';
 import { ehCelular, linkDoJogo } from './tela-grande-regras.js';
-import { ARTE_ABERTURA } from './abertura-regras.js';
+import { ARTE_ABERTURA, ROTA_VERSAO, textoVersao } from './abertura-regras.js';
 
 // O HTML no idioma escolhido antes de qualquer tela aparecer.
 traduzirDom();
@@ -19,8 +20,20 @@ const celular = ehCelular({
   busca: location.search,
 });
 
+if (!celular) mostrarVersao();
 if (celular) mostrarTelaGrande();
 else await import('./main.js');
+
+/** A versão do build no canto da abertura; sem resposta do servidor, o canto fica vazio. */
+function mostrarVersao() {
+  const el = document.querySelector('#abertura .versao-abertura');
+  fetch(ROTA_VERSAO, { cache: 'no-store' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((v) => {
+      el.textContent = textoVersao(v);
+    })
+    .catch(() => {});
+}
 
 /** Troca a abertura pela tela do celular: a arte, o recado e o link para levar ao computador. */
 function mostrarTelaGrande() {

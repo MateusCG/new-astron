@@ -6,11 +6,13 @@
 // package.json, sem depender de CDN no ar), com os addons (GLTFLoader, que lê o
 // modelo da nave em public/modelos/) em /vendor/addons/.
 //
-// HTTP além dos arquivos: GET /healthz (a carga do servidor) e POST /api/opiniao (a
-// opinião de um jogador, JSON {texto, nota?, categoria?, origem?, idioma?, nome?, raca?,
-// classe?, modo?, resultado?}: shared/opiniao.js valida, server/opinioes.js grava no
-// Postgres da DATABASE_URL; resposta {ok} ou {ok:false, codigo}, com 400 'texto_curto',
-// 'texto_longo', 'nota_invalida', 'json', 429 'muitas' e 503 'indisponivel').
+// HTTP além dos arquivos: GET /healthz (a carga do servidor), GET /api/versao (a versão
+// do build no ar, {versao, commit}: server/versao.js; a tela de abertura mostra) e
+// POST /api/opiniao (a opinião de um jogador, JSON {texto, nota?, categoria?, origem?,
+// idioma?, nome?, raca?, classe?, modo?, resultado?}: shared/opiniao.js valida,
+// server/opinioes.js grava no Postgres da DATABASE_URL; resposta {ok} ou {ok:false,
+// codigo}, com 400 'texto_curto', 'texto_longo', 'nota_invalida', 'json', 429 'muitas' e
+// 503 'indisponivel').
 //
 // Protocolo (JSON):
 //   cliente → servidor  {t:'entrar', nome, race, classe, teste?, privada?, iaMeu?, iaInimigo?}
@@ -599,6 +601,7 @@ import { Filas, MODOS_FILA } from './filas.js';
 import { MAX_POR_TIME } from './partida.js';
 import { motivoRacaRecusada } from '../shared/naves.js';
 import { criarArmazemOpinioes, LimiteOpinioes, atenderOpiniao } from './opinioes.js';
+import { versaoDoBuild } from './versao.js';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PASTAS = {
@@ -773,6 +776,8 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
     temFolga({ cargas: [...mundos.keys()].filter((m) => m !== principal).map((m) => m.carga), nucleos, memoriaMb, usadaMb: process.memoryUsage().rss / 2 ** 20 });
   // Vagas das salas que começaram: token -> { mundo, nome, race, classe, time, iaMeu, iaInimigo, expira }.
   const reservas = new Map();
+  // A versão do build, lida uma vez (o código não muda com o servidor ligado).
+  const versaoNoAr = versaoDoBuild();
 
   const server = http.createServer((req, res) => {
     if (req.url === '/healthz') {
@@ -790,6 +795,11 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
           filas: filas.contagem(),
         }),
       );
+      return;
+    }
+    if (req.url.split('?')[0] === '/api/versao') {
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-cache' });
+      res.end(JSON.stringify(versaoNoAr));
       return;
     }
     if (req.url.split('?')[0] === '/api/opiniao') {

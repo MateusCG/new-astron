@@ -85,3 +85,18 @@ export const DICA_S = 7;
 export function proximaDica(i) {
   return (i + 1) % DICAS_ABERTURA.length;
 }
+
+/** Onde a abertura pede a versão do build (server/versao.js). */
+export const ROTA_VERSAO = '/api/versao';
+
+/**
+ * O texto da versão no canto da abertura: "Versão 0.1.0 · build 85825d3", só o número
+ * sem commit, só o build sem número, e '' sem nenhum (o canto fica vazio).
+ * @param {{ versao?: string|null, commit?: string|null }|null} v a resposta de ROTA_VERSAO
+ */
+export function textoVersao(v) {
+  const partes = [];
+  if (typeof v?.versao === 'string' && v.versao) partes.push(tr('Versão {versao}', { versao: v.versao }));
+  if (typeof v?.commit === 'string' && v.commit) partes.push(`build ${v.commit}`);
+  return partes.join(' · ');
+}

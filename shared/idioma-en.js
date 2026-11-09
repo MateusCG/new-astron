@@ -177,6 +177,7 @@ export const EN = {
   'Sons': 'Sounds',
   'Ícones e placa de vídeo': 'Icons and graphics card',
   'Hangar pronto': 'Hangar ready',
+  'Versão {versao}': 'Version {versao}',
   'Vence quem tiver mais minério de He-3 na bacia da base no fim dos 20 minutos.': 'The team with the most He-3 ore in its base basin at the end of the 20 minutes wins.',
   'Pouse com <kbd>L</kbd> na plataforma da Loja ou da Evolução da sua base para abrir o painel.': 'Land with <kbd>L</kbd> on the Shop or Evolution platform of your base to open its panel.',
   'Segure <kbd>TAB</kbd> para ver a tabela da partida sem parar de voar.': 'Hold <kbd>TAB</kbd> to see the match scoreboard without stopping flying.',

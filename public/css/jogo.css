@@ -8512,6 +8512,21 @@ body.dano::after {
   border-color: var(--neon);
 }
 
+/* A versão do build no ar (inicio.js), discreta no canto de cima à direita: quem joga
+   diz de qual build fala, quem testa vê se o deploy novo chegou. */
+.versao-abertura {
+  position: absolute;
+  top: clamp(12px, 2.4vh, 24px);
+  right: clamp(16px, 2.4vw, 40px);
+  margin: 0;
+  color: var(--texto);
+  font: 600 12px var(--mono);
+  letter-spacing: 0.08em;
+  opacity: 0.55;
+  user-select: text;
+  pointer-events: auto;
+}
+
 @keyframes entrar-marca {
   from {
     opacity: 0;
@@ -10089,6 +10104,11 @@ html[data-aparelho='controle'] #comandos .leg-controle {
   .idioma-abertura {
     top: 23px;
     bottom: auto;
+  }
+
+  /* O seletor de idioma sobe para o canto de cima: a versão desce para baixo dele. */
+  .versao-abertura {
+    top: 76px;
   }
 }
 
