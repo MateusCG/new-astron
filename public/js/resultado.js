@@ -11,6 +11,12 @@
 // partida é desmontada e o menu abre na aba Jogar (`aoSair`). Se a partida nova
 // começar antes (o relógio do cliente atrasado), sai do mesmo jeito.
 //
+// Entre a tabela e a contagem, o "Como foi a partida?" com as cinco estrelas: a
+// estrela abre a janela de opinião (opiniao.js) já com a nota, o modo e o resultado
+// (vitória, derrota ou empate). Não segura nada: a contagem segue e, se acabar com a
+// janela aberta, ela fica por cima do menu até o jogador enviar ou fechar. Enviou, a
+// linha agradece. Enquanto a janela está aberta, o Enter é dela, não do "Voltar".
+//
 // Só abre para quem viu a partida rolando: quem entra no servidor durante a tela de
 // fim de uma partida que não jogou só espera a próxima. O modo de teste não acaba.
 
@@ -18,6 +24,7 @@ import { kda, melhorDaPartida, textoRazaoKda } from './tabela-regras.js';
 import { ConteudoTabela, miniaturaDoPiloto } from './tabela.js';
 import { SONS_INTERFACE } from './sons.js';
 import { tr } from '../../shared/idioma.js';
+import { htmlEstrelas, pintarEstrelas } from './opiniao.js';
 
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
@@ -31,9 +38,10 @@ const FRASE = {
 export class TelaResultado {
   /**
    * @param {{ meuId: number, meuTime: number, signal: AbortSignal, aoSair: () => void,
-   *   som?: (nome: string) => void }} opcoes
+   *   som?: (nome: string) => void, opiniao?: import('./opiniao.js').PainelOpiniao,
+   *   modo?: string }} opcoes
    */
-  constructor({ meuId, meuTime, signal, aoSair, som = () => {} }) {
+  constructor({ meuId, meuTime, signal, aoSair, som = () => {}, opiniao = null, modo = null }) {
     this.el = document.querySelector('#resultado');
     this.meuId = meuId;
     this.meuTime = meuTime;
@@ -43,11 +51,37 @@ export class TelaResultado {
     this.viuPartida = false; // esteve na partida rolando (preparação ou andamento)
     this.total = 0; // segundos da contagem quando a tela abriu (a barra cheia)
     this.saiu = false;
+    this.opiniao = opiniao;
+    this.modo = modo;
+    this.tipo = null; // vitoria | derrota | empate
+    this.avaliar = this.el.querySelector('.avaliar-partida');
+    this.avaliar.hidden = !opiniao;
+    const estrelas = this.avaliar.querySelector('.estrelas');
+    estrelas.innerHTML = htmlEstrelas();
+    estrelas.addEventListener(
+      'click',
+      (e) => {
+        const b = e.target.closest('.estrela');
+        if (!b || !this.opiniao) return;
+        const nota = Number(b.dataset.nota);
+        pintarEstrelas(estrelas, nota);
+        this.opiniao.abrir({
+          nota,
+          origem: 'resultado',
+          extra: { modo: this.modo, resultado: this.tipo },
+          aoEnviar: () => {
+            estrelas.hidden = true;
+            this.avaliar.querySelector('.obrigado-partida').hidden = false;
+          },
+        });
+      },
+      { signal },
+    );
     this.el.querySelector('.sair').addEventListener('click', () => this.#sair(), { signal });
     addEventListener(
       'keydown',
       (e) => {
-        if (!this.aberto || (e.code !== 'Enter' && e.code !== 'NumpadEnter')) return;
+        if (!this.aberto || (e.code !== 'Enter' && e.code !== 'NumpadEnter') || this.opiniao?.aberto) return;
         e.preventDefault();
         this.#sair();
       },
@@ -82,6 +116,12 @@ export class TelaResultado {
   #abrir(partida, jogadores) {
     const v = partida.vencedor;
     const tipo = v === -1 ? 'empate' : v === this.meuTime ? 'vitoria' : 'derrota';
+    this.tipo = tipo;
+    // O "Como foi a partida?" volta apagado a cada partida.
+    const estrelas = this.avaliar.querySelector('.estrelas');
+    pintarEstrelas(estrelas, 0);
+    estrelas.hidden = false;
+    this.avaliar.querySelector('.obrigado-partida').hidden = true;
     // Congela a lista: daqui até sair, o que vier no snapshot não muda a tela.
     const lista = (jogadores ?? []).map((j) => ({ ...j }));
     const mvp = melhorDaPartida(lista);

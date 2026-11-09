@@ -173,6 +173,7 @@ import { ConfirmarSaida } from './sair-partida.js';
 import { PainelOpcoes } from './opcoes.js';
 import { PainelComandos } from './comandos.js';
 import { TelaCheia } from './tela-cheia.js';
+import { PainelOpiniao } from './opiniao.js';
 import { MELHORIAS_MINERADOR, MELHORIA_TORRETAS } from '/shared/evolucao.js';
 import { RECALL_S } from '/shared/recall.js';
 import { TORRETAS } from '/shared/terrain.js';
@@ -269,6 +270,12 @@ function mostrarEstadoSom() {
   for (const el of document.querySelectorAll('.estado-som, .botao-volume')) el.classList.toggle('mudo', sons.mudo);
 }
 const painelVolume = new PainelVolume({ sons, aoMudarSom: mostrarEstadoSom });
+// Sua opinião (opiniao.js): o botão Opinião do menu e as estrelas da tela de resultado.
+// O nome do chip e a nave escolhida vão junto, para o Mateus entender quem escreveu.
+const painelOpiniao = new PainelOpiniao({
+  sons,
+  contexto: () => ({ nome: menu?.nome?.value?.trim() || null, raca: menu?.raca ?? null, classe: menu?.classe ?? null }),
+});
 // M de fábrica (atalhos.js; o campo de nome engole a tecla, a barra de volume não).
 aoApertar('som', alternarSom);
 // Controle (joystick.js): o mapa da aba Configurações, a navegação dos menus e o voo.
@@ -326,6 +333,7 @@ function montarMenu() {
     el: document.querySelector('#entrada'),
     sons,
     painelVolume,
+    painelOpiniao,
     aoMudarSom: mostrarEstadoSom,
     mensagemErro: (err) => MENSAGENS_ERRO[err?.message] ?? tr('Erro ao iniciar o jogo ({erro}). Mande um print desta tela.', { erro: err?.message ?? err }),
     aoDecolar: async ({ nome, race, classe, teste, ia, privada, sala, token }) => {
@@ -346,7 +354,8 @@ function montarMenu() {
   mostrarEstadoSom();
 
   // Fase de captura na janela: este handler roda antes de qualquer outro keydown,
-  // então decide sozinho o que o ESC faz. Com a janela de volume aberta (na partida
+  // então decide sozinho o que o ESC faz. Com a janela de opinião aberta, ESC só
+  // fecha ela (o texto fica guardado até enviar). Com a janela de volume aberta (na partida
   // ou no menu), ESC só fecha ela. Com o painel da Loja ou da Evolução (#servico)
   // aberto, só fecha o painel; senão pergunta se sai da partida (#sair-partida), e o
   // ESC com a pergunta aberta cancela. Na tela de resultado sai direto. Na tela de carregamento, cancela
@@ -366,6 +375,10 @@ function montarMenu() {
 
 /** O ESC (tecla ou controle): fecha a janela de cima, volta no menu ou pergunta se sai da partida. */
 function apertouEsc(e) {
+  if (painelOpiniao.aberto) {
+    painelOpiniao.fechar();
+    return;
+  }
   if (painelVolume.aberto) {
     painelVolume.fechar();
     return;
@@ -564,6 +577,8 @@ function montarJogo(rede, boas, renderer, race, classe) {
   const resultado = new TelaResultado({
     meuId,
     meuTime,
+    opiniao: painelOpiniao,
+    modo: boas.modo,
     signal: controles.parar.signal,
     aoSair: () => setTimeout(() => jogoAtual && voltarParaEntrada()),
     som: (nome) => sons.tocarInterface(nome),
@@ -684,7 +699,7 @@ function montarJogo(rede, boas, renderer, race, classe) {
     // a janela de volume ou a de Opções aberta não sai tiro. Com o STATUS, o INVENTÁRIO ou a
     // tabela da partida (TAB) aberta, sai (são de consulta, como o TAB do LoL).
     [inp.a, inp.a2] = armasNave.encaixes;
-    if (painel.aberto || painelVolume.aberto || comandos.aberto || opcoes.aberto || resultado.aberto || confirmarSaida.aberto) inp.f1 = inp.f2 = false;
+    if (painel.aberto || painelVolume.aberto || painelOpiniao.aberto || comandos.aberto || opcoes.aberto || resultado.aberto || confirmarSaida.aberto) inp.f1 = inp.f2 = false;
     seq++;
     rede.enviar({ t: 'in', s: seq, ...inp });
     ant = pose(pred);

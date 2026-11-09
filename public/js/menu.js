@@ -182,12 +182,12 @@ function pintarMiniatura(img, race, classe, tier) {
 export class Menu {
   /**
    * @param {{ el: HTMLElement, sons: import('./sons.js').Sons, painelVolume: PainelVolume,
-   *   aoMudarSom: () => void,
+   *   painelOpiniao?: import('./opiniao.js').PainelOpiniao, aoMudarSom: () => void,
    *   aoDecolar: (pedido: { nome: string, race: string, classe: string, teste: boolean, ia: object }) => Promise<void> }} op
    *   `aoDecolar` resolve quando a partida começou e rejeita com o erro (Error.message
    *   'cancelado' quando o piloto cancelou o carregamento) para o menu mostrar.
    */
-  constructor({ el, sons, painelVolume, aoMudarSom, aoDecolar, mensagemErro }) {
+  constructor({ el, sons, painelVolume, painelOpiniao, aoMudarSom, aoDecolar, mensagemErro }) {
     this.el = el;
     this.sons = sons;
     this.aoDecolar = aoDecolar;
@@ -220,6 +220,8 @@ export class Menu {
     });
 
     this.q('#botao-som').addEventListener('click', () => painelVolume.abrir());
+    // Opinião: o botão fixo do topo, em toda aba (opiniao.js).
+    this.q('#botao-opiniao').addEventListener('click', () => painelOpiniao?.abrir({ origem: 'menu' }));
     this.volumeConfig = new PainelVolume({ sons, aoMudarSom, el: this.q('#config-som'), fundo: false });
 
     this.times = new EscolhaTimes(this.q('#escolha-times'), {

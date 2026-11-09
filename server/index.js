@@ -6,6 +6,12 @@
 // package.json, sem depender de CDN no ar), com os addons (GLTFLoader, que lê o
 // modelo da nave em public/modelos/) em /vendor/addons/.
 //
+// HTTP além dos arquivos: GET /healthz (a carga do servidor) e POST /api/opiniao (a
+// opinião de um jogador, JSON {texto, nota?, categoria?, origem?, idioma?, nome?, raca?,
+// classe?, modo?, resultado?}: shared/opiniao.js valida, server/opinioes.js grava no
+// Postgres da DATABASE_URL; resposta {ok} ou {ok:false, codigo}, com 400 'texto_curto',
+// 'texto_longo', 'nota_invalida', 'json', 429 'muitas' e 503 'indisponivel').
+//
 // Protocolo (JSON):
 //   cliente → servidor  {t:'entrar', nome, race, classe, teste?, privada?, iaMeu?, iaInimigo?}
 //                        privada: true = Partida Privada com Bots, num mundo só seu
@@ -592,6 +598,7 @@ import { prepararJungle } from './jungle.js';
 import { Filas, MODOS_FILA } from './filas.js';
 import { MAX_POR_TIME } from './partida.js';
 import { motivoRacaRecusada } from '../shared/naves.js';
+import { criarArmazemOpinioes, LimiteOpinioes, atenderOpiniao } from './opinioes.js';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PASTAS = {
@@ -711,9 +718,11 @@ async function servirArquivo(req, res) {
  * testes. `workers`: as partidas novas (teste, privada, salas) rodam cada uma numa
  * worker thread (o servidor de verdade); sem isso, na mesma linha (os testes, que
  * mexem no World direto). O `world` (quem entra sem modo) roda sempre aqui.
- * @param {{ porta?: number, world?: World, workers?: boolean }} [opcoes]
+ * `opinioes`: onde gravar as opiniões dos jogadores (server/opinioes.js); sem ele, o
+ * Postgres da DATABASE_URL ou a memória.
+ * @param {{ porta?: number, world?: World, workers?: boolean, opinioes?: object, limiteOpinioes?: LimiteOpinioes }} [opcoes]
  */
-export async function iniciar({ porta = Number(process.env.PORT) || 5090, world = new World(), workers = false } = {}) {
+export async function iniciar({ porta = Number(process.env.PORT) || 5090, world = new World(), workers = false, opinioes = null, limiteOpinioes = new LimiteOpinioes() } = {}) {
   // As grades de navegação dos computadores e dos monstros e os mapas de perigo das
   // torres são por processo e custavam ~250 ms na primeira partida (um tranco no
   // ping de todo mundo): montados aqui, antes de abrir a porta (cada worker monta as
@@ -722,6 +731,9 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
   prepararJungle();
   const nucleos = nucleosDisponiveis();
   const memoriaMb = memoriaDisponivelMb();
+  // As opiniões dos jogadores (POST /api/opiniao): o armazém que veio, ou o Postgres da
+  // DATABASE_URL, ou a memória. O que este servidor abriu ele fecha.
+  const armazemOpinioes = opinioes ?? (await criarArmazemOpinioes());
 
   // Partidas rodando: a principal (o `world`) e as que nascem (teste, privada, salas
   // da fila online), cada uma com os sockets dos seus jogadores (os ids de jogador
@@ -778,6 +790,10 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
           filas: filas.contagem(),
         }),
       );
+      return;
+    }
+    if (req.url.split('?')[0] === '/api/opiniao') {
+      atenderOpiniao(req, res, { armazem: armazemOpinioes, limite: limiteOpinioes });
       return;
     }
     servirArquivo(req, res).catch(() => {
@@ -959,6 +975,7 @@ export async function iniciar({ porta = Number(process.env.PORT) || 5090, world 
         for (const m of mundos.keys()) m.fechar();
         for (const c of wss.clients) c.terminate();
         wss.close();
+        if (!opinioes) armazemOpinioes.fechar().catch(() => {});
         server.close(ok);
       }),
   };
