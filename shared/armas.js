@@ -66,6 +66,9 @@ export const FATOR_OURO = 0.06; // preço de compra (a V1)
 export const FATOR_OURO_EVOLUIR = FATOR_OURO / 10;
 export const PRECO_EVOLUIR_MIN = 10; // ouro: o degrau mais barato
 export const MS = 1000;
+// Recarga nossa, fora da tabela do original (ms, pela id da versão). O Rebatedor de
+// Projéteis Acron V8 sai de 0,8 s para 0,5 s (pedido do Mateus, 11/nov/2026).
+export const RECARGA_AJUSTADA_MS = { 112714: 500 };
 
 export const RAIO_TIRO_MIN = 4; // m: raio de acerto mínimo de projétil
 export const NIVEL_ARMA_MAX = NIVEL_ITEM_MAX; // V1..V8
@@ -558,7 +561,7 @@ function converterArma(a, fatorRecarga = FATOR_RECARGA_ARMA) {
         i === 0
           ? Math.max(PRECO_MIN, Math.round((v.preco * FATOR_OURO) / 10) * 10)
           : Math.max(PRECO_EVOLUIR_MIN, Math.round((anterior.taxa * FATOR_OURO_EVOLUIR) / 10) * 10),
-      cd: ((v.recargaMs ?? 0) / MS) * fatorRecarga,
+      cd: ((RECARGA_AJUSTADA_MS[v.id] ?? v.recargaMs ?? 0) / MS) * fatorRecarga,
       energia: (v.energia ?? 0) * FATOR_ENERGIA_ARMA, // por disparo; por segundo nas de segurar
       segurar,
       hpPorS: (v.hpPorS ?? 0) * FATOR_DANO,

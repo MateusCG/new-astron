@@ -478,3 +478,10 @@ test('voo: todo projétil do jogador voa o alcance do cartão do original (as on
   const onda = versaoArma('o214003', 1);
   assert.ok(Math.abs(onda.golpe.alcance - 163.8 * FATOR_VEL) < 1, `${onda.golpe.alcance}`);
 });
+
+test('ajuste: o Rebatedor de Projéteis Acron recarrega em 0,5 s na V8 (as outras versões como no original)', () => {
+  const rebatedor = IDX_ARMA.o112014;
+  assert.equal(versaoArma(rebatedor, 8).cd, 0.5);
+  assert.equal(versaoArma(rebatedor, 7).cd, 0.9);
+  assert.equal(versaoArma(rebatedor, 1).cd, 2);
+});
