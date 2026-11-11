@@ -185,6 +185,7 @@
             <button type="button" data-secao="som" class="sel">Som</button>
             <button type="button" data-secao="teclado">Controles · Teclado e mouse</button>
             <button type="button" data-secao="controle">Controles · Controle</button>
+            <button type="button" data-secao="graficos">Gráficos</button>
             <button type="button" data-secao="idioma">Idioma · Language</button>
           </nav>
           <section id="config-som" class="config-painel" data-secao="som" aria-label="Som">
@@ -205,6 +206,11 @@
               <small>A voz do First Blood, Double Kill, Godlike…</small>
             </label>
             <button type="button" class="alternar-mudo botao-volume" title="Liga e desliga todo o som (M)"><svg class="icone-som" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" /><path class="ondas" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /><path class="corte" d="M16 9.5l5 5M21 9.5l-5 5" /></svg><span class="estado-som">Som ligado</span><kbd data-acao-rotulo="som">M</kbd></button>
+          </section>
+          <section class="config-painel config-graficos" data-secao="graficos" hidden aria-label="Gráficos">
+            <h2>Qualidade gráfica</h2>
+            <p class="ajuda-atalhos">Se o jogo engasga, baixe a qualidade. Vale a partir da próxima partida; o jogo continua a 30 quadros por segundo em todas.</p>
+            <div class="opcoes-qualidade" role="radiogroup" aria-label="Qualidade gráfica"></div>
           </section>
           <section class="config-painel config-idioma" data-secao="idioma" hidden aria-label="Idioma">
             <h2>Idioma</h2>

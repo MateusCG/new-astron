@@ -2140,6 +2140,56 @@ input:focus {
   text-shadow: 0 0 10px var(--neon);
 }
 
+/* Qualidade gráfica: um cartão por nível, o escolhido aceso. */
+.config-graficos {
+  max-width: 640px;
+}
+
+.opcoes-qualidade {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.opcoes-qualidade button {
+  display: grid;
+  gap: 4px;
+  padding: 12px 16px;
+  border: 1px solid var(--chapa-clara);
+  border-radius: 6px;
+  background: rgba(11, 23, 22, 0.8);
+  color: var(--texto);
+  text-align: left;
+  cursor: pointer;
+}
+
+.opcoes-qualidade button b {
+  font: 700 16px system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.opcoes-qualidade button small {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.opcoes-qualidade button:hover,
+.opcoes-qualidade button:focus-visible {
+  border-color: var(--neon);
+  outline: none;
+}
+
+.opcoes-qualidade button.sel {
+  border-color: var(--neon);
+  background: rgba(30, 70, 64, 0.85);
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.3), inset 0 0 0 1px var(--neon);
+}
+
+.opcoes-qualidade button.sel b {
+  color: var(--neon);
+}
+
 /* Atalhos do teclado e do controle: cada ação numa linha, com as casas à direita. */
 .config-atalhos {
   max-width: 1080px;

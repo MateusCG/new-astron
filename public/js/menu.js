@@ -87,6 +87,7 @@ import {
   primeirasNaves,
 } from './menu-regras.js';
 import { tr, localeNum, nomeArma } from '../../shared/idioma.js';
+import { QUALIDADES, lerQualidade, guardarQualidade } from './qualidade-regras.js';
 
 /** Uma frase por raça (do documento de design do Mateus). */
 const DESCRICAO_RACA = {
@@ -926,6 +927,29 @@ export class Menu {
       for (const p of tela.querySelectorAll('.config-painel')) p.hidden = p.dataset.secao !== this.secao;
       if (this.secao === 'som') this.volumeConfig.atualizar();
     });
+
+    // Qualidade gráfica (qualidade-regras.js): um botão por nível; o escolhido fica
+    // no navegador e o main.js lê ao decolar.
+    const qualidades = tela.querySelector('.opcoes-qualidade');
+    const pintarQualidade = () => {
+      const atual = lerQualidade();
+      for (const b of qualidades.querySelectorAll('[data-qualidade]')) {
+        const sel = b.dataset.qualidade === atual;
+        b.classList.toggle('sel', sel);
+        b.setAttribute('aria-checked', String(sel));
+      }
+    };
+    qualidades.innerHTML = QUALIDADES.map(
+      (q) =>
+        `<button type="button" role="radio" data-qualidade="${q.id}"><b>${tr(q.nome)}</b><small>${tr(q.descricao)}</small></button>`,
+    ).join('');
+    qualidades.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-qualidade]');
+      if (!b || !guardarQualidade(b.dataset.qualidade)) return;
+      this.#som(SONS_INTERFACE.clique);
+      pintarQualidade();
+    });
+    pintarQualidade();
 
     // As listas de atalhos (atalhos.js): uma casa por tecla ou botão de cada ação;
     // clicar espera a entrada nova (capturar), o botão direito apaga. No teclado, a

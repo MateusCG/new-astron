@@ -145,6 +145,7 @@ import { iniciarJoystick, controlesLigados } from './joystick.js';
 import { Hud, BONUS_NAVE } from './hud.js';
 import { ObjetivosNaTela, LUGARES_OBJETIVO, NOME_OBJETIVO, ALT_ROTULO_SUPORTE } from './objetivos.js';
 import { criarLimitador } from './quadros.js';
+import { ajustesDaQualidade, lerQualidade } from './qualidade-regras.js';
 import { criarMonstro, animarMonstro, surgirMonstro, criarMarcadorNucleo, ROTULO_MONSTRO, CENTRO_MONSTRO } from './monstros.js';
 import { MiraAlvo } from './mira-alvo.js';
 import { alvosDaMira, RitmoDaMira } from './mira-alvo-regras.js';
@@ -440,16 +441,27 @@ const MENSAGENS_ERRO = {
 };
 
 let rendererUnico = null;
+let antialiasDoRenderer = null; // o antialias com que o renderer foi criado
 let telaCarregamento = null; // criada na primeira entrada (o DOM já existe)
 
-/** Cria o renderer uma vez só (reaproveitado se a entrada falhar e tentar de novo). */
-function criarRenderer() {
-  if (rendererUnico) return rendererUnico;
+/**
+ * Cria o renderer uma vez só (reaproveitado entre partidas e se a entrada falhar e
+ * tentar de novo). O antialias só se escolhe ao criar: se a qualidade gráfica mudou
+ * isso desde a última partida, o renderer velho é solto e nasce outro.
+ */
+function criarRenderer(ajustes) {
+  if (rendererUnico && antialiasDoRenderer === ajustes.antialias) return rendererUnico;
+  if (rendererUnico) {
+    rendererUnico.dispose();
+    rendererUnico.forceContextLoss();
+    rendererUnico = null;
+  }
   try {
-    rendererUnico = new THREE.WebGLRenderer({ antialias: true });
+    rendererUnico = new THREE.WebGLRenderer({ antialias: ajustes.antialias });
   } catch {
     throw new Error('sem_webgl');
   }
+  antialiasDoRenderer = ajustes.antialias;
   return rendererUnico;
 }
 
@@ -464,7 +476,9 @@ function criarRenderer() {
  * desmontar a partida.
  */
 async function iniciar(nome, race, classe, teste = false, ia = null, extra = null) {
-  const renderer = criarRenderer();
+  // Qualidade gráfica das Configurações (qualidade-regras.js), lida a cada partida.
+  const ajustes = ajustesDaQualidade(lerQualidade(), devicePixelRatio);
+  const renderer = criarRenderer(ajustes);
   telaCarregamento ??= new TelaCarregamento();
   telaCarregamento.mostrar(race, classe);
   const carga = new Carregamento({ race, classe, sons, tela: telaCarregamento });
@@ -478,7 +492,7 @@ async function iniciar(nome, race, classe, teste = false, ia = null, extra = nul
       return boas;
     });
     const [boas] = await carga.esperar(Promise.all([entrou, carga.carregar()]));
-    jogo = montarJogo(rede, boas, renderer, race, classe);
+    jogo = montarJogo(rede, boas, renderer, race, classe, ajustes);
     await carga.esperar(jogo.aquecer(carga));
     jogo.comecar();
     musica.tocar(); // fim do carregamento: o piloto já controla a nave
@@ -496,20 +510,20 @@ async function iniciar(nome, race, classe, teste = false, ia = null, extra = nul
   }
 }
 
-function montarJogo(rede, boas, renderer, race, classe) {
+function montarJogo(rede, boas, renderer, race, classe, ajustes) {
   const meuId = boas.id;
   // Time de quem joga: decide as cores relativas (seu time turquesa, o outro vermelho).
   const meuTime = boas.time ?? 0;
 
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.setPixelRatio(ajustes.pixelRatio);
+  renderer.shadowMap.enabled = !!ajustes.sombra;
+  renderer.shadowMap.type = ajustes.sombra?.suave ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
   document.querySelector('#jogo').append(renderer.domElement);
 
   const camera = new THREE.PerspectiveCamera(65, 1, 0.5, 5000);
-  const { scene, atualizar: atualizarCena, definirObjetivo, definirMineracao, definirBacias, atingirCampo, acertoNucleo, reflexoNucleo } = criarCena({ meuTime });
+  const { scene, atualizar: atualizarCena, definirObjetivo, definirMineracao, definirBacias, atingirCampo, acertoNucleo, reflexoNucleo } = criarCena({ meuTime, sombra: ajustes.sombra });
   const efeitos = new Efeitos(scene);
   efeitos.camera = camera; // as peças dos efeitos do original que olham para a câmera
   efeitos.sons = sons; // a volta à base toca o som junto com a animação

@@ -1215,7 +1215,7 @@ function montarDecoracao(g) {
  * `meuTime` decide as cores relativas (o seu time turquesa, o outro vermelho).
  * Os modelos já têm de estar no cache (tela de carregamento).
  */
-export function criarCena({ meuTime = 0 } = {}) {
+export function criarCena({ meuTime = 0, sombra = { mapa: 2048 } } = {}) {
   const scene = new THREE.Scene();
   scene.fog = new THREE.Fog(CORES.neblina, 280, 1500); // a névoa de guerra ajusta ao raio de visão
   scene.background = CORES.horizonte.clone();
@@ -1261,8 +1261,9 @@ export function criarCena({ meuTime = 0 } = {}) {
 
   scene.add(new THREE.HemisphereLight(HEMI_CEU, HEMI_CHAO, HEMI_INTENSIDADE));
   const sol = new THREE.DirectionalLight(SOL_COR, SOL_INTENSIDADE);
-  sol.castShadow = true;
-  sol.shadow.mapSize.set(2048, 2048);
+  // Sombra pela qualidade gráfica (qualidade-regras.js): null = sem sombra.
+  sol.castShadow = !!sombra;
+  sol.shadow.mapSize.set(sombra?.mapa ?? 2048, sombra?.mapa ?? 2048);
   const sc = sol.shadow.camera;
   sc.left = sc.bottom = -120;
   sc.right = sc.top = 120;
