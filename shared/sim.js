@@ -172,7 +172,7 @@ export function custoTeleporte(nivel, nivelAlvo) {
 // Dentro da própria base (raio de BASES[s.time]) a troca é livre e a recarga de
 // troca zera. Nave sem time (monstros, testes) troca livre, como no pouso. Fica no
 // estado da nave e roda no stepShip, então a predição bate com o servidor.
-export const TROCA_ARMA_S = 3;
+export const TROCA_ARMA_S = 1;
 
 /** Maior id que o comando aceita no encaixe (id de instância ou índice de arma); acima, -1. */
 export const ID_ENCAIXE_MAX = 2 ** 31 - 1;

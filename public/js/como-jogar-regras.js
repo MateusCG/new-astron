@@ -42,7 +42,7 @@ export const FATOS = Object.freeze({
   compartimento: 12, // COMPARTIMENTO_MAX
   versaoMax: 8, // NIVEL_ITEM_MAX
   recallS: 6, // RECALL_S
-  trocaArmaS: 3, // TROCA_ARMA_S
+  trocaArmaS: 1, // TROCA_ARMA_S
   visao: 550, // VISAO_RAIO
   wingRaio: 550, // WING_RAIO
   alcanceTorre: 560, // VISAO_TORRETA (o alcance da torre sentinela)
