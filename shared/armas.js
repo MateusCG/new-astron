@@ -84,7 +84,9 @@ export const NOVA_CRESCE_INSTANTE = 0; // nova sem velocidade de crescer acontec
 // contava com naves de ~40 m). A que atira usa o raio de ativação × FATOR_ALCANCE.
 export const MINA_ARMA_S = 0.5;
 export const MINA_GATILHO_BASE = 8; // m
-export const MINA_MAX = 8; // minas e campos ativos por piloto (soltar mais tira o mais velho)
+// Minas, armadilhas e campos ativos por piloto, somando todas as armas; soltar mais
+// tira o mais velho. Era 8; o Mateus pediu 200 (13/nov/2026) para semear o mapa.
+export const MINA_MAX = 200;
 export const MINA_ATRAS = 9; // m atrás da nave, onde nasce o que é solto parado
 export const CAMPO_INTERVALO_S = 0.5; // s entre um dano e outro do campo (quando o original não diz)
 

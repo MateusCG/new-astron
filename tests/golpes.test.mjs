@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World } from '../server/game.js';
 import { ARMAS, IDX_ARMA, WEAPONS, INPUT_VAZIO, createShip } from '../shared/sim.js';
-import { versaoArma, golpeDaArma, fatorDispositivo, escalarDispositivo, chanceDebuffEletrico } from '../shared/armas.js';
+import { MINA_MAX, versaoArma, golpeDaArma, fatorDispositivo, escalarDispositivo, chanceDebuffEletrico } from '../shared/armas.js';
 import { INVISIVEL_VISTO_M } from '../server/golpes.js';
 import { CAMPO } from './lugares.mjs';
 
@@ -229,12 +229,22 @@ test('mina: a carga lançada vira minas (Armadilha Circular) e há um limite por
   const snap = w.snapshotPara(a, [], []).minas[0];
   assert.equal(snap.kind, 'o112004');
   assert.equal(snap.p, 1);
+  // A recarga (5 s) só conta com comando chegando, então espera com o comando vazio.
   for (let i = 0; i < 3; i++) {
-    passos(w, 3 * SEGUNDO);
+    apertar(w, a, {}, 5.5 * SEGUNDO);
     disparar(w, a, '112004');
   }
   passos(w, SEGUNDO);
-  assert.ok(w.minas.length <= 8);
+  assert.equal(w.minas.length, 16, 'as anteriores ficam: o teto por piloto é 200');
+  // Com o teto cheio, a mina nova tira a mais velha.
+  apertar(w, a, {}, 5.5 * SEGUNDO); // a recarga primeiro; o primeiro anel já acabou
+  const falsas = Array.from({ length: MINA_MAX - w.minas.length }, (_, i) => ({ id: 90000 + i, dono: a.id, time: a.time, kind: 'o112004', nivel: 1, x: CAMPO.x, y: 0, z: CAMPO.z + 300, armaTick: 0 }));
+  w.minas = [...falsas, ...w.minas];
+  disparar(w, a, '112004');
+  passos(w, SEGUNDO);
+  assert.equal(w.minas.length, MINA_MAX);
+  assert.ok(![90000, 90001, 90002, 90003].some((id) => w.minas.some((m) => m.id === id)), 'as quatro mais velhas saíram');
+  w.minas = w.minas.filter((m) => m.id < 90000 || m.id >= 90000 + falsas.length);
   // Sem ninguém por perto, a mina explode quando a vida acaba, e o evento diz isso.
   w.tirarEventos();
   passos(w, 21 * SEGUNDO);

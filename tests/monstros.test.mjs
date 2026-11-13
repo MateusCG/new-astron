@@ -12,7 +12,7 @@ import { ESPECIES, alcanceMaximo, FATOR_HP_M5, FATOR_DANO_M5, FATOR_XP_M5, FATOR
 import { ARMAS_NPC_ORIGINAL } from '../shared/armas-original.js';
 import { RAIVA_S, corpoLivre, golpeDoAtaque } from '../server/jungle.js';
 import { MINA_MAX_MONSTRO } from '../server/golpes.js';
-import { WEAPONS, ARMAS, FATOR_AREA, MINA_MAX, armasDisponiveis, visualDoOriginal } from '../shared/armas.js';
+import { WEAPONS, ARMAS, FATOR_AREA, armasDisponiveis, visualDoOriginal } from '../shared/armas.js';
 import { RACAS_JOGAVEIS, ORDEM_CLASSES, FATOR_ESCALA_HP } from '../shared/naves.js';
 import { CAMPO } from './lugares.mjs';
 
@@ -533,7 +533,7 @@ test('Medusa: monstro guarda as minas do original (três salvas), o piloto conti
     m.prox[0] = 0;
     rodar(w, 1.2);
   }
-  assert.ok(w.minas.filter((x) => x.dono === m.id).length > MINA_MAX, 'mais que as 8 de um piloto');
+  assert.ok(w.minas.filter((x) => x.dono === m.id).length > 8, 'mais de uma salva de 8');
   assert.ok(w.minas.filter((x) => x.dono === m.id).length <= MINA_MAX_MONSTRO);
 });
 
