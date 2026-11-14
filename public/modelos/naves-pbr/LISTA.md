@@ -1,7 +1,7 @@
 # Naves mid-poly PBR (protótipo)
 
 Pedido do Mateus, 14/nov/2026: melhorar a qualidade das naves **sem mudar a forma nem o layout de UV** do original.
-Por enquanto **só a Cyclone Wing**, para comparar antes e depois jogando (a plaquinha "Protótipo" no canto direito da
+Por enquanto **a Cyclone Wing e a Ulysses**, para comparar antes e depois jogando (a plaquinha "Protótipo" no canto direito da
 tela, ou a tecla **P**, troca na hora; `public/js/prototipo-nave.js`, regras em `public/js/nave-pbr-regras.js`).
 
 Cada nave fica no mesmo caminho dela em `public/modelos/naves/`, com cinco arquivos:
@@ -17,6 +17,7 @@ Cada nave fica no mesmo caminho dela em `public/modelos/naves/`, com cinco arqui
 | Nave | Triângulos (antes → depois) | Tamanho |
 |---|---|---|
 | `shrewdo/functional/cyclone-wing` | 362 → 2072 | glb 58 KB + mapas 790 KB (antes: 140 KB) |
+| `acron/assault/ulysses` | 498 → 2792 | glb 74 KB + mapas 590 KB (antes: 137 KB); `--semente 14 --tinta 0.40,0.60` (casco dourado, mais metálico) |
 
 ## Como refazer
 
@@ -25,13 +26,14 @@ pip install bpy scipy pillow numpy          # o Blender como módulo do Python
 N=shrewdo/functional/cyclone-wing
 python3 tools/nave_pbr_malha.py public/modelos/naves/$N.glb /tmp/malha.glb
 node tools/nave_pbr_montar.mjs public/modelos/naves/$N.glb /tmp/malha.glb public/modelos/naves-pbr/$N.glb
-python3 -I tools/nave_pbr_texturas.py public/modelos/naves/$N.glb public/modelos/naves-pbr/$N
+python3 -I tools/nave_pbr_texturas.py public/modelos/naves/$N.glb public/modelos/naves-pbr/$N   # + as opções da tabela
 ```
 
 - `nave_pbr_malha.py`: chanfro de 0,22 (metro do original) em 2 faixas nas quinas acima de 32°; a ponta fina (bico, ponta de
   asa) fica viva, sem chanfro, e nenhum vértice do original fica a mais de 0,25 da malha nova (o script mede e refaz).
 - `nave_pbr_montar.mjs`: os nós do glb do original com a malha nova; confere a caixa.
-- `nave_pbr_texturas.py`: só Pillow, numpy e scipy, semente fixa, **sem modelo de IA** (a ampliação é Lanczos + filtro de
+- `nave_pbr_texturas.py`: só Pillow, numpy e scipy, semente fixa (`--semente`, o número da unidade no original), **sem modelo de IA**; `--tinta rugosidade,metal`
+  troca o acabamento da pintura do casco (a ampliação é Lanczos + filtro de
   choque). Um upscaler de IA (Real-ESRGAN) ou repintura à mão daria uma cor melhor de perto; os outros mapas não mudam.
 
 Nave nova no protótipo: gerar os cinco arquivos e pôr o modelo em `NAVES_PBR` (`public/js/nave-pbr-regras.js`);

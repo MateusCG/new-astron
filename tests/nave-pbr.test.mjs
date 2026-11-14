@@ -27,7 +27,7 @@ const caixa = (json) => {
 
 test('nave PBR: só naves do catálogo, com o glb e os quatro mapas na pasta', () => {
   const catalogo = new Set(RACAS_JOGAVEIS.flatMap((r) => ORDEM_CLASSES.flatMap((c) => NAVES[r][c].map((n) => n.modelo))));
-  assert.ok(NAVES_PBR.includes('modelos/naves/shrewdo/functional/cyclone-wing.glb'));
+  assert.deepEqual([...NAVES_PBR], ['modelos/naves/shrewdo/functional/cyclone-wing.glb', 'modelos/naves/acron/assault/ulysses.glb']);
   for (const modelo of NAVES_PBR) {
     assert.ok(catalogo.has(modelo), modelo);
     assert.ok(temPbr(modelo));
@@ -46,7 +46,7 @@ test('nave PBR: a mesma forma, a mesma UV e os mesmos encaixes do original, com 
     assert.equal(JSON.stringify(depois.nodes), JSON.stringify(antes.nodes)); // (o texto: -0 e 0 são o mesmo número)
     // A caixa é a do original, menos o que o chanfro come de uma quina.
     caixa(antes).forEach(([min, max], k) => {
-      assert.ok(Math.abs(min - caixa(depois)[k][0]) <= 0.15 && Math.abs(max - caixa(depois)[k][1]) <= 0.15, `eixo ${k}`);
+      assert.ok(Math.abs(min - caixa(depois)[k][0]) <= 0.25 && Math.abs(max - caixa(depois)[k][1]) <= 0.25, `eixo ${k}`);
     });
     const prims = depois.meshes.flatMap((m) => m.primitives);
     const tris = prims.reduce((s, p) => s + depois.accessors[p.indices].count / 3, 0);

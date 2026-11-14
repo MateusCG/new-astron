@@ -2,7 +2,7 @@
 // com a MESMA forma e o MESMO layout de UV, mas com a malha chanfrada e lisa
 // (tools/nave_pbr_malha.py), a textura ampliada e os mapas de relevo, rugosidade,
 // metal e emissivo (tools/nave_pbr_texturas.py), para comparar antes e depois
-// jogando. Por enquanto só a Cyclone Wing. Os arquivos ficam em
+// jogando. Por enquanto a Cyclone Wing e a Ulysses. Os arquivos ficam em
 // public/modelos/naves-pbr/, no mesmo caminho da nave em public/modelos/naves/.
 //
 // Puro (sem DOM nem Three.js) e testado em tests/nave-pbr.test.mjs: quais naves têm
@@ -12,7 +12,7 @@
 export const CHAVE_NAVE_PBR = 'astron.navePbr';
 
 /** Modelos (o `modelo` de shared/naves.js) que têm a versão mid-poly PBR. */
-export const NAVES_PBR = Object.freeze(['modelos/naves/shrewdo/functional/cyclone-wing.glb']);
+export const NAVES_PBR = Object.freeze(['modelos/naves/shrewdo/functional/cyclone-wing.glb', 'modelos/naves/acron/assault/ulysses.glb']);
 
 /** Os quatro mapas de cada nave, pelo sufixo do arquivo. */
 export const MAPAS_PBR = Object.freeze(['cor', 'mr', 'normal', 'emissivo']);

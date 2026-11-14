@@ -45,14 +45,14 @@ const primitivas = n.json.meshes[0].primitives.map((p) => ({
 }));
 
 // A malha nova não pode ter saído do lugar: a caixa é a do original, menos o que o
-// chanfro come de uma quina (até 0,15 no metro do original).
+// chanfro come de uma quina (até 0,25 no metro do original, o DESVIO_MAX de nave_pbr_malha.py).
 const caixa = (json) => {
   const ps = json.meshes[0].primitives.map((p) => json.accessors[p.attributes.POSITION]);
   return [0, 1, 2].map((k) => [Math.min(...ps.map((p) => p.min[k])), Math.max(...ps.map((p) => p.max[k]))]);
 };
 const [ca, cn] = [caixa(a.json), caixa({ meshes: [{ primitives: primitivas }], accessors: acessores })];
 ca.forEach(([min, max], k) => {
-  if (Math.abs(min - cn[k][0]) > 0.15 || Math.abs(max - cn[k][1]) > 0.15) throw new Error(`a caixa da malha mudou no eixo ${k}: ${[min, max]} -> ${cn[k]}`);
+  if (Math.abs(min - cn[k][0]) > 0.25 || Math.abs(max - cn[k][1]) > 0.25) throw new Error(`a caixa da malha mudou no eixo ${k}: ${[min, max]} -> ${cn[k]}`);
 });
 
 const json = {

@@ -1,6 +1,6 @@
 """Texturas PBR de uma nave do original, no MESMO layout de UV da textura dela.
 
-Protótipo (Cyclone Wing). Da textura de cor do original (256 × 256, dentro do glb)
+Protótipo (Cyclone Wing e Ulysses). Da textura de cor do original (256 × 256, dentro do glb)
 saem quatro imagens de TAMANHO × TAMANHO, todas no layout de UV do original:
 
   <saida>_cor.webp       cor ampliada 4× (Lanczos + filtro de choque: a borda entre as
@@ -15,7 +15,12 @@ saem quatro imagens de TAMANHO × TAMANHO, todas no layout de UV do original:
 
 Sem rede e sem modelo de IA: só Pillow, numpy e scipy, com semente fixa.
 
-Uso: python3 -I tools/nave_pbr_texturas.py <nave.glb> <saida sem extensão> [--previa pasta]
+Uso: python3 -I tools/nave_pbr_texturas.py <nave.glb> <saida sem extensão> [--semente n]
+         [--tinta rugosidade,metal] [--previa pasta]
+
+`--tinta` troca a rugosidade e o metal da pintura do casco (o padrão é tinta sobre
+chapa; a Ulysses, dourada, pede um casco mais metálico). `--semente` é a do grão (o
+número da unidade no original).
 """
 import io
 import json
@@ -27,7 +32,7 @@ from PIL import Image
 from scipy import ndimage as nd
 
 TAMANHO = 1024
-SEMENTE = 16  # a Cyclone Wing é a unidade 16 do original
+SEMENTE = 16  # padrão: a Cyclone Wing é a unidade 16 do original
 
 # Rugosidade e metal por região (o que a máscara de cor separa).
 REGIOES = {
@@ -137,9 +142,11 @@ def salvar(a, caminho, qualidade=90):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith('--')]
-    entrada, saida = args[0], args[1]
-    rng = np.random.default_rng(SEMENTE)
+    opcao = lambda nome: next((sys.argv[i + 1] for i, a in enumerate(sys.argv) if a == nome), None)
+    entrada, saida = sys.argv[1], sys.argv[2]
+    rng = np.random.default_rng(int(opcao('--semente') or SEMENTE))
+    if opcao('--tinta'):
+        REGIOES['tinta'] = tuple(float(v) for v in opcao('--tinta').split(','))
     original = textura_do_glb(entrada)
     fator = TAMANHO // original.shape[0]
     cor = ampliar(original, fator)
@@ -177,7 +184,7 @@ def main():
     salvar(n * 0.5 + 0.5, saida + '_normal.webp', 94)
     salvar(emissivo, saida + '_emissivo.webp', 88)
 
-    previa = next((sys.argv[i + 1] for i, a in enumerate(sys.argv) if a == '--previa'), None)
+    previa = opcao('--previa')
     if previa:
         Image.fromarray((original * 255).astype(np.uint8)).resize((TAMANHO, TAMANHO), Image.NEAREST).save(previa + '/antes.png')
         salvar(cor_final, previa + '/cor.png')

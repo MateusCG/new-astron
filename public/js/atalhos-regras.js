@@ -67,7 +67,7 @@ export const ACOES = Object.freeze([
   { id: 'pontoEl', grupo: 'Pontos', nome: tr('+10 pontos em El. (Elétrico)'), ctx: 'voo' },
   { id: 'pontoOp', grupo: 'Pontos', nome: tr('+10 pontos em Op. (Operacional)'), ctx: 'voo' },
   { id: 'som', grupo: 'Sistema', nome: tr('Liga e desliga o som'), ctx: 'sempre' },
-  { id: 'navePbr', grupo: 'Sistema', nome: tr('Protótipo: Cyclone Wing antes e depois'), ctx: 'sempre' },
+  { id: 'navePbr', grupo: 'Sistema', nome: tr('Protótipo: naves mid-poly PBR antes e depois'), ctx: 'sempre' },
   { id: 'menu', grupo: 'Sistema', nome: tr('Fecha a janela ou sai da partida'), ctx: 'sempre', fixaTeclado: 'Esc' },
   { id: 'uiCima', grupo: 'Menus', nome: tr('Navega para cima'), ctx: 'menu', fixaTeclado: '↑', segurar: true },
   { id: 'uiBaixo', grupo: 'Menus', nome: tr('Navega para baixo'), ctx: 'menu', fixaTeclado: '↓', segurar: true },
