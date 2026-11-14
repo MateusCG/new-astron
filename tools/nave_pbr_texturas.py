@@ -13,10 +13,12 @@ saem quatro imagens de TAMANHO × TAMANHO, todas no layout de UV do original:
                          a base tangente que o three.js monta sem tangentes no glb
   <saida>_emissivo.webp  só o que acende: o vidro azul da cabine e as luzes verdes
 
-Sem rede e sem modelo de IA: só Pillow, numpy e scipy, com semente fixa.
+Só Pillow, numpy e scipy, com semente fixa. A cor ampliada pode vir pronta de um
+upscaler de IA (`--cor`, o PNG de tools/nave_pbr_cor_ia.py: bordas retas e limpas, é
+o que as naves do protótipo usam); sem ela, vale a ampliação daqui, sem IA.
 
 Uso: python3 -I tools/nave_pbr_texturas.py <nave.glb> <saida sem extensão> [--semente n]
-         [--tinta rugosidade,metal] [--previa pasta]
+         [--tinta rugosidade,metal] [--cor ampliada.png] [--previa pasta]
 
 `--tinta` troca a rugosidade e o metal da pintura do casco (o padrão é tinta sobre
 chapa; a Ulysses, dourada, pede um casco mais metálico). `--semente` é a do grão (o
@@ -149,7 +151,10 @@ def main():
         REGIOES['tinta'] = tuple(float(v) for v in opcao('--tinta').split(','))
     original = textura_do_glb(entrada)
     fator = TAMANHO // original.shape[0]
-    cor = ampliar(original, fator)
+    if opcao('--cor'):
+        cor = np.asarray(Image.open(opcao('--cor')).convert('RGB').resize((TAMANHO, TAMANHO), Image.LANCZOS), dtype=np.float32) / 255
+    else:
+        cor = ampliar(original, fator)
     forma = cor.shape[:2]
     m = mascaras(cor)
     lum = luminancia(cor)
