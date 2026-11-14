@@ -81,6 +81,7 @@ export function mostrarPrevia(container, race, classe, tier = 0) {
     previa = { container, nave, quadro: 0, ang: 0, segura: false };
   }
   previa.container = container;
+  previa.pedido = [race, classe, tier];
   definirNave(previa.nave, race, classe, tier);
   // Garante o download (o erro já aparece no console de nave.js); se falhar, o aviso diz.
   const chave = previa.nave.userData.nave;
@@ -114,6 +115,9 @@ function girar(agora) {
     return;
   }
   const { container, nave } = previa;
+  // A mesma nave de novo não faz nada; trocou o "antes e depois" do protótipo PBR
+  // (nave-pbr-regras.js), a chave do modelo muda e a prévia troca de versão.
+  if (previa.pedido) definirNave(nave, ...previa.pedido);
   const w = container.clientWidth;
   const h = container.clientHeight;
   // Fora da tela (entrou no jogo): para de desenhar.

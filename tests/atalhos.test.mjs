@@ -87,8 +87,8 @@ test('controle de fábrica: DualShock 3 no mapeamento padrão, sem conflito no m
   assert.deepEqual([m.armaZ, m.armaX, m.menu], [['b7'], ['b6'], ['b9']]);
   assert.deepEqual([m.uiConfirmar, m.uiVoltar], [['b0'], ['b1']]);
   // Toda ação de voo e de janela tem um botão (o som não precisa, os pontos vão pelo
-  // STATUS e os Comandos pelas Opções).
-  for (const a of ACOES.filter((x) => !['som', 'comandos', 'historico'].includes(x.id) && x.grupo !== 'Pontos')) assert.ok(m[a.id].length, a.id);
+  // STATUS, os Comandos pelas Opções e o protótipo da nave pelo clique na plaquinha).
+  for (const a of ACOES.filter((x) => !['som', 'comandos', 'historico', 'navePbr'].includes(x.id) && x.grupo !== 'Pontos')) assert.ok(m[a.id].length, a.id);
   // Cabe num DualShock 3: 17 botões (0–16) e 4 eixos.
   for (const e of Object.values(CONTROLE_PADRAO).flat()) {
     if (e[0] === 'b') assert.ok(Number(e.slice(1)) <= 16, e);

@@ -137,6 +137,7 @@ const ROTULO_NUCLEO = ESCUDO.centroY + ESCUDO.raio;
 const CHEFES_JUNGLE = new Set(['medusa', 'sn4', 'sonda']);
 import { Sons, SONS_INTERFACE, SONS_VOLTA, SONS_NUCLEO, VOLUME_TIRO_PROPRIO } from './sons.js';
 import { MusicaPartida } from './musica.js';
+import { iniciarPrototipoNave } from './prototipo-nave.js';
 import { PainelVolume } from './volume.js';
 import { Efeitos, COR_TIME } from './efeitos.js';
 import { Controles } from './controles.js';
@@ -279,6 +280,8 @@ const painelOpiniao = new PainelOpiniao({
 });
 // M de fábrica (atalhos.js; o campo de nome engole a tecla, a barra de volume não).
 aoApertar('som', alternarSom);
+// Protótipo da nave mid-poly PBR: a plaquinha "antes e depois" da Cyclone Wing (P).
+aoApertar('navePbr', iniciarPrototipoNave());
 // Controle (joystick.js): o mapa da aba Configurações, a navegação dos menus e o voo.
 iniciarJoystick();
 pintarRotulos();

@@ -12,6 +12,8 @@ import { RACES, WEAPONS, ARMAS, INCLINACAO_CURVA } from '/shared/sim.js';
 import { naveDe, FATOR_TAMANHO_NAVE } from '/shared/naves.js';
 import { instanciaMapa, pintar } from './mapa-modelos.js';
 import { montarPropulsao, animarPropulsao, ENCAIXES_PROPULSAO } from './propulsao.js';
+import { arquivosPbr, lerNavePbr, guardarNavePbr } from './nave-pbr-regras.js';
+import { carregarTexturasPbr, materialCascoPbr } from './nave-pbr.js';
 
 let texturaBrilho = null;
 
@@ -85,7 +87,11 @@ const uLuzNave = { value: LUZ_NAVE };
 
 /** Material de casco ou de arma da asa (textura do modelo, regras do guia) com a LUZ_NAVE. */
 function matCasco(map) {
-  const m = new THREE.MeshStandardMaterial({ map, metalness: 0.4, roughness: 0.5, flatShading: true, side: THREE.DoubleSide });
+  return comLuzNave(new THREE.MeshStandardMaterial({ map, metalness: 0.4, roughness: 0.5, flatShading: true, side: THREE.DoubleSide }), 'luz-nave');
+}
+
+/** Liga a LUZ_NAVE num material de casco; `chave` separa o programa do facetado do PBR. */
+function comLuzNave(m, chave) {
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uLuzNave = uLuzNave;
     shader.fragmentShader = shader.fragmentShader.replace('void main() {', 'uniform float uLuzNave;\nvoid main() {').replace(
@@ -97,7 +103,7 @@ function matCasco(map) {
       reflectedLight.indirectSpecular *= uLuzNave;`,
     );
   };
-  m.customProgramCacheKey = () => 'luz-nave'; // um programa só para todas as naves e armas
+  m.customProgramCacheKey = () => chave; // um programa só para todas as naves e armas de cada tipo
   return m;
 }
 
@@ -150,22 +156,45 @@ function naveDoCatalogo(race, classe, tier) {
   return naveDe(race, classe ?? 'assault', tier ?? 0) ?? naveDe(race, 'assault', 0) ?? naveDe('acron', 'assault', 0);
 }
 
-const urlDa = (nave) => '/' + nave.modelo;
+// Protótipo mid-poly PBR (nave-pbr-regras.js): a nave que tem a versão nova troca de
+// arquivo conforme a escolha "antes ou depois"; a chave do modelo (a URL) muda junto,
+// então o próximo definirNave de cada nave na tela já monta a outra versão.
+let navePbr = lerNavePbr(globalThis.localStorage);
 
-/** Baixa e prepara o modelo da nave (uma vez por arquivo). */
-function carregarNave(nave) {
-  const url = urlDa(nave);
+/** A versão mid-poly PBR está ligada (depois) ou desligada (antes, a nave do original)? */
+export function navePbrLigada() {
+  return navePbr;
+}
+
+/** Liga ou desliga a versão mid-poly PBR (guarda no navegador); as naves trocam no próximo definirNave. */
+export function definirNavePbr(ligado) {
+  navePbr = !!ligado;
+  guardarNavePbr(globalThis.localStorage, navePbr);
+}
+
+const urlDa = (nave) => (navePbr && arquivosPbr(nave.modelo)?.glb) || '/' + nave.modelo;
+
+/**
+ * Baixa e prepara o modelo da nave (uma vez por arquivo). A nave com versão PBR
+ * (protótipo) baixa as duas, a escolhida e, em segundo plano, a outra, para a troca
+ * "antes e depois" ser na hora.
+ */
+function carregarNave(nave, url = urlDa(nave)) {
   if (!modelos.has(url)) {
+    const pbr = arquivosPbr(nave.modelo);
     const p = (async () => {
       carregador ??= new (await import('three/addons/loaders/GLTFLoader.js')).GLTFLoader();
-      const gltf = await carregador.loadAsync(url);
-      const modelo = prepararModelo(gltf, FATOR_TAMANHO_NAVE);
+      // A versão PBR traz os mapas em arquivos ao lado do glb (que vem sem imagem).
+      const [gltf, mapas] = await Promise.all([carregador.loadAsync(url), pbr?.glb === url ? carregarTexturasPbr(pbr) : null]);
+      const modelo = prepararModelo(gltf, FATOR_TAMANHO_NAVE, mapas);
       prontos.set(url, modelo);
       return modelo;
     })();
     // Falhou (rede): sai do cache para tentar de novo na próxima vez.
     p.catch(() => modelos.delete(url));
     modelos.set(url, p);
+    const outra = pbr && (url === pbr.glb ? '/' + nave.modelo : pbr.glb);
+    if (outra && !modelos.has(outra)) carregarNave(nave, outra).catch(() => {});
   }
   return modelos.get(url);
 }
@@ -212,7 +241,7 @@ function orientarFaces(geo) {
 }
 
 /** Gira o glTF para -z, escala por `escala` (do metro do original para o do jogo) e centra. */
-function prepararModelo(gltf, escala) {
+function prepararModelo(gltf, escala, mapasPbr = null) {
   gltf.scene.updateMatrixWorld(true);
   const malhas = [];
   const encaixes = new Map();
@@ -253,7 +282,7 @@ function prepararModelo(gltf, escala) {
   // Material dentro das regras do guia (facetado, metal até 0.5), com a textura do modelo.
   const partes = malhas.map((m, i) => ({
     geometria: geos[i],
-    material: matCasco(m.material.map),
+    material: mapasPbr ? comLuzNave(materialCascoPbr(mapasPbr), 'luz-nave-pbr') : matCasco(m.material.map),
   }));
   return { partes, encaixes, propulsao, caixa, itens };
 }
@@ -373,7 +402,11 @@ export function modeloDaNave(race, classe, tier) {
  */
 export function texturasDosModelos() {
   const lista = new Set();
-  for (const m of [...prontos.values(), ...armasProntas.values()]) for (const { material } of m.partes) if (material.map) lista.add(material.map);
+  for (const m of [...prontos.values(), ...armasProntas.values()]) {
+    for (const { material } of m.partes) {
+      for (const t of [material.map, material.normalMap, material.roughnessMap, material.emissiveMap, material.envMap]) if (t) lista.add(t);
+    }
+  }
   return [...lista];
 }
 

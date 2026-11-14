@@ -2,7 +2,7 @@
 // teste" marcado na tela inicial, num mundo só seu, com a partida sem relógio
 // (server/index.js). Os botões pedem ao servidor {t:'teste', acao} ('ouro', 'xp',
 // 'nivel', 'nivelMax', 'nucleo': o Núcleo de He-3 volta ao começo, para testar o
-// escudo e o reflexo quando quiser): quem dá o ouro e o XP é o servidor, e só no mundo de teste,
+// escudo e o reflexo quando quiser; 'nave': a última nave da linha na hora): quem dá o ouro e o XP é o servidor, e só no mundo de teste,
 // então a regra "nunca aceitar recompensa do cliente" continua valendo na partida
 // de verdade. O painel serve para testar a Evolução da nave e a Loja sem jogar uma
 // partida inteira.
@@ -15,6 +15,7 @@ const TEXTO_OK = {
   nivel: tr('Subiu um nível (teste)'),
   nivelMax: tr('Nível máximo (teste)'),
   nucleo: tr('Núcleo de He-3 resetado: nível 1, escudo cheio (teste)'),
+  nave: tr('Última nave da linha (teste)'),
 };
 
 export class PainelTeste {
@@ -40,7 +41,7 @@ export class PainelTeste {
   /** Resposta do servidor a um pedido de teste. */
   resultado(m) {
     if (m.ok) this.noticia(TEXTO_OK[m.item] ?? tr('Feito (teste)'), 'bom');
-    else this.noticia(m.codigo === 'limite' ? tr('Já está no nível máximo') : tr('Pedido de teste recusado'), 'ruim');
+    else this.noticia(m.codigo === 'limite' ? (m.item === 'nave' ? tr('Já é a última nave da linha') : tr('Já está no nível máximo')) : tr('Pedido de teste recusado'), 'ruim');
   }
 
   fechar() {

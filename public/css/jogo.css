@@ -3691,7 +3691,8 @@ kbd {
 }
 
 /* Resetar Núcleo: a linha inteira, embaixo dos quatro de progressão. */
-#painel-teste button[data-acao='nucleo'] {
+#painel-teste button[data-acao='nucleo'],
+#painel-teste button[data-acao='nave'] {
   grid-column: 1 / -1;
 }
 
@@ -10581,4 +10582,46 @@ html[data-aparelho='controle'] #comandos .leg-controle {
 .avaliar-partida .obrigado-partida {
   color: var(--neon);
   font: 600 15px system-ui, sans-serif;
+}
+
+/* Protótipo da nave mid-poly PBR (prototipo-nave.js): plaquinha "antes e depois" no
+   canto direito, em todas as telas. Ferramenta, não parte do jogo: tracejado em ouro. */
+#prototipo-nave {
+  position: fixed;
+  right: 12px;
+  top: 46%;
+  z-index: 70;
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  padding: 7px 10px;
+  border: 1px dashed var(--ouro);
+  border-radius: 8px;
+  background: rgba(8, 20, 19, 0.86);
+  color: var(--texto);
+  font: 600 13px system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+#prototipo-nave small {
+  color: var(--ouro);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+#prototipo-nave b {
+  font-size: 14px;
+  color: var(--texto-fraco, #9fb4ae);
+}
+
+#prototipo-nave.depois b {
+  color: var(--neon);
+}
+
+#prototipo-nave kbd {
+  justify-self: end;
+  margin-top: -18px;
+  margin-left: 150px;
 }
