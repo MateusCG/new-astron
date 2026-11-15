@@ -13,7 +13,7 @@
 // mostra um ícone), sem quebrar a tela.
 
 import * as THREE from 'three';
-import { atualizarMotor, criarNave, definirNave, modeloDaNave, naveDesenhada, LUZ_NAVE } from './nave.js';
+import { atualizarMotor, criarNave, definirNave, modeloDaNave, naveDesenhada, LUZ_NAVE, soltarTexturasDaNave } from './nave.js';
 import { criarLimitador } from './quadros.js';
 
 const MINIATURA = { largura: 192, altura: 112 };
@@ -213,6 +213,8 @@ export function miniatura(race, classe, tier) {
       p.renderer.render(p.cena, p.camera);
       const url = p.renderer.domElement.toDataURL('image/png');
       p.cena.remove(nave);
+      // Os mapas do casco saem da placa de vídeo (a não ser os da nave que a prévia mostra).
+      if (outra?.userData.nave !== nave.userData.nave) soltarTexturasDaNave(nave);
       if (outra) outra.visible = true;
       return url;
     })().catch((err) => {

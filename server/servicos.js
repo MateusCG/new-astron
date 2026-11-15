@@ -409,6 +409,21 @@ export class Servicos {
     return null;
   }
 
+  /**
+   * Modo de teste (World#pedidoTeste, acao 'nave'): a ÚLTIMA nave da linha na hora,
+   * sem pousar nem pagar, para ver uma nave de tier alto sem jogar a partida. Devolve
+   * o código do erro ('limite' se já é a última) ou null.
+   */
+  ultimaNaveDoTeste(j) {
+    let ultima = null;
+    for (let t = j.tier + 1, n; (n = naveDe(j.ship.race, j.classe, t)); t++) ultima = n;
+    if (!ultima) return 'limite';
+    j.tier = ultima.tier;
+    atualizarNave(j);
+    this.world.eventos.push({ e: 'nave', id: j.id, nome: j.nome, time: j.time, tier: ultima.tier, nave: ultima.nome });
+    return null;
+  }
+
   #melhorar(j, id) {
     const m = melhoriaMinerador(id);
     if (!m) return 'invalido';

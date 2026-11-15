@@ -3691,7 +3691,8 @@ kbd {
 }
 
 /* Resetar Núcleo: a linha inteira, embaixo dos quatro de progressão. */
-#painel-teste button[data-acao='nucleo'] {
+#painel-teste button[data-acao='nucleo'],
+#painel-teste button[data-acao='nave'] {
   grid-column: 1 / -1;
 }
 

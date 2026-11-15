@@ -74,6 +74,7 @@ import {
   fracaoCarregamento,
   pctCarregamento,
   textoCarregamento,
+  naveAquecida,
 } from './carregamento-regras.js';
 import { tr } from '../../shared/idioma.js';
 
@@ -349,7 +350,9 @@ export class Carregamento {
 /**
  * Prepara a placa de vídeo antes do primeiro quadro. Monta, num canto do céu sobre a
  * base do piloto, um exemplar de cada coisa que a partida pode desenhar:
- * - as 45 naves (todas as raças, classes e tiers, aliadas e inimigas) e naves com
+ * - as naves que a partida mostra de saída (naveAquecida: a linha do piloto e a
+ *   primeira de cada linha, aliadas e inimigas; as outras dividem o mesmo shader e
+ *   mandam os mapas à placa quando aparecem) e naves com
  *   cada modelo de arma na asa, com motor, trem de pouso, auras, bônus, recall,
  *   camuflagem e o emblema de subir de nível;
  * - o projétil de cada versão de cada arma (e dos filhos), os passageiros (clarão,
@@ -387,8 +390,10 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
   const restaurar = []; // [objeto, visible, frustumCulled] da cena, para desfazer
   const programasAntes = renderer.info.programs?.length ?? 0;
   try {
-    // Todas as naves (aliada e inimiga: o losango do time muda de material), com motor e trem.
-    for (const nave of ins.naves) {
+    // As naves (aliada e inimiga: o losango do time muda de material), com motor e trem.
+    // Só as que a partida mostra de saída (naveAquecida): o programa do casco é um só
+    // para as 45, e cada nave desenhada aqui deixa os mapas dela na placa de vídeo.
+    for (const nave of ins.naves.filter((n) => naveAquecida(n, race, classe))) {
       for (const aliado of [true, false]) {
         const obj = lugar(criarNave(nave.race, { aliado, classe: nave.classe, tier: nave.tier }));
         atualizarMotor(obj, { vitrine: true }, 0, 1 / 30);
@@ -537,7 +542,8 @@ export async function aquecerGpu({ renderer, scene, camera, efeitos, focar, race
     // Texturas: as das naves e armas, as dos monstros, as dos efeitos (todos os quadros
     // das sequências, não só o primeiro), o brilho e as que a cena usa (plaquinhas,
     // névoa, água). initTexture de uma já enviada não faz nada.
-    const texturas = new Set([brilho(), ...texturasDosModelos(), ...texturasDosMonstros(), ...texturasEfeitoPedidas(), ...texturasDaPropulsao()]);
+    const aquecidas = new Set(ins.naves.filter((n) => naveAquecida(n, race, classe)).map((n) => n.url));
+    const texturas = new Set([brilho(), ...texturasDosModelos(aquecidas), ...texturasDosMonstros(), ...texturasEfeitoPedidas(), ...texturasDaPropulsao()]);
     scene.traverse((o) => {
       for (const m of [o.material].flat()) {
         if (!m) continue;
