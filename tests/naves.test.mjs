@@ -318,7 +318,9 @@ test('naves: o tamanho e o raio do original crescem com a nave, nas 45 (×0,5: a
         const meia = (Math.max(comp, env) / 2) * FATOR_TAMANHO_NAVE;
         const k = n.raio / meia;
         assert.ok(k > 0.8 && k < 1.55, `${n.nome}: raio ${n.raio} m para ${comp.toFixed(1)} × ${env.toFixed(1)} m do original`);
-        assert.ok(Math.abs(n.corpo - Math.max(n.raio, meia)) < 0.1, `${n.nome}: corpo ${n.corpo} m, modelo até ${meia.toFixed(2)} m do centro`);
+        // (o corpo saiu do modelo do original; na versão mid-poly PBR o chanfro come até
+        // 0,25 do original numa ponta, 0,125 m no jogo, de cada lado)
+        assert.ok(Math.abs(n.corpo - Math.max(n.raio, meia)) < 0.25, `${n.nome}: corpo ${n.corpo} m, modelo até ${meia.toFixed(2)} m do centro`);
       }
       // A última nave da linha é bem maior que a primeira.
       const [a, b] = [caixaDoModelo(linha[0]), caixaDoModelo(linha[TIER_MAX])];

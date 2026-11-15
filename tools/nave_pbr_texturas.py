@@ -1,7 +1,9 @@
 """Texturas PBR de uma nave do original, no MESMO layout de UV da textura dela.
 
-Protótipo (Cyclone Wing e Ulysses). Da textura de cor do original (256 × 256, dentro do glb)
-saem quatro imagens de TAMANHO × TAMANHO, todas no layout de UV do original:
+De cada textura de cor do original (256 × 256 ou 128 × 128, dentro do glb) saem quatro
+imagens no layout de UV do original. A cor e o relevo têm 4× o lado do original (1024
+ou 512); a rugosidade e o emissivo, a metade disso (pesam na placa de vídeo e não
+precisam do detalhe fino):
 
   <saida>_cor.webp       cor ampliada 4× (Lanczos + filtro de choque: a borda entre as
                          chapas volta a ser um degrau em vez de um borrão) com um grão fino
@@ -17,8 +19,10 @@ Só Pillow, numpy e scipy, com semente fixa. A cor ampliada pode vir pronta de u
 upscaler de IA (`--cor`, o PNG de tools/nave_pbr_cor_ia.py: bordas retas e limpas, é
 o que as naves do protótipo usam); sem ela, vale a ampliação daqui, sem IA.
 
-Uso: python3 -I tools/nave_pbr_texturas.py <nave.glb> <saida sem extensão> [--semente n]
-         [--tinta rugosidade,metal] [--cor ampliada.png] [--previa pasta]
+Uso: python3 -I tools/nave_pbr_texturas.py <nave.glb> <saida sem extensão> [--imagem k]
+         [--semente n] [--tinta rugosidade,metal] [--cor ampliada.png] [--previa pasta]
+
+`--imagem` é o índice da imagem no glb (0 se não vier).
 
 `--tinta` troca a rugosidade e o metal da pintura do casco (o padrão é tinta sobre
 chapa; a Ulysses, dourada, pede um casco mais metálico). `--semente` é a do grão (o
@@ -47,14 +51,13 @@ REGIOES = {
 }
 
 
-def textura_do_glb(caminho):
-    """A primeira imagem de cor do glb, em float 0..1 (RGB)."""
+def textura_do_glb(caminho, imagem=0):
+    """A imagem de cor `imagem` do glb, em float 0..1 (RGB)."""
     dados = open(caminho, 'rb').read()
     tam = struct.unpack_from('<I', dados, 12)[0]
     gltf = json.loads(dados[20:20 + tam])
     inicio = 20 + tam + 8
-    mat = gltf['materials'][0]['pbrMetallicRoughness']['baseColorTexture']['index']
-    vista = gltf['bufferViews'][gltf['images'][gltf['textures'][mat]['source']]['bufferView']]
+    vista = gltf['bufferViews'][gltf['images'][imagem]['bufferView']]
     png = dados[inicio + vista.get('byteOffset', 0):][:vista['byteLength']]
     return np.asarray(Image.open(io.BytesIO(png)).convert('RGB'), dtype=np.float32) / 255
 
@@ -139,8 +142,11 @@ def ruido(rng, forma, sigma_y, sigma_x):
     return r / r.std()
 
 
-def salvar(a, caminho, qualidade=90):
-    Image.fromarray((np.clip(a, 0, 1) * 255).round().astype(np.uint8)).save(caminho, quality=qualidade, method=6)
+def salvar(a, caminho, qualidade=90, lado=None):
+    img = Image.fromarray((np.clip(a, 0, 1) * 255).round().astype(np.uint8))
+    if lado and lado != img.width:
+        img = img.resize((lado, lado), Image.LANCZOS)
+    img.save(caminho, quality=qualidade, method=6)
 
 
 def main():
@@ -149,7 +155,8 @@ def main():
     rng = np.random.default_rng(int(opcao('--semente') or SEMENTE))
     if opcao('--tinta'):
         REGIOES['tinta'] = tuple(float(v) for v in opcao('--tinta').split(','))
-    original = textura_do_glb(entrada)
+    original = textura_do_glb(entrada, int(opcao('--imagem') or 0))
+    lado = original.shape[0] * 4  # a conta toda é feita em TAMANHO; os arquivos saem com 4× o original
     fator = TAMANHO // original.shape[0]
     if opcao('--cor'):
         cor = np.asarray(Image.open(opcao('--cor')).convert('RGB').resize((TAMANHO, TAMANHO), Image.LANCZOS), dtype=np.float32) / 255
@@ -184,10 +191,11 @@ def main():
 
     emissivo = cor * (m['vidro'] * 0.85 + m['luz'] * 1.0)[..., None]
 
-    salvar(cor_final, saida + '_cor.webp', 92)
-    salvar(np.dstack([oclusao, rug, met]), saida + '_mr.webp', 90)
-    salvar(n * 0.5 + 0.5, saida + '_normal.webp', 94)
-    salvar(emissivo, saida + '_emissivo.webp', 88)
+    salvar(cor_final, saida + '_cor.webp', 92, lado)
+    salvar(np.dstack([oclusao, rug, met]), saida + '_mr.webp', 90, lado // 2)
+    salvar(n * 0.5 + 0.5, saida + '_normal.webp', 94, lado)
+    salvar(emissivo, saida + '_emissivo.webp', 88, lado // 2)
+    print(f'{saida}: emissivo {float((m["vidro"] + m["luz"]).mean()) * 100:.1f}% da textura')
 
     previa = opcao('--previa')
     if previa:

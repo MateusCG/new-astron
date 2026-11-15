@@ -20,12 +20,14 @@ import bpy  # antes do bmesh: como módulo, é o bpy que o registra
 import bmesh
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
+from mathutils.kdtree import KDTree
 
 ANGULO_QUINA = math.radians(32)  # acima disso a aresta é quina: leva chanfro
 LARGURA_CHANFRO = 0.22  # no metro do original (a nave tem ~40 de envergadura; no jogo × 0,5)
 SEGMENTOS = 2
 DESVIO_MAX = 0.25  # o quanto a malha nova pode se afastar de um vértice do original
 SOLDA = 1e-4
+VOLTAS = 30  # tentativas de chanfro por peça; a última é sem chanfro nenhum
 
 entrada, saida = sys.argv[-2], sys.argv[-1]
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -64,8 +66,15 @@ for obj in [o for o in bpy.data.objects if o.type == 'MESH']:
     base = bm
     base.verts.ensure_lookup_table()
     originais = [v.co.copy() for v in base.verts]
+    arvore_original = BVHTree.FromBMesh(base)
+    perto = KDTree(len(originais))
+    for i, co in enumerate(originais):
+        perto.insert(co, i)
+    perto.balance()
     proibidos = set()
-    for volta in range(12):
+    for volta in range(VOLTAS):
+        if volta == VOLTAS - 1:
+            proibidos = set(range(len(originais)))  # não coube de jeito nenhum: a peça fica sem chanfro
         bm = base.copy()
         bm.verts.ensure_lookup_table()
         duras = {e for e in bm.edges if len(e.link_faces) == 2 and e.calc_face_angle(0) > ANGULO_QUINA}
@@ -79,13 +88,22 @@ for obj in [o for o in bpy.data.objects if o.type == 'MESH']:
         arvore = BVHTree.FromBMesh(bm)
         desvios = [arvore.find_nearest(co)[3] for co in originais]
         fora_do_lugar = {i for i, d in enumerate(desvios) if d > DESVIO_MAX}
+        # E o contrário: o chanfro de uma quina muito fechada pode empurrar a malha para
+        # FORA do original (a nave cresceria). O vértice novo longe demais da superfície
+        # do original proíbe o chanfro no vértice do original mais perto dele.
+        para_fora = [arvore_original.find_nearest(v.co)[3] for v in bm.verts]
+        longe = [v.co.copy() for v, d in zip(bm.verts, para_fora) if d > DESVIO_MAX * 0.8]
+        fora_do_lugar |= {perto.find(co)[1] for co in longe}
+        if fora_do_lugar and fora_do_lugar <= proibidos:
+            # Nada novo a proibir e ainda fora: proíbe tudo em volta do que saiu do lugar.
+            fora_do_lugar |= {i for co in longe + [originais[k] for k in fora_do_lugar] for _, i, _ in perto.find_range(co, LARGURA_CHANFRO * 8)}
         if not fora_do_lugar:
             break
         proibidos |= fora_do_lugar
         bm.free()
     else:
         raise SystemExit('o chanfro não coube na forma do original')
-    desvio = max(desvios)
+    desvio = max(max(desvios), max(para_fora))
     vivas = {e for e in vivas if e.is_valid}
     bmesh.ops.triangulate(bm, faces=bm.faces)
     for f in bm.faces:

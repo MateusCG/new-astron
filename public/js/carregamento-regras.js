@@ -74,3 +74,15 @@ export function textoCarregamento(estado) {
   if (g.id === 'servidor' || g.id === 'gpu') return `${g.curto}…`;
   return e?.total ? tr('Carregando · {g} {feitos}/{total}', { g: g.curto, feitos: e.feitos, total: e.total }) : tr('Carregando · {g}…', { g: g.curto });
 }
+
+/**
+ * A nave `n` ({ race, classe, tier }) vai para a placa de vídeo já na tela de
+ * carregamento? Só as que a partida mostra de saída: a linha inteira do piloto (ele
+ * evolui a qualquer hora) e a primeira nave de cada linha (todo mundo começa nela).
+ * Cada nave mid-poly PBR ocupa uns 14 MB na placa de vídeo, e as 45 de uma vez
+ * passariam de 600 MB; as outras sobem quando aparecem (outro piloto evoluiu), em
+ * poucos milissegundos, porque o arquivo já está baixado e o shader é o mesmo.
+ */
+export function naveAquecida(n, race, classe) {
+  return n.tier === 0 || (n.race === race && n.classe === classe);
+}

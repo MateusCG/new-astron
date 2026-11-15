@@ -12,7 +12,7 @@ import { RACES, WEAPONS, ARMAS, INCLINACAO_CURVA } from '/shared/sim.js';
 import { naveDe, FATOR_TAMANHO_NAVE } from '/shared/naves.js';
 import { instanciaMapa, pintar } from './mapa-modelos.js';
 import { montarPropulsao, animarPropulsao, ENCAIXES_PROPULSAO } from './propulsao.js';
-import { arquivosPbr, lerNavePbr, guardarNavePbr } from './nave-pbr-regras.js';
+import { arquivosDoMaterial } from './nave-pbr-regras.js';
 import { carregarTexturasPbr, materialCascoPbr } from './nave-pbr.js';
 
 let texturaBrilho = null;
@@ -107,8 +107,9 @@ function comLuzNave(m, chave) {
   return m;
 }
 
-// Naves de jogador: os 45 modelos do Astro-N original (public/modelos/naves/<raça>/
-// <classe>/<id>.glb, um por nave de shared/naves.js), escolhidos pela raça, pela
+// Naves de jogador: os 45 modelos do Astro-N original na versão mid-poly PBR
+// (nave-pbr-regras.js; public/modelos/naves/<raça>/<classe>/<id>.glb e os mapas ao
+// lado, um por nave de shared/naves.js), escolhidos pela raça, pela
 // classe e pelo tier da nave. A tela de carregamento (carregamento.js) baixa antes
 // da partida TODAS as naves e todas as armas da asa (as suas e as de quem mais
 // aparecer); se mesmo assim um modelo faltar (falha de rede), criarNave/definirNave
@@ -156,45 +157,32 @@ function naveDoCatalogo(race, classe, tier) {
   return naveDe(race, classe ?? 'assault', tier ?? 0) ?? naveDe(race, 'assault', 0) ?? naveDe('acron', 'assault', 0);
 }
 
-// Protótipo mid-poly PBR (nave-pbr-regras.js): a nave que tem a versão nova troca de
-// arquivo conforme a escolha "antes ou depois"; a chave do modelo (a URL) muda junto,
-// então o próximo definirNave de cada nave na tela já monta a outra versão.
-let navePbr = lerNavePbr(globalThis.localStorage);
-
-/** A versão mid-poly PBR está ligada (depois) ou desligada (antes, a nave do original)? */
-export function navePbrLigada() {
-  return navePbr;
-}
-
-/** Liga ou desliga a versão mid-poly PBR (guarda no navegador); as naves trocam no próximo definirNave. */
-export function definirNavePbr(ligado) {
-  navePbr = !!ligado;
-  guardarNavePbr(globalThis.localStorage, navePbr);
-}
-
-const urlDa = (nave) => (navePbr && arquivosPbr(nave.modelo)?.glb) || '/' + nave.modelo;
+const urlDa = (nave) => '/' + nave.modelo;
 
 /**
- * Baixa e prepara o modelo da nave (uma vez por arquivo). A nave com versão PBR
- * (protótipo) baixa as duas, a escolhida e, em segundo plano, a outra, para a troca
- * "antes e depois" ser na hora.
+ * Baixa e prepara o modelo da nave (uma vez por arquivo): o glb e, para cada material
+ * `pbr_nave*` dele, os quatro mapas que ficam ao lado (nave-pbr-regras.js).
  */
-function carregarNave(nave, url = urlDa(nave)) {
+function carregarNave(nave) {
+  const url = urlDa(nave);
   if (!modelos.has(url)) {
-    const pbr = arquivosPbr(nave.modelo);
     const p = (async () => {
       carregador ??= new (await import('three/addons/loaders/GLTFLoader.js')).GLTFLoader();
-      // A versão PBR traz os mapas em arquivos ao lado do glb (que vem sem imagem).
-      const [gltf, mapas] = await Promise.all([carregador.loadAsync(url), pbr?.glb === url ? carregarTexturasPbr(pbr) : null]);
-      const modelo = prepararModelo(gltf, FATOR_TAMANHO_NAVE, mapas);
+      const gltf = await carregador.loadAsync(url);
+      const nomes = new Set();
+      gltf.scene.traverse((o) => {
+        if (o.isMesh && arquivosDoMaterial(url, o.material.name)) nomes.add(o.material.name);
+      });
+      const materiais = new Map(
+        await Promise.all([...nomes].map(async (nome) => [nome, comLuzNave(materialCascoPbr(await carregarTexturasPbr(arquivosDoMaterial(url, nome))), 'luz-nave-pbr')])),
+      );
+      const modelo = prepararModelo(gltf, FATOR_TAMANHO_NAVE, materiais);
       prontos.set(url, modelo);
       return modelo;
     })();
     // Falhou (rede): sai do cache para tentar de novo na próxima vez.
     p.catch(() => modelos.delete(url));
     modelos.set(url, p);
-    const outra = pbr && (url === pbr.glb ? '/' + nave.modelo : pbr.glb);
-    if (outra && !modelos.has(outra)) carregarNave(nave, outra).catch(() => {});
   }
   return modelos.get(url);
 }
@@ -241,7 +229,7 @@ function orientarFaces(geo) {
 }
 
 /** Gira o glTF para -z, escala por `escala` (do metro do original para o do jogo) e centra. */
-function prepararModelo(gltf, escala, mapasPbr = null) {
+function prepararModelo(gltf, escala, materiaisPbr = new Map()) {
   gltf.scene.updateMatrixWorld(true);
   const malhas = [];
   const encaixes = new Map();
@@ -279,10 +267,11 @@ function prepararModelo(gltf, escala, mapasPbr = null) {
   for (const [nome, m] of itensOriginal) itens[nome[0]] = conta.clone().multiply(m);
   const propulsao = propulsaoOriginal.map(({ nome, matriz }) => ({ nome, matriz: conta.clone().multiply(matriz) }));
 
-  // Material dentro das regras do guia (facetado, metal até 0.5), com a textura do modelo.
+  // O casco PBR de cada material `pbr_nave*` (as peças com a mesma textura dividem um);
+  // sem os mapas (arma da asa, glb antigo), o material facetado com a textura do modelo.
   const partes = malhas.map((m, i) => ({
     geometria: geos[i],
-    material: mapasPbr ? comLuzNave(materialCascoPbr(mapasPbr), 'luz-nave-pbr') : matCasco(m.material.map),
+    material: materiaisPbr.get(m.material.name) ?? matCasco(m.material.map),
   }));
   return { partes, encaixes, propulsao, caixa, itens };
 }
@@ -395,19 +384,35 @@ export function modeloDaNave(race, classe, tier) {
   return carregarNave(naveDoCatalogo(race, classe, tier));
 }
 
+/** Os mapas de um material de casco (sem o ambiente, que todas as naves dividem). */
+const mapasDoMaterial = (m) => [m.map, m.normalMap, m.roughnessMap, m.emissiveMap].filter(Boolean);
+
 /**
  * Texturas dos modelos já prontos (naves e armas), para a tela de carregamento
  * enviar à placa de vídeo antes da partida (renderer.initTexture): sem isso, o
- * envio acontece no primeiro quadro em que a nave ou a arma aparece.
+ * envio acontece no primeiro quadro em que a nave ou a arma aparece. Com `urls` (um
+ * Set), só as naves desses arquivos: cada nave PBR ocupa uns 14 MB na placa de vídeo,
+ * e as 45 de uma vez passariam de 600 MB (as armas, pequenas, vão todas).
  */
-export function texturasDosModelos() {
+export function texturasDosModelos(urls = null) {
   const lista = new Set();
-  for (const m of [...prontos.values(), ...armasProntas.values()]) {
+  const modelosProntos = [...[...prontos].filter(([url]) => !urls || urls.has(url)).map(([, m]) => m), ...armasProntas.values()];
+  for (const m of modelosProntos) {
     for (const { material } of m.partes) {
-      for (const t of [material.map, material.normalMap, material.roughnessMap, material.emissiveMap, material.envMap]) if (t) lista.add(t);
+      for (const t of mapasDoMaterial(material)) lista.add(t);
+      if (material.envMap) lista.add(material.envMap);
     }
   }
   return [...lista];
+}
+
+/**
+ * Tira da placa de vídeo os mapas do casco desenhado em `raiz` (voltam sozinhos se a
+ * nave for desenhada de novo). A vitrine do menu chama depois de cada miniatura: sem
+ * isso, as 45 miniaturas deixariam as texturas das 45 naves na placa de vídeo.
+ */
+export function soltarTexturasDaNave(raiz) {
+  for (const { material } of prontos.get(raiz.userData.casco?.userData.nave)?.partes ?? []) for (const t of mapasDoMaterial(material)) t.dispose();
 }
 
 /**

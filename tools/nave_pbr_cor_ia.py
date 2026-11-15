@@ -10,7 +10,9 @@ O executável e os modelos NÃO ficam no repositório: são o zip
 `realesrgan-ncnn-vulkan-20220424-ubuntu.zip` da versão v0.2.5.0 do Real-ESRGAN
 (github.com/xinntao/Real-ESRGAN/releases), extraído numa pasta qualquer.
 
-Uso: python3 -I tools/nave_pbr_cor_ia.py <nave.glb> <saida.png> <pasta do realesrgan> [modelo]
+Uso: python3 -I tools/nave_pbr_cor_ia.py <nave.glb> <saida.png> <pasta do realesrgan> [imagem] [modelo]
+
+`imagem` é o índice da imagem no glb (0 se não vier): as Shrewdo de várias peças têm de 2 a 3.
 """
 import io
 import json
@@ -27,13 +29,13 @@ FATOR = 4
 MODELO = 'realesrgan-x4plus'  # o que ficou melhor nas naves: borda limpa sem mudar a cor
 
 glb, saida, pasta = sys.argv[1:4]
-modelo = sys.argv[4] if len(sys.argv) > 4 else MODELO
+imagem = int(sys.argv[4]) if len(sys.argv) > 4 else 0
+modelo = sys.argv[5] if len(sys.argv) > 5 else MODELO
 dados = open(glb, 'rb').read()
 tam = struct.unpack_from('<I', dados, 12)[0]
 gltf = json.loads(dados[20:20 + tam])
 inicio = 20 + tam + 8
-tex = gltf['materials'][0]['pbrMetallicRoughness']['baseColorTexture']['index']
-vista = gltf['bufferViews'][gltf['images'][gltf['textures'][tex]['source']]['bufferView']]
+vista = gltf['bufferViews'][gltf['images'][imagem]['bufferView']]
 original = Image.open(io.BytesIO(dados[inicio + vista.get('byteOffset', 0):][:vista['byteLength']])).convert('RGB')
 w, h = original.size
 ladrilho = Image.new('RGB', (w * 3, h * 3))

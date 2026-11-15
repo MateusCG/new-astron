@@ -1,5 +1,5 @@
-// Protótipo "nave mid-poly PBR" (nave-pbr-regras.js): o que precisa do Three.js.
-// O material do casco novo (cor, relevo, rugosidade, metal, oclusão e emissivo, no
+// As naves de jogador mid-poly PBR (nave-pbr-regras.js): o que precisa do Three.js.
+// O material do casco (cor, relevo, rugosidade, metal, oclusão e emissivo, no
 // layout de UV do original), as texturas dele e o AMBIENTE que o metal reflete.
 //
 // A cena do jogo não tem mapa de ambiente (IDENTIDADE-VISUAL.md: o metal do mapa

@@ -1,48 +1,28 @@
-// Protótipo "nave mid-poly PBR" (pedido do Mateus, 14/nov/2026): uma nave do original
-// com a MESMA forma e o MESMO layout de UV, mas com a malha chanfrada e lisa
-// (tools/nave_pbr_malha.py), a textura ampliada e os mapas de relevo, rugosidade,
-// metal e emissivo (tools/nave_pbr_texturas.py), para comparar antes e depois
-// jogando. Por enquanto a Cyclone Wing e a Ulysses. Os arquivos ficam em
-// public/modelos/naves-pbr/, no mesmo caminho da nave em public/modelos/naves/.
+// As naves de jogador são mid-poly PBR (pedido do Mateus, 14–15/nov/2026): as 45 do
+// original com a MESMA forma e o MESMO layout de UV, a malha chanfrada e lisa, a
+// textura de cor ampliada por IA e os mapas de relevo, rugosidade, metal e emissivo
+// (public/modelos/naves/LISTA.md; os modelos do original, a fonte dos geradores,
+// ficam em tools/dados/naves-original/).
 //
-// Puro (sem DOM nem Three.js) e testado em tests/nave-pbr.test.mjs: quais naves têm
-// a versão nova, os arquivos dela e a escolha "antes ou depois" guardada no navegador.
+// O glb vem sem imagem. Cada material dele se chama `pbr_nave` (a imagem 0 do
+// original) ou `pbr_nave_<k>` (a imagem k: as Shrewdo de várias peças têm até 3), e os
+// quatro mapas de cada um ficam ao lado do glb: `<nave>[_<k>]_<mapa>.webp`.
+//
+// Puro (sem DOM nem Three.js) e testado em tests/nave-pbr.test.mjs.
 
-/** Chave do navegador: '0' = a nave do original (antes); qualquer outra coisa, a nova. */
-export const CHAVE_NAVE_PBR = 'astron.navePbr';
-
-/** Modelos (o `modelo` de shared/naves.js) que têm a versão mid-poly PBR. */
-export const NAVES_PBR = Object.freeze(['modelos/naves/shrewdo/functional/cyclone-wing.glb', 'modelos/naves/acron/assault/ulysses.glb']);
-
-/** Os quatro mapas de cada nave, pelo sufixo do arquivo. */
+/** Os quatro mapas de cada material, pelo sufixo do arquivo. */
 export const MAPAS_PBR = Object.freeze(['cor', 'mr', 'normal', 'emissivo']);
 
-/** A nave (o `modelo` do catálogo) tem a versão mid-poly PBR? */
-export function temPbr(modelo) {
-  return NAVES_PBR.includes(modelo);
+/** Sufixo dos arquivos de um material do glb ('' ou '_<k>'), ou null se não é um `pbr_nave*`. */
+export function sufixoDoMaterial(nome) {
+  const m = /^pbr_nave(?:_(\d+))?$/.exec(nome ?? '');
+  return m ? (m[1] ? `_${m[1]}` : '') : null;
 }
 
-/** Arquivos da versão PBR de um modelo: `{ glb, cor, mr, normal, emissivo }` (URLs), ou null. */
-export function arquivosPbr(modelo) {
-  if (!temPbr(modelo)) return null;
-  const base = '/' + modelo.replace(/^modelos\/naves\//, 'modelos/naves-pbr/').replace(/\.glb$/, '');
-  return { glb: base + '.glb', ...Object.fromEntries(MAPAS_PBR.map((m) => [m, `${base}_${m}.webp`])) };
-}
-
-/** A escolha guardada: true = depois (a nave nova, o padrão), false = antes (a do original). */
-export function lerNavePbr(storage) {
-  try {
-    return storage?.getItem(CHAVE_NAVE_PBR) !== '0';
-  } catch {
-    return true;
-  }
-}
-
-/** Guarda a escolha (o navegador pode recusar: a escolha vale só nesta página). */
-export function guardarNavePbr(storage, ligado) {
-  try {
-    storage?.setItem(CHAVE_NAVE_PBR, ligado ? '1' : '0');
-  } catch {
-    /* sem armazenamento: segue com a escolha na memória */
-  }
+/** Os mapas de um material da nave (`url` do glb): `{ cor, mr, normal, emissivo }` (URLs), ou null. */
+export function arquivosDoMaterial(url, nome) {
+  const sufixo = sufixoDoMaterial(nome);
+  if (sufixo === null) return null;
+  const base = url.replace(/\.glb$/, '') + sufixo;
+  return Object.fromEntries(MAPAS_PBR.map((m) => [m, `${base}_${m}.webp`]));
 }
