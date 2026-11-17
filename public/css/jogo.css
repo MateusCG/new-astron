@@ -2726,6 +2726,13 @@ kbd {
      da tela na direita: o placar, as notícias, o painel inferior e o da Loja
      abrem espaço para ela em vez de ficar embaixo. 0 com as duas fechadas. */
   --lateral: 0px;
+  /* Tamanho do minimapa, proporcional à tela como o do Dota 2 e o do LoL (pedido do
+     Mateus, 17/nov/2026): uns 18,5% da altura da tela (300 × 200 px em 1080p, perto
+     de 3% da área, a faixa dos dois), sem passar de 15,6% da largura. --sob-mapa é
+     onde começa o que fica embaixo dele e da engrenagem das Opções. */
+  --mapa-alt: clamp(120px, min(18.5vh, 10.4vw), 300px);
+  --mapa-larg: calc(var(--mapa-alt) * 1.5);
+  --sob-mapa: calc(12px + var(--mapa-alt) + 36px);
 }
 
 #hud:has(#status:not([hidden])) {
@@ -2740,8 +2747,8 @@ kbd {
   position: absolute;
   top: 12px;
   left: 12px;
-  width: 180px;
-  height: 120px;
+  width: var(--mapa-larg);
+  height: var(--mapa-alt);
   border: 2px solid var(--chapa-clara);
   border-radius: 6px;
   box-shadow: 0 0 0 1px var(--neon-escuro);
@@ -3015,7 +3022,7 @@ kbd {
 /* Celular: a barra do time vira coluna à esquerda nessa altura; o painel vai para o lado dela. */
 @media (max-width: 760px) {
   #ultima-morte {
-    top: 168px;
+    top: var(--sob-mapa);
     left: calc(12px + 140px + 8px);
     width: min(230px, calc(100vw - 172px));
   }
@@ -3659,7 +3666,7 @@ kbd {
    borda tracejada em ouro (é ferramenta, não parte do jogo). */
 #painel-teste {
   position: absolute;
-  top: 162px;
+  top: calc(var(--sob-mapa) - 6px);
   left: 12px;
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -5678,9 +5685,8 @@ body.dano::after {
 }
 
 @media (max-width: 520px) {
-  #minimapa {
-    width: 120px;
-    height: 80px;
+  #hud {
+    --mapa-alt: 80px;
   }
   #placar {
     min-width: 0;
@@ -5714,19 +5720,11 @@ body.dano::after {
    o ping e os botões de Status, Inventário, Tabela e Morte moram lá dentro. */
 #atalhos-hud {
   position: absolute;
-  top: 136px;
+  top: calc(12px + var(--mapa-alt) + 4px);
   left: 10px;
   display: flex;
   gap: 4px;
   pointer-events: auto;
-}
-
-/* Tela estreita: o minimapa encolhe e os botões sobem junto com o ping. (Depois da
-   regra de cima: media query não ganha especificidade, ganha pela ordem.) */
-@media (max-width: 520px) {
-  #atalhos-hud {
-    top: 94px;
-  }
 }
 
 #atalhos-hud > button {
@@ -6008,11 +6006,6 @@ body.dano::after {
   }
 }
 
-@media (max-height: 520px) {
-  #atalhos-hud {
-    top: 94px;
-  }
-}
 
 /* Botão Tabela com a tabela aberta por ele: aceso. */
 #atalhos-hud > button.ativo {
@@ -8153,7 +8146,7 @@ body.dano::after {
 @media (max-width: 1760px) {
   #hud:has(.janela-lateral:not([hidden])) #companheiros {
     --larg-card: 156px;
-    top: 168px;
+    top: var(--sob-mapa);
     left: 12px;
     transform: none;
   }
@@ -8178,14 +8171,14 @@ body.dano::after {
   }
 
   #hud:has(#painel-teste:not([hidden])):has(.janela-lateral:not([hidden])) #companheiros {
-    top: 280px;
+    top: calc(var(--sob-mapa) + 112px);
   }
 }
 
 @media (max-width: 760px) {
   #companheiros {
     --larg-card: 140px;
-    top: 168px;
+    top: var(--sob-mapa);
     left: 12px;
     transform: none;
   }
@@ -8210,14 +8203,7 @@ body.dano::after {
   }
 
   #hud:has(#painel-teste:not([hidden])) #companheiros {
-    top: 280px;
-  }
-}
-
-@media (max-width: 520px) {
-  #companheiros,
-  #hud:has(.janela-lateral:not([hidden])) #companheiros {
-    top: 128px;
+    top: calc(var(--sob-mapa) + 112px);
   }
 }
 

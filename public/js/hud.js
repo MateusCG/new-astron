@@ -45,6 +45,11 @@ const $ = (s) => document.querySelector(s);
 // (cada um com a sua letra). Fundo na paleta do lago: água azul-tinta da cratera,
 // rocha em estratos quentes, as nuvens de gás (campos que escondem) em manchas
 // claras de borda suave, na cor da poeira iluminada da nuvem.
+// O desenho é todo feito numa régua de MAPA_LARG × MAPA_ALT unidades (os tamanhos dos
+// ícones, das letras e dos anéis estão nela); o canvas tem mais pixels que isso
+// (index.html) e a escala `u` leva a régua até ele, para o minimapa grande ficar nítido.
+const MAPA_LARG = 240;
+const MAPA_ALT = 160;
 const COR_MEU_TIME = '#00efc0';
 const COR_OUTRO_TIME = '#ff4a2a';
 const COR_INIMIGA = '#ff4a2a'; // monstros e tudo do outro time
@@ -137,6 +142,7 @@ export class Hud {
     this.flutuantes = [];
     this.mapa = $('#minimapa');
     this.ctx = this.mapa.getContext('2d');
+    this.u = this.mapa.width / MAPA_LARG; // pixels do canvas por unidade da régua
     this.fundoMapa = this.#desenharFundo();
     this.tags = new Map();
     this.v = new THREE.Vector3();
@@ -152,7 +158,7 @@ export class Hud {
     const img = ctx.createImageData(w, h);
     for (let j = 0; j < h; j++) {
       for (let i = 0; i < w; i++) {
-        const [x, z] = this.#doMapa(i + 0.5, j + 0.5);
+        const [x, z] = this.#doMapa((i + 0.5) / this.u, (j + 0.5) / this.u);
         const p = paredeAt(x, z);
         const k = (j * w + i) * 4;
         // Lago (campo aberto) azul-tinta da cratera; rocha em estratos quentes, mais clara no alto.
@@ -163,6 +169,7 @@ export class Hud {
       }
     }
     ctx.putImageData(img, 0, 0);
+    ctx.scale(this.u, this.u); // daqui em diante, na régua
     const k = this.#escala();
     const circulo = (x, z, raioM, cor, cheio) => {
       const [cx, cz] = this.#paraMapa(x, z);
@@ -226,19 +233,19 @@ export class Hud {
     return c;
   }
 
-  /** Pixels do minimapa por metro do mundo. */
+  /** Unidades da régua do minimapa por metro do mundo. */
   #escala() {
-    return Math.min(this.mapa.width / (2 * MAP_HALF_X), this.mapa.height / (2 * MAP_HALF_Z));
+    return Math.min(MAPA_LARG / (2 * MAP_HALF_X), MAPA_ALT / (2 * MAP_HALF_Z));
   }
 
   #paraMapa(x, z) {
     const k = this.#escala();
-    return [this.mapa.width / 2 + x * k, this.mapa.height / 2 + z * k];
+    return [MAPA_LARG / 2 + x * k, MAPA_ALT / 2 + z * k];
   }
 
   #doMapa(px, pz) {
     const k = this.#escala();
-    return [(px - this.mapa.width / 2) / k, (pz - this.mapa.height / 2) / k];
+    return [(px - MAPA_LARG / 2) / k, (pz - MAPA_ALT / 2) / k];
   }
 
   /**
@@ -250,7 +257,8 @@ export class Hud {
    */
   minimapa(eu, ents, meuId, obj = {}, torretas = [], nevoa = null) {
     const ctx = this.ctx;
-    ctx.drawImage(this.fundoMapa, 0, 0);
+    ctx.setTransform(this.u, 0, 0, this.u, 0, 0);
+    ctx.drawImage(this.fundoMapa, 0, 0, MAPA_LARG, MAPA_ALT);
     if (nevoa) {
       const [x0, z0] = this.#paraMapa(-MAP_HALF_X, -MAP_HALF_Z);
       const k = this.#escala();
