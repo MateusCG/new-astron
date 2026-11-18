@@ -1,0 +1,12 @@
+{
+  "name": "daltonigames-publicador",
+  "version": "0.1.0",
+  "description": "Corta Shorts dos vídeos do DaltoniGames e publica no YouTube e no TikTok pelas APIs oficiais",
+  "type": "module",
+  "private": true,
+  "bin": { "publicar": "./publicar.mjs" },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "engines": { "node": ">=20" }
+}

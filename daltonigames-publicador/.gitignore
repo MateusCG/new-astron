@@ -1,0 +1,8 @@
+node_modules/
+saida/
+*.mp4
+*.mov
+*.mkv
+# Credenciais nunca entram no repositório: ficam em ~/.daltonigames/
+*cliente*.json
+tokens-*.json
