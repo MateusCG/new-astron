@@ -22,6 +22,58 @@
 
 ---
 
+## Diagnóstico do canal atual (lido em 18/11/2026)
+
+> Esta seção foi escrita depois de ler o canal [@DaltoniGames](https://www.youtube.com/@DaltoniGames). **Onde ela contradiz o resto do documento, vale ela.** O plano original supunha um canal novo e sem rosto, todo feito com IA; o canal real é outro, e melhor.
+
+### O que existe hoje [VERIFICADO no canal]
+
+| Item | Hoje |
+|---|---|
+| Criado em | 7/nov/2026 (11 dias) |
+| Inscritos / vídeos / visualizações | 12 / 23 (7 longos + 16 Shorts) / 6.872 |
+| Descrição | "Um daltônico que cria e experimenta jogos" |
+| Palavras-chave | "jogos gameplay reações" |
+| Formato | Gameplay com **rosto na câmera** (facecam) e reação: Hades II, GTA VI, e os **jogos que o próprio dono do canal cria** (New AstroN, Sideral) |
+| Avatar | Ilustração do dono, com fone e óculos, anel de arco-íris e "DaltoniGames" escrito |
+| Banner | Placas de Ishihara (o teste de daltonismo) com controles, cruz direcional e números |
+
+**Desempenho [VERIFICADO]:**
+
+| Formato | Melhores | Média |
+|---|---|---|
+| Shorts | "GTA VI - Lucia pulando de paraquedas" 1,2 mil · "É O CAPETA?! Primeira vez contra o Ciclope" 1,2 mil · "Enfrentei dois chefões com uma nave só" 1,2 mil · "GODLIKE com armadilhas no meu próprio jogo de naves" 1,1 mil | ~430 por Short |
+| Vídeos longos | "Ela foi eliminada, voltou do além e ganhou o jogo · Sideral" 35 | 1 a 35 visualizações |
+
+**Leitura:** praticamente todas as visualizações vêm dos Shorts. Os longos ainda não são encontrados (o canal é novo e eles não respondem a nenhuma busca). E **nenhum título fala de daltonismo**: o nome promete acessibilidade, o conteúdo entrega gameplay comum. Essa é a maior correção a fazer.
+
+### O que muda na estratégia
+
+1. **O ativo número 1 é você: um daltônico de verdade que cria jogos.** Ninguém mais tem isso. O posicionamento passa a ser:
+   > **"O dev daltônico: eu jogo, testo e crio jogos pensando em quem não vê todas as cores."**
+   Isso resolve sozinho o risco de "conteúdo inautêntico" do YouTube (seção 1.6): o rosto, a voz e a experiência são reais. A IA fica para editar, cortar, legendar e dublar, não para substituir você.
+2. **Toda gameplay ganha o ângulo daltônico.** Não precisa parar de jogar Hades II ou GTA VI, precisa contar como é jogar sendo daltônico:
+   - "Hades II pelos olhos de um daltônico: o Ciclope quase me pegou porque eu não vi o vermelho"
+   - "GTA 6 é jogável para daltônico? Testei o mapa e o radar"
+   - Em todo vídeo, um momento fixo de 10 a 20 s, **"como eu vejo × como você vê"**, com a tela dividida (vira Short também).
+3. **O devlog do New AstroN e do Sideral vira o pilar mais forte.** Um dev daltônico tornando o próprio jogo acessível é uma história que ninguém conta. E o seu jogo tem material pronto: **o New AstroN chama os times de "TIME VERDE" e "TIME VERMELHO"** na Seleção, e na partida o seu time é turquesa e o outro vermelho. Na simulação que fiz da miniatura do chefe, os orbes rosa e as setas vermelhas viram cinza em protanopia e deuteranopia. Série sugerida: *"Sou daltônico e meu próprio jogo tem time verde contra vermelho: consertando ao vivo"*, mostrando o antes e o depois (formas, ícones e contorno, além da cor).
+4. **Shorts primeiro, longos como biblioteca.** Hoje: 1 Short por dia (é o que traz gente) e 1 longo por semana, sempre um que responda a uma busca (DaltoniTeste ou configuração pronta). O Short termina chamando o longo.
+5. **O que continua valendo do plano:** o DaltoniScore, o código de formas, a paleta, os pilares de configuração pronta e as fontes de receita (patrocínio, afiliados, auditoria para estúdios). Para a auditoria, ser dev conta muito a favor: você fala a língua de quem faz os jogos.
+
+### Avatar, banner e miniaturas: o que fica e o que muda
+
+Simulei as miniaturas, o avatar e o banner nos três tipos de daltonismo (matriz de Machado et al., 2009).
+
+| Peça | Resultado | Recomendação |
+|---|---|---|
+| **Miniaturas com texto** (GTA 6, Polifemo, 6 de vida) | **Passam nos três tipos**: texto amarelo e branco com contorno preto continua legível | Manter esse estilo de texto. Acrescentar a etiqueta de forma (● ▲ ■) e o selo do DaltoniScore quando for teste |
+| **Miniaturas sem texto** (Hades e Cila, Sideral, os dois do New AstroN) | Sem título nem rosto grande, viram só um quadro do jogo | Nunca publicar sem o molde: rosto, 3 a 5 palavras, contraste por claridade |
+| **Avatar** | Legível nos três tipos (o "DaltoniGames" tem contorno branco); o anel de arco-íris é decoração e não carrega informação, então tudo bem | Manter. Conferir em 48 px: o "Games" colorido some; se quiser, deixe as letras de "Games" de uma cor só, com contorno |
+| **Banner** | A ideia das placas de Ishihara é ótima e combina com o canal. Na simulação, como esperado, os números (73, 7, 26) **somem** em protanopia e deuteranopia | Manter as placas e **acrescentar texto em branco**, fora delas: *"Não viu o número? Você está no canal certo."* e embaixo *"Jogos testados por um daltônico · Vídeo novo toda semana"*. Assim a piada funciona para os dois públicos |
+| **Descrição e palavras-chave** | Uma linha e "jogos gameplay reações" | Trocar pela descrição completa (seção 3.1) e palavras-chave: daltonismo, daltônico, modo daltônico, acessibilidade, protanopia, deuteranopia, tritanopia, devlog, New AstroN |
+
+---
+
 ## ETAPA 1: Validação do nicho
 
 ### 1.1 Demanda: existe gente?
@@ -200,25 +252,25 @@ Três pontos que nos diferenciam:
 
 > Testamos jogos para daltônicos: protanopia, deuteranopia e tritanopia. Se dá para jogar, a gente mostra. Se não dá, a gente cobra.
 
-**Versão completa** (aba "Sobre"):
+**Versão completa** (aba "Sobre", na primeira pessoa, como o canal real):
 
-> **DaltoniGames: o laboratório de acessibilidade para daltônicos dos games.**
+> **Sou daltônico, jogo e crio jogos. Aqui eu mostro como é jogar sem ver todas as cores.**
 >
-> Mais de 8 milhões de brasileiros são daltônicos, e boa parte joga. Mesmo assim, quase nenhuma review diz se o jogo funciona para quem não distingue vermelho de verde, ou azul de amarelo.
+> Mais de 8 milhões de brasileiros são daltônicos, e boa parte joga. Mesmo assim, quase nenhuma review diz se o jogo funciona para quem não distingue vermelho de verde, ou azul de amarelo. Eu sinto isso em toda partida, então resolvi testar.
 >
-> Aqui, cada jogo passa pelo **DaltoniTeste**: jogamos em **protanopia ●**, **deuteranopia ▲** e **tritanopia ■**, ligamos o modo daltônico (quando existe), mostramos o que continua falhando e damos o **DaltoniScore**, uma nota de 0 a 5 para cada tipo. No fim, a configuração pronta para você copiar.
+> Cada jogo passa pelo **DaltoniTeste**: jogo em **protanopia ●**, **deuteranopia ▲** e **tritanopia ■**, ligo o modo daltônico (quando existe), mostro o que continua falhando e dou o **DaltoniScore**, uma nota de 0 a 5 para cada tipo. No fim, a configuração pronta para você copiar.
 >
 > **O que você encontra no canal:**
-> ● Reviews de acessibilidade dos lançamentos
+> ● Gameplay e reação com o olhar de quem é daltônico (Hades II, GTA 6 e o que vier)
 > ▲ A melhor configuração daltônica para Valorant, CS2, LoL, Free Fire, Fortnite e outros
-> ■ "Como o daltônico vê": a tela de um lado e a nossa do outro
-> ★ Rankings, notícias e conversa com quem faz os jogos
+> ■ "Como eu vejo × como você vê": a tela de um lado e a minha do outro
+> ◆ Devlog dos jogos que eu crio (New AstroN, Sideral), feitos para daltônico jogar também
 >
-> **Transparência:** usamos inteligência artificial na produção (simulação de cor, narração e edição) e sempre avisamos no vídeo. As notas são conferidas por jogadores daltônicos de verdade. Os filtros de simulação são uma aproximação: cada pessoa enxerga de um jeito.
+> **Transparência:** uso inteligência artificial na edição (cortes, legendas, simulação de cor e dublagem) e aviso quando uso. Os filtros de simulação são uma aproximação: cada daltônico enxerga de um jeito, e é por isso que eu conto como eu vejo.
 >
-> **É dev e quer saber se o seu jogo funciona para daltônicos?** Fazemos auditoria de acessibilidade antes do lançamento. Contato: [e-mail comercial].
+> **É dev e quer saber se o seu jogo funciona para daltônicos?** Faço auditoria de acessibilidade antes do lançamento. Contato: [e-mail comercial].
 >
-> Vídeo novo toda semana. Ativa o sininho (o ícone, não a cor 😉).
+> Vídeo novo toda semana e Shorts todo dia. Ativa o sininho (o ícone, não a cor 😉).
 
 ### 3.2 Tom de voz
 
@@ -370,6 +422,25 @@ Molde fixo, para o público reconhecer o canal na hora:
 
 ---
 
+## Apêndice: publicar no YouTube, TikTok e Bilibili sem abrir os sites
+
+**Dá para fazer, com limites diferentes em cada plataforma.** O fluxo seria: você diz "publica este vídeo", eu corto o Short (vertical 9:16, a sua câmera em cima e o jogo embaixo, legenda queimada e os três primeiros segundos com o gancho), escrevo o título, a descrição e as hashtags de cada plataforma, mostro tudo para você aprovar e envio pelas APIs oficiais.
+
+| Plataforma | Como envia | O que trava | Status |
+|---|---|---|---|
+| **YouTube** (Shorts e longos) | YouTube Data API v3, `videos.insert`, com login OAuth da sua conta | Projetos de API criados depois de 28/07/2020 e **não verificados** sobem os vídeos **como privados** até passar por uma auditoria do Google; há uma cota diária de envios | [VERIFICADO na documentação do Google; uma fonte diz que a regra pode ter mudado em out/2026, conferir na hora de criar] |
+| **TikTok** | Content Posting API: "Direct Post" (publica direto) ou "Upload" (manda para os rascunhos do app, você só aperta publicar) | App **não auditado só posta como privado** (SELF_ONLY) e em conta privada; a auditoria leva semanas | [VERIFICADO na documentação do TikTok] |
+| **Bilibili** | Open Platform (envio em duas etapas, arquivo e depois o "稿件") | O acesso ao envio pela plataforma aberta é para desenvolvedor aprovado, e a documentação é toda em chinês. A alternativa é a ferramenta da comunidade **biliup**, que usa o login do site (cookies): funciona, mas não é oficial e pode quebrar ou violar os termos | [VERIFICADO em parte; regras de aprovação não confirmadas] |
+
+**Caminho recomendado:**
+1. **Agora (sem esperar auditoria):** eu gero o Short pronto, com os textos de cada plataforma, e **envio como rascunho/privado** no YouTube e no TikTok. Você só abre o app no celular e aperta "publicar". Já tira 90% do trabalho.
+2. **Em paralelo:** pedir a verificação do projeto no Google e a auditoria do app no TikTok. Aprovado, passa a publicar direto.
+3. **Bilibili:** decidir entre pedir acesso de desenvolvedor (lento) ou usar o biliup sabendo do risco.
+4. **Onde roda:** um script pequeno (Node, como o resto do seu código) num repositório próprio, com as chaves guardadas fora do código. Ele roda no seu computador ou num serviço como o Railway, que você já usa.
+5. **Atalho pago:** ferramentas como Repurpose.io, Metricool e Buffer já têm a aprovação do YouTube e do TikTok e publicam direto; o Bilibili costuma ficar de fora.
+
+---
+
 ## Fontes
 
 **Prevalência e público**
@@ -431,3 +502,14 @@ Molde fixo, para o público reconhecer o canal na hora:
 - [Okabe-Ito: referência dos códigos hex](https://conceptviz.app/blog/okabe-ito-palette-hex-codes-complete-reference)
 - [NYU Siegal Lab: paleta para daltônicos](https://siegal.bio.nyu.edu/color-palette/)
 - Contraste (WCAG 2.1) e simulação (Machado, Oliveira & Fernandes, 2009) calculados para este documento.
+
+**Canal e publicação automática**
+- [Canal @DaltoniGames](https://www.youtube.com/@DaltoniGames) (lido em 18/11/2026)
+- [YouTube Data API: videos.insert](https://developers.google.com/youtube/v3/docs/videos/insert?authuser=1)
+- [Ayrshare: erro 403 de app não verificado no Google](https://www.ayrshare.com/solutions/google-api-error-403-unverified-app-how-to-fix-the-audit-pipeline/)
+- [Activepieces: cota da API do YouTube](https://www.activepieces.com/blog/youtube-api-quota-exceeded-how-to-fix-and-avoid-it)
+- [TikTok for Developers: Direct Post](https://developers.tiktok.com/doc/content-posting-api-reference-direct-post)
+- [TikTok for Developers: começando com a Content Posting API](https://developers.tiktok.com/doc/content-posting-api-get-started)
+- [Postiz: limites do TikTok sem auditoria](https://docs.postiz.com/providers/tiktok)
+- [Bilibili Open Platform: fluxo de envio (BestHub)](https://besthub.dev/articles/bilibili-open-platform-video-submission-workflow-and-upload-token-design-4edef1a3db0e)
+- [biliup-rs (ferramenta da comunidade)](https://awesome.ecosyste.ms/projects/github.com%2Fbiliup%2Fbiliup-rs)
